@@ -44,11 +44,5 @@ namespace SiagroB1.Domain.Entities
         public ICollection<TabelaCustoQualidade> Qualidades { get; set; } = [];
 
         public ICollection<TabelaCustoServico> Servicos { get; set; } = [];
-
-        public void AddDescontoSecagem(TabelaCustoDescontoSecagem t)
-        {
-            t.TabelaCusto = this;
-            this.DescontosSecagem.Add(t);
-        }
     }
 }
