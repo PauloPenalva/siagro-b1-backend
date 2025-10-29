@@ -1,0 +1,73 @@
+<mvc:View
+	controllerName="siagrob1.controller.Main"
+	displayBlock="true"
+	xmlns="sap.m"
+	xmlns:mvc="sap.ui.core.mvc"
+	xmlns:core="sap.ui.core"
+	xmlns:t="sap.ui.table"
+	core:require="{
+		formatter: 'siagrob1/model/formatter'
+	}">
+
+	<Page
+		title="{i18n>appTitle}"
+		id="page">
+		<content>
+			<t:Table
+				id="table"
+				busyIndicatorDelay="0"
+				selectionMode="Single"
+				selectionBehavior="Row"
+				class="sapUiSizeCondensed"
+				visibleRowCountMode="Auto"
+				enableBusyIndicator="true"
+				alternateRowColors="true"
+				rows="{
+					path: '/Participantes'
+				}"
+			>
+				<t:columns>
+					<t:Column
+						label="Codigo"
+						sortProperty="Id"
+						filterProperty="Id"
+						>
+						<t:template>
+							<Text text="{Id}" />
+						</t:template>
+					</t:Column>
+					<t:Column
+						label="Cnpj"
+						sortProperty="Cnpj"
+						filterProperty="Cnpj"
+						>
+						<t:template>
+							<Text text="{Cnpj}" />
+						</t:template>
+					</t:Column>
+					<t:Column
+						label="Razão Social"
+						sortProperty="RazaoSocial"
+						filterProperty="RazaoSocial"
+						>
+						<t:template>
+							<Text text="{RazaoSocial}" />
+						</t:template>
+					</t:Column>
+					<t:Column
+						label="Cpf Rural"
+						sortProperty="CpfRural"
+						filterProperty="CpfRural"
+						>
+						<t:template>
+							<Text text="{CpfRural}" />
+						</t:template>
+					</t:Column>
+
+				</t:columns>
+
+			</t:Table>
+		</content>
+	</Page>
+
+</mvc:View>
