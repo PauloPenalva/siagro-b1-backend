@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/SiagroB1.Web.props" />
+</Project>

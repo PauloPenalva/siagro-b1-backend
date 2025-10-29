@@ -1,0 +1,33 @@
+export default {
+	name: "QUnit test suite for the UI5 Application: siagrob1",
+	defaults: {
+		page: "ui5://test-resources/siagrob1/Test.qunit.html?testsuite={suite}&test={name}",
+		qunit: {
+			version: 2
+		},
+		sinon: {
+			version: 4
+		},
+		ui5: {
+			language: "EN",
+			theme: "sap_horizon"
+		},
+		coverage: {
+			only: "siagrob1/",
+			never: "test-resources/siagrob1/"
+		},
+		loader: {
+			paths: {
+				"siagrob1": "../"
+			}
+		}
+	},
+	tests: {
+		"unit/unitTests": {
+			title: "Unit tests for siagrob1"
+		},
+		"integration/opaTests": {
+			title: "Integration tests for siagrob1"
+		}
+	}
+};
