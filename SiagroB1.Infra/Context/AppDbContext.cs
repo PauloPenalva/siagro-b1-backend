@@ -3,7 +3,6 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Infra.Context
 {
-
     public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
@@ -20,11 +19,8 @@ namespace SiagroB1.Infra.Context
         public DbSet<TabelaCustoValorSecagem> TabelasCustoValorSecagem { get; set; }
         public DbSet<TabelaCustoQualidade> TabelasCustoQualidade { get; set; }
         public DbSet<TabelaCustoServico> TabelasCustoServico { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-        }
+        
+        public DbSet<Armazem> Armazems { get; set; }
     }
 
 }

@@ -45,6 +45,7 @@ if (erp.ToUpper().Trim() == "STANDALONE")
     builder.Services.AddScoped<ITabelaCustoQualidadeService, TabelaCustoQualidadeService>();
     builder.Services.AddScoped<ITabelaCustoDescontoSecagemService, TabelaCustoDescontoSecagemService>();
     builder.Services.AddScoped<ITabelaCustoValorSecagemService, TabelaCustoValorSecagemService>();
+    builder.Services.AddScoped<IArmazemService, ArmazemService>();
 }
 else if (erp.ToUpper().Trim() == "SAPB1")
 {
@@ -64,12 +65,12 @@ modelBuilder.EntitySet<UnidadeMedida>("UnidadesMedida");
 modelBuilder.EntitySet<Produto>("Produtos");
 modelBuilder.EntitySet<ServicoArmazem>("ServicosArmazem");
 modelBuilder.EntitySet<CaracteristicaQualidade>("CaracteristicasQualidade");
-
 modelBuilder.EntitySet<TabelaCusto>("TabelasCusto");
 modelBuilder.EntitySet<TabelaCustoDescontoSecagem>("DescontosSecagem");
 modelBuilder.EntitySet<TabelaCustoValorSecagem>("ValoresSecagem");
 modelBuilder.EntitySet<TabelaCustoQualidade>("Qualidades");
 modelBuilder.EntitySet<TabelaCustoServico>("Servicos");
+modelBuilder.EntitySet<Armazem>("Armazens");
     
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");
