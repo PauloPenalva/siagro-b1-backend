@@ -19,8 +19,9 @@ namespace SiagroB1.Infra.Context
         public DbSet<TabelaCustoValorSecagem> TabelasCustoValorSecagem { get; set; }
         public DbSet<TabelaCustoQualidade> TabelasCustoQualidade { get; set; }
         public DbSet<TabelaCustoServico> TabelasCustoServico { get; set; }
-        
+        public DbSet<LoteArmazenagem> LotesArmazenagem { get; set; }
         public DbSet<Armazem> Armazems { get; set; }
+        public DbSet<Safra> Safras { get; set; }
     }
 
 }

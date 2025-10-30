@@ -31,31 +31,32 @@ var modelBuilder = new ODataConventionModelBuilder
 
 var erp = builder.Configuration["Erp"] ?? "STANDALONE";
 
-if (erp.ToUpper().Trim() == "STANDALONE")
+switch (erp.ToUpper().Trim())
 {
-    builder.Services.AddScoped<IFilialService, FilialService>();
-    builder.Services.AddScoped<IContaContabilService, ContaContabilService>();
-    builder.Services.AddScoped<IParticipanteService, ParticipanteService>();
-    builder.Services.AddScoped<IUnidadeMedidaService, UnidadeMedidaService>();
-    builder.Services.AddScoped<IProdutoService, ProdutoService>();
-    builder.Services.AddScoped<IServicoArmazemService, ServicoArmazemService>();
-    builder.Services.AddScoped<ITabelaCustoService, TabelaCustoService>();
-    builder.Services.AddScoped<ICaracteristicaQualidadeService, CaracteristicaQualidadeService>();
-    builder.Services.AddScoped<ITabelaCustoServicoService, TabelaCustoServicoService>();
-    builder.Services.AddScoped<ITabelaCustoQualidadeService, TabelaCustoQualidadeService>();
-    builder.Services.AddScoped<ITabelaCustoDescontoSecagemService, TabelaCustoDescontoSecagemService>();
-    builder.Services.AddScoped<ITabelaCustoValorSecagemService, TabelaCustoValorSecagemService>();
-    builder.Services.AddScoped<IArmazemService, ArmazemService>();
-}
-else if (erp.ToUpper().Trim() == "SAPB1")
-{
-    //builder.Services.AddHttpClient<IFilialService, SapFilialService>();
-    //builder.Services.AddHttpClient<IContaContabilService, SapContaContabilService>();
-    //builder.Services.AddHttpClient<IParticipanteService, SapParticipanteService>();
-}
-else
-{
-    throw new DefaultException("ERP não suportado. Verifique a configuração no appsettings.json");
+    case "STANDALONE":
+        builder.Services.AddScoped<IFilialService, FilialService>();
+        builder.Services.AddScoped<IContaContabilService, ContaContabilService>();
+        builder.Services.AddScoped<IParticipanteService, ParticipanteService>();
+        builder.Services.AddScoped<IUnidadeMedidaService, UnidadeMedidaService>();
+        builder.Services.AddScoped<IProdutoService, ProdutoService>();
+        builder.Services.AddScoped<IServicoArmazemService, ServicoArmazemService>();
+        builder.Services.AddScoped<ITabelaCustoService, TabelaCustoService>();
+        builder.Services.AddScoped<ICaracteristicaQualidadeService, CaracteristicaQualidadeService>();
+        builder.Services.AddScoped<ITabelaCustoServicoService, TabelaCustoServicoService>();
+        builder.Services.AddScoped<ITabelaCustoQualidadeService, TabelaCustoQualidadeService>();
+        builder.Services.AddScoped<ITabelaCustoDescontoSecagemService, TabelaCustoDescontoSecagemService>();
+        builder.Services.AddScoped<ITabelaCustoValorSecagemService, TabelaCustoValorSecagemService>();
+        builder.Services.AddScoped<IArmazemService, ArmazemService>();
+        builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
+        builder.Services.AddScoped<ISafraService, SafraService>();
+        break;
+    case "SAPB1":
+        //builder.Services.AddHttpClient<IFilialService, SapFilialService>();
+        //builder.Services.AddHttpClient<IContaContabilService, SapContaContabilService>();
+        //builder.Services.AddHttpClient<IParticipanteService, SapParticipanteService>();
+        break;
+    default:
+        throw new DefaultException("ERP não suportado. Verifique a configuração no appsettings.json");
 }
 
 modelBuilder.EntitySet<Participante>("Participantes");
@@ -71,6 +72,8 @@ modelBuilder.EntitySet<TabelaCustoValorSecagem>("ValoresSecagem");
 modelBuilder.EntitySet<TabelaCustoQualidade>("Qualidades");
 modelBuilder.EntitySet<TabelaCustoServico>("Servicos");
 modelBuilder.EntitySet<Armazem>("Armazens");
+modelBuilder.EntitySet<LoteArmazenagem>("LotesArmazenagem");
+modelBuilder.EntitySet<Safra>("Safras");
     
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");
