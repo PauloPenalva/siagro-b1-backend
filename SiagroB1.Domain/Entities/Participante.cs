@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace SiagroB1.Domain.Entities
 {
     [Table("participantes")]
-    public class Participante : BaseEntity
+    public class Participante : BaseEntity<int>
     {
         [Column("loja")]
         public required string Loja { get; set; }

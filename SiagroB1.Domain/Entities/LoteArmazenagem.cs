@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("lote_armazenagem")]
-public class LoteArmazenagem : BaseEntity
+public class LoteArmazenagem : BaseEntity<int>
 {
     [Column("data_lote")]
     public required DateOnly DataLote { get; set; }

@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities
 {
     [Table("servicos")]
-    public class ServicoArmazem : BaseEntity
+    public class ServicoArmazem : BaseEntity<int>
     {
         [Column("descricao")]
         public required string Descricao { get; set; }

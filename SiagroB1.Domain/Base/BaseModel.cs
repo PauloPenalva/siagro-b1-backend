@@ -6,15 +6,12 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Domain.Base
 {
-    public abstract class BaseEntity
+    public abstract class BaseEntity<ID>
     {
         [Key]
         [Column(name: "id", Order = 1)]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [JsonPropertyOrder(1)]
-        [Display(Name = "Codigo")]
-        [ReadOnly(true)]
-        public int Id { get; set; }
+        public ID Id { get; set; }
 
         [Column(name: "filial_id", Order = 2)]
         public int? FilialId { get; set; }

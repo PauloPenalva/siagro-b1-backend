@@ -5,7 +5,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("safras")]
-public class Safra : BaseEntity
+public class Safra : BaseEntity<int>
 {
     [Required(ErrorMessage = "Descrição é obrigatorio.")]
     [Column("descricao")]

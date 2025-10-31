@@ -5,14 +5,12 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities
 {
     [Table("tabela_custos")]
-    public class TabelaCusto : BaseEntity
+    public class TabelaCusto : BaseEntity<int>
     {   
         [Required(ErrorMessage = "Descrição é obrigatório.")]
         [Column("descricao")]
         public required string Descricao { get; set; }
         
-        [Required(ErrorMessage = "Taxa Armazenagem é obrigatório.")]
-        [Range(0, double.MaxValue, ErrorMessage = "Informe o valor da taxa de armazenagem.")]
         [Column("taxa_armazenagem")]
         public decimal? TaxaArmazenagem { get; set; }
 

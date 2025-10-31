@@ -34,6 +34,7 @@ var erp = builder.Configuration["Erp"] ?? "STANDALONE";
 switch (erp.ToUpper().Trim())
 {
     case "STANDALONE":
+        builder.Services.AddScoped<IEstadoService, EstadoService>();
         builder.Services.AddScoped<IFilialService, FilialService>();
         builder.Services.AddScoped<IContaContabilService, ContaContabilService>();
         builder.Services.AddScoped<IParticipanteService, ParticipanteService>();
@@ -49,6 +50,8 @@ switch (erp.ToUpper().Trim())
         builder.Services.AddScoped<IArmazemService, ArmazemService>();
         builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
         builder.Services.AddScoped<ISafraService, SafraService>();
+        builder.Services.AddScoped<IMotoristaService, MotoristaService>();
+        builder.Services.AddScoped<IVeiculoService, VeiculoService>();
         break;
     case "SAPB1":
         //builder.Services.AddHttpClient<IFilialService, SapFilialService>();
@@ -74,7 +77,10 @@ modelBuilder.EntitySet<TabelaCustoServico>("Servicos");
 modelBuilder.EntitySet<Armazem>("Armazens");
 modelBuilder.EntitySet<LoteArmazenagem>("LotesArmazenagem");
 modelBuilder.EntitySet<Safra>("Safras");
-    
+modelBuilder.EntitySet<Motorista>("Motoristas");
+modelBuilder.EntitySet<Estado>("Estados");
+modelBuilder.EntitySet<Veiculo>("Veiculos");
+
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");
 

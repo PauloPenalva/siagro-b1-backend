@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities
 {
     [Table("produto")]
-    public class Produto : BaseEntity
+    public class Produto : BaseEntity<int>
     {
         [Column("descricao")]
         public string Descricao { get; set; } = null!;

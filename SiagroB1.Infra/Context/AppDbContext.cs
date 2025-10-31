@@ -6,7 +6,8 @@ namespace SiagroB1.Infra.Context
     public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
+        
+        public DbSet<Estado> Estados { get; set; }
         public DbSet<Participante> Participantes { get; set; }
         public DbSet<Filial> Filiais { get; set; }
         public DbSet<ContaContabil> ContasContabeis { get; set; }
@@ -22,6 +23,8 @@ namespace SiagroB1.Infra.Context
         public DbSet<LoteArmazenagem> LotesArmazenagem { get; set; }
         public DbSet<Armazem> Armazems { get; set; }
         public DbSet<Safra> Safras { get; set; }
+        public DbSet<Motorista> Motoristas { get; set; }
+        public DbSet<Veiculo> Veiculos { get; set; }
     }
 
 }

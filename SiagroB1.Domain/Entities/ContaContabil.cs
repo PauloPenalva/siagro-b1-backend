@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities
 {
     [Table("conta_contabil")]
-    public class ContaContabil : BaseEntity
+    public class ContaContabil : BaseEntity<int>
     {
         [Column("codigo")]
         public required string Codigo { get; set; }

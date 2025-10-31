@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities
 {
     [Table("caracteristica_qualidade")]
-    public class CaracteristicaQualidade : BaseEntity
+    public class CaracteristicaQualidade : BaseEntity<int>
     {
         [Column("descricao")]
         public required string Descricao { get; set; }
