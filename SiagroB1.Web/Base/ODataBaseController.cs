@@ -9,21 +9,21 @@ using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Base
 {
-    public abstract class ODataBaseController<T, ID>(IBaseService<T, ID> service) : ODataController where T : class
+    public abstract class ODataBaseController<T, ID>(IBaseService<T, ID> serviceDetailServiceServiceDetailService) : ODataController where T : class
     {
 
-        protected readonly IBaseService<T, ID> _service = service;
+        protected readonly IBaseService<T, ID> ServiceDetailServiceServiceDetailService = serviceDetailServiceServiceDetailService;
 
         [EnableQuery]
         public virtual ActionResult<IEnumerable<T>> Get()
         {
-            return Ok(_service.QueryAll());
+            return Ok(ServiceDetailServiceServiceDetailService.QueryAll());
         }
 
         [EnableQuery]
         public virtual async Task<ActionResult<T>> Get([FromRoute] ID key)
         {
-            var item = await _service.GetByIdAsync(key);
+            var item = await ServiceDetailServiceServiceDetailService.GetByIdAsync(key);
 
             if (item == null)
             {
@@ -40,7 +40,7 @@ namespace SiagroB1.Web.Base
                 return BadRequest(ModelState);
             }
 
-            var existing = await _service.GetByIdAsync((entity as dynamic).Id);
+            var existing = await ServiceDetailServiceServiceDetailService.GetByIdAsync((entity as dynamic).Id);
             if (existing != null)
             {
                 return Conflict("Entity with the same ID already exists.");
@@ -48,7 +48,7 @@ namespace SiagroB1.Web.Base
 
             try
             {
-                await _service.CreateAsync(entity);
+                await ServiceDetailServiceServiceDetailService.CreateAsync(entity);
 
                 return Created(entity);
             }
@@ -78,7 +78,7 @@ namespace SiagroB1.Web.Base
 
             try
             {
-                await _service.UpdateAsync(key, entity);
+                await ServiceDetailServiceServiceDetailService.UpdateAsync(key, entity);
             }
             catch (KeyNotFoundException)
             {
@@ -101,7 +101,7 @@ namespace SiagroB1.Web.Base
         {
             try
             {
-                bool success = await _service.DeleteAsync(key);
+                bool success = await ServiceDetailServiceServiceDetailService.DeleteAsync(key);
 
                 if (!success)
                 {
@@ -130,7 +130,7 @@ namespace SiagroB1.Web.Base
                 return BadRequest(ModelState);
             }
 
-            T? t = await _service.GetByIdAsync(key);
+            T? t = await ServiceDetailServiceServiceDetailService.GetByIdAsync(key);
 
             if (t == null)
             {
@@ -141,7 +141,7 @@ namespace SiagroB1.Web.Base
             {
                 patch.Patch(t);
 
-                await _service.UpdateAsync(key, t);
+                await ServiceDetailServiceServiceDetailService.UpdateAsync(key, t);
             }
             catch (KeyNotFoundException)
             {

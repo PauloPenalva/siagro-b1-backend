@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class LoteArmazenagemService(AppDbContext context, ILogger<LoteArmazenagemService> logger) : 
-    BaseService<LoteArmazenagem, int>(context, logger), ILoteArmazenagemService
+    BaseService<StorageLot, int>(context, logger), ILoteArmazenagemService
 {
     
 }

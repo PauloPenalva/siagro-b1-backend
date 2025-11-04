@@ -7,6 +7,7 @@ namespace SiagroB1.Domain.Entities
     public class UnidadeMedida
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         [Column("codigo")]
         public required string Id { get; set; }
 

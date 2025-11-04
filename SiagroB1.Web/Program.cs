@@ -10,13 +10,16 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Core.Interfaces;
 using Microsoft.AspNetCore.OData.Batch;
 using System.Text.Json.Serialization;
-//using Microsoft.OData.Edm;
-//using SiagroB1.Web.Helpers;
+using SiagroB1.Core.Interfaces.SAP;
+using SiagroB1.Core.Services.SAP;
+using SiagroB1.Domain.Entities.SAP;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<CommonDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("CommonConnection")));
+var modelBuilder = new ODataConventionModelBuilder
+{
+    Namespace = "SIAGROB1"
+};
 
 builder.Services.AddDbContext<AppDbContext>(options => 
     options.UseNpgsql(
@@ -24,62 +27,61 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         sqlOpt => sqlOpt.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
 );
 
-var modelBuilder = new ODataConventionModelBuilder
-{
-    Namespace = "SIAGROB1"
-};
-
-var erp = builder.Configuration["Erp"] ?? "STANDALONE";
+var erp = builder.Configuration["Erp"] ?? "SAPB1";
 
 switch (erp.ToUpper().Trim())
-{
-    case "STANDALONE":
-        builder.Services.AddScoped<IEstadoService, EstadoService>();
-        builder.Services.AddScoped<IFilialService, FilialService>();
-        builder.Services.AddScoped<IContaContabilService, ContaContabilService>();
-        builder.Services.AddScoped<IParticipanteService, ParticipanteService>();
-        builder.Services.AddScoped<IUnidadeMedidaService, UnidadeMedidaService>();
-        builder.Services.AddScoped<IProdutoService, ProdutoService>();
-        builder.Services.AddScoped<IServicoArmazemService, ServicoArmazemService>();
-        builder.Services.AddScoped<ITabelaCustoService, TabelaCustoService>();
-        builder.Services.AddScoped<ICaracteristicaQualidadeService, CaracteristicaQualidadeService>();
-        builder.Services.AddScoped<ITabelaCustoServicoService, TabelaCustoServicoService>();
-        builder.Services.AddScoped<ITabelaCustoQualidadeService, TabelaCustoQualidadeService>();
-        builder.Services.AddScoped<ITabelaCustoDescontoSecagemService, TabelaCustoDescontoSecagemService>();
-        builder.Services.AddScoped<ITabelaCustoValorSecagemService, TabelaCustoValorSecagemService>();
-        builder.Services.AddScoped<IArmazemService, ArmazemService>();
-        builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
-        builder.Services.AddScoped<ISafraService, SafraService>();
-        builder.Services.AddScoped<IMotoristaService, MotoristaService>();
-        builder.Services.AddScoped<IVeiculoService, VeiculoService>();
-        break;
+{ 
     case "SAPB1":
-        //builder.Services.AddHttpClient<IFilialService, SapFilialService>();
-        //builder.Services.AddHttpClient<IContaContabilService, SapContaContabilService>();
-        //builder.Services.AddHttpClient<IParticipanteService, SapParticipanteService>();
+        builder.Services.AddDbContext<SapErpDbContext>(options => 
+            options.UseSqlServer(
+                builder.Configuration.GetConnectionString("SapDB"),
+                sqlOpt => sqlOpt.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
+        );
+        
+        builder.Services.AddDbContext<SapCommonDbContext>(options =>
+            options.UseNpgsql(builder.Configuration.GetConnectionString("SapCommon")));
+        
+        modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
+        modelBuilder.EntitySet<Item>("Items");
+        
+        builder.Services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
+        builder.Services.AddScoped<IItemService, ItemService>();
         break;
     default:
         throw new DefaultException("ERP não suportado. Verifique a configuração no appsettings.json");
 }
 
-modelBuilder.EntitySet<Participante>("Participantes");
-modelBuilder.EntitySet<Filial>("Filiais");
-modelBuilder.EntitySet<ContaContabil>("ContasContabeis");
+builder.Services.AddScoped<IStateService, StateService>();
+builder.Services.AddScoped<IBranchService, BranchService>();
+builder.Services.AddScoped<IUnidadeMedidaService, UnidadeMedidaService>();
+builder.Services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
+builder.Services.AddScoped<IProcessingCostService, ProcessingCostService>();
+builder.Services.AddScoped<IQualityAttribService, QualityAttribService>();
+builder.Services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
+builder.Services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
+builder.Services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
+builder.Services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
+builder.Services.AddScoped<IWhareHouseService, SiagroB1.Core.Services.WhareHouseService>();
+builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
+builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
+builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
+builder.Services.AddScoped<ITruckService, TruckService>();
+
+modelBuilder.EntitySet<Branch>("Branchs");
 modelBuilder.EntitySet<UnidadeMedida>("UnidadesMedida");
-modelBuilder.EntitySet<Produto>("Produtos");
-modelBuilder.EntitySet<ServicoArmazem>("ServicosArmazem");
-modelBuilder.EntitySet<CaracteristicaQualidade>("CaracteristicasQualidade");
-modelBuilder.EntitySet<TabelaCusto>("TabelasCusto");
-modelBuilder.EntitySet<TabelaCustoDescontoSecagem>("DescontosSecagem");
-modelBuilder.EntitySet<TabelaCustoValorSecagem>("ValoresSecagem");
-modelBuilder.EntitySet<TabelaCustoQualidade>("Qualidades");
-modelBuilder.EntitySet<TabelaCustoServico>("Servicos");
-modelBuilder.EntitySet<Armazem>("Armazens");
-modelBuilder.EntitySet<LoteArmazenagem>("LotesArmazenagem");
-modelBuilder.EntitySet<Safra>("Safras");
-modelBuilder.EntitySet<Motorista>("Motoristas");
-modelBuilder.EntitySet<Estado>("Estados");
-modelBuilder.EntitySet<Veiculo>("Veiculos");
+modelBuilder.EntitySet<ProcessingService>("ServicosArmazem");
+modelBuilder.EntitySet<QualityAttrib>("CaracteristicasQualidade");
+modelBuilder.EntitySet<ProcessingCost>("TabelasCusto");
+modelBuilder.EntitySet<ProcessingCostDryingParameter>("DescontosSecagem");
+modelBuilder.EntitySet<ProcessingCostDryingDetail>("ValoresSecagem");
+modelBuilder.EntitySet<ProcessingCostQualityParameter>("Qualidades");
+modelBuilder.EntitySet<ProcessingCostServiceDetail>("Servicos");
+modelBuilder.EntitySet<WhareHouse>("Armazens");
+modelBuilder.EntitySet<StorageLot>("LotesArmazenagem");
+modelBuilder.EntitySet<HarvestSeason>("Safras");
+modelBuilder.EntitySet<TruckDriver>("Motoristas");
+modelBuilder.EntitySet<State>("Estados");
+modelBuilder.EntitySet<Truck>("Veiculos");
 
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");

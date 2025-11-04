@@ -9,13 +9,13 @@ using Microsoft.AspNetCore.OData.Query;
 
 namespace SiagroB1.Web.Controllers
 {
-    public class TabelasCustoValoresSecagemController(ITabelaCustoValorSecagemService valorSecagemService) 
-        : ODataBaseController<TabelaCustoValorSecagem, int>(valorSecagemService)
+    public class TabelasCustoValoresSecagemController(IProcessingCostDryingDetailService valorSecagemService) 
+        : ODataBaseController<ProcessingCostDryingDetail, string>(valorSecagemService)
     {
-        protected readonly ITabelaCustoValorSecagemService _valorSecagemService = valorSecagemService;
+        protected readonly IProcessingCostDryingDetailService _valorSecagemService = valorSecagemService;
         
         [HttpPost("odata/TabelasCusto({tabelaCustoId})/ValoresSecagem")]
-        public virtual async Task<IActionResult> PostAsync([FromODataUri] int tabelaCustoId, [FromBody] TabelaCustoValorSecagem entity)
+        public virtual async Task<IActionResult> PostAsync([FromODataUri] string tabelaCustoId, [FromBody] ProcessingCostDryingDetail entity)
         {
             if (!ModelState.IsValid)
             {
@@ -44,7 +44,7 @@ namespace SiagroB1.Web.Controllers
         // fora de padrão
         [HttpGet("odata/TabelasCusto/{tabelaCustoId}/ValoresSecagem({key})")]
         [HttpGet("odata/TabelasCusto({tabelaCustoId})/ValoresSecagem({key})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] int tabelaCustoId, [FromODataUri] int key)
+        public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] string key)
         {
             var item = await _valorSecagemService.FindByKeyAsync(tabelaCustoId, key);
 
@@ -59,9 +59,9 @@ namespace SiagroB1.Web.Controllers
 
         [HttpGet("odata/TabelasCusto({tabelaCustoId})/ValoresSecagem")]
         [EnableQuery]
-        public ActionResult<IQueryable<TabelaCustoValorSecagem>> GetValoresSecagem([FromRoute] int tabelaCustoId)
+        public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetValoresSecagem([FromRoute] string tabelaCustoId)
         {
-            return Ok(_valorSecagemService.GetAllByTabelaCustoId(tabelaCustoId));
+            return Ok(_valorSecagemService.GetAllByProcessingCostKey(tabelaCustoId));
         }
         
         

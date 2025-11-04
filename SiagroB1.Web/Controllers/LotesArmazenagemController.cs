@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class LotesArmazenagemController(ILoteArmazenagemService service) 
-        : ODataBaseController<LoteArmazenagem, int>(service)
+        : ODataBaseController<StorageLot, int>(service)
     {
         
     }

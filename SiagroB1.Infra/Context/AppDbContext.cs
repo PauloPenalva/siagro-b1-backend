@@ -3,28 +3,23 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Infra.Context
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-        
-        public DbSet<Estado> Estados { get; set; }
-        public DbSet<Participante> Participantes { get; set; }
-        public DbSet<Filial> Filiais { get; set; }
-        public DbSet<ContaContabil> ContasContabeis { get; set; }
+        public DbSet<State> States { get; set; }
+        public DbSet<Branch> Branchs { get; set; }
         public DbSet<UnidadeMedida> UnidadesMedida { get; set; }
-        public DbSet<Produto> Produtos { get; set; }
-        public DbSet<ServicoArmazem> ServicosArmazem { get; set; }
-        public DbSet<CaracteristicaQualidade> CaracteristicasQualidade { get; set; }
-        public DbSet<TabelaCusto> TabelasCusto { get; set; }
-        public DbSet<TabelaCustoDescontoSecagem> TabelasCustoDescontoSecagem { get; set; }
-        public DbSet<TabelaCustoValorSecagem> TabelasCustoValorSecagem { get; set; }
-        public DbSet<TabelaCustoQualidade> TabelasCustoQualidade { get; set; }
-        public DbSet<TabelaCustoServico> TabelasCustoServico { get; set; }
-        public DbSet<LoteArmazenagem> LotesArmazenagem { get; set; }
-        public DbSet<Armazem> Armazems { get; set; }
-        public DbSet<Safra> Safras { get; set; }
-        public DbSet<Motorista> Motoristas { get; set; }
-        public DbSet<Veiculo> Veiculos { get; set; }
+        public DbSet<ProcessingService> WhareHouseServices { get; set; }
+        public DbSet<QualityAttrib> QualityAttribs { get; set; }
+        public DbSet<ProcessingCost> ProcessingCosts { get; set; }
+        public DbSet<ProcessingCostDryingParameter> ProcessingCostDryingParameters { get; set; }
+        public DbSet<ProcessingCostDryingDetail> ProcessingCostDryingDetails { get; set; }
+        public DbSet<ProcessingCostQualityParameter> ProcessingCostQualityParameters { get; set; }
+        public DbSet<ProcessingCostServiceDetail> ProcessingCostServiceDetails { get; set; }
+        public DbSet<StorageLot> StorageLots { get; set; }
+        public DbSet<WhareHouse> WhareHouses { get; set; }
+        public DbSet<HarvestSeason> HarvestSeasons { get; set; }
+        public DbSet<TruckDriver> TruckDrivers { get; set; }
+        public DbSet<Truck> Trucks { get; set; }
     }
 
 }

@@ -5,10 +5,10 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Core.Base
 {
-    public abstract class BaseService<T, ID>(AppDbContext context, ILogger<IBaseService<T, ID>> logger) : IBaseService<T, ID>
+    public abstract class BaseService<T, ID>(DbContext context, ILogger<IBaseService<T, ID>> logger) : IBaseService<T, ID>
         where T : class
     {
-        protected readonly AppDbContext _context = context;
+        protected readonly DbContext _context = context;
 
         protected readonly ILogger<IBaseService<T, ID>> _logger = logger;
 
@@ -27,11 +27,11 @@ namespace SiagroB1.Core.Base
             }
         }
 
-        public virtual async Task<bool> DeleteAsync(ID id)
+        public virtual async Task<bool> DeleteAsync(ID key)
         {
             try
             {
-                var entity = await _context.Set<T>().FindAsync(id);
+                var entity = await _context.Set<T>().FindAsync(key);
                 if (entity == null)
                 {
                     return false;
@@ -58,21 +58,21 @@ namespace SiagroB1.Core.Base
             return await _context.Set<T>().ToListAsync();
         }
 
-        public virtual async Task<T?> GetByIdAsync(ID id)
+        public virtual async Task<T?> GetByIdAsync(ID key)
         {   
             try
             {
-                _logger.LogInformation("Fetching entity with ID {Id}", id);
-                return await _context.Set<T>().FindAsync(id);
+                _logger.LogInformation("Fetching entity with ID {Id}", key);
+                return await _context.Set<T>().FindAsync(key);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,"Error fetching entity with ID {Id}", id);
+                _logger.LogError(ex,"Error fetching entity with ID {Id}", key);
                 throw new DefaultException("Error fetching entity");
             }
         }
 
-        public virtual async Task<T?> UpdateAsync(ID id, T entity)
+        public virtual async Task<T?> UpdateAsync(ID key, T entity)
         {
             try
             {
@@ -81,7 +81,7 @@ namespace SiagroB1.Core.Base
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EntityExists("Id", id))
+                if (!EntityExists("Id", key))
                 {
                     throw new KeyNotFoundException("Entity not found.");
                 }
@@ -94,7 +94,7 @@ namespace SiagroB1.Core.Base
             return entity;
         }
 
-        public virtual async Task<bool> DeleteAsyncWithTransaction(object id, Func<T, Task>? preDeleteAction = null)
+        public virtual async Task<bool> DeleteAsyncWithTransaction(ID id, Func<T, Task>? preDeleteAction = null)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try

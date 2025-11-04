@@ -15,7 +15,7 @@ namespace SiagroB1.Core.Services
 
             try
             {
-                await _context.UnidadesMedida.AddAsync(entity);
+                await _context.Set<UnidadeMedida>().AddAsync(entity);
                 await _context.SaveChangesAsync();
                 return entity;
             }
@@ -28,7 +28,7 @@ namespace SiagroB1.Core.Services
 
         public override bool EntityExists(string property, string key)
         {
-            return _context.UnidadesMedida.Any(e => EF.Property<string>(e, property) == key);
+            return _context.Set<UnidadeMedida>().Any(e => EF.Property<string>(e, property) == key);
         }
         
     }
