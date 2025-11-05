@@ -4,35 +4,30 @@ using SiagroB1.Domain.Entities.SAP;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("storage_lots")]
+[Table("STORAGE_LOTS")]
 public class StorageLot : BaseEntity<string>
 {
-    [Column("date")]
-    public required DateOnly Date { get; set; }
+    public required DateTime CreationDate { get; set; }
 
-    [Column("description")]
+    [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Description { get; set; }
 
-    [Column("card_code")]
-    [ForeignKey("BusinessPartner")]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string CardCode { get; set; }
-    public virtual BusinessPartner? BusinessPartner { get; set; }
     
-    [Column("item_code")]
-    [ForeignKey("Item")]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
-    public virtual Item? Item { get; set; }
-
-    [Column("processing_cost_key")]
+    
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("ProcessingCost")]
     public required string ProcessingCostKey { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }
     
-    [Column("whare_house_key")]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("WhareHouse")]
     public required string WhareHouseKey { get; set; }
     public virtual WhareHouse? WhareHouse { get; set; }
     
-    [Column("balance")]
+    [Column(TypeName = "DECIMAL(18, 3) DEFAULT 0")]
     public decimal Balance { get; set; } = 0;
 }

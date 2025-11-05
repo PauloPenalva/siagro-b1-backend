@@ -5,7 +5,6 @@ using SiagroB1.Core.Interfaces;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Web.Base;
-// ReSharper disable All
 
 namespace SiagroB1.Web.Controllers;
 
@@ -14,7 +13,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 {
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         
-    [HttpPost("odata/TabelasCusto({tabelaCustoId})/Servicos")]
+    [HttpPost("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails")]
     public virtual async Task<IActionResult> PostAsync([FromODataUri] string tabelaCustoId, [FromBody] ProcessingCostServiceDetail entity)
     {
         if (!ModelState.IsValid)
@@ -42,8 +41,8 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
     // fora de padrão
-    [HttpGet("odata/TabelasCusto/{tabelaCustoId}/Servicos({key})")]
-    [HttpGet("odata/TabelasCusto({tabelaCustoId})/Servicos({key})")]
+    [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/ServiceDetails({key})")]
+    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails({key})")]
     public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] string key)
     {
         var item = await ServicoServiceDetailService.FindByKeyAsync(tabelaCustoId, key);
@@ -57,7 +56,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     }
 
-    [HttpGet("odata/TabelasCusto({tabelaCustoId})/Servicos")]
+    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails")]
     [EnableQuery]
     public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetServicos([FromRoute] string tabelaCustoId)
     {

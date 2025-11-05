@@ -1,17 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("branchs")]
+    [Table("BRANCHS")]
     public class Branch
     {
         [Key]
-        [Column(name: "key", Order = 1)]
+        [Column(TypeName = "VARCHAR(14) NOT NULL", Order = 1)]
         public string? Key { get; set; }
 
-        [Column("branch_name")]
+        [Column(TypeName = "VARCHAR(100) NOT NULL")]
         public required string BranchName { get; set; }
     }
 }

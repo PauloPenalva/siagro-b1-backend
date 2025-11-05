@@ -22,9 +22,13 @@ var modelBuilder = new ODataConventionModelBuilder
 };
 
 builder.Services.AddDbContext<AppDbContext>(options => 
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOpt => sqlOpt.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery))
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("SiagroDB"),
+        b =>
+        {
+            b.MigrationsAssembly("SiagroB1.Migrations");
+            b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        })
 );
 
 var erp = builder.Configuration["Erp"] ?? "SAPB1";
@@ -62,13 +66,13 @@ builder.Services.AddScoped<IProcessingCostQualityParameterService, ProcessingCos
 builder.Services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
 builder.Services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
 builder.Services.AddScoped<IWhareHouseService, WhareHouseService>();
-builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
+builder.Services.AddScoped<IStorageLotService, StorageLotService>();
 builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
 builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
 builder.Services.AddScoped<ITruckService, TruckService>();
 
 modelBuilder.EntitySet<Branch>("Branchs");
-modelBuilder.EntitySet<SiagroB1.Domain.Entities.UnitOfMeasure>("UnitsOfMeasure");
+modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
 modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
 modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
 modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");

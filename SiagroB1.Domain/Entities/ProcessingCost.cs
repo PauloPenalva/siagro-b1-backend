@@ -4,36 +4,55 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("processing_costs")]
+    [Table("PROCESSING_COSTS")]
     public class ProcessingCost : BaseEntity<string>
     {   
         [Required(ErrorMessage = "Descrição é obrigatório.")]
-        [Column("descricao")]
-        public required string Descricao { get; set; }
+        [Column(TypeName = "VARCHAR(100) NOT NULL")]
+        public required string Description { get; set; }
         
-        [Column("taxa_armazenagem")]
-        public decimal? TaxaArmazenagem { get; set; }
+        /// <summary>
+        /// custo de armazenagem
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,8) NOT NULL")]
+        public decimal? StoragePrice { get; set; }
+        
+        /// <summary>
+        /// carencia de armazenagem
+        /// </summary>
+        public int? StorageGraceDays { get; set; }
+        
+        /// <summary>
+        /// intervalo de cobrança de armazenagem
+        /// </summary>
+        public int? StorageBillingIntervalDays { get; set; }
 
-        [Column("carencia_armazenagem")]
-        public int? CarenciaArmazenagem { get; set; }
+        /// <summary>
+        /// pt-br: Taxa de expurgo
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,8) NOT NULL")]
+        public decimal? FumigationPrice { get; set; }
 
-        [Column("vencimento_armazenagem")]
-        public int? VencimentoArmazenagem { get; set; }
+        /// <summary>
+        /// pt-br: Vencimento em dias para cobrança do serviço de expurgo
+        /// </summary>
+        public int? FumigationGraceDays { get; set; } = 0;
 
-        [Column("taxa_expurgo")]
-        public decimal? TaxaExpurgo { get; set; }
+        /// <summary>
+        /// carencia quebra técnica em dias
+        /// </summary>
+        public int? TechnicalLossGraceDays { get; set; } = 0;
 
-        [Column("vencimento_expurgo")]
-        public int? VencimentoExpurgo { get; set; }
+        /// <summary>
+        /// vencimento quebra técnica em dias
+        /// </summary>
+        public int? TechnicalLossIntervalDays { get; set; } = 0;
 
-        [Column("carencia_quebra_tecnica")]
-        public int? CarenciaQuebraTecnica { get; set; }
-
-        [Column("vencimento_quebra_tecnica")]
-        public int? VencimentoQuebraTecnica { get; set; }
-
-        [Column("taxa_quebra_tecnica")]
-        public decimal? TaxaQuebraTecnica { get; set; }
+        /// <summary>
+        /// percentual de quebra técnica
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,8) NOT NULL")]
+        public decimal? TechnicalLossRate { get; set; }
 
         public ICollection<ProcessingCostDryingParameter> DryingParameters { get; set; } = [];
 

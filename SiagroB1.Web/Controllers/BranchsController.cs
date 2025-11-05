@@ -6,21 +6,18 @@ using Microsoft.AspNetCore.OData.Routing.Controllers;
 
 namespace SiagroB1.Web.Controllers
 {
-    [Route("odata/Filiais")]
     public class BranchsController(IBranchService service) : ODataController
     {
-        private readonly IBranchService _service = service;
-
         [EnableQuery]
         public ActionResult<IEnumerable<Branch>> Get()
         {
-            return Ok(_service.QueryAll());
+            return Ok(service.QueryAll());
         }
 
         [EnableQuery]
         public async Task<ActionResult<Branch>> Get([FromRoute] string key)
         {
-            var item = await _service.GetByIdAsync(key);
+            var item = await service.GetByIdAsync(key);
 
             if (item == null)
             {
@@ -37,7 +34,7 @@ namespace SiagroB1.Web.Controllers
                 return BadRequest(ModelState);
             }
 
-            await _service.CreateAsync(branch);
+            await service.CreateAsync(branch);
 
             return Created(branch);
         }
@@ -56,7 +53,7 @@ namespace SiagroB1.Web.Controllers
 
             try
             {
-                await _service.UpdateAsync(key, branch);
+                await service.UpdateAsync(key, branch);
             }
             catch (KeyNotFoundException)
             {
@@ -77,7 +74,7 @@ namespace SiagroB1.Web.Controllers
                 return BadRequest(ModelState);
             }
 
-            bool success = await _service.DeleteAsync(key);
+            var success = await service.DeleteAsync(key);
 
             if (!success)
             {

@@ -4,16 +4,15 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("wharehouse")]
+[Table("WHAREHOUSE")]
 public class WhareHouse : BaseEntity<string>
 {
     [Required(ErrorMessage = "Name is mandatory.")]
-    [Column("wharehouse_name", TypeName = "varchar(100) not null")]
+    [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
     
-    [Column("wharehouse_taxid", TypeName = "varchar(14) not null")]
+    [Column("TAXID", TypeName = "VARCHAR(14) NOT NULL")]
     public string? TaxId { get; set; }
-
-    [Column("wharehouse_inactive")] 
+    
     public bool Inactive { get; set; } = false;
 }

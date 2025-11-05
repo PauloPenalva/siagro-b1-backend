@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using SiagroB1.Domain.Exceptions;
 using Microsoft.AspNetCore.OData.Query;
-// ReSharper disable All
 
 namespace SiagroB1.Web.Controllers
 {
@@ -15,7 +14,7 @@ namespace SiagroB1.Web.Controllers
     {
         protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
         
-        [HttpPost("odata/TabelasCusto({tabelaCustoId})/DescontosSecagem")]
+        [HttpPost("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
         public virtual async Task<IActionResult> PostAsync([FromODataUri] string tabelaCustoId, [FromBody] ProcessingCostDryingParameter entity)
         {
             if (!ModelState.IsValid)
@@ -43,8 +42,8 @@ namespace SiagroB1.Web.Controllers
 
         // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
         // fora de padrão
-        [HttpGet("odata/TabelasCusto/{tabelaCustoId}/DescontosSecagem({key})")]
-        [HttpGet("odata/TabelasCusto({tabelaCustoId})/DescontosSecagem({key})")]
+        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/DryingParameters({key})")]
+        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters({key})")]
         public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] string key)
         {
             var item = await _descontoSecagemService.FindByKeyAsync(tabelaCustoId, key);
@@ -58,7 +57,7 @@ namespace SiagroB1.Web.Controllers
 
         }
 
-        [HttpGet("odata/TabelasCusto({tabelaCustoId})/DescontosSecagem")]
+        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
         [EnableQuery]
         public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] string tabelaCustoId)
         {

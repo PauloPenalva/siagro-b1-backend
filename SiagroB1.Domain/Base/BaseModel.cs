@@ -6,14 +6,13 @@ namespace SiagroB1.Domain.Base
 {
     public abstract class BaseEntity<ID>
     {
-        [Column(name: "branch_key", Order = 1)]
+        [Column(TypeName = "VARCHAR(14)", Order = 1)]
         [ForeignKey("Branch")]
         public string? BranchKey { get; set; }
         public Branch? Branch { get; set; }
         
         [Key]
-        [Column(name: "key", Order = 2)]
-        [DatabaseGenerated(DatabaseGeneratedOption.None)]
+        [Column(TypeName = "VARCHAR(10) NOT NULL", Order = 2)]
         public ID? Key { get; set; }
     }
 }

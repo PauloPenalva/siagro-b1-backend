@@ -4,17 +4,12 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("states")]
-public class State 
+[Table("STATES")]
+public class State : BaseEntity<string>
 {
-    [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.None)]
-    [Column("key")]
-    public required string Key { get; set; }
-
-    [Column("name", TypeName = "varchar(100)")]
+    [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
     
-    [Column("abbreviation", TypeName = "varchar(2)")]
+    [Column(TypeName = "VARCHAR(2) NOT NULL")]
     public required string Abbreviation { get; set; }
 }

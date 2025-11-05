@@ -1,24 +1,32 @@
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("processing_cost_drying_details")]
+    [Table("PROCESSING_COST_DRYING_DETAILS")]
     public class ProcessingCostDryingDetail : BaseEntity<string>
     {
-        [Column("processing_cost_key")]
+        [Column(TypeName = "VARCHAR(10) NOT NULL")]
         [ForeignKey(nameof(ProcessingCost))]
-        public string? ProcessingCostKey { get; set; }
+        public required string ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
-
-        [Column("initial_moisture")]
-        public decimal? InitialMoisture { get; set; }
         
-        [Column("final_moisture")]
-        public decimal? FinalMoisture { get; set; }
-
-        [Column("price")]
-        public decimal? Price { get; set; }
+        /// <summary>
+        /// % UMIDADE INICIAL
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        public decimal? InitialMoisture { get; set; } = 0;
+        
+        /// <summary>
+        /// % UMIDADE FINAL
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        public decimal? FinalMoisture { get; set; } = 0;
+        
+        /// <summary>
+        /// custo de secagem
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+        public decimal? Price { get; set; } = 0;
     }
 }

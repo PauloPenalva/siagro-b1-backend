@@ -3,20 +3,20 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("processing_cost_service_detail")]
+    [Table("PROCESSING_COST_SERVICE_DETAILS")]
     public class ProcessingCostServiceDetail : BaseEntity<string>
     {
-        [Column("processing_cost_key")]
+        [Column(TypeName = "VARCHAR(10) NOT NULL")]
         [ForeignKey(nameof(ProcessingCost))]
         public required string ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
 
-        [Column("processing_service_key")]
+        [Column(TypeName = "VARCHAR(10) NOT NULL")]
         [ForeignKey(nameof(ProcessingService))]
-        public string? ProcessingServiceKey { get; set; }
+        public required string? ProcessingServiceKey { get; set; }
         public ProcessingService? ProcessingService { get; set; }
 
-        [Column("price")]
-        public decimal Price { get; set; }
+        [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+        public decimal Price { get; set; } = 0;
     }
 }

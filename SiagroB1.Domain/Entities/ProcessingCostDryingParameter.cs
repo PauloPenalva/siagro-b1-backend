@@ -3,21 +3,30 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("processing_cost_drying_parameters")]
+    [Table("PROCESSING_COST_DRYING_PARAMETERS")]
     public class ProcessingCostDryingParameter : BaseEntity<string>
     {
-        [Column("processing_cost_key")]
+        [Column(TypeName = "VARCHAR(10) NOT NULL")]
         [ForeignKey(nameof(ProcessingCost))]
-        public string? ProcessingCostKey { get; set; }
+        public required string ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
 
-        [Column("initial_moisture")]
-        public decimal? InitialMoisture { get; set; }
+        /// <summary>
+        /// % UMIDADE INICIAL
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        public decimal? InitialMoisture { get; set; } = 0;
         
-        [Column("final_moisture")]
-        public decimal? FinalMoisture { get; set; }
+        /// <summary>
+        /// % UMIDADE FINAL
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        public decimal? FinalMoisture { get; set; } = 0;
 
-        [Column("percentual")]
-        public decimal? Percentual { get; set; }
+        /// <summary>
+        /// % DESCONTO / PERDA / QUEBRA
+        /// </summary>
+        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        public decimal? Rate { get; set; } = 0;
     }
 }

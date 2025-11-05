@@ -3,16 +3,12 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
-    [Table("caracteristica_qualidade")]
+    [Table("QUALITY_ATTRIBS")]
     public class QualityAttrib : BaseEntity<string>
     {
-        [Column("descricao")]
-        public required string Descricao { get; set; }
-
-        [Column("nao_exibe")]
-        public bool NaoExibe { get; set; } = false;
-
-        [Column("ponto_execucao")]
-        public required string PontoExecucao { get; set; }
+        [Column(TypeName = "VARCHAR(100) NOT NULL")]
+        public required string Name { get; set; }
+        
+        public bool Disabled { get; set; } = false;
     }
 }
