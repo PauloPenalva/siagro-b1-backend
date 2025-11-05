@@ -65,7 +65,7 @@ builder.Services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostSe
 builder.Services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
 builder.Services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
 builder.Services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
-builder.Services.AddScoped<IWhareHouseService, WhareHouseService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IStorageLotService, StorageLotService>();
 builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
 builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
@@ -80,7 +80,7 @@ modelBuilder.EntitySet<ProcessingCostDryingParameter>("ProcessingCostDryingParam
 modelBuilder.EntitySet<ProcessingCostDryingDetail>("ProcessingCostDryingDetails");
 modelBuilder.EntitySet<ProcessingCostQualityParameter>("ProcessingCostQualityParameters");
 modelBuilder.EntitySet<ProcessingCostServiceDetail>("ProcessingCostServiceDetails");
-modelBuilder.EntitySet<WhareHouse>("WhareHouses");
+modelBuilder.EntitySet<Warehouse>("Warehouses");
 modelBuilder.EntitySet<StorageLot>("StorageLots");
 modelBuilder.EntitySet<HarvestSeason>("HarvestSeasons");
 modelBuilder.EntitySet<TruckDriver>("TruckDrivers");

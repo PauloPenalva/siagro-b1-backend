@@ -9,7 +9,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers;
 
 public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetailService servicoServiceDetailService) 
-    : ODataBaseController<ProcessingCostServiceDetail, string>(servicoServiceDetailService)
+    : ODataBaseController<ProcessingCostServiceDetail, int>(servicoServiceDetailService)
 {
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         
@@ -41,11 +41,11 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
     // fora de padrão
-    [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/ServiceDetails({key})")]
-    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails({key})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] string key)
+    [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/ServiceDetails({itemId})")]
+    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails({itemId})")]
+    public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] int itemId)
     {
-        var item = await ServicoServiceDetailService.FindByKeyAsync(tabelaCustoId, key);
+        var item = await ServicoServiceDetailService.FindByKeyAsync(tabelaCustoId, itemId);
 
         if (item == null)
         {

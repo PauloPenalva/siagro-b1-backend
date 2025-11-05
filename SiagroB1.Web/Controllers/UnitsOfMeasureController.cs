@@ -4,7 +4,7 @@ using UnitOfMeasure = SiagroB1.Domain.Entities.UnitOfMeasure;
 
 namespace SiagroB1.Web.Controllers
 {
-    public class UnidadesMedidaController(IUnitOfMeasureService service) 
+    public class UnitsOfMeasureController(IUnitOfMeasureService service) 
         : ODataBaseController<UnitOfMeasure, string>(service)
     {
         

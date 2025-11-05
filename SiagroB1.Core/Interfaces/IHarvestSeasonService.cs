@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces;
 
-public interface IHarvestSeasonService : IBaseService<HarvestSeason, int>
+public interface IHarvestSeasonService : IBaseService<HarvestSeason, string>
 {
     
 }

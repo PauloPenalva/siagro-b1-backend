@@ -4,8 +4,8 @@ using SiagroB1.Web.Base;
 
 namespace SiagroB1.Web.Controllers
 {
-    public class WhareHousesController(IWhareHouseService service) 
-        : ODataBaseController<WhareHouse, int>(service)
+    public class ProcessingServicesController(IProcessingServiceService service) 
+        : ODataBaseController<ProcessingService, string>(service)
     {
         
     }

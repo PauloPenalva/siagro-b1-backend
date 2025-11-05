@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces;
 
-public interface IWhareHouseService : IBaseService<WhareHouse, int>
+public interface IWarehouseService : IBaseService<Warehouse, string>
 {
     
 }

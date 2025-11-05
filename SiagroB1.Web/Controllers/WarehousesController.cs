@@ -4,8 +4,8 @@ using SiagroB1.Web.Base;
 
 namespace SiagroB1.Web.Controllers
 {
-    public class QualityAttribsController(IQualityAttribService service) 
-        : ODataBaseController<QualityAttrib, string>(service)
+    public class WarehousesController(IWarehouseService service) 
+        : ODataBaseController<Warehouse, string>(service)
     {
         
     }

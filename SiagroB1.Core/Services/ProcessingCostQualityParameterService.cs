@@ -9,7 +9,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingCostQualityParameterService(AppDbContext context, ILogger<ProcessingCostQualityParameterService> logger)
-        : BaseService<ProcessingCostQualityParameter, string>(context, logger), IProcessingCostQualityParameterService
+        : BaseService<ProcessingCostQualityParameter, int>(context, logger), IProcessingCostQualityParameterService
     {
         public async Task<ProcessingCostQualityParameter> CreateAsync(string processingCostKey, ProcessingCostQualityParameter entity)
         {
@@ -32,18 +32,18 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public async Task<ProcessingCostQualityParameter?> FindByKeyAsync(string processingCostKey, string key)
+        public async Task<ProcessingCostQualityParameter?> FindByKeyAsync(string processingCostKey, int itemId)
         {
             try
             {
                 return await _context.Set<ProcessingCostQualityParameter>()
-                    .Where(x => x.ProcessingCostKey == processingCostKey && x.Key == key)
+                    .Where(x => x.ProcessingCostKey == processingCostKey && x.ItemId == itemId)
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching entity with ID {Id}", key);
+                _logger.LogError(ex, "Error fetching entity with ID {Id}", itemId);
                 throw new DefaultException("Error fetching entity");
             }
         }

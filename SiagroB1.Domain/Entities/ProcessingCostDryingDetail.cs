@@ -1,14 +1,19 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
     [Table("PROCESSING_COST_DRYING_DETAILS")]
-    public class ProcessingCostDryingDetail : BaseEntity<string>
+    public class ProcessingCostDryingDetail
     {
-        [Column(TypeName = "VARCHAR(10) NOT NULL")]
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int ItemId { get; set; }
+        
+        [Column(TypeName = "VARCHAR(10)")]
         [ForeignKey(nameof(ProcessingCost))]
-        public required string ProcessingCostKey { get; set; }
+        public string? ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
         
         /// <summary>

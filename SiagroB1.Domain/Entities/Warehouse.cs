@@ -4,8 +4,8 @@ using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("WHAREHOUSE")]
-public class WhareHouse : BaseEntity<string>
+[Table("WAREHOUSES")]
+public class Warehouse : BaseEntity<string>
 {
     [Required(ErrorMessage = "Name is mandatory.")]
     [Column(TypeName = "VARCHAR(100) NOT NULL")]

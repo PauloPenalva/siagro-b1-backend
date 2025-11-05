@@ -81,7 +81,7 @@ namespace SiagroB1.Core.Base
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EntityExists("Id", key))
+                if (!EntityExists("Key", key))
                 {
                     throw new KeyNotFoundException("Entity not found.");
                 }

@@ -16,6 +16,26 @@ namespace SiagroB1.Core.Services
             try
             {
                 await ValidateEntity(entity);
+                
+                foreach (var detail in entity.DryingDetails)
+                {
+                    detail.ProcessingCostKey = entity.Key;
+                }
+                
+                foreach (var parameter in entity.DryingParameters)
+                {
+                    parameter.ProcessingCostKey = entity.Key;
+                }
+
+                foreach (var parameter in entity.QualityParameters)
+                {
+                    parameter.ProcessingCostKey = entity.Key;
+                }
+
+                foreach (var detail in entity.ServiceDetails)
+                {
+                    detail.ProcessingCostKey = entity.Key;
+                }
 
                 await _context.Set<ProcessingCost>().AddAsync(entity);
                 await _context.SaveChangesAsync();
@@ -110,6 +130,26 @@ namespace SiagroB1.Core.Services
         {
             try
             {
+                foreach (var detail in entity.DryingDetails)
+                {
+                    detail.ProcessingCostKey = entity.Key;
+                }
+                
+                foreach (var parameter in entity.DryingParameters)
+                {
+                    parameter.ProcessingCostKey = entity.Key;
+                }
+
+                foreach (var parameter in entity.QualityParameters)
+                {
+                    parameter.ProcessingCostKey = entity.Key;
+                }
+
+                foreach (var detail in entity.ServiceDetails)
+                {
+                    detail.ProcessingCostKey = entity.Key;
+                }
+                
                 var existingEntity = await _context.Set<ProcessingCost>()
                     .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
                 _context.Entry(existingEntity).CurrentValues.SetValues(entity);
@@ -204,7 +244,7 @@ namespace SiagroB1.Core.Services
             try
             {
                 return await _context.Set<ProcessingCostServiceDetail>()
-                    .FirstOrDefaultAsync(x => x.ProcessingCostKey == processingCostKey && x.Key == processingServiceKey);
+                    .FirstOrDefaultAsync(x => x.ProcessingCostKey == processingCostKey && x.ProcessingServiceKey == processingServiceKey);
             }
             catch (Exception ex)
             {
@@ -219,7 +259,7 @@ namespace SiagroB1.Core.Services
             try
             {
                 var existingEntity = await _context.Set<ProcessingCostServiceDetail>()
-                    .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
+                    .FirstOrDefaultAsync(tc => tc.ProcessingServiceKey == key) ?? throw new KeyNotFoundException("Entity not found.");
                 _context.Entry(existingEntity).CurrentValues.SetValues(entity);
                 await _context.SaveChangesAsync();
             }

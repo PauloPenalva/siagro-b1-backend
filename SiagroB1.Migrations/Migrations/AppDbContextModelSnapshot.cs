@@ -108,13 +108,11 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingDetail", b =>
                 {
-                    b.Property<string>("Key")
-                        .HasColumnType("VARCHAR(10) NOT NULL")
-                        .HasColumnOrder(2);
+                    b.Property<int>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ItemId"));
 
                     b.Property<decimal?>("FinalMoisture")
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
@@ -126,12 +124,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
 
                     b.Property<string>("ProcessingCostKey")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(10)");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("ItemId");
 
                     b.HasIndex("ProcessingCostKey");
 
@@ -140,13 +135,11 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingParameter", b =>
                 {
-                    b.Property<string>("Key")
-                        .HasColumnType("VARCHAR(10) NOT NULL")
-                        .HasColumnOrder(2);
+                    b.Property<int>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ItemId"));
 
                     b.Property<decimal?>("FinalMoisture")
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
@@ -155,15 +148,12 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
 
                     b.Property<string>("ProcessingCostKey")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<decimal?>("Rate")
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("ItemId");
 
                     b.HasIndex("ProcessingCostKey");
 
@@ -172,13 +162,11 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostQualityParameter", b =>
                 {
-                    b.Property<string>("Key")
-                        .HasColumnType("VARCHAR(10) NOT NULL")
-                        .HasColumnOrder(2);
+                    b.Property<int>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ItemId"));
 
                     b.Property<decimal?>("ExcessDiscountRate")
                         .HasColumnType("DECIMAL(18,1) NOT NULL");
@@ -187,16 +175,13 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("DECIMAL(18,1) NOT NULL");
 
                     b.Property<string>("ProcessingCostKey")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<string>("QualityAttribKey")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("ItemId");
 
                     b.HasIndex("ProcessingCostKey");
 
@@ -207,27 +192,22 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostServiceDetail", b =>
                 {
-                    b.Property<string>("Key")
-                        .HasColumnType("VARCHAR(10) NOT NULL")
-                        .HasColumnOrder(2);
+                    b.Property<int>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ItemId"));
 
                     b.Property<decimal>("Price")
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
 
                     b.Property<string>("ProcessingCostKey")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<string>("ProcessingServiceKey")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("ItemId");
 
                     b.HasIndex("ProcessingCostKey");
 
@@ -338,7 +318,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<string>("WhareHouseKey")
+                    b.Property<string>("WarehouseKey")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
@@ -348,7 +328,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingCostKey");
 
-                    b.HasIndex("WhareHouseKey");
+                    b.HasIndex("WarehouseKey");
 
                     b.ToTable("STORAGE_LOTS");
                 });
@@ -426,7 +406,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("UNITS_OF_MEASURE");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WhareHouse", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
                 {
                     b.Property<string>("Key")
                         .HasColumnType("VARCHAR(10) NOT NULL")
@@ -451,7 +431,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("BranchKey");
 
-                    b.ToTable("WHAREHOUSE");
+                    b.ToTable("WAREHOUSES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
@@ -474,57 +454,33 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingDetail", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany("DryingDetails")
-                        .HasForeignKey("ProcessingCostKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
+                        .HasForeignKey("ProcessingCostKey");
 
                     b.Navigation("ProcessingCost");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingParameter", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany("DryingParameters")
-                        .HasForeignKey("ProcessingCostKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
+                        .HasForeignKey("ProcessingCostKey");
 
                     b.Navigation("ProcessingCost");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostQualityParameter", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany("QualityParameters")
-                        .HasForeignKey("ProcessingCostKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ProcessingCostKey");
 
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
                         .WithMany()
                         .HasForeignKey("QualityAttribKey")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Branch");
 
                     b.Navigation("ProcessingCost");
 
@@ -533,21 +489,13 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostServiceDetail", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany("ServiceDetails")
-                        .HasForeignKey("ProcessingCostKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("ProcessingCostKey");
 
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingService", "ProcessingService")
                         .WithMany()
                         .HasForeignKey("ProcessingServiceKey");
-
-                    b.Navigation("Branch");
 
                     b.Navigation("ProcessingCost");
 
@@ -593,9 +541,9 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SiagroB1.Domain.Entities.WhareHouse", "WhareHouse")
+                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "Warehouse")
                         .WithMany()
-                        .HasForeignKey("WhareHouseKey")
+                        .HasForeignKey("WarehouseKey")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -603,7 +551,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Navigation("ProcessingCost");
 
-                    b.Navigation("WhareHouse");
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
@@ -639,7 +587,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WhareHouse", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()

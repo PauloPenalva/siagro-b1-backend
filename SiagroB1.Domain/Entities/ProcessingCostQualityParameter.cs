@@ -1,14 +1,19 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
     [Table("PROCESSING_COST_QUALITY_PARAMETERS")]
-    public class ProcessingCostQualityParameter : BaseEntity<string>
+    public class ProcessingCostQualityParameter
     {
-        [Column(TypeName = "VARCHAR(10) NOT NULL")]
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public int ItemId { get; set; }
+        
+        [Column(TypeName = "VARCHAR(10)")]
         [ForeignKey(nameof(ProcessingCost))]
-        public required string ProcessingCostKey { get; set; }
+        public string? ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
 
         [Column(TypeName = "VARCHAR(10) NOT NULL")]

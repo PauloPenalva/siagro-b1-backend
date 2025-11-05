@@ -6,8 +6,8 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Core.Services;
 
-public class WhareHouseService(AppDbContext context, ILogger<WhareHouseService> logger) : 
-    BaseService<WhareHouse, int>(context, logger), IWhareHouseService
+public class WarehouseService(AppDbContext context, ILogger<WarehouseService> logger) : 
+    BaseService<Warehouse, string>(context, logger), IWarehouseService
 {
     
 }

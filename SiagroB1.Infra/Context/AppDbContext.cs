@@ -16,7 +16,7 @@ namespace SiagroB1.Infra.Context
         public DbSet<ProcessingCostQualityParameter> ProcessingCostQualityParameters { get; set; }
         public DbSet<ProcessingCostServiceDetail> ProcessingCostServiceDetails { get; set; }
         public DbSet<StorageLot> StorageLots { get; set; }
-        public DbSet<WhareHouse> WhareHouses { get; set; }
+        public DbSet<Warehouse> WhareHouses { get; set; }
         public DbSet<HarvestSeason> HarvestSeasons { get; set; }
         public DbSet<TruckDriver> TruckDrivers { get; set; }
         public DbSet<Truck> Trucks { get; set; }

@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class HarvestSeasonService(AppDbContext context, ILogger<HarvestSeasonService> logger) : 
-    BaseService<HarvestSeason, int>(context, logger), IHarvestSeasonService
+    BaseService<HarvestSeason, string>(context, logger), IHarvestSeasonService
 {
     
 }

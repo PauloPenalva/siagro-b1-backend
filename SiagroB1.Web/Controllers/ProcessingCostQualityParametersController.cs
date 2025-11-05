@@ -10,7 +10,7 @@ namespace SiagroB1.Web.Controllers
 {
     public class ProcessingCostQualityParametersController(
         IProcessingCostQualityParameterService qualidadeService
-        ) : ODataBaseController<ProcessingCostQualityParameter, string>(qualidadeService)
+        ) : ODataBaseController<ProcessingCostQualityParameter, int>(qualidadeService)
     {
         protected readonly IProcessingCostQualityParameterService _qualidadeService = qualidadeService;
         
@@ -42,11 +42,11 @@ namespace SiagroB1.Web.Controllers
 
         // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
         // fora de padrão
-        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/QualityParameters({key})")]
-        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/QualityParameters({key})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] string key)
+        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/QualityParameters({itemId})")]
+        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/QualityParameters({itemId})")]
+        public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] int itemId)
         {
-            var item = await _qualidadeService.FindByKeyAsync(tabelaCustoId, key);
+            var item = await _qualidadeService.FindByKeyAsync(tabelaCustoId, itemId);
 
             if (item == null)
             {

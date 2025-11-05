@@ -24,9 +24,9 @@ public class StorageLot : BaseEntity<string>
     public virtual ProcessingCost? ProcessingCost { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    [ForeignKey("WhareHouse")]
-    public required string WhareHouseKey { get; set; }
-    public virtual WhareHouse? WhareHouse { get; set; }
+    [ForeignKey("WareHouse")]
+    public required string WarehouseKey { get; set; }
+    public virtual Warehouse? Warehouse { get; set; }
     
     [Column(TypeName = "DECIMAL(18, 3) DEFAULT 0")]
     public decimal Balance { get; set; } = 0;
