@@ -7,7 +7,7 @@ namespace SiagroB1.Infra.Context
     {
         public DbSet<State> States { get; set; }
         public DbSet<Branch> Branchs { get; set; }
-        public DbSet<UnidadeMedida> UnidadesMedida { get; set; }
+        public DbSet<UnitOfMeasure> UnitsOfMeasure { get; set; }
         public DbSet<ProcessingService> WhareHouseServices { get; set; }
         public DbSet<QualityAttrib> QualityAttribs { get; set; }
         public DbSet<ProcessingCost> ProcessingCosts { get; set; }

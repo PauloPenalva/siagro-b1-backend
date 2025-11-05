@@ -53,7 +53,7 @@ switch (erp.ToUpper().Trim())
 
 builder.Services.AddScoped<IStateService, StateService>();
 builder.Services.AddScoped<IBranchService, BranchService>();
-builder.Services.AddScoped<IUnidadeMedidaService, UnidadeMedidaService>();
+builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
 builder.Services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
 builder.Services.AddScoped<IProcessingCostService, ProcessingCostService>();
 builder.Services.AddScoped<IQualityAttribService, QualityAttribService>();
@@ -61,27 +61,27 @@ builder.Services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostSe
 builder.Services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
 builder.Services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
 builder.Services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
-builder.Services.AddScoped<IWhareHouseService, SiagroB1.Core.Services.WhareHouseService>();
+builder.Services.AddScoped<IWhareHouseService, WhareHouseService>();
 builder.Services.AddScoped<ILoteArmazenagemService, LoteArmazenagemService>();
 builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
 builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
 builder.Services.AddScoped<ITruckService, TruckService>();
 
 modelBuilder.EntitySet<Branch>("Branchs");
-modelBuilder.EntitySet<UnidadeMedida>("UnidadesMedida");
-modelBuilder.EntitySet<ProcessingService>("ServicosArmazem");
-modelBuilder.EntitySet<QualityAttrib>("CaracteristicasQualidade");
-modelBuilder.EntitySet<ProcessingCost>("TabelasCusto");
-modelBuilder.EntitySet<ProcessingCostDryingParameter>("DescontosSecagem");
-modelBuilder.EntitySet<ProcessingCostDryingDetail>("ValoresSecagem");
-modelBuilder.EntitySet<ProcessingCostQualityParameter>("Qualidades");
-modelBuilder.EntitySet<ProcessingCostServiceDetail>("Servicos");
-modelBuilder.EntitySet<WhareHouse>("Armazens");
-modelBuilder.EntitySet<StorageLot>("LotesArmazenagem");
-modelBuilder.EntitySet<HarvestSeason>("Safras");
-modelBuilder.EntitySet<TruckDriver>("Motoristas");
-modelBuilder.EntitySet<State>("Estados");
-modelBuilder.EntitySet<Truck>("Veiculos");
+modelBuilder.EntitySet<SiagroB1.Domain.Entities.UnitOfMeasure>("UnitsOfMeasure");
+modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
+modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
+modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");
+modelBuilder.EntitySet<ProcessingCostDryingParameter>("ProcessingCostDryingParameters");
+modelBuilder.EntitySet<ProcessingCostDryingDetail>("ProcessingCostDryingDetails");
+modelBuilder.EntitySet<ProcessingCostQualityParameter>("ProcessingCostQualityParameters");
+modelBuilder.EntitySet<ProcessingCostServiceDetail>("ProcessingCostServiceDetails");
+modelBuilder.EntitySet<WhareHouse>("WhareHouses");
+modelBuilder.EntitySet<StorageLot>("StorageLots");
+modelBuilder.EntitySet<HarvestSeason>("HarvestSeasons");
+modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
+modelBuilder.EntitySet<State>("States");
+modelBuilder.EntitySet<Truck>("Trucks");
 
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");
