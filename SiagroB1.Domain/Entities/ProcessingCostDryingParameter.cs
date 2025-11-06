@@ -31,7 +31,7 @@ namespace SiagroB1.Domain.Entities
         /// <summary>
         /// % DESCONTO / PERDA / QUEBRA
         /// </summary>
-        [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
+        [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
         public decimal? Rate { get; set; } = 0;
     }
 }

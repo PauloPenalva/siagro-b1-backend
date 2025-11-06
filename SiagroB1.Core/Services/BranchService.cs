@@ -9,8 +9,8 @@ namespace SiagroB1.Core.Services
     {
         public async Task<Branch> CreateAsync(Branch entity)
         {
-            var existingBranch = context.Branchs
-                .FirstOrDefaultAsync(b => b.Key == entity.Key || b.BranchName == entity.BranchName);
+            var existingBranch = await context.Branchs
+                .FirstOrDefaultAsync(b => b.Key == entity.Key);
             
             if (existingBranch != null)
             {

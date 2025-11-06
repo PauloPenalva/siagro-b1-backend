@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Base;
-using SiagroB1.Domain.Entities.SAP;
 
 namespace SiagroB1.Domain.Entities;
 

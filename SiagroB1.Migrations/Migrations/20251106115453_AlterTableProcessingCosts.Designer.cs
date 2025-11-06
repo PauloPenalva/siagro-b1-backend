@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251106115453_AlterTableProcessingCosts")]
+    partial class AlterTableProcessingCosts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -151,7 +154,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(10)");
 
                     b.Property<decimal?>("Rate")
-                        .HasColumnType("DECIMAL(18,8) DEFAULT 0");
+                        .HasColumnType("DECIMAL(18,1) DEFAULT 0");
 
                     b.HasKey("ItemId");
 
@@ -259,34 +262,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("BranchKey");
 
                     b.ToTable("QUALITY_ATTRIBS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
-                {
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
-
-                    b.Property<string>("WeighingTicketKey")
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10)")
-                        .HasColumnOrder(2);
-
-                    b.Property<string>("QualityAttribKey")
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10)")
-                        .HasColumnOrder(3);
-
-                    b.Property<decimal>("Value")
-                        .HasColumnType("DECIMAL(18,1) DEFAULT 0");
-
-                    b.HasKey("BranchKey", "WeighingTicketKey", "QualityAttribKey");
-
-                    b.HasIndex("QualityAttribKey");
-
-                    b.HasIndex("WeighingTicketKey");
-
-                    b.ToTable("QUALITY_INSPECTIONS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.State", b =>
@@ -462,67 +437,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("WAREHOUSES");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasColumnType("VARCHAR(10) NOT NULL")
-                        .HasColumnOrder(2);
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
-
-                    b.Property<string>("CardCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTimeOffset>("FirstWeighDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("FirstWeighValue")
-                        .HasColumnType("int");
-
-                    b.Property<int>("GrossWeight")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ItemCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<int>("Operation")
-                        .HasColumnType("int");
-
-                    b.Property<DateTimeOffset>("SecondWeighDateTime")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("SecondWeighValue")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Time")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TruckDriverKey")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("TruckKey")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
-
-                    b.ToTable("WEIGHTING_TICKETS");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -609,25 +523,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
-                        .WithMany()
-                        .HasForeignKey("QualityAttribKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.WeighingTicket", "WeighingTicket")
-                        .WithMany("QualityInspections")
-                        .HasForeignKey("WeighingTicketKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("QualityAttrib");
-
-                    b.Navigation("WeighingTicket");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.State", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -704,15 +599,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
-                    b.Navigation("Branch");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>
                 {
                     b.Navigation("DryingDetails");
@@ -722,11 +608,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("QualityParameters");
 
                     b.Navigation("ServiceDetails");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
-                {
-                    b.Navigation("QualityInspections");
                 });
 #pragma warning restore 612, 618
         }

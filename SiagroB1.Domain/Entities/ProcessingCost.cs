@@ -36,7 +36,7 @@ namespace SiagroB1.Domain.Entities
         /// <summary>
         /// pt-br: Vencimento em dias para cobrança do serviço de expurgo
         /// </summary>
-        public int? FumigationGraceDays { get; set; } = 0;
+        public int? FumigationIntervalDays { get; set; } = 0;
 
         /// <summary>
         /// carencia quebra técnica em dias
