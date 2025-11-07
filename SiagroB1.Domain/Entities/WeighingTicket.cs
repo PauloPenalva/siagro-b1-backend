@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Base;
-using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -12,7 +11,9 @@ public class WeighingTicket : BaseEntity<string>
 
     public int Time { get; set; }
     
-    public WeighingTicketOperation Operation { get; set; }
+    [MaxLength(50)]
+    [Column(TypeName = "VARCHAR(50)")]
+    public required string Operation { get; set; }
 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [MaxLength(10)]
@@ -22,13 +23,17 @@ public class WeighingTicket : BaseEntity<string>
     [MaxLength(10)]
     public required string CardCode { get; set; }
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [MaxLength(10)]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    [ForeignKey("Truck")]
     public required string TruckKey { get; set; }
+    public Truck? Truck { get; set; }
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [MaxLength(10)]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    [ForeignKey("TruckDriver")]
     public required string TruckDriverKey { get; set; }
+    public TruckDriver? TruckDriver { get; set; }
 
     public int FirstWeighValue { get; set; } = 0;
 
