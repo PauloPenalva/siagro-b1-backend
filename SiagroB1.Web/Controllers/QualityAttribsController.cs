@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class QualityAttribsController(IQualityAttribService service) 
-        : ODataBaseController<QualityAttrib, string>(service)
+        : ODataBaseController<QualityAttrib, Guid>(service)
     {
         
     }

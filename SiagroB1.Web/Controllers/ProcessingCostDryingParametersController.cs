@@ -10,12 +10,12 @@ namespace SiagroB1.Web.Controllers
 {
     public class ProcessingCostDryingParametersController(
         IProcessingCostDryingParameterService descontoSecagemService
-        ) : ODataBaseController<ProcessingCostDryingParameter, int>(descontoSecagemService)
+        ) : ODataBaseController<ProcessingCostDryingParameter, Guid>(descontoSecagemService)
     {
         protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
         
         [HttpPost("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
-        public virtual async Task<IActionResult> PostAsync([FromODataUri] string tabelaCustoId, [FromBody] ProcessingCostDryingParameter entity)
+        public virtual async Task<IActionResult> PostAsync([FromODataUri] Guid tabelaCustoId, [FromBody] ProcessingCostDryingParameter entity)
         {
             if (!ModelState.IsValid)
             {
@@ -42,11 +42,11 @@ namespace SiagroB1.Web.Controllers
 
         // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
         // fora de padrão
-        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/DryingParameters({itemId})")]
-        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters({itemId})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] int itemId)
+        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/DryingParameters({key})")]
+        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters({key})")]
+        public virtual async Task<IActionResult> GetAsync([FromODataUri] Guid tabelaCustoId, [FromODataUri] Guid key)
         {
-            var item = await _descontoSecagemService.FindByKeyAsync(tabelaCustoId, itemId);
+            var item = await _descontoSecagemService.FindByKeyAsync(tabelaCustoId, key);
 
             if (item == null)
             {
@@ -59,7 +59,7 @@ namespace SiagroB1.Web.Controllers
 
         [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
         [EnableQuery]
-        public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] string tabelaCustoId)
+        public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] Guid tabelaCustoId)
         {
             return Ok(_descontoSecagemService.GetAllByTabelaCustoId(tabelaCustoId));
         }

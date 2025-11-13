@@ -6,12 +6,9 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Core.Services
 {
-    public class QualityAttribService : BaseService<QualityAttrib, string>, IQualityAttribService
+    public class QualityAttribService(AppDbContext context, ILogger<QualityAttribService> logger) 
+        : BaseService<QualityAttrib, Guid>(context, logger), IQualityAttribService
     {
-
-        public QualityAttribService(AppDbContext context, ILogger<QualityAttribService> logger) : base(context, logger)
-        {
-        }
         
     }
 }

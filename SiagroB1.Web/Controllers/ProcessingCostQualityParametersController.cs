@@ -10,12 +10,12 @@ namespace SiagroB1.Web.Controllers
 {
     public class ProcessingCostQualityParametersController(
         IProcessingCostQualityParameterService qualidadeService
-        ) : ODataBaseController<ProcessingCostQualityParameter, int>(qualidadeService)
+        ) : ODataBaseController<ProcessingCostQualityParameter, Guid>(qualidadeService)
     {
         protected readonly IProcessingCostQualityParameterService _qualidadeService = qualidadeService;
         
         [HttpPost("odata/ProcessingCosts({tabelaCustoId})/QualityParameters")]
-        public virtual async Task<IActionResult> PostAsync([FromODataUri] string tabelaCustoId, [FromBody] ProcessingCostQualityParameter entity)
+        public virtual async Task<IActionResult> PostAsync([FromODataUri] Guid tabelaCustoId, [FromBody] ProcessingCostQualityParameter entity)
         {
             if (!ModelState.IsValid)
             {
@@ -42,11 +42,11 @@ namespace SiagroB1.Web.Controllers
 
         // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
         // fora de padrão
-        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/QualityParameters({itemId})")]
-        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/QualityParameters({itemId})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] string tabelaCustoId, [FromODataUri] int itemId)
+        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/QualityParameters({key})")]
+        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/QualityParameters({key})")]
+        public virtual async Task<IActionResult> GetAsync([FromODataUri] Guid tabelaCustoId, [FromODataUri] Guid key)
         {
-            var item = await _qualidadeService.FindByKeyAsync(tabelaCustoId, itemId);
+            var item = await _qualidadeService.FindByKeyAsync(tabelaCustoId, key);
 
             if (item == null)
             {
@@ -59,7 +59,7 @@ namespace SiagroB1.Web.Controllers
 
         [HttpGet("odata/ProcessingCosts({tabelaCustoId})/QualityParameters")]
         [EnableQuery]
-        public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetQualidades([FromRoute] string tabelaCustoId)
+        public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetQualidades([FromRoute] Guid tabelaCustoId)
         {
             return Ok(_qualidadeService.GetAllByProcessingCostKey(tabelaCustoId));
         }

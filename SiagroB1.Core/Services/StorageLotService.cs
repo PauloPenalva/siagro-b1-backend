@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class StorageLotService(AppDbContext context, ILogger<StorageLotService> logger) : 
-    BaseService<StorageLot, string>(context, logger), IStorageLotService
+    BaseService<StorageLot, Guid>(context, logger), IStorageLotService
 {
     
 }

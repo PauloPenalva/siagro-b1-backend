@@ -9,11 +9,10 @@ namespace SiagroB1.Domain.Entities
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int ItemId { get; set; }
+        public Guid? Key { get; set; }
         
-        [Column(TypeName = "VARCHAR(10)")]
         [ForeignKey(nameof(ProcessingCost))]
-        public string? ProcessingCostKey { get; set; }
+        public Guid? ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
         
         /// <summary>

@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class WarehouseService(AppDbContext context, ILogger<WarehouseService> logger) : 
-    BaseService<Warehouse, string>(context, logger), IWarehouseService
+    BaseService<Warehouse, Guid>(context, logger), IWarehouseService
 {
     
 }

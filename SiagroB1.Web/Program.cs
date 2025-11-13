@@ -71,6 +71,7 @@ builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
 builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
 builder.Services.AddScoped<ITruckService, TruckService>();
 builder.Services.AddScoped<IWeighingTicketService, WeighingTicketService>();
+builder.Services.AddScoped<IPurchaseContractService, PurchaseContractService>();
 
 modelBuilder.EntitySet<Branch>("Branchs");
 modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
@@ -88,6 +89,7 @@ modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
 modelBuilder.EntitySet<State>("States");
 modelBuilder.EntitySet<Truck>("Trucks");
 modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
+modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
 
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");

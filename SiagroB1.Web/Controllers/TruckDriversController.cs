@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class TruckDriversController(ITruckDriverService service) 
-        : ODataBaseController<TruckDriver, string>(service)
+        : ODataBaseController<TruckDriver, Guid>(service)
     {
         
     }

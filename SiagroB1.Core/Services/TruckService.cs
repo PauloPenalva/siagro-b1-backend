@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class TruckService(AppDbContext context, ILogger<TruckService> logger) : 
-    BaseService<Truck, string>(context, logger), ITruckService
+    BaseService<Truck, Guid>(context, logger), ITruckService
 {
     
 }

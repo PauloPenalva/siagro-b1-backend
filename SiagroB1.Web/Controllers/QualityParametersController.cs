@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class QualityParametersController(IProcessingCostQualityParameterService service) 
-        : ODataBaseController<ProcessingCostQualityParameter, int>(service)
+        : ODataBaseController<ProcessingCostQualityParameter, Guid>(service)
     {
         
     }

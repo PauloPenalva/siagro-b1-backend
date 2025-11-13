@@ -5,7 +5,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("WAREHOUSES")]
-public class Warehouse : BaseEntity<string>
+public class Warehouse : BaseEntity
 {
     [Required(ErrorMessage = "Name is mandatory.")]
     [Column(TypeName = "VARCHAR(100) NOT NULL")]

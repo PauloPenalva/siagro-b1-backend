@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces
 { 
-    public interface IProcessingServiceService : IBaseService<ProcessingService, string>
+    public interface IProcessingServiceService : IBaseService<ProcessingService, Guid>
     {
     }
 }

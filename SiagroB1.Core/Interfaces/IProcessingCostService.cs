@@ -3,14 +3,14 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces
 {
-    public interface IProcessingCostService : IBaseService<ProcessingCost, string>
+    public interface IProcessingCostService : IBaseService<ProcessingCost, Guid>
     {
-        Task<ProcessingCostServiceDetail?> FindTabelaCustoServicoById(string tabelaCustoId, string tabelaCustoServicoId);
-        Task<ProcessingCostServiceDetail?> UpdateTabelaCustoServicoAsync(string id, ProcessingCostServiceDetail entity);
-        IQueryable<ProcessingCostDryingParameter> GetDescontosSecagem(string id);
-        IQueryable<ProcessingCostDryingDetail> GetValoresSecagem(string id);
-        IQueryable<ProcessingCostServiceDetail> GetServicos(string id);
-        IQueryable<ProcessingCostQualityParameter> GetQualidades(string id);
-        Task<ProcessingCostDryingParameter> CreateDescontosSecagemAsync(string key, ProcessingCostDryingParameter t);
+        Task<ProcessingCostServiceDetail?> FindTabelaCustoServicoById(Guid tabelaCustoId, Guid tabelaCustoServicoId);
+        Task<ProcessingCostServiceDetail?> UpdateTabelaCustoServicoAsync(Guid id, ProcessingCostServiceDetail entity);
+        IQueryable<ProcessingCostDryingParameter> GetDescontosSecagem(Guid id);
+        IQueryable<ProcessingCostDryingDetail> GetValoresSecagem(Guid id);
+        IQueryable<ProcessingCostServiceDetail> GetServicos(Guid id);
+        IQueryable<ProcessingCostQualityParameter> GetQualidades(Guid id);
+        Task<ProcessingCostDryingParameter> CreateDescontosSecagemAsync(Guid key, ProcessingCostDryingParameter t);
     }
 }

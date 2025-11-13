@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces;
 
-public interface IWeighingTicketService : IBaseService<WeighingTicket, string>
+public interface IWeighingTicketService : IBaseService<WeighingTicket, Guid>
 {
     
 }

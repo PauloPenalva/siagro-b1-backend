@@ -9,9 +9,9 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingCostQualityParameterService(AppDbContext context, ILogger<ProcessingCostQualityParameterService> logger)
-        : BaseService<ProcessingCostQualityParameter, int>(context, logger), IProcessingCostQualityParameterService
+        : BaseService<ProcessingCostQualityParameter, Guid>(context, logger), IProcessingCostQualityParameterService
     {
-        public async Task<ProcessingCostQualityParameter> CreateAsync(string processingCostKey, ProcessingCostQualityParameter entity)
+        public async Task<ProcessingCostQualityParameter> CreateAsync(Guid processingCostKey, ProcessingCostQualityParameter entity)
         {
             var tb = await _context.Set<ProcessingCost>().FirstOrDefaultAsync(x => x.Key == processingCostKey)
                 ?? throw new KeyNotFoundException("");
@@ -32,23 +32,23 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public async Task<ProcessingCostQualityParameter?> FindByKeyAsync(string processingCostKey, int itemId)
+        public async Task<ProcessingCostQualityParameter?> FindByKeyAsync(Guid processingCostKey, Guid key)
         {
             try
             {
                 return await _context.Set<ProcessingCostQualityParameter>()
-                    .Where(x => x.ProcessingCostKey == processingCostKey && x.ItemId == itemId)
+                    .Where(x => x.ProcessingCostKey == processingCostKey && x.Key == key)
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching entity with ID {Id}", itemId);
+                _logger.LogError(ex, "Error fetching entity with ID {Id}", key);
                 throw new DefaultException("Error fetching entity");
             }
         }
         
-        public IQueryable<ProcessingCostQualityParameter> GetAllByProcessingCostKey(string processingCostKey)
+        public IQueryable<ProcessingCostQualityParameter> GetAllByProcessingCostKey(Guid processingCostKey)
         {
             return _context.Set<ProcessingCostQualityParameter>()
                 .Where(x => x.ProcessingCostKey == processingCostKey);

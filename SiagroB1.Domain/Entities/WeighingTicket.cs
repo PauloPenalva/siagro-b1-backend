@@ -5,7 +5,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("WEIGHTING_TICKETS")]
-public class WeighingTicket : BaseEntity<string>
+public class WeighingTicket : BaseEntity
 {
     public DateTime Date { get; set; }
 
@@ -23,16 +23,12 @@ public class WeighingTicket : BaseEntity<string>
     [MaxLength(10)]
     public required string CardCode { get; set; }
     
-    [MaxLength(10)]
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("Truck")]
-    public required string TruckKey { get; set; }
+    public required Guid TruckKey { get; set; }
     public Truck? Truck { get; set; }
     
-    [MaxLength(10)]
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("TruckDriver")]
-    public required string TruckDriverKey { get; set; }
+    public required Guid TruckDriverKey { get; set; }
     public TruckDriver? TruckDriver { get; set; }
 
     public int FirstWeighValue { get; set; } = 0;
@@ -46,4 +42,11 @@ public class WeighingTicket : BaseEntity<string>
     public int GrossWeight { get; set; } = 0;
     
     public ICollection<QualityInspection> QualityInspections { get; set; } = [];
+
+    [Column(TypeName = "NVARCHAR(MAX)")]
+    public string? Comments { get; set; }
+    
+    [ForeignKey("ProcessingCost")]
+    public Guid? ProcessigCostKey { get; set; }
+    public virtual ProcessingCost? ProcessingCost { get; set; }
 }

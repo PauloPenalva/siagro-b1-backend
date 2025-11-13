@@ -9,16 +9,14 @@ namespace SiagroB1.Domain.Entities
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int ItemId { get; set; }
+        public Guid Key { get; set; }
         
-        [Column(TypeName = "VARCHAR(10)")]
         [ForeignKey(nameof(ProcessingCost))]
-        public string? ProcessingCostKey { get; set; }
+        public Guid? ProcessingCostKey { get; set; }
         public ProcessingCost? ProcessingCost { get; set; }
 
-        [Column(TypeName = "VARCHAR(10) NOT NULL")]
-        [ForeignKey(nameof(ProcessingService))]
-        public required string? ProcessingServiceKey { get; set; }
+        [ForeignKey("ProcessingService")]
+        public required Guid ProcessingServiceKey { get; set; }
         public ProcessingService? ProcessingService { get; set; }
 
         [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]

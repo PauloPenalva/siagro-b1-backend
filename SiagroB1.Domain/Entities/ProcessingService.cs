@@ -7,7 +7,7 @@ namespace SiagroB1.Domain.Entities;
 /// cadastro de tipos de serviço de beneficiamento
 /// </summary>
 [Table("PROCESSING_SERVICES")]
-public class ProcessingService : BaseEntity<string>
+public class ProcessingService : BaseEntity
 {
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Description { get; set; }

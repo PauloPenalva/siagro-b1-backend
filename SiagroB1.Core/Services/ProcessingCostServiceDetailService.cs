@@ -9,9 +9,9 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingCostServiceDetailService(AppDbContext context, ILogger<ProcessingCostServiceDetailService> logger)
-        : BaseService<ProcessingCostServiceDetail, int>(context, logger), IProcessingCostServiceDetailService
+        : BaseService<ProcessingCostServiceDetail, Guid>(context, logger), IProcessingCostServiceDetailService
     {
-        public async Task<ProcessingCostServiceDetail> CreateAsync(string processingCostKey, ProcessingCostServiceDetail entity)
+        public async Task<ProcessingCostServiceDetail> CreateAsync(Guid processingCostKey, ProcessingCostServiceDetail entity)
         {
             var tb = await _context.Set<ProcessingCost>().
                          FirstOrDefaultAsync(x => x.Key == processingCostKey) 
@@ -33,23 +33,23 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public async Task<ProcessingCostServiceDetail?> FindByKeyAsync(string processingCostKey, int itemId)
+        public async Task<ProcessingCostServiceDetail?> FindByKeyAsync(Guid processingCostKey, Guid key)
         {
             try
             {
                 return await _context.Set<ProcessingCostServiceDetail>()
-                    .Where(x => x.ProcessingCostKey == processingCostKey && x.ItemId == itemId)
+                    .Where(x => x.ProcessingCostKey == processingCostKey && x.Key == key)
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching entity with ID {Id}", itemId);
+                _logger.LogError(ex, "Error fetching entity with ID {Id}", key);
                 throw new DefaultException("Error fetching entity");
             }
         }
         
-        public IQueryable<ProcessingCostServiceDetail> GetAllByProcessingCostKey(string processingCostKey)
+        public IQueryable<ProcessingCostServiceDetail> GetAllByProcessingCostKey(Guid processingCostKey)
         {
             return _context.Set<ProcessingCostServiceDetail>()
                 .Where(x => x.ProcessingCostKey == processingCostKey);

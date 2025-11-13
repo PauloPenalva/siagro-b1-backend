@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class StorageLotsController(IStorageLotService service) 
-        : ODataBaseController<StorageLot, string>(service)
+        : ODataBaseController<StorageLot, Guid>(service)
     {
         
     }

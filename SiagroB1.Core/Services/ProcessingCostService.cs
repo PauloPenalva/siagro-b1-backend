@@ -9,7 +9,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingCostService(AppDbContext context, ILogger<ProcessingCostService> logger)
-        : BaseService<ProcessingCost, string>(context, logger), IProcessingCostService
+        : BaseService<ProcessingCost, Guid>(context, logger), IProcessingCostService
     {
         public override async Task<ProcessingCost> CreateAsync(ProcessingCost entity)
         {
@@ -53,7 +53,7 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public override async Task<ProcessingCost?> GetByIdAsync(string key)
+        public override async Task<ProcessingCost?> GetByIdAsync(Guid key)
         {
             try
             {
@@ -74,7 +74,7 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public async Task<ProcessingCostDryingParameter> CreateDescontosSecagemAsync(string key,ProcessingCostDryingParameter t)
+        public async Task<ProcessingCostDryingParameter> CreateDescontosSecagemAsync(Guid key,ProcessingCostDryingParameter t)
         {
             try
             {
@@ -96,7 +96,7 @@ namespace SiagroB1.Core.Services
             }
         }
         
-        public IQueryable<ProcessingCostDryingParameter> GetDescontosSecagem(string key)
+        public IQueryable<ProcessingCostDryingParameter> GetDescontosSecagem(Guid key)
         {
             return _context.Set<ProcessingCostDryingParameter>()
                 .Where(x => x.ProcessingCostKey == key)
@@ -104,14 +104,14 @@ namespace SiagroB1.Core.Services
 
         }
 
-        public IQueryable<ProcessingCostDryingDetail> GetValoresSecagem(string key)
+        public IQueryable<ProcessingCostDryingDetail> GetValoresSecagem(Guid key)
         {
             return _context.Set<ProcessingCostDryingDetail>()
                 .Where(x => x.ProcessingCostKey == key)
                 .AsNoTracking();
         }
 
-        public IQueryable<ProcessingCostServiceDetail> GetServicos(string key)
+        public IQueryable<ProcessingCostServiceDetail> GetServicos(Guid key)
         {
             return _context.Set<ProcessingCostServiceDetail>()
                 .Where(x => x.ProcessingCostKey == key)
@@ -119,14 +119,14 @@ namespace SiagroB1.Core.Services
         }
         
 
-        public IQueryable<ProcessingCostQualityParameter> GetQualidades(string key)
+        public IQueryable<ProcessingCostQualityParameter> GetQualidades(Guid key)
         {
             return _context.Set<ProcessingCostQualityParameter>()
                 .Where(x => x.ProcessingCostKey == key)
                 .AsNoTracking();
         }
 
-        public override async Task<ProcessingCost?> UpdateAsync(string key, ProcessingCost entity)
+        public override async Task<ProcessingCost?> UpdateAsync(Guid key, ProcessingCost entity)
         {
             try
             {
@@ -172,7 +172,7 @@ namespace SiagroB1.Core.Services
             return entity;
         }
 
-        public override async Task<bool> DeleteAsync(string key)
+        public override async Task<bool> DeleteAsync(Guid key)
         {
             return await DeleteAsyncWithTransaction(key, async entity =>
             {
@@ -205,7 +205,7 @@ namespace SiagroB1.Core.Services
             {
                 foreach (var parameter in entity.QualityParameters)
                 {
-                    if (string.IsNullOrEmpty(parameter.QualityAttribKey))
+                    if (parameter.QualityAttribKey.Equals(null))
                     {
                         throw new DefaultException("Característica de qualidade inválida na tabela de custo.");
                     }
@@ -223,12 +223,12 @@ namespace SiagroB1.Core.Services
             {
                 foreach (var detail in entity.ServiceDetails)
                 {
-                    if (string.IsNullOrEmpty(detail.ProcessingServiceKey))
+                    if (detail.ProcessingServiceKey.Equals(null))
                     {
                         throw new DefaultException("Serviço de armazém inválido na tabela de custo.");
                     }
 
-                    var servicoArmazem = await _context.Set<Domain.Entities.ProcessingService>()
+                    var servicoArmazem = await _context.Set<ProcessingService>()
                         .FirstOrDefaultAsync(sa => sa.Key == detail.ProcessingServiceKey);
                     if (servicoArmazem == null)
                     {
@@ -239,7 +239,7 @@ namespace SiagroB1.Core.Services
         }
 
 
-        public async Task<ProcessingCostServiceDetail?> FindTabelaCustoServicoById(string processingCostKey, string processingServiceKey)
+        public async Task<ProcessingCostServiceDetail?> FindTabelaCustoServicoById(Guid processingCostKey, Guid processingServiceKey)
         {
             try
             {
@@ -254,7 +254,7 @@ namespace SiagroB1.Core.Services
         }
 
 
-        public async Task<ProcessingCostServiceDetail?> UpdateTabelaCustoServicoAsync(string key, ProcessingCostServiceDetail entity)
+        public async Task<ProcessingCostServiceDetail?> UpdateTabelaCustoServicoAsync(Guid key, ProcessingCostServiceDetail entity)
         {
             try
             {

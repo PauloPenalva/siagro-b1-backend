@@ -22,10 +22,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Truck> Trucks { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.ApplyConfiguration(new QualityInspectionConfig());
-    }
+    public DbSet<PurchaseContract> PurchaseContracts { get; set; }
+    public DbSet<PurchaseContractPriceFixation> PurchaseContractPriceFixations { get; set; }
+    
 }
     

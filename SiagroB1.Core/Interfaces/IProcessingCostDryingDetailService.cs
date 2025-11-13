@@ -3,10 +3,10 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces
 {
-    public interface IProcessingCostDryingDetailService : IBaseService<ProcessingCostDryingDetail, int>
+    public interface IProcessingCostDryingDetailService : IBaseService<ProcessingCostDryingDetail, Guid>
     {
-        Task<ProcessingCostDryingDetail> CreateAsync(string processingCostKey, ProcessingCostDryingDetail entity);
-        Task<ProcessingCostDryingDetail?> FindByKeyAsync(string processingCostKey, int itemId);
-        IQueryable<ProcessingCostDryingDetail> GetAllByProcessingCostKey(string processingCostKey);
+        Task<ProcessingCostDryingDetail> CreateAsync(Guid processingCostKey, ProcessingCostDryingDetail entity);
+        Task<ProcessingCostDryingDetail?> FindByKeyAsync(Guid processingCostKey, Guid itemId);
+        IQueryable<ProcessingCostDryingDetail> GetAllByProcessingCostKey(Guid processingCostKey);
     }
 }

@@ -6,8 +6,8 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Core.Services;
 
-public class TruckDriverService(AppDbContext context, ILogger<TruckDriverService> logger) : 
-    BaseService<TruckDriver, Guid>(context, logger), ITruckDriverService
+public class PurchaseContractService(AppDbContext context, ILogger<IPurchaseContractService> logger) 
+    : BaseService<PurchaseContract, Guid>(context, logger), IPurchaseContractService
 {
     
 }

@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Core.Interfaces;
 
-public interface IStorageLotService : IBaseService<StorageLot, Guid>
+public interface IPurchaseContractService : IBaseService<PurchaseContract, Guid>
 {
     
 }

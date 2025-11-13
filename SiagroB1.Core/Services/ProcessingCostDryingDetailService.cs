@@ -9,10 +9,10 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingCostDryingDetailService(AppDbContext context, ILogger<ProcessingCostDryingDetailService> logger)
-        : BaseService<ProcessingCostDryingDetail, int>(context, logger), IProcessingCostDryingDetailService
+        : BaseService<ProcessingCostDryingDetail, Guid>(context, logger), IProcessingCostDryingDetailService
     {
         
-        public async Task<ProcessingCostDryingDetail> CreateAsync(string processingCostKey, ProcessingCostDryingDetail entity)
+        public async Task<ProcessingCostDryingDetail> CreateAsync(Guid processingCostKey, ProcessingCostDryingDetail entity)
         {
             var tb = await _context.Set<ProcessingCost>().FirstOrDefaultAsync(x => x.Key == processingCostKey)
                 ?? throw new KeyNotFoundException("");
@@ -33,12 +33,12 @@ namespace SiagroB1.Core.Services
             }
         }
 
-        public async Task<ProcessingCostDryingDetail?> FindByKeyAsync(string processingCostKey, int itemId)
+        public async Task<ProcessingCostDryingDetail?> FindByKeyAsync(Guid processingCostKey, Guid itemId)
         {
             try
             {
                 return await _context.Set<ProcessingCostDryingDetail>()
-                    .Where(x => x.ProcessingCostKey == processingCostKey && x.ItemId == itemId)
+                    .Where(x => x.ProcessingCostKey == processingCostKey && x.Key == itemId)
                     .AsNoTracking()
                     .FirstOrDefaultAsync();
             }
@@ -49,7 +49,7 @@ namespace SiagroB1.Core.Services
             }
         }
         
-        public IQueryable<ProcessingCostDryingDetail> GetAllByProcessingCostKey(string processingCostKey)
+        public IQueryable<ProcessingCostDryingDetail> GetAllByProcessingCostKey(Guid processingCostKey)
         {
             return _context.Set<ProcessingCostDryingDetail>()
                 .Where(x => x.ProcessingCostKey == processingCostKey);

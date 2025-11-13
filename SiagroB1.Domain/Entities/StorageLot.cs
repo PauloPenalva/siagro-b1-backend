@@ -4,7 +4,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("STORAGE_LOTS")]
-public class StorageLot : BaseEntity<string>
+public class StorageLot : BaseEntity
 {
     public required DateTime CreationDate { get; set; }
 
@@ -17,14 +17,12 @@ public class StorageLot : BaseEntity<string>
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("ProcessingCost")]
-    public required string ProcessingCostKey { get; set; }
+    public required Guid ProcessingCostKey { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("WareHouse")]
-    public required string WarehouseKey { get; set; }
+    public required Guid WarehouseKey { get; set; }
     public virtual Warehouse? Warehouse { get; set; }
     
     [Column(TypeName = "DECIMAL(18, 3) DEFAULT 0")]

@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services
 {
     public class ProcessingServiceService(AppDbContext context, ILogger<ProcessingServiceService> logger) 
-        : BaseService<ProcessingService, string>(context, logger), IProcessingServiceService
+        : BaseService<ProcessingService, Guid>(context, logger), IProcessingServiceService
     {
     }
 }

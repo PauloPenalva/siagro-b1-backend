@@ -9,21 +9,15 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Core.Services;
 
 public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketService> logger) 
-    : BaseService<WeighingTicket, string>(context, logger), IWeighingTicketService
+    : BaseService<WeighingTicket, Guid>(context, logger), IWeighingTicketService
 {
     public override async Task<WeighingTicket> CreateAsync(WeighingTicket entity)
     {
         try
         {
-            if (string.IsNullOrEmpty(entity.Key))
-            {
-                throw new ArgumentException("Key cannot be null or empty.");
-            }
-            
             foreach (var detail in entity.QualityInspections)
             {
-                detail.BranchKey = entity.BranchKey;
-                detail.WeighingTicketKey = entity.Key;
+                detail.WeighingTicket = entity;
             }
             
             await _context.Set<WeighingTicket>().AddAsync(entity);
@@ -42,19 +36,13 @@ public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketS
         }
     }
     
-    public override async Task<WeighingTicket?> UpdateAsync(string key, WeighingTicket entity)
+    public override async Task<WeighingTicket?> UpdateAsync(Guid key, WeighingTicket entity)
     {
         try
         {
-            if (string.IsNullOrEmpty(entity.Key))
-            {
-                throw new ArgumentException("Key cannot be null or empty.");
-            }
-            
             foreach (var detail in entity.QualityInspections)
             {
-                detail.BranchKey = entity.BranchKey;
-                detail.WeighingTicketKey = entity.Key;
+                detail.WeighingTicket = entity;
             }
                 
             var existingEntity = await _context.Set<WeighingTicket>()
@@ -79,7 +67,7 @@ public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketS
         return entity;
     }
     
-    public override async Task<bool> DeleteAsync(string key)
+    public override async Task<bool> DeleteAsync(Guid key)
     {
         return await DeleteAsyncWithTransaction(key, async entity =>
         {

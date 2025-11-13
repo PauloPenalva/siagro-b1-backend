@@ -39,13 +39,7 @@ namespace SiagroB1.Web.Base
             {
                 return BadRequest(ModelState);
             }
-
-            var existing = await _service.GetByIdAsync((entity as dynamic).Key);
-            if (existing != null)
-            {
-                return Conflict("Entity with the same ID already exists.");
-            }
-
+            
             try
             {
                 await _service.CreateAsync(entity);
@@ -69,11 +63,6 @@ namespace SiagroB1.Web.Base
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
-            }
-
-            if (key != (entity as dynamic).Key)
-            {
-                return BadRequest();
             }
 
             try

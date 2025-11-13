@@ -9,12 +9,12 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {
     public class ProcessingCostDryingDetailsController(IProcessingCostDryingDetailService service) 
-        : ODataBaseController<ProcessingCostDryingDetail, int>(service)
+        : ODataBaseController<ProcessingCostDryingDetail, Guid>(service)
     {
         private readonly IProcessingCostDryingDetailService _service = service;
         
         [HttpPost("odata/ProcessingCosts({processingCostKey})/DryingDetails")]
-        public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostKey, [FromBody] ProcessingCostDryingDetail entity)
+        public virtual async Task<IActionResult> PostAsync([FromODataUri] Guid processingCostKey, [FromBody] ProcessingCostDryingDetail entity)
         {
             if (!ModelState.IsValid)
             {
@@ -41,11 +41,11 @@ namespace SiagroB1.Web.Controllers
 
         // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
         // fora de padrão
-        [HttpGet("odata/ProcessingCosts/{processingCostKey}/DryingDetails({itemId})")]
-        [HttpGet("odata/ProcessingCosts({processingCostKey})/DryingDetails({itemId})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostKey, [FromODataUri] int itemId)
+        [HttpGet("odata/ProcessingCosts/{processingCostKey}/DryingDetails({key})")]
+        [HttpGet("odata/ProcessingCosts({processingCostKey})/DryingDetails({key})")]
+        public virtual async Task<IActionResult> GetAsync([FromODataUri] Guid processingCostKey, [FromODataUri] Guid key)
         {
-            var item = await _service.FindByKeyAsync(processingCostKey, itemId);
+            var item = await _service.FindByKeyAsync(processingCostKey, key);
 
             if (item == null)
             {
@@ -58,7 +58,7 @@ namespace SiagroB1.Web.Controllers
 
         [HttpGet("odata/ProcessingCosts({processingCostKey})/DryingDetails")]
         [EnableQuery]
-        public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDryingDetails([FromRoute] string processingCostKey)
+        public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDryingDetails([FromRoute] Guid processingCostKey)
         {
             return Ok(_service.GetAllByProcessingCostKey(processingCostKey));
         }

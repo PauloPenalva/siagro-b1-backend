@@ -5,7 +5,7 @@ using SiagroB1.Domain.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("HARVEST_SEASSONS")]
-public class HarvestSeason : BaseEntity<string>
+public class HarvestSeason : BaseEntity
 {
     [Required(ErrorMessage = "Description is mandatory.")]
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
