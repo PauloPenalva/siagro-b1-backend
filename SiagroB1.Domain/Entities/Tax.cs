@@ -7,7 +7,7 @@ namespace SiagroB1.Domain.Entities;
 public class Tax
 {
     [Key]
-    [Column(TypeName = "VARCHAR(5) NOT NULL")]
+    [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public required string Code { get; set; }
 
     [Column(TypeName = "VARCHAR(100) NOT NULL")]

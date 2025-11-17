@@ -8,7 +8,7 @@ public abstract class BaseEntity
 {
     [Column(TypeName = "VARCHAR(14)", Order = 1)]
     [ForeignKey("Branch")]
-    public required string BranchKey { get; set; }
+    public required string BranchCode { get; set; }
     public Branch? Branch { get; set; }
     
     [Key]

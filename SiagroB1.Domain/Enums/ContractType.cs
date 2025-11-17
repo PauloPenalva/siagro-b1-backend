@@ -1,5 +1,4 @@
-namespace SiagroB1.Domain.Shared.Base.Enums;
-
+namespace SiagroB1.Domain.Enums;
 public enum ContractType
 {
     Fixed = 0,

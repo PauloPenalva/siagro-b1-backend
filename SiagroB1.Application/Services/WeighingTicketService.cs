@@ -2,9 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Interfaces;
-using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Domain.Shared.Base.Exceptions;
-
+using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;
@@ -37,7 +36,7 @@ public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketS
         }
     }
     
-    public override async Task<WeighingTicket?> UpdateAsync(Guid code, WeighingTicket entity)
+    public override async Task<WeighingTicket?> UpdateAsync(Guid key, WeighingTicket entity)
     {
         try
         {
@@ -47,7 +46,7 @@ public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketS
             }
                 
             var existingEntity = await _context.Set<WeighingTicket>()
-                .FirstOrDefaultAsync(tc => tc.Key == code) ?? throw new KeyNotFoundException("Entity not found.");
+                .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
             _context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
             // Save changes
@@ -55,7 +54,7 @@ public class WeighingTicketService(AppDbContext context, ILogger<WeighingTicketS
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!EntityExists("Key", code))
+            if (!EntityExists("Key", key))
             {
                 throw new KeyNotFoundException("Entity not found.");
             }

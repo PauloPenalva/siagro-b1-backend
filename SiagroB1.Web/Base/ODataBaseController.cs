@@ -149,5 +149,7 @@ namespace SiagroB1.Web.Base
             return NoContent();
         }
 
+        public IBaseService<T, ID> GetService() => _service;
     }
+    
 }

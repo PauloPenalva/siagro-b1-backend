@@ -1,17 +1,16 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.OData;
+using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Infra.Context;
-using SiagroB1.Domain.Shared.Base.Exceptions;
-using Microsoft.AspNetCore.OData.Batch;
-using System.Text.Json.Serialization;
-using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.SAP;
-using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.SAP;
+using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra.Context;
+using SiagroB1.Web.DI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +41,7 @@ switch (erp.ToUpper().Trim())
         );
         
         builder.Services.AddDbContext<SapCommonDbContext>(options =>
-            options.UseNpgsql(builder.Configuration.GetConnectionString("SapCommon")));
+            options.UseSqlServer(builder.Configuration.GetConnectionString("SapCommon")));
         
         modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
         modelBuilder.EntitySet<Item>("Items");
@@ -54,23 +53,7 @@ switch (erp.ToUpper().Trim())
         throw new DefaultException("ERP não suportado. Verifique a configuração no appsettings.json");
 }
 
-builder.Services.AddScoped<IStateService, StateService>();
-builder.Services.AddScoped<IBranchService, BranchService>();
-builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
-builder.Services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
-builder.Services.AddScoped<IProcessingCostService, ProcessingCostService>();
-builder.Services.AddScoped<IQualityAttribService, QualityAttribService>();
-builder.Services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
-builder.Services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
-builder.Services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
-builder.Services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
-builder.Services.AddScoped<IWarehouseService, WarehouseService>();
-builder.Services.AddScoped<IStorageLotService, StorageLotService>();
-builder.Services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
-builder.Services.AddScoped<ITruckDriverService, TruckDriverService>();
-builder.Services.AddScoped<ITruckService, TruckService>();
-builder.Services.AddScoped<IWeighingTicketService, WeighingTicketService>();
-builder.Services.AddScoped<IPurchaseContractService, PurchaseContractService>();
+builder.Services.AddDomainServices();
 
 modelBuilder.EntitySet<Branch>("Branchs");
 modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
@@ -89,6 +72,8 @@ modelBuilder.EntitySet<State>("States");
 modelBuilder.EntitySet<Truck>("Trucks");
 modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
 modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
+modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
+modelBuilder.EntitySet<Tax>("Taxes");
 
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");

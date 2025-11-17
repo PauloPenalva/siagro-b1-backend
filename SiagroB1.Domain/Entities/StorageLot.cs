@@ -17,15 +17,16 @@ public class StorageLot : BaseEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
     
-    //[ForeignKey(nameof(ProcessingCost))]
-    public required Guid ProcessingCostKey { get; set; }
-    //public virtual ProcessingCost? ProcessingCost { get; set; }
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    [ForeignKey(nameof(ProcessingCost))]
+    public required string ProcessingCostCode { get; set; }
+    public virtual ProcessingCost? ProcessingCost { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    //[ForeignKey(nameof(Warehouse))]
+    [ForeignKey(nameof(Warehouse))]
     public required string WarehouseCode { get; set; }
-    //public virtual Warehouse? Warehouse { get; set; }
+    public virtual Warehouse? Warehouse { get; set; }
     
     [Column(TypeName = "DECIMAL(18, 3) DEFAULT 0")]
-    public decimal Balance { get; set; } = 0;
+    public decimal Balance { get; set; }
 }

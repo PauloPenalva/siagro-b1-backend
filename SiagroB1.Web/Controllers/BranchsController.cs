@@ -46,7 +46,7 @@ namespace SiagroB1.Web.Controllers
                 return BadRequest(ModelState);
             }
 
-            if (key != branch.Key)
+            if (key != branch.Code)
             {
                 return BadRequest();
             }

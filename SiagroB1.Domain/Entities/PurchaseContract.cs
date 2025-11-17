@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -9,13 +9,13 @@ namespace SiagroB1.Domain.Entities;
 [Index("Code")]
 public class PurchaseContract : BaseEntity
 {
-    [Column(TypeName = "VARCHAR(15)")]
-    public string? Code { get; set; }
-    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
+    public required string Code { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100)")]
     public string? Complement { get; set; }
 
-    public DateTime CreationDate { get; set; } = DateTime.Now;
+    public DateTime? CreationDate { get; set; } = DateTime.Now;
 
     public ContractType Type { get; set; }
 
@@ -25,7 +25,7 @@ public class PurchaseContract : BaseEntity
     /// SAP ENTITY
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")] 
-    public required string BusinessParterKey { get; set; }
+    public required string CardCode { get; set; }
 
     public DateTime DeliveryStartDate { get; set; }
 
@@ -33,18 +33,18 @@ public class PurchaseContract : BaseEntity
 
     public FreightTerms FreightTerms { get; set; }
 
-    [Column(TypeName = "DECIMAL(18,2)")]
-    public decimal FreightCost { get; set; } = 0;
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FreightCost { get; set; }
 
     /// <summary>
     /// SAP ENTITY
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")]  
-    public required string ProductKey { get; set; }
+    public required string ItemCode { get; set; }
 
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     [ForeignKey("UnitOfMeasure")]
-    public required string UnitOfMeasureKey { get; set; }
+    public required string UnitOfMeasureCode { get; set; }
     public virtual UnitOfMeasure? UnitOfMeasure { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
@@ -64,8 +64,17 @@ public class PurchaseContract : BaseEntity
     public string? Comments { get; set; }
     
     public ICollection<PurchaseContractPriceFixation> PriceFixations { get; set; } = [];
-
+    
     public ICollection<PurchaseContractTax> Taxes { get; set; } = [];
+    
+    public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
+
+    public void AddPriceFixation(PurchaseContractPriceFixation fixation)
+    {
+        fixation.PurchaseContract = this;
+        PriceFixations.Add(fixation);
+    }
+    
     
     public decimal FixedVolume => 
         decimal.Round(PriceFixations?.Sum(x => x.FixationVolume) ?? 0, 

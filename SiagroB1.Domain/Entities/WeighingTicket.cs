@@ -51,7 +51,8 @@ public class WeighingTicket : BaseEntity
     [Column(TypeName = "NVARCHAR(MAX)")]
     public string? Comments { get; set; }
     
+    [Column(TypeName = "VARCHAR(10)  NOT NULL")]
     [ForeignKey("ProcessingCost")]
-    public Guid? ProcessigCostKey { get; set; }
+    public string? ProcessigCostCode { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }
 }

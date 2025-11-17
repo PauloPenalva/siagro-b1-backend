@@ -71,7 +71,7 @@ namespace SiagroB1.Domain.Shared.Base.Shared.Base
             }
         }
 
-        public virtual async Task<T?> UpdateAsync(ID code, T entity)
+        public virtual async Task<T?> UpdateAsync(ID key, T entity)
         {
             try
             {
@@ -80,7 +80,7 @@ namespace SiagroB1.Domain.Shared.Base.Shared.Base
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!EntityExists("Key", code))
+                if (!EntityExists("Key", key))
                 {
                     throw new KeyNotFoundException("Entity not found.");
                 }

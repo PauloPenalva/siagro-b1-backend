@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Interfaces;
-using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;
@@ -126,7 +126,7 @@ public class ProcessingCostService(AppDbContext context, ILogger<ProcessingCostS
             .AsNoTracking();
     }
 
-    public override async Task<ProcessingCost?> UpdateAsync(string code, ProcessingCost entity)
+    public override async Task<ProcessingCost?> UpdateAsync(string key, ProcessingCost entity)
     {
         try
         {
@@ -151,7 +151,7 @@ public class ProcessingCostService(AppDbContext context, ILogger<ProcessingCostS
             }
             
             var existingEntity = await _context.Set<ProcessingCost>()
-                .FirstOrDefaultAsync(tc => tc.Code == code) ?? throw new KeyNotFoundException("Entity not found.");
+                .FirstOrDefaultAsync(tc => tc.Code == key) ?? throw new KeyNotFoundException("Entity not found.");
             _context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
             // Save changes
@@ -159,7 +159,7 @@ public class ProcessingCostService(AppDbContext context, ILogger<ProcessingCostS
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!EntityExists("Code", code))
+            if (!EntityExists("Code", key))
             {
                 throw new KeyNotFoundException("Entity not found.");
             }

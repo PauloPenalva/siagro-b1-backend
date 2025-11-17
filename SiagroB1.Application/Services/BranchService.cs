@@ -11,11 +11,11 @@ public class BranchService(AppDbContext context) : IBranchService
     public async Task<Branch> CreateAsync(Branch entity)
     {
         var existingBranch = await context.Branchs
-            .FirstOrDefaultAsync(b => b.Key == entity.Key);
+            .FirstOrDefaultAsync(b => b.Code == entity.Code);
         
         if (existingBranch != null)
         {
-            throw new DefaultException($"Branch {entity.Key} already exists.");
+            throw new DefaultException($"Branch {entity.Code} already exists.");
         }
         
         await context.Branchs.AddAsync(entity);
@@ -76,6 +76,6 @@ public class BranchService(AppDbContext context) : IBranchService
     
     private bool EntityExists(string key)
     {
-        return context.Branchs.Any(e => e.Key == key);
+        return context.Branchs.Any(e => e.Code == key);
     }
 }

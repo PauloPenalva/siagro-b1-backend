@@ -1,24 +1,114 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Application.PurchaseContracts;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Interfaces;
-using SiagroB1.Web.Base;
+using SiagroB1.Domain.Interfaces.PurchaseContracts;
+using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class PurchaseContractsController(IPurchaseContractService service) 
-    : ODataBaseController<PurchaseContract, Guid>(service)
+public class PurchaseContractsController(
+    PurchaseContractsCreateService createService,
+    PurchaseContractsUpdateService updateService,
+    PurchaseContractsDeleteService deleteService,
+    PurchaseContractsGetService getService
+    ) 
+    : ODataController
 {
-    [HttpGet("odata/PurchaseContracts({key})/PriceFixations")]
-    [HttpGet("odata/PurchaseContracts/{key}/PriceFixations")]
-    public ICollection<PurchaseContractPriceFixation> GetPriceFixations([FromRoute] Guid key)
+    [EnableQuery]
+    public ActionResult<IEnumerable<PurchaseContract>> Get()
     {
-        return new List<PurchaseContractPriceFixation>();
+        return Ok(getService.QueryAll());
+    }
+
+    [EnableQuery]
+    public async Task<ActionResult<PurchaseContract>> Get([FromRoute] Guid key)
+    {
+        var item = await getService.GetByIdAsync(key);
+
+        if (item == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(item);
     }
     
-    [HttpGet("odata/PurchaseContracts({key})/PriceFixations({fixationKey})")]
-    [HttpGet("odata/PurchaseContracts/{key}/PriceFixations/{fixationKey}")]
-    public PurchaseContractPriceFixation GetPriceFixationByKey([FromRoute] Guid key, [FromRoute] string fixationKey)
+    public async Task<IActionResult> Post([FromBody] PurchaseContract entity)
     {
-        return null;
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+            
+        try
+        {
+            await createService.ExecuteAsync(entity);
+
+            return Created(entity);
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    public async Task<IActionResult> Put(Guid key, PurchaseContract entity)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            await updateService.ExecuteAsync(key, entity);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+
+    public async Task<IActionResult> Delete(Guid key)
+    {
+        try
+        {
+            var success = await deleteService.ExecuteAsync(key);
+
+            if (!success)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
     }
 }
