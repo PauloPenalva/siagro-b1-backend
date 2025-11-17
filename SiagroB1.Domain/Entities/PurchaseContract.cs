@@ -69,13 +69,6 @@ public class PurchaseContract : BaseEntity
     
     public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
 
-    public void AddPriceFixation(PurchaseContractPriceFixation fixation)
-    {
-        fixation.PurchaseContract = this;
-        PriceFixations.Add(fixation);
-    }
-    
-    
     public decimal FixedVolume => 
         decimal.Round(PriceFixations?.Sum(x => x.FixationVolume) ?? 0, 
             2, 
