@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities
 {
@@ -9,7 +8,7 @@ namespace SiagroB1.Domain.Entities
     {
         [Key]
         [Column(TypeName = "VARCHAR(4) NOT NULL")]
-        public required string Key { get; set; }
+        public required string Code { get; set; }
         
         [Column(TypeName = "VARCHAR(100) NOT NULL")]
         public required string Description { get; set; }

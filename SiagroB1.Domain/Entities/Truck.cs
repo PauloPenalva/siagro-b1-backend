@@ -1,15 +1,14 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
-using SiagroB1.Domain.Base;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("TRUCKS")]
-[Index("BranchKey","LicensePlate", IsUnique = true)]
-public class Truck : BaseEntity
+public class Truck 
 {
-    [Column("VARCHAR(7) NOT NULL")]
-    public required string LicensePlate { get; set; }
+    [Key]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public required string Code { get; set; }
     
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public string? Model { get; set; }

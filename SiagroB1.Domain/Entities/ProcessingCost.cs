@@ -1,12 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Base;
+using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("PROCESSING_COSTS")]
 public class ProcessingCost : BaseEntity
-{   
+{
+    
+    [Key] 
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public required string Code { get; set; }
+    
     [Required(ErrorMessage = "Descrição é obrigatório.")]
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Description { get; set; }

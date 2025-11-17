@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Base;
+using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -17,13 +17,14 @@ public class StorageLot : BaseEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
     
-    [ForeignKey("ProcessingCost")]
+    //[ForeignKey(nameof(ProcessingCost))]
     public required Guid ProcessingCostKey { get; set; }
-    public virtual ProcessingCost? ProcessingCost { get; set; }
+    //public virtual ProcessingCost? ProcessingCost { get; set; }
     
-    [ForeignKey("WareHouse")]
-    public required Guid WarehouseKey { get; set; }
-    public virtual Warehouse? Warehouse { get; set; }
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    //[ForeignKey(nameof(Warehouse))]
+    public required string WarehouseCode { get; set; }
+    //public virtual Warehouse? Warehouse { get; set; }
     
     [Column(TypeName = "DECIMAL(18, 3) DEFAULT 0")]
     public decimal Balance { get; set; } = 0;

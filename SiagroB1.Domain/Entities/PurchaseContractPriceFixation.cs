@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Shared.Base.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -10,6 +10,7 @@ public class PurchaseContractPriceFixation
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid? Key { get; set; }
+   
     public required Guid PurchaseContractKey { get; set; }
     public virtual PurchaseContract? PurchaseContract { get; set; }
     

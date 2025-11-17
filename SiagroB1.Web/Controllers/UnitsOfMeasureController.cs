@@ -1,12 +1,11 @@
-using SiagroB1.Core.Interfaces;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Web.Base;
-using UnitOfMeasure = SiagroB1.Domain.Entities.UnitOfMeasure;
 
-namespace SiagroB1.Web.Controllers
+namespace SiagroB1.Web.Controllers;
+
+public class UnitsOfMeasureController(IUnitOfMeasureService service) 
+    : ODataBaseController<UnitOfMeasure, string>(service)
 {
-    public class UnitsOfMeasureController(IUnitOfMeasureService service) 
-        : ODataBaseController<UnitOfMeasure, string>(service)
-    {
-        
-    }
+    
 }

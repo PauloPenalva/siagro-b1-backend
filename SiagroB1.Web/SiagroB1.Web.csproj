@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\SiagroB1.Domain\SiagroB1.Domain.csproj" />
-    <ProjectReference Include="..\SiagroB1.Core\SiagroB1.Core.csproj" />
+    <ProjectReference Include="..\SiagroB1.Application\SiagroB1.Application.csproj" />
     <ProjectReference Include="..\SiagroB1.Migrations\SiagroB1.Migrations.csproj" />
   </ItemGroup>
 

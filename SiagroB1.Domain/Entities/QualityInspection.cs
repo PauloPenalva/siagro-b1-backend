@@ -14,8 +14,9 @@ public class QualityInspection
     public Guid? WeighingTicketKey { get; set; }
     public virtual WeighingTicket? WeighingTicket { get; set; }
     
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("QualityAttrib")]
-    public required Guid QualityAttribKey { get; set; }
+    public required string QualityAttribCode { get; set; }
     public virtual QualityAttrib? QualityAttrib { get; set; }
 
     [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]

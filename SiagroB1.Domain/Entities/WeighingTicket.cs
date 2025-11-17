@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Base;
+using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("WEIGHTING_TICKETS")]
 public class WeighingTicket : BaseEntity
 {
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? Code { get; set; }
+    
     public DateTime Date { get; set; }
 
     public int Time { get; set; }
@@ -23,13 +26,15 @@ public class WeighingTicket : BaseEntity
     [MaxLength(10)]
     public required string CardCode { get; set; }
     
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("Truck")]
-    public required Guid TruckKey { get; set; }
-    public Truck? Truck { get; set; }
+    public required string TruckCode { get; set; }
+    public virtual Truck? Truck { get; set; }
     
+    [Column(TypeName = "VARCHAR(11) NOT NULL")]
     [ForeignKey("TruckDriver")]
-    public required Guid TruckDriverKey { get; set; }
-    public TruckDriver? TruckDriver { get; set; }
+    public required string TruckDriverCode { get; set; }
+    public virtual TruckDriver? TruckDriver { get; set; }
 
     public int FirstWeighValue { get; set; } = 0;
 

@@ -1,12 +1,17 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Base;
-using SiagroB1.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Domain.Shared.Base.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("PURCHASE_CONTRACTS")]
+[Index("Code")]
 public class PurchaseContract : BaseEntity
 {
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? Code { get; set; }
+    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Complement { get; set; }
 
@@ -42,23 +47,39 @@ public class PurchaseContract : BaseEntity
     public required string UnitOfMeasureKey { get; set; }
     public virtual UnitOfMeasure? UnitOfMeasure { get; set; }
     
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("HarvestSeason")]
-    public required Guid HarvestSeasonKey { get; set; }
+    public required string HarvestSeasonCode { get; set; }
     public virtual HarvestSeason? HarvestSeason { get; set; }
 
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
-    public decimal TotalVolume { get; set; } = 0;
+    public decimal TotalVolume { get; set; }
     
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("DeliveryLocation")]
-    public required Guid DeliveryLocationId { get; set; }
+    public required string DeliveryLocationCode { get; set; }
     public virtual Warehouse? DeliveryLocation { get; set; }
     
     [Column(TypeName = "NVARCHAR(MAX)")]
     public string? Comments { get; set; }
     
     public ICollection<PurchaseContractPriceFixation> PriceFixations { get; set; } = [];
+
+    public ICollection<PurchaseContractTax> Taxes { get; set; } = [];
     
-    public decimal FixedVolume => PriceFixations?.Sum(x => x.FixationVolume) ?? 0;
+    public decimal FixedVolume => 
+        decimal.Round(PriceFixations?.Sum(x => x.FixationVolume) ?? 0, 
+            2, 
+            MidpointRounding.ToEven) ;
     
-    public decimal AvailableVolume => TotalVolume - FixedVolume;
+    public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume;
+    
+    public decimal TotalPrice => 
+        decimal.Round(
+            (PriceFixations?.Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
+            2 , 
+            MidpointRounding.ToEven) ;
+    
+    public decimal TotalTax => 
+        decimal.Round((Taxes?.Sum(x => x.TotalTax) ?? 0), 2, MidpointRounding.ToEven);
 }

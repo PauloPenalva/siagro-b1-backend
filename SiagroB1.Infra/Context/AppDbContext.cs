@@ -23,7 +23,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
-    public DbSet<PurchaseContractPriceFixation> PurchaseContractPriceFixations { get; set; }
+    public DbSet<PurchaseContractPriceFixation> PurchaseContractsPriceFixations { get; set; }
+    public DbSet<PurchaseContractTax> PurchaseContractsTaxes { get; set; }
+    public DbSet<Tax> Taxes { get; set; }
+    public DbSet<NumberSequence> NumberSequences { get; set; }
+    
     
 }
     

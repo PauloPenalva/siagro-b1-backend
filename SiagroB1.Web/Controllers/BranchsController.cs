@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
-using SiagroB1.Domain.Entities;
-using SiagroB1.Core.Services;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Web.Controllers
 {

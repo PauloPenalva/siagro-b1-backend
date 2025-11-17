@@ -1,12 +1,12 @@
 using SiagroB1.Domain.Entities;
-using SiagroB1.Core.Interfaces;
+using SiagroB1.Domain.Interfaces;
+
 using SiagroB1.Web.Base;
 
-namespace SiagroB1.Web.Controllers
+namespace SiagroB1.Web.Controllers;
+
+public class QualityParametersController(IProcessingCostQualityParameterService service) 
+    : ODataBaseController<ProcessingCostQualityParameter, string>(service)
 {
-    public class QualityParametersController(IProcessingCostQualityParameterService service) 
-        : ODataBaseController<ProcessingCostQualityParameter, Guid>(service)
-    {
-        
-    }
+    
 }

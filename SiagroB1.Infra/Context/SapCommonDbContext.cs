@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Domain.Entities.SAP;
 
 namespace SiagroB1.Infra.Context
 {

@@ -1,69 +1,69 @@
-using SiagroB1.Domain.Entities;
-using SiagroB1.Core.Interfaces;
+
 using SiagroB1.Web.Base;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
-using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Shared.Base.Exceptions;
 using Microsoft.AspNetCore.OData.Query;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces;
 
-namespace SiagroB1.Web.Controllers
+namespace SiagroB1.Web.Controllers;
+
+public class ProcessingCostDryingParametersController(
+    IProcessingCostDryingParameterService descontoSecagemService
+    ) : ODataBaseController<ProcessingCostDryingParameter, string>(descontoSecagemService)
 {
-    public class ProcessingCostDryingParametersController(
-        IProcessingCostDryingParameterService descontoSecagemService
-        ) : ODataBaseController<ProcessingCostDryingParameter, Guid>(descontoSecagemService)
+    protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
+    
+    [HttpPost("odata/ProcessingCosts({processingCostCode})/DryingParameters")]
+    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostDryingParameter entity)
     {
-        protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
-        
-        [HttpPost("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
-        public virtual async Task<IActionResult> PostAsync([FromODataUri] Guid tabelaCustoId, [FromBody] ProcessingCostDryingParameter entity)
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                await _descontoSecagemService.CreateAsync(tabelaCustoId, entity);
-
-                return Created(entity);
-            }
-            catch (Exception ex)
-            {
-                if (ex is DefaultException)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                return StatusCode(500, ex.Message);
-            }
-
+            return BadRequest(ModelState);
         }
 
-        // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
-        // fora de padrão
-        [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/DryingParameters({key})")]
-        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters({key})")]
-        public virtual async Task<IActionResult> GetAsync([FromODataUri] Guid tabelaCustoId, [FromODataUri] Guid key)
+        try
         {
-            var item = await _descontoSecagemService.FindByKeyAsync(tabelaCustoId, key);
+            await _descontoSecagemService.CreateAsync(processingCostCode, entity);
 
-            if (item == null)
+            return Created(entity);
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
             {
-                return NotFound();
+                return BadRequest(ex.Message);
             }
 
-            return Ok(item);
-
+            return StatusCode(500, ex.Message);
         }
 
-        [HttpGet("odata/ProcessingCosts({tabelaCustoId})/DryingParameters")]
-        [EnableQuery]
-        public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] Guid tabelaCustoId)
-        {
-            return Ok(_descontoSecagemService.GetAllByTabelaCustoId(tabelaCustoId));
-        }
-        
-        
     }
+
+    // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
+    // fora de padrão
+    [HttpGet("odata/ProcessingCosts/{processingCostCode}/DryingParameters({itemId})")]
+    [HttpGet("odata/ProcessingCosts({processingCostCode})/DryingParameters({itemId})")]
+    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
+    {
+        var item = await _descontoSecagemService.FindByKeyAsync(processingCostCode, itemId);
+
+        if (item == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(item);
+
+    }
+
+    [HttpGet("odata/ProcessingCosts({processingCostCode})/DryingParameters")]
+    [EnableQuery]
+    public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] string processingCostCode)
+    {
+        return Ok(_descontoSecagemService.GetAllByTabelaCustoId(processingCostCode));
+    }
+    
+    
 }

@@ -1,4 +1,4 @@
-namespace SiagroB1.Domain.Enums;
+namespace SiagroB1.Domain.Shared.Base.Enums;
 
 public enum ContractStatus
 {

@@ -2,17 +2,16 @@ using Microsoft.AspNetCore.OData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Domain.Entities;
 using SiagroB1.Infra.Context;
-
-using SiagroB1.Core.Services;
-using SiagroB1.Domain.Exceptions;
-using SiagroB1.Core.Interfaces;
+using SiagroB1.Domain.Shared.Base.Exceptions;
 using Microsoft.AspNetCore.OData.Batch;
 using System.Text.Json.Serialization;
-using SiagroB1.Core.Interfaces.SAP;
-using SiagroB1.Core.Services.SAP;
+using SiagroB1.Application.Services;
+using SiagroB1.Application.Services.SAP;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.SAP;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 
 var builder = WebApplication.CreateBuilder(args);
 

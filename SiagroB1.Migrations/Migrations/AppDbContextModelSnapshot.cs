@@ -39,13 +39,8 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
@@ -54,11 +49,44 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("Code");
 
                     b.ToTable("HARVEST_SEASSONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NumberSequence", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14) NOT NULL");
+
+                    b.Property<int>("FirstNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.Property<string>("TransactionCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchKey", "TransactionCode", "Serie")
+                        .IsUnique();
+
+                    b.ToTable("NUMBER_SEQUENCE");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>
@@ -68,6 +96,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("BranchKey")
+                        .IsRequired()
                         .HasColumnType("VARCHAR(14)")
                         .HasColumnOrder(1);
 
@@ -171,14 +200,15 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("ProcessingCostKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("QualityAttribKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("QualityAttribCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.HasKey("Key");
 
                     b.HasIndex("ProcessingCostKey");
 
-                    b.HasIndex("QualityAttribKey");
+                    b.HasIndex("QualityAttribCode");
 
                     b.ToTable("PROCESSING_COST_QUALITY_PARAMETERS");
                 });
@@ -195,35 +225,29 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("ProcessingCostKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProcessingServiceKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("ProcessingServiceCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.HasKey("Key");
 
                     b.HasIndex("ProcessingCostKey");
 
-                    b.HasIndex("ProcessingServiceKey");
+                    b.HasIndex("ProcessingServiceCode");
 
                     b.ToTable("PROCESSING_COST_SERVICE_DETAILS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingService", b =>
                 {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("Code");
 
                     b.ToTable("PROCESSING_SERVICES");
                 });
@@ -235,12 +259,16 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("BranchKey")
+                        .IsRequired()
                         .HasColumnType("VARCHAR(14)")
                         .HasColumnOrder(1);
 
                     b.Property<string>("BusinessParterKey")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("Comments")
                         .HasColumnType("NVARCHAR(MAX)");
@@ -254,8 +282,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("DeliveryEndDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("DeliveryLocationId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("DeliveryLocationCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
@@ -266,8 +295,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("FreightTerms")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("HarvestSeasonKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("HarvestSeasonCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("ProductKey")
                         .IsRequired()
@@ -290,9 +320,11 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("BranchKey");
 
-                    b.HasIndex("DeliveryLocationId");
+                    b.HasIndex("Code");
 
-                    b.HasIndex("HarvestSeasonKey");
+                    b.HasIndex("DeliveryLocationCode");
+
+                    b.HasIndex("HarvestSeasonCode");
 
                     b.HasIndex("UnitOfMeasureKey");
 
@@ -327,15 +359,32 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("PURCHASE_CONTRACTS_PRICE_FIXATIONS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractTax", b =>
                 {
                     b.Property<Guid>("Key")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    b.Property<Guid>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TaxCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(5) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PurchaseContractKey");
+
+                    b.HasIndex("TaxCode");
+
+                    b.ToTable("PURCHASE_CONTRACTS_TAXES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<bool>("Disabled")
                         .HasColumnType("bit");
@@ -344,9 +393,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("Code");
 
                     b.ToTable("QUALITY_ATTRIBS");
                 });
@@ -357,8 +404,9 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("QualityAttribKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("QualityAttribCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<decimal>("Value")
                         .HasColumnType("DECIMAL(18,1) DEFAULT 0");
@@ -368,7 +416,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
-                    b.HasIndex("QualityAttribKey");
+                    b.HasIndex("QualityAttribCode");
 
                     b.HasIndex("WeighingTicketKey");
 
@@ -403,6 +451,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("DECIMAL(18, 3) DEFAULT 0");
 
                     b.Property<string>("BranchKey")
+                        .IsRequired()
                         .HasColumnType("VARCHAR(14)")
                         .HasColumnOrder(1);
 
@@ -424,37 +473,41 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid>("ProcessingCostKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("WarehouseKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("WarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.HasKey("Key");
 
                     b.HasIndex("BranchKey");
 
-                    b.HasIndex("ProcessingCostKey");
-
-                    b.HasIndex("WarehouseKey");
-
                     b.ToTable("STORAGE_LOTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Tax", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(5) NOT NULL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<decimal>("Rate")
+                        .HasColumnType("DECIMAL(5,4) DEFAULT 0");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("TAXES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("City")
                         .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("LicensePlate")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)")
-                        .HasColumnName("VARCHAR(7) NOT NULL");
 
                     b.Property<string>("Model")
                         .HasColumnType("VARCHAR(100) NOT NULL");
@@ -462,66 +515,45 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("StateKey")
                         .HasColumnType("VARCHAR(2)");
 
-                    b.HasKey("Key");
+                    b.HasKey("Code");
 
                     b.HasIndex("StateKey");
-
-                    b.HasIndex("BranchKey", "LicensePlate")
-                        .IsUnique()
-                        .HasFilter("[BranchKey] IS NOT NULL");
 
                     b.ToTable("TRUCKS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckDriver", b =>
                 {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
-
                     b.Property<string>("Cpf")
-                        .HasColumnType("VARCHAR(11) ");
+                        .HasColumnType("VARCHAR(11) NOT NULL");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey", "Cpf")
-                        .IsUnique()
-                        .HasFilter("[BranchKey] IS NOT NULL AND [Cpf] IS NOT NULL");
+                    b.HasKey("Cpf");
 
                     b.ToTable("TRUCK_DRIVERS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.UnitOfMeasure", b =>
                 {
-                    b.Property<string>("Key")
+                    b.Property<string>("Code")
                         .HasColumnType("VARCHAR(4) NOT NULL");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.HasKey("Key");
+                    b.HasKey("Code");
 
                     b.ToTable("UNITS_OF_MEASURE");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
                 {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BranchKey")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
@@ -534,9 +566,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(14) NOT NULL")
                         .HasColumnName("TAXID");
 
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchKey");
+                    b.HasKey("Code");
 
                     b.ToTable("WAREHOUSES");
                 });
@@ -548,6 +578,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("BranchKey")
+                        .IsRequired()
                         .HasColumnType("VARCHAR(14)")
                         .HasColumnOrder(1);
 
@@ -555,6 +586,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("Comments")
                         .HasColumnType("NVARCHAR(MAX)");
@@ -593,11 +627,13 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("Time")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("TruckDriverKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("TruckCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<Guid>("TruckKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("TruckDriverCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(11) NOT NULL");
 
                     b.HasKey("Key");
 
@@ -605,18 +641,20 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessigCostKey");
 
-                    b.HasIndex("TruckDriverKey");
+                    b.HasIndex("TruckCode");
 
-                    b.HasIndex("TruckKey");
+                    b.HasIndex("TruckDriverCode");
 
                     b.ToTable("WEIGHTING_TICKETS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NumberSequence", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchKey");
+                        .HasForeignKey("BranchKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Branch");
                 });
@@ -625,7 +663,9 @@ namespace SiagroB1.Migrations.Migrations
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchKey");
+                        .HasForeignKey("BranchKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Branch");
                 });
@@ -656,7 +696,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
                         .WithMany()
-                        .HasForeignKey("QualityAttribKey")
+                        .HasForeignKey("QualityAttribCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -673,7 +713,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingService", "ProcessingService")
                         .WithMany()
-                        .HasForeignKey("ProcessingServiceKey")
+                        .HasForeignKey("ProcessingServiceCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -682,30 +722,23 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("ProcessingService");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingService", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
-                    b.Navigation("Branch");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContract", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchKey");
+                        .HasForeignKey("BranchKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SiagroB1.Domain.Entities.Warehouse", "DeliveryLocation")
                         .WithMany()
-                        .HasForeignKey("DeliveryLocationId")
+                        .HasForeignKey("DeliveryLocationCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
                         .WithMany()
-                        .HasForeignKey("HarvestSeasonKey")
+                        .HasForeignKey("HarvestSeasonCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -735,20 +768,30 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("PurchaseContract");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractTax", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
+                        .WithMany("Taxes")
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Navigation("Branch");
+                    b.HasOne("SiagroB1.Domain.Entities.Tax", "Tax")
+                        .WithMany()
+                        .HasForeignKey("TaxCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseContract");
+
+                    b.Navigation("Tax");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
                         .WithMany()
-                        .HasForeignKey("QualityAttribKey")
+                        .HasForeignKey("QualityAttribCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -765,79 +808,43 @@ namespace SiagroB1.Migrations.Migrations
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchKey");
-
-                    b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
-                        .WithMany()
-                        .HasForeignKey("ProcessingCostKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseKey")
+                        .HasForeignKey("BranchKey")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Branch");
-
-                    b.Navigation("ProcessingCost");
-
-                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
                     b.HasOne("SiagroB1.Domain.Entities.State", "State")
                         .WithMany()
                         .HasForeignKey("StateKey");
 
-                    b.Navigation("Branch");
-
                     b.Navigation("State");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckDriver", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
-                    b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchKey");
-
-                    b.Navigation("Branch");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
-                        .HasForeignKey("BranchKey");
+                        .HasForeignKey("BranchKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany()
                         .HasForeignKey("ProcessigCostKey");
 
-                    b.HasOne("SiagroB1.Domain.Entities.TruckDriver", "TruckDriver")
+                    b.HasOne("SiagroB1.Domain.Entities.Truck", "Truck")
                         .WithMany()
-                        .HasForeignKey("TruckDriverKey")
+                        .HasForeignKey("TruckCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SiagroB1.Domain.Entities.Truck", "Truck")
+                    b.HasOne("SiagroB1.Domain.Entities.TruckDriver", "TruckDriver")
                         .WithMany()
-                        .HasForeignKey("TruckKey")
+                        .HasForeignKey("TruckDriverCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -864,6 +871,8 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContract", b =>
                 {
                     b.Navigation("PriceFixations");
+
+                    b.Navigation("Taxes");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>

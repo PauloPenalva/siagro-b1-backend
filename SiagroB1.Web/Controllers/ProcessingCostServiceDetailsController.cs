@@ -1,20 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
-using SiagroB1.Core.Interfaces;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Web.Base;
 
 namespace SiagroB1.Web.Controllers;
 
 public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetailService servicoServiceDetailService) 
-    : ODataBaseController<ProcessingCostServiceDetail, Guid>(servicoServiceDetailService)
+    : ODataBaseController<ProcessingCostServiceDetail, string>(servicoServiceDetailService)
 {
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         
-    [HttpPost("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails")]
-    public virtual async Task<IActionResult> PostAsync([FromODataUri] Guid tabelaCustoId, [FromBody] ProcessingCostServiceDetail entity)
+    [HttpPost("odata/ProcessingCosts({processingCostCode})/ServiceDetails")]
+    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostServiceDetail entity)
     {
         if (!ModelState.IsValid)
         {
@@ -23,7 +23,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
         try
         {
-            await ServicoServiceDetailService.CreateAsync(tabelaCustoId, entity);
+            await ServicoServiceDetailService.CreateAsync(processingCostCode, entity);
 
             return Created(entity);
         }
@@ -41,11 +41,11 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     // quando se esta alterando a entidade pai, apos incluir um item de linha, a OpenUI5 esta chamando neste formato a requisição
     // fora de padrão
-    [HttpGet("odata/ProcessingCosts/{tabelaCustoId}/ServiceDetails({key})")]
-    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails({key})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] Guid tabelaCustoId, [FromODataUri] Guid key)
+    [HttpGet("odata/ProcessingCosts/{processingCostCode}/ServiceDetails({itemId})")]
+    [HttpGet("odata/ProcessingCosts({processingCostCode})/ServiceDetails({itemId})")]
+    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
     {
-        var item = await ServicoServiceDetailService.FindByKeyAsync(tabelaCustoId, key);
+        var item = await ServicoServiceDetailService.FindByKeyAsync(processingCostCode, itemId);
 
         if (item == null)
         {
@@ -56,10 +56,10 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     }
 
-    [HttpGet("odata/ProcessingCosts({tabelaCustoId})/ServiceDetails")]
+    [HttpGet("odata/ProcessingCosts({processingCostCode})/ServiceDetails")]
     [EnableQuery]
-    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetServicos([FromRoute] Guid tabelaCustoId)
+    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetServicos([FromRoute] string processingCostCode)
     {
-        return Ok(ServicoServiceDetailService.GetAllByProcessingCostKey(tabelaCustoId));
+        return Ok(ServicoServiceDetailService.GetAllByProcessingCostKey(processingCostCode));
     }
 }
