@@ -21,7 +21,7 @@ public class PurchaseContractsDeleteService(AppDbContext context, ILogger<Purcha
                 context.PurchaseContractsPriceFixations.RemoveRange(entity.PriceFixations);
 
             if (entity.QualityParameters.Any())
-                context.PurchaseContractQualityParameters.RemoveRange(entity.QualityParameters);
+                context.PurchaseContractsQualityParameters.RemoveRange(entity.QualityParameters);
 
             if (entity.Taxes.Any())
                 context.PurchaseContractsTaxes.RemoveRange(entity.Taxes);

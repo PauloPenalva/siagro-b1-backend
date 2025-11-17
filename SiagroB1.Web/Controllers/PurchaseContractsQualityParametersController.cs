@@ -8,17 +8,17 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class PurchaseContractsTaxesController(
-    PurchaseContractsTaxesCreateService createService,
-    PurchaseContractsTaxesUpdateService updateService,
-    PurchaseContractsTaxesDeleteService deleteService,
-    PurchaseContractsTaxesGetService getService
+public class PurchaseContractsQualityParametersController(
+    PurchaseContractsQualityParametersCreateService createService,
+    PurchaseContractsQualityParametersUpdateService updateService,
+    PurchaseContractsQualityParametersDeleteService deleteService,
+    PurchaseContractsQualityParametersGetService getService
     ) 
     : ODataController
 {
-    [HttpPost("odata/PurchaseContracts({key})/Taxes")]
-    [HttpPost("odata/PurchaseContracts/{key}/Taxes")]
-    public async Task<ActionResult<PurchaseContractTax>> Post([FromRoute] Guid key, [FromBody] PurchaseContractTax associationEntity)
+    [HttpPost("odata/PurchaseContracts({key})/QualityParameters")]
+    [HttpPost("odata/PurchaseContracts/{key}/QualityParameters")]
+    public async Task<ActionResult<PurchaseContractQualityParameter>> Post([FromRoute] Guid key, [FromBody] PurchaseContractQualityParameter associationEntity)
     {
         if (!ModelState.IsValid)
         {
@@ -42,12 +42,12 @@ public class PurchaseContractsTaxesController(
         }
     }
 
-    [HttpPut("odata/PurchaseContracts({parentKey})/Taxes({associationKey})")]
-    [HttpPut("odata/PurchaseContracts/{parentKey}/Taxes/{associationKey}")]
+    [HttpPut("odata/PurchaseContracts({parentKey})/QualityParameters({associationKey})")]
+    [HttpPut("odata/PurchaseContracts/{parentKey}/QualityParameters/{associationKey}")]
     public async Task<IActionResult> Put(
         [FromRoute] Guid parentKey, 
         [FromRoute] Guid associationKey,
-        [FromBody] PurchaseContractTax associationEntity)
+        [FromBody] PurchaseContractQualityParameter associationEntity)
     {
         if (!ModelState.IsValid)
         {
@@ -76,8 +76,8 @@ public class PurchaseContractsTaxesController(
     }
     
     
-    [HttpDelete("odata/PurchaseContracts({parentKey})/Taxes({associationKey})")]
-    [HttpDelete("odata/PurchaseContracts/{parentKey}/Taxes/{associationKey}")]
+    [HttpDelete("odata/PurchaseContracts({parentKey})/QualityParameters({associationKey})")]
+    [HttpDelete("odata/PurchaseContracts/{parentKey}/QualityParameters/{associationKey}")]
     public async Task<IActionResult> Delete([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
     {
         try
@@ -102,18 +102,18 @@ public class PurchaseContractsTaxesController(
     }
     
 
-    [HttpGet("odata/PurchaseContracts({key})/Taxes")]
-    [HttpGet("odata/PurchaseContracts/{key}/Taxes")]
+    [HttpGet("odata/PurchaseContracts({key})/QualityParameters")]
+    [HttpGet("odata/PurchaseContracts/{key}/QualityParameters")]
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContractPriceFixation>> Get([FromRoute] Guid key)
+    public ActionResult<IEnumerable<PurchaseContractQualityParameter>> Get([FromRoute] Guid key)
     {
         return Ok(getService.QueryAll(key));
     }
     
-    [HttpGet("odata/PurchaseContracts({key})/Taxes({fixationKey})")]
-    [HttpGet("odata/PurchaseContracts/{key}/Taxes/{fixationKey}")]
+    [HttpGet("odata/PurchaseContracts({key})/QualityParameters({fixationKey})")]
+    [HttpGet("odata/PurchaseContracts/{key}/QualityParameters/{fixationKey}")]
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContractPriceFixation>> Get([FromRoute] Guid key, [FromRoute] Guid fixationKey)
+    public async Task<ActionResult<PurchaseContractQualityParameter>> Get([FromRoute] Guid key, [FromRoute] Guid fixationKey)
     {
         var item = await getService.GetByIdAsync(key, fixationKey);
 

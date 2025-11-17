@@ -1,0 +1,39 @@
+using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Context;
+
+namespace SiagroB1.Application.PurchaseContracts;
+
+public class PurchaseContractsQualityParametersUpdateService(
+    AppDbContext context, ILogger<PurchaseContractsQualityParametersUpdateService> logger)
+{
+    public async Task<PurchaseContractQualityParameter?> ExecuteAsync(Guid parenteKey, Guid associationKey, PurchaseContractQualityParameter associationEntity)
+    {
+        try
+        {
+            if (!ExistingPurchaseContract(parenteKey))
+            {
+                throw new NotFoundException("Purchase Contract not found");
+            }
+            
+            var existingEntity = await context.PurchaseContractsQualityParameters.FindAsync(associationKey)
+                ?? throw new NotFoundException("Quality parameters not found");
+
+            context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
+            await context.SaveChangesAsync();
+            
+            return associationEntity;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, exception.Message);
+            throw;
+        }
+    }
+
+    private bool ExistingPurchaseContract(Guid key)
+    {
+        return  context.PurchaseContracts.Any(x => x.Key == key);
+    }
+}
