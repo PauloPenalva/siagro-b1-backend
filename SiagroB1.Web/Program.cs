@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OData.ModelBuilder;
+using SiagroB1.Application.Dtos;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.SAP;
@@ -73,7 +74,29 @@ modelBuilder.EntitySet<Truck>("Trucks");
 modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
 modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
 modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
+modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
+modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
 modelBuilder.EntitySet<Tax>("Taxes");
+modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
+
+modelBuilder.EntityType<ShipmentRelease>()
+    .Action("ShipmentReleasesApprovation")
+    .Parameter<Guid>("key");
+
+modelBuilder.EntityType<ShipmentRelease>()
+    .Action("ShipmentReleasesCancelation")
+    .Parameter<Guid>("key");
+
+modelBuilder.EntityType<PurchaseContract>()
+    .Action("PurchaseContractsSetRunningStatus")
+    .Parameter<Guid>("key");
+
+modelBuilder.EntityType<PurchaseContract>()
+    .Function("PurchaseContractsGetTotals")
+    .Returns<PurchaseContractTotalsDto>()
+    .Parameter<Guid>("key");
+
+
 
 var edmModel =  modelBuilder.GetEdmModel();
 //EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");

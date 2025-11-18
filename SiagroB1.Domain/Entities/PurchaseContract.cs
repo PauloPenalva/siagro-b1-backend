@@ -70,7 +70,9 @@ public class PurchaseContract : BaseEntity
     public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
 
     public decimal FixedVolume => 
-        decimal.Round(PriceFixations?.Sum(x => x.FixationVolume) ?? 0, 
+        decimal.Round(PriceFixations?
+                .Where(x => x.Status == PriceFixationStatus.Confirmed)
+                .Sum(x => x.FixationVolume ) ?? 0, 
             2, 
             MidpointRounding.ToEven) ;
     
