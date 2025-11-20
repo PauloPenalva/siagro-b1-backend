@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.ShipmentReleases;
@@ -8,43 +10,17 @@ public class ShipmentReleasesDeleteService(AppDbContext context, ILogger<Shipmen
 {
     public async Task<bool> ExecuteAsync(Guid key)
     {
-        return await DeleteAsyncWithTransaction(key, async entity =>
+        var entity = await context.ShipmentReleases
+            .FirstOrDefaultAsync(x => x.Key == key) ?? 
+                     throw new NotFoundException("Shipment Release not found.");
+        
+        if (entity.Status != ReleaseStatus.Pending)
         {
-            await context.SaveChangesAsync();
-        });
-    }
-
-    private bool EntityExists(Guid key)
-    {
-        return context.Set<PurchaseContract>().Any(e => e.Key == key);
-    }
-    
-    private async Task<bool> DeleteAsyncWithTransaction(Guid id, Func<ShipmentRelease, Task>? preDeleteAction = null)
-    {
-        await using var transaction = await context.Database.BeginTransactionAsync();
-        try
-        {
-            var entity = await context.ShipmentReleases.FindAsync(id);
-            if (entity == null)
-            {
-                logger.LogWarning("Entity {Entity} with ID {Id} not found.", nameof(ShipmentRelease), id);
-                return false;
-            }
-
-            if (preDeleteAction != null)
-                await preDeleteAction(entity);
-
-            context.ShipmentReleases.Remove(entity);
-            await context.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-            return true;
+            throw new ApplicationException("Shipment Release not pending.");
         }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            logger.LogError(ex, "Error deleting entity {Entity} with ID {Id}", nameof(ShipmentRelease), id);
-            throw;
-        }
+        
+        context.ShipmentReleases.Remove(entity);
+        await context.SaveChangesAsync();
+        return true;
     }
 }

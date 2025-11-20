@@ -18,7 +18,7 @@ public class PurchaseContractsPriceFixationsController(
 {
     [HttpPost("odata/PurchaseContracts({key})/PriceFixations")]
     [HttpPost("odata/PurchaseContracts/{key}/PriceFixations")]
-    public async Task<ActionResult<PurchaseContractPriceFixation>> Post([FromRoute] Guid key, [FromBody] PurchaseContractPriceFixation associationEntity)
+    public async Task<ActionResult<PurchaseContractPriceFixation>> CreatePriceFixationsAsync([FromRoute] Guid key, [FromBody] PurchaseContractPriceFixation associationEntity)
     {
         if (!ModelState.IsValid)
         {
@@ -44,7 +44,7 @@ public class PurchaseContractsPriceFixationsController(
 
     [HttpPut("odata/PurchaseContracts({parentKey})/PriceFixations({associationKey})")]
     [HttpPut("odata/PurchaseContracts/{parentKey}/PriceFixations/{associationKey}")]
-    public async Task<IActionResult> Put(
+    public async Task<IActionResult> UpdatePriceFixationsAsync(
         [FromRoute] Guid parentKey, 
         [FromRoute] Guid associationKey,
         [FromBody] PurchaseContractPriceFixation associationEntity)
@@ -78,7 +78,7 @@ public class PurchaseContractsPriceFixationsController(
     
     [HttpDelete("odata/PurchaseContracts({parentKey})/PriceFixations({associationKey})")]
     [HttpDelete("odata/PurchaseContracts/{parentKey}/PriceFixations/{associationKey}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
+    public async Task<IActionResult> DeletePriceFixationsAsync([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
     {
         try
         {
@@ -105,7 +105,7 @@ public class PurchaseContractsPriceFixationsController(
     [HttpGet("odata/PurchaseContracts({key})/PriceFixations")]
     [HttpGet("odata/PurchaseContracts/{key}/PriceFixations")]
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContractPriceFixation>> Get([FromRoute] Guid key)
+    public ActionResult<IEnumerable<PurchaseContractPriceFixation>> GetPriceFixations([FromRoute] Guid key)
     {
         return Ok(getService.QueryAll(key));
     }

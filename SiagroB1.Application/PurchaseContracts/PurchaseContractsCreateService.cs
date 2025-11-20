@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Constants;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
@@ -7,7 +8,7 @@ namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsCreateService(AppDbContext context, ILogger<PurchaseContractsCreateService> logger)
 {
-    public async Task<PurchaseContract> ExecuteAsync(PurchaseContract entity)
+    public async Task<PurchaseContract> ExecuteAsync(PurchaseContract entity, string createdBy)
     {
         try
         {
@@ -26,6 +27,8 @@ public class PurchaseContractsCreateService(AppDbContext context, ILogger<Purcha
                 parameter.PurchaseContract = entity;
             }
             
+            entity.CreatedAt = DateTime.Now;
+            entity.CreatedBy = createdBy;
             await context.PurchaseContracts.AddAsync(entity);
             await context.SaveChangesAsync();
             return entity;
@@ -37,8 +40,8 @@ public class PurchaseContractsCreateService(AppDbContext context, ILogger<Purcha
                 throw;
             }
 
-            logger.LogError(ex, "Error creating entity.");
-            throw new DefaultException("Error creating entity.");
+            logger.LogError(ex, ex.Message);
+            throw new DefaultException(MessagesPtBr.CreatePurchaseContractError);
         }
     }    
 }

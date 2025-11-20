@@ -9,20 +9,18 @@ namespace SiagroB1.Web.Controllers;
 
 public class ShipmentReleasesController(
     ShipmentReleasesCreateService createService,
-    ShipmentReleasesUpdateService updateService,
     ShipmentReleasesDeleteService deleteService,
     ShipmentReleasesGetService getService
-    ) 
-    : ODataController
+    ) : ODataController
 {
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContract>> Get()
+    public ActionResult<IEnumerable<ShipmentRelease>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContract>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<ShipmentRelease>> Get([FromRoute] Guid key)
     {
         var item = await getService.GetByIdAsync(key);
 
@@ -43,7 +41,8 @@ public class ShipmentReleasesController(
             
         try
         {
-            await createService.ExecuteAsync(entity);
+            var userName = User.Identity?.Name ?? "Unknown";
+            await createService.ExecuteAsync(entity, userName);
 
             return Created(entity);
         }
@@ -58,35 +57,7 @@ public class ShipmentReleasesController(
         }
     }
 
-    public async Task<IActionResult> Put(Guid key, ShipmentRelease entity)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        try
-        {
-            await updateService.ExecuteAsync(key, entity);
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (Exception ex)
-        {
-            if (ex is DefaultException)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            return StatusCode(500, ex.Message);
-        }
-
-        return NoContent();
-    }
-
-    public async Task<IActionResult> Delete(Guid key)
+    public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
         try
         {
@@ -102,7 +73,7 @@ public class ShipmentReleasesController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            if (ex is DefaultException or ApplicationException)
             {
                 return BadRequest(ex.Message);
             }

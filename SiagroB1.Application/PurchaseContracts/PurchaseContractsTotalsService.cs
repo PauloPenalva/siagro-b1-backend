@@ -13,29 +13,19 @@ public class PurchaseContractsTotalsService(AppDbContext context)
                       .Include(x => x.Taxes)
                       .ThenInclude(x => x.Tax)
                       .Include(x => x.PriceFixations)
+                      .Include(x => x.ShipmentReleases)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new KeyNotFoundException();
-
-        var totalReleased = await GetTotalShipmentReleases(key);
-        var totalAvailableToRelease = ctr.TotalVolume - totalReleased;
-
+        
         return new PurchaseContractTotalsDto
         {
             FixedVolume = ctr.FixedVolume,
             AvailableVolumeToPricing = ctr.AvailableVolumeToPricing,
             TotalPrice = ctr.TotalPrice,
             TotalTax = ctr.TotalTax,
-            TotalShipmentReleases = totalReleased,
-            TotalAvailableToRelease = totalAvailableToRelease
+            TotalShipmentReleases = ctr.TotalShipmentReleases,
+            TotalAvailableToRelease = ctr.TotalAvailableToRelease
         };
-    }
-
-    private async Task<decimal> GetTotalShipmentReleases(Guid key)
-    {
-        return await context.ShipmentReleases
-            .AsNoTracking()
-            .Where(x => x.PurchaseContractKey == key && x.Status == ReleaseStatus.Approved)
-            .SumAsync(x => x.ReleasedQuantity);
     }
 }

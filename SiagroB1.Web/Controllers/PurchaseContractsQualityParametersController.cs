@@ -18,7 +18,7 @@ public class PurchaseContractsQualityParametersController(
 {
     [HttpPost("odata/PurchaseContracts({key})/QualityParameters")]
     [HttpPost("odata/PurchaseContracts/{key}/QualityParameters")]
-    public async Task<ActionResult<PurchaseContractQualityParameter>> Post([FromRoute] Guid key, [FromBody] PurchaseContractQualityParameter associationEntity)
+    public async Task<ActionResult<PurchaseContractQualityParameter>> PostQualityParametersAsync([FromRoute] Guid key, [FromBody] PurchaseContractQualityParameter associationEntity)
     {
         if (!ModelState.IsValid)
         {
@@ -44,7 +44,7 @@ public class PurchaseContractsQualityParametersController(
 
     [HttpPut("odata/PurchaseContracts({parentKey})/QualityParameters({associationKey})")]
     [HttpPut("odata/PurchaseContracts/{parentKey}/QualityParameters/{associationKey}")]
-    public async Task<IActionResult> Put(
+    public async Task<IActionResult> PutQualityParametersAsync(
         [FromRoute] Guid parentKey, 
         [FromRoute] Guid associationKey,
         [FromBody] PurchaseContractQualityParameter associationEntity)
@@ -78,7 +78,7 @@ public class PurchaseContractsQualityParametersController(
     
     [HttpDelete("odata/PurchaseContracts({parentKey})/QualityParameters({associationKey})")]
     [HttpDelete("odata/PurchaseContracts/{parentKey}/QualityParameters/{associationKey}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
+    public async Task<IActionResult> DeleteQualityParametersAsync([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
     {
         try
         {
@@ -105,7 +105,7 @@ public class PurchaseContractsQualityParametersController(
     [HttpGet("odata/PurchaseContracts({key})/QualityParameters")]
     [HttpGet("odata/PurchaseContracts/{key}/QualityParameters")]
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContractQualityParameter>> Get([FromRoute] Guid key)
+    public ActionResult<IEnumerable<PurchaseContractQualityParameter>> GetQualityParameters([FromRoute] Guid key)
     {
         return Ok(getService.QueryAll(key));
     }
@@ -113,7 +113,7 @@ public class PurchaseContractsQualityParametersController(
     [HttpGet("odata/PurchaseContracts({key})/QualityParameters({fixationKey})")]
     [HttpGet("odata/PurchaseContracts/{key}/QualityParameters/{fixationKey}")]
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContractQualityParameter>> Get([FromRoute] Guid key, [FromRoute] Guid fixationKey)
+    public async Task<ActionResult<PurchaseContractQualityParameter>> GetQualityParametersAsync([FromRoute] Guid key, [FromRoute] Guid fixationKey)
     {
         var item = await getService.GetByIdAsync(key, fixationKey);
 

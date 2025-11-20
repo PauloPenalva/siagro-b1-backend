@@ -9,7 +9,9 @@ namespace SiagroB1.Domain.Entities;
 [Index("ReleaseNumber", IsUnique = true)]
 public class ShipmentRelease : BaseEntity
 {
+    [ForeignKey(nameof(PurchaseContractKey))]
     public required Guid PurchaseContractKey { get; set; }
+    public virtual PurchaseContract? PurchaseContract { get; set; }
     
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public required string ReleaseNumber { get; set; }
@@ -36,4 +38,11 @@ public class ShipmentRelease : BaseEntity
     public string? ApprovedBy { get; set; }
     
     public DateTime? ApprovedAt { get; set; }
+    
+    public virtual ICollection<StorageTransaction> Transactions { get; } = [];
+
+    public bool HasStorageTransactions => Transactions
+        .Any(x => 
+            x.TransactionsStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Waiting &&
+            x.TransactionType == StorageTransactionType.ShipmentReleased);
 }

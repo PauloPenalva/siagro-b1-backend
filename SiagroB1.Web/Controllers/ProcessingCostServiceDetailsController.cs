@@ -14,7 +14,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         
     [HttpPost("odata/ProcessingCosts({processingCostCode})/ServiceDetails")]
-    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostServiceDetail entity)
+    public virtual async Task<IActionResult> CreateServiceDetailsAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostServiceDetail entity)
     {
         if (!ModelState.IsValid)
         {
@@ -43,7 +43,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
     // fora de padrão
     [HttpGet("odata/ProcessingCosts/{processingCostCode}/ServiceDetails({itemId})")]
     [HttpGet("odata/ProcessingCosts({processingCostCode})/ServiceDetails({itemId})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
+    public virtual async Task<IActionResult> GetServiceDetailsAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
     {
         var item = await ServicoServiceDetailService.FindByKeyAsync(processingCostCode, itemId);
 
@@ -58,7 +58,7 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
 
     [HttpGet("odata/ProcessingCosts({processingCostCode})/ServiceDetails")]
     [EnableQuery]
-    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetServicos([FromRoute] string processingCostCode)
+    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetSServiceDetails([FromRoute] string processingCostCode)
     {
         return Ok(ServicoServiceDetailService.GetAllByProcessingCostKey(processingCostCode));
     }

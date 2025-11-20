@@ -8,7 +8,7 @@ namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsUpdateService(AppDbContext context, ILogger<PurchaseContractsUpdateService> logger)
 {
-    public async Task<PurchaseContract?> ExecuteAsync(Guid key, PurchaseContract entity)
+    public async Task<PurchaseContract?> ExecuteAsync(Guid key, PurchaseContract entity, string userName)
     {
         try
         {
@@ -17,6 +17,8 @@ public class PurchaseContractsUpdateService(AppDbContext context, ILogger<Purcha
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
             // Save changes
+            existingEntity.UpdatedAt = DateTime.Now;
+            existingEntity.UpdatedBy = userName;
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

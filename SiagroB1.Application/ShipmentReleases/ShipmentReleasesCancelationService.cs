@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -10,12 +11,22 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
     public async Task ExecuteAsync(Guid key)
     {
         var sr = await context.ShipmentReleases
-            .FindAsync(key) ??
+                     .Include(x => x.Transactions)
+                     .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
         
         if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed )
         {
-            throw new ArgumentException("Shipment Release is cancelled or completed.");
+            throw new ApplicationException("Shipment Release is cancelled or completed.");
+        }
+
+        if (sr.HasStorageTransactions)
+        {
+            var msg = "Shipment Release has storage transaction(s) confirmed.\n";
+            msg += "Please, cancel storage transaction(s) code(s):\n";
+            msg = sr.Transactions.Aggregate(msg, (current, storageTransaction) => current + $"- {storageTransaction.Key}\n");
+
+            throw new ApplicationException(msg);
         }
         
         sr.Status = ReleaseStatus.Cancelled;
@@ -23,14 +34,5 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
         sr.ApprovedAt = DateTime.Now;
 
         await context.SaveChangesAsync();
-    }
-
-    private decimal GetTotalReleasesByContract(Guid contractKey, Guid releaseKey)
-    {
-        return context.ShipmentReleases
-            .Where(x => x.PurchaseContractKey == contractKey &&
-                        x.Status != ReleaseStatus.Cancelled &&
-                        x.Key != releaseKey)
-            .Sum(x => x.ReleasedQuantity);
     }
 }

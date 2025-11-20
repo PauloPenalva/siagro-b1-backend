@@ -16,7 +16,7 @@ public class ProcessingCostDryingParametersController(
     protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
     
     [HttpPost("odata/ProcessingCosts({processingCostCode})/DryingParameters")]
-    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostDryingParameter entity)
+    public virtual async Task<IActionResult> CreateDryingParametersAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostDryingParameter entity)
     {
         if (!ModelState.IsValid)
         {
@@ -45,7 +45,7 @@ public class ProcessingCostDryingParametersController(
     // fora de padrão
     [HttpGet("odata/ProcessingCosts/{processingCostCode}/DryingParameters({itemId})")]
     [HttpGet("odata/ProcessingCosts({processingCostCode})/DryingParameters({itemId})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
+    public virtual async Task<IActionResult> GetDryingParametersAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
     {
         var item = await _descontoSecagemService.FindByKeyAsync(processingCostCode, itemId);
 
@@ -60,7 +60,7 @@ public class ProcessingCostDryingParametersController(
 
     [HttpGet("odata/ProcessingCosts({processingCostCode})/DryingParameters")]
     [EnableQuery]
-    public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDescontosSecagem([FromRoute] string processingCostCode)
+    public ActionResult<IQueryable<ProcessingCostDryingParameter>> GetDDryingParameters([FromRoute] string processingCostCode)
     {
         return Ok(_descontoSecagemService.GetAllByTabelaCustoId(processingCostCode));
     }

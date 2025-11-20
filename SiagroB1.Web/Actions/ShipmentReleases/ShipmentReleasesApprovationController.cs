@@ -3,18 +3,20 @@ using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.ShipmentReleases;
 using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Functions.ShipmentReleases;
+namespace SiagroB1.Web.Actions.ShipmentReleases;
 
 public class ShipmentReleasesApprovationController(
     ShipmentReleasesApprovationService approvationService
     ) : ODataController
 {
-    [HttpPost("odata/ShipmentReleasesApprovation({key:guid})")]
+    [HttpPost]
+    [Route("/odata/ShipmentReleases({key:guid})/Approvation")]
     public async Task<ActionResult> Approvation([FromRoute] Guid key)
     {
         try
         {
-            await approvationService.ExecuteAsync(key);
+            var usarName = User.Identity?.Name ?? "Unknown";
+            await approvationService.ExecuteAsync(key, usarName);
         
             return Ok();
         }

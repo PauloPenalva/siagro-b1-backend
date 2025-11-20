@@ -1,21 +1,20 @@
-
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Application.PurchaseContracts;
 using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Functions.PurchaseContracts;
+namespace SiagroB1.Web.Actions.PurchaseContracts;
 
-public class PurchaseContractsGetTotalsController(
+public class PurchaseContractsTotalsController(
     PurchaseContractsTotalsService service
     ) : ODataController
 {
-    [HttpGet("odata/PurchaseContracts({key:guid})/GetTotals")]
+    [HttpPost]
+    [Route("odata/PurchaseContracts({key:guid})/Totals")]
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContractTotalsDto>> GetTotals([FromODataUri] Guid key)
+    public async Task<ActionResult<PurchaseContractTotalsDto>> Totals([FromRoute] Guid key)
     {
         try
         {

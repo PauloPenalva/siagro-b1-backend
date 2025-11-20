@@ -30,5 +30,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<NumberSequence> NumberSequences { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
     public DbSet<ShippingManifest> ShippingManifests { get; set; }
+    public DbSet<StorageAddress> StorageAddresses { get; set; }
+    public DbSet<StorageTransaction> StorageTransactions { get; set; }
+    
 }
     

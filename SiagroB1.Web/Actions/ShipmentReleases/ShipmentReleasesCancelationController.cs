@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.ShipmentReleases;
 using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Functions.ShipmentReleases;
+namespace SiagroB1.Web.Actions.ShipmentReleases;
 
 public class ShipmentReleasesCancelationController(
     ShipmentReleasesCancelationService cancelationService
     ) : ODataController
 {
-    [HttpPost("odata/ShipmentReleasesCancelation({key:guid})")]
+    [HttpPost]
+    [Route("odata/ShipmentReleases({key:guid})/Cancelation")]
     public async Task<ActionResult> Cancelation([FromRoute] Guid key)
     {
         try

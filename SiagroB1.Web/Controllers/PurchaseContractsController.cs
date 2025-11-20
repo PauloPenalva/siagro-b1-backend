@@ -44,7 +44,8 @@ public class PurchaseContractsController(
             
         try
         {
-            await createService.ExecuteAsync(entity);
+            var userName = User.Identity?.Name ?? "Unknown";
+            await createService.ExecuteAsync(entity, userName);
 
             return Created(entity);
         }
@@ -68,7 +69,8 @@ public class PurchaseContractsController(
 
         try
         {
-            await updateService.ExecuteAsync(key, entity);
+            var userName = User.Identity?.Name ?? "Unknown";
+            await updateService.ExecuteAsync(key, entity, userName);
         }
         catch (KeyNotFoundException)
         {

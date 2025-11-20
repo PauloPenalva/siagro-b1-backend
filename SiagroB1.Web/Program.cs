@@ -4,14 +4,13 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Application.Dtos;
 using SiagroB1.Application.Services.SAP;
-using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 using SiagroB1.Web.DI;
+using SiagroB1.Web.ODataConfig;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,55 +55,12 @@ switch (erp.ToUpper().Trim())
 
 builder.Services.AddDomainServices();
 
-modelBuilder.EntitySet<Branch>("Branchs");
-modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
-modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
-modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
-modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");
-modelBuilder.EntitySet<ProcessingCostDryingParameter>("ProcessingCostDryingParameters");
-modelBuilder.EntitySet<ProcessingCostDryingDetail>("ProcessingCostDryingDetails");
-modelBuilder.EntitySet<ProcessingCostQualityParameter>("ProcessingCostQualityParameters");
-modelBuilder.EntitySet<ProcessingCostServiceDetail>("ProcessingCostServiceDetails");
-modelBuilder.EntitySet<Warehouse>("Warehouses");
-modelBuilder.EntitySet<StorageLot>("StorageLots");
-modelBuilder.EntitySet<HarvestSeason>("HarvestSeasons");
-modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
-modelBuilder.EntitySet<State>("States");
-modelBuilder.EntitySet<Truck>("Trucks");
-modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
-modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
-modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
-modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
-modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
-modelBuilder.EntitySet<Tax>("Taxes");
-modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
-
-modelBuilder.EntityType<ShipmentRelease>()
-    .Action("ShipmentReleasesApprovation")
-    .Parameter<Guid>("key");
-
-modelBuilder.EntityType<ShipmentRelease>()
-    .Action("ShipmentReleasesCancelation")
-    .Parameter<Guid>("key");
-
-modelBuilder.EntityType<PurchaseContract>()
-    .Action("PurchaseContractsSetRunningStatus")
-    .Parameter<Guid>("key");
-
-modelBuilder.EntityType<PurchaseContract>()
-    .Function("PurchaseContractsGetTotals")
-    .Returns<PurchaseContractTotalsDto>()
-    .Parameter<Guid>("key");
-
-
-
-var edmModel =  modelBuilder.GetEdmModel();
-//EdmModelAutoAnnotations.ApplyAllAnnotations((EdmModel) edmModel, typeof(Participante).Assembly, "SIAGROB1");
+modelBuilder.ConfigureODataEntities();
 
 builder.Services.AddControllers().AddOData(options =>
 {
     options.EnableQueryFeatures(null);
-    options.AddRouteComponents("odata", edmModel, new DefaultODataBatchHandler());
+    options.AddRouteComponents("odata", modelBuilder.GetEdmModel(), new DefaultODataBatchHandler());
 })
 .AddJsonOptions(options =>
 {

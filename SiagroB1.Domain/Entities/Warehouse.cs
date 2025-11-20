@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -21,4 +22,6 @@ public class Warehouse
     public string? TaxId { get; set; }
     
     public bool Inactive { get; set; }
+
+    public WarehouseType Type { get; set; } = WarehouseType.Owner;
 }

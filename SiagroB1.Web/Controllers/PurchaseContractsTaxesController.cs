@@ -18,7 +18,7 @@ public class PurchaseContractsTaxesController(
 {
     [HttpPost("odata/PurchaseContracts({key})/Taxes")]
     [HttpPost("odata/PurchaseContracts/{key}/Taxes")]
-    public async Task<ActionResult<PurchaseContractTax>> Post([FromRoute] Guid key, [FromBody] PurchaseContractTax associationEntity)
+    public async Task<ActionResult<PurchaseContractTax>> PostTaxesAsync([FromRoute] Guid key, [FromBody] PurchaseContractTax associationEntity)
     {
         if (!ModelState.IsValid)
         {
@@ -44,7 +44,7 @@ public class PurchaseContractsTaxesController(
 
     [HttpPut("odata/PurchaseContracts({parentKey})/Taxes({associationKey})")]
     [HttpPut("odata/PurchaseContracts/{parentKey}/Taxes/{associationKey}")]
-    public async Task<IActionResult> Put(
+    public async Task<IActionResult> PutTaxesAsync(
         [FromRoute] Guid parentKey, 
         [FromRoute] Guid associationKey,
         [FromBody] PurchaseContractTax associationEntity)
@@ -78,7 +78,7 @@ public class PurchaseContractsTaxesController(
     
     [HttpDelete("odata/PurchaseContracts({parentKey})/Taxes({associationKey})")]
     [HttpDelete("odata/PurchaseContracts/{parentKey}/Taxes/{associationKey}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
+    public async Task<IActionResult> DeleteTaxesAsync([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
     {
         try
         {
@@ -105,7 +105,7 @@ public class PurchaseContractsTaxesController(
     [HttpGet("odata/PurchaseContracts({key})/Taxes")]
     [HttpGet("odata/PurchaseContracts/{key}/Taxes")]
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContractPriceFixation>> Get([FromRoute] Guid key)
+    public ActionResult<IEnumerable<PurchaseContractPriceFixation>> GetTaxesAsync([FromRoute] Guid key)
     {
         return Ok(getService.QueryAll(key));
     }
@@ -113,7 +113,7 @@ public class PurchaseContractsTaxesController(
     [HttpGet("odata/PurchaseContracts({key})/Taxes({fixationKey})")]
     [HttpGet("odata/PurchaseContracts/{key}/Taxes/{fixationKey}")]
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContractPriceFixation>> Get([FromRoute] Guid key, [FromRoute] Guid fixationKey)
+    public async Task<ActionResult<PurchaseContractPriceFixation>> GetTaxesAsync([FromRoute] Guid key, [FromRoute] Guid fixationKey)
     {
         var item = await getService.GetByIdAsync(key, fixationKey);
 

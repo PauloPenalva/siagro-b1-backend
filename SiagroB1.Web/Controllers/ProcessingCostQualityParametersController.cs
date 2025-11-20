@@ -15,7 +15,7 @@ public class ProcessingCostQualityParametersController(
     protected readonly IProcessingCostQualityParameterService _qualidadeService = qualidadeService;
     
     [HttpPost("odata/ProcessingCosts({processingCostCode})/QualityParameters")]
-    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostQualityParameter entity)
+    public virtual async Task<IActionResult> CreateQualityParametersAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostQualityParameter entity)
     {
         if (!ModelState.IsValid)
         {
@@ -44,7 +44,7 @@ public class ProcessingCostQualityParametersController(
     // fora de padrão
     [HttpGet("odata/ProcessingCosts/{processingCostCode}/QualityParameters({itemId})")]
     [HttpGet("odata/ProcessingCosts({processingCostCode})/QualityParameters({itemId})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
+    public virtual async Task<IActionResult> GetQualityParametersAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
     {
         var item = await _qualidadeService.FindByKeyAsync(processingCostCode, itemId);
 
@@ -59,7 +59,7 @@ public class ProcessingCostQualityParametersController(
 
     [HttpGet("odata/ProcessingCosts({processingCostCode})/QualityParameters")]
     [EnableQuery]
-    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetQualidades([FromRoute] string processingCostCode)
+    public ActionResult<IQueryable<ProcessingCostDryingDetail>> GetQualityParameters([FromRoute] string processingCostCode)
     {
         return Ok(_qualidadeService.GetAllByProcessingCostKey(processingCostCode));
     }

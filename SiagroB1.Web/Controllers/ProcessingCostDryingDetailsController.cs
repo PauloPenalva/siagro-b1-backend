@@ -14,7 +14,7 @@ public class ProcessingCostDryingDetailsController(IProcessingCostDryingDetailSe
     private readonly IProcessingCostDryingDetailService _service = service;
     
     [HttpPost("odata/ProcessingCosts({processingCostCode})/DryingDetails")]
-    public virtual async Task<IActionResult> PostAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostDryingDetail entity)
+    public virtual async Task<IActionResult> CreateDryingDetailsAsync([FromODataUri] string processingCostCode, [FromBody] ProcessingCostDryingDetail entity)
     {
         if (!ModelState.IsValid)
         {
@@ -43,7 +43,7 @@ public class ProcessingCostDryingDetailsController(IProcessingCostDryingDetailSe
     // fora de padrão
     [HttpGet("odata/ProcessingCosts/{processingCostCode}/DryingDetails({itemId})")]
     [HttpGet("odata/ProcessingCosts({processingCostCode})/DryingDetails({itemId})")]
-    public virtual async Task<IActionResult> GetAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
+    public virtual async Task<IActionResult> GetDryingDetailsAsync([FromODataUri] string processingCostCode, [FromODataUri] int itemId)
     {
         var item = await _service.FindByKeyAsync(processingCostCode, itemId);
 

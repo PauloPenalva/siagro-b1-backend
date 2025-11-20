@@ -19,6 +19,7 @@ public class PurchaseContractsGetService(AppDbContext context, ILogger<PurchaseC
                 .ThenInclude(qa => qa.QualityAttrib)
                 .Include(p => p.Taxes)
                 .ThenInclude(t => t.Tax)
+                .Include(x => x.ShipmentReleases)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)
