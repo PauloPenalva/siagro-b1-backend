@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251121134438_DropTableShippingManifests")]
+    partial class DropTableShippingManifests
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,20 +55,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Code");
 
                     b.ToTable("HARVEST_SEASSONS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.LogisticRegion", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.HasKey("Code");
-
-                    b.ToTable("LOGISTIC_REGIONS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NumberSequence", b =>
@@ -336,9 +325,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<string>("LogisticRegionCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
                     b.Property<string>("Sequence")
                         .IsRequired()
                         .HasColumnType("VARCHAR(3) NOT NULL");
@@ -367,8 +353,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("DeliveryLocationCode");
 
                     b.HasIndex("HarvestSeasonCode");
-
-                    b.HasIndex("LogisticRegionCode");
 
                     b.HasIndex("UnitOfMeasureCode");
 
@@ -493,140 +477,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("WeighingTicketKey");
 
                     b.ToTable("QUALITY_INSPECTIONS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("BranchCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("CardCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("Comments")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<string>("Complement")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DeliveryEndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DeliveryStartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("FreightCost")
-                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
-
-                    b.Property<int>("FreightTerms")
-                        .HasColumnType("int");
-
-                    b.Property<string>("HarvestSeasonCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("ItemCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("LogisticRegionCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("Sequence")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(3) NOT NULL");
-
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TotalVolume")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UnitOfMeasureCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(4) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("HarvestSeasonCode");
-
-                    b.HasIndex("LogisticRegionCode");
-
-                    b.HasIndex("UnitOfMeasureCode");
-
-                    b.HasIndex("Code", "Sequence")
-                        .IsUnique();
-
-                    b.ToTable("SALES_CONTRACTS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContractPriceFixation", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("FixationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("FixationPrice")
-                        .HasColumnType("DECIMAL(18,8) DEFAULT 0");
-
-                    b.Property<decimal>("FixationVolume")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.Property<Guid?>("SalesContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("SalesContractKey");
-
-                    b.ToTable("SALES_CONTRACTS_PRICE_FIXATIONS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -1080,10 +930,6 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SiagroB1.Domain.Entities.LogisticRegion", "LogisticRegion")
-                        .WithMany()
-                        .HasForeignKey("LogisticRegionCode");
-
                     b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
                         .WithMany()
                         .HasForeignKey("UnitOfMeasureCode")
@@ -1093,8 +939,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("DeliveryLocation");
 
                     b.Navigation("HarvestSeason");
-
-                    b.Navigation("LogisticRegion");
 
                     b.Navigation("UnitOfMeasure");
                 });
@@ -1157,40 +1001,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("QualityAttrib");
 
                     b.Navigation("WeighingTicket");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
-                        .WithMany()
-                        .HasForeignKey("HarvestSeasonCode")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.LogisticRegion", "LogisticRegion")
-                        .WithMany()
-                        .HasForeignKey("LogisticRegionCode");
-
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("HarvestSeason");
-
-                    b.Navigation("LogisticRegion");
-
-                    b.Navigation("UnitOfMeasure");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContractPriceFixation", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.SalesContract", "SalesContract")
-                        .WithMany("PriceFixations")
-                        .HasForeignKey("SalesContractKey");
-
-                    b.Navigation("SalesContract");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -1294,11 +1104,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("ShipmentReleases");
 
                     b.Navigation("Taxes");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
-                {
-                    b.Navigation("PriceFixations");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>

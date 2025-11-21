@@ -30,6 +30,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
+        modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
+        modelBuilder.EntitySet<SalesContract>("SalesContracts");
         
         var purchaseContract = modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         purchaseContract.EntityType

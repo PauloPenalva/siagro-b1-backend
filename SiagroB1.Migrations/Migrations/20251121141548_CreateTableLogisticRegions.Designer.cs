@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251121141548_CreateTableLogisticRegions")]
+    partial class CreateTableLogisticRegions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -544,6 +547,10 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("DeliveryEndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("DeliveryLocationCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
 
@@ -589,14 +596,13 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
+                    b.HasIndex("DeliveryLocationCode");
+
                     b.HasIndex("HarvestSeasonCode");
 
                     b.HasIndex("LogisticRegionCode");
 
                     b.HasIndex("UnitOfMeasureCode");
-
-                    b.HasIndex("Code", "Sequence")
-                        .IsUnique();
 
                     b.ToTable("SALES_CONTRACTS");
                 });
@@ -1161,6 +1167,12 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "DeliveryLocation")
+                        .WithMany()
+                        .HasForeignKey("DeliveryLocationCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
                         .WithMany()
                         .HasForeignKey("HarvestSeasonCode")
@@ -1176,6 +1188,8 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("UnitOfMeasureCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("DeliveryLocation");
 
                     b.Navigation("HarvestSeason");
 

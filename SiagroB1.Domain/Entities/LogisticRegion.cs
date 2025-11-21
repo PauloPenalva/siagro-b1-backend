@@ -3,11 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("TRUCK_DRIVERS")]
-public class TruckDriver 
+[Table("LOGISTIC_REGIONS")]
+public class LogisticRegion
 {
     [Key]
-    [Column(TypeName = "VARCHAR(11) NOT NULL")]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string Code { get; set; }
     
     [Column(TypeName = "VARCHAR(100) NOT NULL")]

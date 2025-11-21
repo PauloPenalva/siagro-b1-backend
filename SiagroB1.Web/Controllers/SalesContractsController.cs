@@ -1,29 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.PurchaseContracts;
+using SiagroB1.Application.SalesContracts;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Interfaces.PurchaseContracts;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class PurchaseContractsController(
-    PurchaseContractsCreateService createService,
-    PurchaseContractsUpdateService updateService,
-    PurchaseContractsDeleteService deleteService,
-    PurchaseContractsGetService getService
+public class SalesContractsController(
+    SalesContractsCreateService createService,
+    SalesContractsUpdateService updateService,
+    SalesContractsDeleteService deleteService,
+    SalesContractsGetService getService
     ) 
     : ODataController
 {
     [EnableQuery]
-    public ActionResult<IEnumerable<PurchaseContract>> Get()
+    public ActionResult<IEnumerable<SalesContract>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContract>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<SalesContract>> Get([FromRoute] Guid key)
     {
         var item = await getService.GetByIdAsync(key);
 
@@ -35,7 +34,7 @@ public class PurchaseContractsController(
         return Ok(item);
     }
     
-    public async Task<IActionResult> Post([FromBody] PurchaseContract entity)
+    public async Task<IActionResult> Post([FromBody] SalesContract entity)
     {
         if (!ModelState.IsValid)
         {
@@ -60,7 +59,7 @@ public class PurchaseContractsController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] PurchaseContract entity)
+    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] SalesContract entity)
     {
         if (!ModelState.IsValid)
         {

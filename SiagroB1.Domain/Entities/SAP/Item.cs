@@ -7,8 +7,9 @@ namespace SiagroB1.Domain.Entities.SAP;
 public class Item
 {
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.None)]
+    [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public required string ItemCode { get; set; }
 
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string ItemName { get; set; }
 }

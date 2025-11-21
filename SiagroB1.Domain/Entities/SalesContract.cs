@@ -5,9 +5,9 @@ using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("PURCHASE_CONTRACTS")]
+[Table("SALES_CONTRACTS")]
 [Index("Code", "Sequence", IsUnique = true)]
-public class PurchaseContract : BaseEntity
+public class SalesContract : BaseEntity
 {
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public required string Code { get; set; }
@@ -58,12 +58,7 @@ public class PurchaseContract : BaseEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal TotalVolume { get; set; }
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    [ForeignKey("DeliveryLocation")]
-    public required string DeliveryLocationCode { get; set; }
-    public virtual Warehouse? DeliveryLocation { get; set; }
-    
-    [Column(TypeName = "NVARCHAR(MAX)")]
+    [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
     public DateTime? CreatedAt { get; set; } = DateTime.Now;
@@ -87,48 +82,16 @@ public class PurchaseContract : BaseEntity
     public string? CanceledBy { get; set; } = string.Empty;
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    [ForeignKey(nameof(LogisticRegion))]
+    [ForeignKey(nameof(LogisticRegionCode))]
     public string? LogisticRegionCode { get; set; }
     public virtual LogisticRegion? LogisticRegion { get; set; }
-    
-    public ICollection<PurchaseContractPriceFixation> PriceFixations { get; set; } = [];
-    
-    public ICollection<PurchaseContractTax> Taxes { get; set; } = [];
-    
-    public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
-    
-    public ICollection<ShipmentRelease> ShipmentReleases { get; set; } = [];
 
-    public decimal FixedVolume => 
-        decimal.Round(PriceFixations?
-                .Where(x => x.Status == PriceFixationStatus.Confirmed)
-                .Sum(x => x.FixationVolume ) ?? 0, 
-            2, 
-            MidpointRounding.ToEven) ;
-    
-    public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume;
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal Volume { get; set; } = 0;
+
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal Price { get; set; } = 0;
     
     public decimal TotalPrice => 
-        decimal.Round(
-            (PriceFixations?.Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
-            2 , 
-            MidpointRounding.ToEven) ;
-    
-    public decimal TotalTax => 
-        decimal.Round((Taxes?.Sum(x => x.TotalTax) ?? 0), 2, MidpointRounding.ToEven);
-    
-    public decimal TotalShipmentReleases =>
-        decimal.Round(
-            (ShipmentReleases?
-                .Where(x => 
-                    x.Status is ReleaseStatus.Approved or
-                            ReleaseStatus.Completed)
-                .Sum(x => x.ReleasedQuantity) ?? 0),
-        2, MidpointRounding.ToEven);
-    
-    public decimal TotalAvailableToRelease => 
-        decimal.Round(TotalVolume - TotalShipmentReleases, 2, MidpointRounding.ToEven);
-    
-    public bool HasShipmentReleases => ShipmentReleases
-        .Any(x => x.Status != ReleaseStatus.Cancelled);
+        decimal.Round((Volume * Price), 2 , MidpointRounding.ToEven);
 }

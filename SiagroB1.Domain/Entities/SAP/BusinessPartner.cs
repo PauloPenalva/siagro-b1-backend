@@ -7,8 +7,9 @@ namespace SiagroB1.Domain.Entities.SAP;
 public class BusinessPartner
 {
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.None)]
+    [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public required string CardCode { get; set; }
 
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string CardName { get; set; }
 }

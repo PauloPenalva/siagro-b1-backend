@@ -29,9 +29,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<NumberSequence> NumberSequences { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
-    public DbSet<ShippingManifest> ShippingManifests { get; set; }
     public DbSet<StorageAddress> StorageAddresses { get; set; }
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
-    
+    public DbSet<LogisticRegion> LogisticRegions { get; set; }
+    public DbSet<SalesContract> SalesContracts { get; set; }
 }
     
