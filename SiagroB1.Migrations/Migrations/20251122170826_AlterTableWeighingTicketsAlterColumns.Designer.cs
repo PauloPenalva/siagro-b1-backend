@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251122170826_AlterTableWeighingTicketsAlterColumns")]
+    partial class AlterTableWeighingTicketsAlterColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -998,8 +1001,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(15) NOT NULL");
 
                     b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(15) NOT NULL");
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("Comments")
                         .HasColumnType("NVARCHAR(MAX)");
@@ -1024,11 +1026,11 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("SecondWeighValue")
                         .HasColumnType("int");
 
-                    b.Property<int?>("Stage")
-                        .HasColumnType("int");
-
                     b.Property<int?>("Status")
                         .HasColumnType("int");
+
+                    b.Property<string>("Time")
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("TruckCode")
                         .IsRequired()
@@ -1042,9 +1044,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Key");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
 
                     b.HasIndex("TruckCode");
 
