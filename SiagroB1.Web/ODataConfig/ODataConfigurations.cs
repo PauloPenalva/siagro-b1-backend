@@ -18,7 +18,6 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ProcessingCostQualityParameter>("ProcessingCostQualityParameters");
         modelBuilder.EntitySet<ProcessingCostServiceDetail>("ProcessingCostServiceDetails");
         modelBuilder.EntitySet<Warehouse>("Warehouses");
-        modelBuilder.EntitySet<StorageLot>("StorageLots");
         modelBuilder.EntitySet<HarvestSeason>("HarvestSeasons");
         modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
         modelBuilder.EntitySet<State>("States");
@@ -32,6 +31,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
+        modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");
         
         var purchaseContract = modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         purchaseContract.EntityType

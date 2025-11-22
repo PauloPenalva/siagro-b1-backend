@@ -9,4 +9,5 @@ public enum StorageTransactionType
     QualityLoss,      // Quebra técnica
     Processing,       // Beneficiamento
     ShipmentReleased, // Liberação de entrega/compra para embarque.
+    SalesShipment,    // Saída para Venda
 }

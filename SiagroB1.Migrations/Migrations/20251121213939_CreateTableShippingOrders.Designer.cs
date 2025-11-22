@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251121213939_CreateTableShippingOrders")]
+    partial class CreateTableShippingOrders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -843,6 +846,52 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("STORAGE_ADDRESSES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageLot", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("DECIMAL(18, 3) DEFAULT 0");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<DateTime>("CreationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("ProcessingCostCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("WarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ProcessingCostCode");
+
+                    b.HasIndex("WarehouseCode");
+
+                    b.ToTable("STORAGE_LOTS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.Property<Guid>("Key")
@@ -1263,6 +1312,25 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("StorageAddress");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageLot", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
+                        .WithMany()
+                        .HasForeignKey("ProcessingCostCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProcessingCost");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

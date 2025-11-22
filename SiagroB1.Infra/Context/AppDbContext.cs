@@ -15,7 +15,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ProcessingCostDryingDetail> ProcessingCostDryingDetails { get; set; }
     public DbSet<ProcessingCostQualityParameter> ProcessingCostQualityParameters { get; set; }
     public DbSet<ProcessingCostServiceDetail> ProcessingCostServiceDetails { get; set; }
-    public DbSet<StorageLot> StorageLots { get; set; }
     public DbSet<Warehouse> WhareHouses { get; set; }
     public DbSet<HarvestSeason> HarvestSeasons { get; set; }
     public DbSet<TruckDriver> TruckDrivers { get; set; }
@@ -33,5 +32,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
+    public DbSet<ShippingOrder> ShippingOrders { get; set; }
+    public DbSet<SalesInvoice> SalesInvoices { get; set; }
+    public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
+
+
+
 }
     

@@ -32,4 +32,6 @@ public class StorageTransaction
     public virtual ShipmentRelease? ShipmentRelease { get; set; }
     
     public TransactionCode? TransactionOrigin { get; set; } 
+    
+    public Guid? ShippingOrderKey { get; set; }
 }

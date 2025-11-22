@@ -1,26 +1,24 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_INVOICES")]
-public class SalesInvoice
+public class SalesInvoice : BaseEntity
 {
-    [Key]
-    public Guid? Key;
+    [Column(TypeName = "VARCHAR(9)")]
+    public string? InvoiceNumber { get; set; } = string.Empty;
     
-    public required Guid SalesOrderKey { get; set; }
-    public virtual SalesOrder? SalesOrder { get; set; }
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? InvoiceSeries { get; set; } = string.Empty;
     
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    public required string ItemCode { get; set; }
+    public DateTime? InvoiceDate { get; set; } = DateTime.Now.Date;
     
-    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
-    public decimal Quantity { get; set; }
+    [Column(TypeName = "VARCHAR(15) NOT NULL")]
+    public required string CardCode { get; set; } = string.Empty;
     
-    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
-    public decimal UnitPrice { get; set; }
+    public string? Comments { get; set; }
 
-    public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
-
+    public ICollection<SalesInvoiceItem> Items { get; set; } = [];
 }
