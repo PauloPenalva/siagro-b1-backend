@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.ShippingOrders;
@@ -18,23 +19,19 @@ public class ShippingOrdersDeleteService(AppDbContext context, ILogger<ShippingO
     
     private async Task<bool> DeleteAsyncWithTransaction(Guid key, Func<ShippingOrder, Task>? preDeleteAction = null)
     {
+        var entity = await context.ShippingOrders
+            .FirstOrDefaultAsync(x => x.Key == key) ??
+                throw new NotFoundException("Shipping order not found.");
+        
+        if (entity.Status != ShippingOrderStatus.Planned)
+        {
+            throw new ApplicationException("Shipping order must be in planned status.");
+        }
+
+        
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
-            var entity = await context.ShippingOrders
-                .FirstOrDefaultAsync(x => x.Key == key);
-            
-            if (entity == null)
-            {
-                logger.LogWarning("Entity {Entity} with ID {Id} not found.", nameof(ShippingOrder), key);
-                return false;
-            }
-
-            if (entity.Status != ShippingOrderStatus.Planned)
-            {
-                throw new ApplicationException("Shipping order must be in planned status.");
-            }
-            
             if (preDeleteAction != null)
                 await preDeleteAction(entity);
 
@@ -46,7 +43,6 @@ public class ShippingOrdersDeleteService(AppDbContext context, ILogger<ShippingO
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             logger.LogError(ex, "Error deleting entity {Entity} with ID {Id}", nameof(ShippingOrder), key);
             throw;
         }

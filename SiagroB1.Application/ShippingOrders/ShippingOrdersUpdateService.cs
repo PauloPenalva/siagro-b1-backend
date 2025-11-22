@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -13,6 +14,11 @@ public class ShippingOrdersUpdateService(AppDbContext context, ILogger<ShippingO
         var existingEntity = await context.Set<ShippingOrder>()
             .FirstOrDefaultAsync(tc => tc.Key == key) ?? 
                              throw new KeyNotFoundException("Entity not found.");
+
+        if (existingEntity.Status != ShippingOrderStatus.Planned)
+        {
+            throw new ApplicationException("Shipping order must be in planned status.");
+        }
         
         try
         {
@@ -23,7 +29,7 @@ public class ShippingOrdersUpdateService(AppDbContext context, ILogger<ShippingO
         catch (DbUpdateConcurrencyException)
         {
             logger.Log(LogLevel.Error, "Failed to update entity.");
-            throw new DefaultException("Error updating entity due to concurrency issues.");
+            throw new ApplicationException("Error updating entity due to concurrency issues.");
         }
 
         return entity;

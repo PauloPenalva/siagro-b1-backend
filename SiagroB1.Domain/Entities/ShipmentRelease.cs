@@ -43,6 +43,6 @@ public class ShipmentRelease : BaseEntity
 
     public bool HasStorageTransactions => Transactions
         .Any(x => 
-            x.TransactionsStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Waiting &&
+            x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Waiting &&
             x.TransactionType == StorageTransactionType.ShipmentReleased);
 }

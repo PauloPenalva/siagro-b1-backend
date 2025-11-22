@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.ShippingOrders;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
@@ -71,13 +72,13 @@ public class ShippingOrdersController(
             var userName = User.Identity?.Name ?? "Unknown";
             await updateService.ExecuteAsync(key, entity, userName);
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException e)
         {
-            return NotFound();
+            return NotFound(e.Message);
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            if (ex is ApplicationException)
             {
                 return BadRequest(ex.Message);
             }
@@ -92,24 +93,18 @@ public class ShippingOrdersController(
     {
         try
         {
-            var success = await deleteService.ExecuteAsync(key);
-
-            if (!success)
-            {
-                return NotFound();
-            }
-
+            await deleteService.ExecuteAsync(key);
+            
             return NoContent();
-
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            return ex switch
             {
-                return BadRequest(ex.Message);
-            }
-
-            return StatusCode(500, ex.Message);
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
         }
     }
 }

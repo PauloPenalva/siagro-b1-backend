@@ -3,7 +3,7 @@ namespace SiagroB1.Domain.Enums;
 public enum ShippingOrderStatus
 {
     Planned,        // Planejado
-    Weighed,        // Pesado
+    Shipped,        // Embarcado
     Invoiced,       // Faturado
     Delivered,      // Entregue
     Returned,       // Devolvido

@@ -31,7 +31,11 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
-        modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");
+        
+        var storageAddresses = modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
+        storageAddresses.EntityType
+            .Action("Totals")
+            .Parameter<Guid>("key");
         
         var purchaseContract = modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         purchaseContract.EntityType
@@ -54,6 +58,16 @@ public static class ODataConfigurations
         
         shipmentReleases.EntityType
             .Action("Cancelation")
+            .Parameter<Guid>("key");
+        
+        
+        var shippingOrders  = modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");
+        shippingOrders.EntityType
+            .Action("Shipped")
+            .Parameter<Guid>("key");
+        
+        shippingOrders.EntityType
+            .Action("Cancel")
             .Parameter<Guid>("key");
     }
 }

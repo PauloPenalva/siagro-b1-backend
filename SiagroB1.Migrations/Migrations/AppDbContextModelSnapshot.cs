@@ -750,7 +750,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(15) NOT NULL");
 
-                    b.Property<int>("Status")
+                    b.Property<int?>("Status")
                         .HasColumnType("int");
 
                     b.Property<Guid>("StorageAddressKey")
@@ -760,7 +760,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<string>("TruckDriver")
+                    b.Property<string>("TruckDriverCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(11) NOT NULL");
 
@@ -849,10 +849,10 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("NetWeight")
-                        .HasColumnType("decimal(18,3) DEFAULT 0");
-
                     b.Property<Guid?>("ShipmentReleaseKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ShippingOrderKey")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("StorageAddressKey")
@@ -864,14 +864,23 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
 
+                    b.Property<int>("TransactionStatus")
+                        .HasColumnType("int");
+
                     b.Property<string>("TransactionTime")
                         .HasColumnType("VARCHAR(20)");
 
                     b.Property<int>("TransactionType")
                         .HasColumnType("int");
 
-                    b.Property<int>("TransactionsStatus")
-                        .HasColumnType("int");
+                    b.Property<string>("TruckCode")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("TruckDriverCode")
+                        .HasColumnType("VARCHAR(11) NOT NULL");
+
+                    b.Property<decimal>("Volume")
+                        .HasColumnType("decimal(18,3) DEFAULT 0");
 
                     b.HasKey("Key");
 

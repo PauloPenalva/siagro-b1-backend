@@ -22,10 +22,10 @@ public class StorageTransaction
     
     public StorageTransactionType TransactionType { get; set; }
 
-    public StorageTransactionsStatus TransactionsStatus { get; set; } = StorageTransactionsStatus.Waiting;
+    public StorageTransactionsStatus TransactionStatus { get; set; } = StorageTransactionsStatus.Waiting;
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
-    public decimal NetWeight { get; set; }
+    public decimal Volume { get; set; }
     
     [ForeignKey(nameof(ShipmentRelease))]
     public Guid? ShipmentReleaseKey  { get; set; }
@@ -34,4 +34,10 @@ public class StorageTransaction
     public TransactionCode? TransactionOrigin { get; set; } 
     
     public Guid? ShippingOrderKey { get; set; }
+    
+    [Column(TypeName = "VARCHAR(11) NOT NULL")]
+    public string? TruckDriverCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public string? TruckCode { get; set; }
 }

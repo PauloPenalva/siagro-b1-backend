@@ -70,9 +70,9 @@ public class ShipmentReleasesApprovationService(AppDbContext context, ILogger<Sh
         {
             StorageAddressKey = (Guid) storageAddress.Key,
             TransactionType = StorageTransactionType.ShipmentReleased,
-            NetWeight = sr.ReleasedQuantity,
+            Volume = sr.ReleasedQuantity,
             ShipmentReleaseKey = sr.Key,
-            TransactionsStatus = StorageTransactionsStatus.Confirmed,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
             TransactionOrigin = TransactionCode.ShipmentRelease
         });
         

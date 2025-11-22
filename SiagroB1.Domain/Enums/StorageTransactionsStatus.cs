@@ -4,5 +4,6 @@ public enum StorageTransactionsStatus
 {
     Waiting,
     Confirmed,
-    Cancelled
+    Cancelled,
+    Invoiced,
 }
