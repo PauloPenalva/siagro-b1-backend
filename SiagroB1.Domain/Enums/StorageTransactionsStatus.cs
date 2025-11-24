@@ -2,7 +2,7 @@ namespace SiagroB1.Domain.Enums;
 
 public enum StorageTransactionsStatus
 {
-    Waiting,
+    Pending,
     Confirmed,
     Cancelled,
     Invoiced,

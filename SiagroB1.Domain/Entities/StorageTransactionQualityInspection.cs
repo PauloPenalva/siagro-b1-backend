@@ -3,16 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SiagroB1.Domain.Entities;
 
-[Table("QUALITY_INSPECTIONS")]
-public class QualityInspection
+[Table("STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS")]
+public class StorageTransactionQualityInspection
 {
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public Guid? Key { get; set; }
+    public Guid? Key {  get; set; }
     
-    [ForeignKey("WeighingTicket")]
-    public Guid? WeighingTicketKey { get; set; }
-    public virtual WeighingTicket? WeighingTicket { get; set; }
+    public Guid? StorageTransactionKey { get; set; }
+    public virtual StorageTransaction? StorageTransaction { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("QualityAttrib")]
@@ -22,4 +20,7 @@ public class QualityInspection
     [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
     [Range(0, double.MaxValue)]
     public decimal Value { get; set; } = 0;
+    
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal LossValue { get; set; } = 0;
 }

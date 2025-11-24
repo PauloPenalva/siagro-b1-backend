@@ -22,7 +22,6 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
         modelBuilder.EntitySet<State>("States");
         modelBuilder.EntitySet<Truck>("Trucks");
-        modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
         modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
         modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
         modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
@@ -68,6 +67,27 @@ public static class ODataConfigurations
         
         shippingOrders.EntityType
             .Action("Cancel")
+            .Parameter<Guid>("key");
+        
+        var weighingTickets = modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
+        weighingTickets.EntityType
+            .Action("FirstWeighing")
+            .Parameter<Guid>("key");
+        
+        weighingTickets.EntityType
+            .Action("SecondWeighing")
+            .Parameter<Guid>("key");
+        
+        weighingTickets.EntityType
+            .Action("Completed")
+            .Parameter<Guid>("key");
+        
+        weighingTickets.EntityType
+            .Action("Cancel")
+            .Parameter<Guid>("key");
+        
+        weighingTickets.EntityType
+            .Action("QualityInspections")
             .Parameter<Guid>("key");
     }
 }

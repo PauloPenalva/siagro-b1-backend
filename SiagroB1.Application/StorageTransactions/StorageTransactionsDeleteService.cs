@@ -8,15 +8,20 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsDeleteService(AppDbContext context, ILogger<StorageTransactionsDeleteService> logger)
 {
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(Guid key, TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {
         var entity = await context.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ?? 
                      throw new NotFoundException("Storage Transaction not found.");
 
-        if (entity.TransactionOrigin != TransactionCode.StorageTransaction)
+        if (entity.TransactionOrigin != transactionCode)
         {
             throw new ApplicationException("This record was created by another transaction. It cannot be deleted.");
+        }
+
+        if (entity.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            throw new ApplicationException("Storage transaction must be in waiting status.");
         }
         
         context.StorageTransactions.Remove(entity);

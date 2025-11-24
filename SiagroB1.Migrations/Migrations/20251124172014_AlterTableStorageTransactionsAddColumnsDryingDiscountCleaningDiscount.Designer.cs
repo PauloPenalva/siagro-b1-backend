@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251124172014_AlterTableStorageTransactionsAddColumnsDryingDiscountCleaningDiscount")]
+    partial class AlterTableStorageTransactionsAddColumnsDryingDiscountCleaningDiscount
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -465,9 +468,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
                     b.HasKey("Code");
 
                     b.ToTable("QUALITY_ATTRIBS");
@@ -864,12 +864,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("OthersDicount")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
-                    b.Property<string>("ProcessingCostCode")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<Guid?>("ProcessingCostKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid?>("ShipmentReleaseKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -905,41 +899,11 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
-                    b.HasIndex("ProcessingCostCode");
-
                     b.HasIndex("ShipmentReleaseKey");
 
                     b.HasIndex("StorageAddressKey");
 
                     b.ToTable("STORAGE_TRANSACTIONS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal?>("LossValue")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.Property<string>("QualityAttribCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<Guid?>("StorageTransactionKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Value")
-                        .HasColumnType("DECIMAL(18,1) DEFAULT 0");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("QualityAttribCode");
-
-                    b.HasIndex("StorageTransactionKey");
-
-                    b.ToTable("STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Tax", b =>
@@ -1324,10 +1288,6 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
-                        .WithMany()
-                        .HasForeignKey("ProcessingCostCode");
-
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
                         .WithMany("Transactions")
                         .HasForeignKey("ShipmentReleaseKey");
@@ -1338,28 +1298,9 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("ProcessingCost");
-
                     b.Navigation("ShipmentRelease");
 
                     b.Navigation("StorageAddress");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
-                        .WithMany()
-                        .HasForeignKey("QualityAttribCode")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "StorageTransaction")
-                        .WithMany("QualityInspections")
-                        .HasForeignKey("StorageTransactionKey");
-
-                    b.Navigation("QualityAttrib");
-
-                    b.Navigation("StorageTransaction");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
@@ -1425,11 +1366,6 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
                 {
                     b.Navigation("Transactions");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
-                {
-                    b.Navigation("QualityInspections");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>

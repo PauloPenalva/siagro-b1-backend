@@ -70,7 +70,7 @@ public class ShippingOrdersShippedService(
             StorageAddressKey = order.StorageAddressKey,
             TransactionType = StorageTransactionType.SalesShipment,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
-            Volume = order.Volume,
+            GrossWeight = order.Volume,
             TransactionOrigin = TransactionCode.ShippingOrder,
             ShippingOrderKey = order.Key,
             TruckCode = order.TruckCode,

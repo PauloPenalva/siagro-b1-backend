@@ -5,7 +5,7 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionCancelService(AppDbContext db)
+public class StorageTransactionsCancelService(AppDbContext db)
 {
     public async Task ExecuteAsync(Guid key, TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {

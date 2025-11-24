@@ -22,10 +22,26 @@ public class StorageTransaction
     
     public StorageTransactionType TransactionType { get; set; }
 
-    public StorageTransactionsStatus TransactionStatus { get; set; } = StorageTransactionsStatus.Waiting;
+    public StorageTransactionsStatus TransactionStatus { get; set; } = StorageTransactionsStatus.Pending;
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
-    public decimal Volume { get; set; }
+    public decimal GrossWeight { get; set; }
+    
+    [Column(TypeName = "decimal(18,3) DEFAULT 0")]
+    public decimal DryingDiscount { get; set; }
+
+    [Column(TypeName = "decimal(18,3) DEFAULT 0")]
+    public decimal CleaningDiscount { get; set; }
+    
+    [Column(TypeName = "decimal(18,3) DEFAULT 0")]
+    public decimal OthersDicount { get; set; }
+
+    public decimal NetWeight => TransactionStatus != StorageTransactionsStatus.Pending
+        ? decimal.Round(
+            (GrossWeight - (DryingDiscount + CleaningDiscount + OthersDicount)),
+            0,
+            MidpointRounding.ToEven)
+        : 0;
     
     [ForeignKey(nameof(ShipmentRelease))]
     public Guid? ShipmentReleaseKey  { get; set; }
@@ -40,4 +56,12 @@ public class StorageTransaction
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public string? TruckCode { get; set; }
+    
+    public Guid? WeighingTicketKey { get; set; }
+    
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public string? ProcessingCostCode { get; set; }
+    public virtual ProcessingCost? ProcessingCost { get; set; }
+
+    public ICollection<StorageTransactionQualityInspection> QualityInspections { get; set; } = [];
 }

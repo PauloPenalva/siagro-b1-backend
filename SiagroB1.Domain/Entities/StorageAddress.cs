@@ -39,7 +39,7 @@ public class StorageAddress : BaseEntity
             StorageTransactionType.ShipmentReleased && 
                     x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
                     StorageTransactionsStatus.Invoiced)
-        .Sum(x => x.Volume);
+        .Sum(x => x.NetWeight);
     
     public decimal TotalShipment => Transactions
         .Where(x => x.TransactionType is 
@@ -47,12 +47,12 @@ public class StorageAddress : BaseEntity
             StorageTransactionType.SalesShipment && 
                     x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
                     StorageTransactionsStatus.Invoiced)
-        .Sum(x => x.Volume);
+        .Sum(x => x.NetWeight);
     
     public decimal TotalQualityLoss => Transactions
         .Where(x => x.TransactionType is StorageTransactionType.QualityLoss && 
                     x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced)
-        .Sum(x => x.Volume);
+        .Sum(x => x.NetWeight);
     
     public decimal Balance => TotalReceipt - (TotalShipment + TotalQualityLoss);
 }

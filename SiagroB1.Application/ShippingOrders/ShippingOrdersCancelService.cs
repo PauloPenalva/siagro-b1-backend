@@ -8,7 +8,7 @@ namespace SiagroB1.Application.ShippingOrders;
 
 public class ShippingOrdersCancelService(
         AppDbContext db,
-        StorageTransactionCancelService storageTransactionCancelService
+        StorageTransactionsCancelService storageTransactionsCancelService
     )
 {
     public async Task<bool> ExecuteAsync(Guid key)
@@ -36,7 +36,7 @@ public class ShippingOrdersCancelService(
         {
             if (storageTrans != null)
             {
-                await storageTransactionCancelService.ExecuteAsync((Guid) storageTrans.Key, TransactionCode.ShippingOrder);
+                await storageTransactionsCancelService.ExecuteAsync((Guid) storageTrans.Key, TransactionCode.ShippingOrder);
             }
 
             order.Status = ShippingOrderStatus.Cancelled;

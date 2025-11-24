@@ -8,11 +8,13 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsCreateService(AppDbContext context, ILogger<StorageTransactionsCreateService> logger)
 {
-    public async Task<StorageTransaction> ExecuteAsync(StorageTransaction entity, string userName)
+    public async Task<StorageTransaction> ExecuteAsync(
+        StorageTransaction entity, string userName, 
+        TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {
         try
         {
-            entity.TransactionOrigin = TransactionCode.StorageTransaction;
+            entity.TransactionOrigin = transactionCode;
             await context.StorageTransactions.AddAsync(entity);
             await context.SaveChangesAsync();
             return entity;

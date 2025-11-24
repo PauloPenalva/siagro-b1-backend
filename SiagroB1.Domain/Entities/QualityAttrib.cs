@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities
 {
@@ -14,5 +15,7 @@ namespace SiagroB1.Domain.Entities
         public required string Name { get; set; }
         
         public bool Disabled { get; set; } 
+        
+        public required QualityAttribType Type { get; set; }
     }
 }                          

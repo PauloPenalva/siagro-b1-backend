@@ -13,6 +13,8 @@ public class StorageTransactionsGetService(AppDbContext context, ILogger<Storage
         try
         {
             return await context.StorageTransactions
+                .Include(x => x.QualityInspections)
+                .ThenInclude(q => q.QualityAttrib)
                 .FirstOrDefaultAsync(x => x.Key == key);
         }
         catch (Exception ex)
