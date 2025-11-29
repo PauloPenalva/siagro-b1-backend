@@ -53,15 +53,16 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
     //todo: finalizar metodo de calculo
     private async Task Calculate(StorageTransaction st)
     {
-        var processingCostKey = st.ProcessingCostCode;
+        var processingCostCode = st.ProcessingCostCode;
+        var grossWeight = st.GrossWeight;
 
         var processingCost = await db.ProcessingCosts
-                .Include(x => x.DryingDetails)
-                .Include(x => x.DryingParameters)
-                .Include(x => x.QualityParameters)
-                .Include(x => x.ServiceDetails)
-                .FirstOrDefaultAsync(x => x.Code == processingCostKey) ??
-                    throw new NotFoundException("Processing Cost List not found.");
+                                 .Include(x => x.DryingDetails)
+                                 .Include(x => x.DryingParameters)
+                                 .Include(x => x.QualityParameters)
+                                 .Include(x => x.ServiceDetails)
+                                 .FirstOrDefaultAsync(x => x.Code == processingCostCode) ??
+                             throw new NotFoundException("Processing Cost List not found.");
 
         var dryingInspection = st.QualityInspections
             .Where(x => x.QualityAttrib?.Type == QualityAttribType.Drying)
@@ -70,6 +71,10 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
         var cleaningInspection = st.QualityInspections
             .Where(x => x.QualityAttrib?.Type == QualityAttribType.Cleaning)
             .ToList();
+        
+        var qualityInspection = st.QualityInspections
+            .Where(x => x.QualityAttrib?.Type == QualityAttribType.Quality)
+            .ToList();
 
         foreach (var inspection in dryingInspection)
         {
@@ -77,9 +82,15 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
 
             var dryingParameter = processingCost.DryingParameters
                 .FirstOrDefault(x => x.InitialMoisture >= moisture && x.FinalMoisture <= moisture);
-                
+
+            var dryingDiscount = (grossWeight / 100) * dryingParameter?.Rate ?? 0;
+            st.DryingDiscount = dryingDiscount;
+            
             var dryingDetail = processingCost.DryingDetails
                 .FirstOrDefault(x => x.InitialMoisture >= moisture && x.FinalMoisture <= moisture);
+
+            var dryingServicePrice = dryingDiscount * dryingDetail?.Price ?? 0;
+            
         }
         
         foreach (var inspection in cleaningInspection)
@@ -87,7 +98,23 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
             var value = inspection.Value;
             
             var qualityParameter = processingCost.QualityParameters
-                .FirstOrDefault(x => value <= x.MaxLimitRate);
+                .FirstOrDefault(x => value <= x.MaxLimitRate && x.QualityAttribCode == inspection.QualityAttribCode);
+
+            var cleaningDiscount = (grossWeight / 100) * qualityParameter?.ExcessDiscountRate ?? 0;
+
+            st.CleaningDiscount = cleaningDiscount;
+        }
+        
+        foreach (var inspection in qualityInspection)
+        {
+            var value = inspection.Value;
+            
+            var qualityParameter = processingCost.QualityParameters
+                .FirstOrDefault(x => value <= x.MaxLimitRate && x.QualityAttribCode == inspection.QualityAttribCode);
+
+            var qualityDiscount = (grossWeight / 100) * qualityParameter?.ExcessDiscountRate ?? 0;
+
+            st.OthersDicount = qualityDiscount;
         }
     }
 }

@@ -4,4 +4,5 @@ public enum QualityAttribType
 {
     Drying,
     Cleaning,
+    Quality
 }

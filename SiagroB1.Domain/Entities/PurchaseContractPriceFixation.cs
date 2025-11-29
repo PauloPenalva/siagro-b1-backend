@@ -16,6 +16,9 @@ public class PurchaseContractPriceFixation
     
     public DateTime? FixationDate { get; set; } = DateTime.Now;
     
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FreightCost { get; set; }
+    
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal FixationVolume { get; set; } = 0;
 

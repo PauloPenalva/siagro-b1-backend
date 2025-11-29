@@ -36,9 +36,6 @@ public class PurchaseContract : BaseEntity
 
     public FreightTerms FreightTerms { get; set; }
 
-    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
-    public decimal FreightCost { get; set; }
-
     /// <summary>
     /// SAP ENTITY
     /// </summary>
