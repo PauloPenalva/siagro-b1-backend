@@ -8,6 +8,25 @@ namespace SiagroB1.Application.PurchaseContracts;
 public class PurchaseContractsTaxesUpdateService(
     AppDbContext context, ILogger<PurchaseContractsTaxesUpdateService> logger)
 {
+    public async Task<PurchaseContractTax?> ExecuteAsync(Guid associationKey, PurchaseContractTax associationEntity)
+    {
+        try
+        {
+            var existingEntity = await context.PurchaseContractsTaxes.FindAsync(associationKey)
+                                 ?? throw new NotFoundException("Tax not found");
+
+            context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
+            await context.SaveChangesAsync();
+            
+            return associationEntity;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, exception.Message);
+            throw;
+        }
+    }
+    
     public async Task<PurchaseContractTax?> ExecuteAsync(Guid parenteKey, Guid associationKey, PurchaseContractTax associationEntity)
     {
         try

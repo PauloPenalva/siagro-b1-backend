@@ -24,12 +24,15 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Truck>("Trucks");
         modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
         modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
+        modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");
         modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
+        modelBuilder.EntitySet<DocType>("DocTypes");
+        modelBuilder.EntitySet<Agent>("Agents");
         
         var storageAddresses = modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         storageAddresses.EntityType
@@ -45,11 +48,24 @@ public static class ODataConfigurations
             .Action("Cancel")
             .Parameter<Guid>("key");
 
-        purchaseContract.EntityType
-            .Action("Totals")
-            .Returns<PurchaseContractTotalsDto>()
+        modelBuilder
+            .Action("PurchaseContractsTotals")
+            .Returns<PurchaseContractTotalsResponseDto>()
+            .Parameter<Guid>("Key");
+        
+        modelBuilder
+            .Action("PurchaseContractsWithdrawApproval")
             .Parameter<Guid>("key");
-
+        
+        modelBuilder
+            .Action("PurchaseContractsSendApproval")
+            .Parameter<Guid>("key"); 
+        
+        modelBuilder
+            .Action("PurchaseContractsCopy")
+            .Parameter<Guid>("key");
+        
+        
         var shipmentReleases = modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         shipmentReleases.EntityType
             .Action("Approvation")

@@ -24,9 +24,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
     public DbSet<PurchaseContractPriceFixation> PurchaseContractsPriceFixations { get; set; }
     public DbSet<PurchaseContractTax> PurchaseContractsTaxes { get; set; }
+    public DbSet<PurchaseContractBroker> PurchaseContractsBrokers { get; set; }
     public DbSet<PurchaseContractQualityParameter> PurchaseContractsQualityParameters { get; set; }
     public DbSet<Tax> Taxes { get; set; }
-    public DbSet<NumberSequence> NumberSequences { get; set; }
+    public DbSet<DocType> DocTypes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
     public DbSet<StorageAddress> StorageAddresses { get; set; }
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
@@ -35,8 +36,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShippingOrder> ShippingOrders { get; set; }
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
-
-
-
+    public DbSet<Agent> Agents { get; set; }
 }
     

@@ -23,6 +23,7 @@ public class PurchaseContractsDeleteService(AppDbContext context, ILogger<Purcha
             await context.Entry(entity).Collection(e => e.QualityParameters).LoadAsync();
             await context.Entry(entity).Collection(e => e.Taxes).LoadAsync();
             await context.Entry(entity).Collection(e => e.ShipmentReleases).LoadAsync();
+            await context.Entry(entity).Collection(e => e.Brokers).LoadAsync();
             
             // Remove filhos primeiro (caso o cascade não esteja funcionando)
             if (entity.PriceFixations.Any())
@@ -33,6 +34,9 @@ public class PurchaseContractsDeleteService(AppDbContext context, ILogger<Purcha
 
             if (entity.Taxes.Any())
                 context.PurchaseContractsTaxes.RemoveRange(entity.Taxes);
+            
+            if (entity.Brokers.Any())
+                context.PurchaseContractsBrokers.RemoveRange(entity.Brokers);
 
             await context.SaveChangesAsync();
         });

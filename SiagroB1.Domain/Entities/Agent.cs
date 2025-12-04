@@ -1,0 +1,17 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace SiagroB1.Domain.Entities;
+
+[Table("AGENTS")]
+public class Agent
+{
+    [Key]
+    [Column(TypeName = "VARCHAR(10) NO NULL")]
+    public required string Code { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100) NOT NULL")]
+    public required string Name { get; set; }
+    
+    public bool Inactive { get; set; }
+}

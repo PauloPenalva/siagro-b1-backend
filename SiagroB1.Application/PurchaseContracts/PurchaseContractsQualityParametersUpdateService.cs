@@ -8,6 +8,25 @@ namespace SiagroB1.Application.PurchaseContracts;
 public class PurchaseContractsQualityParametersUpdateService(
     AppDbContext context, ILogger<PurchaseContractsQualityParametersUpdateService> logger)
 {
+    public async Task<PurchaseContractQualityParameter?> ExecuteAsync(Guid associationKey, PurchaseContractQualityParameter associationEntity)
+    {
+        try
+        {
+            var existingEntity = await context.PurchaseContractsQualityParameters.FindAsync(associationKey)
+                                 ?? throw new NotFoundException("Quality parameters not found");
+
+            context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
+            await context.SaveChangesAsync();
+            
+            return associationEntity;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, exception.Message);
+            throw;
+        }
+    }
+    
     public async Task<PurchaseContractQualityParameter?> ExecuteAsync(Guid parenteKey, Guid associationKey, PurchaseContractQualityParameter associationEntity)
     {
         try

@@ -2,8 +2,14 @@ using System.Text.Json.Serialization;
 
 namespace SiagroB1.Application.Dtos;
 
-public class PurchaseContractTotalsDto
+public class PurchaseContractTotalsResponseDto
 {
+    [JsonPropertyName("TotalVolume")]
+    public decimal TotalVolume { get; set; }
+    
+    [JsonPropertyName("TotalStandard")]
+    public decimal TotalStandard { get; set; }
+    
     [JsonPropertyName("FixedVolume")] 
     public decimal FixedVolume { get; set; }
     

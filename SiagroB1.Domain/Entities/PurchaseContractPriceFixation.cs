@@ -25,5 +25,5 @@ public class PurchaseContractPriceFixation
     [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
     public decimal FixationPrice { get; set; } = 0;
 
-    public PriceFixationStatus Status { get; set; } = PriceFixationStatus.Pending;
+    public PriceFixationStatus Status { get; set; } = PriceFixationStatus.InApproval;
 }

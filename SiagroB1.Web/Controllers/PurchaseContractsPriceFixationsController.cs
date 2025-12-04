@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.PurchaseContracts;
@@ -16,8 +17,8 @@ public class PurchaseContractsPriceFixationsController(
     ) 
     : ODataController
 {
-    [HttpPost("odata/PurchaseContracts({key})/PriceFixations")]
-    [HttpPost("odata/PurchaseContracts/{key}/PriceFixations")]
+    [HttpPost("odata/PurchaseContracts({key:guid})/PriceFixations")]
+    [HttpPost("odata/PurchaseContracts/{key:guid}/PriceFixations")]
     public async Task<ActionResult<PurchaseContractPriceFixation>> CreatePriceFixationsAsync([FromRoute] Guid key, [FromBody] PurchaseContractPriceFixation associationEntity)
     {
         if (!ModelState.IsValid)
@@ -42,8 +43,8 @@ public class PurchaseContractsPriceFixationsController(
         }
     }
 
-    [HttpPut("odata/PurchaseContracts({parentKey})/PriceFixations({associationKey})")]
-    [HttpPut("odata/PurchaseContracts/{parentKey}/PriceFixations/{associationKey}")]
+    [HttpPut("odata/PurchaseContracts({parentKey:guid})/PriceFixations({associationKey:guid})")]
+    [HttpPut("odata/PurchaseContracts/{parentKey:guid}/PriceFixations/{associationKey:guid}")]
     public async Task<IActionResult> UpdatePriceFixationsAsync(
         [FromRoute] Guid parentKey, 
         [FromRoute] Guid associationKey,
@@ -75,9 +76,34 @@ public class PurchaseContractsPriceFixationsController(
         return NoContent();
     }
     
+    [HttpDelete("odata/PurchaseContractsPriceFixations({associationKey:guid})")]
+    [HttpDelete("odata/PurchaseContractsPriceFixations/{associationKey:guid}")]
+    public async Task<IActionResult> DeletePriceFixationsAsync([FromRoute] Guid associationKey)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(associationKey);
+        }
+        catch (NotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+
     
-    [HttpDelete("odata/PurchaseContracts({parentKey})/PriceFixations({associationKey})")]
-    [HttpDelete("odata/PurchaseContracts/{parentKey}/PriceFixations/{associationKey}")]
+    [HttpDelete("odata/PurchaseContracts({parentKey:guid})/PriceFixations({associationKey:guid})")]
+    [HttpDelete("odata/PurchaseContracts/{parentKey:guid}/PriceFixations/{associationKey:guid}")]
     public async Task<IActionResult> DeletePriceFixationsAsync([FromRoute] Guid parentKey,[FromRoute] Guid associationKey)
     {
         try
@@ -102,16 +128,16 @@ public class PurchaseContractsPriceFixationsController(
     }
     
 
-    [HttpGet("odata/PurchaseContracts({key})/PriceFixations")]
-    [HttpGet("odata/PurchaseContracts/{key}/PriceFixations")]
+    [HttpGet("odata/PurchaseContracts({key:guid})/PriceFixations")]
+    [HttpGet("odata/PurchaseContracts/{key:guid}/PriceFixations")]
     [EnableQuery]
     public ActionResult<IEnumerable<PurchaseContractPriceFixation>> GetPriceFixations([FromRoute] Guid key)
     {
         return Ok(getService.QueryAll(key));
     }
     
-    [HttpGet("odata/PurchaseContracts({key})/PriceFixations({fixationKey})")]
-    [HttpGet("odata/PurchaseContracts/{key}/PriceFixations/{fixationKey}")]
+    [HttpGet("odata/PurchaseContracts({key:guid})/PriceFixations({fixationKey:guid})")]
+    [HttpGet("odata/PurchaseContracts/{key:guid}/PriceFixations/{fixationKey:guid}")]
     [EnableQuery]
     public async Task<ActionResult<PurchaseContractPriceFixation>> Get([FromRoute] Guid key, [FromRoute] Guid fixationKey)
     {
@@ -123,5 +149,43 @@ public class PurchaseContractsPriceFixationsController(
         }
 
         return Ok(item);
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE")]
+    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<PurchaseContractPriceFixation> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        PurchaseContractPriceFixation? t = await getService.GetByIdAsync(key);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(key, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
     }
 }

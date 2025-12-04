@@ -9,6 +9,20 @@ namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsQualityParametersGetService(AppDbContext context, ILogger<PurchaseContractsQualityParametersGetService> logger)
 {
+    
+    public async Task<PurchaseContractQualityParameter?> GetByIdAsync(Guid key)
+    {
+        try
+        {
+            return await context.PurchaseContractsQualityParameters.FindAsync(key);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,"Error fetching entity with ID {Id}", key);
+            throw new DefaultException("Error fetching entity");
+        }
+    }
+    
     public async Task<PurchaseContractQualityParameter?> GetByIdAsync(Guid key, Guid associationKey)
     {
         try
@@ -18,7 +32,7 @@ public class PurchaseContractsQualityParametersGetService(AppDbContext context, 
                 throw new NotFoundException("Purchase contract key not found");
             }
             
-            return await context.PurchaseContractsQualityParameters.FindAsync(key);
+            return await context.PurchaseContractsQualityParameters.FindAsync(associationKey);
         }
         catch (Exception ex)
         {

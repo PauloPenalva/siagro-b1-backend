@@ -6,24 +6,31 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("PURCHASE_CONTRACTS")]
-[Index("Code", "Sequence", IsUnique = true)]
+[Index("Code", IsUnique = true)]
 public class PurchaseContract : BaseEntity
 {
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DocTypeCode { get; set; }
+    public virtual DocType? DocType { get; set; }
+    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
-    public required string Code { get; set; }
-
-    [Column(TypeName = "VARCHAR(3) NOT NULL")]
-    public required string Sequence { get; set; }
+    public string? Code { get; set; }
     
     [Column(TypeName = "VARCHAR(100)")]
     public string? Complement { get; set; }
 
     public DateTime? CreationDate { get; set; } = DateTime.Now;
-
+    
     public ContractType Type { get; set; }
     
+    public MarketType? MarketType { get; set; }
+    
     public ContractStatus? Status { get; set; } = ContractStatus.Draft;
-
+    
+    [Column(TypeName = "VARCHAR(10) NO NULL")]
+    public string? AgentCode { get; set; }
+    public virtual Agent? Agent { get; set; }
+    
     /// <summary>
     /// SAP ENTITY
     /// </summary>
@@ -35,7 +42,14 @@ public class PurchaseContract : BaseEntity
     public DateTime DeliveryEndDate { get; set; }
 
     public FreightTerms FreightTerms { get; set; }
-
+    
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal FreightCostStandard { get; set; }
+    
+    [Column(TypeName = "VARCHAR(4) NOT NULL")]
+    public string? FreightUmCode { get; set; }
+    public virtual UnitOfMeasure? FreightUm { get; set; }
+    
     /// <summary>
     /// SAP ENTITY
     /// </summary>
@@ -55,12 +69,22 @@ public class PurchaseContract : BaseEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal TotalVolume { get; set; }
     
+    [Column(TypeName = "DECIMAL(18,6) DEFAULT 0")]
+    public decimal StandardPrice { get; set; }
+
+    public CurrencyType? StandardCurrency { get; set; } = CurrencyType.Brl;
+    
+    public DateTime? StandardCashFlowDate { get; set; }
+    
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? PaymentTerms { get; set; }
+    
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("DeliveryLocation")]
     public required string DeliveryLocationCode { get; set; }
     public virtual Warehouse? DeliveryLocation { get; set; }
     
-    [Column(TypeName = "NVARCHAR(MAX)")]
+    [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
     public DateTime? CreatedAt { get; set; } = DateTime.Now;
@@ -94,11 +118,18 @@ public class PurchaseContract : BaseEntity
     
     public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
     
+    
+    public ICollection<PurchaseContractBroker> Brokers { get; set; } = [];
+    
     public ICollection<ShipmentRelease> ShipmentReleases { get; set; } = [];
 
+    public decimal TotalStandard =>
+        decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
+    
     public decimal FixedVolume => 
         decimal.Round(PriceFixations?
-                .Where(x => x.Status == PriceFixationStatus.Confirmed)
+                .Where(x => x.Status is PriceFixationStatus.Confirmed
+                    or PriceFixationStatus.InApproval)
                 .Sum(x => x.FixationVolume ) ?? 0, 
             2, 
             MidpointRounding.ToEven) ;
@@ -107,7 +138,10 @@ public class PurchaseContract : BaseEntity
     
     public decimal TotalPrice => 
         decimal.Round(
-            (PriceFixations?.Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
+            (PriceFixations?
+                .Where(x => x.Status is PriceFixationStatus.Confirmed 
+                    or PriceFixationStatus.InApproval)
+                .Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
             2 , 
             MidpointRounding.ToEven) ;
     
@@ -128,4 +162,5 @@ public class PurchaseContract : BaseEntity
     
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);
+
 }

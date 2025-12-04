@@ -7,6 +7,25 @@ namespace SiagroB1.Application.PurchaseContracts;
 public class PurchaseContractsPriceFixationsDeleteService(
     AppDbContext context, ILogger<PurchaseContractsPriceFixationsCreateService> logger)
 {
+    public async Task<bool> ExecuteAsync(Guid associationKey)
+    {
+        try
+        {
+            var existingEntity = await context.PurchaseContractsPriceFixations.FindAsync(associationKey)
+                                 ?? throw new NotFoundException("Price Fixation not found");
+
+            context.PurchaseContractsPriceFixations.Remove(existingEntity);
+            await context.SaveChangesAsync();
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw;
+        }
+    }
+    
     public async Task<bool> ExecuteAsync(Guid parentKey, Guid associationKey)
     {
         try

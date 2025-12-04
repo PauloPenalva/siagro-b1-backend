@@ -12,13 +12,13 @@ public class PurchaseContractsTotalsController(
     ) : ODataController
 {
     [HttpPost]
-    [Route("odata/PurchaseContracts({key:guid})/Totals")]
+    [Route("odata/PurchaseContractsTotals")]
     [EnableQuery]
-    public async Task<ActionResult<PurchaseContractTotalsDto>> Totals([FromRoute] Guid key)
+    public async Task<ActionResult<PurchaseContractTotalsResponseDto>> Totals([FromBody] PurchaseContractActionRequestDto request)
     {
         try
         {
-            var totals = await service.GetTotals(key);
+            var totals = await service.GetTotals(request.Key);
             return Ok(totals);
         }
         catch (Exception e)

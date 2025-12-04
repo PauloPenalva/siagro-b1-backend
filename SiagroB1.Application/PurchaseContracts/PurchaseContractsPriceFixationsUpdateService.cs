@@ -8,6 +8,25 @@ namespace SiagroB1.Application.PurchaseContracts;
 public class PurchaseContractsPriceFixationsUpdateService(
     AppDbContext context, ILogger<PurchaseContractsPriceFixationsCreateService> logger)
 {
+    public async Task<PurchaseContractPriceFixation?> ExecuteAsync(Guid associationKey, PurchaseContractPriceFixation associationEntity)
+    {
+        try
+        {
+            var existingEntity = await context.PurchaseContractsPriceFixations.FindAsync(associationKey)
+                                 ?? throw new NotFoundException("Price Fixation not found");
+
+            context.Entry(existingEntity).CurrentValues.SetValues(associationEntity);
+            await context.SaveChangesAsync();
+            
+            return associationEntity;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, exception.Message);
+            throw;
+        }
+    }
+    
     public async Task<PurchaseContractPriceFixation?> ExecuteAsync(Guid parenteKey, Guid associationKey, PurchaseContractPriceFixation associationEntity)
     {
         try

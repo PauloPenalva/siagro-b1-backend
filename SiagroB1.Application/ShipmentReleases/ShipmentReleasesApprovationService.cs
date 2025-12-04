@@ -90,7 +90,7 @@ public class ShipmentReleasesApprovationService(AppDbContext context, ILogger<Sh
             OwnershipType = sr.PurchaseContract.DeliveryLocation.Type is WarehouseType.ThirdParty 
                 ? StorageOwnershipType.OwnedInThirdPartyCustody
                 : StorageOwnershipType.OwnedInOurCustody,
-            Description = $"CONTRATO {sr.PurchaseContract.Code}/{sr.PurchaseContract.Sequence} PRODUTO: {sr.PurchaseContract.ItemCode} ", 
+            Description = $"CONTRATO {sr.PurchaseContract.Code} PRODUTO: {sr.PurchaseContract.ItemCode} ", 
             CardCode = sr.PurchaseContract.CardCode,
             ItemCode = sr.PurchaseContract.ItemCode,
             WarehouseCode = sr.PurchaseContract.DeliveryLocationCode,

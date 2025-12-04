@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -14,9 +15,21 @@ public class PurchaseContractsUpdateService(AppDbContext context, ILogger<Purcha
         {
             var existingEntity = await context.Set<PurchaseContract>()
                 .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
-            context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
+            if (existingEntity.Status != ContractStatus.Draft)
+            {
+                throw new ApplicationException("You can only edit a purchase contract if its status is draft.");
+            }
+
+            context.Entry(existingEntity).CurrentValues.SetValues(entity);
+            
+            if (existingEntity.Type == ContractType.Fixed)
+            {
+                await UpdatePriceFixation(existingEntity);
+            }
+            
             // Save changes
+            existingEntity.Status = ContractStatus.InApproval;
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
             await context.SaveChangesAsync();
@@ -35,6 +48,18 @@ public class PurchaseContractsUpdateService(AppDbContext context, ILogger<Purcha
         }
 
         return entity;
+    }
+
+    private async Task UpdatePriceFixation(PurchaseContract entity)
+    {  
+        var price = await context.PurchaseContractsPriceFixations
+            .FirstOrDefaultAsync(pf => pf.PurchaseContractKey == entity.Key) ??
+                    throw new KeyNotFoundException("Price fixation not found.");
+        
+        price.FreightCost = entity.FreightCostStandard;
+        price.FixationVolume = entity.TotalVolume;
+        price.FixationPrice = entity.StandardPrice;
+        price.Status = PriceFixationStatus.InApproval;
     }
 
     private bool EntityExists(Guid key)
