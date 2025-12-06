@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Constants;
+using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,7 +10,11 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
-public class PurchaseContractsCreateService(AppDbContext context, ILogger<PurchaseContractsCreateService> logger)
+public class PurchaseContractsCreateService(
+        AppDbContext context, 
+        BusinessPartnerService  businessPartnerService,
+        ItemService itemService,
+        ILogger<PurchaseContractsCreateService> logger)
 {
     public async Task<PurchaseContract> ExecuteAsync(PurchaseContract entity, string createdBy, bool isCopy = false)
     {
@@ -36,10 +41,12 @@ public class PurchaseContractsCreateService(AppDbContext context, ILogger<Purcha
                                 .ToString()
                                 .PadLeft(10, '0');
             if (!isCopy) 
-                entity.Status = ContractStatus.InApproval;
+                entity.Status = ContractStatus.Draft;
             
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
+            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             await context.PurchaseContracts.AddAsync(entity);
             
             await UpdateDocType(entity.DocTypeCode, contractNumber);

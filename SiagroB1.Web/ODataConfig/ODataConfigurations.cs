@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
@@ -40,14 +42,17 @@ public static class ODataConfigurations
             .Parameter<Guid>("key");
         
         var purchaseContract = modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
-        purchaseContract.EntityType
-            .Action("Approval")
-            .Parameter<Guid>("key");
         
-        purchaseContract.EntityType
-            .Action("Cancel")
-            .Parameter<Guid>("key");
-
+        var purchaseContractsApproval = modelBuilder.Action("PurchaseContractsApproval");
+        purchaseContractsApproval.Parameter<Guid>("Key");
+        purchaseContractsApproval.Parameter<string>("Comments");
+        purchaseContractsApproval.Returns<IActionResult>();
+        
+        var purchaseContractsReject = modelBuilder.Action("PurchaseContractsReject");
+        purchaseContractsReject.Parameter<Guid>("Key");
+        purchaseContractsReject.Parameter<string>("Comments");
+        purchaseContractsReject.Returns<IActionResult>();
+        
         modelBuilder
             .Action("PurchaseContractsTotals")
             .Returns<PurchaseContractTotalsResponseDto>()

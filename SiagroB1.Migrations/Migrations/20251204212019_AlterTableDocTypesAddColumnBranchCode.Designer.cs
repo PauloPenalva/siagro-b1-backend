@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251204212019_AlterTableDocTypesAddColumnBranchCode")]
+    partial class AlterTableDocTypesAddColumnBranchCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -293,9 +296,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("AgentCode")
                         .HasColumnType("VARCHAR(10) NO NULL");
 
-                    b.Property<string>("ApprovalComments")
-                        .HasColumnType("VARCHAR(500)");
-
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -311,9 +311,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CardCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("CardName")
-                        .HasColumnType("VARCHAR(200) NOT NULL");
 
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(50) NOT NULL");
@@ -363,9 +360,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<string>("ItemName")
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
                     b.Property<string>("LogisticRegionCode")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
@@ -374,12 +368,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("PaymentTerms")
                         .HasColumnType("VARCHAR(500)");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<DateTime?>("StandardCashFlowDate")
                         .HasColumnType("datetime2");
@@ -653,12 +641,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
 
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
                     b.Property<string>("Sequence")
                         .IsRequired()
                         .HasColumnType("VARCHAR(3) NOT NULL");
@@ -720,12 +702,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("InvoiceSeries")
                         .HasColumnType("VARCHAR(3)");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.HasKey("Key");
 
@@ -800,12 +776,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("ReleasedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -838,12 +808,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("ItemCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(15) NOT NULL");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<int?>("Status")
                         .HasColumnType("int");
@@ -917,12 +881,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
@@ -1153,12 +1111,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<DateTimeOffset?>("SecondWeighDateTime")
                         .HasColumnType("datetimeoffset");

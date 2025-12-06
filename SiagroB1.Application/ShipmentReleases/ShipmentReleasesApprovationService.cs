@@ -83,7 +83,6 @@ public class ShipmentReleasesApprovationService(AppDbContext context, ILogger<Sh
     {
         var storageAddress = new StorageAddress
         {
-            BranchCode = sr.BranchCode,
             Code = sr.PurchaseContract.Code, //todo: buscar codigo
             PurchaseContractKey = sr.PurchaseContract.Key,
             CreationDate = DateTime.Now,

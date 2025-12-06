@@ -30,6 +30,7 @@ public class PurchaseContractsCopyService(AppDbContext db, PurchaseContractsCrea
                 })) ??  throw new ApplicationException("Error on copying purchase contract.");
 
         cloneContract.Key = null;
+        cloneContract.RowId = 0;
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;
 

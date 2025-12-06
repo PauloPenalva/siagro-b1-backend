@@ -5,16 +5,17 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
-public class PurchaseContractsCancelService(AppDbContext context)
+public class PurchaseContractsRejectService(AppDbContext context)
 {
-    public async Task Cancel(Guid key, string userName)
+    public async Task ExecuteAsync(Guid key, string? comments, string userName)
     {
         var contract = await context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == key && 
-                x.Status == ContractStatus.Approved) ?? 
-                       throw new NotFoundException($"Contract with key {key} not found or not approved.");
+                x.Status == ContractStatus.InApproval) ?? 
+                       throw new NotFoundException($"Contract with key {key} not found or not in approval.");
         
-        contract.Status = ContractStatus.Canceled;
+        contract.Status = ContractStatus.Rejected;
+        contract.ApprovalComments = comments;
         contract.CanceledAt = DateTime.Now;
         contract.CanceledBy = userName;
 

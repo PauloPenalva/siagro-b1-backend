@@ -6,5 +6,6 @@ public enum ContractStatus
     Approved = 1,
     Finished = 2,
     Canceled = 3,
-    InApproval = 4
+    InApproval = 4,
+    Rejected = 5,
 }

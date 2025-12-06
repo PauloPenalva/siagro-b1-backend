@@ -36,6 +36,9 @@ public class PurchaseContract : BaseEntity
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")] 
     public required string CardCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
+    public string? CardName { get; set; }
 
     public DateTime DeliveryStartDate { get; set; }
 
@@ -55,6 +58,9 @@ public class PurchaseContract : BaseEntity
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")]  
     public required string ItemCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
+    public string? ItemName { get; set; }
 
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     [ForeignKey("UnitOfMeasure")]
@@ -111,6 +117,9 @@ public class PurchaseContract : BaseEntity
     [ForeignKey(nameof(LogisticRegion))]
     public string? LogisticRegionCode { get; set; }
     public virtual LogisticRegion? LogisticRegion { get; set; }
+    
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? ApprovalComments { get; set; }
     
     public ICollection<PurchaseContractPriceFixation> PriceFixations { get; set; } = [];
     

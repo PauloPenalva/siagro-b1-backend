@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Dtos;
 using SiagroB1.Application.PurchaseContracts;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.PurchaseContracts;
 
-public class PurchaseContractsApprovalController(
-    PurchaseContractsApprovalService service
+public class PurchaseContractsRejectController(
+    PurchaseContractsRejectService service
     ) : ODataController
 {
-    [HttpPost("odata/PurchaseContractsApproval")]
+    [HttpPost("odata/PurchaseContractsReject")]
     public async Task<ActionResult> PostAsync(ODataActionParameters parameters)
     {
         if (!ModelState.IsValid)

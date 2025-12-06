@@ -24,4 +24,8 @@ public class DocType
     public int LastNumber { get; set; } = 0;
 
     public int NextNumber { get; set; } = 0;
+    
+    [Column(TypeName = "VARCHAR(14)", Order = 1)]
+    public string? BranchCode { get; set; }
+    public virtual Branch? Branch { get; set; }  
 }
