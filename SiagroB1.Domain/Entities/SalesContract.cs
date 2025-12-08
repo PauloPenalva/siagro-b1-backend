@@ -6,14 +6,15 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_CONTRACTS")]
-[Index("Code", "Sequence", IsUnique = true)]
+[Index("Code", IsUnique = true)]
 public class SalesContract : BaseEntity
 {
+    [Column(TypeName = "VARCHAR(10) NULL")]
+    public string? DocTypeCode { get; set; }
+    public virtual DocType? DocType { get; set; }
+    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
-    public required string Code { get; set; }
-
-    [Column(TypeName = "VARCHAR(3) NOT NULL")]
-    public required string Sequence { get; set; }
+    public string? Code { get; set; }
     
     [Column(TypeName = "VARCHAR(100)")]
     public string? Complement { get; set; }
@@ -22,13 +23,22 @@ public class SalesContract : BaseEntity
 
     public ContractType Type { get; set; }
     
+    public MarketType? MarketType { get; set; }
+    
     public ContractStatus? Status { get; set; } = ContractStatus.Draft;
-
+    
+    [Column(TypeName = "VARCHAR(10) NO NULL")]
+    public string? AgentCode { get; set; }
+    public virtual Agent? Agent { get; set; }
+    
     /// <summary>
     /// SAP ENTITY
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")] 
     public required string CardCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardName { get; set; }
 
     public DateTime DeliveryStartDate { get; set; }
 
@@ -36,15 +46,15 @@ public class SalesContract : BaseEntity
 
     public FreightTerms FreightTerms { get; set; }
 
-    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
-    public decimal FreightCost { get; set; }
-
     /// <summary>
     /// SAP ENTITY
     /// </summary>
     [Column(TypeName = "VARCHAR(10) NOT NULL")]  
     public required string ItemCode { get; set; }
-
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? ItemName { get; set; }
+    
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     [ForeignKey("UnitOfMeasure")]
     public required string UnitOfMeasureCode { get; set; }
@@ -92,6 +102,16 @@ public class SalesContract : BaseEntity
     [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
     public decimal Price { get; set; } = 0;
     
+    public CurrencyType? StandardCurrency { get; set; } = CurrencyType.Brl;
+    
+    public DateTime? StandardCashFlowDate { get; set; }
+    
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? PaymentTerms { get; set; }
+    
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? ApprovalComments { get; set; }
+    
     public decimal TotalPrice => 
-        decimal.Round((Volume * Price), 2 , MidpointRounding.ToEven);
+        decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);
 }

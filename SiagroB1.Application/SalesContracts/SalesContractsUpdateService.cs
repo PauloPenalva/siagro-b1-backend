@@ -1,17 +1,28 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.SalesContracts;
 
-public class SalesContractsUpdateService(AppDbContext context, ILogger<SalesContractsUpdateService> logger)
+public class SalesContractsUpdateService(
+    AppDbContext context, 
+    BusinessPartnerService businessPartnerService,
+    ItemService itemService,
+    ILogger<SalesContractsUpdateService> logger)
 {
     public async Task<SalesContract?> ExecuteAsync(Guid key, SalesContract entity, string userName)
     {
         var existingEntity = await context.Set<SalesContract>()
             .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
+        
+        if (existingEntity.Status != ContractStatus.Draft)
+        {
+            throw new ApplicationException("You can only edit a sales contract if its status is draft.");
+        }
         
         try
         {
@@ -20,6 +31,8 @@ public class SalesContractsUpdateService(AppDbContext context, ILogger<SalesCont
             // Save changes
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
+            existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

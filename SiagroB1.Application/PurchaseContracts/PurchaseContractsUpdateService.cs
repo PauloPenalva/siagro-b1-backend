@@ -17,16 +17,16 @@ public class PurchaseContractsUpdateService(
 {
     public async Task<PurchaseContract?> ExecuteAsync(Guid key, PurchaseContract entity, string userName)
     {
+        var existingEntity = await context.Set<PurchaseContract>()
+            .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
+
+        if (existingEntity.Status != ContractStatus.Draft)
+        {
+            throw new ApplicationException("You can only edit a purchase contract if its status is draft.");
+        }
+        
         try
         {
-            var existingEntity = await context.Set<PurchaseContract>()
-                .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
-
-            if (existingEntity.Status != ContractStatus.Draft)
-            {
-                throw new ApplicationException("You can only edit a purchase contract if its status is draft.");
-            }
-
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
             
             if (existingEntity.Type == ContractType.Fixed)
@@ -35,7 +35,6 @@ public class PurchaseContractsUpdateService(
             }
             
             // Save changes
-            existingEntity.Status = ContractStatus.Draft;
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -44,15 +43,8 @@ public class PurchaseContractsUpdateService(
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!EntityExists(key))
-            {
-                throw new KeyNotFoundException("Entity not found.");
-            }
-            else
-            {
-                logger.Log(LogLevel.Error, "Failed to update entity.");
-                throw new DefaultException("Error updating entity due to concurrency issues.");
-            }
+            logger.Log(LogLevel.Error, "Failed to update entity.");
+            throw new DefaultException("Error updating entity due to concurrency issues.");
         }
 
         return entity;
@@ -68,10 +60,5 @@ public class PurchaseContractsUpdateService(
         price.FixationVolume = entity.TotalVolume;
         price.FixationPrice = entity.StandardPrice;
         price.Status = PriceFixationStatus.InApproval;
-    }
-
-    private bool EntityExists(Guid key)
-    {
-        return context.Set<PurchaseContract>().Any(e => e.Key == key);
     }
 }

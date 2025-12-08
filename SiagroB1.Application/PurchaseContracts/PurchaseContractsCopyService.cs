@@ -33,6 +33,7 @@ public class PurchaseContractsCopyService(AppDbContext db, PurchaseContractsCrea
         cloneContract.RowId = 0;
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;
+        cloneContract.ApprovalComments = string.Empty;
 
         cloneContract.PriceFixations.Clear();
         

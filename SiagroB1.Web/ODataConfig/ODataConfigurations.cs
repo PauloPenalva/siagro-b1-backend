@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
@@ -32,16 +31,41 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
+        modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
+        
+        var salesContractCopy = modelBuilder.Action("SalesContractsCopy");
+        salesContractCopy.Parameter<Guid>("Key");
+        salesContractCopy.Returns<IActionResult>();
+        
+        var salesContractsWithdrawApproval =  modelBuilder.Action("SalesContractsWithdrawApproval");
+        salesContractsWithdrawApproval.Parameter<Guid>("Key");
+        salesContractsWithdrawApproval.Returns<IActionResult>();
+        
+        var salesContractsSendApproval =  modelBuilder.Action("SalesContractsSendApproval");
+        salesContractsSendApproval.Parameter<Guid>("Key");
+        salesContractsSendApproval.Returns<IActionResult>();
+        
+        var salesContractsApproval = modelBuilder.Action("SalesContractsApproval");
+        salesContractsApproval.Parameter<Guid>("Key");
+        salesContractsApproval.Parameter<string>("Comments");
+        salesContractsApproval.Returns<IActionResult>();
+        
+        var salesContractsReject = modelBuilder.Action("SalesContractsReject");
+        salesContractsReject.Parameter<Guid>("Key");
+        salesContractsReject.Parameter<string>("Comments");
+        salesContractsReject.Returns<IActionResult>();
+
+        var salesContractsGetTotals = modelBuilder.Function("SalesContractsGetTotals")
+            .Returns<SalesContractTotalsResponseDto>()
+            .Parameter<Guid>("key");
         
         var storageAddresses = modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         storageAddresses.EntityType
             .Action("Totals")
             .Parameter<Guid>("key");
-        
-        var purchaseContract = modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         
         var purchaseContractsApproval = modelBuilder.Action("PurchaseContractsApproval");
         purchaseContractsApproval.Parameter<Guid>("Key");

@@ -14,6 +14,7 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
         {
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await context.SalesContracts
+                .Include(x => x.DocType)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)

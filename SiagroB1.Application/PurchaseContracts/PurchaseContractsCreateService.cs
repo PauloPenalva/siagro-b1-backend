@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Constants;
+using SiagroB1.Application.DocTypes;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -14,8 +15,11 @@ public class PurchaseContractsCreateService(
         AppDbContext context, 
         BusinessPartnerService  businessPartnerService,
         ItemService itemService,
+        DocTypesService  docTypesService,
         ILogger<PurchaseContractsCreateService> logger)
 {
+    private static readonly TransactionCode TransactionCode = TransactionCode.PurchaseContract;
+    
     public async Task<PurchaseContract> ExecuteAsync(PurchaseContract entity, string createdBy, bool isCopy = false)
     {
         await using var transaction = await context.Database.BeginTransactionAsync();
@@ -36,45 +40,44 @@ public class PurchaseContractsCreateService(
                 parameter.PurchaseContract = entity;
             }
 
-            var contractNumber = await GetPurchaseContractNumber(entity.DocTypeCode);
-            entity.Code = contractNumber
-                                .ToString()
-                                .PadLeft(10, '0');
-            if (!isCopy) 
-                entity.Status = ContractStatus.Draft;
-            
+            var docTypeCode = entity.DocTypeCode;
+            var contractNumber = await docTypesService.GetNextNumber(docTypeCode, TransactionCode);
+ 
+            entity.Code = FormatContractNumber(contractNumber);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            await context.PurchaseContracts.AddAsync(entity);
+            entity.Status = ContractStatus.Draft;
             
-            await UpdateDocType(entity.DocTypeCode, contractNumber);
-
             if (entity.Type == ContractType.Fixed)
             {
                 await CreatePriceFixation(entity);
             }
             
+            await context.PurchaseContracts.AddAsync(entity);
             await context.SaveChangesAsync();
-
+            
+            await docTypesService.UpdateLastNumber(docTypeCode, contractNumber, TransactionCode);
+            
             await transaction.CommitAsync();
             return entity;
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            
-            if (ex is DefaultException)
-            {
-                throw;
-            }
-
             logger.LogError(ex, ex.Message);
-            throw new DefaultException(MessagesPtBr.CreatePurchaseContractError);
+            throw new ApplicationException(MessagesPtBr.CreatePurchaseContractError);
         }
     }
-
+    
+    private string FormatContractNumber(int contractNumber)
+    {
+        return contractNumber
+            .ToString()
+            .PadLeft(10, '0');
+    }
+    
     private async Task CreatePriceFixation(PurchaseContract entity)
     {
         var price = new PurchaseContractPriceFixation
@@ -88,38 +91,5 @@ public class PurchaseContractsCreateService(
         };
 
         await context.PurchaseContractsPriceFixations.AddAsync(price);
-    }
-
-    private async Task<int> GetPurchaseContractNumber(string? docTypeCode)
-    {
-        if (docTypeCode == null)
-        {
-            throw new ApplicationException("DocType Code not informed.");
-        }
-
-        var nextNumber = await context.DocTypes
-                             .AsNoTracking()
-                             .Where(x => x.Code == docTypeCode && x.TransactionCode == TransactionCode.PurchaseContract)
-                             .Select(x => x.NextNumber)
-                             .FirstOrDefaultAsync();
-
-        return nextNumber;
-    }
-    
-    
-    private async Task UpdateDocType(string docTypeCode, int contractNumber)
-    {
-        if (docTypeCode == null)
-        {
-            throw new ApplicationException("DocType Code not informed.");
-        }
-
-        var docType = await context.DocTypes
-                          .Where(x => x.Code == docTypeCode && 
-                                      x.TransactionCode == TransactionCode.PurchaseContract)
-                          .FirstOrDefaultAsync() ??
-                      throw new NotFoundException("DocType not found.");
-        docType.LastNumber = contractNumber;
-        docType.NextNumber = ++contractNumber;
     }
 }
