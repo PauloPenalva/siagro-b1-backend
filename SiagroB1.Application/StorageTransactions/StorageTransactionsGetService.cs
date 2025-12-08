@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -8,14 +9,15 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsGetService(AppDbContext context, ILogger<StorageTransactionsGetService> logger)
 {
-    public async Task<StorageTransaction?> GetByIdAsync(Guid key)
+    public async Task<StorageTransaction> GetByIdAsync(Guid key)
     {
         try
         {
             return await context.StorageTransactions
                 .Include(x => x.QualityInspections)
                 .ThenInclude(q => q.QualityAttrib)
-                .FirstOrDefaultAsync(x => x.Key == key);
+                .FirstOrDefaultAsync(x => x.Key == key) ?? 
+                   throw new NotFoundException("Storage transaction not found.");
         }
         catch (Exception ex)
         {

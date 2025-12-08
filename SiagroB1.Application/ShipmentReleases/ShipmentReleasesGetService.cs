@@ -14,7 +14,7 @@ public class ShipmentReleasesGetService(AppDbContext context, ILogger<ShipmentRe
         {
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await context.ShipmentReleases
-                .Include(x => x.Transactions)
+                //.Include(x => x.Transactions)
                 .FirstOrDefaultAsync(x => x.Key == key);
         }
         catch (Exception ex)

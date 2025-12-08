@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208135440_AlterTableStoraTransactionsAddColumnCardCode")]
+    partial class AlterTableStoraTransactionsAddColumnCardCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -432,58 +435,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("PURCHASE_CONTRACTS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractAllocation", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<Guid>("PurchaseContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<Guid>("StorageTransactionKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<decimal>("Volume")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("PurchaseContractKey");
-
-                    b.ToTable("PURCHASE_CONTRACTS_ALLOCATIONS");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractBroker", b =>
                 {
                     b.Property<Guid>("Key")
@@ -781,30 +732,12 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("CardCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(15) NOT NULL");
 
                     b.Property<string>("Comments")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("InvoiceDate")
                         .HasColumnType("datetime2");
@@ -820,12 +753,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.HasKey("Key");
 
@@ -873,22 +800,16 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<decimal>("AvailableQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<DateTime?>("ExpectedDeliveryDate")
                         .HasColumnType("datetime2");
@@ -915,12 +836,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.HasKey("Key");
 
                     b.HasIndex("PurchaseContractKey");
@@ -937,30 +852,12 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("Comments")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
@@ -988,12 +885,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("TruckDriverCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(11) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<decimal>("Volume")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
@@ -1029,18 +920,6 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("CardCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -1050,12 +929,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("CreationDate")
                         .HasColumnType("datetime2");
@@ -1089,12 +962,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("WarehouseCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -1116,21 +983,6 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<decimal>("AvaiableVolumeToAllocate")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("CardCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -1138,23 +990,11 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CardName")
                         .HasColumnType("VARCHAR(200)");
 
-                    b.Property<string>("ChaveNFe")
-                        .HasColumnType("VARCHAR(44)");
-
                     b.Property<decimal>("CleaningDiscount")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("Comments")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<string>("DocTypeCode")
                         .HasColumnType("VARCHAR(10)");
@@ -1165,15 +1005,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("GrossWeight")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
-                    b.Property<string>("InvoiceNumber")
-                        .HasColumnType("VARCHAR(9)");
-
-                    b.Property<decimal>("InvoiceQty")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0)");
-
-                    b.Property<string>("InvoiceSerie")
-                        .HasColumnType("VARCHAR(3)");
-
                     b.Property<string>("ItemCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -1181,14 +1012,14 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("ItemName")
                         .HasColumnType("VARCHAR(200)");
 
-                    b.Property<decimal>("NetWeight")
-                        .HasColumnType("decimal(18,3) DEFAULT 0");
-
                     b.Property<decimal>("OthersDicount")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
                     b.Property<string>("ProcessingCostCode")
                         .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<Guid?>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
@@ -1226,20 +1057,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("TruckDriverCode")
                         .HasColumnType("VARCHAR(11) NOT NULL");
 
-                    b.Property<string>("UnitOfMeasureCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(4) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("WarehouseCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
                     b.Property<Guid?>("WeighingTicketKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1252,10 +1069,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("ShipmentReleaseKey");
 
                     b.HasIndex("StorageAddressKey");
-
-                    b.HasIndex("UnitOfMeasureCode");
-
-                    b.HasIndex("WarehouseCode");
 
                     b.ToTable("STORAGE_TRANSACTIONS");
                 });
@@ -1384,18 +1197,6 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
                     b.Property<string>("CardCode")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -1407,12 +1208,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("Comments")
                         .HasColumnType("NVARCHAR(MAX)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
@@ -1456,12 +1251,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
 
                     b.HasKey("Key");
 
@@ -1585,17 +1374,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("LogisticRegion");
 
                     b.Navigation("UnitOfMeasure");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractAllocation", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
-                        .WithMany("Allocations")
-                        .HasForeignKey("PurchaseContractKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("PurchaseContract");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractBroker", b =>
@@ -1767,34 +1545,18 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("ProcessingCostCode");
 
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
-                        .WithMany()
+                        .WithMany("Transactions")
                         .HasForeignKey("ShipmentReleaseKey");
 
                     b.HasOne("SiagroB1.Domain.Entities.StorageAddress", null)
                         .WithMany("Transactions")
                         .HasForeignKey("StorageAddressKey");
 
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseCode")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("DocType");
 
                     b.Navigation("ProcessingCost");
 
                     b.Navigation("ShipmentRelease");
-
-                    b.Navigation("UnitOfMeasure");
-
-                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
@@ -1855,8 +1617,6 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContract", b =>
                 {
-                    b.Navigation("Allocations");
-
                     b.Navigation("Brokers");
 
                     b.Navigation("PriceFixations");
@@ -1871,6 +1631,11 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoice", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>

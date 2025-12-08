@@ -37,5 +37,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<Agent> Agents { get; set; }
+    public DbSet<PurchaseContractAllocation> PurchaseContractAllocations { get; set; }
 }
     

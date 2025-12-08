@@ -14,6 +14,7 @@ public class PurchaseContractsTotalsService(AppDbContext context)
                       .ThenInclude(x => x.Tax)
                       .Include(x => x.PriceFixations)
                       .Include(x => x.ShipmentReleases)
+                      .Include(x => x.Allocations)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new KeyNotFoundException();
@@ -28,6 +29,7 @@ public class PurchaseContractsTotalsService(AppDbContext context)
             TotalAvailableToRelease = ctr.TotalAvailableToRelease,
             TotalStandard = ctr.TotalStandard,
             TotalVolume = ctr.TotalVolume,
+            AvaiableVolume = ctr.AvaiableVolume,
         };
     }
 }

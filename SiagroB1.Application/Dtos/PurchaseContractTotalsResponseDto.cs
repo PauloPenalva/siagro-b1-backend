@@ -27,4 +27,7 @@ public class PurchaseContractTotalsResponseDto
     
     [JsonPropertyName("TotalAvailableToRelease")]
     public decimal TotalAvailableToRelease { get; set; }
+    
+    [JsonPropertyName("AvaiableVolume")]
+    public decimal AvaiableVolume { get; set; }
 }

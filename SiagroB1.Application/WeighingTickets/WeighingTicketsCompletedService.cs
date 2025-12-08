@@ -83,7 +83,12 @@ public class WeighingTicketsCompletedService(
                 TransactionOrigin = TransactionCode.WeighingTicket,
                 TruckCode = ticket.TruckCode,
                 TruckDriverCode = ticket.TruckDriverCode,
-                WeighingTicketKey = ticket.Key
+                WeighingTicketKey = ticket.Key,
+                CardCode = "",
+                ItemCode = "",
+                UnitOfMeasureCode = "",
+                NetWeight = ticket.GrossWeight,
+                WarehouseCode = "",
             };
                 
             await storageTransactionsCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);

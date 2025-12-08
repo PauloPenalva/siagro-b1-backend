@@ -74,7 +74,12 @@ public class ShippingOrdersShippedService(
             TransactionOrigin = TransactionCode.ShippingOrder,
             ShippingOrderKey = order.Key,
             TruckCode = order.TruckCode,
-            TruckDriverCode = order.TruckDriverCode
+            TruckDriverCode = order.TruckDriverCode,
+            CardCode = "",
+            ItemCode = "",
+            UnitOfMeasureCode = "",
+            NetWeight = order.Volume,
+            WarehouseCode = "",
         };
 
         db.StorageTransactions.Add(st);

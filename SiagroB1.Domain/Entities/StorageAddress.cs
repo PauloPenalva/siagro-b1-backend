@@ -9,10 +9,14 @@ namespace SiagroB1.Domain.Entities;
 [Index("Code", IsUnique = true)]
 public class StorageAddress : BaseEntity
 {
-    [Column(TypeName = "VARCHAR(50) NOT NULL")]
-    public required string Code { get; set; }
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DocTypeCode { get; set; }
+    public virtual DocType? DocType { get; set; }
     
-    public required DateTime CreationDate { get; set; }
+    [Column(TypeName = "VARCHAR(50) NOT NULL")]
+    public string? Code { get; set; }
+
+    public DateTime? CreationDate { get; set; } = DateTime.Now.Date;
     
     public StorageOwnershipType OwnershipType { get; set; }  
     
@@ -22,8 +26,14 @@ public class StorageAddress : BaseEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string CardCode { get; set; }
     
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardName { get; set; }
+    
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? ItemName { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string WarehouseCode { get; set; }

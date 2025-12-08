@@ -28,21 +28,10 @@ public class ShipmentRelease : BaseEntity
     
     public ReleaseStatus Status { get; set; } = ReleaseStatus.Pending;
     
-    // Rastreabilidade
-    [Column(TypeName = "VARCHAR(50)")]
-    public string? CreatedBy { get; set; } = string.Empty;
-    
-    public DateTime CreatedAt { get; set; } = DateTime.Now;
-    
-    [Column(TypeName = "VARCHAR(50)")]
-    public string? ApprovedBy { get; set; }
-    
-    public DateTime? ApprovedAt { get; set; }
-    
-    public virtual ICollection<StorageTransaction> Transactions { get; } = [];
-
-    public bool HasStorageTransactions => Transactions
-        .Any(x => 
-            x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Pending &&
-            x.TransactionType == StorageTransactionType.ShipmentReleased);
+    // public virtual ICollection<StorageTransaction> Transactions { get; } = [];
+    //
+    // public bool HasStorageTransactions => Transactions
+    //     .Any(x => 
+    //         x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Pending &&
+    //         x.TransactionType == StorageTransactionType.ShipmentReleased);
 }

@@ -9,7 +9,7 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsConfirmedService(AppDbContext db)
 {
-    public async Task ExecuteAsync(Guid key, StorageTransactionsConfirmedDto confirmedDto ,string userName)
+    public async Task ExecuteAsync(Guid key,string userName)
     {
         var applyProcessingCost = false;
         
@@ -19,27 +19,29 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
                      .FirstOrDefaultAsync() ??
                         throw new NotFoundException("Storage transaction not found.");
 
-        if (st.TransactionType is StorageTransactionType.Receipt)
-        {
-            if (confirmedDto.ProcessingCostCode == null)
-            {
-                throw new ApplicationException("Processing cost list is required.");
-            }
-            
-            applyProcessingCost =  true;
-        }
+        // if (st.TransactionType is StorageTransactionType.Receipt)
+        // {
+        //     if (confirmedDto.ProcessingCostCode == null)
+        //     {
+        //         throw new ApplicationException("Processing cost list is required.");
+        //     }
+        //     
+        //     applyProcessingCost =  true;
+        // }
         
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            st.ProcessingCostCode = confirmedDto.ProcessingCostCode;
-            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
-
+            //st.ProcessingCostCode = confirmedDto.ProcessingCostCode;
             if (applyProcessingCost)
             {
                 await Calculate(st);
             }
-        
+            
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
+            st.AvaiableVolumeToAllocate = st.NetWeight;
+            
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
         }

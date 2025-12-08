@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.StorageAddresses;
 using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
@@ -25,14 +24,20 @@ public class StorageTransactionsController(
     [EnableQuery]
     public async Task<ActionResult<StorageTransaction>> Get([FromRoute] Guid key)
     {
-        var item = await getService.GetByIdAsync(key);
-
-        if (item == null)
+        try
         {
-            return NotFound();
+            var item = await getService.GetByIdAsync(key);
+            return Ok(item);
         }
-
-        return Ok(item);
+        catch (Exception ex)
+        {
+            if (ex is NotFoundException)
+            {
+                return NotFound();
+            }
+            
+            return BadRequest(ex.Message);
+        }
     }
     
     public async Task<IActionResult> Post([FromBody] StorageTransaction entity)

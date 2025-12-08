@@ -35,6 +35,10 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
+
+        var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
+        storageTransactionsConfirmed.Parameter<Guid>("Key");
+        storageTransactionsConfirmed.Returns<IActionResult>();
         
         var salesContractCopy = modelBuilder.Action("SalesContractsCopy");
         salesContractCopy.Parameter<Guid>("Key");
@@ -76,6 +80,12 @@ public static class ODataConfigurations
         purchaseContractsReject.Parameter<Guid>("Key");
         purchaseContractsReject.Parameter<string>("Comments");
         purchaseContractsReject.Returns<IActionResult>();
+        
+        var purchaseContractsCreateAllocation = modelBuilder.Action("PurchaseContractsCreateAllocation");
+        purchaseContractsCreateAllocation.Parameter<Guid>("PurchaseContractKey");
+        purchaseContractsCreateAllocation.Parameter<Guid>("StorageTransactionKey");
+        purchaseContractsCreateAllocation.Parameter<decimal>("Volume");
+        purchaseContractsCreateAllocation.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")

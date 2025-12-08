@@ -92,26 +92,6 @@ public class PurchaseContract : BaseEntity
     
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
-
-    public DateTime? CreatedAt { get; set; } = DateTime.Now;
-
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? CreatedBy { get; set; } = string.Empty;
-
-    public DateTime? UpdatedAt { get; set; } = DateTime.Now;
-
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? UpdatedBy { get; set; } = string.Empty;
-    
-    public DateTime? ApprovedAt { get; set; }
-    
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? ApprovedBy { get; set; } = string.Empty;
-    
-    public DateTime? CanceledAt { get; set; }
-    
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? CanceledBy { get; set; } = string.Empty;
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey(nameof(LogisticRegion))]
@@ -131,6 +111,8 @@ public class PurchaseContract : BaseEntity
     public ICollection<PurchaseContractBroker> Brokers { get; set; } = [];
     
     public ICollection<ShipmentRelease> ShipmentReleases { get; set; } = [];
+    
+    public ICollection<PurchaseContractAllocation> Allocations { get; set; } = [];
 
     public decimal TotalStandard =>
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
@@ -172,4 +154,7 @@ public class PurchaseContract : BaseEntity
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);
 
+    public decimal AvaiableVolume =>
+        decimal.Round(
+            TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven) ;
 }

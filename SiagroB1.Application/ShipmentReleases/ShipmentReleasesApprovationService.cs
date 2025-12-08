@@ -73,7 +73,12 @@ public class ShipmentReleasesApprovationService(AppDbContext context, ILogger<Sh
             GrossWeight = sr.ReleasedQuantity,
             ShipmentReleaseKey = sr.Key,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
-            TransactionOrigin = TransactionCode.ShipmentRelease
+            TransactionOrigin = TransactionCode.ShipmentRelease,
+            CardCode = "",
+            ItemCode = "",
+            UnitOfMeasureCode = "",
+            NetWeight = sr.ReleasedQuantity,
+            WarehouseCode = "",
         });
         
         await context.SaveChangesAsync();
