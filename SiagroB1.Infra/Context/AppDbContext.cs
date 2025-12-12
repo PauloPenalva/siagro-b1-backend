@@ -31,6 +31,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
     public DbSet<StorageAddress> StorageAddresses { get; set; }
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
+    public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<ShippingOrder> ShippingOrders { get; set; }
@@ -38,5 +39,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<Agent> Agents { get; set; }
     public DbSet<PurchaseContractAllocation> PurchaseContractAllocations { get; set; }
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Configurar todas as relações para NoAction
+        foreach (var relationship in modelBuilder.Model.GetEntityTypes()
+                     .SelectMany(e => e.GetForeignKeys()))
+        {
+            relationship.DeleteBehavior = DeleteBehavior.NoAction;
+        }
+    }
 }
     

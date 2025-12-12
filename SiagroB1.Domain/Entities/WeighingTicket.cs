@@ -10,8 +10,12 @@ namespace SiagroB1.Domain.Entities;
 [Index("Code", IsUnique = true)]
 public class WeighingTicket : BaseEntity
 {
+    [Column(TypeName = "VARCHAR(10) NULL")]
+    public string? DocTypeCode { get; set; }
+    public virtual DocType? DocType { get; set; }
+    
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
-    public required string Code { get; set; }
+    public string? Code { get; set; }
     
     public DateTime? Date { get; set; } = DateTime.Now.Date;
     

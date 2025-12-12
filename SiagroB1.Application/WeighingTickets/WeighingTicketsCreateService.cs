@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.DocTypes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
@@ -7,7 +8,10 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.WeighingTickets;
 
-public class WeighingTicketsCreateService(AppDbContext context, ILogger<WeighingTicketsCreateService> logger)
+public class WeighingTicketsCreateService(
+    AppDbContext context, 
+    DocTypesService docTypesService,
+    ILogger<WeighingTicketsCreateService> logger)
 {
     public async Task<WeighingTicket> ExecuteAsync(WeighingTicket entity, string userName)
     {
@@ -15,7 +19,10 @@ public class WeighingTicketsCreateService(AppDbContext context, ILogger<Weighing
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
-            entity.Date = DateTime.Now;
+            var currentNumber = await docTypesService.GetNextNumber(entity.DocTypeCode, TransactionCode.WeighingTicket);
+            
+            entity.Code = FormatCode(currentNumber);
+            entity.Date = DateTime.Now.Date;
             entity.Status = WeighingTicketStatus.Waiting;
             entity.FirstWeighValue = 0;
             entity.FirstWeighDateTime = null;
@@ -23,28 +30,23 @@ public class WeighingTicketsCreateService(AppDbContext context, ILogger<Weighing
             entity.SecondWeighDateTime = null;
             entity.Stage = WeighingTicketStage.ReadyForFirstWeighing;
             
-            await context.WeighingTickets.AddAsync(entity);
-            await context.SaveChangesAsync();
-            
-            var qualityAttribs = await context.QualityAttribs
-                .AsNoTracking()
-                .Where(x => !x.Disabled)
-                .OrderBy(x => x.Code)
-                .ToListAsync();
+            var qualityAttribs = await GetQualityAttribs();
             
             qualityAttribs.ForEach(x =>
             {
                 entity.QualityInspections.Add(new QualityInspection
                 {
-                    WeighingTicketKey = entity.Key,
+                    WeighingTicket =  entity,
                     QualityAttribCode = x.Code,
                     Value = 0,
                 });
-                
-                context.SaveChanges();
             });
             
+            await context.WeighingTickets.AddAsync(entity);
+            await docTypesService.UpdateLastNumber(entity.DocTypeCode, currentNumber, TransactionCode.WeighingTicket);
+            await context.SaveChangesAsync();
             await transaction.CommitAsync();
+            
             return entity;
         }
         catch (Exception ex)
@@ -52,5 +54,21 @@ public class WeighingTicketsCreateService(AppDbContext context, ILogger<Weighing
             logger.LogError(ex, "Error creating entity.");
             throw new DefaultException("Error creating entity.");
         }
-    }    
+    }
+
+    private async Task<List<QualityAttrib>> GetQualityAttribs()
+    {
+        var qualityAttribs = await context.QualityAttribs
+            .AsNoTracking()
+            .Where(x => !x.Disabled)
+            .OrderBy(x => x.Code)
+            .ToListAsync();
+        return qualityAttribs;
+    }
+
+    private static string FormatCode(int currentCode)
+    {
+        return currentCode.ToString()
+            .PadLeft(10, '0');
+    }
 }

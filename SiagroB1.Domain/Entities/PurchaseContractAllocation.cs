@@ -10,6 +10,7 @@ public class PurchaseContractAllocation : BaseEntity
     public virtual PurchaseContract? PurchaseContract { get; set; }
     
     public Guid StorageTransactionKey { get; set; }
+    public virtual StorageTransaction? StorageTransaction { get; set; }
     
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal Volume { get; set; }

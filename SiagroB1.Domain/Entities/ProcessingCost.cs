@@ -6,7 +6,6 @@ namespace SiagroB1.Domain.Entities;
 [Table("PROCESSING_COSTS")]
 public class ProcessingCost 
 {
-    
     [Key] 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string Code { get; set; }

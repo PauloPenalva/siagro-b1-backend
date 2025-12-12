@@ -153,7 +153,7 @@ public class PurchaseContract : BaseEntity
     
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);
-
+    
     public decimal AvaiableVolume =>
         decimal.Round(
             TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven) ;

@@ -30,6 +30,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
+        modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
@@ -70,6 +71,11 @@ public static class ODataConfigurations
         storageAddresses.EntityType
             .Action("Totals")
             .Parameter<Guid>("key");
+        
+        var purchaseContractsGetAvaiablesList = modelBuilder.Function("PurchaseContractsGetAvaiablesList");
+        purchaseContractsGetAvaiablesList.Parameter<string>("CardCode");
+        purchaseContractsGetAvaiablesList.Parameter<string>("ItemCode");
+        purchaseContractsGetAvaiablesList.Returns<ICollection<PurchaseContractDto>>();
         
         var purchaseContractsApproval = modelBuilder.Action("PurchaseContractsApproval");
         purchaseContractsApproval.Parameter<Guid>("Key");

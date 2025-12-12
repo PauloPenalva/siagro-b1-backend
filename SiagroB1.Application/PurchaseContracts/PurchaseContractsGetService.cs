@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -34,5 +36,33 @@ public class PurchaseContractsGetService(AppDbContext context, ILogger<PurchaseC
     public IQueryable<PurchaseContract> QueryAll()
     {
         return context.PurchaseContracts.AsNoTracking();
+    }
+
+    public List<PurchaseContractDto> GetAvaiablesPurchaseContracts(string cardCode, string itemCode)
+    {
+        var responseList = new List<PurchaseContractDto>();
+        
+        var contractsList = context.PurchaseContracts
+            .AsNoTracking()
+            .Include(x => x.Allocations)
+            .Where(p => p.CardCode == cardCode && p.ItemCode == itemCode && p.Status == ContractStatus.Approved)
+            .OrderBy(x => x.RowId)
+            .ToList();
+        
+        contractsList.ForEach(x =>
+        { 
+            if (x.AvaiableVolume > 0)
+            {
+                responseList.Add(new PurchaseContractDto
+                {
+                    Key = x.Key,
+                    Code = x.Code,
+                    AvaiableVolume = x.AvaiableVolume,
+                    UnitOfMeasureCode = x.UnitOfMeasureCode,
+                });
+            }
+        });
+        
+        return responseList;
     }
 }

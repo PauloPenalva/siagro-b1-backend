@@ -8,12 +8,15 @@ namespace SiagroB1.Web.Controllers;
 
 public class DocTypesController(DocTypeService service) : ODataController
 {
+    [HttpGet("odata/DocTypes")]
     [EnableQuery]
     public ActionResult<IEnumerable<DocType>> Get()
     {
         return Ok(service.QueryAll());
     }
-
+    
+    [HttpGet("odata/DocTypes/{code}")]
+    [HttpGet("odata/DocTypes({code})")]
     [EnableQuery]
     public async Task<ActionResult<DocType>> Get([FromRoute] string code)
     {

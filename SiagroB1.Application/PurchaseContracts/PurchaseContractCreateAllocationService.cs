@@ -16,6 +16,19 @@ public class PurchaseContractCreateAllocationService(
 
         var storageTransaction = await storageTransactionsGetService.GetByIdAsync(storageTransactionKey);
         var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
+        
+        var allowedTypes = new[]
+        {
+            StorageTransactionType.Purchase,
+            StorageTransactionType.PurchaseReturn,
+            StorageTransactionType.PurchaseQtyComplement,
+            StorageTransactionType.PurchasePriceComplement
+        };
+
+        if (!allowedTypes.Contains(storageTransaction.TransactionType))
+        {
+            throw new ApplicationException("Only purchase transaction are supported.");
+        }
 
         if (storageTransaction.TransactionStatus == StorageTransactionsStatus.Pending)
         {
@@ -29,7 +42,8 @@ public class PurchaseContractCreateAllocationService(
 
         if (volume > storageTransaction.AvaiableVolumeToAllocate)
         {
-            throw new ApplicationException("The reported volume is greater than the available balance on the delivery note.");
+            throw new ApplicationException(
+                "The reported volume is greater than the available balance on the delivery note.");
         }
 
         if (volume > purchaseContract?.AvaiableVolume)
@@ -37,7 +51,15 @@ public class PurchaseContractCreateAllocationService(
             throw new ApplicationException(
                 "The reported volume is greater than the available balance on the purchase contract.");
         }
-        
+
+        volume = storageTransaction.TransactionType switch
+        {
+            StorageTransactionType.PurchaseReturn => 0 - volume,
+            StorageTransactionType.PurchaseQtyComplement => 0,
+            StorageTransactionType.PurchasePriceComplement => 0,
+            _ => volume
+        };
+
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
@@ -51,7 +73,7 @@ public class PurchaseContractCreateAllocationService(
             };
 
             await db.PurchaseContractAllocations.AddAsync(alloc);
-            
+
             storageTransaction.AvaiableVolumeToAllocate -= volume;
             
             await db.SaveChangesAsync();
