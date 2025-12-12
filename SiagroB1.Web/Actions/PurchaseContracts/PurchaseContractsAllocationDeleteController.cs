@@ -6,10 +6,10 @@ using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.PurchaseContracts;
 
-public class PurchaseContractsCreateAllocationController(PurchaseContractCreateAllocationService service)
+public class PurchaseContractsAllocationDeleteController(PurchaseContractsAllocationDeleteService service)
 : ODataController
 {
-    [HttpPost("odata/PurchaseContractsCreateAllocation")]
+    [HttpPost("odata/PurchaseContractsDeleteAllocation")]
     public async Task<IActionResult> PostAsync(ODataActionParameters parameters)
     {
         if (!ModelState.IsValid)
@@ -17,19 +17,15 @@ public class PurchaseContractsCreateAllocationController(PurchaseContractCreateA
         
         try
         {
-            if (!parameters.TryGetValue("PurchaseContractKey", out var purchaseKeyObj) || 
-                !parameters.TryGetValue("StorageTransactionKey", out var storageTransactionKeyObj) ||
-                !parameters.TryGetValue("Volume", out var volumeObj))
+            if (!parameters.TryGetValue("Key", out var keyObj) )
             {
                 return BadRequest("Missing required parameters");
             }
             
             var userName = User.Identity?.Name ?? "Unknown";
-            var purchaseKey = Guid.Parse(purchaseKeyObj.ToString());
-            var storageKey = Guid.Parse(storageTransactionKeyObj.ToString());
-            var volume = decimal.Parse(volumeObj.ToString());
+            var key = Guid.Parse(keyObj.ToString());
             
-            await service.ExecuteAsync(purchaseKey, storageKey, volume, userName);
+            await service.ExecuteAsync(key, userName);
             
             return Ok();
         }

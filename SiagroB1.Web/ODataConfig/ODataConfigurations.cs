@@ -27,6 +27,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
         modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");
         modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
+        modelBuilder.EntitySet<PurchaseContractAllocation>("PurchaseContractsAllocations");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
@@ -40,6 +41,10 @@ public static class ODataConfigurations
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
         storageTransactionsConfirmed.Returns<IActionResult>();
+        
+        var storageTransactionsCopy = modelBuilder.Action("StorageTransactionsCopy");
+        storageTransactionsCopy.Parameter<Guid>("Key");
+        storageTransactionsCopy.Returns<IActionResult>();
         
         var salesContractCopy = modelBuilder.Action("SalesContractsCopy");
         salesContractCopy.Parameter<Guid>("Key");
@@ -92,6 +97,10 @@ public static class ODataConfigurations
         purchaseContractsCreateAllocation.Parameter<Guid>("StorageTransactionKey");
         purchaseContractsCreateAllocation.Parameter<decimal>("Volume");
         purchaseContractsCreateAllocation.Returns<IActionResult>();
+        
+        var purchaseContractsDeleteAllocation = modelBuilder.Action("PurchaseContractsDeleteAllocation");
+        purchaseContractsDeleteAllocation.Parameter<Guid>("Key");
+        purchaseContractsDeleteAllocation.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")

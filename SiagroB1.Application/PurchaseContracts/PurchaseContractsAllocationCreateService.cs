@@ -6,7 +6,7 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
-public class PurchaseContractCreateAllocationService(
+public class PurchaseContractsAllocationCreateService(
     AppDbContext db, 
     StorageTransactionsGetService storageTransactionsGetService,
     PurchaseContractsGetService purchaseContractsGetService)
@@ -72,9 +72,9 @@ public class PurchaseContractCreateAllocationService(
                 ApprovedBy = userName,
             };
 
-            await db.PurchaseContractAllocations.AddAsync(alloc);
+            await db.PurchaseContractsAllocations.AddAsync(alloc);
 
-            storageTransaction.AvaiableVolumeToAllocate -= volume;
+            storageTransaction.AvaiableVolumeToAllocate -= decimal.Abs(volume);
             
             await db.SaveChangesAsync();
             

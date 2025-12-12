@@ -8,7 +8,7 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
-public class PurchaseContractsGetService(AppDbContext context, ILogger<PurchaseContractsUpdateService> logger)
+public class PurchaseContractsGetService(AppDbContext context, ILogger<PurchaseContractsGetService> logger)
 {
     public async Task<PurchaseContract?> GetByIdAsync(Guid key)
     {

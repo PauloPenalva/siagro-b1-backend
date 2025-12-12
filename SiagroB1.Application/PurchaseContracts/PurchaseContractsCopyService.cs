@@ -31,6 +31,7 @@ public class PurchaseContractsCopyService(AppDbContext db, PurchaseContractsCrea
 
         cloneContract.Key = null;
         cloneContract.RowId = 0;
+        cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.ApprovalComments = string.Empty;

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Dtos;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -7,40 +7,51 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsConfirmedService(AppDbContext db)
+public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<StorageTransactionsConfirmedService> logger)
 {
     public async Task ExecuteAsync(Guid key,string userName)
     {
-        var applyProcessingCost = false;
-        
         var st = await db.StorageTransactions
                      .Include(x => x.QualityInspections)
                      .Where(x => x.TransactionStatus == StorageTransactionsStatus.Pending)
                      .FirstOrDefaultAsync() ??
                         throw new NotFoundException("Storage transaction not found.");
 
-        // if (st.TransactionType is StorageTransactionType.Receipt)
-        // {
-        //     if (confirmedDto.ProcessingCostCode == null)
-        //     {
-        //         throw new ApplicationException("Processing cost list is required.");
-        //     }
-        //     
-        //     applyProcessingCost =  true;
-        // }
+        switch (st.TransactionType)
+        {
+            case StorageTransactionType.SalesShipment:
+                await ExecuteSalesShipementTransactionAsync(st, userName);
+                break;
+            case StorageTransactionType.SalesShipmentReturn:
+                await ExecuteSalesShipementReturnTransactionAsync(st, userName);
+                break;
+            default:
+                await ExecutePurchaseTransactionAsync(st, userName);
+                break;
+        }
+    }
+    
+    private async Task ExecuteSalesShipementTransactionAsync(StorageTransaction st, string userName)
+    {
+        var warehouseCode = st.WarehouseCode;
+        var itemCode = st.ItemCode;
         
+        var warehouseBalance = await GetWarehouseBalanceAsync(warehouseCode, itemCode);
+        logger.LogInformation("Saldo no armazem: {}", warehouseBalance);
+        
+        if (st.GrossWeight > warehouseBalance)
+        {
+            throw new ApplicationException("A quantidade embarcada é superior ao saldo disponivel no armazem.");
+        }
+            
         await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            //st.ProcessingCostCode = confirmedDto.ProcessingCostCode;
-            if (applyProcessingCost)
-            {
-                await Calculate(st);
-            }
-            
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
-            st.NetWeight = st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
-            st.AvaiableVolumeToAllocate = st.NetWeight;
+            st.NetWeight = st.GrossWeight;
+            st.AvaiableVolumeToAllocate = decimal.Zero;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
             
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -51,7 +62,73 @@ public class StorageTransactionsConfirmedService(AppDbContext db)
             throw new ApplicationException(e.Message);
         }
     }
+    
+    private async Task ExecuteSalesShipementReturnTransactionAsync(StorageTransaction st, string userName)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = st.GrossWeight;
+            st.AvaiableVolumeToAllocate = decimal.Zero;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
+            
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            throw new ApplicationException(e.Message);
+        }
+    }
+    
+    private async Task ExecutePurchaseTransactionAsync(StorageTransaction st, string userName)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        try
+        {
+            // if (applyProcessingCost)
+            // {
+            //     await Calculate(st);
+            // }
+            
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
+            st.AvaiableVolumeToAllocate = st.NetWeight;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
+            
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync();
+            throw new ApplicationException(e.Message);
+        }
+    }
+    
+    private async Task<decimal> GetWarehouseBalanceAsync(string warehouseCode, string itemCode)
+    {
+        var total = await db.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.TransactionStatus == StorageTransactionsStatus.Confirmed &&
+                        x.WarehouseCode == warehouseCode &&
+                        x.ItemCode == itemCode &&
+                        (x.TransactionType == StorageTransactionType.Purchase ||
+                         x.TransactionType == StorageTransactionType.PurchaseReturn ||
+                         x.TransactionType == StorageTransactionType.SalesShipment ||
+                         x.TransactionType == StorageTransactionType.SalesShipmentReturn))
+            .SumAsync(x => (x.TransactionType == StorageTransactionType.Purchase || 
+                            x.TransactionType == StorageTransactionType.SalesShipmentReturn)
+                ? x.NetWeight 
+                : -x.NetWeight);
 
+        return decimal.Round(total, 3, MidpointRounding.ToEven);
+    }
+    
     //todo: finalizar metodo de calculo
     private async Task Calculate(StorageTransaction st)
     {

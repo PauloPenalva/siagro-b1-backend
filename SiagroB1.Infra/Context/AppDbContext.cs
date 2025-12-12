@@ -26,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractTax> PurchaseContractsTaxes { get; set; }
     public DbSet<PurchaseContractBroker> PurchaseContractsBrokers { get; set; }
     public DbSet<PurchaseContractQualityParameter> PurchaseContractsQualityParameters { get; set; }
+    public DbSet<PurchaseContractAllocation> PurchaseContractsAllocations { get; set; }
+    
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<DocType> DocTypes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
@@ -38,7 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<Agent> Agents { get; set; }
-    public DbSet<PurchaseContractAllocation> PurchaseContractAllocations { get; set; }
+    
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
