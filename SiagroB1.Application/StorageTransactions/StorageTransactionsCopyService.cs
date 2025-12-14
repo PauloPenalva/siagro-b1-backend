@@ -4,15 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsCopyService(AppDbContext db, StorageTransactionsCreateService createService)
+public class StorageTransactionsCopyService(IUnitOfWork unitOfWork,StorageTransactionsCreateService createService)
 {
-    public async Task ExecuteAsync(Guid key, string userName) 
+    public async Task<StorageTransaction> ExecuteAsync(Guid key, string userName) 
     {
-        var original = await db.StorageTransactions
+        var original = await unitOfWork.Context.StorageTransactions
             .AsNoTracking()
             .Include(x => x.QualityInspections)
             .FirstOrDefaultAsync(x => x.Key == key) ??
@@ -40,5 +40,7 @@ public class StorageTransactionsCopyService(AppDbContext db, StorageTransactions
         }
         
         await createService.ExecuteAsync(clone, userName);
+
+        return clone;
     }
 }

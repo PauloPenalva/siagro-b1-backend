@@ -29,7 +29,7 @@ public class PurchaseContractsAllocationCreateController(PurchaseContractsAlloca
             var storageKey = Guid.Parse(storageTransactionKeyObj.ToString());
             var volume = decimal.Parse(volumeObj.ToString());
             
-            await service.ExecuteAsync(purchaseKey, storageKey, volume, userName);
+            await service.ExecuteWithTransactionAsync(purchaseKey, storageKey, volume, userName);
             
             return Ok();
         }

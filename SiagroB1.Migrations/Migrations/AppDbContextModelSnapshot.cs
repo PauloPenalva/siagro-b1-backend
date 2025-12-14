@@ -1007,6 +1007,63 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("SHIPPING_ORDERS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShippingTransaction", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("PurchaseStorageKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PurchaseStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<Guid>("SalesStorageKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SalesStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PurchaseStorageTransactionKey");
+
+                    b.HasIndex("SalesStorageTransactionKey");
+
+                    b.ToTable("SHIPPING_TRANSACTIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.State", b =>
                 {
                     b.Property<string>("Key")
@@ -1780,6 +1837,23 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("StorageAddress");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShippingTransaction", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "PurchaseStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("PurchaseStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "SalesStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("SalesStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("PurchaseStorageTransaction");
+
+                    b.Navigation("SalesStorageTransaction");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>

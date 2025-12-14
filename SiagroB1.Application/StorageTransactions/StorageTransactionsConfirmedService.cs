@@ -3,15 +3,16 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<StorageTransactionsConfirmedService> logger)
+public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<StorageTransactionsConfirmedService> logger)
 {
     public async Task ExecuteAsync(Guid key,string userName)
     {
-        var st = await db.StorageTransactions
+        var st = await unitOfWork.Context.StorageTransactions
                      .Include(x => x.QualityInspections)
                      .Where(x => x.TransactionStatus == StorageTransactionsStatus.Pending)
                      .FirstOrDefaultAsync() ??
@@ -44,7 +45,6 @@ public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<Storag
             throw new ApplicationException("A quantidade embarcada é superior ao saldo disponivel no armazem.");
         }
             
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
@@ -53,19 +53,16 @@ public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<Storag
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
     
     private async Task ExecuteSalesShipementReturnTransactionAsync(StorageTransaction st, string userName)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
@@ -74,19 +71,16 @@ public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<Storag
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
     
     private async Task ExecutePurchaseTransactionAsync(StorageTransaction st, string userName)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
             // if (applyProcessingCost)
@@ -100,19 +94,17 @@ public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<Storag
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
     
     private async Task<decimal> GetWarehouseBalanceAsync(string warehouseCode, string itemCode)
     {
-        var total = await db.StorageTransactions
+        var total = await unitOfWork.Context.StorageTransactions
             .AsNoTracking()
             .Where(x => x.TransactionStatus == StorageTransactionsStatus.Confirmed &&
                         x.WarehouseCode == warehouseCode &&
@@ -135,7 +127,7 @@ public class StorageTransactionsConfirmedService(AppDbContext db, ILogger<Storag
         var processingCostCode = st.ProcessingCostCode;
         var grossWeight = st.GrossWeight;
 
-        var processingCost = await db.ProcessingCosts
+        var processingCost = await unitOfWork.Context.ProcessingCosts
                                  .Include(x => x.DryingDetails)
                                  .Include(x => x.DryingParameters)
                                  .Include(x => x.QualityParameters)

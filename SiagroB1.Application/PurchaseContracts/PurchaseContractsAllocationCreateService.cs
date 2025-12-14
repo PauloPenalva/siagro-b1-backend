@@ -2,18 +2,34 @@ using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsAllocationCreateService(
-    AppDbContext db, 
+    IUnitOfWork  unitOfWork,
     StorageTransactionsGetService storageTransactionsGetService,
     PurchaseContractsGetService purchaseContractsGetService)
 {
+    public async Task ExecuteWithTransactionAsync(Guid purchaseContractKey, Guid storageTransactionKey, decimal volume,
+        string userName)
+    {
+        try
+        {
+            await unitOfWork.BeginTransactionAsync();
+            await ExecuteAsync(purchaseContractKey, storageTransactionKey, volume, userName);
+            await unitOfWork.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await unitOfWork.RollbackAsync();
+            throw new DefaultException(e.Message);
+        }
+    }
+    
     public async Task ExecuteAsync(Guid purchaseContractKey, Guid storageTransactionKey, decimal volume, string userName)
     {
-
         var storageTransaction = await storageTransactionsGetService.GetByIdAsync(storageTransactionKey);
         var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
         
@@ -60,7 +76,6 @@ public class PurchaseContractsAllocationCreateService(
             _ => volume
         };
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
             var alloc = new PurchaseContractAllocation
@@ -72,17 +87,15 @@ public class PurchaseContractsAllocationCreateService(
                 ApprovedBy = userName,
             };
 
-            await db.PurchaseContractsAllocations.AddAsync(alloc);
+            await unitOfWork.Context.PurchaseContractsAllocations.AddAsync(alloc);
 
             storageTransaction.AvaiableVolumeToAllocate -= decimal.Abs(volume);
             
-            await db.SaveChangesAsync();
+            await unitOfWork.SaveChangesAsync();
             
-            await transaction.CommitAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
             throw new DefaultException(e.Message);
         }
     }

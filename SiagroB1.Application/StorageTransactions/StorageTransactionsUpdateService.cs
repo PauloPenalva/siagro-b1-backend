@@ -2,15 +2,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsUpdateService(AppDbContext context, ILogger<StorageTransactionsUpdateService> logger)
+public class StorageTransactionsUpdateService(AppDbContext context,IUnitOfWork unitOfWork, ILogger<StorageTransactionsUpdateService> logger)
 {
     public async Task<StorageTransaction?> ExecuteAsync(Guid key, StorageTransaction entity, string userName)
     {
-        var existingEntity = await context.StorageTransactions
+        var existingEntity = await unitOfWork.Context.StorageTransactions
                                  .FirstOrDefaultAsync(tc => tc.Key == key) ?? 
                              throw new KeyNotFoundException("Entity not found.");
 
@@ -23,7 +24,7 @@ public class StorageTransactionsUpdateService(AppDbContext context, ILogger<Stor
         {
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
-            await context.SaveChangesAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {

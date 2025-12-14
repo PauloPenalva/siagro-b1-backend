@@ -3,17 +3,18 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsGetService(AppDbContext context, ILogger<StorageTransactionsGetService> logger)
+public class StorageTransactionsGetService(IUnitOfWork unitOfWork,ILogger<StorageTransactionsGetService> logger)
 {
     public async Task<StorageTransaction> GetByIdAsync(Guid key)
     {
         try
         {
-            return await context.StorageTransactions
+            return await unitOfWork.Context.StorageTransactions
                        .Include(x => x.DocType)
                        .Include(x => x.QualityInspections)
                        .ThenInclude(q => q.QualityAttrib)
@@ -29,6 +30,6 @@ public class StorageTransactionsGetService(AppDbContext context, ILogger<Storage
 
     public IQueryable<StorageTransaction> QueryAll()
     {
-        return context.StorageTransactions.AsNoTracking();
+        return unitOfWork.Context.StorageTransactions.AsNoTracking();
     }
 }

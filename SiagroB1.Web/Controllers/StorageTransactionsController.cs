@@ -51,7 +51,7 @@ public class StorageTransactionsController(
         try
         {
             var userName = User.Identity?.Name ?? "Unknown";
-            await createService.ExecuteAsync(entity, userName);
+            await createService.ExecuteAsyncWithTransaction(entity, userName);
 
             return Created(entity);
         }

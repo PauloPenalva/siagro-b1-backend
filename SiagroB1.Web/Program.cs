@@ -8,6 +8,7 @@ using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
@@ -28,6 +29,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         })
 );
+
+builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 
 var erp = builder.Configuration["Erp"] ?? "SAPB1";
 

@@ -37,7 +37,12 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
-
+        
+        var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
+        shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
+        shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
+        shippingTransactionCreate.Returns<IActionResult>();
+        
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
         storageTransactionsConfirmed.Returns<IActionResult>();

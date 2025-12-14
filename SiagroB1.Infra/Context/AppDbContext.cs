@@ -40,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<Agent> Agents { get; set; }
+    public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
     
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
