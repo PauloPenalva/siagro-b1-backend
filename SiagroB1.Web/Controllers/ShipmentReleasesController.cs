@@ -8,7 +8,7 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 namespace SiagroB1.Web.Controllers;
 
 public class ShipmentReleasesController(
-    ShipmentReleasesCreateService createService,
+     ShipmentReleasesCreateService createService,
     ShipmentReleasesDeleteService deleteService,
     ShipmentReleasesGetService getService
     ) : ODataController

@@ -43,7 +43,7 @@ public class ShipmentReleasesApprovationService(AppDbContext context, ILogger<Sh
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
-            sr.Status = ReleaseStatus.Approved;
+            sr.Status = ReleaseStatus.Actived;
             sr.ExpectedDeliveryDate = sr.PurchaseContract.DeliveryEndDate;
             sr.ApprovedBy = userName;
             sr.ApprovedAt = DateTime.Now;

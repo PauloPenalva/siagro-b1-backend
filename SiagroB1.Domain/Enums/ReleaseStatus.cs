@@ -3,7 +3,8 @@ namespace SiagroB1.Domain.Enums;
 public enum ReleaseStatus
 {
     Pending = 0,    // Aguardando aprovação
-    Approved = 1,   // Liberada - cria saldo no estoque
+    Actived = 1,    // Liberada
     Completed = 2,  // Totalmente romaneada
-    Cancelled = 3
+    Cancelled = 3,
+    Paused = 4      // Embarques pausados
 }

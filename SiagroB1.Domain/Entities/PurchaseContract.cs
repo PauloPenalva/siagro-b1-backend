@@ -143,7 +143,7 @@ public class PurchaseContract : BaseEntity
         decimal.Round(
             (ShipmentReleases?
                 .Where(x => 
-                    x.Status is ReleaseStatus.Approved or
+                    x.Status is ReleaseStatus.Actived or
                             ReleaseStatus.Completed)
                 .Sum(x => x.ReleasedQuantity) ?? 0),
         2, MidpointRounding.ToEven);
