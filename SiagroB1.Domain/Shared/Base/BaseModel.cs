@@ -7,7 +7,7 @@ public abstract class BaseEntity
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public Guid? Key { get; set; }
+    public Guid Key { get; set; }
     
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int RowId { get; set; }

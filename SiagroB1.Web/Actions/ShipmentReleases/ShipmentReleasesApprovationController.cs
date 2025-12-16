@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.ShipmentReleases;
 using SiagroB1.Domain.Exceptions;
@@ -9,14 +10,22 @@ public class ShipmentReleasesApprovationController(
     ShipmentReleasesApprovationService approvationService
     ) : ODataController
 {
-    [HttpPost]
-    [Route("/odata/ShipmentReleases({key:guid})/Approvation")]
-    public async Task<ActionResult> Approvation([FromRoute] Guid key)
+    [HttpPost("odata/ShipmentReleasesApprovation")]
+    public async Task<ActionResult> Approvation(ODataActionParameters parameters)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+        
         try
         {
+            if (!parameters.TryGetValue("RowId", out var rowIdObj))
+            {
+                return BadRequest("Missing required parameters");
+            }
+            
+            var rowId = int.Parse(rowIdObj.ToString());
             var usarName = User.Identity?.Name ?? "Unknown";
-            await approvationService.ExecuteAsync(key, usarName);
+            await approvationService.ExecuteAsync(rowId, usarName);
         
             return Ok();
         }

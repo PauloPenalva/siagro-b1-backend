@@ -867,9 +867,11 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
                 {
-                    b.Property<Guid>("Key")
+                    b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
@@ -892,8 +894,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.Property<DateTime?>("ExpectedDeliveryDate")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("DeliveryLocationCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<Guid>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
@@ -901,18 +904,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("ReleaseDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ReleaseNumber")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(15) NOT NULL");
-
                     b.Property<decimal>("ReleasedQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -923,12 +916,11 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.HasKey("Key");
+                    b.HasKey("RowId");
+
+                    b.HasIndex("DeliveryLocationCode");
 
                     b.HasIndex("PurchaseContractKey");
-
-                    b.HasIndex("ReleaseNumber")
-                        .IsUnique();
 
                     b.ToTable("SHIPMENT_RELEASES");
                 });
@@ -1258,6 +1250,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("ShipmentReleaseKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("ShipmentReleaseRowId")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("ShippingOrderKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1308,7 +1303,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingCostCode");
 
-                    b.HasIndex("ShipmentReleaseKey");
+                    b.HasIndex("ShipmentReleaseRowId");
 
                     b.HasIndex("StorageAddressKey");
 
@@ -1819,11 +1814,19 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "DeliveryLocation")
+                        .WithMany()
+                        .HasForeignKey("DeliveryLocationCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
                         .WithMany("ShipmentReleases")
                         .HasForeignKey("PurchaseContractKey")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.Navigation("DeliveryLocation");
 
                     b.Navigation("PurchaseContract");
                 });
@@ -1880,7 +1883,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
                         .WithMany()
-                        .HasForeignKey("ShipmentReleaseKey")
+                        .HasForeignKey("ShipmentReleaseRowId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.StorageAddress", null)

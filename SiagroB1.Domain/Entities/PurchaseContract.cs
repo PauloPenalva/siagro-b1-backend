@@ -114,6 +114,7 @@ public class PurchaseContract : BaseEntity
     
     public ICollection<PurchaseContractAllocation> Allocations { get; set; } = [];
 
+    [NotMapped]
     public decimal TotalStandard =>
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
     
@@ -143,13 +144,26 @@ public class PurchaseContract : BaseEntity
         decimal.Round(
             (ShipmentReleases?
                 .Where(x => 
-                    x.Status is ReleaseStatus.Actived or
-                            ReleaseStatus.Completed)
+                    x.Status != ReleaseStatus.Cancelled)
                 .Sum(x => x.ReleasedQuantity) ?? 0),
         2, MidpointRounding.ToEven);
     
+    [NotMapped]
     public decimal TotalAvailableToRelease => 
         decimal.Round(TotalVolume - TotalShipmentReleases, 2, MidpointRounding.ToEven);
+    
+    [NotMapped]
+    public decimal TotalShipmentReleasesWithoutProvisioning =>
+        decimal.Round(
+            (ShipmentReleases?
+                .Where(x => 
+                    x.Status is ReleaseStatus.Actived or ReleaseStatus.Completed or ReleaseStatus.Paused)
+                .Sum(x => x.ReleasedQuantity) ?? 0),
+            2, MidpointRounding.ToEven);
+    
+    [NotMapped]
+    public decimal TotalAvailableToReleaseWithoutProvisioning => 
+        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
     
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);

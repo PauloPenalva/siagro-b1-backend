@@ -26,7 +26,7 @@ public class StorageTransactionsCopyService(IUnitOfWork unitOfWork,StorageTransa
                     ReferenceHandler = ReferenceHandler.IgnoreCycles 
                 })) ??  throw new ApplicationException("Error on copying purchase contract.");
 
-        clone.Key = null;
+        clone.Key = Guid.Empty;
         clone.RowId = 0;
         clone.TransactionDate = DateTime.Now.Date;
         clone.TransactionStatus = StorageTransactionsStatus.Pending;

@@ -8,18 +8,18 @@ namespace SiagroB1.Application.ShipmentReleases;
 
 public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<ShipmentReleasesCancelationService> logger)
 {
-    public async Task ExecuteAsync(Guid key)
+    public async Task ExecuteAsync(int rowId)
     {
-        // var sr = await context.ShipmentReleases
-        //              .Include(x => x.Transactions)
-        //              .FirstOrDefaultAsync(x => x.Key == key) ??
-        //          throw new NotFoundException($"Shipment Release not found key {key}");
-        //
-        // if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed )
-        // {
-        //     throw new ApplicationException("Shipment Release is cancelled or completed.");
-        // }
-        //
+        var sr = await context.ShipmentReleases
+                     //.Include(x => x.Transactions)
+                     .FirstOrDefaultAsync(x => x.RowId == rowId) ??
+                 throw new NotFoundException($"Shipment Release not found key {rowId}");
+        
+        if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed or ReleaseStatus.Paused)
+        {
+            throw new ApplicationException("Shipment Release is not in Activated state.");
+        }
+        
         // if (sr.HasStorageTransactions)
         // {
         //     var msg = "Shipment Release has storage transaction(s) confirmed.\n";
@@ -28,11 +28,11 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
         //
         //     throw new ApplicationException(msg);
         // }
-        //
-        // sr.Status = ReleaseStatus.Cancelled;
-        // sr.ApprovedBy = string.Empty;
-        // sr.ApprovedAt = DateTime.Now;
-        //
-        // await context.SaveChangesAsync();
+        
+        sr.Status = ReleaseStatus.Cancelled;
+        sr.UpdatedBy = string.Empty;
+        sr.UpdatedAt = DateTime.Now;
+        
+        await context.SaveChangesAsync();
     }
 }

@@ -2,16 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.ShipmentReleases;
 
-public class ShipmentReleasesDeleteService(AppDbContext context, ILogger<ShipmentReleasesDeleteService> logger)
+public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentReleasesDeleteService> logger)
 {
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(int rowId)
     {
-        var entity = await context.ShipmentReleases
-            .FirstOrDefaultAsync(x => x.Key == key) ?? 
+        var entity = await db.Context.ShipmentReleases
+            .FirstOrDefaultAsync(x => x.RowId == rowId) ?? 
                      throw new NotFoundException("Shipment Release not found.");
         
         if (entity.Status != ReleaseStatus.Pending)
@@ -19,8 +20,8 @@ public class ShipmentReleasesDeleteService(AppDbContext context, ILogger<Shipmen
             throw new ApplicationException("Shipment Release not pending.");
         }
         
-        context.ShipmentReleases.Remove(entity);
-        await context.SaveChangesAsync();
+        db.Context.ShipmentReleases.Remove(entity);
+        await db.SaveChangesAsync();
         return true;
     }
 }

@@ -3,11 +3,8 @@ using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Application.PurchaseContracts;
-using SiagroB1.Application.SalesContracts;
-using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Functions;
+namespace SiagroB1.Web.Functions.PurchaseContracts;
 
 public class PurchaseContractsGetAvaiablesListController(
     PurchaseContractsGetService getService

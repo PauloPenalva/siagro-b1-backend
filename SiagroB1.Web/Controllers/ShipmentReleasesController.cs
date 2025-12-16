@@ -8,21 +8,24 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 namespace SiagroB1.Web.Controllers;
 
 public class ShipmentReleasesController(
-     ShipmentReleasesCreateService createService,
+    ShipmentReleasesCreateService createService,
     ShipmentReleasesDeleteService deleteService,
     ShipmentReleasesGetService getService
     ) : ODataController
 {
+    [HttpGet("odata/ShipmentReleases")]
     [EnableQuery]
     public ActionResult<IEnumerable<ShipmentRelease>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
+    [HttpGet("odata/ShipmentReleases({rowId:int})")]
+    [HttpGet("odata/ShipmentReleases/{rowId:int}")]
     [EnableQuery]
-    public async Task<ActionResult<ShipmentRelease>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<ShipmentRelease>> Get([FromRoute] int rowId)
     {
-        var item = await getService.GetByIdAsync(key);
+        var item = await getService.GetByIdAsync(rowId);
 
         if (item == null)
         {
@@ -32,6 +35,7 @@ public class ShipmentReleasesController(
         return Ok(item);
     }
     
+    [HttpPost("odata/ShipmentReleases")]
     public async Task<IActionResult> Post([FromBody] ShipmentRelease entity)
     {
         if (!ModelState.IsValid)
@@ -57,11 +61,13 @@ public class ShipmentReleasesController(
         }
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid key)
+    [HttpDelete("odata/ShipmentReleases({rowId:int})")]
+    [HttpDelete("odata/ShipmentReleases/{rowId:int}")]
+    public async Task<IActionResult> Delete([FromRoute] int rowId)
     {
         try
         {
-            var success = await deleteService.ExecuteAsync(key);
+            var success = await deleteService.ExecuteAsync(rowId);
 
             if (!success)
             {

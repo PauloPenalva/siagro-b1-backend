@@ -5,7 +5,7 @@ using SiagroB1.Application.Dtos;
 using SiagroB1.Application.SalesContracts;
 using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Functions;
+namespace SiagroB1.Web.Functions.SalesContracts;
 
 public class SalesContractsGetTotalsController(
     SalesContractsTotalsService service

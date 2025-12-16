@@ -34,9 +34,15 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
+            .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalStandard)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
+            .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalAvailableToRelease)));
+        
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
+        modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -86,6 +92,9 @@ public static class ODataConfigurations
         purchaseContractsGetAvaiablesList.Parameter<string>("CardCode");
         purchaseContractsGetAvaiablesList.Parameter<string>("ItemCode");
         purchaseContractsGetAvaiablesList.Returns<ICollection<PurchaseContractDto>>();
+
+        var purchaseContractsGetShipmentReleasesAvailable = modelBuilder.Function("PurchaseContractsGetShipmentReleasesAvailable");
+        purchaseContractsGetShipmentReleasesAvailable.Returns<PurchaseContract>();
         
         var purchaseContractsApproval = modelBuilder.Action("PurchaseContractsApproval");
         purchaseContractsApproval.Parameter<Guid>("Key");
@@ -106,6 +115,14 @@ public static class ODataConfigurations
         var purchaseContractsDeleteAllocation = modelBuilder.Action("PurchaseContractsDeleteAllocation");
         purchaseContractsDeleteAllocation.Parameter<Guid>("Key");
         purchaseContractsDeleteAllocation.Returns<IActionResult>();
+            
+        var shipmentReleasesApprovation = modelBuilder.Action("ShipmentReleasesApprovation");
+        shipmentReleasesApprovation.Parameter<int>("RowId");
+        shipmentReleasesApprovation.Returns<IActionResult>();
+        
+        var shipmentReleasesCancelation = modelBuilder.Action("ShipmentReleasesCancelation");
+        shipmentReleasesCancelation.Parameter<int>("RowId");
+        shipmentReleasesCancelation.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")
@@ -123,16 +140,15 @@ public static class ODataConfigurations
         modelBuilder
             .Action("PurchaseContractsCopy")
             .Parameter<Guid>("key");
+
+
+       
         
         
-        var shipmentReleases = modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
-        shipmentReleases.EntityType
-            .Action("Approvation")
-            .Parameter<Guid>("key");
         
-        shipmentReleases.EntityType
-            .Action("Cancelation")
-            .Parameter<Guid>("key");
+        
+        
+        
         
         
         var shippingOrders  = modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");

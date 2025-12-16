@@ -29,7 +29,7 @@ public class PurchaseContractsCopyService(AppDbContext db, PurchaseContractsCrea
                     ReferenceHandler = ReferenceHandler.IgnoreCycles 
                 })) ??  throw new ApplicationException("Error on copying purchase contract.");
 
-        cloneContract.Key = null;
+        cloneContract.Key = Guid.Empty;
         cloneContract.RowId = 0;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.Status = ContractStatus.Draft;

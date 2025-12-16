@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.ShipmentReleases;
 using SiagroB1.Domain.Exceptions;
@@ -9,13 +10,18 @@ public class ShipmentReleasesCancelationController(
     ShipmentReleasesCancelationService cancelationService
     ) : ODataController
 {
-    [HttpPost]
-    [Route("odata/ShipmentReleases({key:guid})/Cancelation")]
-    public async Task<ActionResult> Cancelation([FromRoute] Guid key)
+    [HttpPost("odata/ShipmentReleasesCancelation")]
+    public async Task<ActionResult> Cancelation(ODataActionParameters parameters)
     {
         try
         {
-            await cancelationService.ExecuteAsync(key);
+            if (!parameters.TryGetValue("RowId", out var rowIdObj))
+            {
+                return BadRequest("Missing required parameters");
+            }
+            var rowId = int.Parse(rowIdObj.ToString());
+            
+            await cancelationService.ExecuteAsync(rowId);
             return Ok();
         }
         catch (Exception e)
