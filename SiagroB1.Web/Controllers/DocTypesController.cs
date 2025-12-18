@@ -1,22 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
 public class DocTypesController(DocTypeService service) : ODataController
 {
-    [HttpGet("odata/DocTypes")]
     [EnableQuery]
     public ActionResult<IEnumerable<DocType>> Get()
     {
         return Ok(service.QueryAll());
     }
     
-    [HttpGet("odata/DocTypes/{code}")]
-    [HttpGet("odata/DocTypes({code})")]
     [EnableQuery]
     public async Task<ActionResult<DocType>> Get([FromRoute] string code)
     {
@@ -82,6 +81,44 @@ public class DocTypesController(DocTypeService service) : ODataController
         if (!success)
         {
             return NotFound();
+        }
+
+        return NoContent();
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE")]
+    public async Task<IActionResult> Patch([FromRoute] string code, [FromBody] Delta<DocType> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        DocType? t = await service.GetByIdAsync(code);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+            var userName = User.Identity?.Name ?? "Unknown";
+            await service.UpdateAsync(code, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or  ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
         }
 
         return NoContent();

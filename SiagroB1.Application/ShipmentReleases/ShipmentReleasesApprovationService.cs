@@ -44,7 +44,6 @@ public class ShipmentReleasesApprovationService(IUnitOfWork db, ILogger<Shipment
         
         try
         {
-            sr.AvailableQuantity = sr.ReleasedQuantity;
             sr.Status = ReleaseStatus.Actived;
             sr.ApprovedBy = userName;
             sr.ApprovedAt = DateTime.Now;

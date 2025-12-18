@@ -42,7 +42,10 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
+        
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
+            .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -123,6 +126,22 @@ public static class ODataConfigurations
         var shipmentReleasesCancelation = modelBuilder.Action("ShipmentReleasesCancelation");
         shipmentReleasesCancelation.Parameter<int>("RowId");
         shipmentReleasesCancelation.Returns<IActionResult>();
+        
+        var shipmentReleasesBalance = modelBuilder.Function("ShipmentReleasesGetBalance");
+        shipmentReleasesBalance.Parameter<string>("ItemCode");
+        shipmentReleasesBalance.Returns<ICollection<ShipmentRelesesBalanceResponseDto>>();
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         modelBuilder
             .Action("PurchaseContractsTotals")
