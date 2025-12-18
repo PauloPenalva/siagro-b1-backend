@@ -11,7 +11,7 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
     public async Task ExecuteAsync(Guid key)
     {
         var sr = await context.ShipmentReleases
-                     //.Include(x => x.Transactions)
+                     .Include(x => x.Transactions)
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
         
@@ -20,14 +20,14 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
             throw new ApplicationException("Shipment Release is not in Activated state.");
         }
         
-        // if (sr.HasStorageTransactions)
-        // {
-        //     var msg = "Shipment Release has storage transaction(s) confirmed.\n";
-        //     msg += "Please, cancel storage transaction(s) code(s):\n";
-        //     msg = sr.Transactions.Aggregate(msg, (current, storageTransaction) => current + $"- {storageTransaction.Key}\n");
-        //
-        //     throw new ApplicationException(msg);
-        // }
+        if (sr.HasStorageTransactions)
+        {
+            var msg = "Shipment Release has storage transaction(s) confirmed.\n";
+            msg += "Please, cancel storage transaction(s) code(s):\n";
+            msg = sr.Transactions.Aggregate(msg, (current, storageTransaction) => current + $"- {storageTransaction.Code}\n");
+        
+            throw new ApplicationException(msg);
+        }
         
         sr.Status = ReleaseStatus.Cancelled;
         sr.UpdatedBy = string.Empty;
