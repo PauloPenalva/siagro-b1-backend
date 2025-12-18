@@ -120,11 +120,11 @@ public static class ODataConfigurations
         purchaseContractsDeleteAllocation.Returns<IActionResult>();
             
         var shipmentReleasesApprovation = modelBuilder.Action("ShipmentReleasesApprovation");
-        shipmentReleasesApprovation.Parameter<int>("RowId");
+        shipmentReleasesApprovation.Parameter<Guid>("Key");
         shipmentReleasesApprovation.Returns<IActionResult>();
         
         var shipmentReleasesCancelation = modelBuilder.Action("ShipmentReleasesCancelation");
-        shipmentReleasesCancelation.Parameter<int>("RowId");
+        shipmentReleasesCancelation.Parameter<Guid>("Key");
         shipmentReleasesCancelation.Returns<IActionResult>();
         
         var shipmentReleasesBalance = modelBuilder.Function("ShipmentReleasesGetBalance");

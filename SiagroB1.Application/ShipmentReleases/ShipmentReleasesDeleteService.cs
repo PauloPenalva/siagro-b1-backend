@@ -9,10 +9,10 @@ namespace SiagroB1.Application.ShipmentReleases;
 
 public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentReleasesDeleteService> logger)
 {
-    public async Task<bool> ExecuteAsync(int rowId)
+    public async Task<bool> ExecuteAsync(Guid key)
     {
         var entity = await db.Context.ShipmentReleases
-            .FirstOrDefaultAsync(x => x.RowId == rowId) ?? 
+            .FirstOrDefaultAsync(x => x.Key == key) ?? 
                      throw new NotFoundException("Shipment Release not found.");
         
         if (entity.Status != ReleaseStatus.Pending)

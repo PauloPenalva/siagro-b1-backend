@@ -23,7 +23,7 @@ public class ShippingTransactionsCreateController(ShippingTransactionsCreateServ
             var userName = User.Identity?.Name ?? "Unknown";
             var purchaseContractKey = (Guid) parameters["PurchaseContractKey"];
             var storageTransaction = (StorageTransaction) parameters["StorageTransaction"];
-           
+            
             var shippingTransaction = await service.ExecuteAsync(purchaseContractKey, storageTransaction, userName);
             
             return Ok(new 

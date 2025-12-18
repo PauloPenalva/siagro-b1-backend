@@ -20,12 +20,12 @@ public class ShipmentReleasesController(
         return Ok(getService.QueryAll());
     }
 
-    [HttpGet("odata/ShipmentReleases({rowId:int})")]
-    [HttpGet("odata/ShipmentReleases/{rowId:int}")]
+    [HttpGet("odata/ShipmentReleases({key:guid})")]
+    [HttpGet("odata/ShipmentReleases/{key:guid}")]
     [EnableQuery]
-    public async Task<ActionResult<ShipmentRelease>> Get([FromRoute] int rowId)
+    public async Task<ActionResult<ShipmentRelease>> Get([FromRoute] Guid key)
     {
-        var item = await getService.GetByIdAsync(rowId);
+        var item = await getService.GetByIdAsync(key);
 
         if (item == null)
         {
@@ -61,13 +61,13 @@ public class ShipmentReleasesController(
         }
     }
 
-    [HttpDelete("odata/ShipmentReleases({rowId:int})")]
-    [HttpDelete("odata/ShipmentReleases/{rowId:int}")]
-    public async Task<IActionResult> Delete([FromRoute] int rowId)
+    [HttpDelete("odata/ShipmentReleases({key:guid})")]
+    [HttpDelete("odata/ShipmentReleases/{key:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
         try
         {
-            var success = await deleteService.ExecuteAsync(rowId);
+            var success = await deleteService.ExecuteAsync(key);
 
             if (!success)
             {

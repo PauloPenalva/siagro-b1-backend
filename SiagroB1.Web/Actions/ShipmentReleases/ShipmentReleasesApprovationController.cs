@@ -18,14 +18,14 @@ public class ShipmentReleasesApprovationController(
         
         try
         {
-            if (!parameters.TryGetValue("RowId", out var rowIdObj))
+            if (!parameters.TryGetValue("Key", out var keyObj))
             {
                 return BadRequest("Missing required parameters");
             }
             
-            var rowId = int.Parse(rowIdObj.ToString());
+            var key = Guid.Parse(keyObj.ToString());
             var usarName = User.Identity?.Name ?? "Unknown";
-            await approvationService.ExecuteAsync(rowId, usarName);
+            await approvationService.ExecuteAsync(key, usarName);
         
             return Ok();
         }

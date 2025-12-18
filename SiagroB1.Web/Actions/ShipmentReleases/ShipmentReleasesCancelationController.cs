@@ -15,13 +15,13 @@ public class ShipmentReleasesCancelationController(
     {
         try
         {
-            if (!parameters.TryGetValue("RowId", out var rowIdObj))
+            if (!parameters.TryGetValue("Key", out var keyObj))
             {
                 return BadRequest("Missing required parameters");
             }
-            var rowId = int.Parse(rowIdObj.ToString());
+            var key = Guid.Parse(keyObj.ToString());
             
-            await cancelationService.ExecuteAsync(rowId);
+            await cancelationService.ExecuteAsync(key);
             return Ok();
         }
         catch (Exception e)

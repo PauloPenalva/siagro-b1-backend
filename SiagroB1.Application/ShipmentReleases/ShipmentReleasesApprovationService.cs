@@ -1,23 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
-using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.ShipmentReleases;
 
 public class ShipmentReleasesApprovationService(IUnitOfWork db, ILogger<ShipmentReleasesApprovationService> logger)
 {
-    public async Task ExecuteAsync(int rowId, string userName)
+    public async Task ExecuteAsync(Guid key, string userName)
     {
         var sr = await db.Context.ShipmentReleases
                      .Include(x => x.PurchaseContract)
                      .ThenInclude(p => p.ShipmentReleases)
                      .ThenInclude(p => p.DeliveryLocation)
-                     .FirstOrDefaultAsync(x => x.RowId == rowId) ??
-                 throw new NotFoundException($"Shipment Release not found key {rowId}");
+                     .FirstOrDefaultAsync(x => x.Key == key) ??
+                 throw new NotFoundException($"Shipment Release not found key {key}");
         
         if (sr.Status != ReleaseStatus.Pending)
         {

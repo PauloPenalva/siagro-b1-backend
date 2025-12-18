@@ -15,7 +15,7 @@ public class ShipmentReleasesBalanceService(IUnitOfWork db, ILogger<ShipmentRele
             .Include(x => x.PurchaseContract)
             .Include(x => x.DeliveryLocation)
             .Include(x => x.Transactions)
-            .Where(sr => sr.PurchaseContract.ItemCode == itemCode)
+            .Where(sr => sr.PurchaseContract.ItemCode == itemCode && sr.Status == ReleaseStatus.Actived)
             .GroupBy(sr => new
             {
                 sr.DeliveryLocationCode,
