@@ -47,6 +47,9 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
         
+        modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
+        modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
+        
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
         shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");

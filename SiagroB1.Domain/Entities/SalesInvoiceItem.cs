@@ -15,11 +15,18 @@ public class SalesInvoiceItem
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
     
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? ItemName { get; set; }
+    
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal Quantity { get; set; }
     
     [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
     public decimal UnitPrice { get; set; }
+    
+    [Column(TypeName = "VARCHAR(4) NOT NULL")]
+    public required string UnitOfMeasureCode { get; set; }
+    public UnitOfMeasure? UnitOfMeasure { get; set; }
 
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
 
