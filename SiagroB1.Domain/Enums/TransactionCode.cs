@@ -9,4 +9,5 @@ public enum TransactionCode
     StorageTransaction = 5,
     ShippingOrder = 6,
     SalesContract = 7,
+    SalesInvoice = 8,
 }

@@ -67,7 +67,7 @@ public class StorageTransaction : BaseEntity
     
     public Guid? ShippingOrderKey { get; set; }
     
-    [Column(TypeName = "VARCHAR(11) NOT NULL")]
+    [Column(TypeName = "VARCHAR(11) NULL")]
     public string? TruckDriverCode { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]

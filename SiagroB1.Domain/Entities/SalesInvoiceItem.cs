@@ -28,6 +28,7 @@ public class SalesInvoiceItem
     public required string UnitOfMeasureCode { get; set; }
     public UnitOfMeasure? UnitOfMeasure { get; set; }
 
+    [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
 
     public Guid? SalesContractId { get; set; }

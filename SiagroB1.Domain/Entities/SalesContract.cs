@@ -112,6 +112,16 @@ public class SalesContract : BaseEntity
     [Column(TypeName = "VARCHAR(500)")]
     public string? ApprovalComments { get; set; }
     
+    public ICollection<SalesInvoiceItem>  SalesInvoiceItems { get; set; } = [];
+    
+    [NotMapped]
     public decimal TotalPrice => 
         decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);
+    
+    [NotMapped]
+    public decimal AvaiableVolume =>
+        decimal.Round(
+            TotalVolume - (SalesInvoiceItems?
+                .Where(x => x.SalesInvoice.InvoiceStatus is InvoiceStatus.Confirmed)
+                .Sum(x => x.Quantity) ?? 0), 3, MidpointRounding.ToEven) ;
 }

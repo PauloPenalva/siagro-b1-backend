@@ -15,6 +15,8 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await context.SalesContracts
                 .Include(x => x.DocType)
+                .Include(x => x.SalesInvoiceItems)
+                .ThenInclude(x => x.SalesInvoice)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)
@@ -26,6 +28,9 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
 
     public IQueryable<SalesContract> QueryAll()
     {
-        return context.SalesContracts.AsNoTracking();
+        return context.SalesContracts
+            .Include(x => x.SalesInvoiceItems)
+            .ThenInclude(x => x.SalesInvoice)
+            .AsNoTracking();
     }
 }

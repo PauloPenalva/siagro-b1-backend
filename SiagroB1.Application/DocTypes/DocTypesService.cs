@@ -16,6 +16,15 @@ public class DocTypesService(AppDbContext context)
             .FirstOrDefaultAsync();
     }
     
+    public async Task<string> GetSerie(string docTypeCode, TransactionCode transactionCode)
+    {
+        return await context.DocTypes
+            .AsNoTracking()
+            .Where(x => x.Code == docTypeCode && x.TransactionCode == transactionCode)
+            .Select(x => x.Serie)
+            .FirstOrDefaultAsync() ?? string.Empty;
+    }
+    
     
     public async Task UpdateLastNumber(string docTypeCode, int currenctNumber, TransactionCode transactionCode)
     {

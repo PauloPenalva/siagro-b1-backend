@@ -11,12 +11,15 @@ namespace SiagroB1.Web.Controllers;
 public class DocTypesController(DocTypeService service) : ODataController
 {
     [EnableQuery]
+    [HttpGet("odata/DocTypes")]
     public ActionResult<IEnumerable<DocType>> Get()
     {
         return Ok(service.QueryAll());
     }
     
     [EnableQuery]
+    [HttpGet("odata/DocTypes({code})")]
+    [HttpGet("odata/DocTypes/{code}")]
     public async Task<ActionResult<DocType>> Get([FromRoute] string code)
     {
         var item = await service.GetByIdAsync(code);
@@ -29,6 +32,7 @@ public class DocTypesController(DocTypeService service) : ODataController
         return Ok(item);
     }
 
+    [HttpPost("odata/DocTypes")]
     public async Task<IActionResult> Post([FromBody] DocType entity)
     {
         if (!ModelState.IsValid)
@@ -41,6 +45,8 @@ public class DocTypesController(DocTypeService service) : ODataController
         return Created(entity);
     }
 
+    [HttpPut("odata/DocTypes({code})")]
+    [HttpPut("odata/DocTypes/{code}")]
     public async Task<IActionResult> Put([FromRoute] string code, [FromBody] DocType entity)
     {
         if (!ModelState.IsValid)
@@ -69,6 +75,8 @@ public class DocTypesController(DocTypeService service) : ODataController
         return NoContent();
     }
     
+    [HttpDelete("odata/DocTypes({code})")]
+    [HttpDelete("odata/DocTypes/{code}")]
     public async Task<IActionResult> Delete([FromRoute] string code)
     {
         if (!ModelState.IsValid)

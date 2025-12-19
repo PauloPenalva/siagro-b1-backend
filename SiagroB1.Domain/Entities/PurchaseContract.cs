@@ -118,6 +118,7 @@ public class PurchaseContract : BaseEntity
     public decimal TotalStandard =>
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
     
+    [NotMapped]
     public decimal FixedVolume => 
         decimal.Round(PriceFixations?
                 .Where(x => x.Status is PriceFixationStatus.Confirmed
@@ -126,8 +127,10 @@ public class PurchaseContract : BaseEntity
             2, 
             MidpointRounding.ToEven) ;
     
+    [NotMapped]
     public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume;
     
+    [NotMapped]
     public decimal TotalPrice => 
         decimal.Round(
             (PriceFixations?
@@ -137,9 +140,11 @@ public class PurchaseContract : BaseEntity
             2 , 
             MidpointRounding.ToEven) ;
     
+    [NotMapped]
     public decimal TotalTax => 
         decimal.Round((Taxes?.Sum(x => x.TotalTax) ?? 0), 2, MidpointRounding.ToEven);
     
+    [NotMapped]
     public decimal TotalShipmentReleases =>
         decimal.Round(
             (ShipmentReleases?
@@ -165,9 +170,11 @@ public class PurchaseContract : BaseEntity
     public decimal TotalAvailableToReleaseWithoutProvisioning => 
         decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
     
+    [NotMapped]
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);
     
+    [NotMapped]
     public decimal AvaiableVolume =>
         decimal.Round(
             TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven) ;

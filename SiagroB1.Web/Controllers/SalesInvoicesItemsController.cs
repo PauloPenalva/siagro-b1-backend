@@ -9,22 +9,22 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class SalesInvoicesController(
-    SalesInvoicesCreateService createService,
-    SalesInvoicesUpdateService updateService,
-    SalesInvoicesDeleteService deleteService,
-    SalesInvoicesGetService getService
+public class SalesInvoicesItemsController(
+    SalesInvoicesItemsCreateService createService,
+    SalesInvoicesItemsGetService getService,
+    SalesInvoicesItemsUpdateService updateService,
+    SalesInvoicesItemsDeleteService deleteService
     )
     :ODataController
 {
     [EnableQuery]
-    public ActionResult<IEnumerable<SalesInvoice>> Get()
+    public ActionResult<IEnumerable<SalesInvoiceItem>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    public async Task<ActionResult<SalesInvoice>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<SalesInvoiceItem>> Get([FromRoute] Guid key)
     {
         try
         {
@@ -42,7 +42,7 @@ public class SalesInvoicesController(
         }
     }
     
-    public async Task<IActionResult> Post([FromBody] SalesInvoice entity)
+    public async Task<IActionResult> Post([FromBody] SalesInvoiceItem entity)
     {
         if (!ModelState.IsValid)
         {
@@ -67,7 +67,7 @@ public class SalesInvoicesController(
         }
     }
     
-    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] SalesInvoice entity)
+    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] SalesInvoiceItem entity)
     {
         if (!ModelState.IsValid)
         {
@@ -127,14 +127,14 @@ public class SalesInvoicesController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<SalesInvoice> patch)
+    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<SalesInvoiceItem> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        SalesInvoice? t = await getService.GetByIdAsync(key);
+        SalesInvoiceItem? t = await getService.GetByIdAsync(key);
 
         if (t == null)
         {

@@ -40,6 +40,11 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalAvailableToRelease)));
         
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
+        
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
         
@@ -48,8 +53,13 @@ public static class ODataConfigurations
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
         
         modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
-        modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
         
+        modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
+
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
         shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
@@ -85,9 +95,9 @@ public static class ODataConfigurations
         salesContractsReject.Parameter<string>("Comments");
         salesContractsReject.Returns<IActionResult>();
 
-        var salesContractsGetTotals = modelBuilder.Function("SalesContractsGetTotals")
-            .Returns<SalesContractTotalsResponseDto>()
-            .Parameter<Guid>("key");
+        var salesContractsGetTotals = modelBuilder.Function("SalesContractsGetTotals");
+        salesContractsGetTotals.Parameter<Guid>("key");
+        salesContractsGetTotals.Returns<SalesContractTotalsResponseDto>();
         
         var storageAddresses = modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         storageAddresses.EntityType

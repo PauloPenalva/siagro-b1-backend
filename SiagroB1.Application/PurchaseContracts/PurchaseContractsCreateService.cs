@@ -71,7 +71,7 @@ public class PurchaseContractsCreateService(
         }
     }
     
-    private string FormatContractNumber(int contractNumber)
+    private static string FormatContractNumber(int contractNumber)
     {
         return contractNumber
             .ToString()

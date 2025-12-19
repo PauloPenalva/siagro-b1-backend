@@ -6,16 +6,14 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesInvoices;
 
-public class SalesInvoicesGetService(IUnitOfWork db, ILogger<SalesInvoicesGetService> logger)
+public class SalesInvoicesItemsGetService(IUnitOfWork db, ILogger<SalesInvoicesItemsGetService> logger)
 {
-    public async Task<SalesInvoice?> GetByIdAsync(Guid key)
+    public async Task<SalesInvoiceItem?> GetByIdAsync(Guid key)
     {
         try
         {
             logger.LogInformation("Fetching entity with ID {Id}", key);
-            return await db.Context.SalesInvoices
-                .Include(x => x.Items)
-                .ThenInclude(i=>i.SalesContract)
+            return await db.Context.SalesInvoicesItems
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)
@@ -25,11 +23,8 @@ public class SalesInvoicesGetService(IUnitOfWork db, ILogger<SalesInvoicesGetSer
         }
     }
 
-    public IQueryable<SalesInvoice> QueryAll()
+    public IQueryable<SalesInvoiceItem> QueryAll()
     {
-        return db.Context.SalesInvoices
-            .Include(x => x.Items)
-            .ThenInclude(i=>i.SalesContract)
-            .AsNoTracking();
+        return db.Context.SalesInvoicesItems.AsNoTracking();
     }
 }
