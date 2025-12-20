@@ -8,7 +8,7 @@ public class State
 {
     [Key]
     [Column(TypeName = "VARCHAR(2) NOT NULL")]
-    public required string Key { get; set; }
+    public required string Code { get; set; }
     
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
