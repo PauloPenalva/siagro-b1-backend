@@ -88,6 +88,8 @@ public class SalesInvoice : BaseEntity
     
     public ICollection<SalesInvoiceItem> Items { get; set; } = [];
     
+    public ICollection<StorageTransaction> SalesTransactions { get; set; } = [];
+    
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);
 }

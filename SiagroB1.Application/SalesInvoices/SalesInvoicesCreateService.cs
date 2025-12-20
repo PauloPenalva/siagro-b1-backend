@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.DocTypes;
 using SiagroB1.Application.Services.SAP;
+using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -11,6 +13,7 @@ public class SalesInvoicesCreateService(
     IUnitOfWork db,
     BusinessPartnerService businessPartnerService,
     ItemService itemService,
+    StorageTransactionsGetService  storageTransactionsGetService,
     DocTypesService  docTypesService,
     ILogger<SalesInvoicesCreateService> logger)
 {
@@ -19,14 +22,14 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
         
-        var docTypeCode = salesInvoice.DocTypeCode;
-        if (docTypeCode is null)
-            throw new ApplicationException("DocTypeCode can not be null.");
-        
         try
         {
-            var invoiceNumber = await docTypesService.GetNextNumber(docTypeCode, TransactionCode.SalesInvoice);
-            var invoiceSeries = await docTypesService.GetSerie(docTypeCode, TransactionCode.SalesInvoice);
+            await db.BeginTransactionAsync();
+            
+            var docType = await docTypesService.GetDocType(TransactionCode.SalesInvoice);
+
+            var invoiceNumber = docType.NextNumber;
+            var invoiceSeries = docType.Serie;
             
             salesInvoice.InvoiceNumber = FormatInvoiceNumber(invoiceNumber);
             salesInvoice.InvoiceSeries = invoiceSeries;
@@ -41,12 +44,39 @@ public class SalesInvoicesCreateService(
             {
                 item.ItemName = (await itemService.GetByIdAsync(item.ItemCode))?.ItemName;
             }
+
+            var salesTransactions = new List<Guid>();
+            
+            foreach (var salesTransaction in salesInvoice.SalesTransactions)
+            {
+                salesTransactions.Add(salesTransaction.Key);
+            }
+            
+            salesInvoice.SalesTransactions.Clear();
             
             await db.Context.SalesInvoices.AddAsync(salesInvoice);
+
+            foreach (var transactionKey in salesTransactions)
+            {
+                var existingTransaction = await db.Context.StorageTransactions
+                    .FirstOrDefaultAsync(x => x.Key == transactionKey) ??
+                                          throw new ApplicationException($"Transaction {transactionKey} not found.");
+                
+                existingTransaction.InvoiceNumber = salesInvoice.InvoiceNumber;
+                existingTransaction.InvoiceSerie  = salesInvoice.InvoiceSeries;
+                existingTransaction.InvoiceQty = salesInvoice.Items.Sum(x => x.Quantity);
+                existingTransaction.SalesInvoiceKey = salesInvoice.Key;
+                existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
+            }
+            
             await db.SaveChangesAsync();
+
+            await docTypesService.UpdateLastNumber(docType.Code, invoiceNumber, TransactionCode.SalesInvoice);
+            await db.CommitAsync();
         }
         catch (Exception e)
         {
+            await db.RollbackAsync();
             logger.LogError("Error: {message}", e.Message);
             throw new ApplicationException(e.Message);
         }

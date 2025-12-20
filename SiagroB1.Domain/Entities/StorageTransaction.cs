@@ -99,4 +99,6 @@ public class StorageTransaction : BaseEntity
     
     public ICollection<StorageTransactionQualityInspection> QualityInspections { get; set; } = [];
     
+    public Guid? SalesInvoiceKey { get; set; }
+    public virtual SalesInvoice? SalesInvoice { get; set; }
 }

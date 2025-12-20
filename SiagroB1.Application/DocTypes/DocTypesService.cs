@@ -1,15 +1,26 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.DocTypes;
 
-public class DocTypesService(AppDbContext context)
+public class DocTypesService(IUnitOfWork db)
 {
+    public async Task<DocType> GetDocType(TransactionCode transactionCode)
+    {
+        return await db.Context.DocTypes
+            .AsNoTracking()
+            .Where(x => x.TransactionCode == transactionCode)
+            .FirstOrDefaultAsync() ??
+                throw new NotFoundException("DocType not found.");
+    }
+    
+    
     public async Task<int> GetNextNumber(string docTypeCode, TransactionCode transactionCode)
     {
-        return await context.DocTypes
+        return await db.Context.DocTypes
             .AsNoTracking()
             .Where(x => x.Code == docTypeCode && x.TransactionCode == transactionCode)
             .Select(x => x.NextNumber)
@@ -18,7 +29,7 @@ public class DocTypesService(AppDbContext context)
     
     public async Task<string> GetSerie(string docTypeCode, TransactionCode transactionCode)
     {
-        return await context.DocTypes
+        return await db.Context.DocTypes
             .AsNoTracking()
             .Where(x => x.Code == docTypeCode && x.TransactionCode == transactionCode)
             .Select(x => x.Serie)
@@ -33,7 +44,7 @@ public class DocTypesService(AppDbContext context)
             throw new ApplicationException("DocType Code not informed.");
         }
 
-        var docType = await context.DocTypes
+        var docType = await db.Context.DocTypes
                           .Where(x => x.Code == docTypeCode && x.TransactionCode == transactionCode)
                           .FirstOrDefaultAsync() ??
                       throw new NotFoundException("DocType not found.");
@@ -41,6 +52,6 @@ public class DocTypesService(AppDbContext context)
         docType.LastNumber = currenctNumber;
         docType.NextNumber = ++currenctNumber;
         
-        await context.SaveChangesAsync();
+        await db.SaveChangesAsync();
     }
 }

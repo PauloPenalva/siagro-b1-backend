@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
-using SiagroB1.Application.SalesContracts;
+using SiagroB1.Application.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -8,23 +8,19 @@ namespace SiagroB1.Application.ShipmentBilling;
 
 public class ShipmentBillingCreateSalesInvoiceService(
     IUnitOfWork db, 
-    SalesContractsGetService salesContractsGetService,
+    SalesInvoicesCreateService salesInvoicesCreateService,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
     {
         Validate(salesInvoice);
-
-        salesInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
         
         try
         {
-            await db.BeginTransactionAsync();
-            
-            await db.Context.SalesInvoices.AddAsync(salesInvoice);
-            
-            await db.SaveChangesAsync();
-            await db.CommitAsync();
+          await salesInvoicesCreateService.ExecuteAsync(salesInvoice, username);
+
+          salesInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
+          await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -36,11 +32,14 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
     private static void Validate(SalesInvoice salesInvoice)
     {
-        foreach (var salesInvoiceItem in salesInvoice.Items)
+        if (salesInvoice.Items.Any(i => i.SalesContractKey == null))
         {
-            var salesContractKey = salesInvoiceItem.SalesContractKey;
-            if (salesContractKey == null) 
-                throw new ApplicationException("Sales Contract Key is null");
+            throw new ApplicationException("Sales Contract Key is empty.");
+        }
+
+        if (salesInvoice.SalesTransactions == null || salesInvoice.SalesTransactions.Count == 0)
+        {
+            throw new ApplicationException("Sales Transactions is empty.");
         }
     }
 }
