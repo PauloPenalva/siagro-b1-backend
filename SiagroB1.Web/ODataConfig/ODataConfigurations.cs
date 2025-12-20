@@ -144,6 +144,12 @@ public static class ODataConfigurations
         shipmentReleasesBalance.Parameter<string>("ItemCode");
         shipmentReleasesBalance.Returns<ICollection<ShipmentRelesesBalanceResponseDto>>();
         
+        var shipmentBillingCreateSalesInvoice = 
+            modelBuilder.Action("ShipmentBillingCreateSalesInvoice");
+        shipmentBillingCreateSalesInvoice.EntityParameter<SalesInvoice>("SalesInvoice");
+        shipmentBillingCreateSalesInvoice.Returns<IActionResult>();
+        
+        
         
         
         

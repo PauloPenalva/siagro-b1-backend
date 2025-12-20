@@ -71,26 +71,6 @@ public class SalesContract : BaseEntity
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
-    public DateTime? CreatedAt { get; set; } = DateTime.Now;
-
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? CreatedBy { get; set; } = string.Empty;
-
-    public DateTime? UpdatedAt { get; set; } = DateTime.Now;
-
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? UpdatedBy { get; set; } = string.Empty;
-    
-    public DateTime? ApprovedAt { get; set; }
-    
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? ApprovedBy { get; set; } = string.Empty;
-    
-    public DateTime? CanceledAt { get; set; }
-    
-    [Column(TypeName = "VARCHAR(100)")]
-    public string? CanceledBy { get; set; } = string.Empty;
-    
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey(nameof(LogisticRegionCode))]
     public string? LogisticRegionCode { get; set; }
