@@ -10,7 +10,7 @@ namespace SiagroB1.Web.Controllers;
 
 public class ProcessingCostQualityParametersController(
     IProcessingCostQualityParameterService qualidadeService
-    ) : ODataBaseController<ProcessingCostQualityParameter, string>(qualidadeService)
+    ) : ODataBaseController<ProcessingCostQualityParameter, int>(qualidadeService)
 {
     protected readonly IProcessingCostQualityParameterService _qualidadeService = qualidadeService;
     

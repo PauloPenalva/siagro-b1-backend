@@ -6,7 +6,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers;
 
 public class ServiceDetailsController(IProcessingCostServiceDetailService serviceDetailService) 
-    : ODataBaseController<ProcessingCostServiceDetail, string>(serviceDetailService)
+    : ODataBaseController<ProcessingCostServiceDetail, int>(serviceDetailService)
 {
     
 }

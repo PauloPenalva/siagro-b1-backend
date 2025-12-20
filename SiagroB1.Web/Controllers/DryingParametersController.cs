@@ -5,7 +5,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers
 {   
     public class DryingParametersController(IProcessingCostDryingParameterService service) 
-        : ODataBaseController<ProcessingCostDryingParameter, string>(service)
+        : ODataBaseController<ProcessingCostDryingParameter, int>(service)
     {
 
     }

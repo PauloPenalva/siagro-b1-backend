@@ -3,7 +3,7 @@ using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Interfaces;
 
-public interface IProcessingCostServiceDetailService : IBaseService<ProcessingCostServiceDetail, string>
+public interface IProcessingCostServiceDetailService : IBaseService<ProcessingCostServiceDetail, int>
 {
     Task<ProcessingCostServiceDetail> CreateAsync(string processingCostCode, ProcessingCostServiceDetail entity);
     Task<ProcessingCostServiceDetail?> FindByKeyAsync(string processingCostCode, int itemId);

@@ -9,7 +9,7 @@ using SiagroB1.Web.Base;
 namespace SiagroB1.Web.Controllers;
 
 public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetailService servicoServiceDetailService) 
-    : ODataBaseController<ProcessingCostServiceDetail, string>(servicoServiceDetailService)
+    : ODataBaseController<ProcessingCostServiceDetail, int>(servicoServiceDetailService)
 {
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         

@@ -9,7 +9,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services;
 
 public class ProcessingCostDryingParameterService(AppDbContext context, ILogger<ProcessingCostDryingParameterService> logger)
-    : BaseService<ProcessingCostDryingParameter, string>(context, logger), IProcessingCostDryingParameterService
+    : BaseService<ProcessingCostDryingParameter, int>(context, logger), IProcessingCostDryingParameterService
 {
     public async Task<ProcessingCostDryingParameter> CreateAsync(string processingCostCode, ProcessingCostDryingParameter entity)
     {

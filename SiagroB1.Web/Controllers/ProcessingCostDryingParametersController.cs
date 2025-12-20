@@ -11,7 +11,7 @@ namespace SiagroB1.Web.Controllers;
 
 public class ProcessingCostDryingParametersController(
     IProcessingCostDryingParameterService descontoSecagemService
-    ) : ODataBaseController<ProcessingCostDryingParameter, string>(descontoSecagemService)
+    ) : ODataBaseController<ProcessingCostDryingParameter, int>(descontoSecagemService)
 {
     protected readonly IProcessingCostDryingParameterService _descontoSecagemService = descontoSecagemService;
     
