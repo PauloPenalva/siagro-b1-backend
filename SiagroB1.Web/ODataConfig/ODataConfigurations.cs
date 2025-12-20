@@ -149,8 +149,13 @@ public static class ODataConfigurations
         shipmentBillingCreateSalesInvoice.EntityParameter<SalesInvoice>("SalesInvoice");
         shipmentBillingCreateSalesInvoice.Returns<IActionResult>();
         
-        
-        
+        var shipmentBillingDelete = modelBuilder.Action("ShipmentBillingDeleteInvoice");
+        shipmentBillingDelete.Parameter<Guid>("Key");
+        shipmentBillingDelete.Returns<IActionResult>();
+
+        var salesInvoicesCancel = modelBuilder.Action("SalesInvoicesCancel");
+        salesInvoicesCancel.Parameter<Guid>("Key");
+        salesInvoicesCancel.Returns<IActionResult>();
         
         
         

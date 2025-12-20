@@ -6,9 +6,9 @@ namespace SiagroB1.Domain.Entities;
 [Table("SHIPPING_TRANSACTIONS")]
 public class ShippingTransaction : BaseEntity
 {
-    public Guid PurchaseStorageKey { get; set; }
+    public Guid PurchaseStorageTransactionKey { get; set; }
     public virtual StorageTransaction? PurchaseStorageTransaction { get; set; }
     
-    public Guid SalesStorageKey { get; set; }
+    public Guid SalesStorageTransactionKey { get; set; }
     public virtual StorageTransaction? SalesStorageTransaction { get; set; }
 }

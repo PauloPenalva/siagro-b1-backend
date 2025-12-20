@@ -2,36 +2,43 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsAllocationDeleteService(
-    AppDbContext db, 
+    IUnitOfWork db, 
     StorageTransactionsGetService storageTransactionsGetService,
     PurchaseContractsGetService purchaseContractsGetService)
 {
-    public async Task ExecuteAsync(Guid key, string userName)
+    public async Task ExecuteAsync(Guid key, string userName, bool useTransaction = true)
     {
-        var alloc = await db.PurchaseContractsAllocations
+        var alloc = await db.Context.PurchaseContractsAllocations
                         .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException("Purchase contract allocation not found.");
         
         var storageTransaction = await storageTransactionsGetService.GetByIdAsync(alloc.StorageTransactionKey);
         
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
-            db.PurchaseContractsAllocations.Remove(alloc);
+            if (useTransaction)
+                await db.BeginTransactionAsync();
+            
+            db.Context.PurchaseContractsAllocations.Remove(alloc);
             
             storageTransaction.AvaiableVolumeToAllocate += decimal.Abs(alloc.Volume);
             
             await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            
+            if (useTransaction)
+                await db.CommitAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
+            if (useTransaction)
+                await db.RollbackAsync();
+            
             throw new DefaultException(e.Message);
         }
     }

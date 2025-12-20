@@ -64,7 +64,7 @@ public class SalesInvoicesCreateService(
                 
                 existingTransaction.InvoiceNumber = salesInvoice.InvoiceNumber;
                 existingTransaction.InvoiceSerie  = salesInvoice.InvoiceSeries;
-                existingTransaction.InvoiceQty = salesInvoice.Items.Sum(x => x.Quantity);
+                existingTransaction.InvoiceQty = existingTransaction.GrossWeight;
                 existingTransaction.SalesInvoiceKey = salesInvoice.Key;
                 existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
             }

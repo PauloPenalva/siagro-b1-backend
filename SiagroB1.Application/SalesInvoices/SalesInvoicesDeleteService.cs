@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesInvoices;
@@ -11,7 +12,11 @@ public class SalesInvoicesDeleteService(IUnitOfWork db, ILogger<SalesInvoicesDel
     {
         return await DeleteAsyncWithTransaction(key, async entity =>
         {
+            if (entity.InvoiceStatus != InvoiceStatus.Pending)
+                throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
+            
             await db.Context.Entry(entity).Collection(e => e.Items).LoadAsync();
+            
             if (entity.Items.Any())
                 db.Context.SalesInvoicesItems.RemoveRange(entity.Items);
             
