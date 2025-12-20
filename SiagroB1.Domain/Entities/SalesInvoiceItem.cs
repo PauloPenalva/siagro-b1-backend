@@ -33,7 +33,4 @@ public class SalesInvoiceItem
 
     public Guid? SalesContractKey { get; set; }
     public virtual SalesContract? SalesContract { get; set; }
-    
-    public Guid? StorageTransactionKey { get; set; }
-    public virtual StorageTransaction? StorageTransaction { get; set; }
 }
