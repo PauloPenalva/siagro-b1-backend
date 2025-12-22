@@ -1,54 +1,59 @@
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.DocTypes;
+using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.StorageAddresses;
 
 public class StorageAddressesCreateService(
-    AppDbContext context, 
-    DocTypesService  docTypesService,
+    IUnitOfWork db, 
+    DocNumbersSequenceService docNumberSequenceService,
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
     ILogger<StorageAddressesCreateService> logger)
 {
     public async Task<StorageAddress> ExecuteAsync(StorageAddress entity, string userName)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync();
+        if (entity.DocNumberKey is null)
+        {
+            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.StorageAddress);
+            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
+            if (docNumber == null)
+                throw new ApplicationException("Document Number is empty or not setting default value.");
+
+            entity.DocNumberKey = docNumber.Key;
+        }
+        
         try
         {
-            var docType = await docTypesService.GetDocType(TransactionCode.StorageAddress);
+            await db.BeginTransactionAsync();
+            
+            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            
+            var currentNumber = docNumber.NextNumber;
 
-            var currentNumber = docType.NextNumber;
-
-            entity.Code = FormatStorageAddressCode(currentNumber);
+            entity.Code = DocNumbersSequenceService
+                .FormatNumber(currentNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.TransactionOrigin = TransactionCode.StorageAddress;
             
-            await context.StorageAddresses.AddAsync(entity);
-            await context.SaveChangesAsync();
+            await db.Context.StorageAddresses.AddAsync(entity);
+            await db.SaveChangesAsync();
             
-            await docTypesService.UpdateLastNumber(docType.Code, currentNumber, TransactionCode.StorageAddress);
-            
-            await transaction.CommitAsync();
+            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, currentNumber);
+
+            await db.CommitAsync();
             return entity;
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            await db.RollbackAsync();
             logger.LogError(ex, "Error creating entity.");
             throw new DefaultException("Error creating entity.");
         }
     }  
-    
-    private string FormatStorageAddressCode(int currentNumber)
-    {
-        return currentNumber
-            .ToString()
-            .PadLeft(10, '0');
-    }
 }

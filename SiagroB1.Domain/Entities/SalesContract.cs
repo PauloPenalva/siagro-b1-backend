@@ -9,10 +9,6 @@ namespace SiagroB1.Domain.Entities;
 [Index("Code", IsUnique = true)]
 public class SalesContract : DocumentEntity
 {
-    [Column(TypeName = "VARCHAR(10) NULL")]
-    public string? DocTypeCode { get; set; }
-    public virtual DocType? DocType { get; set; }
-    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Code { get; set; }
     

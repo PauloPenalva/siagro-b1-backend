@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251222232059_AlterTableStorageAddressAddColumnDocNumberKey")]
+    partial class AlterTableStorageAddressAddColumnDocNumberKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -758,6 +761,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("DocTypeCode")
+                        .HasColumnType("VARCHAR(10) NULL");
+
                     b.Property<int>("FreightTerms")
                         .HasColumnType("int");
 
@@ -827,6 +833,8 @@ namespace SiagroB1.Migrations.Migrations
                         .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("DocTypeCode");
 
                     b.HasIndex("HarvestSeasonCode");
 
@@ -1921,6 +1929,11 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.DocType", "DocType")
+                        .WithMany()
+                        .HasForeignKey("DocTypeCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
                         .WithMany()
                         .HasForeignKey("HarvestSeasonCode")
@@ -1941,6 +1954,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Agent");
 
                     b.Navigation("DocNumber");
+
+                    b.Navigation("DocType");
 
                     b.Navigation("HarvestSeason");
 
