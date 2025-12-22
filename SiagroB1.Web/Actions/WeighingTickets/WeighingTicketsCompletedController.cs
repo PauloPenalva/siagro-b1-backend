@@ -12,9 +12,7 @@ public class WeighingTicketsCompletedController(
     )
     :ODataController
 {
-    [HttpPost]
-    [Route("odata/WeighingTickets({key:guid})/Completed")]
-    [EnableQuery]
+    [HttpPost("odata/WeighingTicketsCompleted")]
     public async Task<ActionResult> Completed([FromRoute] Guid key, [FromBody] WeighingTicketsCompletedDto dto)
     {
         try

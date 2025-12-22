@@ -7,7 +7,7 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsCancelService(AppDbContext db)
 {
-    public async Task ExecuteAsync(Guid key, TransactionCode transactionCode = TransactionCode.StorageTransaction)
+    public async Task ExecuteAsync(Guid key, string username, TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {
         var doc = await db.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ??
@@ -25,12 +25,6 @@ public class StorageTransactionsCancelService(AppDbContext db)
         if (doc.TransactionStatus == StorageTransactionsStatus.Invoiced)
         {
             throw new ApplicationException("Storage transaction is invoiced. Please, cancel assinged invoice first.");
-        }
-        
-        if (doc.TransactionStatus != StorageTransactionsStatus.Confirmed)
-        {
-            throw new ApplicationException(
-                "It is only possible to cancel a storage transaction if the status is \"confirmed\".");
         }
 
         try

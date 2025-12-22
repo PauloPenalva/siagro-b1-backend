@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251222165042_AlterTableWeighingTicketsAddColumnBranchCode")]
+    partial class AlterTableWeighingTicketsAddColumnBranchCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1622,9 +1625,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
-                    b.Property<string>("ProcessingCostCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
                     b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
@@ -1642,9 +1642,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<int?>("Status")
                         .HasColumnType("int");
-
-                    b.Property<Guid?>("StorageAddressKey")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TruckCode")
                         .IsRequired()
@@ -1670,8 +1667,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("StorageAddressKey");
 
                     b.HasIndex("TruckCode");
 
@@ -2146,11 +2141,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddress")
-                        .WithMany()
-                        .HasForeignKey("StorageAddressKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.Truck", "Truck")
                         .WithMany()
                         .HasForeignKey("TruckCode")
@@ -2164,8 +2154,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("DocNumber");
-
-                    b.Navigation("StorageAddress");
 
                     b.Navigation("Truck");
 

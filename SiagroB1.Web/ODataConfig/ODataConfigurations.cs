@@ -57,6 +57,9 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
         modelBuilder.EntitySet<DocNumber>("DocNumbers");
+        modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))
+            .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -66,6 +69,10 @@ public static class ODataConfigurations
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
         storageTransactionsConfirmed.Returns<IActionResult>();
+        
+        var storageTransactionsCancel = modelBuilder.Action("StorageTransactionsCancel");
+        storageTransactionsCancel.Parameter<Guid>("Key");
+        storageTransactionsCancel.Returns<IActionResult>();
         
         var storageTransactionsCopy = modelBuilder.Action("StorageTransactionsCopy");
         storageTransactionsCopy.Parameter<Guid>("Key");
@@ -155,9 +162,15 @@ public static class ODataConfigurations
         salesInvoicesCancel.Parameter<Guid>("Key");
         salesInvoicesCancel.Returns<IActionResult>();
         
+        var weighingTicketsFirstWeighing = modelBuilder.Action("WeighingTicketsFirstWeighing");
+        weighingTicketsFirstWeighing.Parameter<Guid>("Key");
+        weighingTicketsFirstWeighing.Parameter<int>("Value");
+        weighingTicketsFirstWeighing.Returns<IActionResult>();
         
-        
-        
+        var weighingTicketsSecondWeighing = modelBuilder.Action("WeighingTicketsSecondWeighing");
+        weighingTicketsSecondWeighing.Parameter<Guid>("Key");
+        weighingTicketsSecondWeighing.Parameter<int>("Value");
+        weighingTicketsSecondWeighing.Returns<IActionResult>();
         
         
         
@@ -189,9 +202,6 @@ public static class ODataConfigurations
         
         
         
-        
-        
-        
         var shippingOrders  = modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");
         shippingOrders.EntityType
             .Action("Shipped")
@@ -201,25 +211,5 @@ public static class ODataConfigurations
             .Action("Cancel")
             .Parameter<Guid>("key");
         
-        var weighingTickets = modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
-        weighingTickets.EntityType
-            .Action("FirstWeighing")
-            .Parameter<Guid>("key");
-        
-        weighingTickets.EntityType
-            .Action("SecondWeighing")
-            .Parameter<Guid>("key");
-        
-        weighingTickets.EntityType
-            .Action("Completed")
-            .Parameter<Guid>("key");
-        
-        weighingTickets.EntityType
-            .Action("Cancel")
-            .Parameter<Guid>("key");
-        
-        weighingTickets.EntityType
-            .Action("QualityInspections")
-            .Parameter<Guid>("key");
     }
 }

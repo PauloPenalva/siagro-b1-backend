@@ -3,12 +3,13 @@ using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.WeighingTickets;
 
 public class WeighingTicketsQualityInspectionsService(
-    AppDbContext db,
+    IUnitOfWork db,
     WeighingTicketsGetService getService
     )
 {
@@ -22,12 +23,13 @@ public class WeighingTicketsQualityInspectionsService(
             throw new  ApplicationException("Ticket is complete.");
         }
         
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
+            await db.BeginTransactionAsync();
+
             inspections.ForEach(inspection =>
             {
-                var exisitingInspection = db.QualityInspections
+                var exisitingInspection = db.Context.QualityInspections
                     .FirstOrDefault(x => x.Key == inspection.Key);
 
                 if (exisitingInspection == null)
@@ -41,11 +43,11 @@ public class WeighingTicketsQualityInspectionsService(
                 
             });
             await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await db.CommitAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
+            await db.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
@@ -53,13 +55,13 @@ public class WeighingTicketsQualityInspectionsService(
     private void UpdateQualityInspection(QualityInspection exisitingInspection,
         WeighingTicketsQualityInspectionsDto inspection)
     {
-        db.Entry(exisitingInspection).State = EntityState.Modified;
+        db.Context.Entry(exisitingInspection).State = EntityState.Modified;
         exisitingInspection.Value = inspection.Value;
     }
 
     private void AddQualityInspection(WeighingTicket ticket, WeighingTicketsQualityInspectionsDto inspection)
     {
-        db.QualityInspections.Add(new QualityInspection
+        db.Context.QualityInspections.Add(new QualityInspection
         {
             WeighingTicketKey = ticket.Key,
             QualityAttribCode = inspection.QualityAttribCode,

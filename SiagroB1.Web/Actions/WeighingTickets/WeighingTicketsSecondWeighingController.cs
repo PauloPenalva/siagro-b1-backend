@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Dtos;
 using SiagroB1.Application.WeighingTickets;
 using SiagroB1.Domain.Exceptions;
 
@@ -12,14 +11,20 @@ public class WeighingTicketsSecondWeighingController(
     )
     :ODataController
 {
-    [HttpPost]
-    [Route("odata/WeighingTickets({key:guid})/SecondWeighing")]
-    [EnableQuery]
-    public async Task<ActionResult> SecondWeighing([FromRoute] Guid key,  [FromBody] WeighingTicketsWeighDto dto)
+    [HttpPost("odata/WeighingTicketsSecondWeighing")]
+    public async Task<ActionResult> SecondWeighing(ODataActionParameters parameters)
     {
         try
         {
-            await service.ExecuteAsync(key, dto);
+            if (!parameters.TryGetValue("Key", out var keyObj) ||
+                !parameters.TryGetValue("Value",  out var valueObj))
+            {
+                return BadRequest("Missing required parameters");
+            }
+            var key = Guid.Parse(keyObj.ToString());
+            var value = int.Parse(valueObj.ToString());
+            
+            await service.ExecuteAsync(key, value);
             return Ok();
         }
         catch (Exception e)

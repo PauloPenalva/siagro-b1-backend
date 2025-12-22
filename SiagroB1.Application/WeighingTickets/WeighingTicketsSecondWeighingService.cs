@@ -1,21 +1,20 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.WeighingTickets;
 
-public class WeighingTicketsSecondWeighingService(AppDbContext db)
+public class WeighingTicketsSecondWeighingService(IUnitOfWork db)
 {
-    public async Task ExecuteAsync(Guid key, WeighingTicketsWeighDto weigh)
+    public async Task ExecuteAsync(Guid key, int weigh)
     {
-        if (weigh.WeighValue <= 0)
+        if (weigh <= 0)
         {
             throw new ApplicationException("Weigh value must be greater than zero");
         }
         
-        var ticket = await db.WeighingTickets
+        var ticket = await db.Context.WeighingTickets
             .Where(x => x.Stage == WeighingTicketStage.ReadyForSecondWeighing)
             .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Weighing ticket not found.");
@@ -26,7 +25,7 @@ public class WeighingTicketsSecondWeighingService(AppDbContext db)
         }
 
         ticket.Status = WeighingTicketStatus.Processing;
-        ticket.SecondWeighValue = weigh.WeighValue;
+        ticket.SecondWeighValue = weigh;
         ticket.SecondWeighDateTime = DateTimeOffset.Now;
         ticket.Stage = WeighingTicketStage.ReadyForCompleting;
 

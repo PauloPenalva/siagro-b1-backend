@@ -5,17 +5,10 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_INVOICES")]
-public class SalesInvoice : BaseEntity
+public class SalesInvoice : DocumentEntity
 {
-    [Column(TypeName = "VARCHAR(10)")] 
-    public string? DocTypeCode { get; set; }
-    public virtual DocType? DocType { get; set; }
-
     [Column(TypeName = "VARCHAR(9)")] 
     public string? InvoiceNumber { get; set; } = string.Empty;
-
-    [Column(TypeName = "VARCHAR(3)")] 
-    public string? InvoiceSeries { get; set; } = string.Empty;
 
     public DateTime? InvoiceDate { get; set; } = DateTime.Now.Date;
 

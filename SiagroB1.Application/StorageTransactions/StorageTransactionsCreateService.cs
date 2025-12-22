@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.DocTypes;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
@@ -10,7 +11,7 @@ namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsCreateService(
     IUnitOfWork unitOfWork,
-    DocTypesService  docTypesService,
+    DocNumbersSequenceService docNumberSequenceService,
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
     ILogger<StorageTransactionsCreateService> logger)
@@ -44,12 +45,24 @@ public class StorageTransactionsCreateService(
         string userName, 
         TransactionCode transactionCode = TransactionCode.StorageTransaction
     )
-    {
+    {   
+        if (entity.DocNumberKey is null)
+        {
+            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.StorageTransaction);
+            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
+            if (docNumber == null)
+                throw new ApplicationException("Document Number is empty or not setting default value.");
+
+            entity.DocNumberKey = docNumber.Key;
+        }
+        
         try
         {
-            var currentNumber = await docTypesService.GetNextNumber(entity.DocTypeCode, TransactionCode.StorageTransaction);
-
-            entity.Code = FormatCode(currentNumber);
+            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            var currentNumber = docNumber.NextNumber;
+                
+            entity.Code = DocNumbersSequenceService
+                .FormatNumber(currentNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.TransactionOrigin = transactionCode;
@@ -58,7 +71,7 @@ public class StorageTransactionsCreateService(
             
             await unitOfWork.Context.StorageTransactions.AddAsync(entity);
             
-            await docTypesService.UpdateLastNumber(entity.DocTypeCode, currentNumber, TransactionCode.StorageTransaction);
+            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, currentNumber);
             
             await unitOfWork.SaveChangesAsync();
             

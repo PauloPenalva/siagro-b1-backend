@@ -11,7 +11,7 @@ public class ShippingOrdersCancelService(
         StorageTransactionsCancelService storageTransactionsCancelService
     )
 {
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(Guid key, string username)
     {
         var order = await db.ShippingOrders
                         .FirstOrDefaultAsync(x => x.Key == key) ??
@@ -36,7 +36,7 @@ public class ShippingOrdersCancelService(
         {
             if (storageTrans != null)
             {
-                await storageTransactionsCancelService.ExecuteAsync((Guid) storageTrans.Key, TransactionCode.ShippingOrder);
+                await storageTransactionsCancelService.ExecuteAsync((Guid) storageTrans.Key, username, TransactionCode.ShippingOrder);
             }
 
             order.Status = ShippingOrderStatus.Cancelled;

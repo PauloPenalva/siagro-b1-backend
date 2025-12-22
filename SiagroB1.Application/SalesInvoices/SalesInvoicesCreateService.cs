@@ -1,8 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.DocTypes;
+using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
-using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -13,8 +12,7 @@ public class SalesInvoicesCreateService(
     IUnitOfWork db,
     BusinessPartnerService businessPartnerService,
     ItemService itemService,
-    StorageTransactionsGetService  storageTransactionsGetService,
-    DocTypesService  docTypesService,
+    DocNumbersSequenceService docNumberSequenceService,
     ILogger<SalesInvoicesCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName)
@@ -22,17 +20,26 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
         
+        if (salesInvoice.DocNumberKey is null)
+        {
+            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.SalesInvoice);
+            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
+            if (docNumber == null)
+                throw new ApplicationException("Document Number is empty or not setting default value.");
+
+            salesInvoice.DocNumberKey = docNumber.Key;
+        }
+        
         try
         {
             await db.BeginTransactionAsync();
             
-            var docType = await docTypesService.GetDocType(TransactionCode.SalesInvoice);
-
-            var invoiceNumber = docType.NextNumber;
-            var invoiceSeries = docType.Serie;
+            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
             
-            salesInvoice.InvoiceNumber = FormatInvoiceNumber(invoiceNumber);
-            salesInvoice.InvoiceSeries = invoiceSeries;
+            var invoiceNumber = docNumber.NextNumber;
+
+            salesInvoice.InvoiceNumber = DocNumbersSequenceService
+                .FormatNumber(invoiceNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             salesInvoice.CardName = (await businessPartnerService.GetByIdAsync(salesInvoice.CardCode))?.CardName;
             salesInvoice.TruckingCompanyName = 
@@ -63,7 +70,6 @@ public class SalesInvoicesCreateService(
                                           throw new ApplicationException($"Transaction {transactionKey} not found.");
                 
                 existingTransaction.InvoiceNumber = salesInvoice.InvoiceNumber;
-                existingTransaction.InvoiceSerie  = salesInvoice.InvoiceSeries;
                 existingTransaction.InvoiceQty = existingTransaction.GrossWeight;
                 existingTransaction.SalesInvoiceKey = salesInvoice.Key;
                 existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
@@ -71,7 +77,7 @@ public class SalesInvoicesCreateService(
             
             await db.SaveChangesAsync();
 
-            await docTypesService.UpdateLastNumber(docType.Code, invoiceNumber, TransactionCode.SalesInvoice);
+            await docNumberSequenceService.UpdateLastNumber((Guid) salesInvoice.DocNumberKey, invoiceNumber);
             await db.CommitAsync();
         }
         catch (Exception e)

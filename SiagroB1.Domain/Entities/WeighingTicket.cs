@@ -8,12 +8,8 @@ namespace SiagroB1.Domain.Entities;
 
 [Table("WEIGHING_TICKETS")]
 [Index("Code", IsUnique = true)]
-public class WeighingTicket : BaseEntity
+public class WeighingTicket : DocumentEntity
 {
-    [Column(TypeName = "VARCHAR(10) NULL")]
-    public string? DocTypeCode { get; set; }
-    public virtual DocType? DocType { get; set; }
-    
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public string? Code { get; set; }
     
@@ -49,12 +45,19 @@ public class WeighingTicket : BaseEntity
 
     public DateTimeOffset? SecondWeighDateTime { get; set; }
 
+    [NotMapped]
     public int GrossWeight => int.Abs(FirstWeighValue - SecondWeighValue);
     
     public ICollection<QualityInspection> QualityInspections { get; set; } = [];
 
     [Column(TypeName = "NVARCHAR(MAX)")]
     public string? Comments { get; set; }
+    
+    public Guid? StorageAddressKey { get; set; }
+    public virtual StorageAddress? StorageAddress { get; set; }
+    
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public string? ProcessingCostCode { get; set; }
 
     public WeighingTicketStage? Stage { get; set; } = WeighingTicketStage.ReadyForFirstWeighing;
 }

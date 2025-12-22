@@ -63,9 +63,6 @@ public class ShipmentBillingDeleteService(
             sales.CanceledAt = DateTime.Now;
             sales.CanceledBy = username;
             
-            //db.Context.StorageTransactions.Remove(purchase);
-            //db.Context.StorageTransactions.Remove(sales);
-           
             await db.SaveChangesAsync();
             
             await db.CommitAsync();

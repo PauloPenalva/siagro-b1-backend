@@ -5,12 +5,8 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("STORAGE_TRANSACTIONS")]
-public class StorageTransaction : BaseEntity
+public class StorageTransaction : DocumentEntity
 {
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? DocTypeCode { get; set; }
-    public virtual DocType? DocType { get; set; }
-    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Code { get; set; }
     

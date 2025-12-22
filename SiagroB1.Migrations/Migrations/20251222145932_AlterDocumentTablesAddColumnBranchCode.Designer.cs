@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251222145932_AlterDocumentTablesAddColumnBranchCode")]
+    partial class AlterDocumentTablesAddColumnBranchCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1004,9 +1007,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("ApprovedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
                     b.Property<DateTime?>("CanceledAt")
                         .HasColumnType("datetime2");
 
@@ -1022,9 +1022,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("DeliveryLocationCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
@@ -1053,8 +1050,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Key");
 
                     b.HasIndex("DeliveryLocationCode");
-
-                    b.HasIndex("DocNumberKey");
 
                     b.HasIndex("PurchaseContractKey");
 
@@ -1579,9 +1574,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("ApprovedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
                     b.Property<DateTime?>("CanceledAt")
                         .HasColumnType("datetime2");
 
@@ -1608,8 +1600,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime?>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("DocTypeCode")
+                        .HasColumnType("VARCHAR(10) NULL");
 
                     b.Property<DateTimeOffset?>("FirstWeighDateTime")
                         .HasColumnType("datetimeoffset");
@@ -1621,9 +1613,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("ProcessingCostCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
@@ -1642,9 +1631,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<int?>("Status")
                         .HasColumnType("int");
-
-                    b.Property<Guid?>("StorageAddressKey")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TruckCode")
                         .IsRequired()
@@ -1669,9 +1655,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
 
-                    b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("StorageAddressKey");
+                    b.HasIndex("DocTypeCode");
 
                     b.HasIndex("TruckCode");
 
@@ -2001,11 +1985,6 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
-                        .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
                         .WithMany("ShipmentReleases")
                         .HasForeignKey("PurchaseContractKey")
@@ -2013,8 +1992,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("DeliveryLocation");
-
-                    b.Navigation("DocNumber");
 
                     b.Navigation("PurchaseContract");
                 });
@@ -2141,14 +2118,9 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                    b.HasOne("SiagroB1.Domain.Entities.DocType", "DocType")
                         .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddress")
-                        .WithMany()
-                        .HasForeignKey("StorageAddressKey")
+                        .HasForeignKey("DocTypeCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.Truck", "Truck")
@@ -2163,9 +2135,7 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("DocNumber");
-
-                    b.Navigation("StorageAddress");
+                    b.Navigation("DocType");
 
                     b.Navigation("Truck");
 

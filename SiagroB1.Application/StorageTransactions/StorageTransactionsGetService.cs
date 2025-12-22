@@ -4,7 +4,6 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
-using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageTransactions;
 
@@ -15,7 +14,7 @@ public class StorageTransactionsGetService(IUnitOfWork unitOfWork,ILogger<Storag
         try
         {
             return await unitOfWork.Context.StorageTransactions
-                       .Include(x => x.DocType)
+                       .Include(x => x.DocNumber)
                        .Include(x => x.QualityInspections)
                        .ThenInclude(q => q.QualityAttrib)
                        .FirstOrDefaultAsync(x => x.Key == key) ?? 

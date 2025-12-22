@@ -13,7 +13,9 @@ public class ShippingOrdersCancelController(ShippingOrdersCancelService service)
     {
         try
         {
-            await service.ExecuteAsync(key);
+            var username = User.Identity?.Name ?? "Unknown";
+            
+            await service.ExecuteAsync(key, username);
             return Ok();
         }
         catch (Exception e)

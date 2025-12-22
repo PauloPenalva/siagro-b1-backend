@@ -12,9 +12,7 @@ public class WeighingTicketsQualityInspectionsController(
     )
     :ODataController
 {
-    [HttpPost]
-    [Route("odata/WeighingTickets({key:guid})/QualityInspections")]
-    [EnableQuery]
+    [HttpPost("odata/WeighingTicketsQualityInspections")]
     public async Task<ActionResult> QualityInspections([FromRoute] Guid key, 
         [FromBody] List<WeighingTicketsQualityInspectionsDto> inspections)
     {

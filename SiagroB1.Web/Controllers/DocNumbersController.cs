@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Shared.Base.Exceptions;
@@ -84,14 +85,24 @@ public class DocNumbersController(DocNumberService service) : ODataController
             return BadRequest(ModelState);
         }
 
-        var success = await service.DeleteAsync(key);
-
-        if (!success)
+        try
         {
-            return NotFound();
-        }
+            var success = await service.DeleteAsync(key);
 
-        return NoContent();
+            if (!success)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+        catch (Exception e)
+        {
+            if (e is DbUpdateException or DbUpdateConcurrencyException)
+                return BadRequest(e.Message);
+
+            return StatusCode(500, e.Message);
+        }
     }
     
     [AcceptVerbs("PATCH", "MERGE")]

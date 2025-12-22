@@ -4,18 +4,18 @@ using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.WeighingTickets;
 
 public class WeighingTicketsCompletedService(
-    AppDbContext db,
+    IUnitOfWork db,
     StorageTransactionsCreateService storageTransactionsCreateService
     )
 {
     public async Task ExecuteAsync(Guid key, WeighingTicketsCompletedDto dto, string userName)
     {
-        var ticket = await db.WeighingTickets
+        var ticket = await db.Context.WeighingTickets
             .Where(x => x.Stage == WeighingTicketStage.ReadyForCompleting)
             .Include(x => x.QualityInspections)
             .FirstOrDefaultAsync(x => x.Key == key) ??
@@ -42,7 +42,7 @@ public class WeighingTicketsCompletedService(
             }
         }
         
-        var storageAddress = await db.StorageAddresses
+        var storageAddress = await db.Context.StorageAddresses
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == dto.StorageAddressKey) ??
                              throw new NotFoundException("Storage address not found.");
@@ -64,9 +64,10 @@ public class WeighingTicketsCompletedService(
                 throw new ApplicationException("The total shipped exceeds the available balance in the storage address.");
         }
         
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
+            await db.BeginTransactionAsync();
+            
             ticket.Status = WeighingTicketStatus.Complete;
             ticket.Stage = WeighingTicketStage.Completed;
            
@@ -96,18 +97,18 @@ public class WeighingTicketsCompletedService(
             await AssingQualityInspection(st, ticket);
             
             await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await db.CommitAsync();
         }
         catch (Exception e)
         {
-            await transaction.RollbackAsync();
+            await db.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
 
     private async Task AssingQualityInspection(StorageTransaction st, WeighingTicket ticket)
     {
-        var attribs = await db.QualityAttribs
+        var attribs = await db.Context.QualityAttribs
             .AsNoTracking()
             .Where(x => !x.Disabled)
             .OrderBy(x => x.Code)
@@ -129,7 +130,7 @@ public class WeighingTicketsCompletedService(
 
     private bool IsWarehouseOwner(StorageAddress sa)
     {
-        var warehouse = db.WhareHouses
+        var warehouse = db.Context.WhareHouses
             .AsNoTracking()
             .Select(x => new {x.Code, x.Type})
             .FirstOrDefault(x => x.Code == sa.WarehouseCode) ??

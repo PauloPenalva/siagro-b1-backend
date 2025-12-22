@@ -3,12 +3,12 @@ using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesContracts;
 
 public class SalesContractsCreateService(
-    AppDbContext context, 
+    IUnitOfWork db, 
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
     DocNumbersSequenceService docNumberSequenceService,
@@ -18,9 +18,11 @@ public class SalesContractsCreateService(
 
     public async Task<SalesContract> ExecuteAsync(SalesContract entity, string createdBy)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync();
+       
         try
         {
+            await db.BeginTransactionAsync();
+            
             var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             var contractNumber = docNumber.NextNumber;
             
@@ -32,26 +34,19 @@ public class SalesContractsCreateService(
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.Status = ContractStatus.Draft;
             
-            await context.SalesContracts.AddAsync(entity);
-            await context.SaveChangesAsync();
+            await db.Context.SalesContracts.AddAsync(entity);
+            await db.SaveChangesAsync();
             
             await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, contractNumber);
             
-            await transaction.CommitAsync();
+            await db.CommitAsync();
             return entity;
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            await db.RollbackAsync();
             logger.LogError(ex, ex.Message);
             throw new ApplicationException("Unable to create sales contract.");
         }
-    }
-
-    private string FormatContractNumber(int contractNumber)
-    {
-        return contractNumber
-            .ToString()
-            .PadLeft(10, '0');
     }
 }

@@ -7,7 +7,7 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("SHIPMENT_RELEASES")]
-public class ShipmentRelease : BaseEntity
+public class ShipmentRelease : DocumentEntity
 {
     public required Guid PurchaseContractKey { get; set; }
     public virtual PurchaseContract? PurchaseContract { get; set; }

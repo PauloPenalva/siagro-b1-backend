@@ -29,7 +29,7 @@ public class WeighingTicketsCancelService(
         {
             if (sa != null && sa.Key != null)
             {
-                await storageTransactionsCancelService.ExecuteAsync((Guid) sa.Key, TransactionCode.WeighingTicket);
+                await storageTransactionsCancelService.ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
             }
 
             ticket.Status = WeighingTicketStatus.Cancelled;
