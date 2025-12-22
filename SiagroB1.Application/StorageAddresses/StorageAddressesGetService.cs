@@ -25,6 +25,8 @@ public class StorageAddressesGetService(AppDbContext context, ILogger<StorageAdd
 
     public IQueryable<StorageAddress> QueryAll()
     {
-        return context.StorageAddresses.AsNoTracking();
+        return context.StorageAddresses
+            .Include(x => x.Transactions)
+            .AsNoTracking();
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251222012239_AlterTablePurchaseContractAddColumDocNumberKey")]
+    partial class AlterTablePurchaseContractAddColumDocNumberKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -749,9 +752,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("DocTypeCode")
                         .HasColumnType("VARCHAR(10) NULL");
 
@@ -822,8 +822,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("Code")
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
-
-                    b.HasIndex("DocNumberKey");
 
                     b.HasIndex("DocTypeCode");
 
@@ -1890,11 +1888,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("AgentCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
-                        .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.DocType", "DocType")
                         .WithMany()
                         .HasForeignKey("DocTypeCode")
@@ -1918,8 +1911,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
-
-                    b.Navigation("DocNumber");
 
                     b.Navigation("DocType");
 

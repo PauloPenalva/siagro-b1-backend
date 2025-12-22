@@ -20,7 +20,9 @@ public class StorageAddressesCreateService(
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
-            var currentNumber = await docTypesService.GetNextNumber(entity.DocTypeCode, TransactionCode.StorageAddress);
+            var docType = await docTypesService.GetDocType(TransactionCode.StorageAddress);
+
+            var currentNumber = docType.NextNumber;
 
             entity.Code = FormatStorageAddressCode(currentNumber);
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -30,7 +32,7 @@ public class StorageAddressesCreateService(
             await context.StorageAddresses.AddAsync(entity);
             await context.SaveChangesAsync();
             
-            await docTypesService.UpdateLastNumber(entity.DocTypeCode, currentNumber, TransactionCode.StorageAddress);
+            await docTypesService.UpdateLastNumber(docType.Code, currentNumber, TransactionCode.StorageAddress);
             
             await transaction.CommitAsync();
             return entity;

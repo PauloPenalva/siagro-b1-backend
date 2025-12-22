@@ -7,12 +7,8 @@ namespace SiagroB1.Domain.Entities;
 
 [Table("PURCHASE_CONTRACTS")]
 [Index("Code", IsUnique = true)]
-public class PurchaseContract : BaseEntity
+public class PurchaseContract : DocumentEntity
 {
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? DocTypeCode { get; set; }
-    public virtual DocType? DocType { get; set; }
-    
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Code { get; set; }
     

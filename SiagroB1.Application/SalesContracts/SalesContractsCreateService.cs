@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.DocTypes;
+using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -11,7 +11,7 @@ public class SalesContractsCreateService(
     AppDbContext context, 
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
-    DocTypesService  docTypesService,
+    DocNumbersSequenceService docNumberSequenceService,
     ILogger<SalesContractsCreateService> logger)
 {
     private static readonly TransactionCode TransactionCode = TransactionCode.SalesContract;
@@ -21,10 +21,11 @@ public class SalesContractsCreateService(
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
-            var docTypeCode = entity.DocTypeCode;
-            var contractNumber = await docTypesService.GetNextNumber(docTypeCode, TransactionCode);
+            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            var contractNumber = docNumber.NextNumber;
             
-            entity.Code = FormatContractNumber( contractNumber);
+            entity.Code =  DocNumbersSequenceService
+                .FormatNumber(contractNumber, int.Parse(docNumber.NumberSize), docNumber?.Prefix, docNumber?.Suffix);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -34,7 +35,7 @@ public class SalesContractsCreateService(
             await context.SalesContracts.AddAsync(entity);
             await context.SaveChangesAsync();
             
-            await docTypesService.UpdateLastNumber(docTypeCode, contractNumber, TransactionCode);
+            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, contractNumber);
             
             await transaction.CommitAsync();
             return entity;

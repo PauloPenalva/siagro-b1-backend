@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251221230140_CreateTableDocNumbers")]
+    partial class CreateTableDocNumbers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,21 +63,11 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14)")
-                        .HasColumnOrder(1);
-
                     b.Property<bool>("Default")
                         .HasColumnType("bit");
 
                     b.Property<int>("FirstNumber")
                         .HasColumnType("int");
-
-                    b.Property<bool>("Inactive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsManual")
-                        .HasColumnType("bit");
 
                     b.Property<int>("LastNumber")
                         .HasColumnType("int");
@@ -86,21 +79,10 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("NextNumber")
                         .HasColumnType("int");
 
-                    b.Property<string>("NumberSize")
-                        .HasColumnType("VARCHAR(2)");
-
-                    b.Property<string>("Prefix")
-                        .HasColumnType("VARCHAR(50)");
-
-                    b.Property<string>("Suffix")
-                        .HasColumnType("VARCHAR(50)");
-
                     b.Property<int>("TransactionCode")
                         .HasColumnType("int");
 
                     b.HasKey("Key");
-
-                    b.HasIndex("BranchCode");
 
                     b.HasIndex("TransactionCode", "Name")
                         .IsUnique();
@@ -397,8 +379,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("DocTypeCode")
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<decimal>("FreightCostStandard")
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
@@ -473,7 +455,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("DeliveryLocationCode");
 
-                    b.HasIndex("DocNumberKey");
+                    b.HasIndex("DocTypeCode");
 
                     b.HasIndex("FreightUmCode");
 
@@ -749,9 +731,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("DocTypeCode")
                         .HasColumnType("VARCHAR(10) NULL");
 
@@ -822,8 +801,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("Code")
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
-
-                    b.HasIndex("DocNumberKey");
 
                     b.HasIndex("DocTypeCode");
 
@@ -1652,16 +1629,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("WEIGHING_TICKETS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.DocNumber", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Branch");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.DocType", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -1741,9 +1708,9 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                    b.HasOne("SiagroB1.Domain.Entities.DocType", "DocType")
                         .WithMany()
-                        .HasForeignKey("DocNumberKey")
+                        .HasForeignKey("DocTypeCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "FreightUm")
@@ -1772,7 +1739,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Navigation("DeliveryLocation");
 
-                    b.Navigation("DocNumber");
+                    b.Navigation("DocType");
 
                     b.Navigation("FreightUm");
 
@@ -1890,11 +1857,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("AgentCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
-                        .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.DocType", "DocType")
                         .WithMany()
                         .HasForeignKey("DocTypeCode")
@@ -1918,8 +1880,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("Agent");
-
-                    b.Navigation("DocNumber");
 
                     b.Navigation("DocType");
 

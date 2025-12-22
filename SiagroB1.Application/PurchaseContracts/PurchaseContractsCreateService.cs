@@ -1,12 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Constants;
-using SiagroB1.Application.DocTypes;
+using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Domain.Exceptions;
-using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
@@ -15,13 +12,16 @@ public class PurchaseContractsCreateService(
         AppDbContext context, 
         BusinessPartnerService  businessPartnerService,
         ItemService itemService,
-        DocTypesService  docTypesService,
+        DocNumbersSequenceService docNumberSequenceService,
         ILogger<PurchaseContractsCreateService> logger)
 {
     private static readonly TransactionCode TransactionCode = TransactionCode.PurchaseContract;
     
     public async Task<PurchaseContract> ExecuteAsync(PurchaseContract entity, string createdBy, bool isCopy = false)
-    {
+    {   
+        if (entity.DocNumberKey == Guid.Empty)
+            throw new ApplicationException(MessagesPtBr.CreatePurchaseContractError);
+        
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
@@ -39,11 +39,14 @@ public class PurchaseContractsCreateService(
             {
                 parameter.PurchaseContract = entity;
             }
+            
+            
+            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            var contractNumber = docNumber.NextNumber;
 
-            var docTypeCode = entity.DocTypeCode;
-            var contractNumber = await docTypesService.GetNextNumber(docTypeCode, TransactionCode);
- 
-            entity.Code = FormatContractNumber(contractNumber);
+            entity.Code = DocNumbersSequenceService
+                .FormatNumber(contractNumber, int.Parse(docNumber.NumberSize), docNumber?.Prefix, docNumber?.Suffix);
+            
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -58,7 +61,7 @@ public class PurchaseContractsCreateService(
             await context.PurchaseContracts.AddAsync(entity);
             await context.SaveChangesAsync();
             
-            await docTypesService.UpdateLastNumber(docTypeCode, contractNumber, TransactionCode);
+            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, contractNumber);
             
             await transaction.CommitAsync();
             return entity;
@@ -69,13 +72,6 @@ public class PurchaseContractsCreateService(
             logger.LogError(ex, ex.Message);
             throw new ApplicationException(MessagesPtBr.CreatePurchaseContractError);
         }
-    }
-    
-    private static string FormatContractNumber(int contractNumber)
-    {
-        return contractNumber
-            .ToString()
-            .PadLeft(10, '0');
     }
     
     private async Task CreatePriceFixation(PurchaseContract entity)

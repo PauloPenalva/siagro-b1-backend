@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities.SAP;
 
@@ -12,4 +13,11 @@ public class BusinessPartner
 
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string CardName { get; set; }
+    
+    /// <summary>
+    /// BPType
+    /// </summary>
+    [Column(TypeName = "VARCHAR(1) NOT NULL")]
+    public string CardType { get; set; }
+    
 }

@@ -7,7 +7,7 @@ namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_CONTRACTS")]
 [Index("Code", IsUnique = true)]
-public class SalesContract : BaseEntity
+public class SalesContract : DocumentEntity
 {
     [Column(TypeName = "VARCHAR(10) NULL")]
     public string? DocTypeCode { get; set; }

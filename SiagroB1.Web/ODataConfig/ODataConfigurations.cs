@@ -30,6 +30,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractAllocation>("PurchaseContractsAllocations");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
+            .AddProperty(typeof(StorageAddress).GetProperty(nameof(StorageAddress.Balance)));
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
@@ -38,28 +40,24 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalStandard)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalAvailableToRelease)));
-        
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
-        
         modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
-        
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
-        
         modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
-        
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
-
+        modelBuilder.EntitySet<DocNumber>("DocNumbers");
+        
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
         shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
