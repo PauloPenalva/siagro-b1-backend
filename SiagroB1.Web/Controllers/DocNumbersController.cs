@@ -13,7 +13,7 @@ public class DocNumbersController(DocNumberService service) : ODataController
 {
     [EnableQuery]
     [HttpGet("odata/DocNumbers")]
-    public ActionResult<IEnumerable<DocType>> Get()
+    public ActionResult<IEnumerable<DocNumber>> Get()
     {
         return Ok(service.QueryAll());
     }
@@ -21,7 +21,7 @@ public class DocNumbersController(DocNumberService service) : ODataController
     [EnableQuery]
     [HttpGet("odata/DocNumbers({key})")]
     [HttpGet("odata/DocNumbers/{key}")]
-    public async Task<ActionResult<DocType>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<DocNumber>> Get([FromRoute] Guid key)
     {
         var item = await service.GetByIdAsync(key);
 

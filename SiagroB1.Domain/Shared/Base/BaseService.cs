@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
-namespace SiagroB1.Domain.Shared.Base.Shared.Base
+namespace SiagroB1.Domain.Shared.Base
 {
     public abstract class BaseService<T, ID>(DbContext context, ILogger<IBaseService<T, ID>> logger) : IBaseService<T, ID>
         where T : class

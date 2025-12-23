@@ -2,30 +2,30 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Shared.Base.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.StorageAddresses;
 
-public class StorageAddressesGetService(AppDbContext context, ILogger<StorageAddressesGetService> logger)
+public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddressesGetService> logger)
 {
-    public async Task<StorageAddress?> GetByIdAsync(Guid key)
+    public async Task<StorageAddress?> GetByIdAsync(string code)
     {
         try
         {
-            return await context.StorageAddresses
+            return await db.Context.StorageAddresses
                 .Include(x => x.Transactions)
-                .FirstOrDefaultAsync(x => x.Key == key);
+                .FirstOrDefaultAsync(x => x.Code == code);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex,"Error fetching entity with ID {Id}", key);
+            logger.LogError(ex,"Error fetching entity with ID {Id}", code);
             throw new DefaultException("Error fetching entity");
         }
     }
 
     public IQueryable<StorageAddress> QueryAll()
     {
-        return context.StorageAddresses
+        return db.Context.StorageAddresses
             .Include(x => x.Transactions)
             .AsNoTracking();
     }

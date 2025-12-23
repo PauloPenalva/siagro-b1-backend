@@ -10,4 +10,6 @@ public abstract class DocumentEntity : BaseEntity
     
     [Column(TypeName = "VARCHAR(14) NOT NULL")]
     public string? BranchCode { get; set; }
+    
+    public virtual Branch? Branch { get; set; }
 }

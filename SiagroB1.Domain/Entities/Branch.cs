@@ -12,5 +12,11 @@ namespace SiagroB1.Domain.Entities
 
         [Column(TypeName = "VARCHAR(100) NOT NULL")]
         public required string BranchName { get; set; }
+        
+        [Column(TypeName = "VARCHAR(50) NOT NULL")]
+        public string? ShortName { get; set; }
+        
+        [Column(TypeName = "VARCHAR(14) NOT NULL")]
+        public string? TaxId { get; set; }
     }
 }

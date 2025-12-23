@@ -45,7 +45,6 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
-        modelBuilder.EntitySet<DocType>("DocTypes");
         modelBuilder.EntitySet<Agent>("Agents");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
@@ -104,10 +103,10 @@ public static class ODataConfigurations
         salesContractsGetTotals.Parameter<Guid>("key");
         salesContractsGetTotals.Returns<SalesContractTotalsResponseDto>();
         
-        var storageAddresses = modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
-        storageAddresses.EntityType
-            .Action("Totals")
-            .Parameter<Guid>("key");
+        var storageAddressesTotal = modelBuilder.Function("StorageAddressesTotals");
+        storageAddressesTotal.Parameter<string>("code");
+        storageAddressesTotal.Returns<IActionResult>();
+            
         
         var purchaseContractsGetAvaiablesList = modelBuilder.Function("PurchaseContractsGetAvaiablesList");
         purchaseContractsGetAvaiablesList.Parameter<string>("CardCode");
@@ -171,8 +170,11 @@ public static class ODataConfigurations
         weighingTicketsSecondWeighing.Parameter<Guid>("Key");
         weighingTicketsSecondWeighing.Parameter<int>("Value");
         weighingTicketsSecondWeighing.Returns<IActionResult>();
-        
-        
+
+        var weighingTicketsCompleted = modelBuilder.Action("WeighingTicketsCompleted");
+        weighingTicketsCompleted.Parameter<Guid>("Key");
+        weighingTicketsCompleted.EntityParameter<WeighingTicket>("WeighingTicket");
+        weighingTicketsCompleted.Returns<IActionResult>();
         
         
         

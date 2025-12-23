@@ -9,10 +9,10 @@ namespace SiagroB1.Application.StorageAddresses;
 
 public class StorageAddressesUpdateService(AppDbContext context, ILogger<StorageAddressesUpdateService> logger)
 {
-    public async Task<StorageAddress?> ExecuteAsync(Guid key, StorageAddress entity, string userName)
+    public async Task<StorageAddress?> ExecuteAsync(string code, StorageAddress entity, string userName)
     {
         var existingAddress = await context.StorageAddresses
-                                  .FirstOrDefaultAsync(x => x.Key == key) ??
+                                  .FirstOrDefaultAsync(x => x.Code == code) ??
                               throw new NotFoundException("Storage address not found.");
 
         if (existingAddress.TransactionOrigin != TransactionCode.StorageAddress)

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223120216_AlterDocumentAddBranchFK")]
+    partial class AlterDocumentAddBranchFK
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -48,12 +51,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("BranchName")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.Property<string>("ShortName")
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("TaxId")
-                        .HasColumnType("VARCHAR(14) NOT NULL");
 
                     b.HasKey("Code");
 
@@ -112,6 +109,42 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.ToTable("DOC_NUMBERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.DocType", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)")
+                        .HasColumnOrder(1);
+
+                    b.Property<int>("FirstNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3) NOT NULL");
+
+                    b.Property<int>("TransactionCode")
+                        .HasColumnType("int");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("BranchCode");
+
+                    b.ToTable("DOC_TYPES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
@@ -1057,7 +1090,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("Comments")
-                        .HasColumnType("VARCHAR(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1081,9 +1114,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int?>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("StorageAddressCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
+                    b.Property<Guid>("StorageAddressKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TruckCode")
                         .IsRequired()
@@ -1104,7 +1136,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
-                    b.HasIndex("StorageAddressCode");
+                    b.HasIndex("StorageAddressKey");
 
                     b.ToTable("SHIPPING_ORDERS");
                 });
@@ -1180,8 +1212,9 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
                 {
-                    b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(50) NOT NULL");
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
@@ -1204,6 +1237,9 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("CardName")
                         .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1253,12 +1289,13 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.HasKey("Code");
+                    b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("DocNumberKey");
 
@@ -1363,8 +1400,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("ShippingOrderKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("StorageAddressCode")
-                        .HasColumnType("VARCHAR(50)");
+                    b.Property<Guid?>("StorageAddressKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("TransactionDate")
                         .HasColumnType("datetime2");
@@ -1416,7 +1453,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ShipmentReleaseKey");
 
-                    b.HasIndex("StorageAddressCode");
+                    b.HasIndex("StorageAddressKey");
 
                     b.HasIndex("UnitOfMeasureCode");
 
@@ -1619,8 +1656,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int?>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("StorageAddressCode")
-                        .HasColumnType("VARCHAR(50)");
+                    b.Property<Guid?>("StorageAddressKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TruckCode")
                         .IsRequired()
@@ -1649,7 +1686,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("DocNumberKey");
 
-                    b.HasIndex("StorageAddressCode");
+                    b.HasIndex("StorageAddressKey");
 
                     b.HasIndex("TruckCode");
 
@@ -1659,6 +1696,16 @@ namespace SiagroB1.Migrations.Migrations
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.DocNumber", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.DocType", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
@@ -2012,7 +2059,7 @@ namespace SiagroB1.Migrations.Migrations
                 {
                     b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddress")
                         .WithMany()
-                        .HasForeignKey("StorageAddressCode")
+                        .HasForeignKey("StorageAddressKey")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
@@ -2084,7 +2131,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasOne("SiagroB1.Domain.Entities.StorageAddress", null)
                         .WithMany("Transactions")
-                        .HasForeignKey("StorageAddressCode")
+                        .HasForeignKey("StorageAddressKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
@@ -2156,7 +2203,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddress")
                         .WithMany()
-                        .HasForeignKey("StorageAddressCode")
+                        .HasForeignKey("StorageAddressKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.Truck", "Truck")

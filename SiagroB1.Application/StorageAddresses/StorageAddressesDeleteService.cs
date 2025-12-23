@@ -8,11 +8,11 @@ namespace SiagroB1.Application.StorageAddresses;
 
 public class StorageAddressesDeleteService(AppDbContext context, ILogger<StorageAddressesDeleteService> logger)
 {
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(string code)
     {
         var address = await context.StorageAddresses
                            .Include(x => x.Transactions)
-                           .FirstOrDefaultAsync(x => x.Key == key) ??
+                           .FirstOrDefaultAsync(x => x.Code == code) ??
                        throw new NotFoundException("Storage Address not found.");
 
         if (address.TransactionOrigin != TransactionCode.StorageAddress)

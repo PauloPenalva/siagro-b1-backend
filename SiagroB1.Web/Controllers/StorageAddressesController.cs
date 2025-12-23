@@ -17,15 +17,18 @@ public class StorageAddressesController(
     ) : ODataController
 {
     [EnableQuery]
+    [HttpGet("odata/StorageAddresses")]
     public ActionResult<IEnumerable<StorageAddress>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    public async Task<ActionResult<StorageAddress>> Get([FromRoute] Guid key)
+    [HttpGet("odata/StorageAddresses/{code}")]
+    [HttpGet("odata/StorageAddresses({code})")]
+    public async Task<ActionResult<StorageAddress>> Get([FromRoute] string code)
     {
-        var item = await getService.GetByIdAsync(key);
+        var item = await getService.GetByIdAsync(code);
 
         if (item == null)
         {
@@ -35,6 +38,7 @@ public class StorageAddressesController(
         return Ok(item);
     }
     
+    [HttpPost("odata/StorageAddresses")]
     public async Task<IActionResult> Post([FromBody] StorageAddress entity)
     {
         if (!ModelState.IsValid)
@@ -60,7 +64,9 @@ public class StorageAddressesController(
         }
     }
     
-    public async Task<IActionResult> Put(Guid key, StorageAddress entity)
+    [HttpPut("odata/StorageAddresses/{code}")]
+    [HttpPut("odata/StorageAddresses({code})")]
+    public async Task<IActionResult> Put(string code, StorageAddress entity)
     {
         if (!ModelState.IsValid)
         {
@@ -70,7 +76,7 @@ public class StorageAddressesController(
         try
         {
             var userName = User.Identity?.Name ?? "Unknown";
-            await updateService.ExecuteAsync(key, entity, userName);
+            await updateService.ExecuteAsync(code, entity, userName);
         }
         catch (KeyNotFoundException)
         {
@@ -89,11 +95,13 @@ public class StorageAddressesController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid key)
+    [HttpDelete("odata/StorageAddresses/{code}")]
+    [HttpDelete("odata/StorageAddresses({code})")]
+    public async Task<IActionResult> Delete([FromRoute] string code)
     {
         try
         {
-            var success = await deleteService.ExecuteAsync(key);
+            var success = await deleteService.ExecuteAsync(code);
 
             if (!success)
             {
@@ -120,14 +128,14 @@ public class StorageAddressesController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<StorageAddress> patch)
+    public virtual async Task<IActionResult> Patch([FromRoute] string code, [FromBody] Delta<StorageAddress> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        StorageAddress? t = await getService.GetByIdAsync(key);
+        StorageAddress? t = await getService.GetByIdAsync(code);
 
         if (t == null)
         {
@@ -138,7 +146,7 @@ public class StorageAddressesController(
         {
             patch.Patch(t);
             var userName = User.Identity?.Name ?? "Unknown";
-            await updateService.ExecuteAsync(key, t, userName);
+            await updateService.ExecuteAsync(code, t, userName);
         }
         catch (KeyNotFoundException)
         {

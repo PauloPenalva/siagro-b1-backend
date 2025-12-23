@@ -1,16 +1,25 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Domain.Shared.Base;
 
-public abstract class BaseEntity
+public abstract class MasterEntity
 {
+    public Guid? DocNumberKey { get; set; }
+    public virtual DocNumber? DocNumber { get; set; }
+    
+    [Column(TypeName = "VARCHAR(14) NOT NULL")]
+    public string? BranchCode { get; set; }
+    
+    public virtual Branch? Branch { get; set; }
+    
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public Guid Key { get; set; }
+    [Column(TypeName = "VARCHAR(50) NOT NULL")]
+    public string? Code { get; set; }
     
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int? RowId { get; set; }
+    public int RowId { get; set; }
     
     public DateTime? CreatedAt { get; set; } = DateTime.Now;
 
@@ -31,4 +40,5 @@ public abstract class BaseEntity
     
     [Column(TypeName = "VARCHAR(100)")]
     public string? CanceledBy { get; set; } = string.Empty;
+    
 }

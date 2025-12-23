@@ -10,7 +10,8 @@ public class StorageTransaction : DocumentEntity
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Code { get; set; }
     
-    public Guid? StorageAddressKey { get; set; }
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? StorageAddressCode { get; set; }
     
     public DateTime? TransactionDate { get; set; } = DateTime.Now.Date;
     

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.DocNumbers;
-using SiagroB1.Application.DocTypes;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;

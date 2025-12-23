@@ -3,18 +3,19 @@ using SiagroB1.Application.StorageAddresses;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.ShippingOrders;
 
 public class ShippingOrdersShippedService(
-    AppDbContext db,
+    IUnitOfWork db,
     StorageAddressesTotalsService storageAddressesTotalsService
     )
 {
     public async Task ExecuteAsync(Guid key)
     {
-        var order = await db.ShippingOrders
+        var order = await db.Context.ShippingOrders
                         .FirstOrDefaultAsync(x => x.Key == key) ??
                     throw new NotFoundException("Shipping order not found.");
 
@@ -25,15 +26,15 @@ public class ShippingOrdersShippedService(
 
         await ValidateStorageAddressBalance(order);
 
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
+            await db.BeginTransactionAsync();
             await CreateStorageTransaction(order);
             
             order.Status = ShippingOrderStatus.Shipped;
             
             await db.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await db.CommitAsync();
         }
         catch (Exception e)
         {
@@ -43,7 +44,7 @@ public class ShippingOrdersShippedService(
 
     private async Task ValidateStorageAddressBalance(ShippingOrder order)
     {
-        var storageAddressTotals = await storageAddressesTotalsService.ExecuteAsync(order.StorageAddressKey);
+        var storageAddressTotals = await storageAddressesTotalsService.ExecuteAsync(order.StorageAddressCode);
 
         if (order.Volume > storageAddressTotals.Balance)
         {
@@ -56,7 +57,7 @@ public class ShippingOrdersShippedService(
 
     private async Task CreateStorageTransaction(ShippingOrder order)
     {
-        var existingEntiy = await db.StorageTransactions
+        var existingEntiy = await db.Context.StorageTransactions
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.ShippingOrderKey == order.Key);
 
@@ -67,7 +68,7 @@ public class ShippingOrdersShippedService(
         
         var st = new StorageTransaction
         {
-            StorageAddressKey = order.StorageAddressKey,
+            StorageAddressCode = order.StorageAddressCode,
             TransactionType = StorageTransactionType.SalesShipment,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             GrossWeight = order.Volume,
@@ -82,7 +83,7 @@ public class ShippingOrdersShippedService(
             WarehouseCode = "",
         };
 
-        db.StorageTransactions.Add(st);
+        db.Context.StorageTransactions.Add(st);
         await db.SaveChangesAsync();
     }
 }

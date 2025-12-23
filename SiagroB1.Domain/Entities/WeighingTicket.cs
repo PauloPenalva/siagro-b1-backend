@@ -53,7 +53,8 @@ public class WeighingTicket : DocumentEntity
     [Column(TypeName = "NVARCHAR(MAX)")]
     public string? Comments { get; set; }
     
-    public Guid? StorageAddressKey { get; set; }
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? StorageAddressCode { get; set; }
     public virtual StorageAddress? StorageAddress { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]

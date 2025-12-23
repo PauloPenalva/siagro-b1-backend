@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251223141458_AlterTableStorageAddressesAddCodePK")]
+    partial class AlterTableStorageAddressesAddCodePK
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -112,6 +115,42 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.ToTable("DOC_NUMBERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.DocType", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)")
+                        .HasColumnOrder(1);
+
+                    b.Property<int>("FirstNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Serie")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3) NOT NULL");
+
+                    b.Property<int>("TransactionCode")
+                        .HasColumnType("int");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("BranchCode");
+
+                    b.ToTable("DOC_TYPES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
@@ -1622,6 +1661,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("StorageAddressCode")
                         .HasColumnType("VARCHAR(50)");
 
+                    b.Property<Guid?>("StorageAddressKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("TruckCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -1659,6 +1701,16 @@ namespace SiagroB1.Migrations.Migrations
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.DocNumber", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.DocType", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()

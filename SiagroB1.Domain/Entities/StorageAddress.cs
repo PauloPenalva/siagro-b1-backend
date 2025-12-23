@@ -7,11 +7,8 @@ namespace SiagroB1.Domain.Entities;
 
 [Table("STORAGE_ADDRESSES")]
 [Index("Code", IsUnique = true)]
-public class StorageAddress : DocumentEntity
+public class StorageAddress : MasterEntity
 {
-    [Column(TypeName = "VARCHAR(50) NOT NULL")]
-    public string? Code { get; set; }
-
     public DateTime? CreationDate { get; set; } = DateTime.Now.Date;
     
     public StorageOwnershipType OwnershipType { get; set; }  
