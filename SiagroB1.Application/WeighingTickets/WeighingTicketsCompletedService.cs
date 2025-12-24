@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using SiagroB1.Application.StorageAddresses;
 using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -9,36 +11,40 @@ namespace SiagroB1.Application.WeighingTickets;
 
 public class WeighingTicketsCompletedService(
     IUnitOfWork db,
-    StorageTransactionsCreateService storageTransactionsCreateService
+    StorageTransactionsCreateService storageTransactionsCreateService,
+    StorageAddressesGetService  storageAddressesGetService,
+    ILogger<WeighingTicketsCompletedService> logger
     )
 {
     public async Task ExecuteAsync(Guid key, WeighingTicket ticket, string userName)
     {
+        await Validate(ticket);
+        
         var existingTicket = await db.Context.WeighingTickets
+            .Include(x => x.QualityInspections)                  
             .Where(x => x.Stage == WeighingTicketStage.ReadyForCompleting)
-            .Include(x => x.StorageAddress)
             .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Weighing ticket not found.");
 
-        await Validate(ticket, existingTicket);
-        
+        var storageAddress = await storageAddressesGetService.GetByIdAsync(ticket.StorageAddressCode);
+        if (storageAddress == null)
+            throw new NotFoundException("Storage address not found.");
+            
         try
         {
             await db.BeginTransactionAsync();
             db.Context.Entry(existingTicket).CurrentValues.SetValues(ticket);
-            db.Context.Entry(existingTicket).Property("RowId").IsModified = false;
-            db.Context.Entry(existingTicket).Property("Key").IsModified = false;
-
+            
+            UpdateQualityInspections(existingTicket, ticket.QualityInspections);
+            
             existingTicket.Status = WeighingTicketStatus.Complete;
             existingTicket.Stage = WeighingTicketStage.Completed;
-
-            UpdateQualityInspections(existingTicket, ticket.QualityInspections);
             
             await db.SaveChangesAsync();
             
             var st = new StorageTransaction
             {
-                StorageAddressCode = ticket.StorageAddressCode,
+                StorageAddressCode = existingTicket.StorageAddressCode,
                 TransactionDate = DateTime.Now.Date,
                 TransactionTime = DateTime.Now.TimeOfDay.ToString(),
                 TransactionType = existingTicket.Type == WeighingTicketType.Receipt
@@ -54,14 +60,14 @@ public class WeighingTicketsCompletedService(
                 ItemCode = existingTicket.ItemCode,
                 UnitOfMeasureCode = "KG",
                 NetWeight = existingTicket.GrossWeight,
-                WarehouseCode = ticket.StorageAddress?.WarehouseCode,
+                WarehouseCode = storageAddress.WarehouseCode,
+                BranchCode = existingTicket.BranchCode,
             };
-            
-            foreach (var inspection in existingTicket.QualityInspections)
+           
+            foreach (var inspection in ticket.QualityInspections)
             {
                 st.QualityInspections.Add(new StorageTransactionQualityInspection
                 {
-                    Key = Guid.NewGuid(),
                     Value = inspection.Value,
                     QualityAttribCode = inspection.QualityAttribCode,
                     StorageTransaction = st,
@@ -69,11 +75,11 @@ public class WeighingTicketsCompletedService(
             }
             
             await storageTransactionsCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);
-            
             await db.CommitAsync();
         }
         catch (Exception e)
         {
+            logger.LogError(e.Message, e);
             await db.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
@@ -103,8 +109,6 @@ public class WeighingTicketsCompletedService(
             {
                 // Atualizar inspeção existente
                 db.Context.Entry(existingInspection).CurrentValues.SetValues(updatedInspection);
-                db.Context.Entry(existingInspection).Property("RowId").IsModified = false;
-                db.Context.Entry(existingInspection).Property("Key").IsModified = false;
             }
             else
             {
@@ -115,8 +119,11 @@ public class WeighingTicketsCompletedService(
         }
     }
 
-    private async Task Validate(WeighingTicket weighingTicket, WeighingTicket ticket)
-    {
+    private async Task Validate(WeighingTicket ticket)
+    {   
+        if (ticket.StorageAddressCode == null)
+            throw new ApplicationException("Storage address code not informed.");
+        
         if (ticket.Stage != WeighingTicketStage.ReadyForCompleting)
         {
             throw new ApplicationException("Invalid ticket stage.");
@@ -140,7 +147,7 @@ public class WeighingTicketsCompletedService(
         
         var storageAddress = await db.Context.StorageAddresses
                                  .AsNoTracking()
-                                 .FirstOrDefaultAsync(x => x.Code == weighingTicket.StorageAddressCode) ??
+                                 .FirstOrDefaultAsync(x => x.Code == ticket.StorageAddressCode) ??
                              throw new NotFoundException("Storage address not found.");
         
         if (storageAddress.CardCode != ticket.CardCode)
