@@ -23,7 +23,7 @@ public class WeighingTicketsQualityInspectionsUpdateService(
         catch (Exception exception)
         {
             logger.LogError(exception, exception.Message);
-            throw;
+            throw new ApplicationException(exception.Message);
         }
     }
     

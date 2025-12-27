@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.WeighingTickets;
@@ -117,5 +118,44 @@ public class WeighingTicketsController(
 
             return StatusCode(500, ex.Message);
         }
+    }
+
+    [AcceptVerbs("PATCH", "MERGE")]
+    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<WeighingTicket> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        WeighingTicket? t = await getService.GetByIdAsync(key);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var username = User.Identity?.Name ?? "Unknown";
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(key, t, username);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
     }
 }

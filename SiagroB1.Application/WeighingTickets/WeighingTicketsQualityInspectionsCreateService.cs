@@ -25,7 +25,7 @@ public class WeighingTicketsQualityInspectionsCreateService(
         catch (Exception exception)
         {
             logger.LogError(exception, exception.Message);
-            throw;
+            throw new ApplicationException(exception.Message);
         }
     }
 }

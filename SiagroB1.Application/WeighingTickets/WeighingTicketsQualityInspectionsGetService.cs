@@ -27,7 +27,7 @@ public class WeighingTicketsQualityInspectionsGetService(AppDbContext context, I
     {
         try
         {
-            if (!ExistQualityInspection(key))
+            if (!ExistQualityInspection(associationKey))
             {
                 throw new NotFoundException("Quality inspection key not found.");
             }

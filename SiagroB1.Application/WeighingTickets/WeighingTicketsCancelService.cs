@@ -2,12 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.WeighingTickets;
 
 public class WeighingTicketsCancelService(
-    AppDbContext db,
+    IUnitOfWork db,
     WeighingTicketsGetService weighingTicketsGetService,
     StorageTransactionsCancelService storageTransactionsCancelService
     )
@@ -24,9 +24,10 @@ public class WeighingTicketsCancelService(
 
         var sa = await GetStorageTransactionByWeighingTicketKey(key);
         
-        await using var transaction = await db.Database.BeginTransactionAsync();
         try
         {
+            await db.BeginTransactionAsync();
+            
             if (sa != null && sa.Key != null)
             {
                 await storageTransactionsCancelService.ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
@@ -34,16 +35,18 @@ public class WeighingTicketsCancelService(
 
             ticket.Status = WeighingTicketStatus.Cancelled;
             await db.SaveChangesAsync();
+            await db.CommitAsync();
         }
         catch (Exception e)
         {
+            await db.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
 
     private async Task<StorageTransaction?> GetStorageTransactionByWeighingTicketKey(Guid key)
     {
-        return await db.StorageTransactions
+        return await db.Context.StorageTransactions
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.WeighingTicketKey == key);
     }

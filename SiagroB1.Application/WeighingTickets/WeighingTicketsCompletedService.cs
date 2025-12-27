@@ -16,26 +16,27 @@ public class WeighingTicketsCompletedService(
     ILogger<WeighingTicketsCompletedService> logger
     )
 {
-    public async Task ExecuteAsync(Guid key, WeighingTicket ticket, string userName)
+    public async Task ExecuteAsync(Guid key, string userName)
     {
-        await Validate(ticket);
         
         var existingTicket = await db.Context.WeighingTickets
             .Include(x => x.QualityInspections)                  
             .Where(x => x.Stage == WeighingTicketStage.ReadyForCompleting)
             .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Weighing ticket not found.");
+        
+        await Validate(existingTicket);
 
-        var storageAddress = await storageAddressesGetService.GetByIdAsync(ticket.StorageAddressCode);
+        if (existingTicket.StorageAddressCode == null)
+            throw new ApplicationException("Storage address not informed.");
+            
+        var storageAddress = await storageAddressesGetService.GetByIdAsync(existingTicket.StorageAddressCode);
         if (storageAddress == null)
             throw new NotFoundException("Storage address not found.");
             
         try
         {
             await db.BeginTransactionAsync();
-            db.Context.Entry(existingTicket).CurrentValues.SetValues(ticket);
-            
-            UpdateQualityInspections(existingTicket, ticket.QualityInspections);
             
             existingTicket.Status = WeighingTicketStatus.Complete;
             existingTicket.Stage = WeighingTicketStage.Completed;
@@ -62,9 +63,10 @@ public class WeighingTicketsCompletedService(
                 NetWeight = existingTicket.GrossWeight,
                 WarehouseCode = storageAddress.WarehouseCode,
                 BranchCode = existingTicket.BranchCode,
+                ProcessingCostCode = existingTicket.ProcessingCostCode
             };
            
-            foreach (var inspection in ticket.QualityInspections)
+            foreach (var inspection in existingTicket.QualityInspections)
             {
                 st.QualityInspections.Add(new StorageTransactionQualityInspection
                 {
@@ -84,46 +86,9 @@ public class WeighingTicketsCompletedService(
             throw new ApplicationException(e.Message);
         }
     }
-    
-    private void UpdateQualityInspections(
-        WeighingTicket existingTicket, 
-        ICollection<QualityInspection> updatedInspections)
-    {
-        // Remover inspeções que não estão mais na lista atualizada
-        var inspectionsToRemove = existingTicket.QualityInspections
-            .Where(ei => !updatedInspections.Any(ui => ui.Key == ei.Key))
-            .ToList();
-    
-        foreach (var inspection in inspectionsToRemove)
-        {
-            db.Context.QualityInspections.Remove(inspection);
-        }
-    
-        // Atualizar/Adicionar inspeções
-        foreach (var updatedInspection in updatedInspections)
-        {
-            var existingInspection = existingTicket.QualityInspections
-                .FirstOrDefault(ei => ei.Key == updatedInspection.Key);
-        
-            if (existingInspection != null)
-            {
-                // Atualizar inspeção existente
-                db.Context.Entry(existingInspection).CurrentValues.SetValues(updatedInspection);
-            }
-            else
-            {
-                // Adicionar nova inspeção
-                updatedInspection.WeighingTicketKey = existingTicket.Key; // Se houver FK
-                existingTicket.QualityInspections.Add(updatedInspection);
-            }
-        }
-    }
-
+   
     private async Task Validate(WeighingTicket ticket)
     {   
-        if (ticket.StorageAddressCode == null)
-            throw new ApplicationException("Storage address code not informed.");
-        
         if (ticket.Stage != WeighingTicketStage.ReadyForCompleting)
         {
             throw new ApplicationException("Invalid ticket stage.");

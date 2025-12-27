@@ -18,7 +18,7 @@ public class StorageAddressesController(
 {
     [EnableQuery]
     [HttpGet("odata/StorageAddresses")]
-    public ActionResult<IEnumerable<StorageAddress>> Get()
+    public ActionResult<IEnumerable<StorageAddress>> QueryAll()
     {
         return Ok(getService.QueryAll());
     }

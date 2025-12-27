@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Entities.Common;
 
 namespace SiagroB1.Web.ODataConfig;
 
@@ -9,6 +10,7 @@ public static class ODataConfigurations
 {
     public static void ConfigureODataEntities(this ODataConventionModelBuilder modelBuilder)
     {
+        modelBuilder.EntitySet<Company>("Companies");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
@@ -59,6 +61,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))
             .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
+        modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -173,9 +176,11 @@ public static class ODataConfigurations
 
         var weighingTicketsCompleted = modelBuilder.Action("WeighingTicketsCompleted");
         weighingTicketsCompleted.Parameter<Guid>("Key");
-        weighingTicketsCompleted.EntityParameter<WeighingTicket>("WeighingTicket");
         weighingTicketsCompleted.Returns<IActionResult>();
         
+        var weighingTicketsCancel = modelBuilder.Action("WeighingTicketsCancel");
+        weighingTicketsCancel.Parameter<Guid>("Key");
+        weighingTicketsCancel.Returns<IActionResult>();
         
         
         

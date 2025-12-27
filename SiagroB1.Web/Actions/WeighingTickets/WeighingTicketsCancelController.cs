@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.WeighingTickets;
@@ -12,13 +13,21 @@ public class WeighingTicketsCancelController(
     :ODataController
 {
     [HttpPost]
-    [Route("odata/WeighingTickets({key:guid})/Cancel")]
+    [Route("odata/WeighingTicketsCancel")]
     [EnableQuery]
-    public async Task<ActionResult> Cancel([FromRoute] Guid key)
+    public async Task<ActionResult> Cancel(ODataActionParameters parameters)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+        
         try
         {
+            if (!parameters.TryGetValue("Key", out var keyObj))
+                return BadRequest("Missing required parameter: Key");
+            
+            
             var userName = User.Identity?.Name ?? "Unknown";
+            var key = Guid.Parse(keyObj.ToString());
             await service.ExecuteAsync(key, userName);
             return Ok();
         }

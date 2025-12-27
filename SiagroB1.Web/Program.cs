@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.OData;
 using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
+using SiagroB1.Security.Authentication;
 using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
 
@@ -19,6 +21,20 @@ var modelBuilder = new ODataConventionModelBuilder
 {
     Namespace = "SIAGROB1"
 };
+
+builder.Services.AddAuthentication("BasicAuthentication")
+    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
+        "BasicAuthentication", null);
+
+builder.Services.AddDbContext<CommonDbContext>(options => 
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("SiagroCommon"),
+        b =>
+        {
+            b.MigrationsAssembly("SiagroB1.Migrations");
+            b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        })
+);
 
 builder.Services.AddDbContext<AppDbContext>(options => 
     options.UseSqlServer(
@@ -31,6 +47,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 );
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
+
+builder.Services.AddHttpContextAccessor();
 
 var erp = builder.Configuration["Erp"] ?? "SAPB1";
 
@@ -109,10 +127,14 @@ else
     app.UseSwaggerUI();
 }
 
+app.UseAuthentication(); // IMPORTANTE: antes de UseAuthorization
+app.UseAuthorization();
+
 #pragma warning disable ASP0014
 app.UseEndpoints(endpoints =>
     endpoints
     .MapControllers()
+    //.RequireAuthorization()
     .WithOpenApi()
 );
 #pragma warning restore ASP0014
