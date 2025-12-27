@@ -23,6 +23,8 @@ public class StorageTransactionsUpdateService(AppDbContext context,IUnitOfWork u
         try
         {
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
+            entity.UpdatedBy = userName;
+            entity.UpdatedAt = DateTime.Now;
 
             await unitOfWork.SaveChangesAsync();
         }

@@ -25,6 +25,11 @@ public class BasicAuthenticationHandler(
 {
     private readonly ILogger<BasicAuthenticationHandler> _logger = logger.CreateLogger<BasicAuthenticationHandler>();
     
+    public async Task<AuthenticateResult> AuthenticateAsync()
+    {
+        return await HandleAuthenticateAsync();
+    }
+    
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var httpContext = httpContextAccessor.HttpContext;
@@ -41,7 +46,7 @@ public class BasicAuthenticationHandler(
             if (httpContext?.Request.Headers.ContainsKey("Authorization") == false)
             {
                 // Forçar caixa de login do browser
-                httpContext.Response.Headers["WWW-Authenticate"] = "Basic realm=\"Siagro B1\", charset=\"UTF-8\"";
+                //httpContext.Response.Headers["WWW-Authenticate"] = "Basic realm=\"Siagro B1\", charset=\"UTF-8\"";
                 return AuthenticateResult.Fail("Authentication required");
             }
 
@@ -188,8 +193,7 @@ public class BasicAuthenticationHandler(
         };
         
         var serializedUserInfo = JsonSerializer.Serialize(userInfo);
-        var encodedUserInfo = Uri.EscapeDataString(serializedUserInfo);
-        
+        var base64UserInfo = Convert.ToBase64String(Encoding.UTF8.GetBytes(serializedUserInfo));
         var userCookieOptions = new CookieOptions
         {
             HttpOnly = false, // Pode ser lido pelo JavaScript
@@ -200,7 +204,7 @@ public class BasicAuthenticationHandler(
         };
         
         Response.Cookies.Append("SIAGROB1.User", 
-            encodedUserInfo, 
+            base64UserInfo, 
             userCookieOptions);
 
         // ✅ 5. Se usuário tem empresa padrão, selecionar automaticamente
@@ -269,24 +273,32 @@ public class BasicAuthenticationHandler(
     public async Task LogoutAsync()
     {   
         var httpContext = httpContextAccessor.HttpContext;
-        
-        if (httpContext?.Request.Cookies.TryGetValue("SIAGROB1.Session", out var sessionId)==true)
+    
+        if (httpContext != null)
         {
-            // Invalidar sessão no banco
-            var session = await context.UserSessions
-                .FirstOrDefaultAsync(s => s.SessionId == sessionId);
-            
-            if (session != null)
+            // Invalidar sessão no banco se tiver cookie de sessão
+            if (httpContext.Request.Cookies.TryGetValue("SIAGROB1.Session", out var sessionId))
             {
-                session.IsActive = false;
-                session.ExpiresAt = DateTime.UtcNow;
-                await context.SaveChangesAsync();
+                var session = await context.UserSessions
+                    .FirstOrDefaultAsync(s => s.SessionId == sessionId);
+            
+                if (session != null)
+                {
+                    session.IsActive = false;
+                    session.ExpiresAt = DateTime.Now;
+                    await context.SaveChangesAsync();
+                }
             }
 
-            // Remover cookies
-            httpContext.Response.Cookies.Delete("SIAGROB1.Session");
-            httpContext.Response.Cookies.Delete("SIAGROB1.User");
-            //Response.Cookies.Delete("CurrentCompanyCode");
+            // Remover cookies com opções consistentes
+            var cookieOptions = new CookieOptions
+            {
+                Path = "/",
+                Expires = DateTime.Now.AddDays(-1) // Expira no passado
+            };
+        
+            httpContext.Response.Cookies.Delete("SIAGROB1.Session", cookieOptions);
+            httpContext.Response.Cookies.Delete("SIAGROB1.User", cookieOptions);
         }
     }
 }

@@ -13,6 +13,7 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
+using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
@@ -54,15 +55,6 @@ builder.Services.AddAuthentication(options =>
         options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
         options.DefaultChallengeScheme = "BasicAuthentication";
         options.DefaultScheme = "BasicAuthentication";
-    })
-    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-    {
-        options.Cookie.Name = "SIAGROB1";
-        options.Cookie.HttpOnly = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        options.SlidingExpiration = true;
-        options.LoginPath = "/security/auth/unauthorized";
-        options.AccessDeniedPath = "/security/auth/forbidden";
     })
     .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
         "BasicAuthentication", options => { });
@@ -110,7 +102,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseODataBatching(); // Habilita o suporte a batch, deve ser chamado antes do UseRouting
+app.UseODataBatching();
 app.UseRouting();
 
 app.Use(async (context, next) =>
@@ -123,7 +115,6 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Define qual pasta do wwwroot será servida
 if (!app.Environment.IsDevelopment())
 {
     // Serve a versão otimizada de produção
@@ -144,6 +135,7 @@ else
     app.UseSwaggerUI();
 }
 
+app.UseCookieAuth();
 app.UseAuthentication();
 app.UseAuthorization();
 

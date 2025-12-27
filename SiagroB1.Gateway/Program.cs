@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
+using SiagroB1.Security.Interfaces;
+using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +21,7 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
 );
 
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -46,6 +49,8 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+app.UseRouting();
+app.UseCookieAuth();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -55,8 +60,9 @@ app.MapReverseProxy()
     .ConfigureEndpoints(endpoints =>
     {
         endpoints
-            .RequireAuthorization(new AuthorizeAttribute { 
-                AuthenticationSchemes = "BasicAuthentication" 
+            .RequireAuthorization(new AuthorizeAttribute
+            {
+                AuthenticationSchemes = "BasicAuthentication"
             });
     });
 
