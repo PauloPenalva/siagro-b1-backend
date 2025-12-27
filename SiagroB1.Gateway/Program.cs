@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
@@ -41,6 +40,9 @@ builder.Services.AddAuthentication(options =>
     .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
         "BasicAuthentication", options => { });
 
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("AuthenticatedOnly", policy => policy.RequireAuthenticatedUser());
+
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
@@ -56,14 +58,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapReverseProxy()
-    .ConfigureEndpoints(endpoints =>
-    {
-        endpoints
-            .RequireAuthorization(new AuthorizeAttribute
-            {
-                AuthenticationSchemes = "BasicAuthentication"
-            });
-    });
+app.MapReverseProxy();
 
 await app.RunAsync();

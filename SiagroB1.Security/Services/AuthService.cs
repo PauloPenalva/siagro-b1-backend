@@ -30,7 +30,7 @@ public class AuthService(
                     return new LoginResponse()
                     {
                         Success = false,
-                        Message = "Usuário não encontrado"
+                        Message = "Usuário ou Senha inválidos"
                     };
                 }
 
@@ -41,7 +41,7 @@ public class AuthService(
                     return new LoginResponse()
                     {
                         Success = false,
-                        Message = "Senha inválida"
+                        Message = "Usuário ou Senha inválidos"
                     };
                 }
 

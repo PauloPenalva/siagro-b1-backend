@@ -25,11 +25,6 @@ public class BasicAuthenticationHandler(
 {
     private readonly ILogger<BasicAuthenticationHandler> _logger = logger.CreateLogger<BasicAuthenticationHandler>();
     
-    public async Task<AuthenticateResult> AuthenticateAsync()
-    {
-        return await HandleAuthenticateAsync();
-    }
-    
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var httpContext = httpContextAccessor.HttpContext;
