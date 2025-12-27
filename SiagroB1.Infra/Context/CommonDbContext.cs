@@ -7,5 +7,7 @@ namespace SiagroB1.Infra.Context
     {
         public DbSet<Company> Companies { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<UserSession> UserSessions { get; set; }
+        
     }
 }

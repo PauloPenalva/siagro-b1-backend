@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SiagroB1.Domain.Entities.Common;
 
-[Table("SYSTEM_COMPANIES")]
+[Table("COMPANIES")]
 public class Company
 {
     [Key]

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace SiagroB1.Domain.Entities.Common;
 
-[Table("SYSTEM_USERS")]
+[Table("USERS")]
 [Index(nameof(Email), IsUnique = true)]
 [Index(nameof(Username), IsUnique = true)]
 public class User

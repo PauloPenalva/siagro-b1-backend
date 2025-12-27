@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.OData;
 using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
+using SiagroB1.Security.Services;
 using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
 
@@ -21,10 +23,6 @@ var modelBuilder = new ODataConventionModelBuilder
 {
     Namespace = "SIAGROB1"
 };
-
-builder.Services.AddAuthentication("BasicAuthentication")
-    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
-        "BasicAuthentication", null);
 
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(
@@ -47,8 +45,27 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 );
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
+builder.Services.AddScoped<UserService>();
 
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = "BasicAuthentication";
+        options.DefaultScheme = "BasicAuthentication";
+    })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+    {
+        options.Cookie.Name = "SIAGROB1";
+        options.Cookie.HttpOnly = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.LoginPath = "/security/auth/unauthorized";
+        options.AccessDeniedPath = "/security/auth/forbidden";
+    })
+    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
+        "BasicAuthentication", options => { });
 
 var erp = builder.Configuration["Erp"] ?? "SAPB1";
 
@@ -127,16 +144,13 @@ else
     app.UseSwaggerUI();
 }
 
-app.UseAuthentication(); // IMPORTANTE: antes de UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
-#pragma warning disable ASP0014
-app.UseEndpoints(endpoints =>
-    endpoints
-    .MapControllers()
-    //.RequireAuthorization()
-    .WithOpenApi()
-);
-#pragma warning restore ASP0014
+app.UseRouting()
+    .UseEndpoints(endpoints => endpoints
+        .MapControllers()
+        .WithOpenApi()
+    );
 
 await app.RunAsync();

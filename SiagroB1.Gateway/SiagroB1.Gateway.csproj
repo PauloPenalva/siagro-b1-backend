@@ -16,4 +16,8 @@
       <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Dtos\" />
+    </ItemGroup>
+
 </Project>
