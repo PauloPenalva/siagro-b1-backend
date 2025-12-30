@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Reports.Services;
 using SiagroB1.Security.Middlewares;
@@ -28,6 +29,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDataConnection));
 
+builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<IFastReportService, FastReportService>();
 
 builder.Services.AddControllers();

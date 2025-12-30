@@ -16,7 +16,8 @@ public class SalesInvoicesController(IFastReportService reportService) : Control
         };
 
         var pdf = await reportService.GeneratePdfAsync("SalesInvoices.frx", parameters);
-
-        return File(pdf, "application/pdf", "sales-invoices.pdf");
+        
+        Response.Headers.ContentDisposition = "inline; filename=\"sales-invoices.pdf\"";
+        return File(pdf, "application/pdf");
     }
 }

@@ -18,6 +18,7 @@ public class FastReportService(
             "Reports",
             reportName);
 
+        FastReport.Utils.Config.WebMode = true;
         using var report = new Report();
         report.Load(reportPath);
         
@@ -30,20 +31,58 @@ public class FastReportService(
 
         sqlConn.ConnectionString =
             configuration.GetConnectionString("SiagroDB");
-
-        // PASSA PARÂMETROS (igual Jasper)
+        
         foreach (var param in parameters)
         {
             report.SetParameterValue(param.Key, param.Value);
         }
 
-        report.Prepare();
-
-        using var stream = new MemoryStream();
+        if (!await report.PrepareAsync()) return Array.Empty<byte>();
         var pdfExport = new PDFSimpleExport();
+        pdfExport.ShowProgress = false;
+        pdfExport.Title = reportName;
+            
+        using var stream = new MemoryStream();
+            
         report.Export(pdfExport, stream);
 
         return stream.ToArray();
     }
+    
+    public async Task<byte[]> GeneratePdfAsync<T>(
+        string reportName,
+        ICollection<T> data,
+        string dataSourceName,
+        string refName,
+        Dictionary<string, object> parameters)
+    {
+        var reportPath = Path.Combine(
+            env.ContentRootPath,
+            "Reports",
+            reportName);
 
+        FastReport.Utils.Config.WebMode = true;
+        using var report = new Report();
+        report.Load(reportPath);
+        
+        report.RegisterData(data, refName);
+
+        report.GetDataSource(dataSourceName).Enabled = true;
+        
+        foreach (var param in parameters)
+        {
+            report.SetParameterValue(param.Key, param.Value);
+        }
+
+        if (!await report.PrepareAsync()) return Array.Empty<byte>();
+        var pdfExport = new PDFSimpleExport();
+        pdfExport.ShowProgress = false;
+        pdfExport.Title = reportName;
+            
+        using var stream = new MemoryStream();
+            
+        report.Export(pdfExport, stream);
+
+        return stream.ToArray();
+    }
 }
