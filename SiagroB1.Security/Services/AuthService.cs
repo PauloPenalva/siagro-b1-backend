@@ -53,16 +53,16 @@ public class AuthService(
                     UserId = user.Id,
                     IpAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString(),
                     UserAgent = httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString(),
-                    CreatedAt = DateTime.UtcNow,
-                    LastActivityAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddHours(8),
+                    CreatedAt = DateTime.Now,
+                    LastActivityAt = DateTime.Now,
+                    ExpiresAt = DateTime.Now.AddHours(8),
                     IsActive = true
                 };
 
                 db.UserSessions.Add(session);
                 
                 // Atualizar último login
-                user.LastLoginAt = DateTime.UtcNow;
+                user.LastLoginAt = DateTime.Now;
                 db.Users.Update(user);
                 
                 await db.SaveChangesAsync();
@@ -77,7 +77,7 @@ public class AuthService(
                         HttpOnly = true,
                         Secure = httpContext.Request.IsHttps,
                         SameSite = SameSiteMode.Strict,
-                        Expires = DateTime.UtcNow.AddHours(8),
+                        Expires = DateTime.Now.AddHours(8),
                         Path = "/"
                     });
 
@@ -97,7 +97,7 @@ public class AuthService(
                         HttpOnly = false,
                         Secure = httpContext.Request.IsHttps,
                         SameSite = SameSiteMode.Strict,
-                        Expires = DateTime.UtcNow.AddHours(8),
+                        Expires = DateTime.Now.AddHours(8),
                         Path = "/"
                     });
                 }

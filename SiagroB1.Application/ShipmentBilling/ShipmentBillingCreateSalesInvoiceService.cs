@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -10,7 +9,6 @@ namespace SiagroB1.Application.ShipmentBilling;
 public class ShipmentBillingCreateSalesInvoiceService(
     IUnitOfWork db, 
     SalesInvoicesCreateService salesInvoicesCreateService,
-    DocNumbersSequenceService  docNumbersSequenceService,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)

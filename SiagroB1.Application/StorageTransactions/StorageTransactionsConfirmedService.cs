@@ -4,46 +4,78 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<StorageTransactionsConfirmedService> logger)
 {
-    public async Task ExecuteAsync(Guid key,string userName)
+    public async Task ExecuteAsync(
+        Guid key,
+        string userName, 
+        CommitMode commitMode = CommitMode.Auto, 
+        bool isShipmentTransaction = false)
     {
         var st = await unitOfWork.Context.StorageTransactions
                      .Include(x => x.QualityInspections)
-                     .Where(x => x.TransactionStatus == StorageTransactionsStatus.Pending)
-                     .FirstOrDefaultAsync() ??
+                     .FirstOrDefaultAsync(x => x.Key == key) ??
                         throw new NotFoundException("Storage transaction not found.");
 
         switch (st.TransactionType)
         {
             case StorageTransactionType.SalesShipment:
-                await ExecuteSalesShipementTransactionAsync(st, userName);
+                await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
                 break;
             case StorageTransactionType.SalesShipmentReturn:
-                await ExecuteSalesShipementReturnTransactionAsync(st, userName);
+                await ExecuteSalesShipmentReturnTransactionAsync(st, userName, commitMode);
                 break;
             default:
-                await ExecutePurchaseTransactionAsync(st, userName);
+                await ExecutePurchaseTransactionAsync(st, userName, commitMode);
                 break;
         }
     }
     
-    private async Task ExecuteSalesShipementTransactionAsync(StorageTransaction st, string userName)
+    public async Task ExecuteAsync(
+        StorageTransaction st,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto,
+        bool isShipmentTransaction = false)
     {
+        switch (st.TransactionType)
+        {
+            case StorageTransactionType.SalesShipment:
+                await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
+                break;
+            case StorageTransactionType.SalesShipmentReturn:
+                await ExecuteSalesShipmentReturnTransactionAsync(st, userName, commitMode);
+                break;
+            default:
+                await ExecutePurchaseTransactionAsync(st, userName, commitMode);
+                break;
+        }
+    }
+    
+    private async Task ExecuteSalesShipmentTransactionAsync(
+        StorageTransaction st, 
+        string userName, 
+        CommitMode commitMode = CommitMode.Auto,
+        bool isShipmentTransaction = false)
+    {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            throw new ApplicationException("Only pending transactions can be confirmed.");
+        }
+        
         var warehouseCode = st.WarehouseCode;
         var itemCode = st.ItemCode;
         
         var warehouseBalance = await GetWarehouseBalanceAsync(warehouseCode, itemCode);
-        logger.LogInformation("Saldo no armazem: {}", warehouseBalance);
         
-        if (st.GrossWeight > warehouseBalance)
-        {
+        if (!isShipmentTransaction) 
+            logger.LogInformation("Saldo no armazem: {}", warehouseBalance);
+        
+        if (!isShipmentTransaction && st.GrossWeight > warehouseBalance)
             throw new ApplicationException("A quantidade embarcada é superior ao saldo disponivel no armazem.");
-        }
             
         try
         {
@@ -53,7 +85,8 @@ public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await unitOfWork.SaveChangesAsync();
+            if (commitMode == CommitMode.Auto)
+                await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -61,8 +94,13 @@ public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<
         }
     }
     
-    private async Task ExecuteSalesShipementReturnTransactionAsync(StorageTransaction st, string userName)
+    private async Task ExecuteSalesShipmentReturnTransactionAsync(StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
     {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            throw new ApplicationException("Only pending transactions can be confirmed.");
+        }
+        
         try
         {
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
@@ -71,7 +109,8 @@ public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await unitOfWork.SaveChangesAsync();
+            if (commitMode == CommitMode.Auto)
+                await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -79,27 +118,34 @@ public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<
         }
     }
     
-    private async Task ExecutePurchaseTransactionAsync(StorageTransaction st, string userName)
+    private async Task ExecutePurchaseTransactionAsync(
+        StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
     {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            throw new ApplicationException("Only pending transactions can be confirmed.");
+        }
+        
         try
         {
-            // if (applyProcessingCost)
-            // {
-            //     await Calculate(st);
-            // }
-            
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
-            st.NetWeight = st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
+            st.NetWeight = CalculateNetWeight(st);
             st.AvaiableVolumeToAllocate = st.NetWeight;
             st.UpdatedBy = userName;
             st.UpdatedAt = DateTime.Now;
             
-            await unitOfWork.SaveChangesAsync();
+            if (commitMode == CommitMode.Auto)
+                await unitOfWork.SaveChangesAsync();
         }
         catch (Exception e)
         {
             throw new ApplicationException(e.Message);
         }
+    }
+    
+    private decimal CalculateNetWeight(StorageTransaction st)
+    {
+        return st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
     }
     
     private async Task<decimal> GetWarehouseBalanceAsync(string warehouseCode, string itemCode)

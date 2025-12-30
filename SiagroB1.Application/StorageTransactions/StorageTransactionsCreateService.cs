@@ -5,12 +5,13 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsCreateService(
     IUnitOfWork unitOfWork,
-    DocNumbersSequenceService docNumberSequenceService,
+    DocNumberSequenceService numberSequenceService,
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
     ILogger<StorageTransactionsCreateService> logger)
@@ -42,26 +43,15 @@ public class StorageTransactionsCreateService(
     public async Task<StorageTransaction> ExecuteAsync(
         StorageTransaction entity, 
         string userName, 
-        TransactionCode transactionCode = TransactionCode.StorageTransaction
-    )
-    {   
-        if (entity.DocNumberKey is null)
-        {
-            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.StorageTransaction);
-            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
-            if (docNumber == null)
-                throw new ApplicationException("Document Number is empty or not setting default value.");
-
-            entity.DocNumberKey = docNumber.Key;
-        }
+        TransactionCode transactionCode = TransactionCode.StorageTransaction,
+        CommitMode commitMode = CommitMode.Auto)
+    {
+        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageTransaction);
         
         try
         {
-            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-            var currentNumber = docNumber.NextNumber;
-                
-            entity.Code = DocNumbersSequenceService
-                .FormatNumber(currentNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
+            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.TransactionOrigin = transactionCode;
@@ -70,9 +60,8 @@ public class StorageTransactionsCreateService(
             
             await unitOfWork.Context.StorageTransactions.AddAsync(entity);
             
-            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, currentNumber);
-            
-            await unitOfWork.SaveChangesAsync();
+            if (commitMode == CommitMode.Auto)
+                await unitOfWork.SaveChangesAsync();
             
             return entity;
         }
@@ -81,12 +70,5 @@ public class StorageTransactionsCreateService(
             logger.LogError(ex, "Error creating entity.");
             throw new DefaultException("Error creating entity.");
         }
-    }
-    
-    private static string FormatCode(int currentNumber)
-    {
-        return currentNumber
-            .ToString()
-            .PadLeft(10, '0');
     }
 }

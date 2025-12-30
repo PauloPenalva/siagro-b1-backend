@@ -1,10 +1,11 @@
+using System.Data;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.OData;
 using Microsoft.AspNetCore.OData.Batch;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities.SAP;
@@ -19,6 +20,8 @@ using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService();
+builder.Logging.AddEventLog();
 
 var modelBuilder = new ODataConventionModelBuilder
 {
@@ -35,15 +38,25 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
-builder.Services.AddDbContext<AppDbContext>(options => 
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("SiagroDB"),
-        b =>
-        {
-            b.MigrationsAssembly("SiagroB1.Migrations");
-            b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-        })
+builder.Services.AddDbContext<AppDbContext>(options =>
+    {
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("SiagroDB"),
+            b =>
+            {
+                b.MigrationsAssembly("SiagroB1.Migrations");
+                b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            });
+        options.EnableSensitiveDataLogging();
+    }
 );
+
+builder.Services.AddScoped<IDbConnection>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("SiagroDB");
+    return new SqlConnection(connectionString);
+});
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<UserService>();
@@ -115,21 +128,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
-if (!app.Environment.IsDevelopment())
-{
-    // Serve a versão otimizada de produção
-    app.UseDefaultFiles(new DefaultFilesOptions
-    {
-        DefaultFileNames = ["index.html"],
-        FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.WebRootPath, "app"))
-    });
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(Path.Combine(app.Environment.WebRootPath, "app")),
-        RequestPath = ""
-    });
-}
-else
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();

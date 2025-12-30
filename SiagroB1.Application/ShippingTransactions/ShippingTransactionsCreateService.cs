@@ -4,6 +4,7 @@ using SiagroB1.Application.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.ShippingTransactions;
 
@@ -24,23 +25,27 @@ public class ShippingTransactionsCreateService(
             
             logger.LogInformation("Starting cross-docking for contract {ContractId}", purchaseContractKey);
             
-            await storageCreateService.ExecuteAsync(purchase, userName);
-            await storageConfirmedService.ExecuteAsync((Guid) purchase.Key, userName);
+            await storageCreateService.ExecuteAsync(
+                purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
+            
+            await storageConfirmedService.ExecuteAsync(purchase, userName, CommitMode.Deferred, true);
             
             await purchaseAllocationCreateService.ExecuteAsync(
-                purchaseContractKey, (Guid) purchase.Key, purchase.NetWeight, userName);
+                purchaseContractKey, purchase, purchase.NetWeight, userName, CommitMode.Deferred);
 
-            var sales = await storageCopyService.ExecuteAsync((Guid) purchase.Key, userName);
-            sales.TransactionStatus = StorageTransactionsStatus.Pending;
-            sales.TransactionType = StorageTransactionType.SalesShipment;
+            var salesCreated = await storageCopyService.ExecuteAsync(
+                purchase, userName, CommitMode.Deferred);
             
-            await storageUpdateService.ExecuteAsync((Guid) sales.Key,  sales, userName);
-            await storageConfirmedService.ExecuteAsync((Guid) sales.Key, userName);
+            salesCreated.TransactionStatus = StorageTransactionsStatus.Pending;
+            salesCreated.TransactionType = StorageTransactionType.SalesShipment;
+            
+            //await storageUpdateService.ExecuteAsync(salesCreated.Key,  salesCreated, userName, CommitMode.Deferred);
+            await storageConfirmedService.ExecuteAsync(salesCreated, userName, CommitMode.Deferred, true);
 
             var shipping = new ShippingTransaction
             {
                 PurchaseStorageTransaction =  purchase,
-                SalesStorageTransaction = sales,
+                SalesStorageTransaction = salesCreated,
             };
             
             await unitOfWork.Context.ShippingTransactions.AddAsync(shipping);

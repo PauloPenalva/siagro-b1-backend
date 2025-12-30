@@ -21,9 +21,9 @@ public class UnitOfWork(AppDbContext context) : IUnitOfWork
     {
         try
         {
-            await context.SaveChangesAsync();
             await _transaction.CommitAsync();
             await _transaction.DisposeAsync();
+            _transaction =  null;
         }
         catch
         {

@@ -10,33 +10,16 @@ namespace SiagroB1.Application.WeighingTickets;
 
 public class WeighingTicketsCreateService(
     IUnitOfWork db, 
-    DocNumbersSequenceService docNumbersSequenceService,
+    DocNumberSequenceService numberSequenceService,
     ILogger<WeighingTicketsCreateService> logger)
 {
     public async Task<WeighingTicket> ExecuteAsync(WeighingTicket entity, string userName)
     {
-        
-        if (entity.DocNumberKey is null)
-        {
-            var docNumbers = await docNumbersSequenceService.GetDocNumbersSeries(TransactionCode.SalesInvoice);
-            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
-            if (docNumber == null)
-                throw new ApplicationException("Document Number is empty or not setting default value.");
-
-            entity.DocNumberKey = docNumber.Key;
-        }
+        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.WeighingTicket);
         
         try
         {
-            await db.BeginTransactionAsync();
-            
-            var docNumber = await docNumbersSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-
-            var currentNumber = docNumber.NextNumber;
-            
-            entity.Code = DocNumbersSequenceService
-                .FormatNumber(currentNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
-            
+            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.Date = DateTime.Now.Date;
             entity.Status = WeighingTicketStatus.Waiting;
             entity.FirstWeighValue = 0;
@@ -44,6 +27,8 @@ public class WeighingTicketsCreateService(
             entity.SecondWeighValue = 0;
             entity.SecondWeighDateTime = null;
             entity.Stage = WeighingTicketStage.ReadyForFirstWeighing;
+            entity.CreatedAt = DateTime.Now;
+            entity.CreatedBy = userName;
             
             var qualityAttribs = await GetQualityAttribs();
             
@@ -58,15 +43,12 @@ public class WeighingTicketsCreateService(
             });
             
             await db.Context.WeighingTickets.AddAsync(entity);
-            await docNumbersSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, currentNumber);
             await db.SaveChangesAsync();
-            await db.CommitAsync();
             
             return entity;
         }
         catch (Exception ex)
         {
-            await db.RollbackAsync();
             logger.LogError(ex, "Error creating entity.");
             throw new DefaultException("Error creating entity.");
         }

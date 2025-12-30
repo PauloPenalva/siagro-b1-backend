@@ -11,7 +11,7 @@ public class SalesContractsCreateService(
     IUnitOfWork db, 
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
-    DocNumbersSequenceService docNumberSequenceService,
+    DocNumberSequenceService numberSequenceService,
     ILogger<SalesContractsCreateService> logger)
 {
     private static readonly TransactionCode TransactionCode = TransactionCode.SalesContract;
@@ -23,11 +23,7 @@ public class SalesContractsCreateService(
         {
             await db.BeginTransactionAsync();
             
-            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-            var contractNumber = docNumber.NextNumber;
-            
-            entity.Code =  DocNumbersSequenceService
-                .FormatNumber(contractNumber, int.Parse(docNumber.NumberSize), docNumber?.Prefix, docNumber?.Suffix);
+            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -36,8 +32,6 @@ public class SalesContractsCreateService(
             
             await db.Context.SalesContracts.AddAsync(entity);
             await db.SaveChangesAsync();
-            
-            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, contractNumber);
             
             await db.CommitAsync();
             return entity;

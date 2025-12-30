@@ -10,33 +10,18 @@ namespace SiagroB1.Application.StorageAddresses;
 
 public class StorageAddressesCreateService(
     IUnitOfWork db, 
-    DocNumbersSequenceService docNumberSequenceService,
+    DocNumberSequenceService numberSequenceService,
     BusinessPartnerService  businessPartnerService,
     ItemService itemService,
     ILogger<StorageAddressesCreateService> logger)
 {
     public async Task<StorageAddress> ExecuteAsync(StorageAddress entity, string userName)
     {
-        if (entity.DocNumberKey is null)
-        {
-            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.StorageAddress);
-            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
-            if (docNumber == null)
-                throw new ApplicationException("Document Number is empty or not setting default value.");
-
-            entity.DocNumberKey = docNumber.Key;
-        }
+        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageAddress);
         
         try
         {
-            await db.BeginTransactionAsync();
-            
-            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-            
-            var currentNumber = docNumber.NextNumber;
-
-            entity.Code = DocNumbersSequenceService
-                .FormatNumber(currentNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
+            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.TransactionOrigin = TransactionCode.StorageAddress;
@@ -44,9 +29,6 @@ public class StorageAddressesCreateService(
             await db.Context.StorageAddresses.AddAsync(entity);
             await db.SaveChangesAsync();
             
-            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, currentNumber);
-
-            await db.CommitAsync();
             return entity;
         }
         catch (Exception ex)

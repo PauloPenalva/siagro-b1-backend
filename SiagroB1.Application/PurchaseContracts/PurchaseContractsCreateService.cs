@@ -12,7 +12,7 @@ public class PurchaseContractsCreateService(
         AppDbContext context, 
         BusinessPartnerService  businessPartnerService,
         ItemService itemService,
-        DocNumbersSequenceService docNumberSequenceService,
+        DocNumberSequenceService numberSequenceService,
         ILogger<PurchaseContractsCreateService> logger)
 {
     private static readonly TransactionCode TransactionCode = TransactionCode.PurchaseContract;
@@ -40,13 +40,7 @@ public class PurchaseContractsCreateService(
                 parameter.PurchaseContract = entity;
             }
             
-            
-            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-            var contractNumber = docNumber.NextNumber;
-
-            entity.Code = DocNumbersSequenceService
-                .FormatNumber(contractNumber, int.Parse(docNumber.NumberSize), docNumber?.Prefix, docNumber?.Suffix);
-            
+            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
@@ -60,8 +54,6 @@ public class PurchaseContractsCreateService(
             
             await context.PurchaseContracts.AddAsync(entity);
             await context.SaveChangesAsync();
-            
-            await docNumberSequenceService.UpdateLastNumber((Guid) entity.DocNumberKey, contractNumber);
             
             await transaction.CommitAsync();
             return entity;

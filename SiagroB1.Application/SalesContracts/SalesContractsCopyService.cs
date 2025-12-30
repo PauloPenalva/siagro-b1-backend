@@ -26,7 +26,7 @@ public class SalesContractsCopyService(AppDbContext db, SalesContractsCreateServ
                 })) ??  throw new ApplicationException("Error on copying sales contract.");
 
         cloneContract.Key = Guid.Empty;
-        cloneContract.RowId = 0;
+        cloneContract.RowId = null;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;

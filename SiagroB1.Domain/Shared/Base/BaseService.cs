@@ -58,18 +58,20 @@ namespace SiagroB1.Domain.Shared.Base
         }
 
         public virtual async Task<T?> GetByIdAsync(ID code)
-        {   
+        {
             try
             {
                 _logger.LogInformation("Fetching entity with ID {Id}", code);
+
                 return await _context.Set<T>().FindAsync(code);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,"Error fetching entity with ID {Id}", code);
+                _logger.LogError(ex, "Error fetching entity with ID {Id}", code);
                 throw new DefaultException("Error fetching entity");
             }
         }
+
 
         public virtual async Task<T?> UpdateAsync(ID key, T entity)
         {

@@ -12,34 +12,21 @@ public class SalesInvoicesCreateService(
     IUnitOfWork db,
     BusinessPartnerService businessPartnerService,
     ItemService itemService,
-    DocNumbersSequenceService docNumberSequenceService,
+    DocNumberSequenceService numberSequenceService,
     ILogger<SalesInvoicesCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName)
     {
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
-        
-        if (salesInvoice.DocNumberKey is null)
-        {
-            var docNumbers = await docNumberSequenceService.GetDocNumbersSeries(TransactionCode.SalesInvoice);
-            var docNumber = docNumbers.FirstOrDefault(x => x.Default);
-            if (docNumber == null)
-                throw new ApplicationException("Document Number is empty or not setting default value.");
 
-            salesInvoice.DocNumberKey = docNumber.Key;
-        }
+        salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
         
         try
         {
-            await db.BeginTransactionAsync();
-            
-            var docNumber = await docNumberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
-            
-            var invoiceNumber = docNumber.NextNumber;
-
-            salesInvoice.InvoiceNumber = DocNumbersSequenceService
-                .FormatNumber(invoiceNumber, int.Parse(docNumber.NumberSize), docNumber.Prefix, docNumber.Suffix);
+            salesInvoice.CreatedAt = DateTime.Now;
+            salesInvoice.CreatedBy = userName;
+            salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             salesInvoice.CardName = (await businessPartnerService.GetByIdAsync(salesInvoice.CardCode))?.CardName;
             salesInvoice.TruckingCompanyName = 
@@ -76,9 +63,6 @@ public class SalesInvoicesCreateService(
             }
             
             await db.SaveChangesAsync();
-
-            await docNumberSequenceService.UpdateLastNumber((Guid) salesInvoice.DocNumberKey, invoiceNumber);
-            await db.CommitAsync();
         }
         catch (Exception e)
         {

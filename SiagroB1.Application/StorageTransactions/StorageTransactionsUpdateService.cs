@@ -4,12 +4,17 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsUpdateService(AppDbContext context,IUnitOfWork unitOfWork, ILogger<StorageTransactionsUpdateService> logger)
 {
-    public async Task<StorageTransaction?> ExecuteAsync(Guid key, StorageTransaction entity, string userName)
+    public async Task<StorageTransaction?> ExecuteAsync(
+        Guid key, 
+        StorageTransaction entity, 
+        string userName, 
+        CommitMode commitMode = CommitMode.Auto)
     {
         var existingEntity = await unitOfWork.Context.StorageTransactions
                                  .FirstOrDefaultAsync(tc => tc.Key == key) ?? 
@@ -25,8 +30,9 @@ public class StorageTransactionsUpdateService(AppDbContext context,IUnitOfWork u
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
             entity.UpdatedBy = userName;
             entity.UpdatedAt = DateTime.Now;
-
-            await unitOfWork.SaveChangesAsync();
+            
+            if (commitMode == CommitMode.Auto)
+                await unitOfWork.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {

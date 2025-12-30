@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Gateway", "SiagroB
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Security", "SiagroB1.Security\SiagroB1.Security.csproj", "{D851D87A-922A-478C-B513-C26087EAC775}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Reports", "SiagroB1.Reports\SiagroB1.Reports.csproj", "{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,5 +56,9 @@ Global
 		{D851D87A-922A-478C-B513-C26087EAC775}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D851D87A-922A-478C-B513-C26087EAC775}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D851D87A-922A-478C-B513-C26087EAC775}.Release|Any CPU.Build.0 = Release|Any CPU
+		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.20"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.1" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"/>
         <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     </ItemGroup>
@@ -15,9 +16,5 @@
     <ItemGroup>
       <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Dtos\" />
-    </ItemGroup>
-
+    
 </Project>

@@ -1,2 +1,0 @@
-sap.ui.define(["./BaseController","sap/ui/model/odata/v4/ODataModel"],function(e,t){"use strict";function o(e){return e&&e.__esModule&&typeof e.default!=="undefined"?e.default:e}const n=o(e);const r=n.extend("siagrob1.controller.Main",{onInit:function e(){const o=new t({serviceUrl:"/odata/",synchronizationMode:"None",groupId:"$direct",operationMode:"Server",earlyRequests:true});this.getView().setModel(o)}});return r});
-//# sourceMappingURL=Main.controller.js.map

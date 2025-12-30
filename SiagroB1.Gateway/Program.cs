@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
@@ -9,12 +10,17 @@ using SiagroB1.Security.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsProduction())
+{
+    builder.Host.UseWindowsService();
+    builder.Logging.AddEventLog();
+}
+
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("SiagroCommon"),
         b =>
         {
-            b.MigrationsAssembly("SiagroB1.Migrations");
             b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
         })
 );
@@ -50,6 +56,19 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+var provider = new FileExtensionContentTypeProvider
+{
+    Mappings =
+    {
+        [".properties"] = "text/plain"
+    }
+};
+
+app.UseDefaultFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider
+});
 
 app.UseRouting();
 app.UseCookieAuth();
