@@ -1,7 +1,32 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" ReportInfo.Created="12/29/2025 18:38:54" ReportInfo.Modified="12/29/2025 23:45:18" ReportInfo.CreatorVersion="2026.1.0.0">
+<Report ScriptLanguage="CSharp" ReportInfo.Created="12/29/2025 18:38:54" ReportInfo.Modified="12/30/2025 14:46:29" ReportInfo.CreatorVersion="2026.1.0.0">
+  <ScriptText>using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Forms;
+using System.Drawing;
+using System.Data;
+using FastReport;
+using FastReport.Data;
+using FastReport.Dialog;
+using FastReport.Barcode;
+using FastReport.Table;
+using FastReport.Utils;
+
+namespace FastReport
+{
+  public class ReportScript
+  {
+
+  }
+}
+</ScriptText>
+  <Styles>
+    <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
+  </Styles>
   <Dictionary>
-    <MsSqlDataConnection Name="Conn" ConnectionString="rijcmlqJUrEa/KIcQqhhcfnlqC6PGg5imbaGg6zUaNTAYc5sc03TfePxSblja2w5ZBQ6XB23jA8yWynEBOAYEU9tNNAZVk7VPNJqga9DIEUQC9ovsqhWnGjMid9MUdShvPJOry/z+ZcXH8S2sAeBVxwlA/7geXqbLLbmpUAxV5G1UViX2xNfeDCIlD+ekzj+Nfgs5gYgR5iZNFKxexGgSWoBh5OIg==">
+    <MsSqlDataConnection Name="Conn" ConnectionString="rijcmlqJUrEa/KIcQqhhcfnlqC6PGg5imbaGg6zUaNTAYc5sc03TfePxSblja2w5ZBQ6XB23jA8yWynEBOAYEU9tNNAZVk7VPNJqga9DIEUQC9ovsqhWnGjMid9MUdShvPJOry/z+ZcXH8S2sAeBVxwlA/7geXqbLLbmpUAxV5G1UViX2xNfeDCIlD+ekzj+Nfgs5gY5GIKzed6zmzDW74Y7H2f9w==">
       <TableDataSource Name="Table1" Alias="SalesInvoices" DataType="System.Int32" Enabled="true" SelectCommand="SELECT InvoiceNumber, InvoiceDate,GrossWeight,CardCode,CardName, InvoiceStatus FROM SALES_INVOICES">
         <Column Name="InvoiceNumber" DataType="System.String"/>
         <Column Name="InvoiceDate" DataType="System.DateTime"/>
@@ -20,7 +45,7 @@
       <TextObject Name="Text1" Left="229.8" Top="13.35" Width="226.8" Height="18.9" Text="Documentos de Saída" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold, Italic"/>
       <TextObject Name="Text14" Left="614.25" Top="9.45" Width="94.5" Height="18.9" Text="[Date]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
     </ReportTitleBand>
-    <PageHeaderBand Name="PageHeader1" Top="49.92" Width="718.2" Height="11.45">
+    <PageHeaderBand Name="PageHeader1" Top="48.7" Width="718.2" Height="11.45" Border.Lines="All" Fill.Color="Gainsboro">
       <TextObject Name="Text3" Left="1.9" Top="2" Width="94.5" Height="9.45" Text="Documento" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text5" Left="97.4" Top="2" Width="94.5" Height="9.45" Text="Data" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text7" Left="193.7" Top="2" Width="94.5" Height="9.45" Text="Peso Bruto" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
@@ -28,7 +53,7 @@
       <TextObject Name="Text11" Left="385.35" Top="2" Width="255.15" Height="9.45" Text="Nome" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text13" Left="642.6" Top="2" Width="66.15" Height="9.45" Text="Status" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
     </PageHeaderBand>
-    <DataBand Name="Data1" Top="64.03" Width="718.2" Height="10.9" DataSource="Table1">
+    <DataBand Name="Data1" Top="61.61" Width="718.2" Height="10.9" EvenStyle="EvenRows" DataSource="Table1">
       <TextObject Name="Text2" Left="1.9" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.InvoiceNumber]" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text4" Left="97.4" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.InvoiceDate]" Format="Date" Format.Format="d" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text6" Left="193.7" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.GrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Tahoma, 8pt" Trimming="EllipsisCharacter"/>
@@ -37,12 +62,12 @@
       <TextObject Name="Text12" Left="289.85" Top="1" Width="28.35" Height="9.45" Text="KG" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text24" Left="642.6" Top="1" Width="66.15" Height="9.45" Text="[SalesInvoices.InvoiceStatus]" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="77.6" Width="718.2" Height="11.45">
+    <ReportSummaryBand Name="ReportSummary1" Top="73.96" Width="718.2" Height="11.45">
       <TextObject Name="Text15" Left="165.55" Top="2" Width="122.85" Height="9.45" Text="[TotalGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text16" Left="288.95" Top="2" Width="28.35" Height="9.45" Text="KG" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text17" Left="1.9" Top="2" Width="94.5" Height="9.45" Text="Total:" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="91.72" Width="718.2" Height="18.9">
+    <PageFooterBand Name="PageFooter1" Top="86.87" Width="718.2" Height="18.9">
       <TextObject Name="Text20" Left="670.95" Width="9.45" Height="9.45" Text="/" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text21" Left="680.4" Width="37.8" Height="9.45" Text="[TotalPages#]" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text22" Left="633.15" Width="37.8" Height="9.45" Text="[Page#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>

@@ -46,8 +46,15 @@ public class WeighingTicket : DocumentEntity
     public DateTimeOffset? SecondWeighDateTime { get; set; }
 
     [NotMapped]
-    public int GrossWeight => int.Abs(FirstWeighValue - SecondWeighValue);
-    
+    public int GrossWeight
+    {
+        get
+        {
+            if (FirstWeighValue == 0 ||  SecondWeighValue == 0) return 0;
+            return int.Abs(FirstWeighValue - SecondWeighValue);
+        }
+    }
+
     public ICollection<QualityInspection> QualityInspections { get; set; } = [];
 
     [Column(TypeName = "NVARCHAR(MAX)")]

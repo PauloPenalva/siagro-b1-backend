@@ -4,25 +4,31 @@
     <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
   </Styles>
   <Dictionary>
-    <BusinessObjectDataSource Name="PurchaseContracts" ReferenceName="PurchaseContracts" DataType="System.Int32" Enabled="true">
-      <Column Name="BranchCode" DataType="System.String"/>
-      <Column Name="Code" DataType="System.String"/>
-      <Column Name="Complement" DataType="System.String"/>
-      <Column Name="CreationDate" DataType="System.DateTime"/>
-      <Column Name="CardName" DataType="System.String"/>
-      <Column Name="DeliveryEndDate" DataType="System.DateTime"/>
-      <Column Name="ItemName" DataType="System.String"/>
-      <Column Name="TotalVolume" DataType="System.Decimal"/>
-      <Column Name="UnitOfMeasureCode" DataType="System.String"/>
-      <Column Name="StandardPrice" DataType="System.Decimal"/>
-      <Column Name="TotalStandard" DataType="System.Decimal"/>
-      <Column Name="StandardCashFlowDate" DataType="System.DateTime"/>
-      <Column Name="PaymentTerms" DataType="System.String"/>
-      <Column Name="AvaiableVolume" DataType="System.Decimal"/>
+    <BusinessObjectDataSource Name="StorageTransactions" ReferenceName="StorageTransactions" DataType="System.Int32" Enabled="true">
+      <Column Name="Filial" DataType="System.String"/>
+      <Column Name="Romaneio" DataType="System.String"/>
+      <Column Name="Documento" DataType="System.String"/>
+      <Column Name="Status" DataType="System.Int32"/>
+      <Column Name="ClienteNome" DataType="System.String"/>
+      <Column Name="ClienteCodigo" DataType="System.String"/>
+      <Column Name="LoteCodigo" DataType="System.String"/>
+      <Column Name="LoteDescricao" DataType="System.String"/>
+      <Column Name="ArmazemCodigo" DataType="System.String"/>
+      <Column Name="ProdutoNome" DataType="System.String"/>
+      <Column Name="Placa" DataType="System.String"/>
+      <Column Name="Emissao" DataType="System.DateTime"/>
+      <Column Name="Ticket" DataType="System.String"/>
+      <Column Name="PesoBruto" DataType="System.Decimal"/>
+      <Column Name="Umidade" DataType="System.Decimal"/>
+      <Column Name="Impurezas" DataType="System.Decimal"/>
+      <Column Name="Avariados" DataType="System.Decimal"/>
+      <Column Name="Ardidos" DataType="System.Decimal"/>
+      <Column Name="PH" DataType="System.Decimal"/>
+      <Column Name="FN" DataType="System.Decimal"/>
+      <Column Name="Descontos" DataType="System.Decimal"/>
+      <Column Name="PesoLiquido" DataType="System.Decimal"/>
     </BusinessObjectDataSource>
-    <Total Name="TotalAvailableVolume" Expression="[PurchaseContracts.AvaiableVolume]" Evaluator="Data1" PrintOn="ReportSummary1"/>
-    <Total Name="TotalVolume" Expression="[PurchaseContracts.TotalVolume]" Evaluator="Data1" PrintOn="ReportSummary1"/>
-  </Dictionary>
+    </Dictionary>
   <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" RawPaperSize="9" Watermark.Font="Arial, 60pt">
     <PageHeaderBand Name="PageHeader1" Width="1047.06" Height="47.25">
       <TextObject Name="Text1" Top="9.45" Width="1048.95" Height="37.8" Text="Contratos de Compra" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold, Italic"/>

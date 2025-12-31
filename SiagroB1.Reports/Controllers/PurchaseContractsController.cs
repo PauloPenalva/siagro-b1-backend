@@ -21,6 +21,8 @@ public class PurchaseContractsController(
 
 
         var purchaseContracts = await db.Context.PurchaseContracts
+            .AsNoTracking()
+            .Include(x => x.Allocations)
             .ToListAsync();
         
         var pdf = await reportService.GeneratePdfAsync(
