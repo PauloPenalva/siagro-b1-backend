@@ -10,7 +10,7 @@
     ST.WarehouseCode     AS ArmazemCodigo,
     ST.ItemName          AS ProdutoNome,
     ST.TruckCode         AS Placa,
-    T.Date               AS Emissao,
+    ST.TransactionDate   AS Emissao,
     T.Code               AS Ticket,
     ST.GrossWeight       AS PesoBruto,
 
@@ -50,7 +50,7 @@ GROUP BY
     ST.WarehouseCode,
     ST.ItemName,
     ST.TruckCode,
-    T.Date,
+    ST.TransactionDate,
     T.Code,
     ST.GrossWeight,
     ST.OthersDicount,

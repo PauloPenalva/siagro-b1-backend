@@ -1,8 +1,8 @@
-﻿namespace SiagroB1.Reports.Services;
-
-using FastReport;
+﻿using FastReport;
 using FastReport.Export.PdfSimple;
 using FastReport.Data;
+
+namespace SiagroB1.Reports.Services;
 
 public class FastReportService(
     IWebHostEnvironment env,
