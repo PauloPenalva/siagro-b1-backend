@@ -16,6 +16,7 @@ public class FastReportService(
         var reportPath = Path.Combine(
             env.ContentRootPath,
             "Reports",
+            "Templates",
             reportName);
 
         FastReport.Utils.Config.WebMode = true;
@@ -59,6 +60,7 @@ public class FastReportService(
         var reportPath = Path.Combine(
             env.ContentRootPath,
             "Reports",
+            "Templates",
             reportName);
 
         FastReport.Utils.Config.WebMode = true;

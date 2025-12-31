@@ -1,3 +1,5 @@
+using System.Data;
+using System.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
@@ -26,6 +28,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.EnableSensitiveDataLogging();
     }
 );
+
+builder.Services.AddScoped<IDbConnection>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var connectionString = configuration.GetConnectionString("SiagroDB");
+    return new SqlConnection(connectionString);
+});
 
 FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDataConnection));
 
