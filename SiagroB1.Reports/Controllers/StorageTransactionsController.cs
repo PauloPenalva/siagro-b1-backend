@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SiagroB1.Reports.Dtos;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Reports.Controllers;
@@ -7,15 +8,15 @@ namespace SiagroB1.Reports.Controllers;
 [Route("/reports/StorageTransactions")]
 public class StorageTransactionsController(StorageTransactionsService service) : ControllerBase
 {
-    [HttpGet("Receipts")]
-    public async Task<IActionResult> GetReceipts()
+    [HttpPost("Receipts")]
+    public async Task<IActionResult> ReceiptsReport([FromBody] StorageTransactionsReceiptsRequest  request)
     {
-        var parameters = new Dictionary<string, object>
+        if (!ModelState.IsValid)
         {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
+            return BadRequest(ModelState);
+        }
         
-        var pdf = await service.GetReceipts(parameters);
+        var pdf = await service.ReceiptsReport(request);
         
         Response.Headers.ContentDisposition = "inline; filename=\"StorageTransactionsReceipt.pdf\"";
         return File(pdf, "application/pdf");

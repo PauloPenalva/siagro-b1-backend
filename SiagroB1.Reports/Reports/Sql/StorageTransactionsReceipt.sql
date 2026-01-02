@@ -36,6 +36,20 @@ ON Q.StorageTransactionKey = ST.[Key]
 WHERE ST.WeighingTicketKey IS NOT NULL
   AND ST.TransactionType = 0
   AND ST.TransactionStatus <> 2
+  AND (@BranchCodeFrom IS NULL OR ISNULL(ST.BranchCode,'') >= @BranchCodeFrom)
+  AND (@BranchCodeTo IS NULL OR ISNULL(ST.BranchCode,'') <= @BranchCodeTo)
+  AND ST.TransactionDate >= @TransactionDateFrom 
+  AND ST.TransactionDate < DATEADD(DAY, 1, @TransactionDateTo)
+  AND (@CardCodeFrom IS NULL OR ISNULL(ST.CardCode,'') >= @CardCodeFrom)
+  AND (@CardCodeTo IS NULL OR ISNULL(ST.CardCode,'') <= @CardCodeTo)
+  AND (@StorageAddressCodeFrom IS NULL OR ISNULL(ST.StorageAddressCode,'') >= @StorageAddressCodeFrom)
+  AND (@StorageAddressCodeTo IS NULL OR ISNULL(ST.StorageAddressCode,'') <= @StorageAddressCodeTo) 
+  AND (@ItemCodeFrom IS NULL OR ISNULL(ST.ItemCode,'') >= @ItemCodeFrom)
+  AND (@ItemCodeTo IS NULL OR ISNULL(ST.ItemCode,'') <= @ItemCodeTo)
+  AND (@WarehouseCodeFrom IS NULL OR ISNULL(ST.WarehouseCode,'') >= @WarehouseCodeFrom)
+  AND (@WarehouseCodeTo IS NULL OR ISNULL(ST.WarehouseCode,'') <= @WarehouseCodeTo)
+  AND (@TruckCodeFrom IS NULL OR ISNULL(ST.TruckCode,'') >= @TruckCodeFrom)
+  AND (@TruckCodeTo IS NULL OR ISNULL(ST.TruckCode,'') <= @TruckCodeTo)  
 GROUP BY
     ST.RowId,
     ST.BranchCode,

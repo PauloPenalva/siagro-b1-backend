@@ -1,6 +1,6 @@
 ﻿namespace SiagroB1.Reports.Dtos;
 
-public record StorageTransactionsReceiptsDto
+public record StorageTransactionsReceiptsResponse
 {
     public string Filial { get; init; }
     public string Romaneio { get; init; }
