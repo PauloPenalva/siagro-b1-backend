@@ -18,7 +18,7 @@ public class StorageTransactionsService(
             "StorageTransactionsReceipt.sql"
         );
 
-        var sql = await System.IO.File.ReadAllTextAsync(sqlPath);
+        var sql = await File.ReadAllTextAsync(sqlPath);
 
         var list = (List<StorageTransactionsReceiptsResponse>) 
             await connection.QueryAsync<StorageTransactionsReceiptsResponse>(sql, new
