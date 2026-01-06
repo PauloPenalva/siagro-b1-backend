@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Reports.DI;
-using SiagroB1.Reports.Services;
 using SiagroB1.Security.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService();
+builder.Logging.AddEventLog();
 
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(
