@@ -23,9 +23,10 @@ public class PurchaseContract : DocumentEntity
     
     public ContractStatus? Status { get; set; } = ContractStatus.Draft;
     
-    [Column(TypeName = "VARCHAR(10) NO NULL")]
-    public string? AgentCode { get; set; }
-    public virtual Agent? Agent { get; set; }
+    public int? AgentCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100)")] 
+    public string? AgentName { get; set; }
     
     /// <summary>
     /// SAP ENTITY
@@ -47,7 +48,6 @@ public class PurchaseContract : DocumentEntity
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public string? FreightUmCode { get; set; }
-    public virtual UnitOfMeasure? FreightUm { get; set; }
     
     /// <summary>
     /// SAP ENTITY
@@ -59,9 +59,7 @@ public class PurchaseContract : DocumentEntity
     public string? ItemName { get; set; }
 
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
-    [ForeignKey("UnitOfMeasure")]
     public required string UnitOfMeasureCode { get; set; }
-    public virtual UnitOfMeasure? UnitOfMeasure { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("HarvestSeason")]
@@ -82,9 +80,10 @@ public class PurchaseContract : DocumentEntity
     public string? PaymentTerms { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
-    [ForeignKey("DeliveryLocation")]
     public required string DeliveryLocationCode { get; set; }
-    public virtual Warehouse? DeliveryLocation { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
+    public string? DeliveryLocationName { get; set; }
     
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
@@ -102,7 +101,6 @@ public class PurchaseContract : DocumentEntity
     public ICollection<PurchaseContractTax> Taxes { get; set; } = [];
     
     public ICollection<PurchaseContractQualityParameter>  QualityParameters { get; set; } = [];
-    
     
     public ICollection<PurchaseContractBroker> Brokers { get; set; } = [];
     

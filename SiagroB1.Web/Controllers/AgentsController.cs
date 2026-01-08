@@ -3,148 +3,147 @@ using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services;
-using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Model;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class AgentsController(AgentService service) : ODataController
+public class AgentsController(IAgentService service) : ODataController
 {
-     [EnableQuery]
-        public virtual ActionResult<IEnumerable<Agent>> Get()
+    [EnableQuery]
+    public virtual ActionResult Get()
+    {
+        return Ok(service.QueryAll());
+    }
+
+    [EnableQuery]
+    public virtual async Task<ActionResult> Get([FromRoute] int key)
+    {
+        var item = await service.GetByIdAsync(key);
+
+        if (item == null)
         {
-            return Ok(service.QueryAll());
+            return NotFound();
         }
 
-        [EnableQuery]
-        public virtual async Task<ActionResult<Agent>> Get([FromRoute] string key)
+        return Ok(item);
+    }
+        
+    public virtual async Task<IActionResult> Post([FromBody] AgentModel model)
+    {
+        if (!ModelState.IsValid)
         {
-            var item = await service.GetByIdAsync(key);
-
-            if (item == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(item);
+            return BadRequest(ModelState);
         }
         
-        public virtual async Task<IActionResult> Post([FromBody] Agent entity)
+        try
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            
-            try
-            {
-                await service.CreateAsync(entity);
+            await service.CreateAsync(model);
 
-                return Created(entity);
-            }
-            catch (Exception ex)
+            return Created(model);
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or NotImplementedException)
             {
-                if (ex is DefaultException)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                return StatusCode(500, ex.Message);
+                return BadRequest(ex.Message);
             }
 
+            return StatusCode(500, ex.Message);
         }
 
-        public virtual async Task<IActionResult> Put([FromRoute] string key, [FromBody] Agent entity)
+    }
+
+    public virtual async Task<IActionResult> Put([FromRoute] int key, [FromBody] AgentModel model)
+    {
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            await service.UpdateAsync(key, model);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or NotImplementedException)
             {
-                return BadRequest(ModelState);
+                return BadRequest(ex.Message);
             }
 
-            try
-            {
-                await service.UpdateAsync(key, entity);
-            }
-            catch (KeyNotFoundException)
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+
+    public virtual async Task<IActionResult> Delete([FromRoute] int key)
+    {
+        try
+        {
+            bool success = await service.DeleteAsync(key);
+
+            if (!success)
             {
                 return NotFound();
-            }
-            catch (Exception ex)
-            {
-                if (ex is DefaultException)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                return StatusCode(500, ex.Message);
             }
 
             return NoContent();
-        }
 
-        public virtual async Task<IActionResult> Delete([FromRoute] string key)
+        }
+        catch (Exception ex)
         {
-            try
+            if (ex is DefaultException or NotImplementedException)
             {
-                bool success = await service.DeleteAsync(key);
-
-                if (!success)
-                {
-                    return NotFound();
-                }
-
-                return NoContent();
-
+                return BadRequest(ex.Message);
             }
-            catch (Exception ex)
-            {
-                if (ex is DefaultException)
-                {
-                    return BadRequest(ex.Message);
-                }
 
-                return StatusCode(500, ex.Message);
-            }
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        [AcceptVerbs("PATCH", "MERGE")]
-        public virtual async Task<IActionResult> Patch([FromODataUri] string key, [FromBody] Delta<Agent> patch)
+    [AcceptVerbs("PATCH", "MERGE")]
+    public virtual async Task<IActionResult> Patch([FromODataUri] int key, [FromBody] Delta<AgentModel> patch)
+    {
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            Agent? t = await service.GetByIdAsync(key);
-
-            if (t == null)
-            {
-                return NotFound();
-            }
-
-            try
-            {
-                patch.Patch(t);
-
-                await service.UpdateAsync(key, t);
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
-            catch (Exception ex)
-            {
-                if (ex is DefaultException)
-                {
-                    return BadRequest(ex.Message);
-                }
-
-                return StatusCode(500, ex.Message);
-            }
-
-            return NoContent();
+            return BadRequest(ModelState);
         }
+
+        AgentModel? t = await service.GetByIdAsync(key);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await service.UpdateAsync(key, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or NotImplementedException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
     
 }

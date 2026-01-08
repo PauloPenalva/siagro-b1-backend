@@ -1,7 +1,7 @@
 ﻿using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Application.StorageTransactions;
+namespace SiagroB1.Application.StorageTransactions.Factories;
 
 public static class StorageTransactionCopyFactory
 {

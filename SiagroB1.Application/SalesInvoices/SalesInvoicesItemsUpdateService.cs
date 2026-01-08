@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 
@@ -9,7 +9,7 @@ namespace SiagroB1.Application.SalesInvoices;
 
 public class SalesInvoicesItemsUpdateService(
     IUnitOfWork db, 
-    ItemService itemService,
+    IItemService itemService,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)

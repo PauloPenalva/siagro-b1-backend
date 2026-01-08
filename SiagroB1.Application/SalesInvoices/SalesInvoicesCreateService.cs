@@ -4,14 +4,15 @@ using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesInvoices;
 
 public class SalesInvoicesCreateService(
     IUnitOfWork db,
-    BusinessPartnerService businessPartnerService,
-    ItemService itemService,
+    IBusinessPartnerService businessPartnerService,
+    IItemService itemService,
     DocNumberSequenceService numberSequenceService,
     ILogger<SalesInvoicesCreateService> logger)
 {

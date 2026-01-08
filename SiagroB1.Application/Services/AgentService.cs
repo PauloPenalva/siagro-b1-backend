@@ -1,29 +1,42 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Model;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;
 
-public class AgentService(AppDbContext context, ILogger<AgentService> logger) 
+public class AgentService(AppDbContext context, ILogger<AgentService> logger) : IAgentService
 {
-  public virtual async Task<Agent> CreateAsync(Agent entity)
+  public  async Task<AgentModel> CreateAsync(AgentModel model)
     {
+        if (EntityExists(model.Code))
+            throw new ArgumentException($"Comprador com código '{model.Code}' já existe.");
+
         try
         {
+            var entity = new Agent
+            {
+                Code = model.Code,
+                Name = model.Name,
+                Inactive = model.Inactive,
+            };
+            
             await context.Agents.AddAsync(entity);
             await context.SaveChangesAsync();
-            return entity;
+            return model;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error creating entity.");
-            throw new DefaultException("Error creating entity.");
+            logger.LogError(ex, "Error creating model.");
+            throw;
         }
     }
-
-    public virtual async Task<bool> DeleteAsync(string code)
+    
+    public async Task<bool> DeleteAsync(int code)
     {
         try
         {
@@ -44,80 +57,84 @@ public class AgentService(AppDbContext context, ILogger<AgentService> logger)
         }
     }
 
-    public virtual IQueryable<Agent> QueryAll()
+    public IQueryable<AgentModel> QueryAll()
     {
-        return context.Agents.AsNoTracking();
+        return context.Agents
+            .AsNoTracking()
+            .Select(x => new AgentModel
+            {
+                Code = x.Code,
+                Name = x.Name,
+                Inactive =  x.Inactive ?? "N",
+            });
     }
 
-    public virtual async Task<IEnumerable<Agent>> GetAllAsync()
+    public async Task<IEnumerable<AgentModel>> GetAllAsync()
     {
-        return await context.Agents.ToListAsync();
+        return await context.Agents
+            .Select(x => new AgentModel
+            {
+                Code = x.Code,
+                Name = x.Name,
+                Inactive = x.Inactive ?? "N",
+            })
+            .ToListAsync();
     }
 
-    public virtual async Task<Agent?> GetByIdAsync(string code)
-    {   
+    public async Task<AgentModel?> GetByIdAsync(int code)
+    {
         try
         {
             logger.LogInformation("Fetching entity with ID {Id}", code);
-            return await context.Agents.FindAsync(code);
+
+            return await context.Agents
+                .Select(x => new AgentModel
+                {
+                    Code = x.Code,
+                    Name = x.Name,
+                    Inactive = x.Inactive ?? "N",
+                })
+                .FirstOrDefaultAsync(x => x.Code == code);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex,"Error fetching entity with ID {Id}", code);
+            logger.LogError(ex, "Error fetching entity with ID {Id}", code);
             throw new DefaultException("Error fetching entity");
         }
     }
 
-    public virtual async Task<Agent?> UpdateAsync(string key, Agent entity)
+
+    public async Task<AgentModel?> UpdateAsync(int code, AgentModel model)
     {
         try
         {
+            var entity = await context.Agents.FindAsync(code);
+            if (entity == null) throw  new NotFoundException("Entity not found.");
+            
             context.Entry(entity).State = EntityState.Modified;
+            entity.Name = model.Name;
+            entity.Inactive = model.Inactive;
+            
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!EntityExists(key))
+            if (!EntityExists(code))
             {
                 throw new KeyNotFoundException("Entity not found.");
             }
             else
             {
-                throw new DefaultException("Error updating entity due to concurrency issues.");
+                throw new DefaultException("Error updating model due to concurrency issues.");
             }
         }
 
-        return entity;
+        return model;
     }
 
-    public virtual async Task<bool> DeleteAsyncWithTransaction(string id, Func<Agent, Task>? preDeleteAction = null)
+        
+    private bool EntityExists(int key)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync();
-        try
-        {
-            var entity = await context.Agents.FindAsync(id);
-            if (entity == null)
-            {
-                logger.LogWarning("Entity {Entity} with ID {Id} not found.", typeof(Agent).Name, id);
-                return false;
-            }
-
-            if (preDeleteAction != null)
-                await preDeleteAction(entity);
-
-            context.Agents.Remove(entity);
-            await context.SaveChangesAsync();
-
-            await transaction.CommitAsync();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            await transaction.RollbackAsync();
-            logger.LogError(ex, "Error deleting entity {Entity} with ID {Id}", nameof(Agent), id);
-            throw;
-        }
+        return context.Agents.Any(x => x.Code == key);
     }
-
-    private bool EntityExists(string key) => context.Agents.Any(e => e.Code == key);
 } 

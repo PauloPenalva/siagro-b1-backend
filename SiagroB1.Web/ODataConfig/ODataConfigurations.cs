@@ -3,6 +3,8 @@ using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
+using SiagroB1.Domain.Entities.SAP;
+using SiagroB1.Domain.Model;
 
 namespace SiagroB1.Web.ODataConfig;
 
@@ -10,9 +12,11 @@ public static class ODataConfigurations
 {
     public static void ConfigureODataEntities(this ODataConventionModelBuilder modelBuilder)
     {
+        modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
+        modelBuilder.EntitySet<Item>("Items");
         modelBuilder.EntitySet<Company>("Companies");
         modelBuilder.EntitySet<Branch>("Branchs");
-        modelBuilder.EntitySet<UnitOfMeasure>("UnitsOfMeasure");
+        modelBuilder.EntitySet<SiagroB1.Domain.Model.UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
         modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");
@@ -20,7 +24,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ProcessingCostDryingDetail>("ProcessingCostDryingDetails");
         modelBuilder.EntitySet<ProcessingCostQualityParameter>("ProcessingCostQualityParameters");
         modelBuilder.EntitySet<ProcessingCostServiceDetail>("ProcessingCostServiceDetails");
-        modelBuilder.EntitySet<Warehouse>("Warehouses");
+        modelBuilder.EntitySet<WarehouseModel>("Warehouses");
         modelBuilder.EntitySet<HarvestSeason>("HarvestSeasons");
         modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
         modelBuilder.EntitySet<State>("States");
@@ -47,7 +51,7 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
-        modelBuilder.EntitySet<Agent>("Agents");
+        modelBuilder.EntitySet<SiagroB1.Domain.Model.AgentModel>("Agents");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));

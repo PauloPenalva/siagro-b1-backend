@@ -27,5 +27,4 @@ public class PurchaseContractBroker
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public string? ComissionUmCode { get; set; }
-    public virtual UnitOfMeasure? ComissionUm { get; set; }
 }

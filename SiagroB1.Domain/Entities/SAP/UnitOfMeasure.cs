@@ -1,16 +1,16 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SiagroB1.Domain.Entities;
+namespace SiagroB1.Domain.Entities.SAP;
 
-[Table("UNITS_OF_MEASURE")]
+[Table("OUOM")]
 public class UnitOfMeasure 
 {
     [Key]
-    [Column(TypeName = "VARCHAR(4) NOT NULL")]
+    [Column("UomCode")]
     public required string Code { get; set; }
     
-    [Column(TypeName = "VARCHAR(100) NOT NULL")]
+    [Column("UomName")]
     public required string Description { get; set; }
     
     [Column(TypeName = "VARCHAR(1)")]

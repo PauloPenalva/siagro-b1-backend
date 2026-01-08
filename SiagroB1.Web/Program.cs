@@ -7,21 +7,23 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Application.Services.SAP;
+using SiagroB1.Commons.Extensions;
 using SiagroB1.Domain.Entities.SAP;
-using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
-using SiagroB1.Web.DI;
 using SiagroB1.Web.ODataConfig;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseWindowsService();
-builder.Logging.AddEventLog();
+
+if (builder.Environment.IsProduction())
+{
+    builder.Host.UseWindowsService();
+    builder.Logging.AddEventLog();
+}
 
 var modelBuilder = new ODataConventionModelBuilder
 {
@@ -86,17 +88,21 @@ switch (erp.ToUpper().Trim())
         builder.Services.AddDbContext<SapCommonDbContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("SapCommon")));
         
-        modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
-        modelBuilder.EntitySet<Item>("Items");
-        
-        builder.Services.AddScoped<IBusinessPartnerService, BusinessPartnerService>();
-        builder.Services.AddScoped<IItemService, ItemService>();
+        // modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
+        // modelBuilder.EntitySet<Item>("Items");
+
+        builder.Services.AddSapServices();
         break;
+    
+    case "STANDALONE":
+        builder.Services.AddStandAloneServices();
+        break;
+    
     default:
         throw new DefaultException("ERP não suportado. Verifique a configuração no appsettings.json");
 }
 
-builder.Services.AddDomainServices();
+builder.Services.AddApplicationServices();
 
 modelBuilder.ConfigureODataEntities();
 

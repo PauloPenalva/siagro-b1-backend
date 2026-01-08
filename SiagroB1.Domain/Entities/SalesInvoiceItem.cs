@@ -26,8 +26,7 @@ public class SalesInvoiceItem
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UnitOfMeasureCode { get; set; }
-    public UnitOfMeasure? UnitOfMeasure { get; set; }
-
+    
     [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
 

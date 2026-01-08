@@ -1,16 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SiagroB1.Domain.Entities;
+namespace SiagroB1.Domain.Entities.SAP;
 
-[Table("AGENTS")]
+[Table("OSLP")]
 public class Agent
 {
     [Key]
-    [Column(TypeName = "VARCHAR(10) NO NULL")]
+    [Column("SlpCode")]
     public int Code { get; set; }
     
-    [Column(TypeName = "VARCHAR(100) NOT NULL")]
+    [Column("SlpName", TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
     
     [Column("Locked", TypeName = "VARCHAR(1) DEFAULT 'N'")]

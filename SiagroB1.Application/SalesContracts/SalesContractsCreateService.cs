@@ -1,16 +1,18 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.DocNumbers;
-using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesContracts;
 
 public class SalesContractsCreateService(
     IUnitOfWork db, 
-    BusinessPartnerService  businessPartnerService,
-    ItemService itemService,
+    IBusinessPartnerService  businessPartnerService,
+    IItemService itemService,
+    IAgentService  agentService,
     DocNumberSequenceService numberSequenceService,
     ILogger<SalesContractsCreateService> logger)
 {
@@ -28,6 +30,7 @@ public class SalesContractsCreateService(
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
             
             await db.Context.SalesContracts.AddAsync(entity);

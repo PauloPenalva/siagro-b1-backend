@@ -1,6 +1,6 @@
 ﻿using SiagroB1.Domain.Entities;
 
-namespace SiagroB1.Application.StorageTransactions;
+namespace SiagroB1.Application.StorageTransactions.Factories;
 
 public static class StorageTransactionQualityInspectionCopyFactory
 {

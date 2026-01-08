@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.DocNumbers;
-using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
@@ -12,8 +13,9 @@ namespace SiagroB1.Application.StorageTransactions;
 public class StorageTransactionsCreateService(
     IUnitOfWork unitOfWork,
     DocNumberSequenceService numberSequenceService,
-    BusinessPartnerService  businessPartnerService,
-    ItemService itemService,
+    IBusinessPartnerService  businessPartnerService,
+    IItemService itemService,
+    IWarehouseService warehouseService,
     ILogger<StorageTransactionsCreateService> logger)
 {
     public async Task<StorageTransaction> ExecuteAsyncWithTransaction(
@@ -54,6 +56,7 @@ public class StorageTransactionsCreateService(
             
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             entity.TransactionOrigin = transactionCode;
             entity.CreatedBy = userName;
             entity.CreatedAt = DateTime.Now;

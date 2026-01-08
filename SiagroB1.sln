@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Security", "Siagro
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Reports", "SiagroB1.Reports\SiagroB1.Reports.csproj", "{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Commons", "SiagroB1.Commons\SiagroB1.Commons.csproj", "{BDE34D33-99E7-4F29-B0D4-C1EDE3D8DC85}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,5 +62,9 @@ Global
 		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{260D8F5D-E2FC-4D5E-9384-D02402E40AE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDE34D33-99E7-4F29-B0D4-C1EDE3D8DC85}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDE34D33-99E7-4F29-B0D4-C1EDE3D8DC85}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDE34D33-99E7-4F29-B0D4-C1EDE3D8DC85}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDE34D33-99E7-4F29-B0D4-C1EDE3D8DC85}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

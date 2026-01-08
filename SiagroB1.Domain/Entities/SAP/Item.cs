@@ -12,4 +12,6 @@ public class Item
 
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string ItemName { get; set; }
+    
+    public short? ItmsGrpCod {get; set;}
 }

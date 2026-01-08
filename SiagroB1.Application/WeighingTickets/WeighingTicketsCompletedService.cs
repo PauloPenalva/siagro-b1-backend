@@ -157,12 +157,6 @@ public class WeighingTicketsCompletedService(
 
     private bool IsWarehouseOwner(StorageAddress sa)
     {
-        var warehouse = db.Context.WhareHouses
-            .AsNoTracking()
-            .Select(x => new {x.Code, x.Type})
-            .FirstOrDefault(x => x.Code == sa.WarehouseCode) ??
-                        throw new NotFoundException("Warehouse not found.");
-
-        return warehouse.Type == WarehouseType.Owner;
+        return false;
     }
 }

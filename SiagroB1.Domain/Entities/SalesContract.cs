@@ -23,9 +23,10 @@ public class SalesContract : DocumentEntity
     
     public ContractStatus? Status { get; set; } = ContractStatus.Draft;
     
-    [Column(TypeName = "VARCHAR(10) NO NULL")]
-    public string? AgentCode { get; set; }
-    public virtual Agent? Agent { get; set; }
+    public int? AgentCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? AgentName { get; set; }
     
     /// <summary>
     /// SAP ENTITY
@@ -52,9 +53,8 @@ public class SalesContract : DocumentEntity
     public string? ItemName { get; set; }
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
-    [ForeignKey("UnitOfMeasure")]
+    [ForeignKey("UnitOfMeasureModel")]
     public required string UnitOfMeasureCode { get; set; }
-    public virtual UnitOfMeasure? UnitOfMeasure { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("HarvestSeason")]

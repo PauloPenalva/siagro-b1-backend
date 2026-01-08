@@ -25,10 +25,12 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.Agent", b =>
                 {
                     b.Property<string>("Code")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("VARCHAR(10) NO NULL");
 
-                    b.Property<bool>("Inactive")
-                        .HasColumnType("bit");
+                    b.Property<string>("Inactive")
+                        .HasColumnType("VARCHAR(1) DEFAULT 'N'")
+                        .HasColumnName("Locked");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -314,8 +316,11 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AgentCode")
-                        .HasColumnType("VARCHAR(10) NO NULL");
+                    b.Property<int?>("AgentCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AgentName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<string>("ApprovalComments")
                         .HasColumnType("VARCHAR(500)");
@@ -366,6 +371,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("DeliveryLocationCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("DeliveryLocationName")
+                        .HasColumnType("VARCHAR(200) NOT NULL");
 
                     b.Property<DateTime>("DeliveryStartDate")
                         .HasColumnType("datetime2");
@@ -438,25 +446,17 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
-                    b.HasIndex("AgentCode");
-
                     b.HasIndex("BranchCode");
 
                     b.HasIndex("Code")
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
 
-                    b.HasIndex("DeliveryLocationCode");
-
                     b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("FreightUmCode");
 
                     b.HasIndex("HarvestSeasonCode");
 
                     b.HasIndex("LogisticRegionCode");
-
-                    b.HasIndex("UnitOfMeasureCode");
 
                     b.ToTable("PURCHASE_CONTRACTS");
                 });
@@ -538,8 +538,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Key");
-
-                    b.HasIndex("ComissionUmCode");
 
                     b.HasIndex("PurchaseContractKey");
 
@@ -675,8 +673,11 @@ namespace SiagroB1.Migrations.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AgentCode")
-                        .HasColumnType("VARCHAR(10) NO NULL");
+                    b.Property<int?>("AgentCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AgentName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<string>("ApprovalComments")
                         .HasColumnType("VARCHAR(500)");
@@ -792,8 +793,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Key");
 
-                    b.HasIndex("AgentCode");
-
                     b.HasIndex("BranchCode");
 
                     b.HasIndex("Code")
@@ -805,8 +804,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("HarvestSeasonCode");
 
                     b.HasIndex("LogisticRegionCode");
-
-                    b.HasIndex("UnitOfMeasureCode");
 
                     b.ToTable("SALES_CONTRACTS");
                 });
@@ -958,8 +955,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("SalesInvoiceKey");
 
-                    b.HasIndex("UnitOfMeasureCode");
-
                     b.ToTable("SALES_INVOICES_ITEMS");
                 });
 
@@ -994,6 +989,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<string>("DeliveryLocationName")
+                        .HasColumnType("VARCHAR(200)");
+
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1024,8 +1022,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
-
-                    b.HasIndex("DeliveryLocationCode");
 
                     b.HasIndex("DocNumberKey");
 
@@ -1253,6 +1249,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200) ");
+
                     b.HasKey("Code");
 
                     b.HasIndex("BranchCode");
@@ -1401,6 +1400,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200)");
+
                     b.Property<Guid?>("WeighingTicketKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1417,10 +1419,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("ShipmentReleaseKey");
 
                     b.HasIndex("StorageAddressCode");
-
-                    b.HasIndex("UnitOfMeasureCode");
-
-                    b.HasIndex("WarehouseCode");
 
                     b.ToTable("STORAGE_TRANSACTIONS");
                 });
@@ -1514,6 +1512,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
+                    b.Property<string>("Locked")
+                        .HasColumnType("VARCHAR(1)");
+
                     b.HasKey("Code");
 
                     b.ToTable("UNITS_OF_MEASURE");
@@ -1524,9 +1525,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<bool>("Inactive")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
@@ -1534,9 +1532,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("TaxId")
                         .HasColumnType("VARCHAR(14) NOT NULL")
                         .HasColumnName("TAXID");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
 
                     b.HasKey("Code");
 
@@ -1726,30 +1721,14 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContract", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Agent", "Agent")
-                        .WithMany()
-                        .HasForeignKey("AgentCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "DeliveryLocation")
-                        .WithMany()
-                        .HasForeignKey("DeliveryLocationCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
                         .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "FreightUm")
-                        .WithMany()
-                        .HasForeignKey("FreightUmCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.HarvestSeason", "HarvestSeason")
@@ -1763,27 +1742,13 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("LogisticRegionCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Agent");
-
                     b.Navigation("Branch");
 
-                    b.Navigation("DeliveryLocation");
-
                     b.Navigation("DocNumber");
-
-                    b.Navigation("FreightUm");
 
                     b.Navigation("HarvestSeason");
 
                     b.Navigation("LogisticRegion");
-
-                    b.Navigation("UnitOfMeasure");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractAllocation", b =>
@@ -1807,17 +1772,10 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractBroker", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "ComissionUm")
-                        .WithMany()
-                        .HasForeignKey("ComissionUmCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
                         .WithMany("Brokers")
                         .HasForeignKey("PurchaseContractKey")
                         .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("ComissionUm");
 
                     b.Navigation("PurchaseContract");
                 });
@@ -1888,11 +1846,6 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
                 {
-                    b.HasOne("SiagroB1.Domain.Entities.Agent", "Agent")
-                        .WithMany()
-                        .HasForeignKey("AgentCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchCode")
@@ -1914,14 +1867,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("LogisticRegionCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Agent");
-
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
@@ -1929,8 +1874,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("HarvestSeason");
 
                     b.Navigation("LogisticRegion");
-
-                    b.Navigation("UnitOfMeasure");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoice", b =>
@@ -1962,17 +1905,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("SalesInvoiceKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.Navigation("SalesContract");
 
                     b.Navigation("SalesInvoice");
-
-                    b.Navigation("UnitOfMeasure");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -1981,12 +1916,6 @@ namespace SiagroB1.Migrations.Migrations
                         .WithMany()
                         .HasForeignKey("BranchCode")
                         .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "DeliveryLocation")
-                        .WithMany()
-                        .HasForeignKey("DeliveryLocationCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
 
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
@@ -2000,8 +1929,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired();
 
                     b.Navigation("Branch");
-
-                    b.Navigation("DeliveryLocation");
 
                     b.Navigation("DocNumber");
 
@@ -2087,18 +2014,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("StorageAddressCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.UnitOfMeasure", "UnitOfMeasure")
-                        .WithMany()
-                        .HasForeignKey("UnitOfMeasureCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
@@ -2108,10 +2023,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("SalesInvoice");
 
                     b.Navigation("ShipmentRelease");
-
-                    b.Navigation("UnitOfMeasure");
-
-                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>

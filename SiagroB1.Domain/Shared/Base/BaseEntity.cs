@@ -10,7 +10,7 @@ public abstract class BaseEntity
     public Guid Key { get; set; }
     
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-    public int? RowId { get; set; }
+    public int RowId { get; set; }
     
     public DateTime? CreatedAt { get; set; } = DateTime.Now;
 

@@ -15,7 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ProcessingCostDryingDetail> ProcessingCostDryingDetails { get; set; }
     public DbSet<ProcessingCostQualityParameter> ProcessingCostQualityParameters { get; set; }
     public DbSet<ProcessingCostServiceDetail> ProcessingCostServiceDetails { get; set; }
-    public DbSet<Warehouse> WhareHouses { get; set; }
+    public DbSet<Warehouse> Warehouses { get; set; }
     public DbSet<HarvestSeason> HarvestSeasons { get; set; }
     public DbSet<TruckDriver> TruckDrivers { get; set; }
     public DbSet<Truck> Trucks { get; set; }

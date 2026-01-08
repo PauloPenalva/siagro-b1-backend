@@ -36,7 +36,6 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UnitOfMeasureCode { get; set; }
-    public virtual UnitOfMeasure? UnitOfMeasure { get; set; }
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal GrossWeight { get; set; }
@@ -55,7 +54,9 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string WarehouseCode { get; set; }
-    public virtual Warehouse? Warehouse { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? WarehouseName { get; set; }
     
     public Guid? ShipmentReleaseKey  { get; set; }
     public virtual ShipmentRelease? ShipmentRelease { get; set; }

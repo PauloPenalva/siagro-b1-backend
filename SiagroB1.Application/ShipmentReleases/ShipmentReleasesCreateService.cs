@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 
@@ -10,6 +11,7 @@ namespace SiagroB1.Application.ShipmentReleases;
 
 public class ShipmentReleasesCreateService(
     IUnitOfWork db,
+    IWarehouseService warehouseService,
     ILogger<ShipmentReleasesCreateService> logger)
 {
     public async Task<ShipmentRelease> ExecuteAsync(ShipmentRelease entity, string userName)
@@ -25,6 +27,7 @@ public class ShipmentReleasesCreateService(
             entity.Status = ReleaseStatus.Pending;
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = userName;
+            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;
             await db.Context.ShipmentReleases.AddAsync(entity);
             await db.SaveChangesAsync();
             return entity;

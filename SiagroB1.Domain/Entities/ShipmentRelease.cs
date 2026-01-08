@@ -19,8 +19,9 @@ public class ShipmentRelease : DocumentEntity
 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string DeliveryLocationCode { get; set; }
-
-    public virtual Warehouse? DeliveryLocation { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? DeliveryLocationName { get; set; }
     
     public ReleaseStatus Status { get; set; } = ReleaseStatus.Pending;
     

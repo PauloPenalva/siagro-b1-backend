@@ -1,9 +1,13 @@
-using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Domain.Model;
 
 namespace SiagroB1.Domain.Interfaces;
 
-public interface IWarehouseService : IBaseService<Warehouse, string>
+public interface IWarehouseService 
 {
-    
+    Task<IEnumerable<WarehouseModel>> GetAllAsync();
+    Task<WarehouseModel?> GetByIdAsync(string code);
+    Task<WarehouseModel> CreateAsync(WarehouseModel model);
+    Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model);
+    Task<bool> DeleteAsync(string code);
+    IQueryable<WarehouseModel> QueryAll();
 }

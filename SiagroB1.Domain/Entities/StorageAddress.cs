@@ -31,6 +31,9 @@ public class StorageAddress : MasterEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string WarehouseCode { get; set; }
     
+    [Column(TypeName = "VARCHAR(200) ")]
+    public string? WarehouseName { get; set; }
+    
     public Guid? PurchaseContractKey  { get; set; }
     
     public virtual ICollection<StorageTransaction> Transactions { get; set; } = [];

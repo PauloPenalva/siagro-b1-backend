@@ -13,13 +13,12 @@ public class ShipmentReleasesBalanceService(IUnitOfWork db, ILogger<ShipmentRele
     {
         var list = await db.Context.ShipmentReleases
             .Include(x => x.PurchaseContract)
-            .Include(x => x.DeliveryLocation)
             .Include(x => x.Transactions)
             .Where(sr => sr.PurchaseContract.ItemCode == itemCode && sr.Status == ReleaseStatus.Actived)
             .GroupBy(sr => new
             {
                 sr.DeliveryLocationCode,
-                sr.DeliveryLocation.Name,
+                sr.DeliveryLocationName,
                 sr.PurchaseContract.ItemCode,
                 sr.PurchaseContract.ItemName,
                 sr.PurchaseContract.UnitOfMeasureCode
@@ -27,7 +26,7 @@ public class ShipmentReleasesBalanceService(IUnitOfWork db, ILogger<ShipmentRele
             .Select(g => new ShipmentRelesesBalanceResponseDto
             {
                 DeliveryLocationCode = g.Key.DeliveryLocationCode,
-                DeliveryLocationName = g.Key.Name,
+                DeliveryLocationName = g.Key.DeliveryLocationName,
                 ItemCode = g.Key.ItemCode,
                 ItemName = g.Key.ItemName,
                 UnitOfMeasureCode = g.Key.UnitOfMeasureCode,
@@ -44,9 +43,6 @@ public class ShipmentReleasesBalanceService(IUnitOfWork db, ILogger<ShipmentRele
             })
             .OrderBy(sr => sr.DeliveryLocationName)
             .ToListAsync();
-
-        // list.Sort((x, z) => 
-        //     string.Compare(x.DeliveryLocationName, z.DeliveryLocationName, StringComparison.Ordinal));
         
         return list;
     }

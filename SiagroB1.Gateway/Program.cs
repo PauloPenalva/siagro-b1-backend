@@ -9,8 +9,6 @@ using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseWindowsService();
-builder.Logging.AddEventLog();
 
 if (builder.Environment.IsProduction())
 {

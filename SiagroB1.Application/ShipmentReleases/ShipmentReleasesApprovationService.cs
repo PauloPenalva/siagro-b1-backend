@@ -13,7 +13,6 @@ public class ShipmentReleasesApprovationService(IUnitOfWork db, ILogger<Shipment
         var sr = await db.Context.ShipmentReleases
                      .Include(x => x.PurchaseContract)
                      .ThenInclude(p => p.ShipmentReleases)
-                     .ThenInclude(p => p.DeliveryLocation)
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
         

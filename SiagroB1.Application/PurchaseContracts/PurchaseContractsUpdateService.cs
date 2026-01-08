@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -10,8 +11,10 @@ namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsUpdateService(
     AppDbContext context, 
-    BusinessPartnerService businessPartnerService,
-    ItemService itemService,
+    IBusinessPartnerService businessPartnerService,
+    IItemService itemService,
+    IWarehouseService warehouseService,
+    IAgentService agentService,
     ILogger<PurchaseContractsUpdateService> logger
     )
 {
@@ -39,6 +42,9 @@ public class PurchaseContractsUpdateService(
             existingEntity.UpdatedBy = userName;
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;;
+            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

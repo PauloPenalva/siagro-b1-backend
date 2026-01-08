@@ -4,14 +4,18 @@ using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsCreateService(
         AppDbContext context, 
-        BusinessPartnerService  businessPartnerService,
-        ItemService itemService,
+        IBusinessPartnerService  businessPartnerService,
+        IItemService itemService,
+        IAgentService agentService,
+        IWarehouseService warehouseService,
         DocNumberSequenceService numberSequenceService,
         ILogger<PurchaseContractsCreateService> logger)
 {
@@ -45,6 +49,8 @@ public class PurchaseContractsCreateService(
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;;
+            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
             
             if (entity.Type == ContractType.Fixed)

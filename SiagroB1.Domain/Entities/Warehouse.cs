@@ -20,8 +20,4 @@ public class Warehouse
     /// </summary>
     [Column("TAXID", TypeName = "VARCHAR(14) NOT NULL")]
     public string? TaxId { get; set; }
-    
-    public bool Inactive { get; set; }
-
-    public WarehouseType Type { get; set; } = WarehouseType.Owner;
 }
