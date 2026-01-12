@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260112191840_AlterTableSalesInvoicesAddColumnDeliveryStatus")]
+    partial class AlterTableSalesInvoicesAddColumnDeliveryStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -893,9 +896,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
-                    b.Property<Guid?>("SalesInvoiceOriginKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("TaxComments")
                         .HasColumnType("VARCHAR(500) DEFAULT ''");
 
@@ -929,8 +929,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("DocNumberKey");
 
-                    b.HasIndex("SalesInvoiceOriginKey");
-
                     b.ToTable("SALES_INVOICES");
                 });
 
@@ -953,9 +951,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("SalesContractKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("SalesInvoiceItemOriginKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid?>("SalesInvoiceKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -969,8 +964,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Key");
 
                     b.HasIndex("SalesContractKey");
-
-                    b.HasIndex("SalesInvoiceItemOriginKey");
 
                     b.HasIndex("SalesInvoiceKey");
 
@@ -1907,16 +1900,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoiceOrigin")
-                        .WithMany()
-                        .HasForeignKey("SalesInvoiceOriginKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
-
-                    b.Navigation("SalesInvoiceOrigin");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceItem", b =>
@@ -1924,11 +1910,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasOne("SiagroB1.Domain.Entities.SalesContract", "SalesContract")
                         .WithMany("SalesInvoiceItems")
                         .HasForeignKey("SalesContractKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoiceItem", "SalesInvoiceItemOrigin")
-                        .WithMany()
-                        .HasForeignKey("SalesInvoiceItemOriginKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoice")
@@ -1939,8 +1920,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("SalesContract");
 
                     b.Navigation("SalesInvoice");
-
-                    b.Navigation("SalesInvoiceItemOrigin");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>

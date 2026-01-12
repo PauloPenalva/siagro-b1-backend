@@ -15,9 +15,9 @@ public class SalesInvoicesCancelService(
                                   .FirstOrDefaultAsync(x => x.Key == key) ??
                                     throw new KeyNotFoundException($"Key {key} not found");
 
-        if (existingInvoice.InvoiceStatus != InvoiceStatus.Confirmed)
+        if (existingInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
         {
-            throw new ApplicationException($"Sales invoice is not in confirmed status.");
+            throw new ApplicationException($"Sales invoice is in canceled status.");
         }
         
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)

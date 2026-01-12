@@ -27,9 +27,14 @@ public class SalesInvoiceItem
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UnitOfMeasureCode { get; set; }
     
+    public Guid? SalesInvoiceItemOriginKey { get; set; }
+    public SalesInvoiceItem? SalesInvoiceItemOrigin { get; set; }
+    
     [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
-
+    
     public Guid? SalesContractKey { get; set; }
     public virtual SalesContract? SalesContract { get; set; }
+    
+    
 }

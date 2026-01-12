@@ -93,11 +93,20 @@ public class SalesContract : DocumentEntity
     [NotMapped]
     public decimal TotalPrice => 
         decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);
+
+    [NotMapped]
+    public decimal TotalVolumeOutgoing => SalesInvoiceItems?
+        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed &&
+                    x.SalesInvoice.InvoiceType == SalesInvoiceType.Normal)
+        .Sum(x => x.Quantity) ?? 0;
+    
+    [NotMapped]
+    public decimal TotalVolumeIncoming => SalesInvoiceItems?
+        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed &&
+                    x.SalesInvoice.InvoiceType == SalesInvoiceType.Return)
+        .Sum(x => x.Quantity) ?? 0;
     
     [NotMapped]
     public decimal AvaiableVolume =>
-        decimal.Round(
-            TotalVolume - (SalesInvoiceItems?
-                .Where(x => x.SalesInvoice.InvoiceStatus is InvoiceStatus.Confirmed)
-                .Sum(x => x.Quantity) ?? 0), 3, MidpointRounding.ToEven) ;
+        decimal.Round(TotalVolume - TotalVolumeOutgoing + TotalVolumeIncoming, 3, MidpointRounding.ToEven);
 }

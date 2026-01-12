@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Domain.Model;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Models;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;

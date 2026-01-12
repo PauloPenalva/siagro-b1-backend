@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace SiagroB1.Domain.Model;
+namespace SiagroB1.Domain.Models;
 
 public class WarehouseModel
 {

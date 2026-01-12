@@ -10,5 +10,6 @@ namespace SiagroB1.Infra.Context
         public DbSet<UnitOfMeasure> UnitsOfMeasure { get; set; }
         public DbSet<Agent> Agents { get; set; }
         
+        public DbSet<Usage> Usages { get; set; }
     }
 }

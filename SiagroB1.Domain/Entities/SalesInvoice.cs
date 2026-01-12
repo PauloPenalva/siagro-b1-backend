@@ -14,6 +14,8 @@ public class SalesInvoice : DocumentEntity
 
     public InvoiceStatus? InvoiceStatus { get; set; }
     
+    public SalesInvoiceType  InvoiceType { get; set; } = SalesInvoiceType.Normal;
+    
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public required string CardCode { get; set; }
 
@@ -79,10 +81,23 @@ public class SalesInvoice : DocumentEntity
     [Column(TypeName = "VARCHAR(500) DEFAULT ''")]
     public string? TaxComments { get; set; }
     
+    public SalesInvoiceDeliveryStatus  DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
+    
+    public DateTime? DeliveryDate { get; set; }
+    
     public ICollection<SalesInvoiceItem> Items { get; set; } = [];
     
     public ICollection<StorageTransaction> SalesTransactions { get; set; } = [];
     
+    public Guid? SalesInvoiceOriginKey { get; set; }
+    public SalesInvoice? SalesInvoiceOrigin { get; set; }
+    
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);
+    
+    public void AddItem(SalesInvoiceItem item)
+    {
+        item.SalesInvoice = this;
+        Items.Add(item);
+    }
 }

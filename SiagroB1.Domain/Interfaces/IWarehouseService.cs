@@ -1,4 +1,4 @@
-using SiagroB1.Domain.Model;
+using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Domain.Interfaces;
 

@@ -10,7 +10,7 @@ using SiagroB1.Security.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (builder.Environment.IsProduction())
+if (!builder.Environment.IsDevelopment())
 {
     builder.Host.UseWindowsService();
     builder.Logging.AddEventLog();
@@ -67,8 +67,36 @@ var provider = new FileExtensionContentTypeProvider
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
-    ContentTypeProvider = provider
+    ContentTypeProvider = provider,
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.Context.Request.Path.Value;
+    
+        if (path.EndsWith("index.html"))
+        {
+            ctx.Context.Response.Headers["Cache-Control"] =
+                "no-cache, no-store, must-revalidate";
+        }
+        else
+        {
+            ctx.Context.Response.Headers["Cache-Control"] =
+                "public,max-age=31536000,immutable";
+        }
+    }
 });
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/index.html"))
+    {
+        context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["Expires"] = "0";
+    }
+
+    await next();
+});
+
 
 app.UseRouting();
 app.UseCookieAuth();
@@ -78,5 +106,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapReverseProxy();
+
+
 
 await app.RunAsync();

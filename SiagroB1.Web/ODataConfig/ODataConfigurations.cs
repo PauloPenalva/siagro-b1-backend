@@ -4,7 +4,7 @@ using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Entities.SAP;
-using SiagroB1.Domain.Model;
+using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Web.ODataConfig;
 
@@ -16,7 +16,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Item>("Items");
         modelBuilder.EntitySet<Company>("Companies");
         modelBuilder.EntitySet<Branch>("Branchs");
-        modelBuilder.EntitySet<SiagroB1.Domain.Model.UnitOfMeasureModel>("UnitsOfMeasure");
+        modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
         modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");
@@ -51,7 +51,7 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
-        modelBuilder.EntitySet<SiagroB1.Domain.Model.AgentModel>("Agents");
+        modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
@@ -113,7 +113,6 @@ public static class ODataConfigurations
         var storageAddressesTotal = modelBuilder.Function("StorageAddressesTotals");
         storageAddressesTotal.Parameter<string>("code");
         storageAddressesTotal.Returns<IActionResult>();
-            
         
         var purchaseContractsGetAvaiablesList = modelBuilder.Function("PurchaseContractsGetAvaiablesList");
         purchaseContractsGetAvaiablesList.Parameter<string>("CardCode");
@@ -167,6 +166,14 @@ public static class ODataConfigurations
         var salesInvoicesCancel = modelBuilder.Action("SalesInvoicesCancel");
         salesInvoicesCancel.Parameter<Guid>("Key");
         salesInvoicesCancel.Returns<IActionResult>();
+        
+        var salesInvoicesReturn = modelBuilder.Action("SalesInvoicesReturn");
+        salesInvoicesReturn.Parameter<Guid>("Key");
+        salesInvoicesReturn.Returns<IActionResult>();
+        
+        var salesInvoicesConfirm = modelBuilder.Action("SalesInvoicesConfirm");
+        salesInvoicesConfirm.Parameter<Guid>("Key");
+        salesInvoicesConfirm.Returns<IActionResult>();
         
         var weighingTicketsFirstWeighing = modelBuilder.Action("WeighingTicketsFirstWeighing");
         weighingTicketsFirstWeighing.Parameter<Guid>("Key");

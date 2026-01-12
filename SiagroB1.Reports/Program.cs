@@ -7,8 +7,12 @@ using SiagroB1.Reports.DI;
 using SiagroB1.Security.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Host.UseWindowsService();
-builder.Logging.AddEventLog();
+
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Host.UseWindowsService();
+    builder.Logging.AddEventLog();
+}
 
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(

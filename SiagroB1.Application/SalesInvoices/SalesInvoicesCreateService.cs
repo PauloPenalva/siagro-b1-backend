@@ -1,11 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.DocNumbers;
-using SiagroB1.Application.Services.SAP;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.SalesInvoices;
 
@@ -16,7 +16,7 @@ public class SalesInvoicesCreateService(
     DocNumberSequenceService numberSequenceService,
     ILogger<SalesInvoicesCreateService> logger)
 {
-    public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName)
+    public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto)
     {
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
@@ -63,20 +63,13 @@ public class SalesInvoicesCreateService(
                 existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
             }
             
-            await db.SaveChangesAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
-            await db.RollbackAsync();
             logger.LogError("Error: {message}", e.Message);
             throw new ApplicationException(e.Message);
         }
-    }
-    
-    private static string FormatInvoiceNumber(int invoiceNumber)
-    {
-        return invoiceNumber
-            .ToString()
-            .PadLeft(9, '0');
     }
 }
