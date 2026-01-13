@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260113020814_AlterTableSalesInvoicesItemsAddColumnDeliveryStatus")]
+    partial class AlterTableSalesInvoicesItemsAddColumnDeliveryStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -943,6 +946,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("DeliveredQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<DateTime?>("DeliveryDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("DeliveryStatus")
                         .HasColumnType("int");
 
@@ -952,6 +958,9 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("ItemName")
                         .HasColumnType("VARCHAR(200)");
+
+                    b.Property<decimal>("NetQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");

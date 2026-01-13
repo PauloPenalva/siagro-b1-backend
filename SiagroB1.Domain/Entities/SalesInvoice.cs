@@ -81,7 +81,7 @@ public class SalesInvoice : DocumentEntity
     [Column(TypeName = "VARCHAR(500) DEFAULT ''")]
     public string? TaxComments { get; set; }
     
-    public SalesInvoiceDeliveryStatus  DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
+    public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     
     public DateTime? DeliveryDate { get; set; }
     

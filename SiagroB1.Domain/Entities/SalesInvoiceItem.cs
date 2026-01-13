@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -36,5 +37,17 @@ public class SalesInvoiceItem
     public Guid? SalesContractKey { get; set; }
     public virtual SalesContract? SalesContract { get; set; }
     
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal DeliveredQuantity { get; set; }
     
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal QuantityLoss { get; set; }
+    
+    [NotMapped]
+    public decimal NetQuantity => DeliveredQuantity -  QuantityLoss;
+
+    [NotMapped] 
+    public decimal NetTotal => NetQuantity * UnitPrice; 
+    
+    public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
 }

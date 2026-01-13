@@ -25,6 +25,9 @@ public class SalesInvoicesConfirmService(IUnitOfWork db)
             foreach (var item in invoice.Items)
             {
                 ValidateLineItemBalance(item);
+                
+                item.DeliveredQuantity = item.Quantity;
+                item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
             }
         }
 
