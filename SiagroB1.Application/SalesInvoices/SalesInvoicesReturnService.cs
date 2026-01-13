@@ -21,15 +21,7 @@ public class SalesInvoicesReturnService(
                                   .FirstOrDefaultAsync(x => x.Key == key) ??
                               throw new NotFoundException("Sales invoice not found.");
 
-        if (originalInvoice.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed)
-        {
-            throw new ApplicationException("Invoice closed.");
-        }
-
-        if (originalInvoice.InvoiceType == SalesInvoiceType.Return)
-        {
-            throw new ApplicationException("Invoice type returned.");
-        }
+        Validate(originalInvoice);
 
         try
         {
@@ -71,6 +63,24 @@ public class SalesInvoicesReturnService(
             await db.RollbackAsync();
             logger.LogError("Error: {message}", e.Message);
             throw new ApplicationException(e.Message);
+        }
+    }
+
+    private static void Validate(SalesInvoice originalInvoice)
+    {
+        if (originalInvoice.InvoiceStatus != InvoiceStatus.Confirmed)
+        {
+            throw new ApplicationException("Invoice status not confirmed.");
+        }
+        
+        if (originalInvoice.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed)
+        {
+            throw new ApplicationException("Invoice closed.");
+        }
+
+        if (originalInvoice.InvoiceType == SalesInvoiceType.Return)
+        {
+            throw new ApplicationException("Invoice type returned.");
         }
     }
 }
