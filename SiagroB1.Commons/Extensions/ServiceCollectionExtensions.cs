@@ -127,6 +127,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesUpdateService>();
         services.AddScoped<SalesInvoicesReturnService>();
         services.AddScoped<SalesInvoicesConfirmService>();
+        services.AddScoped<SalesInvoicesSetDocumentNumberService>();
         
         // shipment billing
         services.AddScoped<ShipmentBillingCreateSalesInvoiceService>();

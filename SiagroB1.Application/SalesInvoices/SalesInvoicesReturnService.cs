@@ -17,12 +17,13 @@ public class SalesInvoicesReturnService(
     public async Task<SalesInvoice> ExecuteAsync(Guid key, string userName)
     {
         var originalInvoice = await db.Context.SalesInvoices
+                                  .Include(x => x.SalesTransactions)
                                   .Include(x => x.Items)
                                   .FirstOrDefaultAsync(x => x.Key == key) ??
                               throw new NotFoundException("Sales invoice not found.");
 
         Validate(originalInvoice);
-
+        
         try
         {
             await db.BeginTransactionAsync();

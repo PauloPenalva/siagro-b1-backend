@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 
@@ -16,9 +17,13 @@ public class SalesInvoicesCancelService(
                                     throw new KeyNotFoundException($"Key {key} not found");
 
         if (existingInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
-        {
-            throw new ApplicationException($"Sales invoice is in canceled status.");
-        }
+            throw new ApplicationException("Documento já está cancelado.");
+        
+        if (existingInvoice.InvoiceType == SalesInvoiceType.Return && existingInvoice.InvoiceStatus == InvoiceStatus.Confirmed)
+            throw new ApplicationException("Documento do tipo retorno já está confirmado. Não é possivel cancelar.");
+        
+        if (HasReturn(existingInvoice))
+            throw  new ApplicationException("Documento de saída possui retorno.");
         
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
             .ToList() ?? [];
@@ -42,7 +47,8 @@ public class SalesInvoicesCancelService(
                     salesTransaction.InvoiceNumber = string.Empty;
                     salesTransaction.UpdatedAt = DateTime.Now;
                     salesTransaction.UpdatedBy = userName;
-
+                    salesTransaction.SalesInvoiceKey = null;
+                    
                     await db.SaveChangesAsync();
                 }
             }
@@ -59,5 +65,11 @@ public class SalesInvoicesCancelService(
             throw new ApplicationException(e.Message);
         }
         
+    }
+
+    private bool HasReturn(SalesInvoice salesInvoice)
+    {
+        return db.Context.SalesInvoices.Any(x => x.SalesInvoiceOriginKey == salesInvoice.Key &&
+                                                 x.InvoiceType == SalesInvoiceType.Return);
     }
 }

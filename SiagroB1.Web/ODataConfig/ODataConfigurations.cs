@@ -175,6 +175,13 @@ public static class ODataConfigurations
         salesInvoicesConfirm.Parameter<Guid>("Key");
         salesInvoicesConfirm.Returns<IActionResult>();
         
+        var salesInvoicesSetDocumentNumber = modelBuilder.Action("SalesInvoicesSetDocumentNumber");
+        salesInvoicesSetDocumentNumber.Parameter<Guid>("Key");
+        salesInvoicesSetDocumentNumber.Parameter<string>("DocumentNumber");
+        salesInvoicesSetDocumentNumber.Parameter<string>("DocumentSeries");
+        salesInvoicesSetDocumentNumber.Parameter<string>("ChaveNFe");
+        salesInvoicesSetDocumentNumber.Returns<IActionResult>();
+        
         var weighingTicketsFirstWeighing = modelBuilder.Action("WeighingTicketsFirstWeighing");
         weighingTicketsFirstWeighing.Parameter<Guid>("Key");
         weighingTicketsFirstWeighing.Parameter<int>("Value");
