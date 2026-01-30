@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260115152441_AlterTableStorageTransactionsAddColumnOwnershipTransferKey")]
+    partial class AlterTableStorageTransactionsAddColumnOwnershipTransferKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -177,7 +180,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.Property<DateTime?>("Date")
+                    b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("DocNumberKey")
@@ -210,7 +213,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("TransferCode")
                         .HasColumnType("VARCHAR(50)");
 
-                    b.Property<int?>("TransferStatus")
+                    b.Property<int>("TransferStatus")
                         .HasColumnType("int");
 
                     b.Property<string>("UomCode")
@@ -1353,9 +1356,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
 
@@ -1370,7 +1370,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("WarehouseName")
-                        .HasColumnType("VARCHAR(200)");
+                        .HasColumnType("VARCHAR(200) ");
 
                     b.HasKey("Code");
 

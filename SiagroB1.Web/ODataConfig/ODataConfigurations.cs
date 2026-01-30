@@ -66,6 +66,7 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))
             .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
         modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
+        modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -113,6 +114,14 @@ public static class ODataConfigurations
         var storageAddressesTotal = modelBuilder.Function("StorageAddressesTotals");
         storageAddressesTotal.Parameter<string>("code");
         storageAddressesTotal.Returns<IActionResult>();
+        
+        var storageAddressesListOpenedByItem = modelBuilder.Function("StorageAddressesListOpenedByItem");
+        storageAddressesListOpenedByItem.Parameter<string>("Code");
+        storageAddressesListOpenedByItem.Returns<IActionResult>();
+        
+        var purchaseContractsGetAllocationsByContract = modelBuilder.Function("PurchaseContractsGetAllocationsByContract");
+        purchaseContractsGetAllocationsByContract.Parameter<Guid>("PurchaseContractKey");
+        purchaseContractsGetAllocationsByContract.Returns<ICollection<PurchaseContractAllocationsByContractDto>>();
         
         var purchaseContractsGetAvaiablesList = modelBuilder.Function("PurchaseContractsGetAvaiablesList");
         purchaseContractsGetAvaiablesList.Parameter<string>("CardCode");
@@ -200,7 +209,9 @@ public static class ODataConfigurations
         weighingTicketsCancel.Parameter<Guid>("Key");
         weighingTicketsCancel.Returns<IActionResult>();
         
-        
+        var ownershipTransfersConfirm = modelBuilder.Action("OwnershipTransfersConfirm");
+        ownershipTransfersConfirm.Parameter<Guid>("Key");
+        ownershipTransfersConfirm.Returns<IActionResult>();
         
         
         modelBuilder

@@ -19,13 +19,14 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
             return await unitOfWork.Context.PurchaseContracts
                 .Include(p => p.PriceFixations)
                 .Include(p => p.QualityParameters)
-                .ThenInclude(qa => qa.QualityAttrib)
+                    .ThenInclude(qa => qa.QualityAttrib)
                 .Include(p => p.Taxes)
-                .ThenInclude(t => t.Tax)
+                    .ThenInclude(t => t.Tax)
                 .Include(x => x.ShipmentReleases)
                 .Include(x => x.DocNumber)
                 .Include(x => x.Brokers)
                 .Include(x => x.Allocations)
+                    .ThenInclude(x => x.StorageTransaction)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)

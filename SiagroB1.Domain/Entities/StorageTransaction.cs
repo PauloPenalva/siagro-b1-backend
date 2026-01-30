@@ -99,4 +99,7 @@ public class StorageTransaction : DocumentEntity
     
     public Guid? SalesInvoiceKey { get; set; }
     public virtual SalesInvoice? SalesInvoice { get; set; }
+
+    public Guid? OwnershipTransferKey { get; set; }
+    public virtual OwnershipTransfer? OwnershipTransfer { get; set; }
 }

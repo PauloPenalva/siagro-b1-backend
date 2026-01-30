@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260115123145_CreateTableOwnershipTransfers")]
+    partial class CreateTableOwnershipTransfers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,95 +148,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Code");
 
                     b.ToTable("LOGISTIC_REGIONS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Comments")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ItemCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("ItemName")
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<decimal>("Quantity")
-                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<string>("StorageAddressDestinationCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("StorageAddressOriginCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("TransferCode")
-                        .HasColumnType("VARCHAR(50)");
-
-                    b.Property<int?>("TransferStatus")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UomCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(4) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchCode");
-
-                    b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("StorageAddressDestinationCode");
-
-                    b.HasIndex("StorageAddressOriginCode");
-
-                    b.ToTable("OWNERSHIP_TRANSFER");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>
@@ -1353,9 +1267,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
-                    b.Property<int?>("Status")
-                        .HasColumnType("int");
-
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
 
@@ -1370,7 +1281,7 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<string>("WarehouseName")
-                        .HasColumnType("VARCHAR(200)");
+                        .HasColumnType("VARCHAR(200) ");
 
                     b.HasKey("Code");
 
@@ -1464,9 +1375,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("OthersDicount")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
-                    b.Property<Guid?>("OwnershipTransferKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("ProcessingCostCode")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
@@ -1534,8 +1442,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("BranchCode");
 
                     b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("OwnershipTransferKey");
 
                     b.HasIndex("ProcessingCostCode");
 
@@ -1786,39 +1692,6 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
-                        .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddressDestination")
-                        .WithMany()
-                        .HasForeignKey("StorageAddressDestinationCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.StorageAddress", "StorageAddressOrigin")
-                        .WithMany()
-                        .HasForeignKey("StorageAddressOriginCode")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("DocNumber");
-
-                    b.Navigation("StorageAddressDestination");
-
-                    b.Navigation("StorageAddressOrigin");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingDetail", b =>
@@ -2166,11 +2039,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.OwnershipTransfer", "OwnershipTransfer")
-                        .WithMany()
-                        .HasForeignKey("OwnershipTransferKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany()
                         .HasForeignKey("ProcessingCostCode")
@@ -2194,8 +2062,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
-
-                    b.Navigation("OwnershipTransfer");
 
                     b.Navigation("ProcessingCost");
 

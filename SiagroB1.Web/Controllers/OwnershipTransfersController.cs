@@ -2,41 +2,46 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.PurchaseContracts;
+using SiagroB1.Application.OwnershipTransfers;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Interfaces.PurchaseContracts;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class PurchaseContractsController(
-    PurchaseContractsCreateService createService,
-    PurchaseContractsUpdateService updateService,
-    PurchaseContractsDeleteService deleteService,
-    PurchaseContractsGetService getService
-    ) 
-    : ODataController
+public class OwnershipTransfersController(
+    OwnershipTransfersCreateService createService,
+    OwnershipTransfersUpdateService updateService,
+    OwnershipTransfersGetService getService
+    )
+    :ODataController
 {
-    [EnableQuery(MaxExpansionDepth = 5)]
-    public ActionResult<IEnumerable<PurchaseContract>> Get()
+    [EnableQuery]
+    public ActionResult<IEnumerable<OwnershipTransfer>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
-    [EnableQuery(MaxExpansionDepth = 5)]
-    public async Task<ActionResult<PurchaseContract>> Get([FromRoute] Guid key)
+    [EnableQuery]
+    public async Task<ActionResult<OwnershipTransfer>> Get([FromRoute] Guid key)
     {
-        var item = await getService.GetByIdAsync(key);
-
-        if (item == null)
+        try
         {
-            return NotFound();
+            var item = await getService.GetByIdAsync(key);
+            return Ok(item);
         }
-
-        return Ok(item);
+        catch (Exception ex)
+        {
+            if (ex is NotFoundException)
+            {
+                return NotFound();
+            }
+            
+            return BadRequest(ex.Message);
+        }
     }
     
-    public async Task<IActionResult> Post([FromBody] PurchaseContract entity)
+    public async Task<IActionResult> Post([FromBody] OwnershipTransfer entity)
     {
         if (!ModelState.IsValid)
         {
@@ -60,8 +65,8 @@ public class PurchaseContractsController(
             return StatusCode(500, ex.Message);
         }
     }
-
-    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] PurchaseContract entity)
+    
+    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] OwnershipTransfer entity)
     {
         if (!ModelState.IsValid)
         {
@@ -79,7 +84,7 @@ public class PurchaseContractsController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException or ApplicationException)
+            if (ex is DefaultException)
             {
                 return BadRequest(ex.Message);
             }
@@ -90,40 +95,20 @@ public class PurchaseContractsController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete(Guid key)
+    public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
-        try
-        {
-            var success = await deleteService.ExecuteAsync(key);
-
-            if (!success)
-            {
-                return NotFound();
-            }
-
-            return NoContent();
-
-        }
-        catch (Exception ex)
-        {
-            if (ex is DefaultException)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            return StatusCode(500, ex.Message);
-        }
+        return BadRequest("Não é possivel deletar uma transferencia. Efetue o cancelamento.");
     }
-    
+
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<PurchaseContract> patch)
+    public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<OwnershipTransfer> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        PurchaseContract? t = await getService.GetByIdAsync(key);
+        OwnershipTransfer? t = await getService.GetByIdAsync(key);
 
         if (t == null)
         {

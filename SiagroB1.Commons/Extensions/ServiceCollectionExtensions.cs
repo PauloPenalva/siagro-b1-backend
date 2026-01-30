@@ -2,6 +2,7 @@
 
 using SiagroB1.Application.Companies;
 using SiagroB1.Application.DocNumbers;
+using SiagroB1.Application.OwnershipTransfers;
 using SiagroB1.Application.PurchaseContracts;
 using SiagroB1.Application.SalesContracts;
 using SiagroB1.Application.SalesInvoices;
@@ -102,6 +103,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsTotalsService>();
         services.AddScoped<PurchaseContractsUpdateService>();
         services.AddScoped<PurchaseContractsWithdrawApprovalService>();
+        services.AddScoped<PurchaseContractsGetAllocationsByContractService>();
         
         // sales contracts
         services.AddScoped<SalesContractsApprovalService>();
@@ -159,6 +161,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesGetService>();
         services.AddScoped<StorageAddressesTotalsService>();
         services.AddScoped<StorageAddressesUpdateService>();
+        services.AddScoped<StorageAddressesListOpenedByItemService>();
 
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();
@@ -187,6 +190,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WeighingTicketsQualityInspectionsUpdateService>();
         services.AddScoped<WeighingTicketsSecondWeighingService>();
         services.AddScoped<WeighingTicketsUpdateService>();
+        
+        //ownership transfers
+        services.AddScoped<OwnershipTransfersCreateService>();
+        services.AddScoped<OwnershipTransfersUpdateService>();
+        services.AddScoped<OwnershipTransfersGetService>();
+        services.AddScoped<OwnershipTransfersConfirmService>();
         
         return services;
     }

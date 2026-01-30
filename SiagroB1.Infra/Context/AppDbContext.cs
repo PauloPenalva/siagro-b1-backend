@@ -41,6 +41,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
     public DbSet<DocNumber> DocNumbers { get; set; }
     
+    public DbSet<OwnershipTransfer> OwnershipTransfers { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

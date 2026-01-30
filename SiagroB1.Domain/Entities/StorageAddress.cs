@@ -31,7 +31,7 @@ public class StorageAddress : MasterEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string WarehouseCode { get; set; }
     
-    [Column(TypeName = "VARCHAR(200) ")]
+    [Column(TypeName = "VARCHAR(200)")]
     public string? WarehouseName { get; set; }
     
     public Guid? PurchaseContractKey  { get; set; }
@@ -39,6 +39,8 @@ public class StorageAddress : MasterEntity
     public virtual ICollection<StorageTransaction> Transactions { get; set; } = [];
 
     public TransactionCode? TransactionOrigin { get; set; }
+
+    public StorageAddressStatus? Status { get; set; } = StorageAddressStatus.Open;
 
     public decimal TotalReceipt => Transactions
         .Where(x => x.TransactionType is StorageTransactionType.Receipt or 
