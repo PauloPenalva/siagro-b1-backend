@@ -116,6 +116,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsTotalsService>();
         services.AddScoped<SalesContractsUpdateService>();
         services.AddScoped<SalesContractsWithdrawApprovalService>();
+        services.AddScoped<SalesContractsGetAllocationsByContractService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();

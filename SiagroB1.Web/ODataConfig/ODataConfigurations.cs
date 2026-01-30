@@ -111,6 +111,10 @@ public static class ODataConfigurations
         salesContractsGetTotals.Parameter<Guid>("key");
         salesContractsGetTotals.Returns<SalesContractTotalsResponseDto>();
         
+        var salesContractsGetAllocationsByContract = modelBuilder.Function("SalesContractsGetAllocationsByContract");
+        salesContractsGetAllocationsByContract.Parameter<Guid>("SalesContractKey");
+        salesContractsGetAllocationsByContract.Returns<ICollection<SalesContractsGetAllocationsByContractDto>>();
+        
         var storageAddressesTotal = modelBuilder.Function("StorageAddressesTotals");
         storageAddressesTotal.Parameter<string>("code");
         storageAddressesTotal.Returns<IActionResult>();
