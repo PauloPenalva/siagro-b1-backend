@@ -90,6 +90,8 @@ public class SalesContract : DocumentEntity
     
     public ICollection<SalesInvoiceItem>  SalesInvoiceItems { get; set; } = [];
     
+    public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
+    
     [NotMapped]
     public decimal TotalPrice => 
         decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);

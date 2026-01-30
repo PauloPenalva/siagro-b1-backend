@@ -107,6 +107,8 @@ public class PurchaseContract : DocumentEntity
     public ICollection<ShipmentRelease> ShipmentReleases { get; set; } = [];
     
     public ICollection<PurchaseContractAllocation> Allocations { get; set; } = [];
+    
+    public ICollection<PurchaseContractAttachment> Attachments { get; set; } = [];
 
     [NotMapped]
     public decimal TotalStandard =>

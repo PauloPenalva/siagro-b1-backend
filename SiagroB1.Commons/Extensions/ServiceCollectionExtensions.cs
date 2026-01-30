@@ -104,6 +104,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsUpdateService>();
         services.AddScoped<PurchaseContractsWithdrawApprovalService>();
         services.AddScoped<PurchaseContractsGetAllocationsByContractService>();
+        services.AddScoped<PurchaseContractsAttachmentsCreateService>();
+        services.AddScoped<PurchaseContractsAttachmentsDeleteService>();
+        services.AddScoped<PurchaseContractsAttachmentsGetService>();
         
         // sales contracts
         services.AddScoped<SalesContractsApprovalService>();
@@ -117,6 +120,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsUpdateService>();
         services.AddScoped<SalesContractsWithdrawApprovalService>();
         services.AddScoped<SalesContractsGetAllocationsByContractService>();
+        services.AddScoped<SalesContractsAttachmentsCreateService>();
+        services.AddScoped<SalesContractsAttachmentsDeleteService>();
+        services.AddScoped<SalesContractsAttachmentsGetService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();

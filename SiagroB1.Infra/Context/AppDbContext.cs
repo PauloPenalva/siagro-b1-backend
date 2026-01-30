@@ -40,8 +40,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Agent> Agents { get; set; }
     public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
     public DbSet<DocNumber> DocNumbers { get; set; }
-    
     public DbSet<OwnershipTransfer> OwnershipTransfers { get; set; }
+    public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
+    public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
