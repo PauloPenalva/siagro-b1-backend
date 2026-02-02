@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.PurchaseContracts;
@@ -10,11 +9,15 @@ public class PurchaseContractsAttachmentsCreateService(
     IUnitOfWork db, 
     ILogger<PurchaseContractsAttachmentsCreateService>  logger)
 {
-    public async Task Save(PurchaseContractAttachment file)
+    public async Task SaveAsync(Guid contractKey, PurchaseContractAttachment attachment)
     {
         try
         {
-            db.Context.PurchaseContractAttachments.Add(file);
+            var contract = await db.Context.PurchaseContracts
+                .FirstOrDefaultAsync(x => x.Key == contractKey)
+                ?? throw new ApplicationException($"Contrato de compra não encontrado.");
+            
+            contract.AddAttachment(attachment);
 
             await db.Context.SaveChangesAsync();
         }

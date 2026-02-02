@@ -34,6 +34,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");
         modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
         modelBuilder.EntitySet<PurchaseContractAllocation>("PurchaseContractsAllocations");
+        modelBuilder.EntitySet<PurchaseContractAttachment>("PurchaseContractsAttachments");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
@@ -155,6 +156,14 @@ public static class ODataConfigurations
         purchaseContractsDeleteAllocation.Parameter<Guid>("Key");
         purchaseContractsDeleteAllocation.Returns<IActionResult>();
             
+        var purchaseContractsAttachmentUpload = modelBuilder.Action("PurchaseContractsAttachmentUpload");
+        purchaseContractsAttachmentUpload.Parameter<Guid>("ContractKey");
+        purchaseContractsAttachmentUpload.Parameter<string>("Description");
+        purchaseContractsAttachmentUpload.Parameter<string>("File");
+        purchaseContractsAttachmentUpload.Parameter<string>("FileName");
+        purchaseContractsAttachmentUpload.Parameter<string>("ContentType");
+        purchaseContractsAttachmentUpload.Returns<IActionResult>();
+        
         var shipmentReleasesApprovation = modelBuilder.Action("ShipmentReleasesApprovation");
         shipmentReleasesApprovation.Parameter<Guid>("Key");
         shipmentReleasesApprovation.Returns<IActionResult>();

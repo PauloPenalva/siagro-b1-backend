@@ -110,6 +110,12 @@ public class PurchaseContract : DocumentEntity
     
     public ICollection<PurchaseContractAttachment> Attachments { get; set; } = [];
 
+    public void AddAttachment(PurchaseContractAttachment attachment)
+    {
+        attachment.PurchaseContract = this;
+        Attachments.Add(attachment);
+    }
+
     [NotMapped]
     public decimal TotalStandard =>
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);

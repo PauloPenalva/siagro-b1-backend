@@ -31,7 +31,7 @@ public class SalesContractsUpdateService(
         {
             context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
-            // Save changes
+            // SaveAsync changes
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
