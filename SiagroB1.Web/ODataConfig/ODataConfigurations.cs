@@ -164,6 +164,14 @@ public static class ODataConfigurations
         purchaseContractsAttachmentUpload.Parameter<string>("ContentType");
         purchaseContractsAttachmentUpload.Returns<IActionResult>();
         
+        var purchaseContractsAttachmentDownload = modelBuilder.Function("PurchaseContractsAttachmentsDownload");
+        purchaseContractsAttachmentDownload.Parameter<Guid>("Key");
+        purchaseContractsAttachmentDownload.Returns<IActionResult>();
+        
+        var purchaseContractsAttachmentsListByContract = modelBuilder.Function("PurchaseContractsAttachmentsListByContract");
+        purchaseContractsAttachmentsListByContract.Parameter<Guid>("ContractKey");
+        purchaseContractsAttachmentsListByContract.Returns<ActionResult<ICollection<PurchaseContractAttachmentsDto>>>();
+        
         var shipmentReleasesApprovation = modelBuilder.Action("ShipmentReleasesApprovation");
         shipmentReleasesApprovation.Parameter<Guid>("Key");
         shipmentReleasesApprovation.Returns<IActionResult>();

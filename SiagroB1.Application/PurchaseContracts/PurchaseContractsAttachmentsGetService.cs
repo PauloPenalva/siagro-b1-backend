@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 
@@ -7,13 +8,22 @@ namespace SiagroB1.Application.PurchaseContracts;
 
 public class PurchaseContractsAttachmentsGetService(
     IUnitOfWork db, 
-    ILogger<PurchaseContractsAttachmentsGetService>  logger)
+    ILogger<PurchaseContractsAttachmentsGetService> logger)
 {
-    public IQueryable<PurchaseContractAttachment> QueryAll(Guid key)
+    public IEnumerable<PurchaseContractAttachmentsDto> ListAttachmentsByContract(Guid purchaseContractKey)
     {
         return db.Context.PurchaseContractAttachments
-            .Where(x => x.Key == key)
-            .AsNoTracking();
+            .Where(x => x.PurchaseContractKey == purchaseContractKey)
+            .AsNoTracking()
+            .Select(x => new PurchaseContractAttachmentsDto
+            {
+                Key = x.Key,
+                Description = x.Description,
+                FileName = x.FileName,
+                CreatedBy = x.CreatedBy,
+                CreatedAt = x.CreatedAt!
+            })
+            .ToList();
     }
     
     public async Task<PurchaseContractAttachment?> GetByKey(Guid key)

@@ -12,7 +12,7 @@ public class PurchaseContractsGetAvaiablesListController(
 {
     [EnableQuery]
     [HttpGet("odata/PurchaseContractsGetAvaiablesList(CardCode={cardCode},ItemCode={itemCode})")]
-    public ActionResult<ICollection<PurchaseContractDto>> GetAsync(
+    public ActionResult<IEnumerable<PurchaseContractDto>> GetAsync(
         [FromRoute] string cardCode, [FromRoute] string itemCode)
     {
         return Ok(getService.GetAvaiablesPurchaseContracts(cardCode, itemCode));
