@@ -52,6 +52,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
+        
+        modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
@@ -68,6 +70,9 @@ public static class ODataConfigurations
             .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
         modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
+
+        modelBuilder.EntityType<Address>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
+
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
@@ -107,7 +112,23 @@ public static class ODataConfigurations
         salesContractsReject.Parameter<Guid>("Key");
         salesContractsReject.Parameter<string>("Comments");
         salesContractsReject.Returns<IActionResult>();
-
+        
+        var salesContractsAttachmentUpload = modelBuilder.Action("SalesContractsAttachmentUpload");
+        salesContractsAttachmentUpload.Parameter<Guid>("ContractKey");
+        salesContractsAttachmentUpload.Parameter<string>("Description");
+        salesContractsAttachmentUpload.Parameter<string>("File");
+        salesContractsAttachmentUpload.Parameter<string>("FileName");
+        salesContractsAttachmentUpload.Parameter<string>("ContentType");
+        salesContractsAttachmentUpload.Returns<IActionResult>();
+        
+        var salesContractsAttachmentDownload = modelBuilder.Function("SalesContractsAttachmentsDownload");
+        salesContractsAttachmentDownload.Parameter<Guid>("Key");
+        salesContractsAttachmentDownload.Returns<IActionResult>();
+        
+        var salesContractsAttachmentsListByContract = modelBuilder.Function("SalesContractsAttachmentsListByContract");
+        salesContractsAttachmentsListByContract.Parameter<Guid>("ContractKey");
+        salesContractsAttachmentsListByContract.Returns<ActionResult<ICollection<PurchaseContractAttachmentsDto>>>();
+        
         var salesContractsGetTotals = modelBuilder.Function("SalesContractsGetTotals");
         salesContractsGetTotals.Parameter<Guid>("key");
         salesContractsGetTotals.Returns<SalesContractTotalsResponseDto>();

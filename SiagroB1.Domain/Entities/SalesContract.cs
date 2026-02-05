@@ -92,6 +92,12 @@ public class SalesContract : DocumentEntity
     
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
     
+    public void AddAttachment(SalesContractAttachment attachment)
+    {
+        attachment.SalesContract = this;
+        Attachments.Add(attachment);
+    }
+    
     [NotMapped]
     public decimal TotalPrice => 
         decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);

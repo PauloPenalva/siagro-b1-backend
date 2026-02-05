@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 
@@ -8,11 +9,15 @@ public class SalesContractsAttachmentsCreateService(
     IUnitOfWork db,
     ILogger<SalesContractsAttachmentsCreateService> logger)
 {
-    public async Task Save(SalesContractAttachment file)
+    public async Task SaveAsync(Guid contractKey, SalesContractAttachment attachment)
     {
         try
         {
-            db.Context.SalesContractAttachments.Add(file);
+            var contract = await db.Context.SalesContracts
+                               .FirstOrDefaultAsync(x => x.Key == contractKey)
+                           ?? throw new ApplicationException($"Contrato de venda não encontrado.");
+            
+            contract.AddAttachment(attachment);
 
             await db.Context.SaveChangesAsync();
         }

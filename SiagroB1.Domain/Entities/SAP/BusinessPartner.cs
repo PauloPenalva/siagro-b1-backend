@@ -13,6 +13,9 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string CardName { get; set; }
     
+    [Column(TypeName = "VARCHAR(200) NOT NULL")]
+    public string? CardFName { get; set; }
+    
     /// <summary>
     /// BPType
     /// </summary>
@@ -24,4 +27,6 @@ public class BusinessPartner
     
     [Column(TypeName = "VARCHAR(1)")]
     public string? QryGroup23 { get;  set; }
+    
+    public ICollection<Address> Addresses { get; set; } = new List<Address>();
 }

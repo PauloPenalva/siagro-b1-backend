@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 
@@ -9,11 +10,20 @@ public class SalesContractsAttachmentsGetService(
     IUnitOfWork db,
     ILogger<SalesContractsAttachmentsGetService> logger)
 {
-    public IQueryable<SalesContractAttachment> QueryAll(Guid key)
+    public IEnumerable<SalesContractAttachmentsDto> ListAttachmentsByContract(Guid salesContractKey)
     {
         return db.Context.SalesContractAttachments
-            .Where(x => x.Key == key)
-            .AsNoTracking();
+            .Where(x => x.SalesContractKey == salesContractKey)
+            .AsNoTracking()
+            .Select(x => new SalesContractAttachmentsDto
+            {
+                Key = x.Key,
+                Description = x.Description,
+                FileName = x.FileName,
+                CreatedBy = x.CreatedBy,
+                CreatedAt = x.CreatedAt!
+            })
+            .ToList();
     }
     
     public async Task<SalesContractAttachment?> GetByKey(Guid key)
