@@ -95,6 +95,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsQualityParametersGetService>();
         services.AddScoped<PurchaseContractsQualityParametersUpdateService>();
         services.AddScoped<PurchaseContractsRejectService>();
+        services.AddScoped<PurchaseContractsCancelService>();
         services.AddScoped<PurchaseContractsSendApprovalService>();
         services.AddScoped<PurchaseContractsTaxesCreateService>();
         services.AddScoped<PurchaseContractsTaxesDeleteService>();
@@ -115,6 +116,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsDeleteService>();
         services.AddScoped<SalesContractsGetService>();
         services.AddScoped<SalesContractsRejectService>();
+        services.AddScoped<SalesContractsCancelService>();
         services.AddScoped<SalesContractsSendApprovalService>();
         services.AddScoped<SalesContractsTotalsService>();
         services.AddScoped<SalesContractsUpdateService>();
@@ -150,6 +152,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentReleasesDeleteService>();
         services.AddScoped<ShipmentReleasesGetService>();
         services.AddScoped<ShipmentReleasesUpdateService>();
+        services.AddScoped<ShipmentReleasesPauseService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();

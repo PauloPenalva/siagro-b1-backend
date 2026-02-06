@@ -16,9 +16,9 @@ public class ShipmentReleasesApprovationService(IUnitOfWork db, ILogger<Shipment
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
         
-        if (sr.Status != ReleaseStatus.Pending)
+        if (sr.Status is ReleaseStatus.Actived or ReleaseStatus.Cancelled or ReleaseStatus.Completed)
         {
-            throw new ArgumentException("Shipment Release not pending.");
+            throw new ArgumentException("Shipment Release not pending ou paused.");
         }
 
         if (sr.PurchaseContract == null)
@@ -34,7 +34,7 @@ public class ShipmentReleasesApprovationService(IUnitOfWork db, ILogger<Shipment
        
         // se a quantidade liberada é superior ao total disponivel do contrato
         // lança a exceção
-        if (sr.ReleasedQuantity > sr.PurchaseContract.TotalAvailableToReleaseWithoutProvisioning)
+        if (sr.Status != ReleaseStatus.Paused && sr.ReleasedQuantity > sr.PurchaseContract.TotalAvailableToReleaseWithoutProvisioning)
         {
             throw new ArgumentException("Quantity is higher than the total available to release.");
         }

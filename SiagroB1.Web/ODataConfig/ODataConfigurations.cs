@@ -113,6 +113,11 @@ public static class ODataConfigurations
         salesContractsReject.Parameter<string>("Comments");
         salesContractsReject.Returns<IActionResult>();
         
+        var salesContractsCancel = modelBuilder.Action("SalesContractsCancel");
+        salesContractsCancel.Parameter<Guid>("Key");
+        salesContractsCancel.Parameter<string>("Comments");
+        salesContractsCancel.Returns<IActionResult>();
+        
         var salesContractsAttachmentUpload = modelBuilder.Action("SalesContractsAttachmentUpload");
         salesContractsAttachmentUpload.Parameter<Guid>("ContractKey");
         salesContractsAttachmentUpload.Parameter<string>("Description");
@@ -167,6 +172,11 @@ public static class ODataConfigurations
         purchaseContractsReject.Parameter<string>("Comments");
         purchaseContractsReject.Returns<IActionResult>();
         
+        var purchaseContractsCancel = modelBuilder.Action("PurchaseContractsCancel");
+        purchaseContractsCancel.Parameter<Guid>("Key");
+        purchaseContractsCancel.Parameter<string>("Comments");
+        purchaseContractsCancel.Returns<IActionResult>();
+        
         var purchaseContractsCreateAllocation = modelBuilder.Action("PurchaseContractsCreateAllocation");
         purchaseContractsCreateAllocation.Parameter<Guid>("PurchaseContractKey");
         purchaseContractsCreateAllocation.Parameter<Guid>("StorageTransactionKey");
@@ -200,6 +210,10 @@ public static class ODataConfigurations
         var shipmentReleasesCancelation = modelBuilder.Action("ShipmentReleasesCancelation");
         shipmentReleasesCancelation.Parameter<Guid>("Key");
         shipmentReleasesCancelation.Returns<IActionResult>();
+        
+        var shipmentReleasesPause = modelBuilder.Action("ShipmentReleasesPause");
+        shipmentReleasesPause.Parameter<Guid>("Key");
+        shipmentReleasesPause.Returns<IActionResult>();
         
         var shipmentReleasesBalance = modelBuilder.Function("ShipmentReleasesGetBalance");
         shipmentReleasesBalance.Parameter<string>("ItemCode");
