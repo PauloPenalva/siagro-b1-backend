@@ -5,7 +5,7 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.SalesContracts;
 
-public class SalesContractsAttachmentsDeleteService(
+public class SalesContractsAttachmentsDeleteService( 
     IUnitOfWork db,
     ILogger<SalesContractsAttachmentsDeleteService> logger)
 {
