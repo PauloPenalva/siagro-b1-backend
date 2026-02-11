@@ -12,7 +12,7 @@ public class CompaniesUpdateService(CommonDbContext db, ILogger<CompaniesUpdateS
     {
         var existingEntity = await db.Companies
             .FirstOrDefaultAsync(tc => tc.Code == code) ?? 
-                             throw new NotFoundException("Company not found.");
+                             throw new NotFoundException("Empresa não encontrada.");
         try
         {
             db.Entry(existingEntity).CurrentValues.SetValues(entity);

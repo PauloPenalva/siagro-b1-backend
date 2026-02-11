@@ -11,7 +11,7 @@ public class WeighingTicketsFirstWeighingService(IUnitOfWork db)
     {
         if (weigh <= 0)
         {
-            throw new ApplicationException("Weigh value must be greater than zero");
+            throw new ApplicationException("Quantidade deve ser maior que zero.");
         }
         
         var ticket = await db.Context.WeighingTickets
@@ -21,7 +21,7 @@ public class WeighingTicketsFirstWeighingService(IUnitOfWork db)
 
         if (ticket.Stage != WeighingTicketStage.ReadyForFirstWeighing)
         {
-            throw new ApplicationException("Invalid ticket stage.");
+            throw new ApplicationException("Ticket stage inválido.");
         }
 
         ticket.Status = WeighingTicketStatus.Processing;

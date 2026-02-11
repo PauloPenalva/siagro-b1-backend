@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
-using SiagroB1.Application.Companies;
+﻿using SiagroB1.Application.Companies;
 using SiagroB1.Application.DocNumbers;
 using SiagroB1.Application.OwnershipTransfers;
 using SiagroB1.Application.PurchaseContracts;
@@ -17,7 +15,7 @@ using SiagroB1.Application.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.SAP;
 
-namespace SiagroB1.Commons.Extensions;
+namespace SiagroB1.Web.Extensions;
 
 public static class ServiceCollectionExtensions
 {

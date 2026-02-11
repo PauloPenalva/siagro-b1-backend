@@ -23,16 +23,16 @@ public class WeighingTicketsCompletedService(
             .Include(x => x.QualityInspections)                  
             .Where(x => x.Stage == WeighingTicketStage.ReadyForCompleting)
             .FirstOrDefaultAsync(x => x.Key == key) ??
-                     throw new NotFoundException("Weighing ticket not found.");
+                     throw new NotFoundException("Ticket de pesagem não encontrado.");
         
         await Validate(existingTicket);
 
         if (existingTicket.StorageAddressCode == null)
-            throw new ApplicationException("Storage address not informed.");
+            throw new ApplicationException("Lote de armazenagem não informado.");
             
         var storageAddress = await storageAddressesGetService.GetByIdAsync(existingTicket.StorageAddressCode);
         if (storageAddress == null)
-            throw new NotFoundException("Storage address not found.");
+            throw new NotFoundException("Lote de armazenagem não encontrado.");
             
         try
         {
@@ -91,14 +91,14 @@ public class WeighingTicketsCompletedService(
     {   
         if (ticket.Stage != WeighingTicketStage.ReadyForCompleting)
         {
-            throw new ApplicationException("Invalid ticket stage.");
+            throw new ApplicationException("Ticket stage inválido.");
         }
         
         if (ticket.Type == WeighingTicketType.Receipt)
         {
             if (ticket.SecondWeighValue > ticket.FirstWeighValue)
             {
-                throw new ApplicationException("Invalid ticket second weigh value.");
+                //throw new ApplicationException("Invalid ticket second weigh value.");
             }
         }
         
@@ -106,30 +106,30 @@ public class WeighingTicketsCompletedService(
         {
             if (ticket.FirstWeighValue > ticket.SecondWeighValue)
             {
-                throw new ApplicationException("Invalid ticket first weigh value.");
+                //throw new ApplicationException("Invalid ticket first weigh value.");
             }
         }
         
         var storageAddress = await db.Context.StorageAddresses
                                  .AsNoTracking()
                                  .FirstOrDefaultAsync(x => x.Code == ticket.StorageAddressCode) ??
-                             throw new NotFoundException("Storage address not found.");
+                             throw new NotFoundException("Lote de armazenagem não encontrado.");
         
         if (storageAddress.CardCode != ticket.CardCode)
         {
-            throw new ApplicationException("Invalid ticket business partner.");
+            throw new ApplicationException("Cli/For informado no ticket é diferente do Cli/For do lote de armazenagem");
         }
         
         
         if (storageAddress.ItemCode != ticket.ItemCode)
         {
-            throw new ApplicationException("Invalid ticket product.");
+            throw new ApplicationException("Produto informado no ticket é diferente do produto informado no lote de armazenagem.");
         }
         
         if (ticket.Type == WeighingTicketType.Shipment && ticket.GrossWeight > storageAddress.Balance)
         {
             if (!IsWarehouseOwner(storageAddress))
-                throw new ApplicationException("The total shipped exceeds the available balance in the storage address.");
+                throw new ApplicationException("O total embarcado excede o saldo disponivel no lote de armazenagem.");
         }
     }
 

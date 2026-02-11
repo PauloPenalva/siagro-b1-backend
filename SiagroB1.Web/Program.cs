@@ -7,13 +7,13 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Commons.Extensions;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
+using SiagroB1.Web.Extensions;
 using SiagroB1.Web.ODataConfig;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +23,14 @@ if (!builder.Environment.IsDevelopment())
     builder.Host.UseWindowsService();
     builder.Logging.AddEventLog();
 }
+
+builder.Services.AddLocalization();
+var supportedCultures = new [] {"en-US", "pt-BR"};
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("pt-BR")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+
 
 var modelBuilder = new ODataConventionModelBuilder
 {
@@ -119,6 +127,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseRequestLocalization(localizationOptions);
 
 app.UseODataBatching();
 app.UseRouting();
