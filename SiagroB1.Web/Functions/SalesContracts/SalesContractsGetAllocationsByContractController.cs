@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Dtos;
 using SiagroB1.Application.SalesContracts;
+using SiagroB1.Domain.Dtos;
 
 namespace SiagroB1.Web.Functions.SalesContracts;
 

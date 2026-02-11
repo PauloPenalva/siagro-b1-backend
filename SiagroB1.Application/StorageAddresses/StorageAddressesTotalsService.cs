@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Dtos;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;

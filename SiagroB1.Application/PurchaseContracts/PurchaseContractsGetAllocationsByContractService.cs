@@ -1,7 +1,7 @@
 ﻿using System.Data;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Dtos;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.PurchaseContracts;

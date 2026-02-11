@@ -52,6 +52,14 @@ public class SalesInvoicesReturnService(
             await createService.ExecuteAsync(returnInvoice, userName, CommitMode.Deferred);
             
             originalInvoice.Comments += $"Doc.Saída retornado pelo Doc.Saída {returnInvoice.InvoiceNumber}\n";
+            originalInvoice.InvoiceStatus = InvoiceStatus.Returned;
+            originalInvoice.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+            foreach (var item in originalInvoice.Items)
+            {
+                item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+                item.DeliveredQuantity = item.Quantity;
+            }
             
             await db.SaveChangesAsync();
             

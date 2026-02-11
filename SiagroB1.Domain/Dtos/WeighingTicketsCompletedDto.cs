@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace SiagroB1.Application.Dtos;
+namespace SiagroB1.Domain.Dtos;
 
 public class WeighingTicketsCompletedDto
 {

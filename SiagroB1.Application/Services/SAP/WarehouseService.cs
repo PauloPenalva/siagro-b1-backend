@@ -28,6 +28,7 @@ public class WarehouseService(
     public IQueryable<WarehouseModel> QueryAll()
     {
         return context.BusinessPartners
+            .Include(x => x.Addresses)
             .AsNoTracking()
             .Where(x => x.QryGroup23 == "Y")
             .Select(x => new WarehouseModel
@@ -35,6 +36,10 @@ public class WarehouseService(
                 Code = x.CardCode,
                 Name = x.CardName,
                 TaxId =  x.TaxId,
+                FName = x.CardFName,
+                Notes = x.Notes,
+                City = x.Addresses.ToList().FirstOrDefault().City,
+                State = x.Addresses.ToList().FirstOrDefault().State,
             });
     }
 

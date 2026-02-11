@@ -5,4 +5,5 @@ public enum InvoiceStatus
     Pending,
     Confirmed,
     Cancelled,
+    Returned
 }

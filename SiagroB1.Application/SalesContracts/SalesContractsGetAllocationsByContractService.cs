@@ -1,6 +1,6 @@
 ﻿using System.Data;
 using Dapper;
-using SiagroB1.Application.Dtos;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.SalesContracts;
@@ -31,7 +31,7 @@ public class SalesContractsGetAllocationsByContractService(
         LEFT JOIN BRANCHS B
         ON B.Code = INV.BranchCode
         WHERE INVI.SalesContractKey = @SalesContractKey
-          AND INV.InvoiceStatus = 1 
+          AND (INV.InvoiceStatus = 1 OR INV.InvoiceStatus = 3) 
         ORDER BY INV.InvoiceNumber
         """;
     

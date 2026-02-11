@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
-using SiagroB1.Application.Dtos;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Entities.SAP;

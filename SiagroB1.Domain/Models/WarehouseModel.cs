@@ -13,4 +13,12 @@ public class WarehouseModel
     /// Brazilian CNPJ
     /// </summary>
     public string? TaxId { get; set; }
+    
+    public string? FName { get; set; }
+    
+    public string? Notes { get; set; }
+    
+    public string? City { get; set; }
+    
+    public string? State { get; set; }
 }

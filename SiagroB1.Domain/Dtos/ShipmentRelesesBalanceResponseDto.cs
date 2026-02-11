@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace SiagroB1.Application.Dtos;
+namespace SiagroB1.Domain.Dtos;
 
 public class ShipmentRelesesBalanceResponseDto
 {
@@ -24,4 +24,19 @@ public class ShipmentRelesesBalanceResponseDto
     
     [JsonPropertyName("AvailableQuantity")]
     public decimal AvailableQuantity { get; set; }
+    
+    [JsonPropertyName("TaxId")]
+    public string? TaxId { get; set; }
+    
+    [JsonPropertyName("FName")]
+    public string? FName { get; set; }
+    
+    [JsonPropertyName("Notes")]
+    public string? Notes { get; set; }
+    
+    [JsonPropertyName("City")]
+    public string? City { get; set; }
+    
+    [JsonPropertyName("State")]
+    public string? State { get; set; }
 }

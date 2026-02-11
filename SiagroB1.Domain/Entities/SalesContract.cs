@@ -104,7 +104,8 @@ public class SalesContract : DocumentEntity
 
     [NotMapped]
     public decimal TotalVolumeOutgoing => SalesInvoiceItems?
-        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed &&
+        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed or 
+                    InvoiceStatus.Returned &&
                     x.SalesInvoice.InvoiceType == SalesInvoiceType.Normal)
         .Sum(x => x.Quantity) ?? 0;
     

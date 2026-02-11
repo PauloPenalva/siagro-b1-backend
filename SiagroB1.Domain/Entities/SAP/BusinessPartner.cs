@@ -29,4 +29,7 @@ public class BusinessPartner
     public string? QryGroup23 { get;  set; }
     
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
+    
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? Notes { get; set; }
 }
