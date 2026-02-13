@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using SiagroB1.Application.StorageTransactions;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -9,8 +11,8 @@ namespace SiagroB1.Application.WeighingTickets;
 public class WeighingTicketsCancelService(
     IUnitOfWork db,
     WeighingTicketsGetService weighingTicketsGetService,
-    StorageTransactionsCancelService storageTransactionsCancelService
-    )
+    StorageTransactionsCancelService storageTransactionsCancelService,
+    IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -19,7 +21,7 @@ public class WeighingTicketsCancelService(
 
         if (ticket.Status != WeighingTicketStatus.Complete)
         {
-            throw new ApplicationException("Weighing receipts can only be cancelled if the status is \"complete\".");
+            throw new ApplicationException(resource["WEIGHING_TICKET_CANCEL_SERVICE_NOT_COMPLETE_MSG"]);
         }
 
         var sa = await GetStorageTransactionByWeighingTicketKey(key);
@@ -28,7 +30,7 @@ public class WeighingTicketsCancelService(
         {
             await db.BeginTransactionAsync();
             
-            if (sa != null && sa.Key != null)
+            if (sa != null)
             {
                 await storageTransactionsCancelService.ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
             }

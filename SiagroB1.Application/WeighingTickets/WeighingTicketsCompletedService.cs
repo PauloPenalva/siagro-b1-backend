@@ -111,6 +111,7 @@ public class WeighingTicketsCompletedService(
         }
         
         var storageAddress = await db.Context.StorageAddresses
+                                 .Include(x => x.Transactions)
                                  .AsNoTracking()
                                  .FirstOrDefaultAsync(x => x.Code == ticket.StorageAddressCode) ??
                              throw new NotFoundException("Lote de armazenagem não encontrado.");

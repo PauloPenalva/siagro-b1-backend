@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
         services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
         services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
+        services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
         services.AddScoped<IProcessingCostService, ProcessingCostService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
         services.AddScoped<IPurchaseContractService, PurchaseContractService>();

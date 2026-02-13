@@ -8,8 +8,10 @@ using SiagroB1.Web.Base;
 
 namespace SiagroB1.Web.Controllers;
 
-public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetailService servicoServiceDetailService) 
-    : ODataBaseController<ProcessingCostServiceDetail, int>(servicoServiceDetailService)
+public class ProcessingCostServiceDetailsController(
+    IProcessingCostServiceDetailService servicoServiceDetailService,
+    ILogger<ProcessingCostServiceDetailsController> logger
+    ) : ODataBaseController<ProcessingCostServiceDetail, int>(servicoServiceDetailService)
 {
     protected readonly IProcessingCostServiceDetailService ServicoServiceDetailService = servicoServiceDetailService;
         
@@ -33,7 +35,8 @@ public class ProcessingCostServiceDetailsController(IProcessingCostServiceDetail
             {
                 return BadRequest(ex.Message);
             }
-
+            
+            logger.LogError(ex.Message, ex);
             return StatusCode(500, ex.Message);
         }
 

@@ -21,4 +21,10 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="COMPANY_NOT_FOUND" xml:space="preserve">
+        <value>Empresa não encontrada</value>
+    </data>
+    <data name="WEIGHING_TICKET_CANCEL_SERVICE_NOT_COMPLETE_MSG" xml:space="preserve">
+        <value>Ticket de pesagem só pode ser cancelado se o status for "Completo"</value>
+    </data>
 </root>

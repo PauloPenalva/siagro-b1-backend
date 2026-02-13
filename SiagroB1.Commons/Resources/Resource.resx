@@ -24,4 +24,7 @@
     <data name="COMPANY_NOT_FOUND" xml:space="preserve">
         <value>Company not found.</value>
     </data>
+    <data name="WEIGHING_TICKET_CANCEL_SERVICE_NOT_COMPLETE_MSG" xml:space="preserve">
+        <value>Weighing receipts can only be cancelled if the status is "complete".</value>
+    </data>
 </root>
