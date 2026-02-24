@@ -16,7 +16,9 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
     {
         return context.Items
             .AsNoTracking()
-            .Where(x => x.ItmsGrpCod == 105);
+            .Where(x => x.ItmsGrpCod == 105 && 
+                        x.Enabled != null  && 
+                        x.Enabled.ToUpper() == "SIM");
     }
     
     public virtual async Task<Item?> GetByIdAsync(string code)
@@ -26,7 +28,10 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
             logger.LogInformation("Fetching entity with ID {Id}", code);
             return await context.Items
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ItemCode == code && x.ItmsGrpCod == 105);
+                .FirstOrDefaultAsync(x => x.ItemCode == code && 
+                                          x.ItmsGrpCod == 105 &&
+                                          x.Enabled != null &&
+                                          x.Enabled.ToUpper() == "SIM");
         }
         catch (Exception ex)
         {

@@ -3,11 +3,18 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.StorageAddresses;
 
-public class StorageAddressesUpdateService(AppDbContext context, ILogger<StorageAddressesUpdateService> logger)
+public class StorageAddressesUpdateService(
+    AppDbContext context, 
+    IBusinessPartnerService  businessPartnerService,
+    IItemService itemService,
+    IWarehouseService warehouseService,
+    ILogger<StorageAddressesUpdateService> logger)
 {
     public async Task<StorageAddress?> ExecuteAsync(string code, StorageAddress entity, string userName)
     {
@@ -22,9 +29,11 @@ public class StorageAddressesUpdateService(AppDbContext context, ILogger<Storage
         
         try
         {
+            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             context.Entry(existingAddress).CurrentValues.SetValues(entity);
 
-            // SaveAsync changes
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

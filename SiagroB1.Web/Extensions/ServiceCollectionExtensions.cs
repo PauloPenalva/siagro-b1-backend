@@ -205,6 +205,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersUpdateService>();
         services.AddScoped<OwnershipTransfersGetService>();
         services.AddScoped<OwnershipTransfersConfirmService>();
+        services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
         
         return services;
     }

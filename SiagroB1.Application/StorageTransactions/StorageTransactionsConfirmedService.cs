@@ -8,7 +8,10 @@ using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.StorageTransactions;
 
-public class StorageTransactionsConfirmedService(IUnitOfWork unitOfWork,ILogger<StorageTransactionsConfirmedService> logger)
+public class StorageTransactionsConfirmedService(
+    IUnitOfWork unitOfWork,
+    ILogger<StorageTransactionsConfirmedService> logger
+    )
 {
     public async Task ExecuteAsync(
         Guid key,

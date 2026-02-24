@@ -517,6 +517,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int?>("Status")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TechnologyType")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("TotalVolume")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -1434,6 +1437,10 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<int?>("TransactionOrigin")
                         .HasColumnType("int");
+
+                    b.Property<string>("UoM")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(4) NOT NULL");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

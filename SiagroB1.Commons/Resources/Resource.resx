@@ -27,4 +27,7 @@
     <data name="WEIGHING_TICKET_CANCEL_SERVICE_NOT_COMPLETE_MSG" xml:space="preserve">
         <value>Weighing receipts can only be cancelled if the status is "complete".</value>
     </data>
+    <data name="OWNERSHIP_TRANSFER_NOT_FOUND" xml:space="preserve">
+        <value>Ownership Transfer not found.</value>
+    </data>
 </root>

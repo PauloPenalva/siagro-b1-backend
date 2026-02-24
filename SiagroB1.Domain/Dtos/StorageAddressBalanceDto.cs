@@ -4,6 +4,12 @@ namespace SiagroB1.Domain.Dtos;
 
 public class StorageAddressBalanceDto
 {
+    [JsonPropertyName("BranchCode")]
+    public string? BranchCode { get; set; }
+    
+    [JsonPropertyName("BranchName")]
+    public string? BranchName { get; set; }
+        
     [JsonPropertyName("Code")]
     public string?  Code { get; set; }
     
@@ -33,4 +39,7 @@ public class StorageAddressBalanceDto
     
     [JsonPropertyName("Balance")]
     public decimal?  Balance { get; set; }
+    
+    [JsonPropertyName("UoM")]
+    public string? UoM { get; set; }
 }

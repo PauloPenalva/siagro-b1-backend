@@ -41,6 +41,9 @@ public class StorageAddress : MasterEntity
     public TransactionCode? TransactionOrigin { get; set; }
 
     public StorageAddressStatus? Status { get; set; } = StorageAddressStatus.Open;
+    
+    [Column(TypeName = "VARCHAR(4) NOT NULL")]
+    public required string UoM { get; set; }
 
     public decimal TotalReceipt => Transactions
         .Where(x => x.TransactionType is StorageTransactionType.Receipt or 

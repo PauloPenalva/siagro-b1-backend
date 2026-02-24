@@ -14,4 +14,7 @@ public class Item
     public required string ItemName { get; set; }
     
     public short? ItmsGrpCod {get; set;}
+    
+    [Column("U_YKT_Integra_Siagro", TypeName = "VARCHAR(3)")]
+    public string? Enabled { get; set; }
 }

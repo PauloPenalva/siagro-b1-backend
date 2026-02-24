@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.StorageTransactions;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -14,7 +16,8 @@ public class OwnershipTransfersConfirmService(
     IUnitOfWork db,
     StorageTransactionsCreateService storageTransactionsCreateService,
     StorageTransactionsConfirmedService storageTransactionsConfirmedService,
-    ILogger<OwnershipTransfersUpdateService> logger)
+    IStringLocalizer<Resource> resource,
+    ILogger<OwnershipTransfersConfirmService> logger)
 {
     public async Task<OwnershipTransfer?> ExecuteAsync(Guid key, string userName)
     {
@@ -22,7 +25,7 @@ public class OwnershipTransfersConfirmService(
                                     .Include(x => x.StorageAddressOrigin)
                                     .Include(x => x.StorageAddressDestination)
                                     .FirstOrDefaultAsync(x => x.Key == key) ??
-                             throw new NotFoundException("Transferencia de propriedade não encontrada.");
+                             throw new NotFoundException(resource["OWNERSHIP_TRANSFER_NOT_FOUND"]);
         try
         {
             await db.BeginTransactionAsync();
@@ -31,8 +34,8 @@ public class OwnershipTransfersConfirmService(
             ownershipTransfer.ApprovedBy = userName;
             ownershipTransfer.TransferStatus = OwnershipTransferStatus.Closed;
             
-            CreateOriginStorageTransaction(ownershipTransfer, userName);
-            CreateDestinationStorageTransaction(ownershipTransfer, userName);
+            await CreateOriginStorageTransaction(ownershipTransfer, userName);
+            await CreateDestinationStorageTransaction(ownershipTransfer, userName);
             
             await db.SaveChangesAsync();
             await db.CommitAsync();
@@ -48,10 +51,13 @@ public class OwnershipTransfersConfirmService(
         return ownershipTransfer;
     }
 
-    private void CreateOriginStorageTransaction(OwnershipTransfer ownershipTransfer, string username)
+    private async Task CreateOriginStorageTransaction(OwnershipTransfer ownershipTransfer, string username)
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            NetWeight = ownershipTransfer.Quantity,
+            AvaiableVolumeToAllocate = decimal.Zero,
             BranchCode = ownershipTransfer.StorageAddressOrigin.BranchCode,
             StorageAddressCode = ownershipTransfer.StorageAddressOriginCode,
             TransactionType = StorageTransactionType.Shipment,
@@ -70,14 +76,16 @@ public class OwnershipTransfersConfirmService(
                        $"({ownershipTransfer.StorageAddressDestination.CardCode})",
         };
 
-        storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
-        storageTransactionsConfirmedService.ExecuteAsync(storageTransaction.Key, username, CommitMode.Deferred);
+        await storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
     }
     
-    private void CreateDestinationStorageTransaction(OwnershipTransfer ownershipTransfer, string username)
+    private async Task CreateDestinationStorageTransaction(OwnershipTransfer ownershipTransfer, string username)
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            NetWeight = ownershipTransfer.Quantity,
+            AvaiableVolumeToAllocate = decimal.Zero,
             BranchCode = ownershipTransfer.StorageAddressDestination.BranchCode,
             StorageAddressCode = ownershipTransfer.StorageAddressDestinationCode,
             TransactionType = StorageTransactionType.Receipt,
@@ -96,7 +104,6 @@ public class OwnershipTransfersConfirmService(
                        $"({ownershipTransfer.StorageAddressOrigin.CardCode})",
         };
 
-        storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
-        storageTransactionsConfirmedService.ExecuteAsync(storageTransaction.Key, username, CommitMode.Deferred);
+        await storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
     }
 }

@@ -268,7 +268,12 @@ public static class ODataConfigurations
         var ownershipTransfersConfirm = modelBuilder.Action("OwnershipTransfersConfirm");
         ownershipTransfersConfirm.Parameter<Guid>("Key");
         ownershipTransfersConfirm.Returns<IActionResult>();
-        
+
+        var ownershipTransfersListStorageAddressesBalanceByProduct =
+            modelBuilder.Function("OwnershipTransfersListStorageAddressesBalanceByProduct");
+        ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("ItemCode");
+        ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("IgnoreCode");
+        ownershipTransfersListStorageAddressesBalanceByProduct.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")

@@ -109,6 +109,8 @@ public class PurchaseContract : DocumentEntity
     public ICollection<PurchaseContractAllocation> Allocations { get; set; } = [];
     
     public ICollection<PurchaseContractAttachment> Attachments { get; set; } = [];
+    
+    public TechnologyType? TechnologyType { get; set; }
 
     public void AddAttachment(PurchaseContractAttachment attachment)
     {
