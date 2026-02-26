@@ -30,4 +30,10 @@
     <data name="OWNERSHIP_TRANSFER_NOT_FOUND" xml:space="preserve">
         <value>Transferencia de propriedade não encontrada.</value>
     </data>
+    <data name="OWNERSHIP_TRANSFER_DESTINATION_BALANCE" xml:space="preserve">
+        <value>O saldo do lote destino é insuficiente para realizar o cancelamento da operação. </value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_ORIGIN_BALANCE" xml:space="preserve">
+        <value>O saldo do lote de origem é insuficiente para realizar a transferencia.</value>
+    </data>
 </root>

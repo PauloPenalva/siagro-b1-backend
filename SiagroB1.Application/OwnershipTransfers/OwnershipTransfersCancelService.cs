@@ -13,7 +13,7 @@ using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.OwnershipTransfers;
 
-public class OwnershipTransfersConfirmService(
+public class OwnershipTransfersCancelService(
     IUnitOfWork db,
     StorageTransactionsCreateService storageTransactionsCreateService,
     StorageAddressesGetBalanceService balanceService,
@@ -30,15 +30,18 @@ public class OwnershipTransfersConfirmService(
         try
         {
             await db.BeginTransactionAsync();
-
-            ValidateOriginBalance(ownershipTransfer);
-                
-            ownershipTransfer.ApprovedAt = DateTime.Now;
-            ownershipTransfer.ApprovedBy = userName;
-            ownershipTransfer.TransferStatus = OwnershipTransferStatus.Closed;
             
-            await CreateOriginStorageTransaction(ownershipTransfer, userName);
-            await CreateDestinationStorageTransaction(ownershipTransfer, userName);
+            if (ownershipTransfer.TransferStatus == OwnershipTransferStatus.Closed)
+            {
+                ValidateDestinationBalance(ownershipTransfer);
+                    
+                await CreateDestinationStorageTransaction(ownershipTransfer, userName);
+                await CreateOriginStorageTransaction(ownershipTransfer, userName);
+            }
+            
+            ownershipTransfer.CanceledAt = DateTime.Now;
+            ownershipTransfer.CanceledBy = userName;
+            ownershipTransfer.TransferStatus = OwnershipTransferStatus.Cancelled;
             
             await db.SaveChangesAsync();
             await db.CommitAsync();
@@ -63,7 +66,7 @@ public class OwnershipTransfersConfirmService(
             AvaiableVolumeToAllocate = decimal.Zero,
             BranchCode = ownershipTransfer.StorageAddressOrigin.BranchCode,
             StorageAddressCode = ownershipTransfer.StorageAddressOriginCode,
-            TransactionType = StorageTransactionType.Shipment,
+            TransactionType = StorageTransactionType.Receipt,
             CardCode = ownershipTransfer.StorageAddressOrigin?.CardCode,
             CardName = ownershipTransfer.StorageAddressOrigin?.CardName,
             ItemCode = ownershipTransfer.ItemCode,
@@ -91,7 +94,7 @@ public class OwnershipTransfersConfirmService(
             AvaiableVolumeToAllocate = decimal.Zero,
             BranchCode = ownershipTransfer.StorageAddressDestination.BranchCode,
             StorageAddressCode = ownershipTransfer.StorageAddressDestinationCode,
-            TransactionType = StorageTransactionType.Receipt,
+            TransactionType = StorageTransactionType.Shipment,
             CardCode = ownershipTransfer.StorageAddressDestination?.CardCode,
             CardName = ownershipTransfer.StorageAddressDestination?.CardName,
             ItemCode = ownershipTransfer.ItemCode,
@@ -109,15 +112,15 @@ public class OwnershipTransfersConfirmService(
 
         await storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
     }
-    
-    private void ValidateOriginBalance(OwnershipTransfer ownershipTransfer)
+
+    private void ValidateDestinationBalance(OwnershipTransfer ownershipTransfer)
     {
-        var stCode = ownershipTransfer.StorageAddressOriginCode;
+        var stCode = ownershipTransfer.StorageAddressDestinationCode;
         var balance = balanceService.GetBalance(stCode);
 
         if (ownershipTransfer.Quantity > balance)
         {
-            throw new ApplicationException(resource["OWNERSHIP_TRANSFER_ORIGIN_BALANCE"]);
+            throw new ApplicationException(resource["OWNERSHIP_TRANSFER_DESTINATION_BALANCE"]);
         }
         
     }

@@ -171,6 +171,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesTotalsService>();
         services.AddScoped<StorageAddressesUpdateService>();
         services.AddScoped<StorageAddressesListOpenedByItemService>();
+        services.AddScoped<StorageAddressesGetBalanceService>();
 
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();
@@ -205,6 +206,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersUpdateService>();
         services.AddScoped<OwnershipTransfersGetService>();
         services.AddScoped<OwnershipTransfersConfirmService>();
+        services.AddScoped<OwnershipTransfersCancelService>();
         services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
         
         return services;

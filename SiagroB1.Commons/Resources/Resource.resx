@@ -30,4 +30,10 @@
     <data name="OWNERSHIP_TRANSFER_NOT_FOUND" xml:space="preserve">
         <value>Ownership Transfer not found.</value>
     </data>
+    <data name="OWNERSHIP_TRANSFER_DESTINATION_BALANCE" xml:space="preserve">
+        <value>The balance of the destination storage address is insufficient to cancel the transaction.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_ORIGIN_BALANCE" xml:space="preserve">
+        <value>The balance of the origin storage address is insufficient to confirm the transaction.</value>
+    </data>
 </root>

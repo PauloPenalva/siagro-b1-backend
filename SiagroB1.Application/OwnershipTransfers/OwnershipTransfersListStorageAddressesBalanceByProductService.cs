@@ -1,11 +1,13 @@
 ﻿using System.Data;
 using Dapper;
+using SiagroB1.Application.StorageAddresses;
 using SiagroB1.Domain.Dtos;
 
 namespace SiagroB1.Application.OwnershipTransfers;
 
 public class OwnershipTransfersListStorageAddressesBalanceByProductService(
-        IDbConnection conn
+        IDbConnection conn,
+        StorageAddressesGetBalanceService getBalanceService
     )
 {
     public async Task<ICollection<StorageAddressBalanceDto>> ExecuteAsync(string itemCode, string? ignoreCode)
@@ -43,7 +45,7 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
 
         foreach (var item in list)
         {
-            var balance = GetBalance(item.Code);
+            var balance = getBalanceService.GetBalance(item.Code);
             storageAddresses.Add(new StorageAddressBalanceDto
             {
                 BranchCode = item.BranchCode,
@@ -63,34 +65,5 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
         }
         
         return storageAddresses;
-    }
-
-    private decimal GetBalance(string storageAddressCode)
-    {
-        var sql = """
-                  SELECT 
-                       TotalIncoming - TotalOutgoing AS Balance
-                  FROM (SELECT SUM(Incoming) AS TotalIncoming,
-                               SUM(Outgoing) AS TotalOutgoing
-                        FROM (SELECT CASE
-                                         WHEN (ST.TransactionType = 0 OR ST.TransactionType = 6)
-                                             AND (ST.TransactionStatus = 1 OR ST.TransactionStatus = 3)
-                                             THEN ST.NetWeight
-                                         ELSE 0
-                                         END AS Incoming,
-                                     CASE
-                                         WHEN (ST.TransactionType = 1 OR ST.TransactionType = 7 OR ST.TransactionType = 4)
-                                             AND (ST.TransactionStatus = 1 OR ST.TransactionStatus = 3)
-                                             THEN ST.NetWeight
-                                         ELSE 0
-                                         END AS Outgoing
-                              FROM STORAGE_TRANSACTIONS ST
-                              WHERE ST.StorageAddressCode = @StorageAddressCode) AS CTE) AS TOTALS
-                  """;
-
-        return conn.QueryFirstOrDefault<decimal>(sql, new
-        {
-            StorageAddressCode = storageAddressCode
-        });
     }
 }
