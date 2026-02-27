@@ -36,4 +36,22 @@
     <data name="OWNERSHIP_TRANSFER_ORIGIN_BALANCE" xml:space="preserve">
         <value>The balance of the origin storage address is insufficient to confirm the transaction.</value>
     </data>
+    <data name="EXCEPTION_00001" xml:space="preserve">
+        <value>The customer listed on the ticket is different from the customer listed in the storage address</value>
+    </data>
+    <data name="EXCEPTION_00002" xml:space="preserve">
+        <value>The product listed on the ticket is different from the product listed in the storage address.</value>
+    </data>
+    <data name="EXCEPTION_00003" xml:space="preserve">
+        <value>The total shipped exceeds the available balance in the storage address.</value>
+    </data>
+    <data name="EXCEPTION_00004" xml:space="preserve">
+        <value>Processing Cost List not found.</value>
+    </data>
+    <data name="EXCEPTION_00005" xml:space="preserve">
+        <value>Only pending transactions can be confirmed.</value>
+    </data>
+    <data name="EXCEPTION_00006" xml:space="preserve">
+        <value>The quantity shipped exceeds the available stock in the warehouse.</value>
+    </data>
 </root>

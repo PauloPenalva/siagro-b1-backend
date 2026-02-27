@@ -36,4 +36,22 @@
     <data name="OWNERSHIP_TRANSFER_ORIGIN_BALANCE" xml:space="preserve">
         <value>O saldo do lote de origem é insuficiente para realizar a transferencia.</value>
     </data>
+    <data name="EXCEPTION_00001" xml:space="preserve">
+        <value>Cliente informado no ticket é diferente do Cliente do lote de armazenagem</value>
+    </data>
+    <data name="EXCEPTION_00002" xml:space="preserve">
+        <value>Produto informado no ticket é diferente do produto informado no lote de armazenagem.</value>
+    </data>
+    <data name="EXCEPTION_00003" xml:space="preserve">
+        <value>O total embarcado excede o saldo disponivel no lote de armazenagem.</value>
+    </data>
+    <data name="EXCEPTION_00004" xml:space="preserve">
+        <value>Tabela de beneficiamento não encontrada.</value>
+    </data>
+    <data name="EXCEPTION_00005" xml:space="preserve">
+        <value>Apenas romaneios pendentes podem ser confirmados.</value>
+    </data>
+    <data name="EXCEPTION_00006" xml:space="preserve">
+        <value>A quantidade embarcada é superior ao saldo disponivel no armazem.</value>
+    </data>
 </root>

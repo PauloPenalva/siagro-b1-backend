@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,7 +11,8 @@ using SiagroB1.Infra.Enums;
 namespace SiagroB1.Application.StorageTransactions;
 
 public class StorageTransactionsConfirmedService(
-    IUnitOfWork unitOfWork,
+    IUnitOfWork db,
+    IStringLocalizer<Resource> resource,
     ILogger<StorageTransactionsConfirmedService> logger
     )
 {
@@ -19,13 +22,17 @@ public class StorageTransactionsConfirmedService(
         CommitMode commitMode = CommitMode.Auto, 
         bool isShipmentTransaction = false)
     {
-        var st = await unitOfWork.Context.StorageTransactions
+        var st = await db.Context.StorageTransactions
                      .Include(x => x.QualityInspections)
+                     .ThenInclude(q => q.QualityAttrib)
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                         throw new NotFoundException("Storage transaction not found.");
 
         switch (st.TransactionType)
         {
+            case StorageTransactionType.Receipt:
+                await ExecuteReceiptTransactionAsync(st, userName, commitMode);
+                break;
             case StorageTransactionType.SalesShipment:
                 await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
                 break;
@@ -46,6 +53,9 @@ public class StorageTransactionsConfirmedService(
     {
         switch (st.TransactionType)
         {
+            case StorageTransactionType.Receipt:
+                await ExecuteReceiptTransactionAsync(st, userName, commitMode);
+                break;
             case StorageTransactionType.SalesShipment:
                 await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
                 break;
@@ -66,7 +76,8 @@ public class StorageTransactionsConfirmedService(
     {
         if (st.TransactionStatus != StorageTransactionsStatus.Pending)
         {
-            throw new ApplicationException("Only pending transactions can be confirmed.");
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]); 
         }
         
         var warehouseCode = st.WarehouseCode;
@@ -78,7 +89,8 @@ public class StorageTransactionsConfirmedService(
             logger.LogInformation("Saldo no armazem: {}", warehouseBalance);
         
         if (!isShipmentTransaction && st.GrossWeight > warehouseBalance)
-            throw new ApplicationException("A quantidade embarcada é superior ao saldo disponivel no armazem.");
+            //A quantidade embarcada é superior ao saldo disponivel no armazem.
+            throw new ApplicationException(resource["EXCEPTION_00006"]);
             
         try
         {
@@ -89,7 +101,7 @@ public class StorageTransactionsConfirmedService(
             st.UpdatedAt = DateTime.Now;
             
             if (commitMode == CommitMode.Auto)
-                await unitOfWork.SaveChangesAsync();
+                await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -101,7 +113,8 @@ public class StorageTransactionsConfirmedService(
     {
         if (st.TransactionStatus != StorageTransactionsStatus.Pending)
         {
-            throw new ApplicationException("Only pending transactions can be confirmed.");
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]); 
         }
         
         try
@@ -113,7 +126,7 @@ public class StorageTransactionsConfirmedService(
             st.UpdatedAt = DateTime.Now;
             
             if (commitMode == CommitMode.Auto)
-                await unitOfWork.SaveChangesAsync();
+                await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -126,7 +139,8 @@ public class StorageTransactionsConfirmedService(
     {
         if (st.TransactionStatus != StorageTransactionsStatus.Pending)
         {
-            throw new ApplicationException("Only pending transactions can be confirmed.");
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]); 
         }
         
         try
@@ -138,7 +152,35 @@ public class StorageTransactionsConfirmedService(
             st.UpdatedAt = DateTime.Now;
             
             if (commitMode == CommitMode.Auto)
-                await unitOfWork.SaveChangesAsync();
+                await db.SaveChangesAsync();
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException(e.Message);
+        }
+    }
+    
+    private async Task ExecuteReceiptTransactionAsync(
+        StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
+    {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]); 
+        }
+        
+        try
+        {
+            await Calculate(st);
+            
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = CalculateNetWeight(st);
+            st.AvaiableVolumeToAllocate = st.NetWeight;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
+            
+            if (commitMode == CommitMode.Auto)
+                await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
@@ -153,7 +195,7 @@ public class StorageTransactionsConfirmedService(
     
     private async Task<decimal> GetWarehouseBalanceAsync(string warehouseCode, string itemCode)
     {
-        var total = await unitOfWork.Context.StorageTransactions
+        var total = await db.Context.StorageTransactions
             .AsNoTracking()
             .Where(x => x.TransactionStatus == StorageTransactionsStatus.Confirmed &&
                         x.WarehouseCode == warehouseCode &&
@@ -176,13 +218,13 @@ public class StorageTransactionsConfirmedService(
         var processingCostCode = st.ProcessingCostCode;
         var grossWeight = st.GrossWeight;
 
-        var processingCost = await unitOfWork.Context.ProcessingCosts
+        var processingCost = await db.Context.ProcessingCosts
                                  .Include(x => x.DryingDetails)
                                  .Include(x => x.DryingParameters)
                                  .Include(x => x.QualityParameters)
                                  .Include(x => x.ServiceDetails)
                                  .FirstOrDefaultAsync(x => x.Code == processingCostCode) ??
-                             throw new NotFoundException("Processing Cost List not found.");
+                             throw new NotFoundException(resource["EXCEPTION_00004"]); //Tabela de beneficiamento não encontrada.
 
         var dryingInspection = st.QualityInspections
             .Where(x => x.QualityAttrib?.Type == QualityAttribType.Drying)
@@ -198,42 +240,67 @@ public class StorageTransactionsConfirmedService(
 
         foreach (var inspection in dryingInspection)
         {
-            var moisture = inspection.Value;
+            var moisture = inspection.Value; // umidade %
 
             var dryingParameter = processingCost.DryingParameters
-                .FirstOrDefault(x => x.InitialMoisture >= moisture && x.FinalMoisture <= moisture);
+                .FirstOrDefault(x => x.InitialMoisture <= moisture && x.FinalMoisture >= moisture);
 
             var dryingDiscount = (grossWeight / 100) * dryingParameter?.Rate ?? 0;
             st.DryingDiscount = dryingDiscount;
             
             var dryingDetail = processingCost.DryingDetails
-                .FirstOrDefault(x => x.InitialMoisture >= moisture && x.FinalMoisture <= moisture);
+                .FirstOrDefault(x => x.InitialMoisture <= moisture && x.FinalMoisture >= moisture);
 
-            var dryingServicePrice = dryingDiscount * dryingDetail?.Price ?? 0;
+            var dryingServicePrice = grossWeight * dryingDetail?.Price ?? 0;
             
+            st.DryingServicePrice =  dryingServicePrice;
         }
         
         foreach (var inspection in cleaningInspection)
         {
             var value = inspection.Value;
+
+            var qualityParameters = processingCost.QualityParameters
+                    .Where(x => x.QualityAttribCode == inspection.QualityAttribCode)
+                    .ToList();
+
+            var cleaningDiscount = decimal.Zero;
             
-            var qualityParameter = processingCost.QualityParameters
-                .FirstOrDefault(x => value <= x.MaxLimitRate && x.QualityAttribCode == inspection.QualityAttribCode);
-
-            var cleaningDiscount = (grossWeight / 100) * qualityParameter?.ExcessDiscountRate ?? 0;
-
+            foreach (var parameter in qualityParameters)
+            {
+                var realValue = value - parameter.MaxLimitRate;
+                if (realValue <= 0)
+                {
+                    cleaningDiscount += 0;
+                }
+                
+                cleaningDiscount += (grossWeight / 100) * realValue ?? 0;
+            }
+            
             st.CleaningDiscount = cleaningDiscount;
         }
         
         foreach (var inspection in qualityInspection)
         {
             var value = inspection.Value;
+
+            var qualityParameters = processingCost.QualityParameters
+                .Where(x => x.QualityAttribCode == inspection.QualityAttribCode)
+                .ToList();
             
-            var qualityParameter = processingCost.QualityParameters
-                .FirstOrDefault(x => value <= x.MaxLimitRate && x.QualityAttribCode == inspection.QualityAttribCode);
-
-            var qualityDiscount = (grossWeight / 100) * qualityParameter?.ExcessDiscountRate ?? 0;
-
+            var qualityDiscount =  decimal.Zero;
+            
+            foreach (var parameter in qualityParameters)
+            {
+                var realValue = value - parameter.MaxLimitRate;
+                if (realValue <= 0)
+                {
+                    qualityDiscount += 0;
+                }
+                
+                qualityDiscount += (grossWeight / 100) * realValue ?? 0;
+            }
+            
             st.OthersDicount = qualityDiscount;
         }
     }

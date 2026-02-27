@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.StorageAddresses;
 using SiagroB1.Application.StorageTransactions;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -13,6 +15,7 @@ public class WeighingTicketsCompletedService(
     IUnitOfWork db,
     StorageTransactionsCreateService storageTransactionsCreateService,
     StorageAddressesGetService  storageAddressesGetService,
+    IStringLocalizer<Resource> resource,
     ILogger<WeighingTicketsCompletedService> logger
     )
 {
@@ -118,19 +121,22 @@ public class WeighingTicketsCompletedService(
         
         if (storageAddress.CardCode != ticket.CardCode)
         {
-            throw new ApplicationException("Cli/For informado no ticket é diferente do Cli/For do lote de armazenagem");
+            //Cliente informado no ticket é diferente do Cliente do lote de armazenagem
+            throw new ApplicationException(resource["EXCEPTION_00001"]);
         }
         
         
         if (storageAddress.ItemCode != ticket.ItemCode)
         {
-            throw new ApplicationException("Produto informado no ticket é diferente do produto informado no lote de armazenagem.");
+            //"Produto informado no ticket é diferente do produto informado no lote de armazenagem."
+            throw new ApplicationException(resource["EXCEPTION_00002"]);
         }
         
         if (ticket.Type == WeighingTicketType.Shipment && ticket.GrossWeight > storageAddress.Balance)
         {
             if (!IsWarehouseOwner(storageAddress))
-                throw new ApplicationException("O total embarcado excede o saldo disponivel no lote de armazenagem.");
+                //"O total embarcado excede o saldo disponivel no lote de armazenagem."
+                throw new ApplicationException(resource["EXCEPTION_00003"]);
         }
     }
 
