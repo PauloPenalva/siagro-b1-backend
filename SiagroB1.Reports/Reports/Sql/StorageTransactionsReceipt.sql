@@ -14,15 +14,16 @@
     T.Code               AS Ticket,
     ST.GrossWeight       AS PesoBruto,
 
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '001' THEN Q.Value END), 0) AS Umidade,
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '002' THEN Q.Value END), 0) AS Impurezas,
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '003' THEN Q.Value END), 0) AS Avariados,
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '004' THEN Q.Value END), 0) AS Ardidos,
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '005' THEN Q.Value END), 0) AS PH,
-    COALESCE(MAX(CASE WHEN Q.QualityAttribCode = '006' THEN Q.Value END), 0) AS FN,
+    COALESCE(Q.Umidade, 0)    AS Umidade,
+    COALESCE(Q.Impurezas, 0)  AS Impurezas,
+    COALESCE(Q.Avariados, 0)  AS Avariados,
+    COALESCE(Q.Ardidos, 0)    AS Ardidos,
+    COALESCE(Q.PH, 0)         AS PH,
+    COALESCE(Q.FN, 0)         AS FN,
 
-    ST.OthersDicount   AS Descontos,
-    ST.NetWeight       AS PesoLiquido
+    ST.OthersDicount + ST.DryingDiscount + ST.CleaningDiscount AS Descontos,
+    ST.NetWeight AS PesoLiquido
+
 FROM STORAGE_TRANSACTIONS ST
          LEFT JOIN STORAGE_ADDRESSES SA
                    ON SA.BranchCode = ST.BranchCode
@@ -31,42 +32,34 @@ FROM STORAGE_TRANSACTIONS ST
                    ON B.Code = ST.BranchCode
          LEFT JOIN WEIGHING_TICKETS T
                    ON T.[Key] = ST.WeighingTicketKey
-    LEFT JOIN STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS Q
+    LEFT JOIN (
+    SELECT
+    StorageTransactionKey,
+    MAX(CASE WHEN QualityAttribCode = '001' THEN Value END) AS Umidade,
+    MAX(CASE WHEN QualityAttribCode = '002' THEN Value END) AS Impurezas,
+    MAX(CASE WHEN QualityAttribCode = '003' THEN Value END) AS Avariados,
+    MAX(CASE WHEN QualityAttribCode = '004' THEN Value END) AS Ardidos,
+    MAX(CASE WHEN QualityAttribCode = '005' THEN Value END) AS PH,
+    MAX(CASE WHEN QualityAttribCode = '006' THEN Value END) AS FN
+    FROM STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS
+    GROUP BY StorageTransactionKey
+    ) Q
 ON Q.StorageTransactionKey = ST.[Key]
-WHERE ST.WeighingTicketKey IS NOT NULL
-  AND ST.TransactionType = 0
+WHERE
+    ST.TransactionType = 0
   AND ST.TransactionStatus <> 2
+  AND ST.TransactionDate >= @TransactionDateFrom
+  AND ST.TransactionDate < DATEADD(DAY, 1, @TransactionDateTo)
   AND (@BranchCodeFrom IS NULL OR ISNULL(ST.BranchCode,'') >= @BranchCodeFrom)
   AND (@BranchCodeTo IS NULL OR ISNULL(ST.BranchCode,'') <= @BranchCodeTo)
-  AND ST.TransactionDate >= @TransactionDateFrom 
-  AND ST.TransactionDate < DATEADD(DAY, 1, @TransactionDateTo)
   AND (@CardCodeFrom IS NULL OR ISNULL(ST.CardCode,'') >= @CardCodeFrom)
   AND (@CardCodeTo IS NULL OR ISNULL(ST.CardCode,'') <= @CardCodeTo)
   AND (@StorageAddressCodeFrom IS NULL OR ISNULL(ST.StorageAddressCode,'') >= @StorageAddressCodeFrom)
-  AND (@StorageAddressCodeTo IS NULL OR ISNULL(ST.StorageAddressCode,'') <= @StorageAddressCodeTo) 
+  AND (@StorageAddressCodeTo IS NULL OR ISNULL(ST.StorageAddressCode,'') <= @StorageAddressCodeTo)
   AND (@ItemCodeFrom IS NULL OR ISNULL(ST.ItemCode,'') >= @ItemCodeFrom)
   AND (@ItemCodeTo IS NULL OR ISNULL(ST.ItemCode,'') <= @ItemCodeTo)
   AND (@WarehouseCodeFrom IS NULL OR ISNULL(ST.WarehouseCode,'') >= @WarehouseCodeFrom)
   AND (@WarehouseCodeTo IS NULL OR ISNULL(ST.WarehouseCode,'') <= @WarehouseCodeTo)
   AND (@TruckCodeFrom IS NULL OR ISNULL(ST.TruckCode,'') >= @TruckCodeFrom)
-  AND (@TruckCodeTo IS NULL OR ISNULL(ST.TruckCode,'') <= @TruckCodeTo)  
-GROUP BY
-    ST.RowId,
-    ST.BranchCode,
-    B.ShortName,
-    ST.Code,
-    ST.InvoiceNumber,
-    ST.TransactionStatus,
-    ST.CardName,
-    ST.CardCode,
-    SA.Code,
-    SA.Description,
-    ST.WarehouseCode,
-    ST.ItemName,
-    ST.TruckCode,
-    ST.TransactionDate,
-    T.Code,
-    ST.GrossWeight,
-    ST.OthersDicount,
-    ST.NetWeight
+  AND (@TruckCodeTo IS NULL OR ISNULL(ST.TruckCode,'') <= @TruckCodeTo)
 ORDER BY ST.BranchCode, ST.RowId;

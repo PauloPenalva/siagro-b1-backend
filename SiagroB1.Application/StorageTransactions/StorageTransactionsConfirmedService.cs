@@ -28,21 +28,7 @@ public class StorageTransactionsConfirmedService(
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                         throw new NotFoundException("Storage transaction not found.");
 
-        switch (st.TransactionType)
-        {
-            case StorageTransactionType.Receipt:
-                await ExecuteReceiptTransactionAsync(st, userName, commitMode);
-                break;
-            case StorageTransactionType.SalesShipment:
-                await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
-                break;
-            case StorageTransactionType.SalesShipmentReturn:
-                await ExecuteSalesShipmentReturnTransactionAsync(st, userName, commitMode);
-                break;
-            default:
-                await ExecutePurchaseTransactionAsync(st, userName, commitMode);
-                break;
-        }
+        await Processing(st, userName, commitMode, isShipmentTransaction);
     }
     
     public async Task ExecuteAsync(
@@ -51,10 +37,22 @@ public class StorageTransactionsConfirmedService(
         CommitMode commitMode = CommitMode.Auto,
         bool isShipmentTransaction = false)
     {
+        await Processing(st, userName, commitMode, isShipmentTransaction);
+    }
+
+    private async Task Processing( 
+        StorageTransaction st, 
+        string userName, 
+        CommitMode commitMode = CommitMode.Auto,
+        bool isShipmentTransaction = false)
+    {
         switch (st.TransactionType)
         {
             case StorageTransactionType.Receipt:
                 await ExecuteReceiptTransactionAsync(st, userName, commitMode);
+                break;
+            case StorageTransactionType.Shipment:
+                await ExecuteShipmentTransactionAsync(st, userName, commitMode);
                 break;
             case StorageTransactionType.SalesShipment:
                 await ExecuteSalesShipmentTransactionAsync(st, userName, commitMode, isShipmentTransaction);
@@ -145,6 +143,8 @@ public class StorageTransactionsConfirmedService(
         
         try
         {
+            await CalculateReceipt(st);
+            
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
             st.NetWeight = CalculateNetWeight(st);
             st.AvaiableVolumeToAllocate = st.NetWeight;
@@ -171,8 +171,38 @@ public class StorageTransactionsConfirmedService(
         
         try
         {
-            await Calculate(st);
+            // calcula descontos e custos se for entrada ou compra
+            await CalculateReceipt(st);
             
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = CalculateNetWeight(st);
+            st.AvaiableVolumeToAllocate = st.NetWeight;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
+            
+            if (commitMode == CommitMode.Auto)
+                await db.SaveChangesAsync();
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException(e.Message);
+        }
+    }
+    
+    
+    private async Task ExecuteShipmentTransactionAsync(
+        StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
+    {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]); 
+        }
+        
+        try
+        {
+            await CalculateShipment(st); 
+                    
             st.TransactionStatus = StorageTransactionsStatus.Confirmed;
             st.NetWeight = CalculateNetWeight(st);
             st.AvaiableVolumeToAllocate = st.NetWeight;
@@ -212,20 +242,22 @@ public class StorageTransactionsConfirmedService(
         return decimal.Round(total, 3, MidpointRounding.ToEven);
     }
     
-    //todo: finalizar metodo de calculo
-    private async Task Calculate(StorageTransaction st)
+    private async Task CalculateReceipt(StorageTransaction st)
     {
         var processingCostCode = st.ProcessingCostCode;
         var grossWeight = st.GrossWeight;
+        var cleaningDiscount = decimal.Zero;
 
         var processingCost = await db.Context.ProcessingCosts
-                                 .Include(x => x.DryingDetails)
-                                 .Include(x => x.DryingParameters)
-                                 .Include(x => x.QualityParameters)
-                                 .Include(x => x.ServiceDetails)
-                                 .FirstOrDefaultAsync(x => x.Code == processingCostCode) ??
-                             throw new NotFoundException(resource["EXCEPTION_00004"]); //Tabela de beneficiamento não encontrada.
+            .Include(x => x.DryingDetails)
+            .Include(x => x.DryingParameters)
+            .Include(x => x.QualityParameters)
+            .Include(x => x.ServiceDetails)
+            .FirstOrDefaultAsync(x => x.Code == processingCostCode); 
 
+        if (processingCost == null)
+            return;
+        
         var dryingInspection = st.QualityInspections
             .Where(x => x.QualityAttrib?.Type == QualityAttribType.Drying)
             .ToList();
@@ -263,45 +295,59 @@ public class StorageTransactionsConfirmedService(
             var qualityParameters = processingCost.QualityParameters
                     .Where(x => x.QualityAttribCode == inspection.QualityAttribCode)
                     .ToList();
-
-            var cleaningDiscount = decimal.Zero;
             
             foreach (var parameter in qualityParameters)
             {
                 var realValue = value - parameter.MaxLimitRate;
-                if (realValue <= 0)
+                if (realValue > 0)
                 {
-                    cleaningDiscount += 0;
+                    cleaningDiscount += (grossWeight / 100) * realValue ?? 0;    
                 }
-                
-                cleaningDiscount += (grossWeight / 100) * realValue ?? 0;
             }
             
             st.CleaningDiscount = cleaningDiscount;
+            st.CleaningServicePrice = cleaningDiscount > 0 
+                ? grossWeight * processingCost?.CleaningPrice ?? 0 
+                : 0;
         }
         
         foreach (var inspection in qualityInspection)
         {
             var value = inspection.Value;
+            var qualityDiscount = decimal.Zero;
 
             var qualityParameters = processingCost.QualityParameters
                 .Where(x => x.QualityAttribCode == inspection.QualityAttribCode)
                 .ToList();
             
-            var qualityDiscount =  decimal.Zero;
-            
             foreach (var parameter in qualityParameters)
             {
                 var realValue = value - parameter.MaxLimitRate;
-                if (realValue <= 0)
+                if (realValue > 0)
                 {
-                    qualityDiscount += 0;
+                    cleaningDiscount += (grossWeight / 100) * realValue ?? 0;
+                    qualityDiscount += (grossWeight / 100) * realValue ?? 0;
                 }
-                
-                qualityDiscount += (grossWeight / 100) * realValue ?? 0;
             }
             
             st.OthersDicount = qualityDiscount;
         }
+        
+        st.ReceiptServicePrice = grossWeight * processingCost?.ReceiptPrice ?? 0;
+    }
+    
+    private async Task CalculateShipment(StorageTransaction st)
+    {
+        var processingCostCode = st.ProcessingCostCode;
+        var grossWeight = st.GrossWeight;
+
+        var processingCost = await db.Context.ProcessingCosts
+            .FirstOrDefaultAsync(x => x.Code == processingCostCode);
+    
+        
+        if (processingCost == null)
+            return;
+        
+        st.ShipmentPrice = grossWeight * processingCost?.ShipmentPrice ?? 0;
     }
 }

@@ -49,8 +49,17 @@ public class StorageTransaction : DocumentEntity
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal CleaningDiscount { get; set; }
     
+    [Column(TypeName = "decimal(18,2) DEFAULT 0")]
+    public decimal CleaningServicePrice { get; set; }
+    
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal OthersDicount { get; set; }
+    
+    [Column(TypeName = "decimal(18,2) DEFAULT 0")]
+    public decimal ShipmentPrice { get; set; }
+    
+    [Column(TypeName = "decimal(18,2) DEFAULT 0")]
+    public decimal ReceiptServicePrice { get; set; }
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal NetWeight  { get; set; }

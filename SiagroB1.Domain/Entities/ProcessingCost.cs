@@ -64,4 +64,22 @@ public class ProcessingCost
     public ICollection<ProcessingCostQualityParameter> QualityParameters { get; set; } = [];
 
     public ICollection<ProcessingCostServiceDetail> ServiceDetails { get; set; } = [];
+
+    /// <summary>
+    /// Taxa de expedição
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal? ShipmentPrice { get; set; }
+
+    /// <summary>
+    /// Taxa de pré limpeza
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal? CleaningPrice { get; set; }
+    
+    /// <summary>
+    /// Taxa de recepção
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal? ReceiptPrice {  get; set; }
 }
