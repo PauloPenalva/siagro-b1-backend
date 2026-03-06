@@ -1,11 +1,11 @@
 ﻿namespace SiagroB1.Reports.Dtos;
 
-public record StorageTransactionsReceiptsResponse
+public record StorageTransactionsResponse
 {
     public string Filial { get; init; }
     public string Romaneio { get; init; }
     public string Documento { get; init; }
-    public int Status { get; init; }
+    public string Status { get; init; }
     public string ClienteNome { get; init; }
     public string ClienteCodigo { get; init; }
     public string LoteCodigo { get; init; }

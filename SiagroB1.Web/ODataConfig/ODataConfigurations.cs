@@ -87,6 +87,10 @@ public static class ODataConfigurations
         storageTransactionsCancel.Parameter<Guid>("Key");
         storageTransactionsCancel.Returns<IActionResult>();
         
+         var storageTransactionsReverse = modelBuilder.Action("StorageTransactionsReverse");
+         storageTransactionsReverse.Parameter<Guid>("Key");
+         storageTransactionsReverse.Returns<IActionResult>();
+        
         var storageTransactionsCopy = modelBuilder.Action("StorageTransactionsCopy");
         storageTransactionsCopy.Parameter<Guid>("Key");
         storageTransactionsCopy.Returns<IActionResult>();

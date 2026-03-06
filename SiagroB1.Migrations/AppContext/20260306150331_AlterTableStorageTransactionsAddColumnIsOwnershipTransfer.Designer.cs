@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306150331_AlterTableStorageTransactionsAddColumnIsOwnershipTransfer")]
+    partial class AlterTableStorageTransactionsAddColumnIsOwnershipTransfer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -248,9 +251,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.Property<int>("DryingCalculationMethod")
-                        .HasColumnType("int");
-
                     b.Property<int?>("FumigationIntervalDays")
                         .HasColumnType("int");
 
@@ -271,9 +271,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<decimal?>("StoragePrice")
                         .HasColumnType("DECIMAL(18,8) NOT NULL");
-
-                    b.Property<int>("StoragePriceCalculationMethod")
-                        .HasColumnType("int");
 
                     b.Property<int?>("TechnicalLossGraceDays")
                         .HasColumnType("int");
@@ -1438,9 +1435,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("OwnershipType")
                         .HasColumnType("int");
 
-                    b.Property<string>("ProcessingCostCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1481,8 +1475,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("ProcessingCostCode");
 
                     b.ToTable("STORAGE_ADDRESSES");
                 });
@@ -2287,16 +2279,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
-                        .WithMany()
-                        .HasForeignKey("ProcessingCostCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
-
-                    b.Navigation("ProcessingCost");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

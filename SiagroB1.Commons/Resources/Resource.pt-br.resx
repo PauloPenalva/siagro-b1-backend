@@ -54,4 +54,19 @@
     <data name="EXCEPTION_00006" xml:space="preserve">
         <value>A quantidade embarcada é superior ao saldo disponivel no armazem.</value>
     </data>
+    <data name="EXCEPTION_00007" xml:space="preserve">
+        <value>Romaneio não encontrado.</value>
+    </data>
+    <data name="EXCEPTION_00008" xml:space="preserve">
+        <value>Este romaneio foi criado por outra transação. Não é possivel cancelar utilizando este método. Origem: </value>
+    </data>
+    <data name="EXCEPTION_00009" xml:space="preserve">
+        <value>O romeneio está faturado. Pof favor, primeiro cancele o documento vinculado a este romaneio. </value>
+    </data>
+    <data name="EXCEPTION_00010" xml:space="preserve">
+        <value>Codigo do lote não informado.</value>
+    </data>
+    <data name="EXCEPTION_00011" xml:space="preserve">
+        <value>O saldo do lote é insuficiente para realizar o estorno da operação.</value>
+    </data>
 </root>

@@ -114,4 +114,7 @@ public class StorageTransaction : DocumentEntity
 
     public Guid? OwnershipTransferKey { get; set; }
     public virtual OwnershipTransfer? OwnershipTransfer { get; set; }
+    
+    [Column(TypeName = "VARCHAR(1) DEFAULT 'N'")]
+    public string? IsOwnershipTransfer { get; set; }
 }

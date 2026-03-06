@@ -185,6 +185,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageTransactionsQualityInspectionsGetService>();
         services.AddScoped<StorageTransactionsQualityInspectionsUpdateService>();
         services.AddScoped<StorageTransactionsUpdateService>();
+        services.AddScoped<StorageTransactionsReverseService>();
         
         // weighing tickets
         services.AddScoped<WeighingTicketsCancelService>();

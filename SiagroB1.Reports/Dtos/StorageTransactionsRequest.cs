@@ -1,6 +1,6 @@
 ﻿namespace SiagroB1.Reports.Dtos;
 
-public class StorageTransactionsReceiptsRequest
+public class StorageTransactionsRequest
 {
     public string? BranchCodeFrom { get; set; } 
     

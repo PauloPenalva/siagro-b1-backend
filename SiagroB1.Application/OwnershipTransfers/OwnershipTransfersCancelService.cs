@@ -80,6 +80,7 @@ public class OwnershipTransfersCancelService(
             Comments = $"Destino da transferencia: Lote {ownershipTransfer.StorageAddressDestinationCode} " +
                        $"de {ownershipTransfer.StorageAddressDestination.CardName}" +
                        $"({ownershipTransfer.StorageAddressDestination.CardCode})",
+            IsOwnershipTransfer = "Y",
         };
 
         await storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);
@@ -108,6 +109,7 @@ public class OwnershipTransfersCancelService(
             Comments = $"Origem da transferencia: Lote {ownershipTransfer.StorageAddressOriginCode} " +
                        $"de {ownershipTransfer.StorageAddressOrigin.CardName}" +
                        $"({ownershipTransfer.StorageAddressOrigin.CardCode})",
+            IsOwnershipTransfer = "Y",
         };
 
         await storageTransactionsCreateService.ExecuteAsync(storageTransaction, username, TransactionCode.OwnershipTransfer, CommitMode.Deferred);

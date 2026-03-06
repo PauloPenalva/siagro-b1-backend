@@ -2,7 +2,11 @@
     B.ShortName          AS Filial,
     ST.Code              AS Romaneio,
     ST.InvoiceNumber     AS Documento,
-    ST.TransactionStatus AS Status,
+    CASE
+        WHEN ST.TransactionStatus = 0 THEN 'Pendente'
+        WHEN ST.TransactionStatus = 1 THEN 'Confirmado'
+        WHEN ST.TransactionStatus = 3 THEN 'Faturado'
+    END AS Status,
     ST.CardName          AS ClienteNome,
     ST.CardCode          AS ClienteCodigo,
     SA.Code              AS LoteCodigo,
@@ -46,7 +50,7 @@ FROM STORAGE_TRANSACTIONS ST
     ) Q
 ON Q.StorageTransactionKey = ST.[Key]
 WHERE
-    ST.TransactionType = 0
+    ST.TransactionType = @TransactionType
   AND ST.TransactionStatus <> 2
   AND ST.TransactionDate >= @TransactionDateFrom
   AND ST.TransactionDate < DATEADD(DAY, 1, @TransactionDateTo)

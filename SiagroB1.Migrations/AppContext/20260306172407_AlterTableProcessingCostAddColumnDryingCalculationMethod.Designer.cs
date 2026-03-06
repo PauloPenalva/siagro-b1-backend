@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306172407_AlterTableProcessingCostAddColumnDryingCalculationMethod")]
+    partial class AlterTableProcessingCostAddColumnDryingCalculationMethod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1438,9 +1441,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("OwnershipType")
                         .HasColumnType("int");
 
-                    b.Property<string>("ProcessingCostCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1481,8 +1481,6 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("ProcessingCostCode");
 
                     b.ToTable("STORAGE_ADDRESSES");
                 });
@@ -2287,16 +2285,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
-                        .WithMany()
-                        .HasForeignKey("ProcessingCostCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
-
-                    b.Navigation("ProcessingCost");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

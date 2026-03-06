@@ -66,7 +66,7 @@ public class WeighingTicketsCompletedService(
                 NetWeight = existingTicket.GrossWeight,
                 WarehouseCode = storageAddress.WarehouseCode,
                 BranchCode = existingTicket.BranchCode,
-                ProcessingCostCode = existingTicket.ProcessingCostCode
+                ProcessingCostCode = storageAddress.ProcessingCostCode
             };
            
             foreach (var inspection in existingTicket.QualityInspections)

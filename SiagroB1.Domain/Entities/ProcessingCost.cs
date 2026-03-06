@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -56,6 +57,17 @@ public class ProcessingCost
     /// </summary>
     [Column(TypeName = "DECIMAL(18,8) NOT NULL")]
     public decimal? TechnicalLossRate { get; set; }
+
+    /// <summary>
+    /// metodo de calculo do custo de armazenagem
+    /// </summary>
+    public StoragePriceCalculationMethod StoragePriceCalculationMethod { get; set; } =
+        StoragePriceCalculationMethod.AfterFirstReceipting;
+
+    /// <summary>
+    /// método de calculo da secagem: antes da limpeza (peso bruto) ou após (peso bruto - limpeza)
+    /// </summary>
+    public DryingCalculationMethod DryingCalculationMethod { get; set; } = DryingCalculationMethod.BeforeCleaning;
 
     public ICollection<ProcessingCostDryingParameter> DryingParameters { get; set; } = [];
 
