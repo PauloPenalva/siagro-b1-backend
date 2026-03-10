@@ -23,7 +23,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Actions\StorageAddresses\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

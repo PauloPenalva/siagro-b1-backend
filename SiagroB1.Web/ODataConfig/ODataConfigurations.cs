@@ -153,6 +153,12 @@ public static class ODataConfigurations
         var storageAddressesListOpenedByItem = modelBuilder.Function("StorageAddressesListOpenedByItem");
         storageAddressesListOpenedByItem.Parameter<string>("Code");
         storageAddressesListOpenedByItem.Returns<IActionResult>();
+
+        var storageAddressesReprocessing = modelBuilder.Action("StorageAddressesReprocessing");
+        storageAddressesReprocessing.Parameter<string>("Code");
+        storageAddressesReprocessing.Parameter<DateTime>("FromDate");
+        storageAddressesReprocessing.Parameter<DateTime>("ToDate");
+        storageAddressesReprocessing.Returns<IActionResult>();
         
         var purchaseContractsGetAllocationsByContract = modelBuilder.Function("PurchaseContractsGetAllocationsByContract");
         purchaseContractsGetAllocationsByContract.Parameter<Guid>("PurchaseContractKey");

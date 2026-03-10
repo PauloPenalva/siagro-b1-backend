@@ -6,7 +6,7 @@ public enum StorageTransactionType
     Shipment = 1,                // Expedição/Saída
     Adjustment = 2,              // Ajuste
     Transfer = 3,                // Transferência entre endereços
-    QualityLoss = 4,             // Quebra técnica
+    TechnicalLoss = 4,           // Quebra técnica
     Processing = 5,              // Beneficiamento
     ShipmentReleased = 6,        // Liberação de entrega/compra para embarque.
     SalesShipment = 7,           // Venda - Saída para Venda

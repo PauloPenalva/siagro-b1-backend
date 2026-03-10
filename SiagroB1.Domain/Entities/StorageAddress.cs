@@ -65,7 +65,7 @@ public class StorageAddress : MasterEntity
         .Sum(x => x.NetWeight);
     
     public decimal TotalQualityLoss => Transactions
-        .Where(x => x.TransactionType is StorageTransactionType.QualityLoss && 
+        .Where(x => x.TransactionType is StorageTransactionType.TechnicalLoss && 
                     x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced)
         .Sum(x => x.NetWeight);
     

@@ -55,7 +55,7 @@ public class ProcessingCost
     /// <summary>
     /// percentual de quebra técnica
     /// </summary>
-    [Column(TypeName = "DECIMAL(18,8) NOT NULL")]
+    [Column(TypeName = "DECIMAL(18,12) NOT NULL")]
     public decimal? TechnicalLossRate { get; set; }
 
     /// <summary>

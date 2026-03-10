@@ -44,6 +44,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     
+    public DbSet<StorageCharge>  StorageCharges { get; set; }
+    public DbSet<StorageDailyBalance>  StorageDailyBalances { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction

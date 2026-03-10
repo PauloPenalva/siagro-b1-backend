@@ -172,6 +172,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesUpdateService>();
         services.AddScoped<StorageAddressesListOpenedByItemService>();
         services.AddScoped<StorageAddressesGetBalanceService>();
+        services.AddScoped<StorageAddressesCalculationOrchestratorService>();
+        services.AddScoped<StorageAddressesDailyBalanceBuilderService>();
+        services.AddScoped<StorageAddressesStorageChargeCalculatorService>();
+        services.AddScoped<StorageAddressesTechnicalLossCalculatorService>();
+        services.AddScoped<StorageAddressesReprocessingService>();
 
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();

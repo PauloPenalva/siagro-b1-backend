@@ -36,7 +36,7 @@ public class StorageAddressesListOpenedByItemService(IUnitOfWork db)
                             ? t.NetWeight
                             : t.TransactionType == StorageTransactionType.Shipment ||
                               t.TransactionType == StorageTransactionType.SalesShipment ||
-                              t.TransactionType == StorageTransactionType.QualityLoss
+                              t.TransactionType == StorageTransactionType.TechnicalLoss
                                 ? -t.NetWeight
                                 : 0)
             })
