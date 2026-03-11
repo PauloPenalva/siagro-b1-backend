@@ -1,0 +1,30 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Infra;
+
+namespace SiagroB1.Application.Services.SalesInvoices;
+
+public class SalesInvoicesItemsGetService(IUnitOfWork db, ILogger<SalesInvoicesItemsGetService> logger)
+{
+    public async Task<SalesInvoiceItem?> GetByIdAsync(Guid key)
+    {
+        try
+        {
+            logger.LogInformation("Fetching entity with ID {Id}", key);
+            return await db.Context.SalesInvoicesItems
+                .FirstOrDefaultAsync(p => p.Key == key);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,"Error fetching entity with ID {Id}", key);
+            throw new DefaultException("Error fetching entity");
+        }
+    }
+
+    public IQueryable<SalesInvoiceItem> QueryAll()
+    {
+        return db.Context.SalesInvoicesItems.AsNoTracking();
+    }
+}

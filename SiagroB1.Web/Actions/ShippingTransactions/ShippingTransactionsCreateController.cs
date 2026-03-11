@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.ShippingTransactions;
+using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 

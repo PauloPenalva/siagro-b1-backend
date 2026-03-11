@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.WeighingTickets;
+using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
 

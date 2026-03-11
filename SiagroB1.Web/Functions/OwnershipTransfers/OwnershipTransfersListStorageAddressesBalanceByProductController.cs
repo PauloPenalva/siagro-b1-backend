@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.OwnershipTransfers;
+using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Domain.Dtos;
 
 namespace SiagroB1.Web.Functions.OwnershipTransfers;

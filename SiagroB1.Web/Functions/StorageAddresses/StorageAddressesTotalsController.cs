@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.StorageAddresses;
+using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
 

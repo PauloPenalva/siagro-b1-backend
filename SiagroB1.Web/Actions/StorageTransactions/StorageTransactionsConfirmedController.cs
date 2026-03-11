@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.StorageTransactions;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.StorageTransactions;

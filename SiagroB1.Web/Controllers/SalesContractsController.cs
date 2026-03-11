@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.SalesContracts;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 

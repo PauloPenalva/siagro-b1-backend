@@ -160,6 +160,10 @@ public static class ODataConfigurations
         storageAddressesReprocessing.Parameter<DateTime>("ToDate");
         storageAddressesReprocessing.Returns<IActionResult>();
         
+        var storageAddressesDailyCalculationJob = modelBuilder.Action("StorageAddressesDailyCalculationJob");
+        storageAddressesDailyCalculationJob.Parameter<string>("ProcessingDate");
+        storageAddressesDailyCalculationJob.Returns<IActionResult>();
+        
         var purchaseContractsGetAllocationsByContract = modelBuilder.Function("PurchaseContractsGetAllocationsByContract");
         purchaseContractsGetAllocationsByContract.Parameter<Guid>("PurchaseContractKey");
         purchaseContractsGetAllocationsByContract.Returns<ICollection<PurchaseContractAllocationsByContractDto>>();

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.ShipmentReleases;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Domain.Dtos;
 
 namespace SiagroB1.Web.Functions.ShipmentReleases;

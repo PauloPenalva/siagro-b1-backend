@@ -66,4 +66,22 @@
     <data name="EXCEPTION_00011" xml:space="preserve">
         <value />
     </data>
+    <data name="EXCEPTION_00012" xml:space="preserve">
+        <value />
+    </data>
+    <data name="EXCEPTION_00013" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MESSAGE_00001" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MESSAGE_00002" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MESSAGE_00003" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MESSAGE_00004" xml:space="preserve">
+        <value />
+    </data>
 </root>

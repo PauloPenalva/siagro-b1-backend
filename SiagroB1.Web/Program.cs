@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text.Json.Serialization;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.OData;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
@@ -111,6 +113,12 @@ switch (erp.ToUpper().Trim())
 
 builder.Services.AddApplicationServices();
 
+builder.Services.AddHangfire(config =>
+    config.UseSqlServerStorage(builder.Configuration.GetConnectionString("SiagroDB")));
+
+builder.Services.AddHangfireServer();
+
+
 modelBuilder.ConfigureODataEntities();
 
 builder.Services.AddControllers().AddOData(options =>
@@ -129,6 +137,8 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseRequestLocalization(localizationOptions);
+
+app.UseHangfireDashboard("/hangfire");
 
 app.UseODataBatching();
 app.UseRouting();
@@ -158,5 +168,10 @@ app.UseRouting()
         .MapControllers()
         .WithOpenApi()
     );
+
+RecurringJob.AddOrUpdate<IStorageAddressesDailyCalculationJob>(
+    "storage-daily-calculation-job",
+    job => job.ExecuteAsync(null, CancellationToken.None),
+    "0 1 * * *");
 
 await app.RunAsync();

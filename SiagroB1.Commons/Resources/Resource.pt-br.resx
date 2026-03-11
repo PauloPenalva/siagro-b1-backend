@@ -69,4 +69,22 @@
     <data name="EXCEPTION_00011" xml:space="preserve">
         <value>O saldo do lote é insuficiente para realizar o estorno da operação.</value>
     </data>
+    <data name="EXCEPTION_00012" xml:space="preserve">
+        <value>Não informada a chave de sequencia numerica do contrato de compra.</value>
+    </data>
+    <data name="EXCEPTION_00013" xml:space="preserve">
+        <value>Só é possivel excluir o contrato de compra se o stauts for 'rascunho'.</value>
+    </data>
+    <data name="MESSAGE_00001" xml:space="preserve">
+        <value>Iniciando job de cálculo diário da armazenagem. Data de processamento: {ProcessingDate}</value>
+    </data>
+    <data name="MESSAGE_00002" xml:space="preserve">
+        <value>Job de cálculo diário da armazenagem finalizado com sucesso. Data de processamento: {ProcessingDate}</value>
+    </data>
+    <data name="MESSAGE_00003" xml:space="preserve">
+        <value>Erro ao executar job de cálculo diário da armazenagem. Data de processamento: {ProcessingDate}</value>
+    </data>
+    <data name="MESSAGE_00004" xml:space="preserve">
+        <value>Job executado com sucesso.</value>
+    </data>
 </root>

@@ -1,17 +1,18 @@
-﻿using SiagroB1.Application.Companies;
-using SiagroB1.Application.DocNumbers;
-using SiagroB1.Application.OwnershipTransfers;
-using SiagroB1.Application.PurchaseContracts;
-using SiagroB1.Application.SalesContracts;
-using SiagroB1.Application.SalesInvoices;
+﻿using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
-using SiagroB1.Application.ShipmentBilling;
-using SiagroB1.Application.ShipmentReleases;
-using SiagroB1.Application.ShippingOrders;
-using SiagroB1.Application.ShippingTransactions;
-using SiagroB1.Application.StorageAddresses;
-using SiagroB1.Application.StorageTransactions;
-using SiagroB1.Application.WeighingTickets;
+using SiagroB1.Application.Services.Companies;
+using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.OwnershipTransfers;
+using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.ShipmentBilling;
+using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.ShippingOrders;
+using SiagroB1.Application.Services.ShippingTransactions;
+using SiagroB1.Application.Services.StorageAddresses;
+using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.SAP;
 
@@ -177,6 +178,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesStorageChargeCalculatorService>();
         services.AddScoped<StorageAddressesTechnicalLossCalculatorService>();
         services.AddScoped<StorageAddressesReprocessingService>();
+        services.AddScoped<IStorageAddressesDailyCalculationJob, StorageAddressesAddressesDailyCalculationJob>();
 
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();

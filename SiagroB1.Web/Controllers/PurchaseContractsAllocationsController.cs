@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Web.Controllers;
