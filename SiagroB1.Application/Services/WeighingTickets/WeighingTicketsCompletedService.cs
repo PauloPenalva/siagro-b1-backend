@@ -7,12 +7,15 @@ using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.WeighingTickets;
 
 public class WeighingTicketsCompletedService(
     IUnitOfWork db,
+    IBusinessPartnerService  businessPartnerService,
+    IItemService itemService,
     StorageTransactionsCreateService storageTransactionsCreateService,
     StorageAddressesGetService  storageAddressesGetService,
     IStringLocalizer<Resource> resource,
@@ -43,6 +46,8 @@ public class WeighingTicketsCompletedService(
             
             existingTicket.Status = WeighingTicketStatus.Complete;
             existingTicket.Stage = WeighingTicketStage.Completed;
+            existingTicket.CardName = (await businessPartnerService.GetByIdAsync(existingTicket.CardCode))?.CardName;
+            existingTicket.ItemName = (await itemService.GetByIdAsync(existingTicket.ItemCode))?.ItemName;
             
             await db.SaveChangesAsync();
             
@@ -61,7 +66,9 @@ public class WeighingTicketsCompletedService(
                 TruckDriverCode = existingTicket.TruckDriverCode,
                 WeighingTicketKey = existingTicket.Key,
                 CardCode = existingTicket.CardCode,
+                CardName = existingTicket.CardName,
                 ItemCode = existingTicket.ItemCode,
+                ItemName = existingTicket.ItemName,
                 UnitOfMeasureCode = "KG",
                 NetWeight = existingTicket.GrossWeight,
                 WarehouseCode = storageAddress.WarehouseCode,

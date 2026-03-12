@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="03/12/2026 10:00:00" ReportInfo.Modified="03/12/2026 15:34:05" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Ticket" ReferenceName="Ticket" DataType="System.Int32" Enabled="true">
+      <Column Name="CompanyName" DataType="System.String"/>
+      <Column Name="Title" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="Date" DataType="System.DateTime"/>
+      <Column Name="Type" DataType="System.String"/>
+      <Column Name="Status" DataType="System.String"/>
+      <Column Name="Stage" DataType="System.String"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="CardCode" DataType="System.String"/>
+      <Column Name="CardName" DataType="System.String"/>
+      <Column Name="TruckCode" DataType="System.String"/>
+      <Column Name="TruckPlate" DataType="System.String"/>
+      <Column Name="TruckDriverCode" DataType="System.String"/>
+      <Column Name="TruckDriverName" DataType="System.String"/>
+      <Column Name="FirstWeighValue" DataType="System.Int32"/>
+      <Column Name="FirstWeighDateTime" DataType="System.DateTimeOffset"/>
+      <Column Name="SecondWeighValue" DataType="System.Int32"/>
+      <Column Name="SecondWeighDateTime" DataType="System.DateTimeOffset"/>
+      <Column Name="GrossWeight" DataType="System.Int32"/>
+      <Column Name="StorageAddressCode" DataType="System.String"/>
+      <Column Name="ProcessingCostCode" DataType="System.String"/>
+      <Column Name="Comments" DataType="System.String"/>
+      <Column Name="FirstWeighUsername" DataType="System.String"/>
+      <Column Name="SecondWeighUsername" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="QualityInspections" ReferenceName="QualityInspections" DataType="System.Int32" Enabled="true">
+      <Column Name="QualityAttribCode" DataType="System.String"/>
+      <Column Name="QualityAttribName" DataType="System.String"/>
+      <Column Name="Value" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="80" LeftMargin="2" TopMargin="2" RightMargin="2" BottomMargin="2" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitle1" Width="287.28" Height="69.93" Guides="66.15,66.15,75.6,75.6,66.15,75.6,75.6">
+      <TextObject Name="Text1" Width="287.28" Height="15.12" Text="[Ticket.CompanyName]" HorzAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="Text2" Top="17.01" Width="287.28" Height="15.12" Text="[Ticket.Title]" HorzAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text3" Top="36.85" Width="287.28" Height="11.34" Text="Ticket: [Ticket.Code]" Font="Arial, 8pt"/>
+      <TextObject Name="Text27" Top="54.81" Width="287.28" Height="11.34" Text="Data: [Ticket.Date]" Format="Date" Format.Format="d" Font="Arial, 8pt"/>
+    </ReportTitleBand>
+    <DataBand Name="Data1" Top="72.22" Width="287.28" Height="192.95" Guides="0">
+      <TextObject Name="Text8" Top="23.65" Width="287.28" Height="11.34" Text="Produto: [Ticket.ItemCode] [Ticket.ItemName]" Font="Arial, 8pt"/>
+      <TextObject Name="Text9" Top="35.89" Width="287.28" Height="11.34" Text="Cliente: [Ticket.CardCode] [Ticket.CardName]" Font="Arial, 8pt"/>
+      <TextObject Name="Text10" Top="51.02" Width="287.28" Height="11.34" Text="Veiculo: [Ticket.TruckCode]" Font="Arial, 8pt"/>
+      <TextObject Name="Text11" Top="63.26" Width="287.28" Height="13.23" Text="Motorista: [Ticket.TruckDriverCode] [Ticket.TruckDriverName]" Font="Arial, 8pt"/>
+      <TextObject Name="Text12" Top="87.94" Width="287.28" Height="11.34" Text="1ª Pesagem: [Ticket.FirstWeighValue] KG" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" Font="Arial, 8pt"/>
+      <TextObject Name="Text13" Top="100.18" Width="287.28" Height="11.34" Text="Data/Hora: [Ticket.FirstWeighDateTime] [Ticket.FirstWeighUsername]" Format="Custom" Format.Format="dd/MM/yyyy HH:mm" Font="Arial, 8pt"/>
+      <TextObject Name="Text14" Top="124.76" Width="287.28" Height="11.34" Text="2ª Pesagem: [Ticket.SecondWeighValue] KG" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" Font="Arial, 8pt"/>
+      <TextObject Name="Text15" Top="137" Width="287.28" Height="11.34" Text="Data/Hora: [Ticket.SecondWeighDateTime] [Ticket.SecondWeighUsername]" Format="Custom" Format.Format="dd/MM/yyyy HH:mm" Font="Arial, 8pt"/>
+      <TextObject Name="Text16" Top="161.58" Width="287.28" Height="15.12" Text="PESO BRUTO: [Ticket.GrossWeight] KG" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="LineA" Top="11.34" Width="287.28" Height="11.34" Text="----------------------------------------" HorzAlign="Center" Font="Courier New, 8pt"/>
+      <TextObject Name="Text5" Width="287.28" Height="11.34" Text="Tipo: [Ticket.Type]" Font="Arial, 8pt"/>
+    </DataBand>
+    <GroupHeaderBand Name="GroupHeader1" Top="267.45" Width="287.28" Height="18.9">
+      <TextObject Name="Text19" Width="287.28" Height="18.9" Text="QUALIDADE" HorzAlign="Center" Font="Arial, 9pt, style=Bold"/>
+    </GroupHeaderBand>
+    <DataBand Name="Data2" Top="288.64" Width="287.28" Height="15.12" DataSource="QualityInspections">
+      <TextObject Name="Text20" Width="210" Height="15.12" Text="[QualityInspections.QualityAttribCode] - [QualityInspections.QualityAttribName]" Font="Arial, 8pt"/>
+      <TextObject Name="Text21" Left="212" Width="75.28" Height="15.12" Text="[QualityInspections.Value]" HorzAlign="Right" Font="Arial, 8pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="306.04" Width="287.28" Height="109.62">
+      <TextObject Name="LineB" Width="287.28" Height="11.34" Text="----------------------------------------" HorzAlign="Center" Font="Courier New, 8pt"/>
+      <TextObject Name="Text22" Top="13.23" Width="287.28" Height="11.34" Text="Observações:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text23" Top="25.47" Width="287.28" Height="26.46" CanGrow="true" Text="[Ticket.Comments]" Font="Arial, 8pt"/>
+      <TextObject Name="Text24" Top="56.7" Width="287.28" Height="11.34" Text="____________________________________" HorzAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="Text25" Top="69.93" Width="287.28" Height="11.34" Text="Assinatura" HorzAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="Text26" Top="94.5" Width="287.28" Height="15.12" Text="Impresso em: [Date]" HorzAlign="Center" Font="Arial, 7pt"/>
+    </ReportSummaryBand>
+  </ReportPage>
+</Report>

@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312152221_AlterTableWeighingTicketsAddColumnItemName")]
+    partial class AlterTableWeighingTicketsAddColumnItemName
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1921,11 +1924,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("FirstWeighDateTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("FirstWeighUsername")
-                        .HasColumnType("VARCHAR(200)");
+                    b.Property<DateTimeOffset?>("FirstWeighDateTime")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int>("FirstWeighValue")
                         .HasColumnType("int");
@@ -1947,11 +1947,8 @@ namespace SiagroB1.Migrations.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
-                    b.Property<DateTime?>("SecondWeighDateTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("SecondWeighUsername")
-                        .HasColumnType("VARCHAR(200)");
+                    b.Property<DateTimeOffset?>("SecondWeighDateTime")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<int>("SecondWeighValue")
                         .HasColumnType("int");

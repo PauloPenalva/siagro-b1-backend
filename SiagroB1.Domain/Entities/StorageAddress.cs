@@ -68,6 +68,7 @@ public class StorageAddress : MasterEntity
         .Where(x => x.TransactionType is StorageTransactionType.TechnicalLoss && 
                     x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced)
         .Sum(x => x.NetWeight);
-    
-    public decimal Balance => TotalReceipt - (TotalShipment + TotalQualityLoss);
+
+    public decimal Balance => decimal.Round(
+        TotalReceipt - (TotalShipment + TotalQualityLoss), MidpointRounding.ToEven);
 }

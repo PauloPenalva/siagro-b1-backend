@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312154507_AlterTableWeighTicketAlterColumnDateTime")]
+    partial class AlterTableWeighTicketAlterColumnDateTime
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1924,9 +1927,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<DateTime?>("FirstWeighDateTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FirstWeighUsername")
-                        .HasColumnType("VARCHAR(200)");
-
                     b.Property<int>("FirstWeighValue")
                         .HasColumnType("int");
 
@@ -1949,9 +1949,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<DateTime?>("SecondWeighDateTime")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("SecondWeighUsername")
-                        .HasColumnType("VARCHAR(200)");
 
                     b.Property<int>("SecondWeighValue")
                         .HasColumnType("int");

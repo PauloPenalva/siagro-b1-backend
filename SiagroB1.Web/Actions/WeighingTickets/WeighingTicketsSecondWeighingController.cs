@@ -17,14 +17,17 @@ public class WeighingTicketsSecondWeighingController(
         try
         {
             if (!parameters.TryGetValue("Key", out var keyObj) ||
-                !parameters.TryGetValue("Value",  out var valueObj))
+                !parameters.TryGetValue("Value",  out var valueObj) ||
+                !parameters.TryGetValue("Comments", out var commentsObj))
             {
                 return BadRequest("Missing required parameters");
             }
             var key = Guid.Parse(keyObj.ToString());
             var value = int.Parse(valueObj.ToString());
+            var comments = commentsObj.ToString();
+            var userName = User.Identity?.Name ?? "Unknown";
             
-            await service.ExecuteAsync(key, value);
+            await service.ExecuteAsync(key, value, comments, userName);
             return Ok();
         }
         catch (Exception e)

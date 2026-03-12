@@ -10,6 +10,8 @@ public class StorageDailyBalanceResponse
     
     public decimal? Saidas { get; set; }
     
+    public decimal? Base { get; set; }
+    
     public decimal? QuebraTecnica { get; set; }
     
     public decimal? Saldo { get; set; }

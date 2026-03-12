@@ -87,4 +87,6 @@ public class FastReportService(
 
         return stream.ToArray();
     }
+    
+    
 }

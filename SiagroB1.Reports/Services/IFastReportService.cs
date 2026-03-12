@@ -12,4 +12,6 @@ public interface IFastReportService
         string dataSourceName,
         string refName,
         Dictionary<string, object> parameters);
+    
+    
 }

@@ -12,13 +12,14 @@
                  C.PeriodEnd
          )
 SELECT
-    B.BalanceDate                              AS [Data],
-    B.OpeningBalance                           AS [SaldoAnterior],
-    B.ReceiptQty                               AS [Entradas],
-    B.ShipmentQty                              AS [Saidas],
-    B.TechnicalLossQty                         AS [QuebraTecnica],
-    B.ClosingBalance                           AS [Saldo],
-    ISNULL(S.StorageCost, 0)                   AS [CustoArmazenagem]
+    B.BalanceDate                                   AS [Data],
+    B.OpeningBalance                                AS [SaldoAnterior],
+    B.ReceiptQty                                    AS [Entradas],
+    B.ShipmentQty                                   AS [Saidas],
+    B.OpeningBalance + B.ReceiptQty - B.ShipmentQty AS [Base],
+    B.TechnicalLossQty                              AS [QuebraTecnica],
+    B.ClosingBalance                                AS [Saldo],
+    ISNULL(S.StorageCost, 0)                        AS [CustoArmazenagem]
 FROM STORAGE_DAILY_BALANCES B
          LEFT JOIN ChargeSummary S
                    ON S.StorageAddressCode = B.StorageAddressCode

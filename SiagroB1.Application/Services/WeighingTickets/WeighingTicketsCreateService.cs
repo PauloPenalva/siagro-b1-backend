@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 
@@ -10,6 +11,8 @@ namespace SiagroB1.Application.Services.WeighingTickets;
 
 public class WeighingTicketsCreateService(
     IUnitOfWork db, 
+    IBusinessPartnerService  businessPartnerService,
+    IItemService itemService,
     DocNumberSequenceService numberSequenceService,
     ILogger<WeighingTicketsCreateService> logger)
 {
@@ -29,6 +32,8 @@ public class WeighingTicketsCreateService(
             entity.Stage = WeighingTicketStage.ReadyForFirstWeighing;
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = userName;
+            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             
             var qualityAttribs = await GetQualityAttribs();
             

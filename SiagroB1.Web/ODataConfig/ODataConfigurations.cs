@@ -264,11 +264,13 @@ public static class ODataConfigurations
         var weighingTicketsFirstWeighing = modelBuilder.Action("WeighingTicketsFirstWeighing");
         weighingTicketsFirstWeighing.Parameter<Guid>("Key");
         weighingTicketsFirstWeighing.Parameter<int>("Value");
+        weighingTicketsFirstWeighing.Parameter<string>("Comments");
         weighingTicketsFirstWeighing.Returns<IActionResult>();
         
         var weighingTicketsSecondWeighing = modelBuilder.Action("WeighingTicketsSecondWeighing");
         weighingTicketsSecondWeighing.Parameter<Guid>("Key");
         weighingTicketsSecondWeighing.Parameter<int>("Value");
+        weighingTicketsSecondWeighing.Parameter<string>("Comments");
         weighingTicketsSecondWeighing.Returns<IActionResult>();
 
         var weighingTicketsCompleted = modelBuilder.Action("WeighingTicketsCompleted");

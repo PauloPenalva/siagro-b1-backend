@@ -23,9 +23,15 @@ public class WeighingTicket : DocumentEntity
     [MaxLength(50)]
     public required string ItemCode { get; set; }
     
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? ItemName { get; set; }
+    
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
     [MaxLength(15)]
     public required string CardCode { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardName { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("Truck")]
@@ -39,12 +45,20 @@ public class WeighingTicket : DocumentEntity
     
     public int FirstWeighValue { get; set; } = 0;
 
-    public DateTimeOffset? FirstWeighDateTime { get; set; }
-
+    [Column(TypeName = "datetime2")]
+    public DateTime? FirstWeighDateTime { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? FirstWeighUsername { get; set; }
+    
     public int SecondWeighValue { get; set; } = 0;
 
-    public DateTimeOffset? SecondWeighDateTime { get; set; }
-
+    [Column(TypeName = "datetime2")]
+    public DateTime? SecondWeighDateTime { get; set; }
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? SecondWeighUsername { get; set; }
+    
     [NotMapped]
     public int GrossWeight
     {

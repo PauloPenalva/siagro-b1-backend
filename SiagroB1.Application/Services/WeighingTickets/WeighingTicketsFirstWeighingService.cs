@@ -7,12 +7,10 @@ namespace SiagroB1.Application.Services.WeighingTickets;
 
 public class WeighingTicketsFirstWeighingService(IUnitOfWork db)
 {
-    public async Task ExecuteAsync(Guid key, int weigh)
+    public async Task ExecuteAsync(Guid key, int weigh, string comments, string username)
     {
         if (weigh <= 0)
-        {
             throw new ApplicationException("Quantidade deve ser maior que zero.");
-        }
         
         var ticket = await db.Context.WeighingTickets
             .Where(x => x.Stage == WeighingTicketStage.ReadyForFirstWeighing)
@@ -20,17 +18,17 @@ public class WeighingTicketsFirstWeighingService(IUnitOfWork db)
                      throw new NotFoundException("Weighing ticket not found.");
 
         if (ticket.Stage != WeighingTicketStage.ReadyForFirstWeighing)
-        {
             throw new ApplicationException("Ticket stage inválido.");
-        }
-
-        ticket.Status = WeighingTicketStatus.Processing;
-        ticket.FirstWeighValue = weigh;
-        ticket.FirstWeighDateTime = DateTimeOffset.Now;
-        ticket.Stage = WeighingTicketStage.ReadyForSecondWeighing;
-
+        
         try
         {
+            ticket.Status = WeighingTicketStatus.Processing;
+            ticket.FirstWeighValue = weigh;
+            ticket.FirstWeighDateTime = DateTime.Now;
+            ticket.Stage = WeighingTicketStage.ReadyForSecondWeighing;
+            ticket.Comments = comments;
+            ticket.FirstWeighUsername =  username;
+            
             await db.SaveChangesAsync();
         }
         catch (Exception e)
