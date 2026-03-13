@@ -84,4 +84,19 @@
     <data name="MESSAGE_00004" xml:space="preserve">
         <value />
     </data>
+    <data name="INVALID_PERIOD" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_ADDRESS_NOT_FOUND" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_EXISTS" xml:space="preserve">
+        <value />
+    </data>
+    <data name="NO_ITEMS_TO_INVOICE" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_DOC_NUMBER_KEY_NOT_INFORMED" xml:space="preserve">
+        <value />
+    </data>
 </root>

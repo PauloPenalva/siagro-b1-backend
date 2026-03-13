@@ -6,10 +6,10 @@ using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Application.Jobs;
 
-public class StorageAddressesAddressesDailyCalculationJob(
+public class StorageAddressesDailyCalculationJob(
     StorageAddressesCalculationOrchestratorService orchestrator,
     IStringLocalizer<Resource> resource,
-    ILogger<StorageAddressesAddressesDailyCalculationJob> logger)
+    ILogger<StorageAddressesDailyCalculationJob> logger)
     : IStorageAddressesDailyCalculationJob
 {
     public async Task ExecuteAsync(DateTime? processingDate = null, CancellationToken ct = default)

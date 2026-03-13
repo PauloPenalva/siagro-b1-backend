@@ -49,4 +49,6 @@ public class StorageCharge
     public string? Notes { get; set; }
 
     public bool IsInvoiced { get; set; }
+    
+    public Guid? StorageInvoiceKey { get; set; }
 }

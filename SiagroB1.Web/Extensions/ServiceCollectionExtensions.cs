@@ -11,6 +11,7 @@ using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
+using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
@@ -178,7 +179,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesStorageChargeCalculatorService>();
         services.AddScoped<StorageAddressesTechnicalLossCalculatorService>();
         services.AddScoped<StorageAddressesReprocessingService>();
-        services.AddScoped<IStorageAddressesDailyCalculationJob, StorageAddressesAddressesDailyCalculationJob>();
+        services.AddScoped<IStorageAddressesDailyCalculationJob, StorageAddressesDailyCalculationJob>();
 
         // storage transactions
         services.AddScoped<StorageTransactionsCancelService>();
@@ -216,6 +217,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersConfirmService>();
         services.AddScoped<OwnershipTransfersCancelService>();
         services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
+
+        //storage invoices
+        services.AddScoped<IStorageInvoiceClosingService,StorageInvoiceClosingService>();
+        services.AddScoped<IStorageInvoiceCancellationService,StorageInvoiceCancellationService>();
         
         return services;
     }

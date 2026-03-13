@@ -1,4 +1,4 @@
-namespace SiagroB1.Domain.Shared.Base.Exceptions;
+namespace SiagroB1.Domain.Exceptions;
 
 public class DefaultException(string message) : Exception(message)
 {

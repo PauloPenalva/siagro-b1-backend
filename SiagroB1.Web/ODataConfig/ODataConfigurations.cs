@@ -294,6 +294,20 @@ public static class ODataConfigurations
         ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("ItemCode");
         ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("IgnoreCode");
         ownershipTransfersListStorageAddressesBalanceByProduct.Returns<IActionResult>();
+
+        var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
+        storageInvoiceClosing.Parameter<Guid>("DocNumberKey");
+        storageInvoiceClosing.Parameter<string>("StorageAddressCode");
+        storageInvoiceClosing.Parameter<DateTime>("PeriodStart");
+        storageInvoiceClosing.Parameter<DateTime>("PeriodEnd");
+        storageInvoiceClosing.Parameter<string>("Notes");
+        storageInvoiceClosing.Parameter<bool>("IncludeUnpricedItems");
+        storageInvoiceClosing.Returns<IActionResult>();
+        
+        var storageInvoiceCancellation = modelBuilder.Action("StorageInvoiceCancellation");
+        storageInvoiceCancellation.Parameter<Guid>("StorageInvoiceKey");
+        storageInvoiceCancellation.Parameter<string>("Reason");
+        storageInvoiceCancellation.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")

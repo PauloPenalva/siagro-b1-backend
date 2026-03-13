@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 

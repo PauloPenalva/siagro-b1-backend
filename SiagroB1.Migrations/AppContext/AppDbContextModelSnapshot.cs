@@ -1521,6 +1521,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
+                    b.Property<Guid?>("StorageInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("TonDays")
                         .HasColumnType("DECIMAL(18,6) NOT NULL");
 
@@ -1578,6 +1581,150 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.ToTable("STORAGE_DAILY_BALANCES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoice", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<DateTime>("ClosingDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StorageAddressCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("DECIMAL(18,2) NOT NULL");
+
+                    b.Property<decimal>("TotalQuantityLoss")
+                        .HasColumnType("DECIMAL(18,3) NOT NULL");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("StorageAddressCode", "PeriodStart", "PeriodEnd")
+                        .IsUnique()
+                        .HasFilter("[Status] <> 3");
+
+                    b.ToTable("STORAGE_INVOICES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoiceItem", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200) NOT NULL");
+
+                    b.Property<int>("ItemType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(18,3) NOT NULL");
+
+                    b.Property<DateTime>("ReferenceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SourceCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid?>("SourceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceType")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid>("StorageInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("DECIMAL(18,2) NOT NULL");
+
+                    b.Property<decimal>("TotalQuantityLoss")
+                        .HasColumnType("DECIMAL(18,3) NOT NULL");
+
+                    b.Property<decimal>("UnitPriceOrRate")
+                        .HasColumnType("DECIMAL(18,8) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("StorageInvoiceKey");
+
+                    b.ToTable("STORAGE_INVOICE_ITEMS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
@@ -1653,6 +1800,12 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("InvoiceSerie")
                         .HasColumnType("VARCHAR(3)");
 
+                    b.Property<DateTime?>("InvoicedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsInvoiced")
+                        .HasColumnType("bit");
+
                     b.Property<string>("IsOwnershipTransfer")
                         .HasColumnType("VARCHAR(1) DEFAULT 'N'");
 
@@ -1698,6 +1851,9 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("StorageAddressCode")
                         .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid?>("StorageInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("TransactionDate")
                         .HasColumnType("datetime2");
@@ -2404,6 +2560,34 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("ProcessingCost");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoice", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                        .WithMany()
+                        .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("DocNumber");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoiceItem", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StorageInvoice", "StorageInvoice")
+                        .WithMany("Items")
+                        .HasForeignKey("StorageInvoiceKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("StorageInvoice");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -2572,6 +2756,11 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
                 {
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoice", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

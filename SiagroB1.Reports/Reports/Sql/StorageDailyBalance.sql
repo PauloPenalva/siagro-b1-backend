@@ -2,17 +2,18 @@
          (
              SELECT
                  C.StorageAddressCode,
-                 C.PeriodEnd AS BalanceDate,
+                 CAST(C.PeriodEnd AS date) AS BalanceDate,
                  SUM(CASE WHEN C.ChargeType = 1 THEN C.TotalAmount ELSE 0 END) AS StorageCost
              FROM STORAGE_CHARGES C
              WHERE C.StorageAddressCode = @StorageAddressCode
-               AND C.PeriodEnd BETWEEN @DateFrom AND @DateTo
+               AND C.PeriodEnd >= CAST(@DateFrom AS date)
+               AND C.PeriodEnd < DATEADD(day, 1, CAST(@DateTo AS date))
              GROUP BY
                  C.StorageAddressCode,
-                 C.PeriodEnd
+                 CAST(C.PeriodEnd AS date)
          )
 SELECT
-    B.BalanceDate                                   AS [Data],
+    CAST(B.BalanceDate AS date)                     AS [Data],
     B.OpeningBalance                                AS [SaldoAnterior],
     B.ReceiptQty                                    AS [Entradas],
     B.ShipmentQty                                   AS [Saidas],
@@ -23,7 +24,8 @@ SELECT
 FROM STORAGE_DAILY_BALANCES B
          LEFT JOIN ChargeSummary S
                    ON S.StorageAddressCode = B.StorageAddressCode
-                       AND S.BalanceDate = B.BalanceDate
+                       AND S.BalanceDate = CAST(B.BalanceDate AS date)
 WHERE B.StorageAddressCode = @StorageAddressCode
-  AND B.BalanceDate BETWEEN @DateFrom AND @DateTo
+  AND B.BalanceDate >= CAST(@DateFrom AS date)
+  AND B.BalanceDate < DATEADD(day, 1, CAST(@DateTo AS date))
 ORDER BY B.BalanceDate;

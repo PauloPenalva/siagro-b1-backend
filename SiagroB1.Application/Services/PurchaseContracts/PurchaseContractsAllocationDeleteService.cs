@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;

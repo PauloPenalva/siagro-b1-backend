@@ -1,7 +1,7 @@
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
 

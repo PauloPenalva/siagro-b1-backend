@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Infra.Context;
 
@@ -44,8 +45,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     
-    public DbSet<StorageCharge>  StorageCharges { get; set; }
-    public DbSet<StorageDailyBalance>  StorageDailyBalances { get; set; }
+    public DbSet<StorageCharge> StorageCharges { get; set; }
+    
+    public DbSet<StorageDailyBalance> StorageDailyBalances { get; set; }
+    
+    public DbSet<StorageInvoice> StorageInvoices { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,6 +59,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
+        
+        modelBuilder.Entity<StorageInvoice>()
+            .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
+            .IsUnique()
+            .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
     }
 }
     

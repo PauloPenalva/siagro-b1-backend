@@ -117,4 +117,10 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "VARCHAR(1) DEFAULT 'N'")]
     public string? IsOwnershipTransfer { get; set; }
+    
+    public bool IsInvoiced { get; set; }
+
+    public Guid? StorageInvoiceKey { get; set; }
+
+    public DateTime? InvoicedAt { get; set; }
 }

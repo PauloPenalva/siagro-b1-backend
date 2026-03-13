@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Shared.Base.Exceptions;
+using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 

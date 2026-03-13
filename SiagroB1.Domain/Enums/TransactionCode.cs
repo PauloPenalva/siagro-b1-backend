@@ -11,4 +11,5 @@ public enum TransactionCode
     SalesContract = 7,
     SalesInvoice = 8,
     OwnershipTransfer = 9,
+    StorageInvoice = 10,
 }

@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
-using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Web.Base;
 
 namespace SiagroB1.Web.Controllers;

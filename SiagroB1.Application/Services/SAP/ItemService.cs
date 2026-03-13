@@ -2,9 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.SAP;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces.SAP;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SAP;
