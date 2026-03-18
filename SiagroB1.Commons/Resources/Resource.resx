@@ -99,4 +99,19 @@
     <data name="STORAGE_INVOICE_DOC_NUMBER_KEY_NOT_INFORMED" xml:space="preserve">
         <value />
     </data>
+    <data name="STORAGE_INVOICE_CANCELLATION_REASON_REQUIRED" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_NOT_FOUND" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_CANCELLED" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_OPENED" xml:space="preserve">
+        <value />
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_CLOSED" xml:space="preserve">
+        <value />
+    </data>
 </root>

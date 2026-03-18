@@ -27,7 +27,7 @@ public class StorageInvoice : DocumentEntity
 
     public DateTime ClosingDate { get; set; } = DateTime.Now;
 
-    public StorageInvoiceStatus Status { get; set; } = StorageInvoiceStatus.Closed;
+    public StorageInvoiceStatus Status { get; set; } = StorageInvoiceStatus.Open;
 
     [Column(TypeName = "DECIMAL(18,2) NOT NULL")]
     public decimal TotalAmount { get; set; }

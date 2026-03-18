@@ -102,4 +102,19 @@
     <data name="STORAGE_INVOICE_DOC_NUMBER_KEY_NOT_INFORMED" xml:space="preserve">
         <value>Sequencia numerica para faturamento de serviços não informada.</value>
     </data>
+    <data name="STORAGE_INVOICE_CANCELLATION_REASON_REQUIRED" xml:space="preserve">
+        <value>Informe o motivo do cancelamento da fatura de serviços.</value>
+    </data>
+    <data name="STORAGE_INVOICE_NOT_FOUND" xml:space="preserve">
+        <value>Fatura de serviços não encontrada.</value>
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_CANCELLED" xml:space="preserve">
+        <value>Fatura de serviços já esta cancelada.</value>
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_OPENED" xml:space="preserve">
+        <value>Fatura de serviços já esta em aberto.</value>
+    </data>
+    <data name="STORAGE_INVOICE_ALREADY_CLOSED" xml:space="preserve">
+        <value>Fatura de serviços já esta encerrada.</value>
+    </data>
 </root>

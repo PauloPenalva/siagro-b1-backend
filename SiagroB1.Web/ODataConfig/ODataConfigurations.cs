@@ -70,6 +70,7 @@ public static class ODataConfigurations
             .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
         modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
+        modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
 
         modelBuilder.EntityType<Address>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
 
@@ -300,7 +301,8 @@ public static class ODataConfigurations
         storageInvoiceClosing.Parameter<string>("StorageAddressCode");
         storageInvoiceClosing.Parameter<DateTime>("PeriodStart");
         storageInvoiceClosing.Parameter<DateTime>("PeriodEnd");
-        storageInvoiceClosing.Parameter<string>("Notes");
+        storageInvoiceClosing.Parameter<DateTime>("ClosingDate");
+        storageInvoiceClosing.Parameter<string?>("Notes");
         storageInvoiceClosing.Parameter<bool>("IncludeUnpricedItems");
         storageInvoiceClosing.Returns<IActionResult>();
         
@@ -308,6 +310,14 @@ public static class ODataConfigurations
         storageInvoiceCancellation.Parameter<Guid>("StorageInvoiceKey");
         storageInvoiceCancellation.Parameter<string>("Reason");
         storageInvoiceCancellation.Returns<IActionResult>();
+        
+        var storageInvoiceClose = modelBuilder.Action("StorageInvoiceClose");
+        storageInvoiceClose.Parameter<Guid>("Key");
+        storageInvoiceClose.Returns<IActionResult>();
+        
+        var storageInvoiceOpen = modelBuilder.Action("StorageInvoiceOpen");
+        storageInvoiceOpen.Parameter<Guid>("Key");
+        storageInvoiceOpen.Returns<IActionResult>();
         
         modelBuilder
             .Action("PurchaseContractsTotals")
@@ -325,13 +335,6 @@ public static class ODataConfigurations
         modelBuilder
             .Action("PurchaseContractsCopy")
             .Parameter<Guid>("key");
-
-
-       
-        
-        
-        
-        
         
         var shippingOrders  = modelBuilder.EntitySet<ShippingOrder>("ShippingOrders");
         shippingOrders.EntityType

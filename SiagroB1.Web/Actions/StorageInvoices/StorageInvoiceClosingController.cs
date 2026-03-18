@@ -24,7 +24,8 @@ public class StorageInvoiceClosingController(
                 !parameters.TryGetValue("PeriodStart", out var periodStartObj) ||
                 !parameters.TryGetValue("PeriodEnd", out var periodEndObj) ||
                 !parameters.TryGetValue("Notes", out var notesObj) ||
-                !parameters.TryGetValue("IncludeUnpricedItems", out var includeUnpricedItemsObj))
+                !parameters.TryGetValue("IncludeUnpricedItems", out var includeUnpricedItemsObj) ||
+                !parameters.TryGetValue("ClosingDate", out var closingDateObj))
             {
                 return BadRequest("Missing required parameters");
             }
@@ -33,21 +34,26 @@ public class StorageInvoiceClosingController(
             var storageAddressCode =  storageAddressCodeObj.ToString();
             var periodStart =  DateTime.Parse(periodStartObj.ToString());
             var periodEnd =  DateTime.Parse(periodEndObj.ToString());
-            var notes =  notesObj.ToString();
+            var closingDate =  DateTime.Parse(closingDateObj.ToString());
+            var notes = notesObj?.ToString() ?? string.Empty;
             var includeUnpricedItems =  Boolean.Parse(includeUnpricedItemsObj.ToString());
             var userName = User.Identity?.Name ?? "Unknown";
 
-            await service.CloseAsync(new StorageInvoiceCloseRequest
+            var invoice = await service.CloseAsync(new StorageInvoiceCloseRequest
             {
                 DocNumberKey = docNumberKey,
                 StorageAddressCode = storageAddressCode,
                 PeriodStart = periodStart,
                 PeriodEnd = periodEnd,
+                ClosingDate = closingDate,
                 Notes = notes,
                 IncludeUnpricedItems = includeUnpricedItems
             }, userName);
             
-            return Ok();
+            return Ok(new StorageInvoiceCloseResponse
+            {
+                Key = invoice.Key,
+            });
         }
         catch (Exception e)
         {
