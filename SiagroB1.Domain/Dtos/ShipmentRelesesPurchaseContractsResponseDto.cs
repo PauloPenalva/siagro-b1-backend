@@ -2,8 +2,20 @@
 
 namespace SiagroB1.Domain.Dtos;
 
-public class ShipmentRelesesBalanceResponseDto
+public class ShipmentRelesesPurchaseContractsResponseDto
 {
+    [JsonPropertyName("ShipmentReleaseKey")]
+    public required string ShipmentReleaseKey { get; set; }
+    
+    [JsonPropertyName("BranchShortName")]
+    public required string BranchShortName { get; set; }
+
+    [JsonPropertyName("PurchaseContractCode")]
+    public required string PurchaseContractCode { get; set; }
+    
+    [JsonPropertyName("RowId")]
+    public int RowId { get; set; }
+
     [JsonPropertyName("TaxId")]
     public string? TaxId { get; set; }
     
@@ -33,9 +45,6 @@ public class ShipmentRelesesBalanceResponseDto
     
     [JsonPropertyName("UnitOfMeasureCode")]
     public required string UnitOfMeasureCode { get; set; }
-    
-    [JsonPropertyName("ReleasedQuantity")]
-    public decimal ReleasedQuantity { get; set; } 
     
     [JsonPropertyName("AvailableQuantity")]
     public decimal AvailableQuantity { get; set; }

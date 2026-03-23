@@ -154,6 +154,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentReleasesGetService>();
         services.AddScoped<ShipmentReleasesUpdateService>();
         services.AddScoped<ShipmentReleasesPauseService>();
+        services.AddScoped<ShipmentReleasesPurchaseContractsService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();
