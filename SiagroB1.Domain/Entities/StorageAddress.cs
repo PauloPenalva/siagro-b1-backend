@@ -50,23 +50,23 @@ public class StorageAddress : MasterEntity
     public virtual ProcessingCost? ProcessingCost { get; set; }
     
     public decimal TotalReceipt => Transactions
-        .Where(x => x.TransactionType is StorageTransactionType.Receipt or 
-            StorageTransactionType.ShipmentReleased && 
-                    x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
-                    StorageTransactionsStatus.Invoiced)
+        .Where(x => (x.TransactionType is StorageTransactionType.Receipt or 
+            StorageTransactionType.ShipmentReleased) && 
+                    (x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
+                    StorageTransactionsStatus.Invoiced))
         .Sum(x => x.NetWeight);
     
     public decimal TotalShipment => Transactions
-        .Where(x => x.TransactionType is 
+        .Where(x => (x.TransactionType is 
             StorageTransactionType.Shipment or 
-            StorageTransactionType.SalesShipment && 
-                    x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
-                    StorageTransactionsStatus.Invoiced)
+            StorageTransactionType.SalesShipment) && 
+                    (x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
+                    StorageTransactionsStatus.Invoiced))
         .Sum(x => x.NetWeight);
     
     public decimal TotalQualityLoss => Transactions
         .Where(x => x.TransactionType is StorageTransactionType.TechnicalLoss && 
-                    x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced)
+                    (x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced))
         .Sum(x => x.NetWeight);
 
     public decimal Balance => decimal.Round(

@@ -11,12 +11,15 @@ public class StorageAddressesReprocessingService(
     public async Task ReprocessAsync(string storageAddressCode, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
     {
         var balances = db.Context.StorageDailyBalances
-            .Where(x => x.StorageAddressCode == storageAddressCode && x.BalanceDate >= fromDate.Date);
+            .Where(x => x.StorageAddressCode == storageAddressCode && 
+                        x.BalanceDate >= fromDate.Date);
 
         db.Context.StorageDailyBalances.RemoveRange(balances);
 
         var charges = db.Context.StorageCharges
-            .Where(x => x.StorageAddressCode == storageAddressCode && x.PeriodEnd >= fromDate.Date);
+            .Where(x => x.StorageAddressCode == storageAddressCode && 
+                        x.PeriodEnd >= fromDate.Date && 
+                        x.IsInvoiced == false);
 
         db.Context.StorageCharges.RemoveRange(charges);
 
@@ -26,6 +29,7 @@ public class StorageAddressesReprocessingService(
                 x.TransactionType == StorageTransactionType.TechnicalLoss &&
                 x.Comments != null &&
                 x.Comments.StartsWith("QUEBRA_TECNICA_") &&
+                x.IsInvoiced == false &&
                 x.TransactionDate >= fromDate.Date);
 
         db.Context.StorageTransactions.RemoveRange(autoLossTransactions);

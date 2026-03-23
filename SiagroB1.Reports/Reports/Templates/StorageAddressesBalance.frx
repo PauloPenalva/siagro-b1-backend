@@ -1,0 +1,137 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="03/19/2026 10:00:00" ReportInfo.Modified="03/20/2026 15:59:06" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="StorageAddresses" ReferenceName="StorageAddresses" DataType="System.Int32" Enabled="true">
+      <Column Name="BranchCode" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="CreationDate" DataType="System.DateTime"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="OwnershipTypeName" DataType="System.String"/>
+      <Column Name="CardCode" DataType="System.String"/>
+      <Column Name="CardName" DataType="System.String"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="WarehouseCode" DataType="System.String"/>
+      <Column Name="WarehouseName" DataType="System.String"/>
+      <Column Name="StatusName" DataType="System.String"/>
+      <Column Name="UoM" DataType="System.String"/>
+      <Column Name="ProcessingCostCode" DataType="System.String"/>
+      <Column Name="TotalReceipt" DataType="System.Decimal"/>
+      <Column Name="TotalShipment" DataType="System.Decimal"/>
+      <Column Name="TotalQualityLoss" DataType="System.Decimal"/>
+      <Column Name="Balance" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTitle" DataType="System.String" AsString=""/>
+    <Parameter Name="pBranchCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pCodeFrom" DataType="System.String" AsString=""/>
+    <Parameter Name="pCodeTo" DataType="System.String" AsString=""/>
+    <Parameter Name="pCreationDateFrom" DataType="System.String" AsString=""/>
+    <Parameter Name="pCreationDateTo" DataType="System.String" AsString=""/>
+    <Parameter Name="pOwnershipType" DataType="System.String" AsString=""/>
+    <Parameter Name="pStatus" DataType="System.String" AsString=""/>
+    <Parameter Name="pCardCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pCardName" DataType="System.String" AsString=""/>
+    <Parameter Name="pItemCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pItemName" DataType="System.String" AsString=""/>
+    <Parameter Name="pWarehouseCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pWarehouseName" DataType="System.String" AsString=""/>
+    <Parameter Name="pUoM" DataType="System.String" AsString=""/>
+    <Parameter Name="pProcessingCostCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pDescription" DataType="System.String" AsString=""/>
+    <Parameter Name="pOnlyWithBalance" DataType="System.String" AsString=""/>
+    <Parameter Name="pPrintedAt" DataType="System.DateTime" AsString=""/>
+    <Parameter Name="pPrintedBy" DataType="System.String" AsString=""/>
+    <Parameter Name="pRecordCount" DataType="System.Int32" AsString=""/>
+    <Parameter Name="pTotalReceipt" DataType="System.Decimal" AsString=""/>
+    <Parameter Name="pTotalShipment" DataType="System.Decimal" AsString=""/>
+    <Parameter Name="pTotalQualityLoss" DataType="System.Decimal" AsString=""/>
+    <Parameter Name="pTotalBalance" DataType="System.Decimal" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitle1" Width="1084.86" Height="127.85">
+      <PictureObject Name="picLogo" Width="95" Height="45"/>
+      <TextObject Name="TxtCompany" Left="105" Top="2" Width="620" Height="20" Text="[IIf([pCompanyName] == &quot;&quot;, &quot;EMPRESA&quot;, [pCompanyName])]" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <TextObject Name="TxtTitle" Left="105" Top="24" Width="620" Height="18" Text="[IIf([pTitle] == &quot;&quot;, &quot;Relatório de Saldos por Lote&quot;, [pTitle])]" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="TxtPrintedAtLabel" Left="835" Top="2" Width="90" Height="16" Text="Emitido em:" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="TxtPrintedAt" Left="930" Top="2" Width="150" Height="16" Text="[pPrintedAt]" Format="Date" Format.Format="G" HorzAlign="Right" Font="Arial, 8pt"/>
+      <TextObject Name="TxtPrintedByLabel" Left="835" Top="20" Width="90" Height="16" Text="Usuário:" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="TxtPrintedBy" Left="930" Top="20" Width="150" Height="16" Text="[pPrintedBy]" HorzAlign="Right" Font="Arial, 8pt"/>
+      <LineObject Name="LineTitle" Top="52" Width="1080"/>
+      <TextObject Name="F1L" Top="58" Width="80" Height="16" Text="Filial:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F1V" Left="82" Top="58" Width="180" Height="16" Text="[pBranchCode]" Font="Arial, 8pt"/>
+      <TextObject Name="F2L" Left="270" Top="58" Width="80" Height="16" Text="Código de:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F2V" Left="352" Top="58" Width="110" Height="16" Text="[pCodeFrom]" Font="Arial, 8pt"/>
+      <TextObject Name="F3L" Left="470" Top="58" Width="30" Height="16" Text="até" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F3V" Left="505" Top="58" Width="110" Height="16" Text="[pCodeTo]" Font="Arial, 8pt"/>
+      <TextObject Name="F4L" Left="625" Top="58" Width="92" Height="16" Text="Data criação:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F4V" Left="720" Top="58" Width="90" Height="16" Text="[pCreationDateFrom]" Font="Arial, 8pt"/>
+      <TextObject Name="F5L" Left="815" Top="58" Width="25" Height="16" Text="até" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F5V" Left="845" Top="58" Width="90" Height="16" Text="[pCreationDateTo]" Font="Arial, 8pt"/>
+      <TextObject Name="F6L" Top="76" Width="80" Height="16" Text="Cliente:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F6V" Left="82" Top="76" Width="260" Height="16" Text="[pCardCode]" Font="Arial, 8pt"/>
+      <TextObject Name="F7L" Left="350" Top="76" Width="80" Height="16" Text="Produto:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F7V" Left="432" Top="76" Width="260" Height="16" Text="[pItemCode]" Font="Arial, 8pt"/>
+      <TextObject Name="F8L" Left="700" Top="76" Width="85" Height="16" Text="Armazém:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F8V" Left="788" Top="76" Width="292" Height="16" Text="[pWarehouseCode]" Font="Arial, 8pt"/>
+      <TextObject Name="F9L" Top="94" Width="80" Height="16" Text="Situação:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F9V" Left="82" Top="94" Width="150" Height="16" Text="[pStatus]" Font="Arial, 8pt"/>
+      <TextObject Name="F10L" Left="240" Top="94" Width="95" Height="16" Text="Propriedade:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F10V" Left="338" Top="94" Width="140" Height="16" Text="[pOwnershipType]" Font="Arial, 8pt"/>
+      <TextObject Name="F12L" Left="615" Top="94" Width="110" Height="16" Text="Proc. Cost:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F12V" Left="727" Top="94" Width="100" Height="16" Text="[pProcessingCostCode]" Font="Arial, 8pt"/>
+      <TextObject Name="F13L" Left="835" Top="94" Width="95" Height="16" Text="Somente saldo:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F13V" Left="933" Top="94" Width="147" Height="16" Text="[pOnlyWithBalance]" Font="Arial, 8pt"/>
+      <LineObject Name="Line1" Top="118.4" Width="1080"/>
+    </ReportTitleBand>
+    <PageHeaderBand Name="PageHeader1" Top="131.05" Width="1084.86" Height="22">
+      <TextObject Name="H1" Width="60" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Filial" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H2" Left="60" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Código" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H3" Left="130" Width="78" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Criação" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H4" Left="208" Width="210" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Descrição" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H5" Left="418" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Cliente" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H6" Left="488" Width="110" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Nome Cliente" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H7" Left="598" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Produto" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H8" Left="668" Width="110" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Nome Produto" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H9" Left="778" Width="60" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Armaz." HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H10" Left="838" Width="55" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Status" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H11" Left="893" Width="42" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="UM" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H12" Left="935" Width="48" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Entr." HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H13" Left="983" Width="48" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Saíd." HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="H14" Left="1031" Width="54" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Saldo" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </PageHeaderBand>
+    <DataBand Name="Data1" Top="156.25" Width="1084.86" Height="18" DataSource="StorageAddresses">
+      <TextObject Name="D1" Width="60" Height="18" Border.Lines="All" Text="[StorageAddresses.BranchCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D2" Left="60" Width="70" Height="18" Border.Lines="All" Text="[StorageAddresses.Code]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D3" Left="130" Width="78" Height="18" Border.Lines="All" Text="[StorageAddresses.CreationDate]" Format="Date" Format.Format="d" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D4" Left="208" Width="210" Height="18" Border.Lines="All" Text="[StorageAddresses.Description]" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="D5" Left="418" Width="70" Height="18" Border.Lines="All" Text="[StorageAddresses.CardCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D6" Left="488" Width="110" Height="18" Border.Lines="All" Text="[StorageAddresses.CardName]" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="D7" Left="598" Width="70" Height="18" Border.Lines="All" Text="[StorageAddresses.ItemCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D8" Left="668" Width="110" Height="18" Border.Lines="All" Text="[StorageAddresses.ItemName]" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D9" Left="778" Width="60" Height="18" Border.Lines="All" Text="[StorageAddresses.WarehouseCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D10" Left="838" Width="55" Height="18" Border.Lines="All" Text="[StorageAddresses.StatusName]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D11" Left="893" Width="42" Height="18" Border.Lines="All" Text="[StorageAddresses.UoM]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D12" Left="935" Width="48" Height="18" Border.Lines="All" Text="[StorageAddresses.TotalReceipt]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D13" Left="983" Width="48" Height="18" Border.Lines="All" Text="[StorageAddresses.TotalShipment]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="D14" Left="1031" Width="54" Height="18" Border.Lines="All" Text="[StorageAddresses.Balance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="177.45" Width="1084.86" Height="86">
+      <LineObject Name="SummaryLineTop" Width="1080"/>
+      <TextObject Name="RSLabel1" Left="735" Top="8" Width="200" Height="18" Text="Quantidade de registros:" HorzAlign="Right" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="RSValue1" Left="935" Top="8" Width="150" Height="18" Text="[pRecordCount]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="RSLabel2" Left="735" Top="28" Width="200" Height="18" Text="Total de entradas:" HorzAlign="Right" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="RSValue2" Left="935" Top="28" Width="150" Height="18" Text="[pTotalReceipt]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="RSLabel3" Left="735" Top="48" Width="200" Height="18" Text="Total de saídas:" HorzAlign="Right" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="RSValue3" Left="935" Top="48" Width="150" Height="18" Text="[pTotalShipment]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="RSLabel4" Left="735" Top="68" Width="200" Height="18" Text="Saldo total:" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="RSValue4" Left="935" Top="68" Width="150" Height="18" Text="[pTotalBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="266.65" Width="1084.86" Height="20">
+      <LineObject Name="FooterLine" Width="1080"/>
+      <TextObject Name="FooterLeft" Top="4" Width="300" Height="14" Text="[pPrintedAt]" Format="Date" Format.Format="G" Font="Arial, 7pt"/>
+      <TextObject Name="FooterCenter" Left="340" Top="4" Width="400" Height="14" Text="Relatório de Saldos por Lote" HorzAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="FooterRight" Left="930" Top="4" Width="150" Height="14" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" Font="Arial, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
