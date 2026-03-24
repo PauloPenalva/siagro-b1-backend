@@ -12,4 +12,10 @@ public class TruckDriver
     
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100)")]
+    public required string Document { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100)")]
+    public required string Phone { get; set; }
 }

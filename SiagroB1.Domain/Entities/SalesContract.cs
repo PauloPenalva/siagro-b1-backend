@@ -118,4 +118,9 @@ public class SalesContract : DocumentEntity
     [NotMapped]
     public decimal AvaiableVolume =>
         decimal.Round(TotalVolume - TotalVolumeOutgoing + TotalVolumeIncoming, 3, MidpointRounding.ToEven);
+    
+    [NotMapped]
+    public bool HasInvoices => SalesInvoiceItems?
+        .Any(i => i.SalesInvoice?.InvoiceStatus != InvoiceStatus.Cancelled) ?? false;
+    
 }
