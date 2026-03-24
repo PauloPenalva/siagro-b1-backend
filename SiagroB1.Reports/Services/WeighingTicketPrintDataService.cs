@@ -1,7 +1,10 @@
 ﻿using System.Data;
 using FastReport;
 using FastReport.Export.PdfSimple;
+using Microsoft.Extensions.Localization;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
 
@@ -13,8 +16,8 @@ public class WeighingTicketPrintDataService(
     IUnitOfWork db,
     IWebHostEnvironment env,
     IDbConnection connection,
-    IFastReportService reportService    
-    )
+    IFastReportService reportService,
+    IStringLocalizer<Resource> resource)
 {
     
     public async Task<byte[]> GeneratePdfAsync(Guid key)
@@ -75,6 +78,9 @@ public class WeighingTicketPrintDataService(
             .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new Exception("Ticket não encontrado.");
 
+        if (ticket.Status is not WeighingTicketStatus.Complete)
+            throw new BusinessException(resource["WEIGHING_TICKET_STATUS_NOT_COMPLETE"]);
+        
         return new WeighingTicketPrintDto
         {
             CompanyName = ticket.Branch?.BranchName,

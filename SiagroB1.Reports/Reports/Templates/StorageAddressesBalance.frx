@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="03/19/2026 10:00:00" ReportInfo.Modified="03/20/2026 15:59:06" ReportInfo.CreatorVersion="2026.1.0.0">
+<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="03/19/2026 10:00:00" ReportInfo.Modified="03/24/2026 15:34:45" ReportInfo.CreatorVersion="2026.1.0.0">
   <Dictionary>
     <BusinessObjectDataSource Name="StorageAddresses" ReferenceName="StorageAddresses" DataType="System.Int32" Enabled="true">
       <Column Name="BranchCode" DataType="System.String"/>
@@ -78,7 +78,7 @@
       <TextObject Name="F9V" Left="82" Top="94" Width="150" Height="16" Text="[pStatus]" Font="Arial, 8pt"/>
       <TextObject Name="F10L" Left="240" Top="94" Width="95" Height="16" Text="Propriedade:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F10V" Left="338" Top="94" Width="140" Height="16" Text="[pOwnershipType]" Font="Arial, 8pt"/>
-      <TextObject Name="F12L" Left="615" Top="94" Width="110" Height="16" Text="Proc. Cost:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="F12L" Left="615" Top="94" Width="110" Height="16" Text="Tabela:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F12V" Left="727" Top="94" Width="100" Height="16" Text="[pProcessingCostCode]" Font="Arial, 8pt"/>
       <TextObject Name="F13L" Left="835" Top="94" Width="95" Height="16" Text="Somente saldo:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="F13V" Left="933" Top="94" Width="147" Height="16" Text="[pOnlyWithBalance]" Font="Arial, 8pt"/>

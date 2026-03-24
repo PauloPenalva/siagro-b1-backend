@@ -16,7 +16,8 @@ public class WeighingTicketsCompletedService(
     IUnitOfWork db,
     IBusinessPartnerService  businessPartnerService,
     IItemService itemService,
-    StorageTransactionsCreateService storageTransactionsCreateService,
+    StorageTransactionsCreateService stCreateService,
+    StorageTransactionsConfirmedService  stConfirmedService,
     StorageAddressesGetService  storageAddressesGetService,
     IStringLocalizer<Resource> resource,
     ILogger<WeighingTicketsCompletedService> logger
@@ -54,7 +55,7 @@ public class WeighingTicketsCompletedService(
             var st = new StorageTransaction
             {
                 StorageAddressCode = existingTicket.StorageAddressCode,
-                TransactionDate = DateTime.Now.Date,
+                TransactionDate = existingTicket.Date,
                 TransactionTime = DateTime.Now.TimeOfDay.ToString(),
                 TransactionType = existingTicket.Type == WeighingTicketType.Receipt
                     ? StorageTransactionType.Receipt
@@ -86,7 +87,9 @@ public class WeighingTicketsCompletedService(
                 });
             }
             
-            await storageTransactionsCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);
+            st = await stCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);
+            await stConfirmedService.ExecuteAsync(st.Key, userName);
+            
             await db.CommitAsync();
         }
         catch (Exception e)
@@ -146,29 +149,7 @@ public class WeighingTicketsCompletedService(
                 throw new ApplicationException(resource["EXCEPTION_00003"]);
         }
     }
-
-    private async Task AssingQualityInspection(StorageTransaction st, WeighingTicket ticket)
-    {
-        var attribs = await db.Context.QualityAttribs
-            .AsNoTracking()
-            .Where(x => !x.Disabled)
-            .OrderBy(x => x.Code)
-            .ToListAsync();
-
-        attribs.ForEach(attrib =>
-        {
-            st.QualityInspections.Add(new StorageTransactionQualityInspection
-            {
-                StorageTransactionKey = st.Key,
-                QualityAttribCode = attrib.Code,
-                Value = ticket.QualityInspections
-                    .Where(x => x.QualityAttribCode == attrib.Code)
-                    .Select(x => x.Value)
-                    .FirstOrDefault(),
-            });
-        });
-    }
-
+    
     private bool IsWarehouseOwner(StorageAddress sa)
     {
         return false;

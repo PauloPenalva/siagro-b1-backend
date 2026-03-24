@@ -114,4 +114,16 @@
     <data name="STORAGE_INVOICE_ALREADY_CLOSED" xml:space="preserve">
         <value />
     </data>
+    <data name="STORAGE_TRANSACTION_NOT_PENDING" xml:space="preserve">
+        <value />
+    </data>
+    <data name="WEIGHING_TICKET_NOT_FOUND" xml:space="preserve">
+        <value />
+    </data>
+    <data name="WEIGHING_TICKET_STATUS_NOT_COMPLETE" xml:space="preserve">
+        <value />
+    </data>
+    <data name="WEIGHING_TICKET_REVERSE_STORAGE_TRANSACTION" xml:space="preserve">
+        <value />
+    </data>
 </root>

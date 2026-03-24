@@ -24,7 +24,7 @@ public class WeighingTicketsFirstWeighingController(
             }
             var key = Guid.Parse(keyObj.ToString());
             var value = int.Parse(valueObj.ToString());
-            var comments = commentsObj.ToString();
+            var comments = commentsObj?.ToString();
             var userName = User.Identity?.Name ?? "Unknown";
             
             await service.ExecuteAsync(key, value, comments, userName);

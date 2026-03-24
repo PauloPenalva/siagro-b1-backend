@@ -14,6 +14,13 @@ if (!builder.Environment.IsDevelopment())
     builder.Logging.AddEventLog();
 }
 
+builder.Services.AddLocalization();
+var supportedCultures = new [] {"en-US", "pt-BR"};
+var localizationOptions = new RequestLocalizationOptions()
+    .SetDefaultCulture("pt-BR")
+    .AddSupportedCultures(supportedCultures)
+    .AddSupportedUICultures(supportedCultures);
+
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("SiagroCommon"),

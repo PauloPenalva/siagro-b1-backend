@@ -287,6 +287,10 @@ public static class ODataConfigurations
         weighingTicketsCancel.Parameter<Guid>("Key");
         weighingTicketsCancel.Returns<IActionResult>();
         
+        var weighingTicketsReOpen = modelBuilder.Action("WeighingTicketsReOpen");
+        weighingTicketsReOpen.Parameter<Guid>("Key");
+        weighingTicketsReOpen.Returns<IActionResult>();
+        
         var ownershipTransfersConfirm = modelBuilder.Action("OwnershipTransfersConfirm");
         ownershipTransfersConfirm.Parameter<Guid>("Key");
         ownershipTransfersConfirm.Returns<IActionResult>();

@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.WeighingTickets;
@@ -17,25 +18,25 @@ public class WeighingTicketsCancelService(
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var ticket = await weighingTicketsGetService.GetByIdAsync(key) 
-            ?? throw new KeyNotFoundException($"Weighing ticket not found");
-
-        if (ticket.Status != WeighingTicketStatus.Complete)
-        {
-            throw new ApplicationException(resource["WEIGHING_TICKET_CANCEL_SERVICE_NOT_COMPLETE_MSG"]);
-        }
+            ?? throw new KeyNotFoundException(resource["WEIGHING_TICKET_NOT_FOUND"]);
 
         var sa = await GetStorageTransactionByWeighingTicketKey(key);
+        if (sa is { TransactionStatus: not StorageTransactionsStatus.Pending })
+        {
+            throw new BusinessException(resource["STORAGE_TRANSACTION_NOT_PENDING"]);
+        }
         
         try
         {
             await db.BeginTransactionAsync();
             
-            if (sa != null)
-            {
-                await storageTransactionsCancelService.ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
-            }
-
+            if (sa is not null)
+                await storageTransactionsCancelService
+                    .ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
+           
             ticket.Status = WeighingTicketStatus.Cancelled;
+            ticket.Stage = WeighingTicketStage.Completed;
+            
             await db.SaveChangesAsync();
             await db.CommitAsync();
         }

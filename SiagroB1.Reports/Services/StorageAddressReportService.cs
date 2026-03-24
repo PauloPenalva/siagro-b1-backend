@@ -8,7 +8,11 @@ using SiagroB1.Reports.Dtos;
 
 namespace SiagroB1.Reports.Services;
 
-public class StorageAddressReportService(IUnitOfWork db, IWebHostEnvironment env)
+public class StorageAddressReportService(
+    IUnitOfWork db, 
+    IWebHostEnvironment env,
+    IConfiguration configuration
+    )
 {
     public async Task<byte[]> GeneratePdfAsync(StorageAddressReportRequest request, string userName, CancellationToken ct = default)
     {
@@ -32,8 +36,10 @@ public class StorageAddressReportService(IUnitOfWork db, IWebHostEnvironment env
             using var img = Image.FromFile(logoPath);
             picLogo.Image = (Image)img.Clone();
         }
+
+        var companyName = configuration.GetValue<string>("CompanyName") ?? "Company Name";
         
-        FillParameters(report, "Company Name", userName,request, rows);
+        FillParameters(report, companyName, userName,request, rows);
 
         report.Prepare();
 

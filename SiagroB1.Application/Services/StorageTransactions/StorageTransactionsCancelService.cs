@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.StorageTransactions;
 
-public class StorageTransactionsCancelService(AppDbContext db)
+public class StorageTransactionsCancelService(IUnitOfWork db)
 {
     public async Task ExecuteAsync(Guid key, string username, TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {
-        var doc = await db.StorageTransactions
+        var doc = await db.Context.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException("Storage transaction not found.");
 

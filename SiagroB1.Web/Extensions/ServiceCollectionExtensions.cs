@@ -210,6 +210,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WeighingTicketsQualityInspectionsUpdateService>();
         services.AddScoped<WeighingTicketsSecondWeighingService>();
         services.AddScoped<WeighingTicketsUpdateService>();
+        services.AddScoped<WeighingTicketsReOpenService>();
         
         //ownership transfers
         services.AddScoped<OwnershipTransfersCreateService>();

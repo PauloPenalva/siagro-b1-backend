@@ -117,4 +117,16 @@
     <data name="STORAGE_INVOICE_ALREADY_CLOSED" xml:space="preserve">
         <value>Fatura de serviços já esta encerrada.</value>
     </data>
+    <data name="STORAGE_TRANSACTION_NOT_PENDING" xml:space="preserve">
+        <value>Somente romaneios com Status pendente podem ser cancelado.</value>
+    </data>
+    <data name="WEIGHING_TICKET_NOT_FOUND" xml:space="preserve">
+        <value>Ticket de pesagem não encontrado.</value>
+    </data>
+    <data name="WEIGHING_TICKET_STATUS_NOT_COMPLETE" xml:space="preserve">
+        <value>Ticket de pesagem não esta finalizado ou está cancelado.</value>
+    </data>
+    <data name="WEIGHING_TICKET_REVERSE_STORAGE_TRANSACTION" xml:space="preserve">
+        <value>Para poder reabrir o ticket para edição, favor estornar o romaneio de codigo:  </value>
+    </data>
 </root>
