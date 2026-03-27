@@ -5,6 +5,11 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+        <FileVersion>1.0.116</FileVersion>
+        <Company>IDX Consultoria e Sistemas</Company>
+        <Product>Siagro B1 Gateway</Product>
+        <Authors>IDX Consultoria e Sistemas</Authors>
+        <Copyright>Copyright © 2026 IDX Consultoria e Sistemas</Copyright>
     </PropertyGroup>
 
     <ItemGroup>

@@ -5,6 +5,11 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>
+        <FileVersion>1.0.116</FileVersion>
+        <Company>IDX Consultoria e Sistemas</Company>
+        <Product>Siagro B1 Migrations</Product>
+        <Authors>IDX Consultoria e Sistemas</Authors>
+        <Copyright>Copyright © 2026 IDX Consultoria e Sistemas</Copyright>
     </PropertyGroup>
 
     <ItemGroup>

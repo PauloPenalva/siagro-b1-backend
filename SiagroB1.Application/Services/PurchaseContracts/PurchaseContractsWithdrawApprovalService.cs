@@ -19,7 +19,7 @@ public class PurchaseContractsWithdrawApprovalService(
                            .FirstOrDefaultAsync(x => x.Key == key) ??
                               throw new NotFoundException("Purchase contract not found.");
 
-        if (contract.Status != ContractStatus.InApproval)
+        if (contract.Status is ContractStatus.Finished or ContractStatus.Canceled or ContractStatus.Rejected)
             throw new ApplicationException(resource["PURCHASE_CONTRACT_NOT_IN_APPROVAL_STATUS"]);
         
         if (contract.HasShipmentReleases)

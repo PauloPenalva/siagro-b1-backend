@@ -13,7 +13,7 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string CardName { get; set; }
     
-    [Column(TypeName = "VARCHAR(200) NOT NULL")]
+    [Column("AliasName", TypeName = "VARCHAR(200) NOT NULL")]
     public string? CardFName { get; set; }
     
     /// <summary>

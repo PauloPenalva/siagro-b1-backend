@@ -133,13 +133,13 @@
         <value>Contrato de Compra possui movimentação, não é possivel remover da aprovação.</value>
     </data>
     <data name="PURCHASE_CONTRACT_NOT_IN_APPROVAL_STATUS" xml:space="preserve">
-        <value>Contrato de Compra não esta em aprovação.</value>
+        <value>Contrato de Compra não esta em aprovação ou aprovado.</value>
     </data>
     <data name="SALES_CONTRACT_NOT_FOUND" xml:space="preserve">
         <value>Contrato de Venda não encontrado.</value>
     </data>
     <data name="SALES_CONTRACT_NOT_IN_APPROVAL_STATUS" xml:space="preserve">
-        <value>Contrato de Venda não está em aprovação.</value>
+        <value>Contrato de Venda não está em aprovação ou aprovado</value>
     </data>
     <data name="SALES_CONTRACT_HAS_INVOICES" xml:space="preserve">
         <value>Contrato de Venda possui movimentação, não é possivel remover da aprovação.</value>

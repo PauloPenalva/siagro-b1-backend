@@ -18,7 +18,7 @@ public class SalesContractsWithdrawApprovalService(
                            .FirstOrDefaultAsync(x => x.Key == key) ??
                                 throw new NotFoundException(resource["SALES_CONTRACT_NOT_FOUND"]);
 
-        if (contract.Status != ContractStatus.InApproval)
+        if (contract.Status is ContractStatus.Finished or ContractStatus.Canceled or ContractStatus.Rejected)
             throw new ApplicationException(resource["SALES_CONTRACT_NOT_IN_APPROVAL_STATUS"]);
         
         if (contract.HasInvoices)
