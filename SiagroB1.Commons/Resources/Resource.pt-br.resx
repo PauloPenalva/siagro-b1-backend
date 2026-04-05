@@ -144,4 +144,7 @@
     <data name="SALES_CONTRACT_HAS_INVOICES" xml:space="preserve">
         <value>Contrato de Venda possui movimentação, não é possivel remover da aprovação.</value>
     </data>
+    <data name="DOC_NUMBER_NOT_FOUND" xml:space="preserve">
+        <value>Sequencia numerica não encontrada.</value>
+    </data>
 </root>

@@ -47,7 +47,6 @@ public static class ServiceCollectionExtensions
     {
         // commons services ( services folder )
         services.AddScoped<IBranchService, BranchService>();
-        services.AddScoped<DocNumberService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
         services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
@@ -72,6 +71,9 @@ public static class ServiceCollectionExtensions
 
         // doc numbers
         services.AddScoped<DocNumberSequenceService>();
+        services.AddScoped<DocNumberGetInfoByTransactionCodeService>();
+        services.AddScoped<DocNumberService>();
+
         
         // purchase contracts
         services.AddScoped<PurchaseContractsAllocationCreateService>();

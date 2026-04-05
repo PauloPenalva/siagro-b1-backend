@@ -4,6 +4,7 @@ using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Entities.SAP;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Web.ODataConfig;
@@ -73,7 +74,11 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
 
         modelBuilder.EntityType<Address>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
-
+        
+        var docNumberGetInfoByTransaction = 
+            modelBuilder.Function("DocNumberGetInfoByTransaction");
+        docNumberGetInfoByTransaction.Parameter<string>("Transaction");
+        docNumberGetInfoByTransaction.Returns<IActionResult>();
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
         shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
