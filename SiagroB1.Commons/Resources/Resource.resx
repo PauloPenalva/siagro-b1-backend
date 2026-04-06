@@ -144,4 +144,7 @@
     <data name="DOC_NUMBER_NOT_FOUND" xml:space="preserve">
         <value />
     </data>
+    <data name="EXISTING_SETUP_ACTIVE" xml:space="preserve">
+        <value />
+    </data>
 </root>

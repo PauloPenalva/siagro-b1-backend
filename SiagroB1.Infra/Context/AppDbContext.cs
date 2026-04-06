@@ -51,6 +51,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     
     public DbSet<StorageInvoice> StorageInvoices { get; set; }
     
+    public DbSet<SystemSetup> SystemSetup { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction

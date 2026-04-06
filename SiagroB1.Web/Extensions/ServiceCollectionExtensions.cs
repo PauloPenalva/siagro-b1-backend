@@ -63,6 +63,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWeighingTicketService, WeighingTicketService>();
         services.AddScoped<IQualityAttribService, QualityAttribService>();
         
+        // environment setup
+        services.AddScoped<SystemSetupService>();
+        
         // companies
         services.AddScoped<CompaniesCreateService>();
         services.AddScoped<CompaniesDeleteService>();
@@ -73,7 +76,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DocNumberSequenceService>();
         services.AddScoped<DocNumberGetInfoByTransactionCodeService>();
         services.AddScoped<DocNumberService>();
-
         
         // purchase contracts
         services.AddScoped<PurchaseContractsAllocationCreateService>();

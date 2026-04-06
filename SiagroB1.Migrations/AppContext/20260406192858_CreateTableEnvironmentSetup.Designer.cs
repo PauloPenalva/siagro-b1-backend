@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260406192858_CreateTableEnvironmentSetup")]
+    partial class CreateTableEnvironmentSetup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -114,6 +117,32 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique();
 
                     b.ToTable("DOC_NUMBERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EnvironmentSetup", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("VARCHAR(4) NOT NULL");
+
+                    b.Property<int?>("DefaultCurrency")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DefaultFreightUoM")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<string>("DefaultUoM")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("ENVIRONMENT_SETUP");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
@@ -1941,31 +1970,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("StorageTransactionKey");
 
                     b.ToTable("STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.SystemSetup", b =>
-                {
-                    b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(4) NOT NULL");
-
-                    b.Property<int?>("DefaultCurrency")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DefaultFreightUoM")
-                        .HasColumnType("VARCHAR(4)");
-
-                    b.Property<string>("DefaultUoM")
-                        .HasColumnType("VARCHAR(4)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Code");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("SYSTEM_SETUP");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Tax", b =>

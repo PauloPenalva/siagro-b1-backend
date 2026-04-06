@@ -23,4 +23,7 @@ public class UserSession
     public DateTime LastActivityAt { get; set; } = DateTime.Now;
     public DateTime ExpiresAt { get; set; }
     public bool IsActive { get; set; } = true;
+    
+    [Column(TypeName = "VARCHAR(14)")]
+    public string BranchCode { get; set; } = string.Empty;
 }

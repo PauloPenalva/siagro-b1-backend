@@ -4,7 +4,6 @@ using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Entities.SAP;
-using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Web.ODataConfig;
@@ -72,8 +71,12 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
-
+        modelBuilder.EntitySet<SystemSetup>("SystemSetup");
+        
         modelBuilder.EntityType<Address>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
+
+        var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
+        systemSetupGetActive.Returns<IActionResult>();
         
         var docNumberGetInfoByTransaction = 
             modelBuilder.Function("DocNumberGetInfoByTransaction");

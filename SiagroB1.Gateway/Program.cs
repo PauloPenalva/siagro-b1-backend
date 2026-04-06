@@ -25,7 +25,17 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
+builder.Services.AddDbContext<AppDbContext>(options => 
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("SiagroDB"),
+        b =>
+        {
+            b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        })
+);
+
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddAuthentication(options =>
@@ -106,7 +116,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapReverseProxy();
-
-
 
 await app.RunAsync();

@@ -235,7 +235,7 @@ public class BasicAuthenticationHandler(
         // var userCompanies = context.UserCompanyAccesses
         //     .Where(uca => uca.UserId == user.Id && uca.IsActive)
         //     .Include(uca => uca.Company)
-        //     .Select(uca => uca.Company!.CompanyCode)
+        //     .Select(uca => uca.Company!.Code)
         //     .ToList();
         //
         // foreach (var companyCode in userCompanies)

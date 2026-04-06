@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
@@ -11,19 +10,15 @@ namespace SiagroB1.Application.Services.ShippingTransactions;
 public class ShippingTransactionsCreateService(
     IUnitOfWork unitOfWork,
     StorageTransactionsCreateService storageCreateService,
-    StorageTransactionsUpdateService storageUpdateService,
     StorageTransactionsConfirmedService storageConfirmedService,
     StorageTransactionsCopyService storageCopyService,
-    PurchaseContractsAllocationCreateService purchaseAllocationCreateService,
-    ILogger<ShippingTransactionsCreateService> logger)
+    PurchaseContractsAllocationCreateService purchaseAllocationCreateService)
 {
     public async Task<ShippingTransaction> ExecuteAsync(Guid purchaseContractKey, StorageTransaction purchase, string userName)
     {
         try
         {
             await unitOfWork.BeginTransactionAsync();
-            
-            logger.LogInformation("Starting cross-docking for contract {ContractId}", purchaseContractKey);
             
             await storageCreateService.ExecuteAsync(
                 purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
@@ -39,7 +34,6 @@ public class ShippingTransactionsCreateService(
             salesCreated.TransactionStatus = StorageTransactionsStatus.Pending;
             salesCreated.TransactionType = StorageTransactionType.SalesShipment;
             
-            //await storageUpdateService.ExecuteAsync(salesCreated.Key,  salesCreated, userName, CommitMode.Deferred);
             await storageConfirmedService.ExecuteAsync(salesCreated, userName, CommitMode.Deferred, true);
 
             var shipping = new ShippingTransaction
@@ -54,13 +48,10 @@ public class ShippingTransactionsCreateService(
         
             await unitOfWork.CommitAsync();
             
-            logger.LogInformation("Cross-docking completed. ShippingId: {ShippingId}", shipping.Key);
-            
             return shipping;
         }
         catch (Exception e)
         {   
-            logger.LogError(e, "Cross-docking failed for contract {ContractId}", purchaseContractKey);
             await unitOfWork.RollbackAsync();
             throw new ApplicationException(e.Message);
         }

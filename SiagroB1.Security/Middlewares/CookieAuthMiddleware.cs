@@ -60,7 +60,7 @@ public class CookieAuthMiddleware
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.GivenName, user.FullName),
-            new Claim("IsAdmin", user.IsAdmin.ToString())
+            new Claim("IsAdmin", user.IsAdmin.ToString()),
         };
         
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "Cookie"));

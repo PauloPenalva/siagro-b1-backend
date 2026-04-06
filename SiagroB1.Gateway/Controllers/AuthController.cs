@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SiagroB1.Security.Dtos;
 using SiagroB1.Security.Interfaces;
+using SiagroB1.Security.Services;
 
 namespace SiagroB1.Gateway.Controllers;
 
@@ -10,9 +11,10 @@ namespace SiagroB1.Gateway.Controllers;
 [Route("security/auth")]
 [AllowAnonymous]
 public class AuthController(
-    IAuthService _authService,
-    ILogger<AuthController> _logger,
-    IConfiguration _configuration
+    IAuthService authService,
+    ILogger<AuthController> logger,
+    IConfiguration configuration,
+    BranchService branchService
     ) : ControllerBase
 {
     [HttpPost("login")]
@@ -24,11 +26,11 @@ public class AuthController(
             return BadRequest(new { message = "Usuário e senha são obrigatórios" });
         }
 
-        var result = await _authService.LoginAsync(request.Username, request.Password);
+        var result = await authService.LoginAsync(request.Username, request.Password);
 
         if (result.Success)
         {
-            _logger.LogInformation("Login bem-sucedido para: {Username}", request.Username);
+            logger.LogInformation("Login bem-sucedido para: {Username}", request.Username);
             return Ok(new LoginResponse
             {
                 Success = true,
@@ -39,7 +41,7 @@ public class AuthController(
             });
         }
 
-        _logger.LogWarning("Login falhou para: {Username}", request.Username);
+        logger.LogWarning("Login falhou para: {Username}", request.Username);
         return Unauthorized(new { message = result.Message });
     }
     
@@ -53,14 +55,14 @@ public class AuthController(
             // Obter sessionId do cookie
             if (Request.Cookies.TryGetValue("SIAGROB1.Session", out var sessionId))
             {
-                await _authService.LogoutAsync(sessionId);
+                await authService.LogoutAsync(sessionId);
             }
 
             // Remover cookies
             Response.Cookies.Delete("SIAGROB1.Session");
             Response.Cookies.Delete("SIAGROB1.User");
 
-            _logger.LogInformation("Logout realizado para: {Username}", User.Identity?.Name);
+            logger.LogInformation("Logout realizado para: {Username}", User.Identity?.Name);
             
             return Ok(new
             {
@@ -70,7 +72,7 @@ public class AuthController(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro durante logout");
+            logger.LogError(ex, "Erro durante logout");
             return StatusCode(500, new { message = "Erro ao realizar logout" });
         }
     }
@@ -93,7 +95,7 @@ public class AuthController(
                     var username = doc.RootElement.GetProperty("Username").GetString();
                     if (!string.IsNullOrEmpty(username))
                     {
-                        var userInfo = await _authService.GetUserInfoAsync(username);
+                        var userInfo = await authService.GetUserInfoAsync(username);
                         if (userInfo != null)
                         {
                             return Ok(new
@@ -122,7 +124,7 @@ public class AuthController(
         
         if (!string.IsNullOrEmpty(usernameFromClaims))
         {
-            userInfoFromDb = await _authService.GetUserInfoAsync(usernameFromClaims);
+            userInfoFromDb = await authService.GetUserInfoAsync(usernameFromClaims);
         }
 
         return Ok(new
@@ -143,8 +145,8 @@ public class AuthController(
         return Ok(new
         {
             Application = "SIAGRO B1 Gateway",
-            Version = _configuration["Version"] ?? "1.0.0",
-            Environment = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development",
+            Version = configuration["Version"] ?? "1.0.0",
+            Environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development",
             RequiresAuthentication = true,
             AuthenticationMethods = new[] { "Basic", "Cookie" },
             Supports = new[] { "Login", "Logout", "Session Management" },
@@ -161,7 +163,7 @@ public class AuthController(
             return BadRequest(new { message = "Header Authorization é obrigatório" });
         }
 
-        var result = await _authService.LoginWithBasicAuthAsync(authorization);
+        var result = await authService.LoginWithBasicAuthAsync(authorization);
 
         if (result.Success)
         {
@@ -177,4 +179,41 @@ public class AuthController(
 
         return Unauthorized(new { message = result.Message });
     }
+
+    [HttpPost("SetDefaultBranch")]
+    public async Task<IActionResult> SetDefaultBranch([FromBody] SetDefaultBranchRequest branchRequest)
+    {
+        if (!Request.Cookies.TryGetValue("SIAGROB1.Session", out var sessionId)) 
+            return BadRequest("SessionId not found.");
+        
+        try
+        {
+            await branchService.SetDefaultBranch(sessionId, branchRequest.BranchCode);
+            return Ok();
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+    
+    [HttpGet("GetBranchInfo")]
+    public async Task<IActionResult> GetDefaultBranchInfo()
+    {
+        if (!Request.Cookies.TryGetValue("SIAGROB1.Session", out var sessionId)) 
+            return BadRequest("SessionId not found.");
+        
+        try
+        {
+            var branchInfo = await branchService.GetDefaultBranchInfo(sessionId);
+            return Ok(branchInfo);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+    
+    
+    
 }
