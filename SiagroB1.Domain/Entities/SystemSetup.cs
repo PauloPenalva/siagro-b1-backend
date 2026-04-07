@@ -22,4 +22,7 @@ public class SystemSetup
     public string? DefaultFreightUoM { get; set; }
 
     public bool IsActive { get; set; } = true;
+    
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? Description { get; set; }
 }
