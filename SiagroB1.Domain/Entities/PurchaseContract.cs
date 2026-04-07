@@ -112,6 +112,8 @@ public class PurchaseContract : DocumentEntity
     
     public TechnologyType? TechnologyType { get; set; }
 
+    public FunruralType? FunruralType { get; set; } = Enums.FunruralType.Bruto;
+
     public void AddAttachment(PurchaseContractAttachment attachment)
     {
         attachment.PurchaseContract = this;
