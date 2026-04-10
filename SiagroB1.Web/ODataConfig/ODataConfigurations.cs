@@ -72,7 +72,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ItemModel>("Items");
         modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
-        modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
+        modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType });
         
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
         systemSetupGetActive.Returns<IActionResult>();

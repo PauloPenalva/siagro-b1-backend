@@ -2,8 +2,6 @@
 
 public class AddressModel
 {
-    public required string CardCode { get; set; }
-    
     public required string AddressName { get; set; }
     
     public required string AdresType { get; set; }

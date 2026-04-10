@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfMeasureService, Application.Services.UnitOfMeasureService>();
         services.AddScoped<IAgentService, Application.Services.AgentService>();
         services.AddScoped<IWarehouseService, Application.Services.WarehouseService>();
+        services.AddScoped<IBusinessPartnerAddressService, Application.Services.BusinessPartnerAddressService>();
         
         return services;
     }

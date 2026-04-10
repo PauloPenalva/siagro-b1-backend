@@ -34,19 +34,18 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                     QryGroup23 = x.QryGroup23,
                     TaxId = x.TaxId,
                     Addresses = x.Addresses
+                        .Where(a => a.CardCode == x.CardCode)
                         .Select(a => new AddressModel()
                         {
                             AddressName = a.AddressName,
                             AdresType = a.AdresType,
                             Block = a.Block,
-                            CardCode = a.CardCode,
                             City = a.City,
                             Country = a.Country,
                             State = a.State,
                             Street = a.Street,
                             ZipCode = a.ZipCode
                         })
-                        .Where(a => a.CardCode == x.CardCode)
                         .AsQueryable()
                         .ToList()
                 })
@@ -88,19 +87,19 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                 QryGroup23 = x.QryGroup23,
                 TaxId = x.TaxId,
                 Addresses = x.Addresses
+                    .Where(a => a.CardCode == x.CardCode)
                     .Select(a => new AddressModel()
                     {
                         AddressName = a.AddressName,
                         AdresType = a.AdresType,
                         Block = a.Block,
-                        CardCode = a.CardCode,
                         City = a.City,
                         Country = a.Country,
                         State = a.State,
                         Street = a.Street,
                         ZipCode = a.ZipCode
                     })
-                    .Where(a => a.CardCode == x.CardCode)
+                    
                     .AsQueryable()
                     .ToList()
             })

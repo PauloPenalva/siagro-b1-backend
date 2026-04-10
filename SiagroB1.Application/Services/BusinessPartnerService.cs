@@ -37,23 +37,7 @@ public class BusinessPartnerService(
                     CardType = x.CardType,
                     Notes = x.Notes,
                     QryGroup23 = x.QryGroup23,
-                    TaxId = x.TaxId,
-                    Addresses = x.Addresses
-                        .Select(a => new AddressModel()
-                        {
-                            AddressName = a.AddressName,
-                            AdresType = a.AdresType,
-                            Block = a.Block,
-                            CardCode = a.CardCode,
-                            City = a.City,
-                            Country = a.Country,
-                            State = a.State,
-                            Street = a.Street,
-                            ZipCode = a.ZipCode
-                        })
-                        .Where(a => a.CardCode == x.CardCode)
-                        .AsQueryable()
-                        .ToList()
+                    TaxId = x.TaxId
                 })
                 .FirstOrDefaultAsync(x => x.CardCode == code);
         }
@@ -81,21 +65,7 @@ public class BusinessPartnerService(
             CardFName = model.CardFName,
             CardType = model.CardType,
             QryGroup23 = "N",
-            TaxId = model.TaxId,
-            Addresses = model.Addresses
-                .Select(a => new Address()
-                {
-                    AddressName = a.AddressName,
-                    AdresType = a.AdresType,
-                    Block = a.Block,
-                    CardCode = a.CardCode,
-                    City = a.City,
-                    Country = a.Country,
-                    State = a.State,
-                    Street = a.Street,
-                    ZipCode = a.ZipCode
-                })
-                .ToList(),
+            TaxId = model.TaxId
         };
         
         await db.Context.BusinessPartners.AddAsync(entity);
@@ -159,19 +129,18 @@ public class BusinessPartnerService(
                 QryGroup23 = x.QryGroup23,
                 TaxId = x.TaxId,
                 Addresses = x.Addresses
+                    .Where(a => a.CardCode == x.CardCode)
                     .Select(a => new AddressModel()
                     {
                         AddressName = a.AddressName,
                         AdresType = a.AdresType,
                         Block = a.Block,
-                        CardCode = a.CardCode,
                         City = a.City,
                         Country = a.Country,
                         State = a.State,
                         Street = a.Street,
                         ZipCode = a.ZipCode
                     })
-                    .Where(a => a.CardCode == x.CardCode)
                     .AsQueryable()
                     .ToList()
             })
