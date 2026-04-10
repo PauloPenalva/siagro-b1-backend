@@ -2,14 +2,14 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
-using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentReleases;
 
 public class ShipmentReleasesBalanceService(
     IUnitOfWork db,
-    SapErpDbContext sapDb,
+    IWarehouseService warehouseService,
     ILogger<ShipmentReleasesBalanceService> logger)
 {
     public async Task<ICollection<ShipmentRelesesBalanceResponseDto>> ExecuteAsync(string itemCode)
@@ -37,26 +37,7 @@ public class ShipmentReleasesBalanceService(
 
     private async Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync()
     {
-        return await sapDb.BusinessPartners
-            .AsNoTracking()
-            .Where(x => x.QryGroup23 == "Y")
-            .Select(bp => new WarehouseInfo
-            {
-                CardCode = bp.CardCode,
-                CardFName = bp.CardFName,
-                TaxId = bp.TaxId,
-                Notes = bp.Notes,
-                Address = bp.Addresses
-                    .Where(a => a.AdresType == "S")
-                    .OrderBy(a => a.AddressName)
-                    .Select(a => new WarehouseAddress
-                    {
-                        City = a.City,
-                        State = a.State
-                    })
-                    .FirstOrDefault()
-            })
-            .ToDictionaryAsync(x => x.CardCode);
+        return await warehouseService.LoadWarehousesAsync();
     }
 
     private async Task<List<ShipmentReleaseBalanceProjection>> LoadBalancesAsync(string itemCode)
@@ -133,18 +114,4 @@ public class ShipmentReleasesBalanceService(
         public decimal UsedQuantity { get; init; }
     }
     
-    internal sealed class WarehouseAddress
-    {
-        public string? City { get; init; }
-        public string? State { get; init; }
-    }
-    
-    internal sealed class WarehouseInfo
-    {
-        public required string CardCode { get; init; }
-        public string? CardFName { get; init; }
-        public string? TaxId { get; init; }
-        public string? Notes { get; init; }
-        public WarehouseAddress? Address { get; init; }
-    }
 }

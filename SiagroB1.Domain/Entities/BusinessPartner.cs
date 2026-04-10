@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace SiagroB1.Domain.Entities.SAP;
+namespace SiagroB1.Domain.Entities;
 
-[Table("OCRD")]
-public class BusinessPartner 
+[Table("BUSINESS_PARTNERS")]
+public class BusinessPartner
 {
     [Key]
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
@@ -13,20 +13,20 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string CardName { get; set; }
     
-    [Column("AliasName", TypeName = "VARCHAR(200) NOT NULL")]
+    [Column("AliasName", TypeName = "VARCHAR(200)")]
     public string? CardFName { get; set; }
     
     /// <summary>
     /// BPType
     /// </summary>
-    [Column(TypeName = "VARCHAR(1) NOT NULL")]
+    [Column(TypeName = "VARCHAR(1)")]
     public string? CardType { get; set; }
     
-    [Column(name: "U_YKT_CNPJ_CPF",TypeName = "VARCHAR(14) NOT NULL")]
+    [Column(name: "U_YKT_CNPJ_CPF",TypeName = "VARCHAR(14)")]
     public string? TaxId { get; set; }
-    
-    [Column(TypeName = "VARCHAR(1)")]
-    public string? QryGroup23 { get;  set; }
+
+    [Column(TypeName = "VARCHAR(1)")] 
+    public string? QryGroup23 { get; set; } = "N";
     
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
     

@@ -1,12 +1,10 @@
 ﻿using System.Data;
 using Dapper;
 using SiagroB1.Domain.Dtos;
-using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
 public class SalesContractsGetAllocationsByContractService(
-    SapErpDbContext sap,
     IDbConnection dbConnection
     )
 {

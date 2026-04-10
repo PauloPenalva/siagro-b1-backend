@@ -83,7 +83,7 @@ builder.Services.AddAuthentication(options =>
     .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
         "BasicAuthentication", options => { });
 
-var erp = builder.Configuration["Erp"] ?? "SAPB1";
+var erp = builder.Configuration["Erp"] ?? "STANDALONE";
 
 switch (erp.ToUpper().Trim())
 { 
@@ -97,13 +97,11 @@ switch (erp.ToUpper().Trim())
         builder.Services.AddDbContext<SapCommonDbContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("SapCommon")));
         
-        // modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
-        // modelBuilder.EntitySet<Item>("Items");
-
         builder.Services.AddSapServices();
         break;
     
     case "STANDALONE":
+        
         builder.Services.AddStandAloneServices();
         break;
     
@@ -117,7 +115,6 @@ builder.Services.AddHangfire(config =>
     config.UseSqlServerStorage(builder.Configuration.GetConnectionString("SiagroDB")));
 
 builder.Services.AddHangfireServer();
-
 
 modelBuilder.ConfigureODataEntities();
 

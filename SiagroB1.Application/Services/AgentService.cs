@@ -59,25 +59,25 @@ public class AgentService(AppDbContext context, ILogger<AgentService> logger) : 
     public IQueryable<AgentModel> QueryAll()
     {
         return context.Agents
-            .AsNoTracking()
-            .Select(x => new AgentModel
+            .Select(x => new AgentModel()
             {
                 Code = x.Code,
+                Inactive = x.Inactive,
                 Name = x.Name,
-                Inactive =  x.Inactive ?? "N",
-            });
+            })
+            .AsNoTracking();
     }
 
     public async Task<IEnumerable<AgentModel>> GetAllAsync()
     {
         return await context.Agents
-            .Select(x => new AgentModel
+            .Select(x => new AgentModel()
             {
                 Code = x.Code,
+                Inactive = x.Inactive,
                 Name = x.Name,
-                Inactive = x.Inactive ?? "N",
             })
-            .ToListAsync();
+           .ToListAsync();
     }
 
     public async Task<AgentModel?> GetByIdAsync(int code)
@@ -87,11 +87,11 @@ public class AgentService(AppDbContext context, ILogger<AgentService> logger) : 
             logger.LogInformation("Fetching entity with ID {Id}", code);
 
             return await context.Agents
-                .Select(x => new AgentModel
+                .Select(x => new AgentModel()
                 {
                     Code = x.Code,
+                    Inactive = x.Inactive,
                     Name = x.Name,
-                    Inactive = x.Inactive ?? "N",
                 })
                 .FirstOrDefaultAsync(x => x.Code == code);
         }

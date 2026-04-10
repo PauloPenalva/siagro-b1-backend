@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Domain.Interfaces.SAP;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
 

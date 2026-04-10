@@ -1,10 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Interfaces;
 
-namespace SiagroB1.Domain.Entities.SAP;
+namespace SiagroB1.Domain.Entities;
 
-[Table("OITM")]
+[Table("ITEMS")]
 public class Item
 {
     [Key]
@@ -13,9 +12,9 @@ public class Item
 
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string ItemName { get; set; }
-    
-    public short? ItmsGrpCod {get; set;}
-    
-    [Column("U_YKT_Integra_Siagro", TypeName = "VARCHAR(3)")]
-    public string? Enabled { get; set; }
+
+    public short? ItmsGrpCod { get; set; } = 105;
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? Enabled { get; set; } = "SIM";
 }

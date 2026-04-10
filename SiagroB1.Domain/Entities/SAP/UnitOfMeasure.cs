@@ -1,10 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Entities.SAP;
 
 [Table("OUOM")]
-public class UnitOfMeasure 
+public class UnitOfMeasure : IUoMEntity
 {
     [Key]
     [Column("UomCode")]

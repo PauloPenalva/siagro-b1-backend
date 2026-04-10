@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -136,5 +137,29 @@ public class WarehouseService(AppDbContext context, ILogger<WarehouseService> lo
     private bool EntityExists(string key)
     {
         return context.Warehouses.Any(x => x.Code == key);
+    }
+    
+    public async Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync()
+    {
+        return await context.BusinessPartners
+            .AsNoTracking()
+            .Where(x => x.QryGroup23 == "Y")
+            .Select(bp => new WarehouseInfo
+            {
+                CardCode = bp.CardCode,
+                CardFName = bp.CardFName,
+                TaxId = bp.TaxId,
+                Notes = bp.Notes,
+                Address = bp.Addresses
+                    .Where(a => a.AdresType == "S")
+                    .OrderBy(a => a.AddressName)
+                    .Select(a => new WarehouseAddress
+                    {
+                        City = a.City,
+                        State = a.State
+                    })
+                    .FirstOrDefault()
+            })
+            .ToDictionaryAsync(x => x.CardCode);
     }
 }

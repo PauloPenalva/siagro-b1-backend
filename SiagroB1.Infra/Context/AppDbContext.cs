@@ -53,6 +53,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     
     public DbSet<SystemSetup> SystemSetup { get; set; }
     
+    public DbSet<Item> Items { get; set; }
+    
+    public DbSet<BusinessPartner>  BusinessPartners { get; set; }
+    
+    public DbSet<Address> Addresses { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction
@@ -66,6 +72,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
             .IsUnique()
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
+        
+        modelBuilder.Entity<Address>()
+            .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
+
+        modelBuilder.Entity<Address>()
+            .HasOne(a => a.BusinessPartner)
+            .WithMany(bp => bp.Addresses)
+            .HasForeignKey(a => a.CardCode);
     }
 }
     

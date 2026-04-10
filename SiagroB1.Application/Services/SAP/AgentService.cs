@@ -15,7 +15,12 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
          throw new NotImplementedException("Not implemented on SAP context.");
      }
 
-    public Task<bool> DeleteAsync(int code)
+     public Task<AgentModel?> UpdateAsync(int code, AgentModel model)
+     {
+         throw new NotImplementedException();
+     }
+
+     public Task<bool> DeleteAsync(int code)
     {
         throw new NotImplementedException("Not implemented on SAP context.");
     }
@@ -23,25 +28,25 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
     public IQueryable<AgentModel> QueryAll()
     {
         return context.Agents
-            .AsNoTracking()
-            .Select(x => new AgentModel
+            .Select(x => new AgentModel()
             {
                 Code = x.Code,
+                Inactive = x.Inactive,
                 Name = x.Name,
-                Inactive =  x.Inactive ?? "N",
-            });
+            })
+            .AsNoTracking();
     }
 
     public async Task<IEnumerable<AgentModel>> GetAllAsync()
     {
         return await context.Agents
-            .Select(x => new AgentModel
+            .Select(x => new AgentModel()
             {
                 Code = x.Code,
+                Inactive = x.Inactive,
                 Name = x.Name,
-                Inactive =  x.Inactive ?? "N",
             })
-            .ToListAsync();
+           .ToListAsync();
     }
 
     public async Task<AgentModel?> GetByIdAsync(int code)
@@ -49,11 +54,11 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
         try
         {
             return await context.Agents
-                .Select(x => new AgentModel
+                .Select(x => new AgentModel()
                 {
                     Code = x.Code,
+                    Inactive = x.Inactive,
                     Name = x.Name,
-                    Inactive =  x.Inactive ?? "N",
                 })
                 .FirstOrDefaultAsync(x => x.Code == code);
                 
@@ -64,9 +69,5 @@ public class AgentService(SapErpDbContext context, ILogger<AgentService> logger)
         }
     }
     
-    public async Task<AgentModel?> UpdateAsync(int code, AgentModel model)
-    {
-        throw new NotImplementedException("Not implemented on SAP context.");
-    }
     
 }

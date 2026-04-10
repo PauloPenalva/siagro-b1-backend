@@ -1,14 +1,21 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
-using SiagroB1.Infra.Context;
+using SiagroB1.Infra;
 
-namespace SiagroB1.Application.Services.SAP;
+namespace SiagroB1.Application.Services;
 
-public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPartnerService> logger) 
+public class BusinessPartnerService(
+    IUnitOfWork db, 
+    ILogger<BusinessPartnerService> logger,
+    IStringLocalizer<Resource> resource
+    ) 
     : IBusinessPartnerService
 {
     public Task<IEnumerable<BusinessPartnerModel>> GetAllAsync()
@@ -20,9 +27,7 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
     {
         try
         {
-            logger.LogInformation("Fetching entity with ID {Id}", code);
-
-            return await context.BusinessPartners
+            return await db.Context.BusinessPartners
                 .Include(a => a.Addresses)
                 .Select(x => new BusinessPartnerModel()
                 {
@@ -55,28 +60,94 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
         catch (Exception ex)
         {
             logger.LogError(ex, "Error fetching entity with ID {Id}", code);
-            throw new DefaultException("Error fetching entity");
+            throw new DefaultException(ex.Message);
         }
     }
 
-    public Task<BusinessPartnerModel> CreateAsync(BusinessPartnerModel entity)
+    public async Task<BusinessPartnerModel> CreateAsync(BusinessPartnerModel model)
     {
-        throw new NotImplementedException();
+        var existingCode = await db.Context.BusinessPartners
+            .FirstOrDefaultAsync(b => b.CardCode == model.CardCode);
+        
+        if (existingCode != null)
+        {
+            throw new DefaultException(resource["BP_EXISTING_CODE"]);
+        }
+
+        var entity = new BusinessPartner()
+        {
+            CardCode = model.CardCode,
+            CardName = model.CardName,
+            CardFName = model.CardFName,
+            CardType = model.CardType,
+            QryGroup23 = "N",
+            TaxId = model.TaxId,
+            Addresses = model.Addresses
+                .Select(a => new Address()
+                {
+                    AddressName = a.AddressName,
+                    AdresType = a.AdresType,
+                    Block = a.Block,
+                    CardCode = a.CardCode,
+                    City = a.City,
+                    Country = a.Country,
+                    State = a.State,
+                    Street = a.Street,
+                    ZipCode = a.ZipCode
+                })
+                .ToList(),
+        };
+        
+        await db.Context.BusinessPartners.AddAsync(entity);
+        await db.SaveChangesAsync();
+        return model;
     }
 
-    public Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel entity)
+    public async Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel model)
     {
-        throw new NotImplementedException();
+        var entity = await db.Context.BusinessPartners
+            .Include(a => a.Addresses)
+            .FirstOrDefaultAsync(x => x.CardCode == model.CardCode);
+
+        if (entity == null)
+            throw new NotFoundException(resource["BP_NOT_FOUND"]);
+        
+        db.Context.Entry(entity).State = EntityState.Modified;
+
+        entity.CardName = model.CardName;
+        entity.CardFName = model.CardFName;
+        entity.CardType = model.CardType;
+        entity.Notes = model.Notes;
+        entity.TaxId = model.TaxId;
+
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException e)
+        {
+           throw new DefaultException(e.Message);
+        }
+
+        return model;
     }
 
-    public Task<bool> DeleteAsync(string code)
+    public async Task<bool> DeleteAsync(string code)
     {
-        throw new NotImplementedException();
+        var entity = await db.Context.BusinessPartners.FindAsync(code);
+        if (entity == null)
+        {
+            return false;
+        }
+
+        db.Context.BusinessPartners.Remove(entity);
+        await db.SaveChangesAsync();
+        return true;
     }
 
     public IQueryable<BusinessPartnerModel> QueryAll()
     {
-        return context.BusinessPartners
+        return db.Context.BusinessPartners
             .Include(a => a.Addresses)
             .Select(x => new BusinessPartnerModel()
             {
@@ -114,7 +185,7 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
 
     public async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
     {
-        return await context.BusinessPartners
+        return await db.Context.BusinessPartners
             .AsNoTracking()
             .Where(x => x.QryGroup23 == "Y")
             .Select(bp => new SupplierInfo
@@ -134,5 +205,10 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                     .FirstOrDefault()
             })
             .ToDictionaryAsync(x => x.CardCode);
+    }
+    
+    private bool EntityExists(string code)
+    {
+        return db.Context.BusinessPartners.Any(e => e.CardCode == code);
     }
 }

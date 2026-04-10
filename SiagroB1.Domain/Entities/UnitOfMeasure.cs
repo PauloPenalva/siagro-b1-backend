@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("UNITS_OF_MEASURE")]
-public class UnitOfMeasure 
+public class UnitOfMeasure : IUoMEntity
 {
     [Key]
     [Column(TypeName = "VARCHAR(4) NOT NULL")]

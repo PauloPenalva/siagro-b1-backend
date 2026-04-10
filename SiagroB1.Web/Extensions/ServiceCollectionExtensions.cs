@@ -15,7 +15,6 @@ using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
-using SiagroB1.Domain.Interfaces.SAP;
 
 namespace SiagroB1.Web.Extensions;
 
@@ -34,11 +33,11 @@ public static class ServiceCollectionExtensions
     
     public static IServiceCollection AddStandAloneServices(this IServiceCollection services)
     {
-        //services.AddScoped<IBusinessPartnerService, Application.Services.BusinessPartnerService>();
-        //services.AddScoped<IItemService, Application.Services.ItemService>();
-        services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
-        services.AddScoped<IAgentService, AgentService>();
-        services.AddScoped<IWarehouseService, WarehouseService>();
+        services.AddScoped<IBusinessPartnerService, Application.Services.BusinessPartnerService>();
+        services.AddScoped<IItemService, Application.Services.ItemService>();
+        services.AddScoped<IUnitOfMeasureService, Application.Services.UnitOfMeasureService>();
+        services.AddScoped<IAgentService, Application.Services.AgentService>();
+        services.AddScoped<IWarehouseService, Application.Services.WarehouseService>();
         
         return services;
     }

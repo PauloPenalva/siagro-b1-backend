@@ -24,7 +24,8 @@ public class UnitOfMeasureService(AppDbContext context, ILogger<UnitOfMeasureSer
             var entity = new SiagroB1.Domain.Entities.UnitOfMeasure
             {
                 Code = model.Code,
-                Description = model.Description,  
+                Description = model.Description, 
+                Locked = model.Locked,
             };
             
             await context.UnitsOfMeasure.AddAsync(entity);
@@ -62,23 +63,23 @@ public class UnitOfMeasureService(AppDbContext context, ILogger<UnitOfMeasureSer
     public IQueryable<UnitOfMeasureModel> QueryAll()
     {
         return context.UnitsOfMeasure
-            .AsNoTracking()
-            .Select(x => new UnitOfMeasureModel
+            .Select(x => new UnitOfMeasureModel()
             {
                 Code = x.Code,
-                Description = x.Description,
-                Locked =  x.Locked ?? "N",
-            });
+                Description = x.Description, 
+                Locked = x.Locked,
+            })
+            .AsNoTracking();
     }
 
     public async Task<IEnumerable<UnitOfMeasureModel>> GetAllAsync()
     {
         return await context.UnitsOfMeasure
-            .Select(x => new UnitOfMeasureModel
+            .Select(x => new UnitOfMeasureModel()
             {
                 Code = x.Code,
-                Description = x.Description,
-                Locked = x.Locked ?? "N",
+                Description = x.Description, 
+                Locked = x.Locked,
             })
             .ToListAsync();
     }
@@ -90,11 +91,11 @@ public class UnitOfMeasureService(AppDbContext context, ILogger<UnitOfMeasureSer
             logger.LogInformation("Fetching entity with ID {Id}", code);
 
             return await context.UnitsOfMeasure
-                .Select(x => new UnitOfMeasureModel
+                .Select(x => new UnitOfMeasureModel()
                 {
                     Code = x.Code,
-                    Description = x.Description,
-                    Locked = x.Locked ?? "N",
+                    Description = x.Description, 
+                    Locked = x.Locked,
                 })
                 .FirstOrDefaultAsync(x => x.Code == code);
         }

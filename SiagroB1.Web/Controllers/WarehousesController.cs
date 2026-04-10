@@ -14,14 +14,14 @@ public class WarehousesController(IWarehouseService service)
 {
    
     [EnableQuery]
-    public virtual ActionResult Get()
+    public ActionResult Get()
     {
         return Ok(service.QueryAll());
     }
     
     
     [EnableQuery]
-    public virtual async Task<ActionResult> Get([FromRoute] string key)
+    public async Task<ActionResult> Get([FromRoute] string key)
     {
         var item = await service.GetByIdAsync(key);
 
@@ -33,7 +33,7 @@ public class WarehousesController(IWarehouseService service)
         return Ok(item);
     }
        
-    public virtual async Task<IActionResult> Post([FromBody] WarehouseModel model)
+    public async Task<IActionResult> Post([FromBody] WarehouseModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -58,7 +58,7 @@ public class WarehousesController(IWarehouseService service)
 
     }
     
-    public virtual async Task<IActionResult> Put([FromRoute] string key, [FromBody] WarehouseModel model)
+    public async Task<IActionResult> Put([FromRoute] string key, [FromBody] WarehouseModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -86,7 +86,7 @@ public class WarehousesController(IWarehouseService service)
         return NoContent();
     }
     
-    public virtual async Task<IActionResult> Delete([FromRoute] string key)
+    public async Task<IActionResult> Delete([FromRoute] string key)
     {
         try
         {
@@ -112,7 +112,7 @@ public class WarehousesController(IWarehouseService service)
     }
 
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromODataUri] string key, [FromBody] Delta<WarehouseModel> patch)
+    public async Task<IActionResult> Patch([FromODataUri] string key, [FromBody] Delta<WarehouseModel> patch)
     {
         if (!ModelState.IsValid)
         {

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Interfaces.SAP;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesInvoices;

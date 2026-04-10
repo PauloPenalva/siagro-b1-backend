@@ -2,12 +2,13 @@
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsGetAllocationsByContractService(
-    SapErpDbContext sap,
+    IBusinessPartnerService businessPartnerService,
     IDbConnection dbConnection
     )
 {
@@ -84,10 +85,7 @@ public class PurchaseContractsGetAllocationsByContractService(
 
     private async Task<string?> GetSupplierName(string cardCode)
     {
-        return await sap.BusinessPartners
-            .AsNoTracking()
-            .Where(x => x.CardCode == cardCode)
-            .Select(x => x.CardName)
-            .FirstOrDefaultAsync();
+        var model = await businessPartnerService.GetByIdAsync(cardCode);
+        return model?.CardName;
     }
 }

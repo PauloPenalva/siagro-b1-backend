@@ -1,3 +1,4 @@
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Domain.Interfaces;
@@ -10,4 +11,5 @@ public interface IWarehouseService
     Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model);
     Task<bool> DeleteAsync(string code);
     IQueryable<WarehouseModel> QueryAll();
+    Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync();
 }

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
@@ -9,7 +10,7 @@ namespace SiagroB1.Application.Services.ShipmentReleases;
 
 public class ShipmentReleasesPurchaseContractsService(
     IUnitOfWork db,
-    SapErpDbContext sapDb,
+    IBusinessPartnerService businessPartnerService,
     ILogger<ShipmentReleasesPurchaseContractsService> logger)
 {
     public async Task<ICollection<ShipmentRelesesPurchaseContractsResponseDto>> ExecuteAsync(string itemCode, string warehouseCode)
@@ -37,26 +38,8 @@ public class ShipmentReleasesPurchaseContractsService(
     
     private async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
     {
-        return await sapDb.BusinessPartners
-            .AsNoTracking()
-            .Where(x => x.QryGroup23 == "Y")
-            .Select(bp => new SupplierInfo
-            {
-                CardCode = bp.CardCode,
-                CardFName = bp.CardFName,
-                TaxId = bp.TaxId,
-                Notes = bp.Notes,
-                Address = bp.Addresses
-                    .Where(a => a.AdresType == "S")
-                    .OrderBy(a => a.AddressName)
-                    .Select(a => new SupplierAddress
-                    {
-                        City = a.City,
-                        State = a.State
-                    })
-                    .FirstOrDefault()
-            })
-            .ToDictionaryAsync(x => x.CardCode);
+        return await businessPartnerService.LoadSuppliersAsync();
+       
     }
 
     private async Task<List<ShipmentReleasesPurchaseContractsProjection>> LoadShipmentReleasesAsync(string itemCode, string warehouseCode)
@@ -153,18 +136,4 @@ public class ShipmentReleasesPurchaseContractsService(
         public decimal UsedQuantity { get; init; }
     }
     
-    internal sealed class SupplierAddress
-    {
-        public string? City { get; init; }
-        public string? State { get; init; }
-    }
-    
-    internal sealed class SupplierInfo
-    {
-        public required string CardCode { get; init; }
-        public string? CardFName { get; init; }
-        public string? TaxId { get; init; }
-        public string? Notes { get; init; }
-        public SupplierAddress? Address { get; init; }
-    }
 }

@@ -150,4 +150,10 @@
     <data name="EXISTING_SETUP_ACTIVE" xml:space="preserve">
         <value>Já existe uma configuração ativa.</value>
     </data>
+    <data name="BP_EXISTING_CODE" xml:space="preserve">
+        <value>Codigo de Parceiro de Negocio já existe.</value>
+    </data>
+    <data name="BP_NOT_FOUND" xml:space="preserve">
+        <value>Parceiro de Negócio não encontrado.</value>
+    </data>
 </root>

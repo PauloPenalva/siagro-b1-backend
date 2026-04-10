@@ -1,12 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Interfaces;
 
-namespace SiagroB1.Domain.Entities.SAP;
+namespace SiagroB1.Domain.Entities;
 
-[Table("CRD1")]
-public class Address
+[Table("BUSINESS_PARTNERS_ADDRESSES")]
+public class Address 
 {
-   
     [Column(TypeName = "VARCHAR(15) NOT NULL")]
     public required string CardCode { get; set; }
     

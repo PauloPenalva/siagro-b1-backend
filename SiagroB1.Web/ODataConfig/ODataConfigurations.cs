@@ -12,11 +12,8 @@ public static class ODataConfigurations
 {
     public static void ConfigureODataEntities(this ODataConventionModelBuilder modelBuilder)
     {
-        modelBuilder.EntitySet<BusinessPartner>("BusinessPartners");
-        modelBuilder.EntitySet<Item>("Items");
         modelBuilder.EntitySet<Company>("Companies");
         modelBuilder.EntitySet<Branch>("Branchs");
-        modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
         modelBuilder.EntitySet<ProcessingCost>("ProcessingCosts");
@@ -54,7 +51,6 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
         
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
-        modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
@@ -72,9 +68,12 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
+        modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
+        modelBuilder.EntitySet<ItemModel>("Items");
+        modelBuilder.EntitySet<AgentModel>("Agents");
+        modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
+        modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
         
-        modelBuilder.EntityType<Address>().HasKey(x => new { x.CardCode, x.AddressName, x.AdresType });
-
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
         systemSetupGetActive.Returns<IActionResult>();
         

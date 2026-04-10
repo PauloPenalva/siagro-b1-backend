@@ -15,7 +15,7 @@ public class UnitOfMeasureService(SapErpDbContext context, ILogger<UnitOfMeasure
          throw new NotImplementedException("Not implemented on SAP context.");
      }
 
-    public Task<bool> DeleteAsync(string code)
+     public Task<bool> DeleteAsync(string code)
     {
         throw new NotImplementedException("Not implemented on SAP context.");
     }
@@ -23,23 +23,23 @@ public class UnitOfMeasureService(SapErpDbContext context, ILogger<UnitOfMeasure
     public IQueryable<UnitOfMeasureModel> QueryAll()
     {
         return context.UnitsOfMeasure
-            .AsNoTracking()
-            .Select(x => new UnitOfMeasureModel
+            .Select(x => new UnitOfMeasureModel()
             {
                 Code = x.Code,
                 Description = x.Description,
-                Locked =  x.Locked ?? "N",
-            });
+                Locked = x.Locked
+            })
+            .AsNoTracking();
     }
 
     public async Task<IEnumerable<UnitOfMeasureModel>> GetAllAsync()
     {
         return await context.UnitsOfMeasure
-            .Select(x => new UnitOfMeasureModel
+            .Select(x => new UnitOfMeasureModel()
             {
                 Code = x.Code,
                 Description = x.Description,
-                Locked =  x.Locked ?? "N",
+                Locked = x.Locked
             })
             .ToListAsync();
     }
@@ -49,11 +49,11 @@ public class UnitOfMeasureService(SapErpDbContext context, ILogger<UnitOfMeasure
         try
         {
             return await context.UnitsOfMeasure
-                .Select(x => new UnitOfMeasureModel
+                .Select(x => new UnitOfMeasureModel()
                 {
                     Code = x.Code,
                     Description = x.Description,
-                    Locked =  x.Locked ?? "N",
+                    Locked = x.Locked
                 })
                 .FirstOrDefaultAsync(x => x.Code == code);
                 
@@ -64,7 +64,7 @@ public class UnitOfMeasureService(SapErpDbContext context, ILogger<UnitOfMeasure
         }
     }
     
-    public async Task<UnitOfMeasureModel?> UpdateAsync(string key, UnitOfMeasureModel model)
+    public Task<UnitOfMeasureModel?> UpdateAsync(string key, UnitOfMeasureModel model)
     {
         throw new NotImplementedException("Not implemented on SAP context.");
     }
