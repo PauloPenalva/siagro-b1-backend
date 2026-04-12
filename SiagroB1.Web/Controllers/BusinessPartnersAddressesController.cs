@@ -2,20 +2,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Web.Controllers;
 
 public class BusinessPartnersAddressesController(
-    BusinessPartnerAddressService service
+    IBusinessPartnerAddressService service
     ) 
     : ODataController
 {
     [HttpPost("odata/BusinessPartners({key})/Addresses")]
-    [HttpPost("odata/BusinessPartners/{key}/Addresses")]
     public async Task<ActionResult<AddressModel>> PostAsync(
         [FromRoute] string key, 
         [FromBody] AddressModel model)
@@ -77,7 +76,7 @@ public class BusinessPartnersAddressesController(
     }
     
     [HttpDelete("odata/BusinessPartners({key})/Addresses(AddressName={addressName},AdresType={adresType},CardCode={cardCode})")]
-    public async Task<IActionResult> DeletesAsync(
+    public async Task<IActionResult> DeleteAsync(
         [FromRoute] string key, 
         [FromRoute] string addressName, 
         [FromRoute] string adresType,

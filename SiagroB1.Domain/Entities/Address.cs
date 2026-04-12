@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
-using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Entities;
 
