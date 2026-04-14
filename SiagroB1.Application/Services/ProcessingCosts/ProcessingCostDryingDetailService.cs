@@ -4,15 +4,15 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 
-namespace SiagroB1.Application.Services;
+namespace SiagroB1.Application.Services.ProcessingCosts;
 
-public class ProcessingCostDryingParameterService(AppDbContext context, ILogger<ProcessingCostDryingParameterService> logger)
-    : BaseService<ProcessingCostDryingParameter, int>(context, logger), IProcessingCostDryingParameterService
+public class ProcessingCostDryingDetailService(AppDbContext context, ILogger<ProcessingCostDryingDetailService> logger)
+    : BaseService<ProcessingCostDryingDetail, int>(context, logger), IProcessingCostDryingDetailService
 {
-    public async Task<ProcessingCostDryingParameter> CreateAsync(string processingCostCode, ProcessingCostDryingParameter entity)
+    
+    public async Task<ProcessingCostDryingDetail> CreateAsync(string processingCostCode, ProcessingCostDryingDetail entity)
     {
         var tb = await _context.Set<ProcessingCost>().FirstOrDefaultAsync(x => x.Code == processingCostCode)
             ?? throw new KeyNotFoundException("");
@@ -21,7 +21,7 @@ public class ProcessingCostDryingParameterService(AppDbContext context, ILogger<
         {
             entity.ProcessingCost = tb;
 
-            await _context.Set<ProcessingCostDryingParameter>().AddAsync(entity);
+            await _context.Set<ProcessingCostDryingDetail>().AddAsync(entity);
             await _context.SaveChangesAsync();
 
             return entity;
@@ -33,11 +33,11 @@ public class ProcessingCostDryingParameterService(AppDbContext context, ILogger<
         }
     }
 
-    public async Task<ProcessingCostDryingParameter?> FindByKeyAsync(string processingCostCode, int itemId)
+    public async Task<ProcessingCostDryingDetail?> FindByKeyAsync(string processingCostCode, int itemId)
     {
         try
         {
-            return await _context.Set<ProcessingCostDryingParameter>()
+            return await _context.Set<ProcessingCostDryingDetail>()
                 .Where(x => x.ProcessingCostCode == processingCostCode && x.ItemId == itemId)
                 .AsNoTracking()
                 .FirstOrDefaultAsync();
@@ -49,9 +49,9 @@ public class ProcessingCostDryingParameterService(AppDbContext context, ILogger<
         }
     }
     
-    public IQueryable<ProcessingCostDryingParameter> GetAllByTabelaCustoId(string processingCostCode)
+    public IQueryable<ProcessingCostDryingDetail> GetAllByProcessingCostKey(string processingCostCode)
     {
-        return _context.Set<ProcessingCostDryingParameter>()
+        return _context.Set<ProcessingCostDryingDetail>()
             .Where(x => x.ProcessingCostCode == processingCostCode);
             
     }

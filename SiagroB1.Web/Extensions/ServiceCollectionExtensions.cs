@@ -3,6 +3,7 @@ using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.OwnershipTransfers;
+using SiagroB1.Application.Services.ProcessingCosts;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
@@ -49,11 +50,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
-        services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
-        services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
-        services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
-        services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
-        services.AddScoped<IProcessingCostService, ProcessingCostService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
         services.AddScoped<IPurchaseContractService, PurchaseContractService>();
         services.AddScoped<IStateService, StateService>();
@@ -77,6 +73,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DocNumberGetInfoByTransactionCodeService>();
         services.AddScoped<DocNumberService>();
         
+        // processing costs
+        services.AddScoped<IProcessingCostDryingDetailService, ProcessingCostDryingDetailService>();
+        services.AddScoped<IProcessingCostDryingParameterService, ProcessingCostDryingParameterService>();
+        services.AddScoped<IProcessingCostQualityParameterService, ProcessingCostQualityParameterService>();
+        services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
+        services.AddScoped<IProcessingCostService, ProcessingCostService>();
+        services.AddScoped<IProcessingCostCsvImportService, ProcessingCostCsvImportService>();
+
         // purchase contracts
         services.AddScoped<PurchaseContractsAllocationCreateService>();
         services.AddScoped<PurchaseContractsAllocationDeleteService>();

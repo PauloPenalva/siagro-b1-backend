@@ -4,10 +4,9 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 
-namespace SiagroB1.Application.Services;
+namespace SiagroB1.Application.Services.ProcessingCosts;
 
 public class ProcessingCostQualityParameterService(AppDbContext context, ILogger<ProcessingCostQualityParameterService> logger)
     : BaseService<ProcessingCostQualityParameter, int>(context, logger), IProcessingCostQualityParameterService
