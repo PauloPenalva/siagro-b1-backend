@@ -20,6 +20,8 @@ public class StorageTransactionsReverseService(
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException(resource["EXCEPTION_00007"]);
         
+        if (doc.TransactionOrigin == TransactionCode.StorageTransaction)
+            transactionCode = TransactionCode.StorageTransaction;    
         
         if (doc.TransactionOrigin != transactionCode)
             throw new ApplicationException(resource["EXCEPTION_00008"] + doc.TransactionOrigin);
