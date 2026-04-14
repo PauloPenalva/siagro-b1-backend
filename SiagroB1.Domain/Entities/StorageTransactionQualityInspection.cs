@@ -17,7 +17,7 @@ public class StorageTransactionQualityInspection
     public required string QualityAttribCode { get; set; }
     public virtual QualityAttrib? QualityAttrib { get; set; }
 
-    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    [Column(TypeName = "DECIMAL(18,1) DEFAULT 0")]
     public decimal Value { get; set; } = 0;
     
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
