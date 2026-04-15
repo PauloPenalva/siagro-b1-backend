@@ -28,7 +28,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Reports\" />
+        <None Update="Reports\**\*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </None>
     </ItemGroup>
 
 </Project>
