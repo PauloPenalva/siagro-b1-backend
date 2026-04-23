@@ -22,7 +22,7 @@ public class StorageAddressReportService(
             .ToListAsync(ct);
 
         var reportPath = Path.Combine(env.ContentRootPath, "Reports", "Templates", "StorageAddressesBalance.frx");
-        var logoPath = Path.Combine(env.WebRootPath, "images", "logo.jpeg");
+        //var logoPath = Path.Combine(env.WebRootPath, "images", "logo.jpeg");
         
         using var report = new Report();
         report.Load(reportPath);
@@ -30,12 +30,12 @@ public class StorageAddressReportService(
         report.RegisterData(rows, "StorageAddresses");
         report.GetDataSource("StorageAddresses")!.Enabled = true;
         
-        var picLogo = report.FindObject("picLogo") as PictureObject;
-        if (picLogo != null && File.Exists(logoPath))
-        {
-            using var img = Image.FromFile(logoPath);
-            picLogo.Image = (Image)img.Clone();
-        }
+        // var picLogo = report.FindObject("picLogo") as PictureObject;
+        // if (picLogo != null && File.Exists(logoPath))
+        // {
+        //     using var img = Image.FromFile(logoPath);
+        //     picLogo.Image = (Image)img.Clone();
+        // }
 
         var companyName = configuration.GetValue<string>("CompanyName") ?? "Company Name";
         
