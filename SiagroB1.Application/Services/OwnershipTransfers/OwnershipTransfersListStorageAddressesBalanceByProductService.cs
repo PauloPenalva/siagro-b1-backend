@@ -15,7 +15,7 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
         var sql = """
                     SELECT 
                             SA.BranchCode,
-                            B.BranchName,
+                            B.ShortName,
                             SA.Code,
                             SA.CreationDate,
                             SA.Description,
@@ -49,7 +49,7 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
             storageAddresses.Add(new StorageAddressBalanceDto
             {
                 BranchCode = item.BranchCode,
-                BranchName = item.BranchName,
+                BranchName = item.ShortName,
                 Code = item.Code,
                 CreationDate = item.CreationDate,
                 Description = item.Description,

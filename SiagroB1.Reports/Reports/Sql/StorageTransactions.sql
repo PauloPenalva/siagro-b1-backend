@@ -54,7 +54,7 @@ WHERE
     ST.TransactionType = @TransactionType
   AND ST.TransactionStatus <> 2
   AND ST.TransactionDate >= @TransactionDateFrom
-  AND ST.TransactionDate < DATEADD(DAY, 1, @TransactionDateTo)
+  AND ST.TransactionDate <= @TransactionDateTo
   AND (@BranchCodeFrom IS NULL OR ISNULL(ST.BranchCode,'') >= @BranchCodeFrom)
   AND (@BranchCodeTo IS NULL OR ISNULL(ST.BranchCode,'') <= @BranchCodeTo)
   AND (@CardCodeFrom IS NULL OR ISNULL(ST.CardCode,'') >= @CardCodeFrom)

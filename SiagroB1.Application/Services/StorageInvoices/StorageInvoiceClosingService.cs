@@ -87,8 +87,8 @@ public class StorageInvoiceClosingService(
                     ItemType = StorageInvoiceItemType.ReceiptService,
                     Description = $"Recepção - {tx.Code ?? tx.Key.ToString()}",
                     ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.NetWeight,
-                    UnitPriceOrRate = tx.NetWeight == 0 ? 0 : Math.Round(tx.ReceiptServicePrice / tx.NetWeight, 8),
+                    Quantity = tx.GrossWeight,
+                    UnitPriceOrRate = Math.Round(tx.ReceiptServicePrice / tx.GrossWeight, 8) ,
                     TotalAmount = tx.ReceiptServicePrice,
                     TotalQuantityLoss = 0,
                     SourceType = nameof(StorageTransaction),
@@ -121,9 +121,9 @@ public class StorageInvoiceClosingService(
                     ItemType = StorageInvoiceItemType.CleaningService,
                     Description = $"Pré-limpeza - {tx.Code ?? tx.Key.ToString()}",
                     ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.CleaningDiscount > 0 ? tx.CleaningDiscount : tx.NetWeight,
+                    Quantity = tx.GrossWeight,
                     UnitPriceOrRate = (tx.CleaningDiscount > 0)
-                        ? Math.Round(tx.CleaningServicePrice / tx.CleaningDiscount, 8)
+                        ? Math.Round(tx.CleaningServicePrice / tx.GrossWeight, 8)
                         : 0,
                     TotalAmount = tx.CleaningServicePrice,
                     TotalQuantityLoss = 0,
@@ -140,9 +140,9 @@ public class StorageInvoiceClosingService(
                     ItemType = StorageInvoiceItemType.DryingService,
                     Description = $"Secagem - {tx.Code ?? tx.Key.ToString()}",
                     ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.DryingDiscount > 0 ? tx.DryingDiscount : tx.NetWeight,
+                    Quantity = tx.GrossWeight,
                     UnitPriceOrRate = (tx.DryingDiscount > 0)
-                        ? Math.Round(tx.DryingServicePrice / tx.DryingDiscount, 8)
+                        ? Math.Round(tx.DryingServicePrice / tx.GrossWeight, 8)
                         : 0,
                     TotalAmount = tx.DryingServicePrice,
                     TotalQuantityLoss = 0,
