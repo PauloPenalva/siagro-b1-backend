@@ -32,6 +32,7 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </None>
+        <None Remove="Reports\Templates\Teste.frx" />
     </ItemGroup>
 
 </Project>

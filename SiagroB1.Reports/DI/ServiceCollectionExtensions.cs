@@ -1,3 +1,4 @@
+using SiagroB1.Reports.ReportGenerators;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Reports.DI;
@@ -23,6 +24,8 @@ public static class ServiceCollectionExtensions
             .AddClasses(classes => classes.Where(t => t.Name.EndsWith("Service")))
             .AsSelf()
             .WithScopedLifetime());
+
+        services.AddScoped<StorageStatementReportGenerator>();
             
         return services;
     }

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="03/19/2026 10:00:00" ReportInfo.Modified="03/24/2026 15:34:45" ReportInfo.CreatorVersion="2026.1.0.0">
+<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="03/19/2026 10:00:00" ReportInfo.Modified="04/23/2026 08:50:54" ReportInfo.CreatorVersion="2026.1.0.0">
   <Dictionary>
     <BusinessObjectDataSource Name="StorageAddresses" ReferenceName="StorageAddresses" DataType="System.Int32" Enabled="true">
       <Column Name="BranchCode" DataType="System.String"/>
@@ -50,9 +50,8 @@
   </Dictionary>
   <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
     <ReportTitleBand Name="ReportTitle1" Width="1084.86" Height="127.85">
-      <PictureObject Name="picLogo" Width="95" Height="45"/>
-      <TextObject Name="TxtCompany" Left="105" Top="2" Width="620" Height="20" Text="[IIf([pCompanyName] == &quot;&quot;, &quot;EMPRESA&quot;, [pCompanyName])]" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
-      <TextObject Name="TxtTitle" Left="105" Top="24" Width="620" Height="18" Text="[IIf([pTitle] == &quot;&quot;, &quot;Relatório de Saldos por Lote&quot;, [pTitle])]" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="TxtCompany" Left="10.5" Top="2" Width="620" Height="20" Text="[IIf([pCompanyName] == &quot;&quot;, &quot;EMPRESA&quot;, [pCompanyName])]" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <TextObject Name="TxtTitle" Left="10.5" Top="24" Width="620" Height="18" Text="[IIf([pTitle] == &quot;&quot;, &quot;Relatório de Saldos por Lote&quot;, [pTitle])]" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
       <TextObject Name="TxtPrintedAtLabel" Left="835" Top="2" Width="90" Height="16" Text="Emitido em:" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="TxtPrintedAt" Left="930" Top="2" Width="150" Height="16" Text="[pPrintedAt]" Format="Date" Format.Format="G" HorzAlign="Right" Font="Arial, 8pt"/>
       <TextObject Name="TxtPrintedByLabel" Left="835" Top="20" Width="90" Height="16" Text="Usuário:" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
@@ -84,7 +83,7 @@
       <TextObject Name="F13V" Left="933" Top="94" Width="147" Height="16" Text="[pOnlyWithBalance]" Font="Arial, 8pt"/>
       <LineObject Name="Line1" Top="118.4" Width="1080"/>
     </ReportTitleBand>
-    <PageHeaderBand Name="PageHeader1" Top="131.05" Width="1084.86" Height="22">
+    <PageHeaderBand Name="PageHeader1" Top="129.63" Width="1084.86" Height="22">
       <TextObject Name="H1" Width="60" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Filial" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H2" Left="60" Width="70" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Código" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H3" Left="130" Width="78" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Criação" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -100,7 +99,7 @@
       <TextObject Name="H13" Left="983" Width="48" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Saíd." HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="H14" Left="1031" Width="54" Height="22" Border.Lines="All" Fill.Color="Gainsboro" Text="Saldo" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
     </PageHeaderBand>
-    <DataBand Name="Data1" Top="156.25" Width="1084.86" Height="18" DataSource="StorageAddresses">
+    <DataBand Name="Data1" Top="153.41" Width="1084.86" Height="18" DataSource="StorageAddresses">
       <TextObject Name="D1" Width="60" Height="18" Border.Lines="All" Text="[StorageAddresses.BranchCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
       <TextObject Name="D2" Left="60" Width="70" Height="18" Border.Lines="All" Text="[StorageAddresses.Code]" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
       <TextObject Name="D3" Left="130" Width="78" Height="18" Border.Lines="All" Text="[StorageAddresses.CreationDate]" Format="Date" Format.Format="d" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt"/>
@@ -116,7 +115,7 @@
       <TextObject Name="D13" Left="983" Width="48" Height="18" Border.Lines="All" Text="[StorageAddresses.TotalShipment]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt"/>
       <TextObject Name="D14" Left="1031" Width="54" Height="18" Border.Lines="All" Text="[StorageAddresses.Balance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="177.45" Width="1084.86" Height="86">
+    <ReportSummaryBand Name="ReportSummary1" Top="173.18" Width="1084.86" Height="86">
       <LineObject Name="SummaryLineTop" Width="1080"/>
       <TextObject Name="RSLabel1" Left="735" Top="8" Width="200" Height="18" Text="Quantidade de registros:" HorzAlign="Right" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="RSValue1" Left="935" Top="8" Width="150" Height="18" Text="[pRecordCount]" HorzAlign="Right" Font="Arial, 9pt"/>
@@ -127,7 +126,7 @@
       <TextObject Name="RSLabel4" Left="735" Top="68" Width="200" Height="18" Text="Saldo total:" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
       <TextObject Name="RSValue4" Left="935" Top="68" Width="150" Height="18" Text="[pTotalBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="266.65" Width="1084.86" Height="20">
+    <PageFooterBand Name="PageFooter1" Top="260.96" Width="1084.86" Height="20">
       <LineObject Name="FooterLine" Width="1080"/>
       <TextObject Name="FooterLeft" Top="4" Width="300" Height="14" Text="[pPrintedAt]" Format="Date" Format.Format="G" Font="Arial, 7pt"/>
       <TextObject Name="FooterCenter" Left="340" Top="4" Width="400" Height="14" Text="Relatório de Saldos por Lote" HorzAlign="Center" Font="Arial, 7pt"/>

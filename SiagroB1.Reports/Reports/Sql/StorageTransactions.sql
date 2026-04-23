@@ -26,7 +26,8 @@
     COALESCE(Q.FN, 0)         AS FN,
 
     ST.OthersDicount + ST.DryingDiscount + ST.CleaningDiscount AS Descontos,
-    ST.NetWeight AS PesoLiquido
+    ST.NetWeight AS PesoLiquido,
+    ST.DryingServicePrice + ST.CleaningServicePrice + ST.ShipmentPrice + ST.ReceiptServicePrice AS ValorServicos
 
 FROM STORAGE_TRANSACTIONS ST
          LEFT JOIN STORAGE_ADDRESSES SA

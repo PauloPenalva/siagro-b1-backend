@@ -37,7 +37,7 @@ public class StorageTransactionsService(
                 request.WarehouseCodeTo,
                 request.TruckCodeFrom,
                 request.TruckCodeTo,
-                TransactionType  = 0
+                TransactionType  = 0,
             });
         
         var parameters = new Dictionary<string, object>

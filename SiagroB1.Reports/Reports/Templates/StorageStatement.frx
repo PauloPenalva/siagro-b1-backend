@@ -1,0 +1,172 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" TextQuality="Regular">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Header" ReferenceName="Header" Enabled="true">
+      <Column Name="ReportTitle" DataType="System.String"/>
+      <Column Name="Period" DataType="System.String"/>
+      <Column Name="TotalEntrada" DataType="System.Decimal"/>
+      <Column Name="TotalSaida" DataType="System.Decimal"/>
+      <Column Name="TotalServicos" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+
+    <BusinessObjectDataSource Name="Statement" ReferenceName="Statement" Enabled="true">
+      <Column Name="TransactionDate" DataType="System.DateTime"/>
+      <Column Name="TransactionTime" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="TransactionTypeName" DataType="System.String"/>
+      <Column Name="TransactionStatusName" DataType="System.String"/>
+      <Column Name="CardCode" DataType="System.String"/>
+      <Column Name="CardName" DataType="System.String"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="StorageAddressCode" DataType="System.String"/>
+      <Column Name="GrossWeight" DataType="System.Decimal"/>
+      <Column Name="NetWeight" DataType="System.Decimal"/>
+      <Column Name="QtyEntrada" DataType="System.Decimal"/>
+      <Column Name="QtySaida" DataType="System.Decimal"/>
+      <Column Name="RunningBalance" DataType="System.Decimal"/>
+      <Column Name="Umidade" DataType="System.Decimal"/>
+      <Column Name="Impurezas" DataType="System.Decimal"/>
+      <Column Name="Avariados" DataType="System.Decimal"/>
+      <Column Name="Ardidos" DataType="System.Decimal"/>
+      <Column Name="PH" DataType="System.Decimal"/>
+      <Column Name="FN" DataType="System.Decimal"/>
+      <Column Name="TotalServiceValue" DataType="System.Decimal"/>
+      <Column Name="GroupDescription" DataType="System.String"/>
+      <Column Name="GroupTotalEntrada" DataType="System.Decimal"/>
+      <Column Name="GroupTotalSaida" DataType="System.Decimal"/>
+      <Column Name="GroupTotalServicos" DataType="System.Decimal"/>
+      <Column Name="IsGroupLastRow" DataType="System.Boolean"/>
+    </BusinessObjectDataSource>
+  </Dictionary>
+
+  <ReportPage Name="Page1"
+              Landscape="true"
+              PaperWidth="297"
+              PaperHeight="210"
+              LeftMargin="5"
+              RightMargin="5"
+              TopMargin="5"
+              BottomMargin="5">
+
+    <!-- CABEÇALHO -->
+    <ReportTitleBand Name="ReportTitle1" Height="45">
+      <TextObject Name="Title"
+                  Left="0"
+                  Top="0"
+                  Width="1080"
+                  Height="20"
+                  Text="[Header.ReportTitle]"
+                  HorzAlign="Center"
+                  Font="Arial, 14pt, style=Bold"/>
+
+      <TextObject Name="Period"
+                  Left="0"
+                  Top="22"
+                  Width="1080"
+                  Height="16"
+                  Text="Período: [Header.Period]"
+                  HorzAlign="Center"
+                  Font="Arial, 8pt"/>
+    </ReportTitleBand>
+
+    <!-- CABEÇALHO COLUNAS -->
+    <ColumnHeaderBand Name="ColumnHeader1" Top="50" Height="22">
+
+      <TextObject Left="0" Width="60" Height="22" Text="Data" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="60" Width="40" Height="22" Text="Hora" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="100" Width="70" Height="22" Text="Doc." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="170" Width="100" Height="22" Text="Tipo" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="270" Width="140" Height="22" Text="Cliente" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="410" Width="60" Height="22" Text="Entrada" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="470" Width="60" Height="22" Text="Saída" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="530" Width="60" Height="22" Text="Saldo" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="590" Width="80" Height="22" Text="Serviços" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+
+      <TextObject Left="670" Width="50" Height="22" Text="Umid." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="720" Width="50" Height="22" Text="Imp." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="770" Width="50" Height="22" Text="Avar." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="820" Width="50" Height="22" Text="Ard." Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="870" Width="50" Height="22" Text="PH" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="920" Width="50" Height="22" Text="FN" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
+    </ColumnHeaderBand>
+
+    <!-- DADOS -->
+    <DataBand Name="Data1"
+              Top="75"
+              Height="18"
+              DataSource="Statement">
+
+      <TextObject Left="0" Width="60" Height="18" Text="[Statement.TransactionDate]" Format="Date" Format.Format="dd/MM/yyyy" Border.Lines="All" Font="Arial, 7pt"/>
+      <TextObject Left="60" Width="40" Height="18" Text="[Statement.TransactionTime]" Border.Lines="All" Font="Arial, 7pt"/>
+      <TextObject Left="100" Width="70" Height="18" Text="[Statement.Code]" Border.Lines="All" Font="Arial, 7pt"/>
+      <TextObject Left="170" Width="100" Height="18" Text="[Statement.TransactionTypeName]" Border.Lines="All" Font="Arial, 7pt"/>
+      <TextObject Left="270" Width="140" Height="18" Text="[Statement.CardName]" Border.Lines="All" Font="Arial, 7pt"/>
+
+      <TextObject Left="410" Width="60" Height="18" Text="[Statement.QtyEntrada]" Format="Number" Format.DecimalDigits="3" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="470" Width="60" Height="18" Text="[Statement.QtySaida]" Format="Number" Format.DecimalDigits="3" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="530" Width="60" Height="18" Text="[Statement.RunningBalance]" Format="Number" Format.DecimalDigits="3" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Left="590" Width="80" Height="18" Text="[Statement.TotalServiceValue]" Format="Currency" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+
+      <TextObject Left="670" Width="50" Height="18" Text="[Statement.Umidade]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="720" Width="50" Height="18" Text="[Statement.Impurezas]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="770" Width="50" Height="18" Text="[Statement.Avariados]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="820" Width="50" Height="18" Text="[Statement.Ardidos]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="870" Width="50" Height="18" Text="[Statement.PH]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+      <TextObject Left="920" Width="50" Height="18" Text="[Statement.FN]" Border.Lines="All" HorzAlign="Right" Font="Arial, 7pt"/>
+    </DataBand>
+
+    <!-- SUBTOTAL POR GRUPO -->
+    <ChildBand Name="Child1" Height="18">
+      <TextObject Left="0"
+                  Width="400"
+                  Height="18"
+                  Text="[IIf([Statement.IsGroupLastRow], 'Subtotal do Grupo', '')]"
+                  Border.Lines="All"
+                  Font="Arial, 7pt, style=Bold"/>
+
+      <TextObject Left="410"
+                  Width="60"
+                  Height="18"
+                  Text="[IIf([Statement.IsGroupLastRow], [Statement.GroupTotalEntrada], '')]"
+                  Border.Lines="All"
+                  HorzAlign="Right"
+                  Font="Arial, 7pt, style=Bold"/>
+
+      <TextObject Left="470"
+                  Width="60"
+                  Height="18"
+                  Text="[IIf([Statement.IsGroupLastRow], [Statement.GroupTotalSaida], '')]"
+                  Border.Lines="All"
+                  HorzAlign="Right"
+                  Font="Arial, 7pt, style=Bold"/>
+
+      <TextObject Left="590"
+                  Width="80"
+                  Height="18"
+                  Text="[IIf([Statement.IsGroupLastRow], [Statement.GroupTotalServicos], '')]"
+                  Border.Lines="All"
+                  HorzAlign="Right"
+                  Font="Arial, 7pt, style=Bold"/>
+    </ChildBand>
+
+    <!-- RODAPÉ -->
+    <ReportSummaryBand Name="Summary1" Height="40">
+      <TextObject Left="0" Top="0" Width="180" Height="18" Text="Totais Gerais" Font="Arial, 9pt, style=Bold"/>
+
+      <TextObject Left="0" Top="20" Width="120" Height="18" Text="Entradas:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Left="120" Top="20" Width="80" Height="18" Text="[Header.TotalEntrada]" Font="Arial, 8pt, style=Bold"/>
+
+      <TextObject Left="220" Top="20" Width="120" Height="18" Text="Saídas:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Left="340" Top="20" Width="80" Height="18" Text="[Header.TotalSaida]" Font="Arial, 8pt, style=Bold"/>
+
+      <TextObject Left="460" Top="20" Width="140" Height="18" Text="Serviços:" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Left="600" Top="20" Width="100" Height="18" Text="[Header.TotalServicos]" Font="Arial, 8pt, style=Bold"/>
+    </ReportSummaryBand>
+
+    <PageFooterBand Name="Footer1" Height="18">
+      <TextObject Left="0" Width="1080" Height="18" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" Font="Arial, 8pt"/>
+    </PageFooterBand>
+
+  </ReportPage>
+</Report>
