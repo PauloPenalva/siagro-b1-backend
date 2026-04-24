@@ -34,7 +34,7 @@ public class TruckScaleCaptureController(
         
         await ws.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
 
-        var completed = await Task.WhenAny(task, Task.Delay(15000));
+        var completed = await Task.WhenAny(task, Task.Delay(30000));
 
         if (completed != task)
             return StatusCode(StatusCodes.Status504GatewayTimeout);

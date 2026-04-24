@@ -121,6 +121,7 @@ builder.Services.AddControllers().AddOData(options =>
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.NumberHandling = JsonNumberHandling.AllowReadingFromString;
+    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
 builder.Services.AddEndpointsApiExplorer();
