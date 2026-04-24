@@ -27,7 +27,8 @@
 
     ST.OthersDicount + ST.DryingDiscount + ST.CleaningDiscount AS Descontos,
     ST.NetWeight AS PesoLiquido,
-    ST.DryingServicePrice + ST.CleaningServicePrice + ST.ShipmentPrice + ST.ReceiptServicePrice AS ValorServicos
+    ST.FreightPrice AS Frete,
+    ST.DryingServicePrice + ST.CleaningServicePrice + ST.ShipmentPrice + ST.ReceiptServicePrice + ST.FreightPrice AS ValorServicos
 
 FROM STORAGE_TRANSACTIONS ST
          LEFT JOIN STORAGE_ADDRESSES SA

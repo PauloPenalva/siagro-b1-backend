@@ -17,6 +17,7 @@ using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
 using SiagroB1.Web.ODataConfig;
+using SiagroB1.Web.Sockets.TruckScale;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -150,6 +151,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
     app.UseDeveloperExceptionPage();
 }
+
+app.UseWebSockets();
+app.MapTruckScaleWebSocket();
 
 app.UseCookieAuth();
 app.UseAuthentication();

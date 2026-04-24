@@ -59,7 +59,8 @@ public class StorageInvoiceClosingService(
                     x.ReceiptServicePrice > 0 ||
                     x.ShipmentPrice > 0 ||
                     x.CleaningServicePrice > 0 ||
-                    x.DryingServicePrice > 0
+                    x.DryingServicePrice > 0 ||
+                    x.FreightPrice > 0
                 ))
             .ToListAsync(ct);
 
@@ -145,6 +146,23 @@ public class StorageInvoiceClosingService(
                         ? Math.Round(tx.DryingServicePrice / tx.GrossWeight, 8)
                         : 0,
                     TotalAmount = tx.DryingServicePrice,
+                    TotalQuantityLoss = 0,
+                    SourceType = nameof(StorageTransaction),
+                    SourceKey = tx.Key,
+                    SourceCode = tx.Code
+                });
+            }
+            
+            if (tx.FreightPrice > 0)
+            {
+                items.Add(new StorageInvoiceItem
+                {
+                    ItemType = StorageInvoiceItemType.DryingService,
+                    Description = $"Frete/Remoção - {tx.Code ?? tx.Key.ToString()}",
+                    ReferenceDate = tx.TransactionDate!.Value.Date,
+                    Quantity = tx.GrossWeight,
+                    UnitPriceOrRate = 0,
+                    TotalAmount = tx.FreightPrice,
                     TotalQuantityLoss = 0,
                     SourceType = nameof(StorageTransaction),
                     SourceKey = tx.Key,

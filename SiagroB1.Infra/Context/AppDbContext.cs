@@ -58,6 +58,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BusinessPartner>  BusinessPartners { get; set; }
     
     public DbSet<Address> Addresses { get; set; }
+    public DbSet<TruckScale> TruckScales { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

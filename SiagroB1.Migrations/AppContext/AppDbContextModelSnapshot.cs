@@ -1878,6 +1878,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("DryingServicePrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
+                    b.Property<decimal>("FreightPrice")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0)");
+
                     b.Property<decimal>("GrossWeight")
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
@@ -2119,6 +2122,27 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Code");
 
                     b.ToTable("TRUCK_DRIVERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckScale", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Localization")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("TRUCK_SCALES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.UnitOfMeasure", b =>

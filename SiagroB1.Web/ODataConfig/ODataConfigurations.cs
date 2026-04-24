@@ -3,7 +3,6 @@ using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
-using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Domain.Models;
 
 namespace SiagroB1.Web.ODataConfig;
@@ -73,6 +72,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
         modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType, x.CardCode });
+        modelBuilder.EntitySet<TruckScale>("TruckScales");
         
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
         systemSetupGetActive.Returns<IActionResult>();

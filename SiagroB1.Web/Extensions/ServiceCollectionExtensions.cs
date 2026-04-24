@@ -16,6 +16,8 @@ using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Web.Sockets;
+using SiagroB1.Web.Sockets.TruckScale;
 
 namespace SiagroB1.Web.Extensions;
 
@@ -46,6 +48,11 @@ public static class ServiceCollectionExtensions
     
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        // websocket
+        services.AddSingleton<TruckScaleWebSocketConnectionManager>();
+        services.AddSingleton<WsMessageHandler>();
+        services.AddSingleton<PendingRequestStore>();
+        
         // commons services ( services folder )
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
@@ -58,6 +65,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITruckService, TruckService>();
         services.AddScoped<IWeighingTicketService, WeighingTicketService>();
         services.AddScoped<IQualityAttribService, QualityAttribService>();
+        services.AddScoped<TruckScaleService>();
         
         // environment setup
         services.AddScoped<SystemSetupService>();

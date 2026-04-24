@@ -123,4 +123,7 @@ public class StorageTransaction : DocumentEntity
     public Guid? StorageInvoiceKey { get; set; }
 
     public DateTime? InvoicedAt { get; set; }
+    
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0)")]
+    public decimal FreightPrice { get; set; }
 }

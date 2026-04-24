@@ -25,4 +25,5 @@ public record StorageTransactionsResponse
     public decimal Descontos { get; init; }
     public decimal PesoLiquido { get; init; }
     public decimal ValorServicos { get; init; }
+    public decimal Frete { get; init; }
 }
