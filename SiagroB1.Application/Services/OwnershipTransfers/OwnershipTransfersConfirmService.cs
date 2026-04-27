@@ -57,6 +57,7 @@ public class OwnershipTransfersConfirmService(
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionDate = ownershipTransfer.Date,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             NetWeight = ownershipTransfer.Quantity,
             AvaiableVolumeToAllocate = decimal.Zero,
@@ -86,6 +87,7 @@ public class OwnershipTransfersConfirmService(
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionDate = ownershipTransfer.Date,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             NetWeight = ownershipTransfer.Quantity,
             AvaiableVolumeToAllocate = decimal.Zero,

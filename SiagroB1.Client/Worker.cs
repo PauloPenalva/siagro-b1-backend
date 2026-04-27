@@ -6,11 +6,11 @@ using SiagroB1.Client.Interfaces;
 
 namespace SiagroB1.Client;
 
-public class Worker(IConfiguration _config, IScaleReader _scale, ILogger<Worker> logger) : BackgroundService
+public class Worker(IConfiguration config, IScaleReader scale, ILogger<Worker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _ = _scale.StartAsync(stoppingToken);
+        _ = scale.StartAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -18,7 +18,7 @@ public class Worker(IConfiguration _config, IScaleReader _scale, ILogger<Worker>
             {
                 using var ws = new ClientWebSocket();
 
-                var url = $"{_config["WebSocketUrl"]}?truckScaleId={_config["TruckScaleId"]}";
+                var url = $"{config["WebSocketUrl"]}?truckScaleId={config["TruckScaleId"]}";
                 await ws.ConnectAsync(new Uri(url), stoppingToken);
 
                 var buffer = new byte[4096];
@@ -33,7 +33,7 @@ public class Worker(IConfiguration _config, IScaleReader _scale, ILogger<Worker>
 
                     if (msg?.Action == "capture_weight")
                     {
-                        var weight = _scale.GetWeight();
+                        var weight = scale.GetWeight();
 
                         var response = new
                         {

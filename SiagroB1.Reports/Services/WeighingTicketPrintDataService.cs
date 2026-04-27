@@ -30,7 +30,6 @@ public class WeighingTicketPrintDataService(
             ["COMPANY_LOGO"] = "logo.png"
         };
         
-        
         var reportPath = Path.Combine(
             env.ContentRootPath,
             "Reports",
