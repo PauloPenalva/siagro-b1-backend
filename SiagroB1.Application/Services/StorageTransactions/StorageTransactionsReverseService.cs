@@ -18,16 +18,16 @@ public class StorageTransactionsReverseService(
     {
         var doc = await db.Context.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ??
-                  throw new NotFoundException(resource["EXCEPTION_00007"]);
+                  throw new NotFoundException(resource["EXCEPTION_00007"].Value);
         
         if (doc.TransactionOrigin == TransactionCode.StorageTransaction)
             transactionCode = TransactionCode.StorageTransaction;    
         
         if (doc.TransactionOrigin != transactionCode)
-            throw new ApplicationException(resource["EXCEPTION_00008"] + doc.TransactionOrigin);
+            throw new ApplicationException(resource["EXCEPTION_00008"].Value + doc.TransactionOrigin);
         
         if (doc.TransactionStatus == StorageTransactionsStatus.Invoiced)
-            throw new ApplicationException(resource["EXCEPTION_00009"]);
+            throw new ApplicationException(resource["EXCEPTION_00009"].Value);
         
         ValidateBalance(doc);
 
@@ -54,10 +54,10 @@ public class StorageTransactionsReverseService(
     private void ValidateBalance(StorageTransaction doc)
     {
         if (string.IsNullOrEmpty(doc.StorageAddressCode))
-            throw new ApplicationException(resource["EXCEPTION_000010"]);
+            return;
         
         var balance = balanceService.GetBalance(doc.StorageAddressCode);
         if (balance < doc.NetWeight)
-            throw new ApplicationException(resource["EXCEPTION_000011"]);
+            throw new ApplicationException(resource["EXCEPTION_000011"].Value);
     }
 }
