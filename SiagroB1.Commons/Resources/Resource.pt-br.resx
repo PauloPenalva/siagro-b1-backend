@@ -156,4 +156,19 @@
     <data name="BP_NOT_FOUND" xml:space="preserve">
         <value>Parceiro de Negócio não encontrado.</value>
     </data>
+    <data name="MENU_ITEM_NOT_FOUND" xml:space="preserve">
+        <value>Item do Menu não Encontrado.</value>
+    </data>
+    <data name="ERROR_FETCHING_ENTITY" xml:space="preserve">
+        <value>Erro ao recuperar entidade</value>
+    </data>
+    <data name="ROLE_NOT_FOUND" xml:space="preserve">
+        <value>Função não encontrada.</value>
+    </data>
+    <data name="USER_ALREADY_EXISTS" xml:space="preserve">
+        <value>Usuário já cadastrado.</value>
+    </data>
+    <data name="USER_NOT_FOUND" xml:space="preserve">
+        <value>Usuário não encontrado.</value>
+    </data>
 </root>

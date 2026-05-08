@@ -15,7 +15,7 @@ public class CompaniesDeleteService(
     public async Task ExecuteAsync(string code)
     {
         var company = await db.Companies.FirstOrDefaultAsync(c => c.Code == code)
-            ?? throw new NotFoundException(resource["COMPANY_NOT_FOUND"]);
+            ?? throw new NotFoundException(resource["COMPANY_NOT_FOUND"].Value);
         
         db.Companies.Remove(company);
         await db.SaveChangesAsync();

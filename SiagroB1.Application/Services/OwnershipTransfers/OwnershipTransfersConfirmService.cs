@@ -25,7 +25,7 @@ public class OwnershipTransfersConfirmService(
                                     .Include(x => x.StorageAddressOrigin)
                                     .Include(x => x.StorageAddressDestination)
                                     .FirstOrDefaultAsync(x => x.Key == key) ??
-                             throw new NotFoundException(resource["OWNERSHIP_TRANSFER_NOT_FOUND"]);
+                             throw new NotFoundException(resource["OWNERSHIP_TRANSFER_NOT_FOUND"].Value);
         try
         {
             await db.BeginTransactionAsync();

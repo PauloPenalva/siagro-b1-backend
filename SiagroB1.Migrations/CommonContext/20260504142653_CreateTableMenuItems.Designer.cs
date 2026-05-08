@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.CommonContext
 {
     [DbContext(typeof(CommonDbContext))]
-    partial class CommonDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260504142653_CreateTableMenuItems")]
+    partial class CreateTableMenuItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,21 +82,6 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Role", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL UNIQUE");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("ROLES");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -119,10 +107,8 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Password")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
                         .HasColumnType("VARCHAR(256)");
 
                     b.Property<string>("Username")

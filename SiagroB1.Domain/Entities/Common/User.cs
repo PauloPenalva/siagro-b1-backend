@@ -17,7 +17,7 @@ public class User
     public required string Username { get; set; } = string.Empty;
 
     [Column(TypeName = "VARCHAR(256)")]
-    public required string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; } = string.Empty;
 
     [Column(TypeName = "VARCHAR(100)")]
     public string FullName { get; set; } = string.Empty;
@@ -32,4 +32,8 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     
     public DateTime? LastLoginAt { get; set; }
+
+    public List<UserRole> Roles = [];
+    
+    public string? Password { get; set; } = string.Empty;
 }

@@ -2,9 +2,11 @@
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Application.Services.ProcessingCosts;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.Roles;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
@@ -14,6 +16,7 @@ using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.Users;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Web.Sockets;
@@ -69,6 +72,24 @@ public static class ServiceCollectionExtensions
         
         // environment setup
         services.AddScoped<SystemSetupService>();
+        
+        // users
+        services.AddScoped<UsersCreateService>();
+        services.AddScoped<UsersUpdateService>();
+        services.AddScoped<UsersGetService>();
+        services.AddScoped<UsersDeleteService>();
+        
+        // menu items
+        services.AddScoped<MenuItemsCreateService>();
+        services.AddScoped<MenuItemsUpdateService>();
+        services.AddScoped<MenuItemsDeleteService>();
+        services.AddScoped<MenuItemsGetService>();
+        
+        // roles
+        services.AddScoped<RolesCreateService>();
+        services.AddScoped<RolesUpdateService>();
+        services.AddScoped<RolesDeleteService>();
+        services.AddScoped<RolesGetService>();
         
         // companies
         services.AddScoped<CompaniesCreateService>();
