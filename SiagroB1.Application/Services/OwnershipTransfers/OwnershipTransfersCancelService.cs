@@ -60,6 +60,7 @@ public class OwnershipTransfersCancelService(
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionDate = ownershipTransfer.Date,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             NetWeight = ownershipTransfer.Quantity,
             AvaiableVolumeToAllocate = decimal.Zero,
@@ -89,6 +90,7 @@ public class OwnershipTransfersCancelService(
     {
         var storageTransaction = new StorageTransaction
         {
+            TransactionDate = ownershipTransfer.Date,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             NetWeight = ownershipTransfer.Quantity,
             AvaiableVolumeToAllocate = decimal.Zero,
