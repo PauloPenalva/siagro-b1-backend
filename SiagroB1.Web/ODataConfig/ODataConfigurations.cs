@@ -74,7 +74,6 @@ public static class ODataConfigurations
         modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType, x.CardCode });
         modelBuilder.EntitySet<TruckScale>("TruckScales");
         modelBuilder.EntitySet<MenuItem>("MenuItems");
-        modelBuilder.EntitySet<Role>("Roles");
         modelBuilder.EntitySet<User>("Users");
         
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");

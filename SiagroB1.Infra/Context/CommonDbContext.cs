@@ -9,6 +9,11 @@ namespace SiagroB1.Infra.Context
         public DbSet<User> Users { get; set; }
         public DbSet<UserSession> UserSessions { get; set; }
         public DbSet<MenuItem> MenuItems { get; set; }
-        public DbSet<Role> Roles { get; set; }
+        
+        public DbSet<Profile> Profiles { get; set; }
+        
+        public DbSet<ProfileRole> ProfileRoles { get; set; }
+        
+        public DbSet<UserProfile>  UserProfiles { get; set; }
     }
 }

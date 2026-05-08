@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace SiagroB1.Domain.Entities.Common;
 
-[Table("USER_ROLES")]
-[Index(nameof(UserId), nameof(Role), IsUnique = true)]
-public class UserRole
+[Table("USERS_PROFILES")]
+[Index(nameof(UserId), nameof(ProfileId), Name = "IX_USERS_PROFILE_ID", IsUnique = true)]
+public class UserProfile
 {
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -15,5 +15,7 @@ public class UserRole
     
     public virtual User User { get; set; }
     
-    public string Role { get; set; }
+    public Guid ProfileId { get; set; }
+    
+    public virtual Profile Profile { get; set; }
 }

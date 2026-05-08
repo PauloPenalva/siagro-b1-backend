@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.CommonContext
 {
     [DbContext(typeof(CommonDbContext))]
-    partial class CommonDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260508183341_DropTableRoles")]
+    partial class DropTableRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -79,45 +82,6 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Profile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("VARCHAR(254)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT_NULL");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PROFILES");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.ProfileRole", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProfileId", "Role")
-                        .IsUnique();
-
-                    b.ToTable("PROFILES_ROLES");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -163,28 +127,6 @@ namespace SiagroB1.Migrations.CommonContext
                         .IsUnique();
 
                     b.ToTable("USERS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProfileId");
-
-                    b.HasIndex(new[] { "UserId", "ProfileId" }, "IX_USERS_PROFILE_ID")
-                        .IsUnique();
-
-                    b.ToTable("USERS_PROFILES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserSession", b =>
@@ -233,36 +175,6 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.ProfileRole", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
-                        .WithMany("Roles")
-                        .HasForeignKey("ProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Profile");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
-                        .WithMany()
-                        .HasForeignKey("ProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SiagroB1.Domain.Entities.Common.User", "User")
-                        .WithMany("Profiles")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Profile");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserSession", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Common.User", "User")
@@ -277,16 +189,6 @@ namespace SiagroB1.Migrations.CommonContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.MenuItem", b =>
                 {
                     b.Navigation("Children");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Profile", b =>
-                {
-                    b.Navigation("Roles");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
-                {
-                    b.Navigation("Profiles");
                 });
 #pragma warning restore 612, 618
         }

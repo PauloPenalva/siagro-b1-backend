@@ -4,7 +4,6 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
-using SiagroB1.Domain.Shared.Base.Shared.Base;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;

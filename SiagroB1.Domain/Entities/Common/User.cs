@@ -33,7 +33,7 @@ public class User
     
     public DateTime? LastLoginAt { get; set; }
 
-    public List<UserRole> Roles = [];
+    public virtual ICollection<UserProfile> Profiles { get; set; } = [];
     
     public string? Password { get; set; } = string.Empty;
 }

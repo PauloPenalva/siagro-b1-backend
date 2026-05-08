@@ -9,10 +9,8 @@ public class RoleMenu
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     
-    public Guid RoleId { get; set; }
+    public string Role { get; set; }
     
-    public virtual Role? Role { get; set; }
-
     public Guid MenuItemId { get; set; }
     
     public virtual MenuItem? MenuItem { get; set; }

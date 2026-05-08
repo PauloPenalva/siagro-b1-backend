@@ -6,7 +6,6 @@ using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Application.Services.ProcessingCosts;
 using SiagroB1.Application.Services.PurchaseContracts;
-using SiagroB1.Application.Services.Roles;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
@@ -84,12 +83,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MenuItemsUpdateService>();
         services.AddScoped<MenuItemsDeleteService>();
         services.AddScoped<MenuItemsGetService>();
-        
-        // roles
-        services.AddScoped<RolesCreateService>();
-        services.AddScoped<RolesUpdateService>();
-        services.AddScoped<RolesDeleteService>();
-        services.AddScoped<RolesGetService>();
         
         // companies
         services.AddScoped<CompaniesCreateService>();
