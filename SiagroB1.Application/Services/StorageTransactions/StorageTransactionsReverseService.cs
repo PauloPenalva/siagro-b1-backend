@@ -55,6 +55,9 @@ public class StorageTransactionsReverseService(
     {
         if (string.IsNullOrEmpty(doc.StorageAddressCode))
             return;
+
+        if (doc.TransactionType == StorageTransactionType.Shipment)
+            return;
         
         var balance = balanceService.GetBalance(doc.StorageAddressCode);
         if (balance < doc.NetWeight)
