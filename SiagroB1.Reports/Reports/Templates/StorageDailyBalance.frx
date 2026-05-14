@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" ReportInfo.Created="12/30/2025 11:23:12" ReportInfo.Modified="04/23/2026 08:49:31" ReportInfo.CreatorVersion="2026.1.0.0">
+<Report ScriptLanguage="CSharp" ReportInfo.Created="12/30/2025 11:23:12" ReportInfo.Modified="05/14/2026 10:00:30" ReportInfo.CreatorVersion="2026.1.0.0">
   <Styles>
     <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
   </Styles>
@@ -39,9 +39,8 @@
       <TextObject Name="Text66" Left="56.7" Top="47.25" Width="160.65" Height="18.9" Text="[StorageAddressCode]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
       <TextObject Name="Text67" Left="274.05" Top="66.15" Width="444.15" Height="18.9" Text="[Customer]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
       <TextObject Name="Text68" Left="56.7" Top="66.15" Width="160.65" Height="18.9" Text="[Item]" VertAlign="Bottom" Font="Consolas, 8pt, style=Italic"/>
-      <TextObject Name="TxtCompany" Top="18.9" Width="289.25" Height="20" Text="MH AGRO" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
     </PageHeaderBand>
-    <ColumnHeaderBand Name="ColumnHeader1" Top="86.83" Width="718.2" Height="18.9">
+    <ColumnHeaderBand Name="ColumnHeader1" Top="88.25" Width="718.2" Height="18.9">
       <TextObject Name="Text46" Width="75.6" Height="18.9" Text="Data" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text47" Left="75.6" Width="94.5" Height="18.9" Text="Saldo Ant." HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text48" Left="170.1" Width="75.6" Height="18.9" Text="Entradas" HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
@@ -51,7 +50,7 @@
       <TextObject Name="Text52" Left="614.25" Width="94.5" Height="18.9" Text="Custo" HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text70" Left="340.2" Width="94.5" Height="18.9" Text="Base" HorzAlign="Right" VertAlign="Bottom" Font="Consolas, 8pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
-    <DataBand Name="Data1" Top="107.51" Width="718.2" Height="18.9" EvenStyle="EvenRows" DataSource="StorageDailyBalance">
+    <DataBand Name="Data1" Top="110.35" Width="718.2" Height="18.9" EvenStyle="EvenRows" DataSource="StorageDailyBalance">
       <TextObject Name="Text39" Width="75.6" Height="18.9" Text="[StorageDailyBalance.Data]" Format="Date" Format.Format="d" VertAlign="Center" Font="Consolas, 8pt"/>
       <TextObject Name="Text40" Left="75.6" Width="94.5" Height="18.9" Text="[StorageDailyBalance.SaldoAnterior]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt" Trimming="EllipsisCharacter"/>
       <TextObject Name="Text41" Left="170.1" Width="75.6" Height="18.9" Text="[StorageDailyBalance.Entradas]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt" Trimming="EllipsisCharacter"/>
@@ -61,12 +60,12 @@
       <TextObject Name="Text45" Left="614.25" Width="94.5" Height="18.9" Text="[StorageDailyBalance.CustoArmazenagem]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt" Trimming="EllipsisCharacter"/>
       <TextObject Name="Text71" Left="340.2" Width="94.5" Height="18.9" Text="[StorageDailyBalance.Base]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt" Trimming="EllipsisCharacter"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="128.18" Width="718.2" Height="28.35">
+    <ReportSummaryBand Name="ReportSummary1" Top="132.45" Width="718.2" Height="28.35">
       <TextObject Name="Text53" Left="151.2" Width="94.5" Height="18.9" Text="[TotalEntradas]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text54" Left="245.7" Width="94.5" Height="18.9" Text="[TotalSaidas]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text55" Left="444.15" Width="66.15" Height="18.9" Text="[TotalQuebraTecnica]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Consolas, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text56" Left="614.25" Width="94.5" Height="18.9" Text="[TotalCusto]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Consolas, 8pt, style=Bold, Italic"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="158.31" Width="718.2" Height="85.05"/>
+    <PageFooterBand Name="PageFooter1" Top="164" Width="718.2" Height="85.05"/>
   </ReportPage>
 </Report>
