@@ -171,4 +171,9 @@
     <data name="USER_NOT_FOUND" xml:space="preserve">
         <value>Usuário não encontrado.</value>
     </data>
+    <data name="MENU_ITEM_NOT_FOUND" xml:space="preserve">
+        <value>Menu não encontrado.</value>
+    </data><data name="PROFILE_NOT_FOUND" xml:space="preserve">
+        <value>Perfil de usuário não encontrado.</value>
+    </data>
 </root>

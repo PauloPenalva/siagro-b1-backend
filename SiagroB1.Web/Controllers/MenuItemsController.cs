@@ -112,7 +112,7 @@ public class MenuItemsController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<MenuItem> patch)
+    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<MenuItem> patch)
     {
         if (!ModelState.IsValid)
         {

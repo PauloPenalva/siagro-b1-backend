@@ -2,31 +2,31 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services.Users;
+using SiagroB1.Application.Services.Profiles;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class UsersController(
-    UsersCreateService createService,
-    UsersUpdateService updateService,
-    UsersGetService getService,
-    UsersDeleteService deleteService
+public class ProfilesController(
+    ProfilesCreateService createService,
+    ProfilesUpdateService updateService,
+    ProfilesDeleteService deleteService,
+    ProfilesGetService getService
     ) 
     : ODataController
 {
     [EnableQuery]
-    [HttpGet("odata/Users")]
-    public ActionResult<IEnumerable<User>> Get()
+    [HttpGet("odata/Profiles")]
+    public ActionResult<IEnumerable<Profile>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    [HttpGet("odata/Users({id})")]
-    [HttpGet("odata/Users/{id}")]
-    public async Task<ActionResult<User>> Get([FromRoute] Guid id)
+    [HttpGet("odata/Profiles({id})")]
+    [HttpGet("odata/Profiles/{id}")]
+    public async Task<ActionResult<Profile>> Get([FromRoute] Guid id)
     {
         var item = await getService.GetByIdAsync(id);
 
@@ -38,8 +38,7 @@ public class UsersController(
         return Ok(item);
     }
     
-    [HttpPost("odata/Users")]
-    public async Task<IActionResult> Post([FromBody] User entity)
+    public async Task<IActionResult> Post([FromBody] Profile entity)
     {
         if (!ModelState.IsValid)
         {
@@ -54,7 +53,7 @@ public class UsersController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException or ApplicationException)
+            if (ex is DefaultException)
             {
                 return BadRequest(ex.Message);
             }
@@ -62,10 +61,8 @@ public class UsersController(
             return StatusCode(500, ex.Message);
         }
     }
-    
-    [HttpPut("odata/Users({id})")]
-    [HttpPut("odata/Users/{id}")]
-    public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] User entity)
+
+    public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] Profile entity)
     {
         if (!ModelState.IsValid)
         {
@@ -92,10 +89,30 @@ public class UsersController(
 
         return NoContent();
     }
+
+    [HttpDelete("odata/Profiles({id})")]
+    [HttpDelete("odata/Profiles/{id}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid id)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(id);
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return ex switch
+            {
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
+        }
+    }
     
-    [AcceptVerbs("PATCH", "MERGE", Route = "odata/Users({id})")]
-    [AcceptVerbs("PATCH", "MERGE", Route = "odata/Users/{id}")]
-    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<User> patch)
+    [AcceptVerbs("PATCH", "MERGE")]
+    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<Profile> patch)
     {
         if (!ModelState.IsValid)
         {
@@ -108,7 +125,7 @@ public class UsersController(
         {
             return NotFound();
         }
-        
+
         try
         {
             patch.Patch(t);
@@ -130,26 +147,5 @@ public class UsersController(
         }
 
         return NoContent();
-    }
-    
-    [HttpDelete("odata/Users({id})")]
-    [HttpDelete("odata/Users/{id}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid id)
-    {
-        try
-        {
-            await deleteService.ExecuteAsync(id);
-            
-            return NoContent();
-        }
-        catch (Exception ex)
-        {
-            return ex switch
-            {
-                NotFoundException => NotFound(ex.Message),
-                ApplicationException => BadRequest(ex.Message),
-                _ => StatusCode(500, ex.Message)
-            };
-        }
     }
 }

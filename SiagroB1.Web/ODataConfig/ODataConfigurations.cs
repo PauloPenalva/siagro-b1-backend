@@ -75,6 +75,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<TruckScale>("TruckScales");
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
+        modelBuilder.EntitySet<Profile>("Profiles");
         
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
         systemSetupGetActive.Returns<IActionResult>();
