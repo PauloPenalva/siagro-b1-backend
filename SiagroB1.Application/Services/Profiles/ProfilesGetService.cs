@@ -28,8 +28,8 @@ public class ProfilesGetService(
         }
     }
 
-    public IQueryable<Domain.Entities.Common.MenuItem> QueryAll()
+    public IQueryable<Profile> QueryAll()
     {
-        return db.MenuItems.AsNoTracking();
+        return db.Profiles.AsNoTracking();
     }
 }

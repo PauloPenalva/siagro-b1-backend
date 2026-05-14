@@ -17,15 +17,12 @@ public class ProfilesController(
     : ODataController
 {
     [EnableQuery]
-    [HttpGet("odata/Profiles")]
     public ActionResult<IEnumerable<Profile>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    [HttpGet("odata/Profiles({id})")]
-    [HttpGet("odata/Profiles/{id}")]
     public async Task<ActionResult<Profile>> Get([FromRoute] Guid id)
     {
         var item = await getService.GetByIdAsync(id);
@@ -90,8 +87,6 @@ public class ProfilesController(
         return NoContent();
     }
 
-    [HttpDelete("odata/Profiles({id})")]
-    [HttpDelete("odata/Profiles/{id}")]
     public async Task<IActionResult> Delete([FromRoute] Guid id)
     {
         try

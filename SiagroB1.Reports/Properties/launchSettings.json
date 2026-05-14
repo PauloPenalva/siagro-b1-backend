@@ -10,6 +10,15 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
+    "standalone": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:58000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Standalone"
+      }
+    },
     "prod": {
       "commandName": "Project",
       "dotnetRunMessages": true,
