@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp" ReportInfo.Created="12/30/2025 11:23:12" ReportInfo.Modified="04/24/2026 12:21:47" ReportInfo.CreatorVersion="2026.1.0.0">
+<Report ScriptLanguage="CSharp" ReportInfo.Created="12/30/2025 11:23:12" ReportInfo.Modified="05/14/2026 10:00:03" ReportInfo.CreatorVersion="2026.1.0.0">
   <Styles>
     <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
   </Styles>
@@ -41,9 +41,8 @@
     <PageHeaderBand Name="PageHeader1" Width="1047.06" Height="56.7">
       <TextObject Name="Text1" Top="9.45" Width="1048.95" Height="37.8" Text="Romaneios de Entrada" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
       <TextObject Name="Text38" Left="951.45" Top="9.45" Width="94.5" Height="18.9" Text="[Date]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
-      <TextObject Name="TxtCompany" Top="18.9" Width="374.3" Height="20" Text="MH AGRO" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
     </PageHeaderBand>
-    <ColumnHeaderBand Name="ColumnHeader1" Top="58.3" Width="1047.06" Height="9.45">
+    <ColumnHeaderBand Name="ColumnHeader1" Top="59.9" Width="1047.06" Height="9.45">
       <TextObject Name="Text50" Width="47.25" Height="9.45" Text="Filial" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text51" Left="103.95" Width="56.7" Height="9.45" Text="Romaneio" HorzAlign="Center" VertAlign="Center" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text53" Left="160.65" Width="56.7" Height="9.45" Text="Status" HorzAlign="Center" VertAlign="Center" Font="Consolas, 6pt, style=Bold, Italic"/>
@@ -64,7 +63,7 @@
       <TextObject Name="Text83" Left="982.8" Width="66.15" Height="9.45" Text="Total Serviço" HorzAlign="Right" VertAlign="Center" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text87" Left="926.1" Width="56.7" Height="9.45" Text="Frete" HorzAlign="Right" VertAlign="Center" Font="Consolas, 6pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
-    <DataBand Name="Data1" Top="69.35" Width="1047.06" Height="9.45" EvenStyle="EvenRows" DataSource="StorageTransactions">
+    <DataBand Name="Data1" Top="72.55" Width="1047.06" Height="9.45" EvenStyle="EvenRows" DataSource="StorageTransactions">
       <TextObject Name="Text39" Width="47.25" Height="9.45" Text="[StorageTransactions.Filial]" WordWrap="false" Font="Consolas, 6pt"/>
       <TextObject Name="Text40" Left="103.95" Width="56.7" Height="9.45" Text="[StorageTransactions.Romaneio]" Font="Consolas, 6pt"/>
       <TextObject Name="Text42" Left="160.65" Width="56.7" Height="9.45" Text="[StorageTransactions.Status]" HorzAlign="Center" Font="Consolas, 6pt"/>
@@ -85,7 +84,7 @@
       <TextObject Name="Text84" Left="982.8" Width="66.15" Height="9.45" Text="[StorageTransactions.ValorServicos]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" WordWrap="false" Font="Arial, 6pt" Trimming="EllipsisCharacter"/>
       <TextObject Name="Text86" Left="926.1" Width="56.7" Height="9.45" Text="[StorageTransactions.Frete]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" WordWrap="false" Font="Arial, 6pt" Trimming="EllipsisCharacter"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="80.4" Width="1047.06" Height="37.8">
+    <ReportSummaryBand Name="ReportSummary1" Top="85.2" Width="1047.06" Height="37.8">
       <TextObject Name="Text77" Left="557.55" Width="94.5" Height="18.9" Text="[TotalGrossWeigh]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text79" Left="850.5" Width="75.6" Height="18.9" Text="[TotalNetWeigh]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text80" Left="85.05" Width="94.5" Height="18.9" Text="[TotalTickets]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" Font="Consolas, 6pt, style=Bold, Italic"/>
@@ -96,7 +95,7 @@
       <TextObject Name="Text88" Left="926.1" Width="56.7" Height="18.9" Text="[TotalFreight]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Font="Consolas, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text89" Top="24.35" Width="1048.95" Height="9.45" Text="*Valor do frete já esta incluido no total dos serviços" HorzAlign="Right" VertAlign="Center" Font="Arial, 5pt, style=Italic"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="119.8" Width="1047.06" Height="18.9">
+    <PageFooterBand Name="PageFooter1" Top="126.2" Width="1047.06" Height="18.9">
       <TextObject Name="Text35" Left="1007.7" Top="2" Width="37.8" Height="9.45" Text="[TotalPages#]" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text34" Left="998.25" Top="2" Width="9.45" Height="9.45" Text="/" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text36" Left="960.45" Top="2" Width="37.8" Height="9.45" Text="[Page#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
