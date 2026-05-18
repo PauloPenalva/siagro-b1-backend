@@ -5,16 +5,21 @@ using Microsoft.EntityFrameworkCore;
 namespace SiagroB1.Domain.Entities.Common;
 
 [Table("PROFILES_ROLES")]
-[Index(nameof(ProfileId), nameof(Role), IsUnique = true )]
+[Index(nameof(ProfileCode), nameof(RoleCode), IsUnique = true )]
 public class ProfileRole
 {
     [Key]
     public Guid Id { get; set; } =  Guid.NewGuid();
 
-    public required Guid ProfileId { get; set; }
+    [ForeignKey(nameof(Profile))]
+    [Column(TypeName = "VARCHAR(50)")]
+    public required string ProfileCode { get; set; }
     
-    public virtual Profile Profile { get; set; }
+    public virtual Profile? Profile { get; set; }
     
-    [Column(TypeName = "VARCHAR(100)")]
-    public required string Role { get; set; }
+    [ForeignKey(nameof(Role))]
+    [Column(TypeName = "VARCHAR(50)")]
+    public required string RoleCode { get; set; }
+    
+    public virtual Role? Role { get; set; }
 }

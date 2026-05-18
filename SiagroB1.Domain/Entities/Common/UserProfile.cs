@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace SiagroB1.Domain.Entities.Common;
 
 [Table("USERS_PROFILES")]
-[Index(nameof(UserId), nameof(ProfileId), Name = "IX_USERS_PROFILE_ID", IsUnique = true)]
+[Index(nameof(UserId), nameof(ProfileCode), IsUnique = true)]
 public class UserProfile
 {
     [Key]
@@ -13,9 +13,11 @@ public class UserProfile
     
     public Guid UserId { get; set; }
     
-    public virtual User User { get; set; }
+    public virtual User? User { get; set; }
     
-    public Guid ProfileId { get; set; }
+    [Column(TypeName = "VARCHAR(50)")]
+    [ForeignKey(nameof(Profile))]
+    public required string ProfileCode { get; set; }
     
-    public virtual Profile Profile { get; set; }
+    public virtual Profile? Profile { get; set; }
 }

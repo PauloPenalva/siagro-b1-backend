@@ -4,9 +4,14 @@ using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.OwnershipTransfers;
+using SiagroB1.Application.Services.Permissions;
 using SiagroB1.Application.Services.ProcessingCosts;
 using SiagroB1.Application.Services.Profiles;
+using SiagroB1.Application.Services.ProfilesRoles;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.Roles;
+using SiagroB1.Application.Services.RolesMenus;
+using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
@@ -17,6 +22,7 @@ using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.Users;
+using SiagroB1.Application.Services.UsersProfiles;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Web.Sockets;
@@ -84,12 +90,48 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MenuItemsUpdateService>();
         services.AddScoped<MenuItemsDeleteService>();
         services.AddScoped<MenuItemsGetService>();
-
+        
+        // permissions
+        services.AddScoped<PermissionsCreateService>();
+        services.AddScoped<PermissionsUpdateService>();
+        services.AddScoped<PermissionsGetService>();
+        services.AddScoped<PermissionsDeleteService>(); 
+        
+        // roles
+        services.AddScoped<RolesCreateService>();
+        services.AddScoped<RolesUpdateService>();
+        services.AddScoped<RolesGetService>();
+        services.AddScoped<RolesDeleteService>();
+        
+        // roles permissions
+        services.AddScoped<RolesPermissionsCreateService>();
+        services.AddScoped<RolesPermissionsUpdateService>();
+        services.AddScoped<RolesPermissionsGetService>();
+        services.AddScoped<RolesPermissionsDeleteService>();
+        
+        // roles menus
+        services.AddScoped<RolesMenusCreateService>();
+        services.AddScoped<RolesMenusUpdateService>();
+        services.AddScoped<RolesMenusGetService>();
+        services.AddScoped<RolesMenusDeleteService>();
+        
         // profiles
         services.AddScoped<ProfilesCreateService>();
         services.AddScoped<ProfilesUpdateService>();
         services.AddScoped<ProfilesDeleteService>();
         services.AddScoped<ProfilesGetService>();
+        
+        // profiles roles
+        services.AddScoped<ProfilesRolesCreateService>();
+        services.AddScoped<ProfilesRolesUpdateService>();
+        services.AddScoped<ProfilesRolesDeleteService>();
+        services.AddScoped<ProfilesRolesGetService>();
+
+        // users profiles
+        services.AddScoped<UsersProfilesCreateService>();
+        services.AddScoped<UsersProfilesUpdateService>();
+        services.AddScoped<UsersProfilesDeleteService>();
+        services.AddScoped<UsersProfilesGetService>();
         
         // companies
         services.AddScoped<CompaniesCreateService>();

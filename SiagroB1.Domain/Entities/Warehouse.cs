@@ -10,7 +10,7 @@ public class Warehouse
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string Code { get; set; }
     
-    [Required(ErrorMessage = "Name is mandatory.")]
+    [Required(ErrorMessage = "Code is mandatory.")]
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
     

@@ -23,9 +23,9 @@ public class ProfilesController(
     }
 
     [EnableQuery]
-    public async Task<ActionResult<Profile>> Get([FromRoute] Guid id)
+    public async Task<ActionResult<Profile>> Get([FromRoute] string code)
     {
-        var item = await getService.GetByIdAsync(id);
+        var item = await getService.GetByIdAsync(code);
 
         if (item == null)
         {
@@ -59,7 +59,7 @@ public class ProfilesController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] Profile entity)
+    public async Task<IActionResult> Put([FromRoute] string code, [FromBody] Profile entity)
     {
         if (!ModelState.IsValid)
         {
@@ -68,7 +68,7 @@ public class ProfilesController(
 
         try
         {
-            await updateService.ExecuteAsync(id, entity);
+            await updateService.ExecuteAsync(code, entity);
         }
         catch (KeyNotFoundException e)
         {
@@ -87,11 +87,11 @@ public class ProfilesController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid id)
+    public async Task<IActionResult> Delete([FromRoute] string code)
     {
         try
         {
-            await deleteService.ExecuteAsync(id);
+            await deleteService.ExecuteAsync(code);
             
             return NoContent();
         }
@@ -107,14 +107,14 @@ public class ProfilesController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<Profile> patch)
+    public async Task<IActionResult> Patch([FromRoute] string code, [FromBody] Delta<Profile> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var t = await getService.GetByIdAsync(id);
+        var t = await getService.GetByIdAsync(code);
 
         if (t == null)
         {
@@ -125,7 +125,7 @@ public class ProfilesController(
         {
             patch.Patch(t);
 
-            await updateService.ExecuteAsync(id, t);
+            await updateService.ExecuteAsync(code, t);
         }
         catch (KeyNotFoundException)
         {

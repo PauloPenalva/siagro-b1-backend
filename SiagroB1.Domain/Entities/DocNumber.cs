@@ -6,7 +6,7 @@ using SiagroB1.Domain.Enums;
 namespace SiagroB1.Domain.Entities;
 
 [Table("DOC_NUMBERS")]
-[Index("TransactionCode", "Name", IsUnique = true)]
+[Index("TransactionCode", "Code", IsUnique = true)]
 public class DocNumber
 {
     [Key]

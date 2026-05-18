@@ -12,8 +12,8 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.CommonContext
 {
     [DbContext(typeof(CommonDbContext))]
-    [Migration("20260508184645_CreateTableProfiles")]
-    partial class CreateTableProfiles
+    [Migration("20260518144352_CreateRolesPermissionsTable")]
+    partial class CreateRolesPermissionsTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -82,20 +82,28 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Permission", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("PERMISSIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Profile", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<string>("Description")
                         .HasColumnType("VARCHAR(254)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT_NULL");
-
-                    b.HasKey("Id");
+                    b.HasKey("Code");
 
                     b.ToTable("PROFILES");
                 });
@@ -106,18 +114,59 @@ namespace SiagroB1.Migrations.CommonContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Role")
+                    b.Property<string>("ProfileCode")
                         .IsRequired()
-                        .HasColumnType("VARCHAR(100)");
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("RoleCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProfileId");
+                    b.HasIndex("RoleCode");
+
+                    b.HasIndex("ProfileCode", "RoleCode")
+                        .IsUnique();
 
                     b.ToTable("PROFILES_ROLES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Role", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("ROLES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.RolePermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PermissionCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("RoleCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermissionCode");
+
+                    b.HasIndex("RoleCode", "PermissionCode")
+                        .IsUnique();
+
+                    b.ToTable("ROLE_PERMISSIONS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
@@ -165,6 +214,29 @@ namespace SiagroB1.Migrations.CommonContext
                         .IsUnique();
 
                     b.ToTable("USERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProfileCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProfileCode");
+
+                    b.HasIndex("UserId", "ProfileCode")
+                        .IsUnique();
+
+                    b.ToTable("USERS_PROFILES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserSession", b =>
@@ -216,12 +288,58 @@ namespace SiagroB1.Migrations.CommonContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.ProfileRole", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
-                        .WithMany("ProfileRoles")
-                        .HasForeignKey("ProfileId")
+                        .WithMany("Roles")
+                        .HasForeignKey("ProfileCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Profile");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.RolePermission", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Permission", "Permission")
+                        .WithMany()
+                        .HasForeignKey("PermissionCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
+                        .WithMany()
+                        .HasForeignKey("ProfileCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Common.User", "User")
+                        .WithMany("Profiles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Profile");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserSession", b =>
@@ -242,7 +360,12 @@ namespace SiagroB1.Migrations.CommonContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Profile", b =>
                 {
-                    b.Navigation("ProfileRoles");
+                    b.Navigation("Roles");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
+                {
+                    b.Navigation("Profiles");
                 });
 #pragma warning restore 612, 618
         }

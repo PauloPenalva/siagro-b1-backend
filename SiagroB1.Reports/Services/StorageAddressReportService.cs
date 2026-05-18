@@ -37,7 +37,7 @@ public class StorageAddressReportService(
         //     picLogo.Image = (Image)img.Clone();
         // }
 
-        var companyName = configuration.GetValue<string>("CompanyName") ?? "Company Name";
+        var companyName = configuration.GetValue<string>("CompanyName") ?? "Company Code";
         
         FillParameters(report, companyName, userName,request, rows);
 

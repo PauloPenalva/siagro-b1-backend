@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.Companies;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
@@ -12,14 +11,14 @@ namespace SiagroB1.Application.Services.Profiles;
 public class ProfilesGetService(
     CommonDbContext db,
     IStringLocalizer<Resource> resource,
-    ILogger<CompaniesUpdateService> logger)
+    ILogger<ProfilesGetService> logger)
 {
-    public async Task<Profile?> GetByIdAsync(Guid id)
+    public async Task<Profile?> GetByIdAsync(string code)
     {
         try
         {
             return await db.Profiles
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Code == code);
         }
         catch (Exception ex)
         {

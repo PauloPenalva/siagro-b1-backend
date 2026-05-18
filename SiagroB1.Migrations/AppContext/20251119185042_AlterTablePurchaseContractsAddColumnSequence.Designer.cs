@@ -46,7 +46,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
@@ -417,7 +417,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("Disabled")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
@@ -554,7 +554,7 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(2) NOT NULL");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
@@ -614,7 +614,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(15) NOT NULL");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
@@ -652,7 +652,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Cpf")
                         .HasColumnType("VARCHAR(11) NOT NULL");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
@@ -683,7 +683,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 

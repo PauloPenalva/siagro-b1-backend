@@ -9,8 +9,13 @@ public class RoleMenu
     [Key]
     public Guid Id { get; set; } = Guid.NewGuid();
     
-    public string Role { get; set; }
+    [ForeignKey(nameof(Role))]
+    [Column(TypeName = "VARCHAR(50)")]
+    public required string RoleCode { get; set; }
     
+    public virtual Role? Role{ get; set; }
+    
+    [ForeignKey(nameof(MenuItem))]
     public Guid MenuItemId { get; set; }
     
     public virtual MenuItem? MenuItem { get; set; }

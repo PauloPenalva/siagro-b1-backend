@@ -30,7 +30,7 @@ namespace SiagroB1.Migrations.AppContext
             migrationBuilder.CreateIndex(
                 name: "IX_DOC_NUMBERS_TransactionCode_Name",
                 table: "DOC_NUMBERS",
-                columns: new[] { "TransactionCode", "Name" },
+                columns: new[] { "TransactionCode", "Code" },
                 unique: true);
         }
 

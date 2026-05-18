@@ -13,10 +13,10 @@ public class ProfilesUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<ProfilesUpdateService> logger)
 {
-    public async Task<Profile?> ExecuteAsync(Guid id, Profile entity)
+    public async Task<Profile?> ExecuteAsync(string code, Profile entity)
     {
         var existingEntity = await db.Profiles
-            .FirstOrDefaultAsync(x => x.Id == id) ?? 
+            .FirstOrDefaultAsync(x => x.Code == code) ?? 
                              throw new NotFoundException(resource["PROFILE_NOT_FOUND"].Value);
         try
         {

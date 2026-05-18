@@ -82,13 +82,13 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Role", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.RoleCode", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL UNIQUE");
 

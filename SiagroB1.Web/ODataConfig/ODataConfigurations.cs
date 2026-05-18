@@ -76,6 +76,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
         modelBuilder.EntitySet<Profile>("Profiles");
+        modelBuilder.EntitySet<Role>("Roles");
+        modelBuilder.EntitySet<Permission>("Permissions");
         
         var systemSetupGetActive = modelBuilder.Function("SystemSetupGetActive");
         systemSetupGetActive.Returns<IActionResult>();

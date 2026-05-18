@@ -12,8 +12,8 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.CommonContext
 {
     [DbContext(typeof(CommonDbContext))]
-    [Migration("20260508185547_CreateTableUserProfiles")]
-    partial class CreateTableUserProfiles
+    [Migration("20260518142803_CreateTableProfiles")]
+    partial class CreateTableProfiles
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -82,20 +82,28 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Permission", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("PERMISSIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Profile", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<string>("Description")
                         .HasColumnType("VARCHAR(254)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT_NULL");
-
-                    b.HasKey("Id");
+                    b.HasKey("Code");
 
                     b.ToTable("PROFILES");
                 });
@@ -106,19 +114,35 @@ namespace SiagroB1.Migrations.CommonContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Role")
+                    b.Property<string>("ProfileCode")
                         .IsRequired()
-                        .HasColumnType("VARCHAR(100)");
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("RoleCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProfileId", "Role")
+                    b.HasIndex("RoleCode");
+
+                    b.HasIndex("ProfileCode", "RoleCode")
                         .IsUnique();
 
                     b.ToTable("PROFILES_ROLES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Role", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("ROLES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.User", b =>
@@ -174,17 +198,18 @@ namespace SiagroB1.Migrations.CommonContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ProfileId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("ProfileCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProfileId");
+                    b.HasIndex("ProfileCode");
 
-                    b.HasIndex(new[] { "UserId", "ProfileId" }, "IX_USERS_PROFILE_ID")
+                    b.HasIndex("UserId", "ProfileCode")
                         .IsUnique();
 
                     b.ToTable("USERS_PROFILES");
@@ -240,18 +265,26 @@ namespace SiagroB1.Migrations.CommonContext
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
                         .WithMany("Roles")
-                        .HasForeignKey("ProfileId")
+                        .HasForeignKey("ProfileCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Profile");
+
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
                         .WithMany()
-                        .HasForeignKey("ProfileId")
+                        .HasForeignKey("ProfileCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

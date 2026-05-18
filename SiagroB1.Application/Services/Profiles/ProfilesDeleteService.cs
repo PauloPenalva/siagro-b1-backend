@@ -12,9 +12,9 @@ public class ProfilesDeleteService(
     IStringLocalizer<Resource> resource,
     ILogger<ProfilesDeleteService> logger)
 {
-    public async Task ExecuteAsync(Guid id)
+    public async Task ExecuteAsync(string code)
     {
-        var entity = await db.Profiles.FirstOrDefaultAsync(c => c.Id == id)
+        var entity = await db.Profiles.FirstOrDefaultAsync(c => c.Code == code)
             ?? throw new NotFoundException(resource["PROFILE_NOT_FOUND"].Value);
         
         db.Profiles.Remove(entity);
