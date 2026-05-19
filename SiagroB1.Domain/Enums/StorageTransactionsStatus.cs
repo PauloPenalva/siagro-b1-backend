@@ -6,4 +6,5 @@ public enum StorageTransactionsStatus
     Confirmed,
     Cancelled,
     Invoiced,
+    Returned
 }

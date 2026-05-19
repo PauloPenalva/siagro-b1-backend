@@ -126,4 +126,11 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0)")]
     public decimal FreightPrice { get; set; }
+    
+    public Guid? ReturnInvoiceKey { get; set; }
+
+    public DateTime? ReturnedAt { get; set; }
+
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? ReturnedBy { get; set; }
 }

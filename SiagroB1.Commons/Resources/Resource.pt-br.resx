@@ -156,4 +156,10 @@
     <data name="BP_NOT_FOUND" xml:space="preserve">
         <value>Parceiro de Negócio não encontrado.</value>
     </data>
+    <data name="SALES_INVOICE_NOT_FOUND" xml:space="preserve">
+        <value>Documento de Saída não encontrado.</value>
+    </data>
+    <data name="SALES_INVOICE_NOT_CONFIRMED" xml:space="preserve">
+        <value>Documento de Saída não está confirmado.</value>
+    </data>
 </root>
