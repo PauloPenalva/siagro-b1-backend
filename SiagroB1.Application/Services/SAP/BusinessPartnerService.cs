@@ -34,9 +34,12 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                     QryGroup23 = x.QryGroup23,
                     TaxId = x.TaxId,
                     Addresses = x.Addresses
-                        .Where(a => a.CardCode == x.CardCode)
+                        .Where(a => a.CardCode == x.CardCode && a.AddressName == "FATURAMENTO")
+                        .Take(1)
+                        .OrderBy(a => a.AddressName)
                         .Select(a => new AddressModel()
                         {
+                            CardCode = a.CardCode,
                             AddressName = a.AddressName,
                             AdresType = a.AdresType,
                             Block = a.Block,
@@ -87,9 +90,12 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                 QryGroup23 = x.QryGroup23,
                 TaxId = x.TaxId,
                 Addresses = x.Addresses
-                    .Where(a => a.CardCode == x.CardCode)
+                    .Where(a => a.CardCode == x.CardCode && a.AddressName == "FATURAMENTO")
+                    .Take(1)
+                    .OrderBy(a => a.AddressName)
                     .Select(a => new AddressModel()
                     {
+                        CardCode =  a.CardCode,
                         AddressName = a.AddressName,
                         AdresType = a.AdresType,
                         Block = a.Block,
@@ -99,7 +105,6 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                         Street = a.Street,
                         ZipCode = a.ZipCode
                     })
-                    
                     .AsQueryable()
                     .ToList()
             })
@@ -124,6 +129,7 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                 Notes = bp.Notes,
                 Address = bp.Addresses
                     .Where(a => a.AdresType == "S")
+                    .Take(1)
                     .OrderBy(a => a.AddressName)
                     .Select(a => new SupplierAddress
                     {
