@@ -54,26 +54,22 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("CardCode", "AddressName", "AdresType");
 
-                    b.ToTable("BUSINESS_PARTNERS_ADDRESSES");
+                    b.ToTable("BUSINESS_PARTNERS_ADDRESSES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Agent", b =>
                 {
                     b.Property<string>("Code")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("VARCHAR(10) NO NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<string>("Inactive")
                         .HasColumnType("VARCHAR(1) DEFAULT 'N'")
                         .HasColumnName("Locked");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
                     b.HasKey("Code");
 
-                    b.ToTable("AGENTS");
+                    b.ToTable("AGENTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Branch", b =>
@@ -94,7 +90,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("BRANCHS");
+                    b.ToTable("BRANCHS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>
@@ -126,7 +122,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("CardCode");
 
-                    b.ToTable("BUSINESS_PARTNERS");
+                    b.ToTable("BUSINESS_PARTNERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.DocNumber", b =>
@@ -138,6 +134,10 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("BranchCode")
                         .HasColumnType("VARCHAR(14)")
                         .HasColumnOrder(1);
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<bool>("Default")
                         .HasColumnType("bit");
@@ -153,10 +153,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<int>("LastNumber")
                         .HasColumnType("int");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<int>("NextNumber")
                         .HasColumnType("int");
@@ -180,24 +176,20 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("TransactionCode", "Code")
                         .IsUnique();
 
-                    b.ToTable("DOC_NUMBERS");
+                    b.ToTable("DOC_NUMBERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
                     b.HasKey("Code");
 
-                    b.ToTable("HARVEST_SEASSONS");
+                    b.ToTable("HARVEST_SEASSONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Item", b =>
@@ -217,21 +209,17 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("ItemCode");
 
-                    b.ToTable("ITEMS");
+                    b.ToTable("ITEMS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.LogisticRegion", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.HasKey("Code");
 
-                    b.ToTable("LOGISTIC_REGIONS");
+                    b.ToTable("LOGISTIC_REGIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
@@ -320,7 +308,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageAddressOriginCode");
 
-                    b.ToTable("OWNERSHIP_TRANSFER");
+                    b.ToTable("OWNERSHIP_TRANSFER", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>
@@ -373,7 +361,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("PROCESSING_COSTS");
+                    b.ToTable("PROCESSING_COSTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingDetail", b =>
@@ -400,7 +388,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingCostCode");
 
-                    b.ToTable("PROCESSING_COST_DRYING_DETAILS");
+                    b.ToTable("PROCESSING_COST_DRYING_DETAILS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostDryingParameter", b =>
@@ -427,7 +415,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingCostCode");
 
-                    b.ToTable("PROCESSING_COST_DRYING_PARAMETERS");
+                    b.ToTable("PROCESSING_COST_DRYING_PARAMETERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostQualityParameter", b =>
@@ -457,7 +445,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("QualityAttribCode");
 
-                    b.ToTable("PROCESSING_COST_QUALITY_PARAMETERS");
+                    b.ToTable("PROCESSING_COST_QUALITY_PARAMETERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCostServiceDetail", b =>
@@ -484,7 +472,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingServiceCode");
 
-                    b.ToTable("PROCESSING_COST_SERVICE_DETAILS");
+                    b.ToTable("PROCESSING_COST_SERVICE_DETAILS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingService", b =>
@@ -498,7 +486,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("PROCESSING_SERVICES");
+                    b.ToTable("PROCESSING_SERVICES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContract", b =>
@@ -655,7 +643,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("LogisticRegionCode");
 
-                    b.ToTable("PURCHASE_CONTRACTS");
+                    b.ToTable("PURCHASE_CONTRACTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractAllocation", b =>
@@ -709,7 +697,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageTransactionKey");
 
-                    b.ToTable("PURCHASE_CONTRACTS_ALLOCATIONS");
+                    b.ToTable("PURCHASE_CONTRACTS_ALLOCATIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractAttachment", b =>
@@ -747,7 +735,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("PurchaseContractKey");
 
-                    b.ToTable("PURCHASE_CONTRACTS_ATTACHMENTS");
+                    b.ToTable("PURCHASE_CONTRACTS_ATTACHMENTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractBroker", b =>
@@ -776,7 +764,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("PurchaseContractKey");
 
-                    b.ToTable("PURCHASE_CONTRACTS_BROKERS");
+                    b.ToTable("PURCHASE_CONTRACTS_BROKERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
@@ -807,7 +795,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("PurchaseContractKey");
 
-                    b.ToTable("PURCHASE_CONTRACTS_PRICE_FIXATIONS");
+                    b.ToTable("PURCHASE_CONTRACTS_PRICE_FIXATIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractQualityParameter", b =>
@@ -832,7 +820,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("QualityAttribCode");
 
-                    b.ToTable("PURCHASE_CONTRACTS_QUALITY_PARAMETERS");
+                    b.ToTable("PURCHASE_CONTRACTS_QUALITY_PARAMETERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractTax", b =>
@@ -854,27 +842,23 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("TaxCode");
 
-                    b.ToTable("PURCHASE_CONTRACTS_TAXES");
+                    b.ToTable("PURCHASE_CONTRACTS_TAXES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<bool>("Disabled")
                         .HasColumnType("bit");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.HasKey("Code");
 
-                    b.ToTable("QUALITY_ATTRIBS");
+                    b.ToTable("QUALITY_ATTRIBS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
@@ -899,7 +883,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("WeighingTicketKey");
 
-                    b.ToTable("QUALITY_INSPECTIONS");
+                    b.ToTable("QUALITY_INSPECTIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
@@ -1040,7 +1024,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("LogisticRegionCode");
 
-                    b.ToTable("SALES_CONTRACTS");
+                    b.ToTable("SALES_CONTRACTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContractAttachment", b =>
@@ -1078,7 +1062,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("SalesContractKey");
 
-                    b.ToTable("SALES_CONTRACTS_ATTACHMENTS");
+                    b.ToTable("SALES_CONTRACTS_ATTACHMENTS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoice", b =>
@@ -1204,7 +1188,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("SalesInvoiceOriginKey");
 
-                    b.ToTable("SALES_INVOICES");
+                    b.ToTable("SALES_INVOICES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceItem", b =>
@@ -1256,7 +1240,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("SalesInvoiceKey");
 
-                    b.ToTable("SALES_INVOICES_ITEMS");
+                    b.ToTable("SALES_INVOICES_ITEMS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -1328,7 +1312,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("PurchaseContractKey");
 
-                    b.ToTable("SHIPMENT_RELEASES");
+                    b.ToTable("SHIPMENT_RELEASES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShippingOrder", b =>
@@ -1403,7 +1387,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageAddressCode");
 
-                    b.ToTable("SHIPPING_ORDERS");
+                    b.ToTable("SHIPPING_ORDERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShippingTransaction", b =>
@@ -1454,25 +1438,21 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("SalesStorageTransactionKey");
 
-                    b.ToTable("SHIPPING_TRANSACTIONS");
+                    b.ToTable("SHIPPING_TRANSACTIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.State", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(2) NOT NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<string>("Abbreviation")
                         .IsRequired()
                         .HasColumnType("VARCHAR(2) NOT NULL");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
                     b.HasKey("Code");
 
-                    b.ToTable("STATES");
+                    b.ToTable("STATES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
@@ -1574,7 +1554,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("ProcessingCostCode");
 
-                    b.ToTable("STORAGE_ADDRESSES");
+                    b.ToTable("STORAGE_ADDRESSES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageCharge", b =>
@@ -1631,7 +1611,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("StorageAddressCode", "ChargeType", "PeriodStart", "PeriodEnd")
                         .IsUnique();
 
-                    b.ToTable("STORAGE_CHARGES");
+                    b.ToTable("STORAGE_CHARGES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageDailyBalance", b =>
@@ -1670,7 +1650,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("StorageAddressCode", "BalanceDate")
                         .IsUnique();
 
-                    b.ToTable("STORAGE_DAILY_BALANCES");
+                    b.ToTable("STORAGE_DAILY_BALANCES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoice", b =>
@@ -1767,7 +1747,7 @@ namespace SiagroB1.Migrations.Migrations
                         .IsUnique()
                         .HasFilter("[Status] <> 3");
 
-                    b.ToTable("STORAGE_INVOICES");
+                    b.ToTable("STORAGE_INVOICES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoiceItem", b =>
@@ -1814,7 +1794,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageInvoiceKey");
 
-                    b.ToTable("STORAGE_INVOICE_ITEMS");
+                    b.ToTable("STORAGE_INVOICE_ITEMS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
@@ -2005,7 +1985,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageAddressCode");
 
-                    b.ToTable("STORAGE_TRANSACTIONS");
+                    b.ToTable("STORAGE_TRANSACTIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransactionQualityInspection", b =>
@@ -2033,7 +2013,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StorageTransactionKey");
 
-                    b.ToTable("STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS");
+                    b.ToTable("STORAGE_TRANSACTIONS_QUALITY_INSPECTIONS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SystemSetup", b =>
@@ -2061,16 +2041,12 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("SYSTEM_SETUP");
+                    b.ToTable("SYSTEM_SETUP", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Tax", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(15) NOT NULL");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<decimal>("Rate")
@@ -2078,7 +2054,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("TAXES");
+                    b.ToTable("TAXES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
@@ -2099,21 +2075,17 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("StateKey");
 
-                    b.ToTable("TRUCKS");
+                    b.ToTable("TRUCKS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckDriver", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(11) NOT NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<string>("Document")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<string>("Phone")
                         .IsRequired()
@@ -2121,19 +2093,15 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("TRUCK_DRIVERS");
+                    b.ToTable("TRUCK_DRIVERS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckScale", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Localization")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Code")
+                    b.Property<string>("Localization")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -2142,7 +2110,7 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("TRUCK_SCALES");
+                    b.ToTable("TRUCK_SCALES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.UnitOfMeasure", b =>
@@ -2159,16 +2127,12 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("UNITS_OF_MEASURE");
+                    b.ToTable("UNITS_OF_MEASURE", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
                     b.Property<string>("TaxId")
@@ -2177,7 +2141,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasKey("Code");
 
-                    b.ToTable("WAREHOUSES");
+                    b.ToTable("WAREHOUSES", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
@@ -2304,7 +2268,7 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.HasIndex("TruckDriverCode");
 
-                    b.ToTable("WEIGHING_TICKETS");
+                    b.ToTable("WEIGHING_TICKETS", (string)null);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Address", b =>

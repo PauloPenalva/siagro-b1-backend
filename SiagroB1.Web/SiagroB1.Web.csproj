@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <Content Update="appsettings*.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  
+  <ItemGroup>
     <ProjectReference Include="..\SiagroB1.Application\SiagroB1.Application.csproj" />
     <ProjectReference Include="..\SiagroB1.Migrations\SiagroB1.Migrations.csproj" />
     <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
