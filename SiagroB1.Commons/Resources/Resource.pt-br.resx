@@ -156,39 +156,10 @@
     <data name="BP_NOT_FOUND" xml:space="preserve">
         <value>Parceiro de Negócio não encontrado.</value>
     </data>
-    <data name="MENU_ITEM_NOT_FOUND" xml:space="preserve">
-        <value>Item do Menu não Encontrado.</value>
+    <data name="SALES_INVOICE_NOT_FOUND" xml:space="preserve">
+        <value>Documento de Saída não encontrado.</value>
     </data>
-    <data name="ERROR_FETCHING_ENTITY" xml:space="preserve">
-        <value>Erro ao recuperar entidade</value>
-    </data>
-    <data name="ROLE_NOT_FOUND" xml:space="preserve">
-        <value>Função não encontrada.</value>
-    </data>
-    <data name="USER_ALREADY_EXISTS" xml:space="preserve">
-        <value>Usuário já cadastrado.</value>
-    </data>
-    <data name="USER_NOT_FOUND" xml:space="preserve">
-        <value>Usuário não encontrado.</value>
-    </data>
-    <data name="MENU_ITEM_NOT_FOUND" xml:space="preserve">
-        <value>Menu não encontrado.</value>
-    </data><data name="PROFILE_NOT_FOUND" xml:space="preserve">
-        <value>Perfil de usuário não encontrado.</value>
-    </data>
-    <data name="PROFILE_ROLE_NOT_FOUND" xml:space="preserve">
-        <value>Função de perfil de usuário não encontrada.</value>
-    </data>
-    <data name="USER_PROFILE_NOT_FOUND" xml:space="preserve">
-        <value>Perfil de usuário não encontrado.</value>
-    </data>
-    <data name="PERMISSION_NOT_FOUND" xml:space="preserve">
-        <value>Permissão não encontrada.</value>
-    </data>
-    <data name="ROLE_PERMISSION_NOT_FOUND" xml:space="preserve">
-        <value>Permissão associada de função não encontrada.</value>
-    </data>
-    <data name="ROLE_MENU_NOT_FOUND" xml:space="preserve">
-        <value>Menu associado a Função não encontrado.</value>
+    <data name="SALES_INVOICE_NOT_CONFIRMED" xml:space="preserve">
+        <value>Documento de Saída não está confirmado.</value>
     </data>
 </root>

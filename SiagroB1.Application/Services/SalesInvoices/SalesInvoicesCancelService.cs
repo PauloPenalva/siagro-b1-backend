@@ -70,6 +70,6 @@ public class SalesInvoicesCancelService(
     private bool HasReturn(SalesInvoice salesInvoice)
     {
         return db.Context.SalesInvoices.Any(x => x.SalesInvoiceOriginKey == salesInvoice.Key &&
-                                                 x.InvoiceType == SalesInvoiceType.Return);
+                                                 x.InvoiceType == SalesInvoiceType.Return && x.InvoiceStatus != InvoiceStatus.Cancelled);
     }
 }

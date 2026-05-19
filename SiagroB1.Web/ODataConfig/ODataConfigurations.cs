@@ -272,6 +272,10 @@ public static class ODataConfigurations
         salesInvoicesConfirm.Parameter<Guid>("Key");
         salesInvoicesConfirm.Returns<IActionResult>();
         
+        var salesInvoicesReverseConfirm = modelBuilder.Action("SalesInvoicesReverseConfirm");
+        salesInvoicesReverseConfirm.Parameter<Guid>("Key");
+        salesInvoicesReverseConfirm.Returns<IActionResult>();
+        
         var salesInvoicesSetDocumentNumber = modelBuilder.Action("SalesInvoicesSetDocumentNumber");
         salesInvoicesSetDocumentNumber.Parameter<Guid>("Key");
         salesInvoicesSetDocumentNumber.Parameter<string>("DocumentNumber");
