@@ -14,6 +14,7 @@ using SiagroB1.Application.Services.RolesMenus;
 using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.Security;
 using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
@@ -61,6 +62,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TruckScaleWebSocketConnectionManager>();
         services.AddSingleton<WsMessageHandler>();
         services.AddSingleton<PendingRequestStore>();
+        
+        // menu services
+        services.AddScoped<MenuService>();
         
         // commons services ( services folder )
         services.AddScoped<IBranchService, BranchService>();
