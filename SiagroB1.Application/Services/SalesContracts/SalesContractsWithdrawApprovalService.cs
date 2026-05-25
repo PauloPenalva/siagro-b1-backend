@@ -15,6 +15,7 @@ public class SalesContractsWithdrawApprovalService(
     {
         var contract = await db.Context.SalesContracts
                            .Include(s => s.SalesInvoiceItems)
+                           .ThenInclude(si  => si.SalesInvoice)
                            .FirstOrDefaultAsync(x => x.Key == key) ??
                                 throw new NotFoundException(resource["SALES_CONTRACT_NOT_FOUND"]);
 
