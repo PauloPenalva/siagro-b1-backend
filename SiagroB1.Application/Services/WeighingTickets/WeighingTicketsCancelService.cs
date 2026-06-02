@@ -18,21 +18,23 @@ public class WeighingTicketsCancelService(
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var ticket = await weighingTicketsGetService.GetByIdAsync(key) 
-            ?? throw new KeyNotFoundException(resource["WEIGHING_TICKET_NOT_FOUND"]);
+            ?? throw new KeyNotFoundException(resource["WEIGHING_TICKET_NOT_FOUND"].Value);
 
         var sa = await GetStorageTransactionByWeighingTicketKey(key);
-        if (sa is { TransactionStatus: not StorageTransactionsStatus.Pending })
+        if (sa == null)
+            throw new NotFoundException(resource["STORAGE_TRANSACTION_NOT_FOUND"].Value);
+        
+        if (sa.TransactionStatus != StorageTransactionsStatus.Pending )
         {
-            throw new BusinessException(resource["STORAGE_TRANSACTION_NOT_PENDING"]);
+            throw new BusinessException(resource["STORAGE_TRANSACTION_NOT_PENDING"].Value);
         }
         
         try
         {
             await db.BeginTransactionAsync();
             
-            if (sa is not null)
-                await storageTransactionsCancelService
-                    .ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
+            await storageTransactionsCancelService
+                .ExecuteAsync((Guid) sa.Key, userName, TransactionCode.WeighingTicket);
            
             ticket.Status = WeighingTicketStatus.Cancelled;
             ticket.Stage = WeighingTicketStage.Completed;

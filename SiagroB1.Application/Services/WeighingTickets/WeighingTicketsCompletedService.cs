@@ -14,7 +14,7 @@ namespace SiagroB1.Application.Services.WeighingTickets;
 
 public class WeighingTicketsCompletedService(
     IUnitOfWork db,
-    IBusinessPartnerService  businessPartnerService,
+    IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     StorageTransactionsCreateService stCreateService,
     StorageTransactionsConfirmedService  stConfirmedService,
@@ -74,7 +74,8 @@ public class WeighingTicketsCompletedService(
                 NetWeight = existingTicket.GrossWeight,
                 WarehouseCode = storageAddress.WarehouseCode,
                 BranchCode = existingTicket.BranchCode,
-                ProcessingCostCode = storageAddress.ProcessingCostCode
+                ProcessingCostCode = storageAddress.ProcessingCostCode,
+                FreightPrice = existingTicket.FreightPrice
             };
            
             foreach (var inspection in existingTicket.QualityInspections)
