@@ -8,6 +8,11 @@ using SiagroB1.Security.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (OperatingSystem.IsWindows())
+{
+    builder.Services.AddWindowsService();
+}
+
 builder.Services.AddLocalization();
 var supportedCultures = new [] {"en-US", "pt-BR"};
 var localizationOptions = new RequestLocalizationOptions()

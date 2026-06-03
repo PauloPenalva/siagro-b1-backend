@@ -88,7 +88,7 @@ public class StorageTransactionsConfirmedService(
         
         if (!isShipmentTransaction && st.GrossWeight > warehouseBalance)
             //A quantidade embarcada é superior ao saldo disponivel no armazem.
-            throw new ApplicationException(resource["EXCEPTION_00006"]);
+            throw new ApplicationException(resource["EXCEPTION_00006"].Value);
             
         try
         {

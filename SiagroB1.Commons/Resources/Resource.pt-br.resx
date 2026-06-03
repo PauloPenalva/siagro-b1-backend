@@ -162,4 +162,7 @@
     <data name="SALES_INVOICE_NOT_CONFIRMED" xml:space="preserve">
         <value>Documento de Saída não está confirmado.</value>
     </data>
+    <data name="STORAGE_TRANSACTION_NOT_FOUND" xml:space="preserve">
+        <value>Romaneio não encontrado.</value>
+    </data>
 </root>
