@@ -125,6 +125,7 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
             {
                 CardCode = bp.CardCode,
                 CardFName = bp.CardFName,
+                CardName = bp.CardName,
                 TaxId = bp.TaxId,
                 Notes = bp.Notes,
                 Address = bp.Addresses

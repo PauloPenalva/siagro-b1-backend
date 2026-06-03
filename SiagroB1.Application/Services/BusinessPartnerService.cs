@@ -161,7 +161,7 @@ public class BusinessPartnerService(
             {
                 CardCode = bp.CardCode,
                 CardFName = bp.CardFName,
-                TaxId = bp.TaxId,
+                CardName = bp.CardName,
                 Notes = bp.Notes,
                 Address = bp.Addresses
                     .Where(a => a.AdresType == "S")

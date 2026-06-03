@@ -107,13 +107,13 @@ public class SalesContract : DocumentEntity
         .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed or 
                     InvoiceStatus.Returned &&
                     x.SalesInvoice.InvoiceType == SalesInvoiceType.Normal)
-        .Sum(x => x.Quantity) ?? 0;
+        .Sum(x => x.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed ? x.NetQuantity : x.Quantity) ?? 0;
     
     [NotMapped]
     public decimal TotalVolumeIncoming => SalesInvoiceItems?
         .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed &&
                     x.SalesInvoice.InvoiceType == SalesInvoiceType.Return)
-        .Sum(x => x.Quantity) ?? 0;
+        .Sum(x => x.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed ? x.NetQuantity : x.Quantity) ?? 0;
     
     [NotMapped]
     public decimal AvaiableVolume =>

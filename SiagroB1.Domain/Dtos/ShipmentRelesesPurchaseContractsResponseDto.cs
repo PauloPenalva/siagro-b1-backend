@@ -48,4 +48,7 @@ public class ShipmentRelesesPurchaseContractsResponseDto
     
     [JsonPropertyName("AvailableQuantity")]
     public decimal AvailableQuantity { get; set; }
+    
+    [JsonPropertyName("FCode")]
+    public string? FCode { get; set; }
 }

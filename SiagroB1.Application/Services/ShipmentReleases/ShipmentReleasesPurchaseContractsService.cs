@@ -4,7 +4,6 @@ using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
-using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentReleases;
 
@@ -39,7 +38,6 @@ public class ShipmentReleasesPurchaseContractsService(
     private async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
     {
         return await businessPartnerService.LoadSuppliersAsync();
-       
     }
 
     private async Task<List<ShipmentReleasesPurchaseContractsProjection>> LoadShipmentReleasesAsync(string itemCode, string warehouseCode)
@@ -61,6 +59,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 sr.RowId,
                 sr.PurchaseContract.Code,
                 sr.Branch.ShortName,
+                sr.PurchaseContract.CardCode,
+                sr.PurchaseContract.CardName,
             })
             .Select(g => new ShipmentReleasesPurchaseContractsProjection
             {
@@ -68,6 +68,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 RowId = g.Key.RowId,
                 PurchaseContractCode = g.Key.Code,
                 BranchShortName = g.Key.ShortName,
+                CardCode = g.Key.CardCode,
+                CardFName = g.Key.CardName,
                 DeliveryLocationCode = g.Key.DeliveryLocationCode,
                 DeliveryLocationName = g.Key.DeliveryLocationName,
                 ItemCode = g.Key.ItemCode,
@@ -92,7 +94,7 @@ public class ShipmentReleasesPurchaseContractsService(
     {
         return balances.Select(b =>
         {
-            suppliers.TryGetValue(b.DeliveryLocationCode, out var wh);
+            suppliers.TryGetValue(b.CardCode, out var wh);
 
             return new ShipmentRelesesPurchaseContractsResponseDto
             {
@@ -106,7 +108,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 UnitOfMeasureCode = b.UnitOfMeasureCode,
                 AvailableQuantity = b.ReleasedQuantity - b.UsedQuantity,
                 TaxId = wh?.TaxId,
-                FName = wh?.CardFName,
+                FName = wh?.CardName,
+                FCode = wh?.CardCode,
                 Notes = wh?.Notes,
                 City = wh?.Address?.City,
                 State = wh?.Address?.State,
@@ -134,6 +137,8 @@ public class ShipmentReleasesPurchaseContractsService(
         public required string UnitOfMeasureCode { get; init; }
         public decimal ReleasedQuantity { get; init; }
         public decimal UsedQuantity { get; init; }
+        public required string CardCode { get; init; }
+        public string? CardFName { get; init; }
     }
     
 }

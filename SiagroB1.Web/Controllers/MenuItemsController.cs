@@ -24,11 +24,11 @@ public class MenuItemsController(
     }
 
     [EnableQuery]
-    [HttpGet("odata/MenuItems({id})")]
-    [HttpGet("odata/MenuItems/{id}")]
-    public async Task<ActionResult<MenuItem>> Get([FromRoute] Guid id)
+    //[HttpGet("odata/MenuItems({key})")]
+    //[HttpGet("odata/MenuItems/{key}")]
+    public async Task<ActionResult<MenuItem>> Get([FromRoute] Guid key)
     {
-        var item = await getService.GetByIdAsync(id);
+        var item = await getService.GetByIdAsync(key);
 
         if (item == null)
         {
@@ -62,7 +62,7 @@ public class MenuItemsController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] MenuItem entity)
+    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] MenuItem entity)
     {
         if (!ModelState.IsValid)
         {
@@ -71,7 +71,7 @@ public class MenuItemsController(
 
         try
         {
-            await updateService.ExecuteAsync(id, entity);
+            await updateService.ExecuteAsync(key, entity);
         }
         catch (KeyNotFoundException e)
         {
@@ -90,13 +90,11 @@ public class MenuItemsController(
         return NoContent();
     }
 
-    [HttpDelete("odata/MenuItems({id})")]
-    [HttpDelete("odata/MenuItems/{id}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid id)
+    public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
         try
         {
-            await deleteService.ExecuteAsync(id);
+            await deleteService.ExecuteAsync(key);
             
             return NoContent();
         }
@@ -112,14 +110,14 @@ public class MenuItemsController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<MenuItem> patch)
+    public async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<MenuItem> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var t = await getService.GetByIdAsync(id);
+        var t = await getService.GetByIdAsync(key);
 
         if (t == null)
         {
@@ -130,7 +128,7 @@ public class MenuItemsController(
         {
             patch.Patch(t);
 
-            await updateService.ExecuteAsync(id, t);
+            await updateService.ExecuteAsync(key, t);
         }
         catch (KeyNotFoundException)
         {
