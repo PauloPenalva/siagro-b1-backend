@@ -10,6 +10,11 @@ using SiagroB1.Security.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (OperatingSystem.IsWindows())
+{
+    builder.Services.AddWindowsService();
+}
+
 builder.Services.AddDbContext<CommonDbContext>(options => 
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("SiagroCommon"),
