@@ -10,6 +10,7 @@ public class Role
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public required string Code { get; set; }
     
+    [Column(TypeName = "VARCHAR(100)")]
     public string? Description { get; set; }
 
     public virtual ICollection<Permission> Permissions { get; set; } = [];

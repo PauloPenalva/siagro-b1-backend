@@ -2,28 +2,28 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services.MenuItem;
+using SiagroB1.Application.Services.Permissions;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-public class MenuItemsController(
-    MenuItemsCreateService createService,
-    MenuItemsUpdateService updateService,
-    MenuItemsDeleteService deleteService,
-    MenuItemsGetService getService
+public class PermissionsController(
+    PermissionsCreateService createService,
+    PermissionsUpdateService updateService,
+    PermissionsDeleteService deleteService,
+    PermissionsGetService getService
     ) 
     : ODataController
 {
     [EnableQuery]
-    public ActionResult<IEnumerable<MenuItem>> Get()
+    public ActionResult<IEnumerable<Permission>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    public async Task<ActionResult<MenuItem>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<Permission>> Get([FromRoute] string key)
     {
         var item = await getService.GetByIdAsync(key);
 
@@ -35,7 +35,7 @@ public class MenuItemsController(
         return Ok(item);
     }
     
-    public async Task<IActionResult> Post([FromBody] MenuItem entity)
+    public async Task<IActionResult> Post([FromBody] Permission entity)
     {
         if (!ModelState.IsValid)
         {
@@ -59,7 +59,7 @@ public class MenuItemsController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] MenuItem entity)
+    public async Task<IActionResult> Put([FromRoute] string key, [FromBody] Permission entity)
     {
         if (!ModelState.IsValid)
         {
@@ -87,7 +87,7 @@ public class MenuItemsController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid key)
+    public async Task<IActionResult> Delete([FromRoute] string key)
     {
         try
         {
@@ -107,7 +107,7 @@ public class MenuItemsController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<MenuItem> patch)
+    public async Task<IActionResult> Patch([FromRoute] string key, [FromBody] Delta<Permission> patch)
     {
         if (!ModelState.IsValid)
         {

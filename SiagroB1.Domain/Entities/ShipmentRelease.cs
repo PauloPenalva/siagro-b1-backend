@@ -43,5 +43,8 @@ public class ShipmentRelease : DocumentEntity
     public bool HasStorageTransactions => Transactions
         .Any(x => 
             x.TransactionStatus is not StorageTransactionsStatus.Cancelled &&
-            x.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn);
+            x.TransactionType is StorageTransactionType.SalesShipment or 
+                StorageTransactionType.SalesShipmentReturn or 
+                StorageTransactionType.Purchase or 
+                StorageTransactionType.PurchaseReturn);
 }

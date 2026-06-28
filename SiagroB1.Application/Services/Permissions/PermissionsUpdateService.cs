@@ -13,7 +13,7 @@ public class PermissionsUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<PermissionsUpdateService> logger)
 {
-    public async Task<Role?> ExecuteAsync(string name, Role entity)
+    public async Task<Permission?> ExecuteAsync(string name, Permission entity)
     {
         var existingEntity = await db.Permissions
             .FirstOrDefaultAsync(x => x.Code == name) ?? 

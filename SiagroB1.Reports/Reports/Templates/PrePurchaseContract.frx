@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp">
+  <Dictionary/>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="5" RightMargin="5" TopMargin="5" BottomMargin="5">
+    <ReportTitleBand Name="ReportTitle1" Width="756" Height="1050">
+
+      <TextObject Name="Titulo" Left="180" Top="10" Width="400" Height="25"
+       Text="PRÉ - CONTRATO DE COMPRA DE CEREAIS"
+       HorzAlign="Center" Font="Arial,12pt,style=Bold"/>
+
+      <ShapeObject Name="S1" Left="0" Top="45" Width="756" Height="40"/>
+      <TextObject Name="Compradora" Left="5" Top="55" Width="740" Height="20"
+       Text="COMPRADORA: [Compradora]" Font="Arial,10pt,style=Bold"/>
+
+      <ShapeObject Name="S2" Left="0" Top="85" Width="756" Height="35"/>
+      <TextObject Name="Cnpjs" Left="5" Top="95" Width="740" Height="20"
+       Text="CNPJ: [CnpjCompradora]"/>
+
+      <ShapeObject Name="S3" Left="0" Top="120" Width="756" Height="40"/>
+      <TextObject Name="Vend" Left="5" Top="132" Width="740" Height="20"
+       Text="VENDEDOR: [Vendedor]" Font="Arial,10pt,style=Bold"/>
+
+      <ShapeObject Name="S4A" Left="0" Top="160" Width="270" Height="35"/>
+      <ShapeObject Name="S4B" Left="270" Top="160" Width="240" Height="35"/>
+      <ShapeObject Name="S4C" Left="510" Top="160" Width="246" Height="35"/>
+
+      <TextObject Name="CnpjVend" Left="5" Top="170" Width="260" Height="20" Text="CNPJ: [Cnpj]"/>
+      <TextObject Name="IE" Left="275" Top="170" Width="230" Height="20" Text="I.E.: [InscricaoEstadual]"/>
+      <TextObject Name="CPF" Left="515" Top="170" Width="230" Height="20" Text="CPF: [Cpf]"/>
+
+      <ShapeObject Name="S5" Left="0" Top="195" Width="756" Height="35"/>
+      <TextObject Name="Endereco" Left="5" Top="205" Width="740" Height="20" Text="END.: [Endereco]"/>
+
+      <ShapeObject Name="S6A" Left="0" Top="230" Width="510" Height="38"/>
+      <ShapeObject Name="S6B" Left="510" Top="230" Width="246" Height="38"/>
+      <TextObject Name="Car" Left="5" Top="242" Width="500" Height="20" Text="Nº CAR: [Car]"/>
+      <TextObject Name="Cidade" Left="515" Top="242" Width="230" Height="20" Text="[CidadeUfCep]"/>
+
+      <ShapeObject Name="S7" Left="0" Top="268" Width="756" Height="35"/>
+      <TextObject Name="Empresa" Left="5" Top="278" Width="740" Height="20" Text="EMPRESA/SÓCIO ADMINISTRADOR: [Empresa]"/>
+
+      <ShapeObject Name="S8" Left="0" Top="303" Width="756" Height="35"/>
+      <TextObject Name="Email" Left="5" Top="313" Width="740" Height="20" Text="E-MAIL: [EmailContrato]"/>
+
+      <ShapeObject Name="S9" Left="0" Top="338" Width="756" Height="35"/>
+      <TextObject Name="C1" Left="0" Top="348" Width="756" Height="20" HorzAlign="Center"
+       Text="CLÁUSULA PRIMEIRA - PRODUTO - QUALIDADE - ENTREGA"
+       Font="Arial,10pt,style=Bold"/>
+
+      <ShapeObject Name="S10A" Left="0" Top="373" Width="510" Height="35"/>
+      <ShapeObject Name="S10B" Left="510" Top="373" Width="246" Height="35"/>
+      <TextObject Name="Produto" Left="5" Top="383" Width="500" Height="20" Text="PRODUTO: [Produto]"/>
+      <TextObject Name="Safra" Left="515" Top="383" Width="230" Height="20" Text="SAFRA: [Safra]"/>
+
+      <ShapeObject Name="S11A" Left="0" Top="408" Width="100" Height="35"/>
+      <ShapeObject Name="S11B" Left="100" Top="408" Width="656" Height="35"/>
+      <TextObject Name="Q1" Left="5" Top="418" Width="90" Height="20" Text="Quantidade:" Font="Arial,9pt,style=Bold"/>
+      <TextObject Name="Q2" Left="105" Top="418" Width="200" Height="20" Text="[Quantidade]"/>
+
+      <ShapeObject Name="Qualidade" Left="0" Top="443" Width="756" Height="120"/>
+      <TextObject Name="QualidadeTxt" Left="5" Top="450" Width="740" Height="100"
+       Text="UMIDADE: [Umidade]&#13;&#10;IMPUREZA: [Impureza]&#13;&#10;AVARIADOS: [Avariados]&#13;&#10;ARDIDO/BROTADO: [ArdidoBrotado]&#13;&#10;QUEIMADOS: [Queimados]&#13;&#10;FALLING NUMBER: [FallingNumber]&#13;&#10;W: [W]  PH: [PH]"/>
+
+      <ShapeObject Name="Ent1" Left="0" Top="563" Width="756" Height="35"/>
+      <TextObject Name="Entrega" Left="5" Top="573" Width="740" Height="20"
+       Text="ENTREGA/RETIRADA: [Armazem]"/>
+
+      <ShapeObject Name="Ent2" Left="0" Top="598" Width="756" Height="35"/>
+      <TextObject Name="EntregaData" Left="5" Top="608" Width="740" Height="20"
+       Text="DATA ENTREGA/RETIRADA: [DataEntrega]"/>
+
+      <ShapeObject Name="C2S" Left="0" Top="633" Width="756" Height="35"/>
+      <TextObject Name="C2" Left="0" Top="643" Width="756" Height="20" HorzAlign="Center"
+       Text="CLÁUSULA SEGUNDA – PREÇOS E CONDIÇÕES"
+       Font="Arial,10pt,style=Bold"/>
+
+      <ShapeObject Name="PrecoS" Left="0" Top="668" Width="756" Height="35"/>
+      <TextObject Name="Preco" Left="5" Top="678" Width="740" Height="20"
+       Text="PREÇO SACA - R$ [PrecoSaca]"/>
+
+      <ShapeObject Name="Pag1" Left="0" Top="703" Width="420" Height="40"/>
+      <ShapeObject Name="Pag2" Left="420" Top="703" Width="336" Height="40"/>
+      <TextObject Name="Forma" Left="5" Top="713" Width="400" Height="20"
+       Text="FORMA PAGAMENTO: [FormaPagamento]"/>
+      <TextObject Name="DataPag" Left="425" Top="713" Width="320" Height="20"
+       Text="DATA PAGAMENTO: [DataPagamento]"/>
+
+      <ShapeObject Name="Desc" Left="0" Top="743" Width="756" Height="30"/>
+      <TextObject Name="DescTxt" Left="0" Top="750" Width="756" Height="20"
+       HorzAlign="Center" Text="DESCONTOS"/>
+
+      <ShapeObject Name="F1" Left="0" Top="773" Width="756" Height="30"/>
+      <TextObject Name="Funrural" Left="5" Top="780" Width="740" Height="20" Text="FUNRURAL: [FunruralValor]"/>
+
+      <ShapeObject Name="F2" Left="0" Top="803" Width="756" Height="30"/>
+      <TextObject Name="Senar" Left="5" Top="810" Width="740" Height="20" Text="SENAR: [SenarValor]"/>
+
+      <ShapeObject Name="F3" Left="0" Top="833" Width="756" Height="30"/>
+      <TextObject Name="ICMS" Left="5" Top="840" Width="740" Height="20" Text="ICMS: [IcmsValor]"/>
+
+      <ShapeObject Name="F4" Left="0" Top="863" Width="756" Height="30"/>
+      <TextObject Name="Frete" Left="5" Top="870" Width="740" Height="20" Text="FRETE: [FreteValor]"/>
+
+      <ShapeObject Name="OBS" Left="0" Top="893" Width="756" Height="50"/>
+      <TextObject Name="ObsTxt" Left="5" Top="905" Width="740" Height="20" Text="OBS.: [Observacao]"/>
+
+    </ReportTitleBand>
+  </ReportPage>
+</Report>

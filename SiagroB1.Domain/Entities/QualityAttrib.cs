@@ -2,20 +2,20 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Domain.Entities
+namespace SiagroB1.Domain.Entities;
+
+[Table("QUALITY_ATTRIBS")]
+public class QualityAttrib 
 {
-    [Table("QUALITY_ATTRIBS")]
-    public class QualityAttrib 
-    {
-        [Key]
-        [Column(TypeName = "VARCHAR(10) NOT NULL")]
-        public required string Code { get; set; }
-        
-        [Column(TypeName = "VARCHAR(100) NOT NULL")]
-        public required string Name { get; set; }
-        
-        public bool Disabled { get; set; } 
-        
-        public required QualityAttribType Type { get; set; }
-    }
-}                          
+    [Key]
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
+    public required string Code { get; set; }
+    
+    [Column(TypeName = "VARCHAR(100) NOT NULL")]
+    public required string Name { get; set; }
+    
+    public bool Disabled { get; set; } 
+    
+    public required QualityAttribType Type { get; set; }
+}
+                         
