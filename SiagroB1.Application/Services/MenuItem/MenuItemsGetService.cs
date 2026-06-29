@@ -13,13 +13,13 @@ public class MenuItemsGetService(
     IStringLocalizer<Resource> resource,
     ILogger<CompaniesUpdateService> logger)
 {
-    public async Task<Domain.Entities.Common.MenuItem?> GetByIdAsync(Guid id)
+    public async Task<Domain.Entities.Common.MenuItem?> GetByIdAsync(string key)
     {
         try
         {
             return await db.MenuItems
                 .Include(x => x.Children)
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)
         {

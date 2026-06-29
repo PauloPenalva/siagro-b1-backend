@@ -24,7 +24,7 @@ public class RolesMenusUpdateService(
             throw new NotFoundException(resource["ROLE_MENU_NOT_FOUND"].Value);
         
         roleMenu.RoleCode = roleCode;
-        roleMenu.MenuItemId = entity.MenuItemId;
+        roleMenu.MenuItemKey = entity.MenuItemKey;
         
         try
         {

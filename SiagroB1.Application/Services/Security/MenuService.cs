@@ -18,7 +18,7 @@ public class MenuService(CommonDbContext context)
                 on pr.RoleCode equals rm.RoleCode
 
             join menu in context.MenuItems
-                on rm.MenuItemId equals menu.Id
+                on rm.MenuItemKey equals menu.Key
 
             where up.UserId == userId
 
@@ -33,7 +33,7 @@ public class MenuService(CommonDbContext context)
             .ToListAsync();
 
         var menuIds = data
-            .Select(x => x.Menu.Id)
+            .Select(x => x.Menu.Key)
             .Distinct()
             .ToList();
 
@@ -56,22 +56,22 @@ public class MenuService(CommonDbContext context)
 
         var menus = data
             .Select(x => x.Menu)
-            .DistinctBy(x => x.Id)
+            .DistinctBy(x => x.Key)
             .ToList();
 
-        var lookup = menus.ToDictionary(x => x.Id);
+        var lookup = menus.ToDictionary(x => x.Key);
 
         var roots = new List<Domain.Entities.Common.MenuItem>();
 
         foreach (var item in menus)
         {
-            if (item.ParentId == null)
+            if (item.ParentKey == null)
             {
                 roots.Add(item);
                 continue;
             }
 
-            if (lookup.TryGetValue(item.ParentId.Value,
+            if (lookup.TryGetValue(item.ParentKey,
                 out var parent))
             {
                 parent.Children.Add(item);

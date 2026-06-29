@@ -12,10 +12,10 @@ public class MenuItemsUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<MenuItemsUpdateService> logger)
 {
-    public async Task<Domain.Entities.Common.MenuItem?> ExecuteAsync(Guid id, Domain.Entities.Common.MenuItem entity)
+    public async Task<Domain.Entities.Common.MenuItem?> ExecuteAsync(string key, Domain.Entities.Common.MenuItem entity)
     {
         var existingEntity = await db.MenuItems
-            .FirstOrDefaultAsync(x => x.Id == id) ?? 
+            .FirstOrDefaultAsync(x => x.Key == key) ?? 
                              throw new NotFoundException(resource["MENU_ITEM_NOT_FOUND"].Value);
         try
         {

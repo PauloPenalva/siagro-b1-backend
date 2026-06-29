@@ -12,9 +12,9 @@ public class MenuItemsDeleteService(
     IStringLocalizer<Resource> resource,
     ILogger<MenuItemsDeleteService> logger)
 {
-    public async Task ExecuteAsync(Guid id)
+    public async Task ExecuteAsync(string key)
     {
-        var entity = await db.MenuItems.FirstOrDefaultAsync(c => c.Id == id)
+        var entity = await db.MenuItems.FirstOrDefaultAsync(c => c.Key == key)
             ?? throw new NotFoundException(resource["MENU_ITEM_NOT_FOUND"]);
         
         db.MenuItems.Remove(entity);

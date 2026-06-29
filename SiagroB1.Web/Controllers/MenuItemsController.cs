@@ -23,7 +23,7 @@ public class MenuItemsController(
     }
 
     [EnableQuery]
-    public async Task<ActionResult<MenuItem>> Get([FromRoute] Guid key)
+    public async Task<ActionResult<MenuItem>> Get([FromRoute] string key)
     {
         var item = await getService.GetByIdAsync(key);
 
@@ -59,7 +59,7 @@ public class MenuItemsController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] MenuItem entity)
+    public async Task<IActionResult> Put([FromRoute] string key, [FromBody] MenuItem entity)
     {
         if (!ModelState.IsValid)
         {
@@ -87,7 +87,7 @@ public class MenuItemsController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid key)
+    public async Task<IActionResult> Delete([FromRoute] string key)
     {
         try
         {
@@ -107,7 +107,7 @@ public class MenuItemsController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<MenuItem> patch)
+    public async Task<IActionResult> Patch([FromRoute] string key, [FromBody] Delta<MenuItem> patch)
     {
         if (!ModelState.IsValid)
         {

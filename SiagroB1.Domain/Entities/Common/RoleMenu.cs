@@ -16,7 +16,7 @@ public class RoleMenu
     public virtual Role? Role{ get; set; }
     
     [ForeignKey(nameof(MenuItem))]
-    public Guid MenuItemId { get; set; }
+    public required string MenuItemKey { get; set; }
     
     public virtual MenuItem? MenuItem { get; set; }
 }
