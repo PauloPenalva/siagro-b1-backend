@@ -18,6 +18,8 @@ public class RolesGetService(
         try
         {
             return await db.Roles
+                .Include(r => r.Permissions)
+                .Include(r => r.Menus)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Code == code);
         }

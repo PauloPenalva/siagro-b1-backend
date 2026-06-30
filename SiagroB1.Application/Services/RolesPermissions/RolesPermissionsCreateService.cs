@@ -23,7 +23,7 @@ public class RolesPermissionsCreateService(
         
         try
         {
-            await db.RolesPermissions.AddAsync(entity);
+            await db.AddAsync(entity);
             await db.SaveChangesAsync();
             return entity;
         }

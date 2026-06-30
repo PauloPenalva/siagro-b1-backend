@@ -11,7 +11,7 @@ public class RoleMenu
     
     [ForeignKey(nameof(Role))]
     [Column(TypeName = "VARCHAR(50)")]
-    public required string RoleCode { get; set; }
+    public string? RoleCode { get; set; }
     
     public virtual Role? Role{ get; set; }
     

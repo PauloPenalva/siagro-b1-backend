@@ -13,7 +13,7 @@ public class Role
     [Column(TypeName = "VARCHAR(100)")]
     public string? Description { get; set; }
 
-    public virtual ICollection<Permission> Permissions { get; set; } = [];
+    public virtual ICollection<RolePermission> Permissions { get; set; } = [];
 
     public virtual ICollection<RoleMenu> Menus { get; set; } = [];
 }

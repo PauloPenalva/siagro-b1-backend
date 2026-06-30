@@ -41,7 +41,7 @@ public class RolesPermissionsController(
     
     [HttpPost("odata/Roles({roleCode})/Permissions")]
     [HttpPost("odata/Roles/{roleCode}/Permissions")]
-    public async Task<IActionResult> Post([FromRoute] string roleCode, [FromBody] RolePermission entity)
+    public async Task<ActionResult<RolePermission>> Post([FromRoute] string roleCode, [FromBody] RolePermission entity)
     {
         if (!ModelState.IsValid)
         {
