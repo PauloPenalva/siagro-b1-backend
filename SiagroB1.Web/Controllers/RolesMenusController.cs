@@ -119,6 +119,27 @@ public class RolesMenusController(
         }
     }
     
+    [HttpDelete("odata/RolesMenus({roleMenuId:guid})")]
+    [HttpDelete("odata/RolesMenus/{roleMenuId:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid roleMenuId)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(roleMenuId);
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return ex switch
+            {
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
+        }
+    }
+    
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Roles({roleCode})/Menus({roleMenuId})")]
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Roles/{roleCode}/Menus/{roleMenuId}")]
     public async Task<IActionResult> Patch([FromRoute] string roleCode, [FromRoute] Guid roleMenuId, [FromBody] Delta<RoleMenu> patch)
@@ -140,6 +161,45 @@ public class RolesMenusController(
             patch.Patch(t);
 
             await updateService.ExecuteAsync(roleCode, roleMenuId, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/RolesMenus({roleMenuId:guid})")]
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/RolesMenus/{roleMenuId:guid}")]
+    public async Task<IActionResult> Patch([FromRoute] Guid roleMenuId, [FromBody] Delta<RoleMenu> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var t = await getService.GetByIdAsync(roleMenuId);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(roleMenuId, t);
         }
         catch (KeyNotFoundException)
         {

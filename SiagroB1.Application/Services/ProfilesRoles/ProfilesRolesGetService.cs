@@ -13,6 +13,20 @@ public class ProfilesRolesGetService(
     IStringLocalizer<Resource> resource,
     ILogger<ProfilesRolesGetService> logger)
 {
+    public async Task<ProfileRole?> GetByIdAsync(Guid profileRoleId)
+    {
+        try
+        {
+            return await db.ProfileRoles
+                .FirstOrDefaultAsync(p => p.Id == profileRoleId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, resource["ERROR_FETCHING_ENTITY"].Value);
+            throw new DefaultException(resource["ERROR_FETCHING_ENTITY"].Value);
+        }
+    }
+    
     public async Task<ProfileRole?> GetByIdAsync(string profileCode, Guid profileRoleId)
     {
         try

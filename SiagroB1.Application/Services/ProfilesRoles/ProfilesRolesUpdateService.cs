@@ -13,6 +13,26 @@ public class ProfilesRolesUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<ProfilesRolesUpdateService> logger)
 {
+    public async Task<ProfileRole> ExecuteAsync(Guid profileRoleId, ProfileRole entity)
+    {
+        var profileRole = await db.ProfileRoles.FirstOrDefaultAsync(p => p.Id == profileRoleId);
+        if (profileRole == null)
+            throw new NotFoundException(resource["PROFILE_ROLE_NOT_FOUND"].Value);
+        
+        profileRole.RoleCode = entity.RoleCode;
+        
+        try
+        {
+            await db.SaveChangesAsync();
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }    
+    
     public async Task<ProfileRole> ExecuteAsync(string profileCode, Guid profileRoleId, ProfileRole entity)
     {
         var profile = await db.Profiles.FirstOrDefaultAsync(p => p.Code == profileCode);

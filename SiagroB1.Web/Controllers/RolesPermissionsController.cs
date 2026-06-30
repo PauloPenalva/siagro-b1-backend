@@ -119,6 +119,28 @@ public class RolesPermissionsController(
         }
     }
     
+    
+    [HttpDelete("odata/RolesPermissions({rolePermissionId:guid})")]
+    [HttpDelete("odata/RolesPermissions/{rolePermissionId:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid rolePermissionId)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(rolePermissionId);
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return ex switch
+            {
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
+        }
+    }
+    
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Roles({roleCode})/Permissions({rolePermissionId})")]
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Roles/{roleCode}/Permissions/{rolePermissionId}")]
     public async Task<IActionResult> Patch([FromRoute] string roleCode, [FromRoute] Guid rolePermissionId, [FromBody] Delta<RolePermission> patch)
@@ -140,6 +162,45 @@ public class RolesPermissionsController(
             patch.Patch(t);
 
             await updateService.ExecuteAsync(roleCode, rolePermissionId, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/RolesPermissions({rolePermissionId:guid})")]
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/RolesPermissions/{rolePermissionId:guid}")]
+    public async Task<IActionResult> Patch([FromRoute] Guid rolePermissionId, [FromBody] Delta<RolePermission> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var t = await getService.GetByIdAsync(rolePermissionId);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(rolePermissionId, t);
         }
         catch (KeyNotFoundException)
         {

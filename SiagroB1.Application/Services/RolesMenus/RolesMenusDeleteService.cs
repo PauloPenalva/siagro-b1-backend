@@ -28,5 +28,23 @@ public class RolesMenusDeleteService(
             logger.LogError(ex, ex.Message);
             throw new ApplicationException(ex.Message);
         }
+    } 
+    
+    public async Task ExecuteAsync(Guid roleMenuId)
+    {
+        var menus = await db.RolesMenus.FirstOrDefaultAsync(
+                        p => p.Id == roleMenuId)
+                    ?? throw new NotFoundException(resource["ROLE_MENU_NOT_FOUND"].Value);
+        
+        try
+        {
+            db.RolesMenus.Remove(menus);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
     }    
 }

@@ -76,6 +76,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
         modelBuilder.EntitySet<Profile>("Profiles");
+        modelBuilder.EntitySet<ProfileRole>("ProfilesRoles");
         modelBuilder.EntitySet<Role>("Roles");
         modelBuilder.EntitySet<RolePermission>("RolesPermissions");
         modelBuilder.EntitySet<RoleMenu>("RolesMenus");

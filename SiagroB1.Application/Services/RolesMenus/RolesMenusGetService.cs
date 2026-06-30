@@ -13,6 +13,20 @@ public class RolesMenusGetService(
     IStringLocalizer<Resource> resource,
     ILogger<RolesMenusGetService> logger)
 {
+    public async Task<RoleMenu?> GetByIdAsync(Guid roleMenuId)
+    {
+        try
+        {
+            return await db.RolesMenus
+                .FirstOrDefaultAsync(p => p.Id == roleMenuId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, resource["ERROR_FETCHING_ENTITY"].Value);
+            throw new DefaultException(resource["ERROR_FETCHING_ENTITY"].Value);
+        }
+    }
+    
     public async Task<RoleMenu?> GetByIdAsync(string roleCode, Guid roleMenuId)
     {
         try

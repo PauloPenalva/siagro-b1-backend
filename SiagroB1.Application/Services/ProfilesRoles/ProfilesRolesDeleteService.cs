@@ -29,4 +29,22 @@ public class ProfilesRolesDeleteService(
             throw new ApplicationException(ex.Message);
         }
     }    
+    
+    public async Task ExecuteAsync(Guid profileRoleId)
+    {
+        var profileRole = await db.ProfileRoles.FirstOrDefaultAsync(
+                              p =>p.Id == profileRoleId)
+                          ?? throw new NotFoundException(resource["PROFILE_ROLE_NOT_FOUND"].Value);
+        
+        try
+        {
+            db.ProfileRoles.Remove(profileRole);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }    
 }

@@ -13,6 +13,20 @@ public class RolesPermissionsGetService(
     IStringLocalizer<Resource> resource,
     ILogger<RolesPermissionsGetService> logger)
 {
+    public async Task<RolePermission?> GetByIdAsync(Guid rolePermissionId)
+    {
+        try
+        {
+            return await db.RolesPermissions
+                .FirstOrDefaultAsync(p => p.Id == rolePermissionId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, resource["ERROR_FETCHING_ENTITY"].Value);
+            throw new DefaultException(resource["ERROR_FETCHING_ENTITY"].Value);
+        }
+    }
+    
     public async Task<RolePermission?> GetByIdAsync(string roleCode, Guid rolePermissionId)
     {
         try

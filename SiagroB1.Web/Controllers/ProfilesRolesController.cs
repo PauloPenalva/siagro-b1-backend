@@ -119,6 +119,27 @@ public class ProfilesRolesController(
         }
     }
     
+    [HttpDelete("odata/ProfilesRoles({profileRoleId:guid})")]
+    [HttpDelete("odata/ProfilesRoles/{profileRoleId:guid}")]
+    public async Task<IActionResult> DeleteById([FromRoute] Guid profileRoleId)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(profileRoleId);
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return ex switch
+            {
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
+        }
+    }
+    
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Profiles({profileCode})/Roles({profileRoleId})")]
     [AcceptVerbs("PATCH", "MERGE", Route = "odata/Profiles/{profileCode}/Roles/{profileRoleId}")]
     public async Task<IActionResult> Patch([FromRoute] string profileCode, [FromRoute] Guid profileRoleId, [FromBody] Delta<ProfileRole> patch)
@@ -140,6 +161,45 @@ public class ProfilesRolesController(
             patch.Patch(t);
 
             await updateService.ExecuteAsync(profileCode, profileRoleId, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/ProfilesRoles({profileRoleId:guid})")]
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/ProfilesRoles/{profileRoleId:guid}")]
+    public async Task<IActionResult> Patch([FromRoute] Guid profileRoleId, [FromBody] Delta<ProfileRole> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var t = await getService.GetByIdAsync(profileRoleId);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(profileRoleId, t);
         }
         catch (KeyNotFoundException)
         {

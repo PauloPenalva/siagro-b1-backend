@@ -18,6 +18,7 @@ public class ProfilesGetService(
         try
         {
             return await db.Profiles
+                .Include(p => p.Roles)
                 .FirstOrDefaultAsync(p => p.Code == code);
         }
         catch (Exception ex)

@@ -13,6 +13,26 @@ public class RolesMenusUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<RolesMenusUpdateService> logger)
 {
+    public async Task<RoleMenu> ExecuteAsync(Guid roleMenuId, RoleMenu entity)
+    {
+        var roleMenu = await db.RolesMenus.FirstOrDefaultAsync(p => p.Id == roleMenuId);
+        if (roleMenu == null)
+            throw new NotFoundException(resource["ROLE_MENU_NOT_FOUND"].Value);
+        
+        roleMenu.MenuItemKey = entity.MenuItemKey;
+        
+        try
+        {
+            await db.SaveChangesAsync();
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }     
+    
     public async Task<RoleMenu> ExecuteAsync(string roleCode, Guid roleMenuId, RoleMenu entity)
     {
         var role = await db.Roles.FirstOrDefaultAsync(p => p.Code == roleCode);

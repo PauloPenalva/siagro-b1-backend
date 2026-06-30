@@ -12,6 +12,24 @@ public class RolesPermissionsDeleteService(
     IStringLocalizer<Resource> resource,
     ILogger<RolesPermissionsDeleteService> logger)
 {
+    public async Task ExecuteAsync(Guid rolePermissionId)
+    {
+        var permission = await db.RolesPermissions.FirstOrDefaultAsync(
+                             p => p.Id == rolePermissionId)
+                         ?? throw new NotFoundException(resource["ROLE_PERMISSION_NOT_FOUND"].Value);
+        
+        try
+        {
+            db.RolesPermissions.Remove(permission);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }   
+    
     public async Task ExecuteAsync(string roleCode, Guid rolePermissionId)
     {
         var permission = await db.RolesPermissions.FirstOrDefaultAsync(

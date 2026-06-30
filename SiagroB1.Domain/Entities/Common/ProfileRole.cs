@@ -13,7 +13,7 @@ public class ProfileRole
 
     [ForeignKey(nameof(Profile))]
     [Column(TypeName = "VARCHAR(50)")]
-    public required string ProfileCode { get; set; }
+    public string? ProfileCode { get; set; }
     
     public virtual Profile? Profile { get; set; }
     
