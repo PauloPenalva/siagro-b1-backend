@@ -97,6 +97,27 @@ public class UsersProfilesController(
         return NoContent();
     }
     
+    [HttpDelete("odata/UsersProfiles({userProfileId:guid})")]
+    [HttpDelete("odata/UsersProfiles/{userProfileId:guid}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid userProfileId)
+    {
+        try
+        {
+            await deleteService.ExecuteAsync(userProfileId);
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return ex switch
+            {
+                NotFoundException => NotFound(ex.Message),
+                ApplicationException => BadRequest(ex.Message),
+                _ => StatusCode(500, ex.Message)
+            };
+        }
+    }
+    
     [HttpDelete("odata/Users({userId})/Profiles({userProfileId})")]
     [HttpDelete("odata/Users/{userId}/Profiles/{userProfileId}")]
     public async Task<IActionResult> Delete([FromRoute] Guid userId, [FromRoute] Guid userProfileId)
@@ -139,6 +160,45 @@ public class UsersProfilesController(
             patch.Patch(t);
 
             await updateService.ExecuteAsync(userId, userProfileId, t);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception ex)
+        {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return StatusCode(500, ex.Message);
+        }
+
+        return NoContent();
+    }
+    
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/UsersProfiles({userProfileId:guid})")]
+    [AcceptVerbs("PATCH", "MERGE", Route = "odata/UsersProfiles/{userProfileId:guid}")]
+    public async Task<IActionResult> Patch([FromRoute] Guid userProfileId, [FromBody] Delta<UserProfile> patch)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var t = await getService.GetByIdAsync(userProfileId);
+
+        if (t == null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            patch.Patch(t);
+
+            await updateService.ExecuteAsync(userProfileId, t);
         }
         catch (KeyNotFoundException)
         {

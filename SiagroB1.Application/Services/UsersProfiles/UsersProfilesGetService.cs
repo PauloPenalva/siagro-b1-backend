@@ -13,6 +13,20 @@ public class UsersProfilesGetService(
     IStringLocalizer<Resource> resource,
     ILogger<UsersProfilesGetService> logger)
 {
+    public async Task<UserProfile?> GetByIdAsync(Guid userProfileId)
+    {
+        try
+        {
+            return await db.UserProfiles
+                .FirstOrDefaultAsync(p => p.Id == userProfileId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, resource["ERROR_FETCHING_ENTITY"].Value);
+            throw new DefaultException(resource["ERROR_FETCHING_ENTITY"].Value);
+        }
+    }
+    
     public async Task<UserProfile?> GetByIdAsync(Guid userId, Guid userProfileId)
     {
         try

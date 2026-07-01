@@ -13,6 +13,26 @@ public class UsersProfilesUpdateService(
     IStringLocalizer<Resource> resource,
     ILogger<UsersProfilesUpdateService> logger)
 {
+    public async Task<UserProfile> ExecuteAsync(Guid userProfileId, UserProfile entity)
+    {
+        var userProfile = await db.UserProfiles.FirstOrDefaultAsync(p => p.Id == userProfileId);
+        if (userProfile == null)
+            throw new NotFoundException(resource["USER_PROFILE_NOT_FOUND"].Value);
+        
+        userProfile.ProfileCode = entity.ProfileCode;
+        
+        try
+        {
+            await db.SaveChangesAsync();
+            return entity;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }    
+    
     public async Task<UserProfile> ExecuteAsync(Guid userId, Guid userProfileId, UserProfile entity)
     {
         var user = await db.Users.FirstOrDefaultAsync(p => p.Id == userId);

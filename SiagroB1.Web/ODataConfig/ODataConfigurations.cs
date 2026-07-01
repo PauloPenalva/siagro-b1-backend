@@ -75,6 +75,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<TruckScale>("TruckScales");
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
+        modelBuilder.EntitySet<UserProfile>("UsersProfiles");
         modelBuilder.EntitySet<Profile>("Profiles");
         modelBuilder.EntitySet<ProfileRole>("ProfilesRoles");
         modelBuilder.EntitySet<Role>("Roles");

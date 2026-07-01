@@ -17,18 +17,18 @@ public class UsersController(
     : ODataController
 {
     [EnableQuery]
-    [HttpGet("odata/Users")]
+    //[HttpGet("odata/Users")]
     public ActionResult<IEnumerable<User>> Get()
     {
         return Ok(getService.QueryAll());
     }
 
     [EnableQuery]
-    [HttpGet("odata/Users({id})")]
-    [HttpGet("odata/Users/{id}")]
-    public async Task<ActionResult<User>> Get([FromRoute] Guid id)
+    //[HttpGet("odata/Users({key})")]
+    //[HttpGet("odata/Users/{key}")]
+    public async Task<ActionResult<User>> Get([FromRoute] Guid key)
     {
-        var item = await getService.GetByIdAsync(id);
+        var item = await getService.GetByIdAsync(key);
 
         if (item == null)
         {
@@ -38,7 +38,7 @@ public class UsersController(
         return Ok(item);
     }
     
-    [HttpPost("odata/Users")]
+    //[HttpPost("odata/Users")]
     public async Task<IActionResult> Post([FromBody] User entity)
     {
         if (!ModelState.IsValid)
@@ -63,9 +63,9 @@ public class UsersController(
         }
     }
     
-    [HttpPut("odata/Users({id})")]
-    [HttpPut("odata/Users/{id}")]
-    public async Task<IActionResult> Put([FromRoute] Guid id, [FromBody] User entity)
+    //[HttpPut("odata/Users({id})")]
+    //[HttpPut("odata/Users/{id}")]
+    public async Task<IActionResult> Put([FromRoute] Guid key, [FromBody] User entity)
     {
         if (!ModelState.IsValid)
         {
@@ -74,7 +74,7 @@ public class UsersController(
 
         try
         {
-            await updateService.ExecuteAsync(id, entity);
+            await updateService.ExecuteAsync(key, entity);
         }
         catch (KeyNotFoundException e)
         {
@@ -93,16 +93,17 @@ public class UsersController(
         return NoContent();
     }
     
-    [AcceptVerbs("PATCH", "MERGE", Route = "odata/Users({id})")]
-    [AcceptVerbs("PATCH", "MERGE", Route = "odata/Users/{id}")]
-    public async Task<IActionResult> Patch([FromRoute] Guid id, [FromBody] Delta<User> patch)
+    //[AcceptVerbs("PATCH", "MERGE", Route = "odata/Users({id})")]
+    ///[AcceptVerbs("PATCH", "MERGE", Route = "odata/Users/{key}")]
+    [AcceptVerbs("PATCH", "MERGE")]
+    public async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<User> patch)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        var t = await getService.GetByIdAsync(id);
+        var t = await getService.GetByIdAsync(key);
 
         if (t == null)
         {
@@ -113,7 +114,7 @@ public class UsersController(
         {
             patch.Patch(t);
 
-            await updateService.ExecuteAsync(id, t);
+            await updateService.ExecuteAsync(key, t);
         }
         catch (KeyNotFoundException)
         {
@@ -132,13 +133,13 @@ public class UsersController(
         return NoContent();
     }
     
-    [HttpDelete("odata/Users({id})")]
-    [HttpDelete("odata/Users/{id}")]
-    public async Task<IActionResult> Delete([FromRoute] Guid id)
+    //[HttpDelete("odata/Users({id})")]
+    //[HttpDelete("odata/Users/{id}")]
+    public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
         try
         {
-            await deleteService.ExecuteAsync(id);
+            await deleteService.ExecuteAsync(key);
             
             return NoContent();
         }

@@ -12,6 +12,24 @@ public class UsersProfilesDeleteService(
     IStringLocalizer<Resource> resource,
     ILogger<UsersProfilesDeleteService> logger)
 {
+    public async Task ExecuteAsync(Guid userProfileId)
+    {
+        var userProfile = await db.UserProfiles.FirstOrDefaultAsync(
+            p => p.Id == userProfileId)
+            ?? throw new NotFoundException(resource["PROFILE_ROLE_NOT_FOUND"].Value);
+        
+        try
+        {
+            db.UserProfiles.Remove(userProfile);
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, ex.Message);
+            throw new ApplicationException(ex.Message);
+        }
+    }    
+    
     public async Task ExecuteAsync(Guid userId, Guid userProfileId)
     {
         var userProfile = await db.UserProfiles.FirstOrDefaultAsync(
