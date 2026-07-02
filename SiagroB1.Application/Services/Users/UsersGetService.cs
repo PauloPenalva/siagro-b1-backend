@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.Companies;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
@@ -19,6 +18,7 @@ public class UsersGetService(
         try
         {
             return await db.Users
+                .Include(u => u.Profiles)
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
         catch (Exception ex)
