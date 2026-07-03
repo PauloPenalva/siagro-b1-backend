@@ -2,7 +2,7 @@
 using SiagroB1.Domain.Dtos.Common;
 using SiagroB1.Infra.Context;
 
-namespace SiagroB1.Application.Services.Security;
+namespace SiagroB1.Security.Services;
 
 public class MenuService(CommonDbContext context)
 {
@@ -31,7 +31,7 @@ public class MenuService(CommonDbContext context)
         var data = await query
             .Distinct()
             .ToListAsync();
-
+        
         var menuIds = data
             .Select(x => x.Menu.Key)
             .Distinct()
@@ -54,14 +54,28 @@ public class MenuService(CommonDbContext context)
                 }
             ).ToListAsync();
 
+        // var menus = data
+        //     .Select(x => x.Menu)
+        //     .DistinctBy(x => x.Key)
+        //     .ToList();
+        
         var menus = data
-            .Select(x => x.Menu)
+            .Select(x => new MenuNode
+            {
+                Key = x.Menu.Key,
+                ParentKey = x.Menu.ParentKey,
+                Title = x.Menu.Title,
+                Icon = x.Menu.Icon,
+                Enabled = x.Menu.Enabled,
+                Expanded = x.Menu.Expanded,
+                Order = x.Menu.Order
+            })
             .DistinctBy(x => x.Key)
             .ToList();
-
+        
         var lookup = menus.ToDictionary(x => x.Key);
 
-        var roots = new List<Domain.Entities.Common.MenuItem>();
+        var roots = new List<MenuNode>();
 
         foreach (var item in menus)
         {
@@ -88,7 +102,7 @@ public class MenuService(CommonDbContext context)
     }
 
     private NavigationItemDto Map(
-        Domain.Entities.Common.MenuItem item,
+        MenuNode item,
         List<MenuPermissionDto> permissions)
     {
         return new NavigationItemDto
@@ -109,5 +123,24 @@ public class MenuService(CommonDbContext context)
                 .Select(x => Map(x, permissions))
                 .ToList()
         };
+    }
+    
+    private class MenuNode
+    {
+        public string Key { get; set; } = "";
+
+        public string? ParentKey { get; set; }
+
+        public string Title { get; set; } = "";
+
+        public string Icon { get; set; } = "";
+
+        public bool Enabled { get; set; }
+
+        public bool Expanded { get; set; }
+
+        public int Order { get; set; }
+
+        public List<MenuNode> Children { get; } = [];
     }
 }

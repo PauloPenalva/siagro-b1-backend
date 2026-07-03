@@ -14,7 +14,8 @@ public class AuthController(
     IAuthService authService,
     ILogger<AuthController> logger,
     IConfiguration configuration,
-    BranchService branchService
+    BranchService branchService,
+    MenuService menuService
     ) : ControllerBase
 {
     [HttpPost("login")]
@@ -104,7 +105,8 @@ public class AuthController(
                                 Username = userInfo.Username,
                                 FullName = userInfo.FullName,
                                 IsAdmin = userInfo.IsAdmin,
-                                FromCookie = true
+                                FromCookie = true,
+                                UserId = userInfo.Id,
                             });
                         }
                     }
@@ -135,7 +137,8 @@ public class AuthController(
             IsAdmin = User.HasClaim("IsAdmin", "True"),
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],
-            FromPrincipal = true
+            FromPrincipal = true,
+            UserId = userInfoFromDb?.Id,
         });
     }
 
@@ -205,6 +208,8 @@ public class AuthController(
         
         try
         {
+            Request.Cookies.TryGetValue("SIAGROB1.User", out var userCookie);
+                
             var branchInfo = await branchService.GetDefaultBranchInfo(sessionId);
             return Ok(branchInfo);
         }
@@ -213,7 +218,35 @@ public class AuthController(
             return BadRequest(e.Message);
         }
     }
-    
-    
+
+    [HttpGet("GetUserMenu")]
+    public async Task<IActionResult> GetUserMenu()
+    {
+        var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
+        if (!isAuthenticated)
+            return Unauthorized(new { message = "User not authenticated." });
+        
+        try
+        {   
+            var usernameFromClaims = User.Identity?.Name;
+            UserInfo? userInfoFromDb = null;
+        
+            if (!string.IsNullOrEmpty(usernameFromClaims))
+            {
+                userInfoFromDb = await authService.GetUserInfoAsync(usernameFromClaims);
+            }
+
+            if (userInfoFromDb == null)
+                return NotFound(new { message = "User not found." });
+            
+            var userMenu = await menuService.GetMenuAsync(Guid.Parse(userInfoFromDb.Id));
+            
+            return Ok(userMenu);
+        }
+        catch (Exception e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
     
 }

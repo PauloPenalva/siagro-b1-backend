@@ -36,6 +36,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<MenuService>();
 
 builder.Services.AddAuthentication(options =>
     {
