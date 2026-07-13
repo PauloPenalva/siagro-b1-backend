@@ -21,8 +21,7 @@ public class AuthController(
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        if (string.IsNullOrEmpty(request.Username) || 
-            string.IsNullOrEmpty(request.Password))
+        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
         {
             return BadRequest(new { message = "Usuário e senha são obrigatórios" });
         }
@@ -48,7 +47,6 @@ public class AuthController(
     
     
     [HttpPost("logout")]
-    [Authorize]
     public async Task<IActionResult> Logout()
     {
         try
@@ -147,13 +145,14 @@ public class AuthController(
     {
         return Ok(new
         {
-            Application = "SIAGRO B1 Gateway",
+            Application = "SIAGRO B1",
             Version = configuration["Version"] ?? "1.0.0",
             Environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Development",
             RequiresAuthentication = true,
             AuthenticationMethods = new[] { "Basic", "Cookie" },
             Supports = new[] { "Login", "Logout", "Session Management" },
-            Timestamp = DateTime.UtcNow
+            Timestamp = DateTime.UtcNow,
+            CompanyName = configuration["CompanyName"] ?? "COMPANY NAME",
         });
     }
 
