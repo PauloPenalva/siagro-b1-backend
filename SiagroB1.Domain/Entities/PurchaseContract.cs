@@ -183,5 +183,5 @@ public class PurchaseContract : DocumentEntity
     [NotMapped]
     public decimal AvaiableVolume =>
         decimal.Round(
-            TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven) ;
+            TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven);
 }
