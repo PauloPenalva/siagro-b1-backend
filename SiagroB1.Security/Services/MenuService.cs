@@ -31,11 +31,6 @@ public class MenuService(CommonDbContext context)
         var data = await query
             .Distinct()
             .ToListAsync();
-        
-        var menuIds = data
-            .Select(x => x.Menu.Key)
-            .Distinct()
-            .ToList();
 
         var permissions =
             await (
@@ -53,11 +48,6 @@ public class MenuService(CommonDbContext context)
                     PermissionCode = p.Code
                 }
             ).ToListAsync();
-
-        // var menus = data
-        //     .Select(x => x.Menu)
-        //     .DistinctBy(x => x.Key)
-        //     .ToList();
         
         var menus = data
             .Select(x => new MenuNode
