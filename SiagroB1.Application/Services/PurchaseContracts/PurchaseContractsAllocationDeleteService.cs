@@ -13,6 +13,18 @@ public class PurchaseContractsAllocationDeleteService(
 {
     public async Task ExecuteWithTransactionAsync(Guid key, string userName)
     {
+        // Estorno manual (tela): contrato encerrado não aceita movimentação.
+        // O cascade interno (ExecuteAsync, ex.: ShipmentBillingDelete) não passa por aqui.
+        var alloc = await db.Context.PurchaseContractsAllocations
+                        .FirstOrDefaultAsync(x => x.Key == key)
+            ?? throw new NotFoundException("Purchase contract allocation not found.");
+
+        var contract = await db.Context.PurchaseContracts
+            .FirstOrDefaultAsync(x => x.Key == alloc.PurchaseContractKey);
+
+        if (contract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível estornar a alocação.");
+
         try
         {
             await db.BeginTransactionAsync();

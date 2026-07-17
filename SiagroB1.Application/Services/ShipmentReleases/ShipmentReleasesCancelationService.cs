@@ -14,7 +14,13 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
                      .Include(x => x.Transactions)
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
-        
+
+        var contract = await context.PurchaseContracts
+            .FirstOrDefaultAsync(x => x.Key == sr.PurchaseContractKey);
+
+        if (contract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível cancelar a liberação de embarque.");
+
         if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed or ReleaseStatus.Paused)
         {
             throw new ApplicationException("Shipment Release is not in Activated state.");

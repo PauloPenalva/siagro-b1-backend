@@ -154,6 +154,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProcessingCostCsvImportService, ProcessingCostCsvImportService>();
 
         // purchase contracts
+        services.AddScoped<PurchaseContractsRecalculateBalanceService>();
+        services.AddScoped<PurchaseContractsCloseService>();
+        services.AddScoped<PurchaseContractsReopenService>();
         services.AddScoped<PurchaseContractsAllocationCreateService>();
         services.AddScoped<PurchaseContractsAllocationDeleteService>();
         services.AddScoped<PurchaseContractsAllocationGetService>();

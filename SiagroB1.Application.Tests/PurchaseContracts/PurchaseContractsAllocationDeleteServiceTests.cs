@@ -206,6 +206,37 @@ public class PurchaseContractsAllocationDeleteServiceTests
     }
 
     [Fact]
+    public async Task ExecuteWithTransactionAsync_ContractFinished_ThrowsAndKeepsAllocation()
+    {
+        var pc = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC-FIN",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "24/25",
+            DeliveryLocationCode = "01",
+            TotalVolume = 1000m,
+            AllocatedVolume = 100m,
+            Status = ContractStatus.Finished,
+        };
+        _db.Context.PurchaseContracts.Add(pc);
+        await _db.Context.SaveChangesAsync();
+
+        var st = NewStorageTransaction(netWeight: 1000m, availableVolume: 900m);
+        var alloc = NewAllocation(st, volume: 100m);
+        alloc.PurchaseContractKey = pc.Key;
+        await SeedAsync(st, alloc);
+
+        await Assert.ThrowsAsync<ApplicationException>(() =>
+            CreateService().ExecuteWithTransactionAsync(alloc.Key, "tester"));
+
+        // Estorno bloqueado — alocação preservada.
+        Assert.Equal(1, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_LogsWhoDeleted()
     {
         var st = NewStorageTransaction(netWeight: 1000m, availableVolume: 990m);

@@ -51,7 +51,7 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
             .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(a => a.StorageTransaction)
-            .Where(p => p.CardCode == cardCode && p.ItemCode == itemCode && p.Status == ContractStatus.Approved)
+            .Where(p => p.CardCode == cardCode && p.ItemCode == itemCode && (p.Status == ContractStatus.Approved || p.Status == ContractStatus.Finished )) 
             .OrderBy(x => x.RowId)
             .ToList();
         

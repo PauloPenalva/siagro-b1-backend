@@ -12,6 +12,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
+using SiagroB1.Infra.Interceptors;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
@@ -58,6 +59,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
                 b.MigrationsAssembly("SiagroB1.Migrations");
                 b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
+        options.AddInterceptors(new FinishedContractMutationGuardInterceptor());
         options.EnableSensitiveDataLogging();
     }
 );

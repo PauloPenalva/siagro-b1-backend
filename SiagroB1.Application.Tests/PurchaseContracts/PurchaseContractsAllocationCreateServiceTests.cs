@@ -133,4 +133,20 @@ public class PurchaseContractsAllocationCreateServiceTests
         var contract = await ReloadContractAsync(pc.Key);
         Assert.Equal(500m, contract.AllocatedVolume);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_ContractFinished_ThrowsAndDoesNotAllocate()
+    {
+        var st = NewPurchase(netWeight: 1000m, available: 1000m);
+        var pc = NewContract(totalVolume: 5000m);
+        pc.Status = ContractStatus.Finished;
+        _db.Context.StorageTransactions.Add(st);
+        _db.Context.PurchaseContracts.Add(pc);
+        await _db.Context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ApplicationException>(() =>
+            CreateService().ExecuteAsync(pc.Key, st.Key, 300m, "tester"));
+
+        Assert.Equal(0, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
 }

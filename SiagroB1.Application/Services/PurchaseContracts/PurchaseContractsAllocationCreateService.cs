@@ -39,7 +39,10 @@ public class PurchaseContractsAllocationCreateService(
     {
         var storageTransaction = await storageTransactionsGetService.GetByIdAsync(storageTransactionKey);
         var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
-        
+
+        if (purchaseContract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível alocar.");
+
         var allowedTypes = new[]
         {
             StorageTransactionType.Purchase,
@@ -129,7 +132,10 @@ public class PurchaseContractsAllocationCreateService(
         )
     {
         var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
-        
+
+        if (purchaseContract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível alocar.");
+
         var allowedTypes = new[]
         {
             StorageTransactionType.Purchase,

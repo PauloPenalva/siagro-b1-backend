@@ -11,9 +11,15 @@ public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentRelea
     public async Task<bool> ExecuteAsync(Guid key)
     {
         var entity = await db.Context.ShipmentReleases
-            .FirstOrDefaultAsync(x => x.Key == key) ?? 
+            .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Shipment Release not found.");
-        
+
+        var contract = await db.Context.PurchaseContracts
+            .FirstOrDefaultAsync(x => x.Key == entity.PurchaseContractKey);
+
+        if (contract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível excluir a liberação de embarque.");
+
         if (entity.Status != ReleaseStatus.Pending)
         {
             throw new ApplicationException("Shipment Release not pending.");

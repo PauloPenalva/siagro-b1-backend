@@ -19,7 +19,10 @@ public class ShipmentReleasesCreateService(
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == entity.PurchaseContractKey) ??
                                throw new NotFoundException("Purchase contract not found.");
-        
+
+        if (purchaseContract.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível criar liberação de embarque.");
+
         try
         {
             entity.BranchCode = purchaseContract.BranchCode;

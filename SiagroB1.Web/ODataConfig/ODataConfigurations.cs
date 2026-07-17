@@ -217,6 +217,21 @@ public static class ODataConfigurations
         var purchaseContractsDeleteAllocation = modelBuilder.Action("PurchaseContractsDeleteAllocation");
         purchaseContractsDeleteAllocation.Parameter<Guid>("Key");
         purchaseContractsDeleteAllocation.Returns<IActionResult>();
+
+        var purchaseContractsRecalculateBalance = modelBuilder.Action("PurchaseContractsRecalculateBalance");
+        purchaseContractsRecalculateBalance.Parameter<Guid>("Key");
+        purchaseContractsRecalculateBalance.Returns<PurchaseContractRecalcResultDto>();
+
+        var purchaseContractsRecalculateAllBalances = modelBuilder.Action("PurchaseContractsRecalculateAllBalances");
+        purchaseContractsRecalculateAllBalances.Returns<PurchaseContractRecalcAllResultDto>();
+
+        var purchaseContractsClose = modelBuilder.Action("PurchaseContractsClose");
+        purchaseContractsClose.Parameter<Guid>("Key");
+        purchaseContractsClose.Returns<IActionResult>();
+
+        var purchaseContractsReopen = modelBuilder.Action("PurchaseContractsReopen");
+        purchaseContractsReopen.Parameter<Guid>("Key");
+        purchaseContractsReopen.Returns<IActionResult>();
             
         var purchaseContractsAttachmentUpload = modelBuilder.Action("PurchaseContractsAttachmentUpload");
         purchaseContractsAttachmentUpload.Parameter<Guid>("ContractKey");
