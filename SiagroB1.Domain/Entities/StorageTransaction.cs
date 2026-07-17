@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base;
@@ -95,13 +96,13 @@ public class StorageTransaction : DocumentEntity
     [Column(TypeName = "VARCHAR(3)")]
     public string? InvoiceSerie { get; set; }
     
-    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0)")]
+    [Column(TypeName = "DECIMAL(18,3)")]
     public decimal InvoiceQty { get; set; }
     
     [Column(TypeName = "VARCHAR(44)")]
     public string? ChaveNFe { get; set; }
     
-    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0)")]
+    [Column(TypeName = "DECIMAL(18,3)")]
     public decimal AvaiableVolumeToAllocate { get; set; }
     
     [Column(TypeName = "VARCHAR(500)")]
@@ -124,7 +125,7 @@ public class StorageTransaction : DocumentEntity
 
     public DateTime? InvoicedAt { get; set; }
     
-    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0)")]
+    [Column(TypeName = "DECIMAL(18,2)")]
     public decimal FreightPrice { get; set; }
     
     public Guid? ReturnInvoiceKey { get; set; }
@@ -133,4 +134,31 @@ public class StorageTransaction : DocumentEntity
 
     [Column(TypeName = "VARCHAR(100)")]
     public string? ReturnedBy { get; set; }
+
+    /// <summary>
+    /// Token de concorrência otimista (SQL Server rowversion). Protege o
+    /// saldo alocável (<see cref="AvaiableVolumeToAllocate"/>) contra
+    /// atualizações concorrentes de aloca/desaloca.
+    /// </summary>
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
+    /// <summary>
+    /// Apenas romaneios da família Compra podem ser alocados a contratos.
+    /// Espelha os tipos aceitos por PurchaseContractsAllocationCreateService.
+    /// </summary>
+    [NotMapped]
+    public bool IsAllocatable => TransactionType is
+        StorageTransactionType.Purchase or
+        StorageTransactionType.PurchaseReturn or
+        StorageTransactionType.PurchaseQtyComplement or
+        StorageTransactionType.PurchasePriceComplement;
+
+    /// <summary>
+    /// Fonte única de verdade do saldo alocável: deriva de NetWeight menos o
+    /// total já alocado (valores absolutos). Substitui os += / -= incrementais,
+    /// eliminando drift — chamar após qualquer mudança de alocação.
+    /// </summary>
+    public void RecalculateAvailableVolume(decimal totalAllocated)
+        => AvaiableVolumeToAllocate = IsAllocatable ? NetWeight - totalAllocated : decimal.Zero;
 }

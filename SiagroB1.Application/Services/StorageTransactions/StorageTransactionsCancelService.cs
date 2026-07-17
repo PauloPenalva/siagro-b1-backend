@@ -18,13 +18,22 @@ public class StorageTransactionsCancelService(IUnitOfWork db)
             var msg =
                 "This storage transaction is created by another transaction. It cannot be canceled using this method.\n" +
                 "Transaction Origin: " + doc.TransactionOrigin;
-            
+
             throw new ApplicationException(msg);
         }
-        
+
         if (doc.TransactionStatus == StorageTransactionsStatus.Invoiced)
         {
             throw new ApplicationException("Storage transaction is invoiced. Please, cancel assinged invoice first.");
+        }
+
+        var hasAllocations = await db.Context.PurchaseContractsAllocations
+            .AnyAsync(x => x.StorageTransactionKey == key);
+
+        if (hasAllocations)
+        {
+            throw new ApplicationException(
+                "This storage transaction has purchase contract allocations. Please remove them before canceling.");
         }
 
         try

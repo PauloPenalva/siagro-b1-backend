@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -95,21 +96,33 @@ public class PurchaseContractsAllocationCreateService(
 
             await unitOfWork.Context.PurchaseContractsAllocations.AddAsync(alloc);
 
-            storageTransaction.AvaiableVolumeToAllocate -= decimal.Abs(volume);
-            
+            var existingAllocated = await unitOfWork.Context.PurchaseContractsAllocations
+                .Where(x => x.StorageTransactionKey == storageTransactionKey)
+                .SumAsync(x => decimal.Abs(x.Volume));
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+
+            // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
+            var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations
+                .Where(x => x.PurchaseContractKey == purchaseContractKey)
+                .SumAsync(x => x.Volume);
+
+            if (purchaseContract != null)
+                purchaseContract.AllocatedVolume = contractAllocated + volume;
+
             if (commitMode == CommitMode.Auto)
                 await unitOfWork.SaveChangesAsync();
-            
+
         }
         catch (Exception e)
         {
             throw new DefaultException(e.Message);
         }
     }
-    
+
     public async Task ExecuteAsync(
-        Guid purchaseContractKey, 
-        StorageTransaction storageTransaction, 
+        Guid purchaseContractKey,
+        StorageTransaction storageTransaction,
         decimal volume, 
         string userName, 
         CommitMode commitMode = CommitMode.Auto
@@ -173,11 +186,27 @@ public class PurchaseContractsAllocationCreateService(
 
             await unitOfWork.Context.PurchaseContractsAllocations.AddAsync(alloc);
 
-            storageTransaction.AvaiableVolumeToAllocate -= decimal.Abs(volume);
-            
+            // Romaneio pode ainda não estar persistido (fluxo de embarque, deferred):
+            // nesse caso não há alocações no banco e o total prévio é zero.
+            var existingAllocated = storageTransaction.Key == Guid.Empty
+                ? decimal.Zero
+                : await unitOfWork.Context.PurchaseContractsAllocations
+                    .Where(x => x.StorageTransactionKey == storageTransaction.Key)
+                    .SumAsync(x => decimal.Abs(x.Volume));
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+
+            // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
+            var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations
+                .Where(x => x.PurchaseContractKey == purchaseContractKey)
+                .SumAsync(x => x.Volume);
+
+            if (purchaseContract != null)
+                purchaseContract.AllocatedVolume = contractAllocated + volume;
+
             if (commitMode == CommitMode.Auto)
                 await unitOfWork.SaveChangesAsync();
-            
+
         }
         catch (Exception e)
         {

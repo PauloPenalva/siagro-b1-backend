@@ -83,6 +83,6 @@ public class WeighingTicket : DocumentEntity
 
     public WeighingTicketStage? Stage { get; set; } = WeighingTicketStage.ReadyForFirstWeighing;
     
-    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0)")]
+    [Column(TypeName = "DECIMAL(18,2)")]
     public decimal FreightPrice { get; set; }
 }

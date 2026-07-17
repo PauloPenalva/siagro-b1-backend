@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
@@ -114,6 +115,16 @@ public class PurchaseContract : DocumentEntity
 
     public FunruralType? FunruralType { get; set; } = Enums.FunruralType.Bruto;
 
+    [Column(TypeName = "DECIMAL(18,3)")]
+    public decimal AllocatedVolume { get; set; }
+
+    /// <summary>
+    /// Token de concorrência otimista (SQL Server rowversion). Protege
+    /// <see cref="AllocatedVolume"/> contra alocações concorrentes ao mesmo contrato.
+    /// </summary>
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
     public void AddAttachment(PurchaseContractAttachment attachment)
     {
         attachment.PurchaseContract = this;
@@ -180,8 +191,12 @@ public class PurchaseContract : DocumentEntity
     public bool HasShipmentReleases => ShipmentReleases
         .Any(x => x.Status != ReleaseStatus.Cancelled);
     
+    /// <summary>
+    /// Saldo alocável do contrato, derivado de <see cref="AllocatedVolume"/>
+    /// (persistido, recalculado nos serviços de alocação). Não depende de
+    /// nenhuma navegação em runtime — funciona sob $select do OData.
+    /// </summary>
     [NotMapped]
     public decimal AvaiableVolume =>
-        decimal.Round(
-            TotalVolume - (Allocations?.Sum(x => x.Volume) ?? 0), 2, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - AllocatedVolume, 2, MidpointRounding.ToEven);
 }

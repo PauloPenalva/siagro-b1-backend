@@ -10,7 +10,7 @@ public class PurchaseContractsAllocationDeleteController(PurchaseContractsAlloca
 : ODataController
 {
     [HttpPost("odata/PurchaseContractsDeleteAllocation")]
-    public async Task<IActionResult> PostAsync(ODataActionParameters parameters)
+    public async Task<IActionResult> DeleteAsync(ODataActionParameters parameters)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
@@ -25,7 +25,7 @@ public class PurchaseContractsAllocationDeleteController(PurchaseContractsAlloca
             var userName = User.Identity?.Name ?? "Unknown";
             var key = Guid.Parse(keyObj.ToString());
             
-            await service.ExecuteAsync(key, userName);
+            await service.ExecuteWithTransactionAsync(key, userName);
             
             return Ok();
         }
@@ -35,8 +35,13 @@ public class PurchaseContractsAllocationDeleteController(PurchaseContractsAlloca
             {
                 return NotFound(e.Message);
             }
-            
-            return BadRequest(e.Message);
+
+            if (e is ApplicationException or DefaultException or FormatException)
+            {
+                return BadRequest(e.Message);
+            }
+
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
 }

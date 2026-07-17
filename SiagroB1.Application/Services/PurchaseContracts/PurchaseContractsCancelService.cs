@@ -11,7 +11,8 @@ public class PurchaseContractsCancelService(IUnitOfWork db)
     {
         var contract = await db.Context.PurchaseContracts
                             .Include(x => x.Allocations)
-                            .FirstOrDefaultAsync(x => x.Key == key 
+                            .ThenInclude(a => a.StorageTransaction)
+                            .FirstOrDefaultAsync(x => x.Key == key
                                                       && x.Status == ContractStatus.Approved) ?? 
                        throw new NotFoundException($"Contrato com a chave {key} não encontrado ou não está aprovado.");
 

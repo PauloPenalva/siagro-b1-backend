@@ -10,20 +10,23 @@ public class StorageTransactionsGetService(IUnitOfWork unitOfWork,ILogger<Storag
 {
     public async Task<StorageTransaction> GetByIdAsync(Guid key)
     {
+        StorageTransaction? storageTransaction;
+
         try
         {
-            return await unitOfWork.Context.StorageTransactions
-                       .Include(x => x.DocNumber)
-                       .Include(x => x.QualityInspections)
-                       .ThenInclude(q => q.QualityAttrib)
-                       .FirstOrDefaultAsync(x => x.Key == key) ?? 
-                           throw new NotFoundException("Storage transaction not found.");
+            storageTransaction = await unitOfWork.Context.StorageTransactions
+                .Include(x => x.DocNumber)
+                .Include(x => x.QualityInspections)
+                .ThenInclude(q => q.QualityAttrib)
+                .FirstOrDefaultAsync(x => x.Key == key);
         }
         catch (Exception ex)
         {
             logger.LogError(ex,"Error fetching entity with ID {Id}", key);
             throw new DefaultException("Error fetching entity");
         }
+
+        return storageTransaction ?? throw new NotFoundException("Storage transaction not found.");
     }
 
     public IQueryable<StorageTransaction> QueryAll()

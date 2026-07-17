@@ -53,7 +53,7 @@ public class ShipmentBillingDeleteService(
                 .FirstOrDefaultAsync();
                 
             if (purchaseContractAllocKey != Guid.Empty)
-                await purchaseContractsAllocationDeleteService.ExecuteAsync(purchaseContractAllocKey, username, false);
+                await purchaseContractsAllocationDeleteService.ExecuteAsync(purchaseContractAllocKey, username);
 
             purchase.TransactionStatus = StorageTransactionsStatus.Cancelled;
             purchase.CanceledAt = DateTime.Now;

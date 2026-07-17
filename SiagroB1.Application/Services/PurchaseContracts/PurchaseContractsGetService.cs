@@ -37,7 +37,10 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
 
     public IQueryable<PurchaseContract> QueryAll()
     {
-        return unitOfWork.Context.PurchaseContracts.AsNoTracking();
+        return unitOfWork.Context.PurchaseContracts
+            .AsNoTracking()
+            .Include(p => p.Allocations)
+                .ThenInclude(a => a.StorageTransaction);
     }
 
     public List<PurchaseContractDto> GetAvaiablesPurchaseContracts(string cardCode, string itemCode)
@@ -47,6 +50,7 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
         var contractsList = unitOfWork.Context.PurchaseContracts
             .AsNoTracking()
             .Include(x => x.Allocations)
+                .ThenInclude(a => a.StorageTransaction)
             .Where(p => p.CardCode == cardCode && p.ItemCode == itemCode && p.Status == ContractStatus.Approved)
             .OrderBy(x => x.RowId)
             .ToList();

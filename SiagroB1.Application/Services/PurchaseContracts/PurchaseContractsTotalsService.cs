@@ -14,6 +14,7 @@ public class PurchaseContractsTotalsService(AppDbContext context)
                       .Include(x => x.PriceFixations)
                       .Include(x => x.ShipmentReleases)
                       .Include(x => x.Allocations)
+                      .ThenInclude(a => a.StorageTransaction)
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new KeyNotFoundException();

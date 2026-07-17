@@ -1,43 +1,72 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services.StorageTransactions;
+using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsAllocationDeleteService(
-    IUnitOfWork db, 
-    StorageTransactionsGetService storageTransactionsGetService,
-    PurchaseContractsGetService purchaseContractsGetService)
+    IUnitOfWork db,
+    ILogger<PurchaseContractsAllocationDeleteService> logger)
 {
-    public async Task ExecuteAsync(Guid key, string userName, bool useTransaction = true)
+    public async Task ExecuteWithTransactionAsync(Guid key, string userName)
+    {
+        try
+        {
+            await db.BeginTransactionAsync();
+            await ExecuteAsync(key, userName);
+            await db.CommitAsync();
+        }
+        catch
+        {
+            await db.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task ExecuteAsync(Guid key, string userName, CommitMode commitMode = CommitMode.Auto)
     {
         var alloc = await db.Context.PurchaseContractsAllocations
                         .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException("Purchase contract allocation not found.");
-        
-        var storageTransaction = await storageTransactionsGetService.GetByIdAsync(alloc.StorageTransactionKey);
-        
-        try
+
+        var storageTransaction = await db.Context.StorageTransactions
+                                     .FirstOrDefaultAsync(x => x.Key == alloc.StorageTransactionKey)
+            ?? throw new NotFoundException("Storage transaction not found.");
+
+        if (storageTransaction.TransactionStatus == StorageTransactionsStatus.Invoiced)
+            throw new ApplicationException("Cannot delete an allocation of an invoiced storage transaction.");
+
+        db.Context.PurchaseContractsAllocations.Remove(alloc);
+
+        // Deriva o saldo do total que RESTA alocado (exclui a alocação removida),
+        // em vez de incrementar — fonte única de verdade, sem drift.
+        var remainingAllocated = await db.Context.PurchaseContractsAllocations
+            .Where(x => x.StorageTransactionKey == storageTransaction.Key && x.Key != alloc.Key)
+            .SumAsync(x => decimal.Abs(x.Volume));
+
+        storageTransaction.RecalculateAvailableVolume(remainingAllocated);
+
+        // Recalcula o saldo alocado do CONTRATO (Volume com sinal, exclui a removida).
+        var contract = await db.Context.PurchaseContracts
+            .FirstOrDefaultAsync(x => x.Key == alloc.PurchaseContractKey);
+
+        if (contract != null)
         {
-            if (useTransaction)
-                await db.BeginTransactionAsync();
-            
-            db.Context.PurchaseContractsAllocations.Remove(alloc);
-            
-            storageTransaction.AvaiableVolumeToAllocate += decimal.Abs(alloc.Volume);
-            
+            var contractRemaining = await db.Context.PurchaseContractsAllocations
+                .Where(x => x.PurchaseContractKey == alloc.PurchaseContractKey && x.Key != alloc.Key)
+                .SumAsync(x => x.Volume);
+
+            contract.AllocatedVolume = contractRemaining;
+        }
+
+        if (commitMode == CommitMode.Auto)
             await db.SaveChangesAsync();
-            
-            if (useTransaction)
-                await db.CommitAsync();
-        }
-        catch (Exception e)
-        {
-            if (useTransaction)
-                await db.RollbackAsync();
-            
-            throw new DefaultException(e.Message);
-        }
+
+        logger.LogInformation(
+            "Purchase contract allocation {AllocationKey} (contract {PurchaseContractKey}, volume {Volume}) deleted by {UserName}",
+            alloc.Key, alloc.PurchaseContractKey, alloc.Volume, userName);
     }
 }

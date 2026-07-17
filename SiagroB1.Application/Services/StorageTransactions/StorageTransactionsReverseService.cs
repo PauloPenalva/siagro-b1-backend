@@ -31,6 +31,15 @@ public class StorageTransactionsReverseService(
         
         ValidateBalance(doc);
 
+        var hasAllocations = await db.Context.PurchaseContractsAllocations
+            .AnyAsync(x => x.StorageTransactionKey == key);
+
+        if (hasAllocations)
+        {
+            throw new ApplicationException(
+                "This storage transaction has purchase contract allocations. Please remove them before reversing.");
+        }
+
         try
         {
             doc.TransactionStatus = StorageTransactionsStatus.Pending;
@@ -42,7 +51,7 @@ public class StorageTransactionsReverseService(
             doc.ShipmentPrice = 0;
             doc.ReceiptServicePrice = 0;
             doc.NetWeight = doc.GrossWeight;
-            
+
             await db.SaveChangesAsync();
         }
         catch (Exception e)
