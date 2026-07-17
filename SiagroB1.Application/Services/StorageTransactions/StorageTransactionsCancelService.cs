@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.StorageTransactions;
 
-public class StorageTransactionsCancelService(IUnitOfWork db)
+public class StorageTransactionsCancelService(
+    IUnitOfWork db,
+    ShipmentReleasesRecalculateShippedService recalcShipped)
 {
     public async Task ExecuteAsync(Guid key, string username, TransactionCode transactionCode = TransactionCode.StorageTransaction)
     {
@@ -40,6 +43,12 @@ public class StorageTransactionsCancelService(IUnitOfWork db)
         {
             doc.TransactionStatus = StorageTransactionsStatus.Cancelled;
             await db.SaveChangesAsync();
+
+            if (doc.ShipmentReleaseKey.HasValue &&
+                doc.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+            {
+                await recalcShipped.RecalculateAsync(doc.ShipmentReleaseKey.Value);
+            }
         }
         catch (Exception e)
         {

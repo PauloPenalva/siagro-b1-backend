@@ -230,6 +230,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentBillingDeleteService>();
         
         // shipment releases
+        services.AddScoped<ShipmentReleasesRecalculateShippedService>();
+        services.AddScoped<ShipmentReleasesRecalculateBalanceService>();
+        services.AddScoped<ShipmentReleasesCloseService>();
+        services.AddScoped<ShipmentReleasesReopenService>();
+        services.AddScoped<ShipmentReleaseMovementGuardService>();
         services.AddScoped<ShipmentReleasesApprovationService>();
         services.AddScoped<ShipmentReleasesBalanceService>();
         services.AddScoped<ShipmentReleasesCancelationService>();

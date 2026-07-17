@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -15,6 +16,8 @@ public class StorageTransactionsCreateService(
     IBusinessPartnerService  businessPartnerService,
     IItemService itemService,
     IWarehouseService warehouseService,
+    ShipmentReleasesRecalculateShippedService recalcShipped,
+    ShipmentReleaseMovementGuardService movementGuard,
     ILogger<StorageTransactionsCreateService> logger)
 {
     public async Task<StorageTransaction> ExecuteAsyncWithTransaction(
@@ -48,7 +51,11 @@ public class StorageTransactionsCreateService(
         CommitMode commitMode = CommitMode.Auto)
     {
         entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageTransaction);
-        
+
+        // Antes do try (cujo catch embrulha em DefaultException): bloqueia romaneio
+        // contra liberação finalizada/cancelada/pausada.
+        await movementGuard.EnsureCanShipAsync(entity);
+
         try
         {
             entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
@@ -63,8 +70,16 @@ public class StorageTransactionsCreateService(
             await unitOfWork.Context.StorageTransactions.AddAsync(entity);
             
             if (commitMode == CommitMode.Auto)
+            {
                 await unitOfWork.SaveChangesAsync();
-            
+
+                if (entity.ShipmentReleaseKey.HasValue &&
+                    entity.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+                {
+                    await recalcShipped.RecalculateAsync(entity.ShipmentReleaseKey.Value);
+                }
+            }
+
             return entity;
         }
         catch (Exception ex)

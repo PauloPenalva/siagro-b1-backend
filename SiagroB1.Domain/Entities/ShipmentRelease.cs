@@ -1,9 +1,8 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base;
-
-// ReSharper disable All
-
+    
 namespace SiagroB1.Domain.Entities;
 
 [Table("SHIPMENT_RELEASES")]
@@ -27,19 +26,26 @@ public class ShipmentRelease : DocumentEntity
     
     public virtual ICollection<StorageTransaction> Transactions { get; } = [];
 
+    [Column(TypeName = "DECIMAL(18,3)")]
+    public decimal ShippedQuantity { get; set; }
+
     /// <summary>
-    /// saldo disponivel para romanear
+    /// Token de concorrência otimista (SQL Server rowversion).
     /// </summary>
-    public decimal AvailableQuantity => 
-        Status is not ReleaseStatus.Cancelled 
-            ? ReleasedQuantity - Transactions?
-                .Where(x => 
-                    x.TransactionStatus is not StorageTransactionsStatus.Cancelled &&
-                    x.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn
-                    )
-                .Sum(x => x.GrossWeight) ?? decimal.Zero
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
+
+    /// <summary>
+    /// Saldo disponível para romanear, derivado de <see cref="ShippedQuantity"/>
+    /// (persistido, recalculado nos hooks de romaneio). Não depende de navegação.
+    /// </summary>
+    [NotMapped]
+    public decimal AvailableQuantity =>
+        Status != ReleaseStatus.Cancelled
+            ? decimal.Round(ReleasedQuantity - ShippedQuantity, 3, MidpointRounding.ToEven)
             : decimal.Zero;
     
+    [NotMapped]
     public bool HasStorageTransactions => Transactions
         .Any(x => 
             x.TransactionStatus is not StorageTransactionsStatus.Cancelled &&

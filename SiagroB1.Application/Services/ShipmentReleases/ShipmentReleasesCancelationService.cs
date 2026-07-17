@@ -11,7 +11,6 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
     public async Task ExecuteAsync(Guid key)
     {
         var sr = await context.ShipmentReleases
-                     .Include(x => x.Transactions)
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
 
@@ -26,12 +25,22 @@ public class ShipmentReleasesCancelationService(AppDbContext context, ILogger<Sh
             throw new ApplicationException("Shipment Release is not in Activated state.");
         }
         
-        if (sr.HasStorageTransactions)
+        var blockingCodes = await context.StorageTransactions
+            .Where(t => t.ShipmentReleaseKey == sr.Key &&
+                        t.TransactionStatus != StorageTransactionsStatus.Cancelled &&
+                        (t.TransactionType == StorageTransactionType.SalesShipment ||
+                         t.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                         t.TransactionType == StorageTransactionType.Purchase ||
+                         t.TransactionType == StorageTransactionType.PurchaseReturn))
+            .Select(t => t.Code)
+            .ToListAsync();
+
+        if (blockingCodes.Count > 0)
         {
-            var msg = "Shipment Release has storage transaction(s) confirmed.\n";
-            msg += "Please, cancel storage transaction(s) code(s):\n";
-            msg = sr.Transactions.Aggregate(msg, (current, storageTransaction) => current + $"- {storageTransaction.Code}\n");
-        
+            var msg = "Shipment Release has storage transaction(s) confirmed.\n"
+                      + "Please, cancel storage transaction(s) code(s):\n"
+                      + string.Join("\n", blockingCodes.Select(c => $"- {c}"));
+
             throw new ApplicationException(msg);
         }
         

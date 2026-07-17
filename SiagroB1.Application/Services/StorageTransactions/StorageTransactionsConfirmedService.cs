@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -13,6 +14,8 @@ namespace SiagroB1.Application.Services.StorageTransactions;
 public class StorageTransactionsConfirmedService(
     IUnitOfWork db,
     IStringLocalizer<Resource> resource,
+    ShipmentReleasesRecalculateShippedService recalcShipped,
+    ShipmentReleaseMovementGuardService movementGuard,
     ILogger<StorageTransactionsConfirmedService> logger
     )
 {
@@ -46,6 +49,9 @@ public class StorageTransactionsConfirmedService(
         CommitMode commitMode = CommitMode.Auto,
         bool isShipmentTransaction = false)
     {
+        // Bloqueia confirmar romaneio contra liberação finalizada/cancelada/pausada.
+        await movementGuard.EnsureCanShipAsync(st);
+
         switch (st.TransactionType)
         {
             case StorageTransactionType.Receipt:
@@ -63,6 +69,13 @@ public class StorageTransactionsConfirmedService(
             default:
                 await ExecutePurchaseTransactionAsync(st, userName, commitMode);
                 break;
+        }
+
+        if (commitMode == CommitMode.Auto &&
+            st.ShipmentReleaseKey.HasValue &&
+            st.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+        {
+            await recalcShipped.RecalculateAsync(st.ShipmentReleaseKey.Value);
         }
     }
     

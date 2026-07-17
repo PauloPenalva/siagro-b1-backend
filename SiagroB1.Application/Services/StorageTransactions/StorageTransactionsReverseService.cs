@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -12,6 +13,7 @@ namespace SiagroB1.Application.Services.StorageTransactions;
 public class StorageTransactionsReverseService(
     IUnitOfWork db,
     StorageAddressesGetBalanceService balanceService,
+    ShipmentReleasesRecalculateShippedService recalcShipped,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string username, TransactionCode transactionCode = TransactionCode.StorageTransaction)
@@ -53,6 +55,12 @@ public class StorageTransactionsReverseService(
             doc.NetWeight = doc.GrossWeight;
 
             await db.SaveChangesAsync();
+
+            if (doc.ShipmentReleaseKey.HasValue &&
+                doc.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+            {
+                await recalcShipped.RecalculateAsync(doc.ShipmentReleaseKey.Value);
+            }
         }
         catch (Exception e)
         {

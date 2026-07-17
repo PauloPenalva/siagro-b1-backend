@@ -63,13 +63,7 @@ public class ShipmentReleasesBalanceService(
                 ItemName = g.Key.ItemName,
                 UnitOfMeasureCode = g.Key.UnitOfMeasureCode,
                 ReleasedQuantity = g.Sum(x => x.ReleasedQuantity),
-                UsedQuantity = g.Sum(sr =>
-                    sr.Transactions
-                        .Where(t =>
-                            t.TransactionStatus != StorageTransactionsStatus.Cancelled &&
-                            (t.TransactionType == StorageTransactionType.SalesShipment ||
-                             t.TransactionType == StorageTransactionType.SalesShipmentReturn))
-                        .Sum(t => t.NetWeight))
+                UsedQuantity = g.Sum(sr => sr.ShippedQuantity)
             })
             .OrderBy(x => x.DeliveryLocationName)
             .ToListAsync();

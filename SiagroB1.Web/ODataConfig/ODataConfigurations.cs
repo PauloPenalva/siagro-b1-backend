@@ -269,6 +269,21 @@ public static class ODataConfigurations
         shipmentReleasesPurchaseContracts.Parameter<string>("ItemCode");
         shipmentReleasesPurchaseContracts.Parameter<string>("WarehouseCode");
         shipmentReleasesPurchaseContracts.Returns<ICollection<ShipmentRelesesPurchaseContractsResponseDto>>();
+
+        var shipmentReleasesRecalculateBalance = modelBuilder.Action("ShipmentReleasesRecalculateBalance");
+        shipmentReleasesRecalculateBalance.Parameter<Guid>("Key");
+        shipmentReleasesRecalculateBalance.Returns<ShipmentReleaseRecalcResultDto>();
+
+        var shipmentReleasesRecalculateAllBalances = modelBuilder.Action("ShipmentReleasesRecalculateAllBalances");
+        shipmentReleasesRecalculateAllBalances.Returns<ShipmentReleaseRecalcAllResultDto>();
+
+        var shipmentReleasesClose = modelBuilder.Action("ShipmentReleasesClose");
+        shipmentReleasesClose.Parameter<Guid>("Key");
+        shipmentReleasesClose.Returns<IActionResult>();
+
+        var shipmentReleasesReopen = modelBuilder.Action("ShipmentReleasesReopen");
+        shipmentReleasesReopen.Parameter<Guid>("Key");
+        shipmentReleasesReopen.Returns<IActionResult>();
         
         var shipmentBillingCreateSalesInvoice = 
             modelBuilder.Action("ShipmentBillingCreateSalesInvoice");
