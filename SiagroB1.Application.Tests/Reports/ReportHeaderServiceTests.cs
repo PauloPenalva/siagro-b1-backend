@@ -93,6 +93,28 @@ public class ReportHeaderServiceTests : IDisposable
         Assert.Equal("ACME", report.GetParameterValue("pCompanyName"));
     }
 
+    /// <summary>
+    /// The decode happens eagerly inside Apply precisely so that an image the platform
+    /// cannot handle degrades to "report without logo" instead of taking the report down.
+    /// This is the failure mode to expect on Linux, where FastReport draws through
+    /// System.Drawing.Common 4.7.3 / libgdiplus rather than Windows GDI+.
+    /// </summary>
+    [Fact]
+    public void Apply_WithUndecodableLogoFile_DoesNotThrowAndStillSetsCompanyName()
+    {
+        var logoFile = Path.Combine(_contentRoot, "wwwroot", "images", "logo.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(logoFile)!);
+        File.WriteAllText(logoFile, "this is not an image");
+
+        var service = CreateService(companyName: "ACME", logoPath: "wwwroot/images/logo.png");
+        using var report = CreateReport(withLogoObject: true);
+
+        service.Apply(report);
+
+        Assert.Null(GetLogo(report)!.Image);
+        Assert.Equal("ACME", report.GetParameterValue("pCompanyName"));
+    }
+
     [Fact]
     public void Apply_WithoutLogoPathConfigured_DoesNotThrow()
     {

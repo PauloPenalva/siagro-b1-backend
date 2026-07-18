@@ -39,7 +39,7 @@ namespace FastReport
     <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
     <Total Name="TotalGrossWeight" Expression="[SalesInvoices.GrossWeight]" Evaluator="Data1" PrintOn="PageFooter1"/>
   </Dictionary>
-  <ReportPage Name="Page1" Watermark.Font="Arial, 60pt">
+  <ReportPage Name="Page1" TitleBeforeHeader="false" Watermark.Font="Arial, 60pt">
     <PageHeaderBand Name="PageHeader1" Width="718.2" Height="41.8">
       <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
       <TextObject Name="txtCompany" Left="100" Top="2" Width="600" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>

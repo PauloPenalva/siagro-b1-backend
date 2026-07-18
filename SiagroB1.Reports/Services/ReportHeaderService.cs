@@ -37,6 +37,10 @@ public class ReportHeaderService(
 
         try
         {
+            // Decoding here, rather than handing the raw bytes to PictureObject.SetImageData,
+            // is deliberate: it keeps any imaging failure inside this try/catch. On Linux
+            // FastReport draws through System.Drawing.Common 4.7.3 / libgdiplus, so a logo
+            // the platform cannot decode must cost us the logo, never the whole report.
             using var stream = new MemoryStream(logo, writable: false);
             using var decoded = Image.FromStream(stream);
             // Copy into a standalone Bitmap: an Image created from a stream keeps reading

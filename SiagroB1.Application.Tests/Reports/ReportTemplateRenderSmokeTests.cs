@@ -42,7 +42,7 @@ public class ReportTemplateRenderSmokeTests
     public void EveryTemplate_PreparesAndExportsToPdf(string templateName)
     {
         var contentRoot = Path.Combine(AppContext.BaseDirectory, "ReportsContentRoot");
-        var logoPath = Path.Combine(contentRoot, "wwwroot", "images", "logo.jpeg");
+        var logoPath = Path.Combine(contentRoot, "wwwroot", "images", "logo.png");
         Assert.True(File.Exists(logoPath), $"Logo fixture missing at {logoPath}");
 
         using var report = new Report();
@@ -52,7 +52,7 @@ public class ReportTemplateRenderSmokeTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["CompanyName"] = "ACME AGRO LTDA",
-                ["CompanyLogoPath"] = "wwwroot/images/logo.jpeg"
+                ["CompanyLogoPath"] = "wwwroot/images/logo.png"
             })
             .Build();
 

@@ -43,7 +43,7 @@
     </BusinessObjectDataSource>
     <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
   </Dictionary>
-  <ReportPage Name="Page1" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+  <ReportPage Name="Page1" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" TitleBeforeHeader="false" Watermark.Font="Arial, 60pt">
     <PageHeaderBand Name="PageHeader1" Width="756" Height="41.8">
       <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
       <TextObject Name="txtCompany" Left="100" Top="2" Width="655.9" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
