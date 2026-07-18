@@ -73,7 +73,7 @@ public class StorageTransactionsConfirmedService(
 
         if (commitMode == CommitMode.Auto &&
             st.ShipmentReleaseKey.HasValue &&
-            st.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+            ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(st.TransactionType))
         {
             await recalcShipped.RecalculateAsync(st.ShipmentReleaseKey.Value);
         }

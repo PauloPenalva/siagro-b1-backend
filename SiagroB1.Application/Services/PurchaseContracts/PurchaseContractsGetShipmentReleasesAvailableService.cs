@@ -11,14 +11,20 @@ public class PurchaseContractsGetShipmentReleasesAvailableService(
     ILogger<PurchaseContractsGetShipmentReleasesAvailableService> logger
     )
 {
+    /// <summary>
+    /// Espelho em SQL da regra de <see cref="PurchaseContract.TotalAvailableToRelease"/>
+    /// (EF não traduz a propriedade [NotMapped] <c>ShipmentRelease.ConsumedQuantity</c>).
+    /// Mantenha as duas em sincronia: liberação cancelada consome apenas o romaneado.
+    /// </summary>
     public IQueryable<PurchaseContract> Query()
     {
         return db.Context.PurchaseContracts
             .Include(x => x.ShipmentReleases)
             .Where(p => p.Status == ContractStatus.Approved &&
                         (p.TotalVolume - p.ShipmentReleases
-                             .Where(x =>  x.Status != ReleaseStatus.Cancelled)
-                             .Sum(x => x.ReleasedQuantity)) > 0
+                             .Sum(x => x.Status == ReleaseStatus.Cancelled
+                                 ? (x.ShippedQuantity > 0 ? x.ShippedQuantity : 0)
+                                 : x.ReleasedQuantity)) > 0
                      );
     }
 }

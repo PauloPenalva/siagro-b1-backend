@@ -161,13 +161,16 @@ public class PurchaseContract : DocumentEntity
     public decimal TotalTax => 
         decimal.Round((Taxes?.Sum(x => x.TotalTax) ?? 0), 2, MidpointRounding.ToEven);
     
+    /// <remarks>
+    /// Soma <see cref="ShipmentRelease.ConsumedQuantity"/> de TODAS as liberações,
+    /// inclusive canceladas: uma liberação cancelada contribui apenas com o que foi
+    /// efetivamente romaneado (zero quando nunca houve movimentação).
+    /// </remarks>
     [NotMapped]
     public decimal TotalShipmentReleases =>
         decimal.Round(
             (ShipmentReleases?
-                .Where(x => 
-                    x.Status != ReleaseStatus.Cancelled)
-                .Sum(x => x.ReleasedQuantity) ?? 0),
+                .Sum(x => x.ConsumedQuantity) ?? 0),
         2, MidpointRounding.ToEven);
     
     [NotMapped]
@@ -178,18 +181,22 @@ public class PurchaseContract : DocumentEntity
     public decimal TotalShipmentReleasesWithoutProvisioning =>
         decimal.Round(
             (ShipmentReleases?
-                .Where(x => 
-                    x.Status is ReleaseStatus.Actived or ReleaseStatus.Completed or ReleaseStatus.Paused)
-                .Sum(x => x.ReleasedQuantity) ?? 0),
+                .Where(x =>
+                    x.Status is ReleaseStatus.Actived or ReleaseStatus.Completed
+                             or ReleaseStatus.Paused or ReleaseStatus.Cancelled)
+                .Sum(x => x.ConsumedQuantity) ?? 0),
             2, MidpointRounding.ToEven);
     
     [NotMapped]
     public decimal TotalAvailableToReleaseWithoutProvisioning => 
         decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
     
+    /// <remarks>
+    /// Uma liberação cancelada COM movimentação continua bloqueando (houve movimento físico).
+    /// </remarks>
     [NotMapped]
     public bool HasShipmentReleases => ShipmentReleases
-        .Any(x => x.Status != ReleaseStatus.Cancelled);
+        .Any(x => x.Status != ReleaseStatus.Cancelled || x.ShippedQuantity > 0);
     
     /// <summary>
     /// Saldo alocável do contrato, derivado de <see cref="AllocatedVolume"/>

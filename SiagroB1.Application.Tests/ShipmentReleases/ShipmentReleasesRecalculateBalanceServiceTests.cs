@@ -35,7 +35,7 @@ public class ShipmentReleasesRecalculateBalanceServiceTests
     {
         Key = Guid.NewGuid(), Code = "ST", CardCode = "F0001", ItemCode = "SOJA",
         UnitOfMeasureCode = "KG", WarehouseCode = "01",
-        TransactionType = StorageTransactionType.SalesShipment,
+        TransactionType = StorageTransactionType.Purchase,
         TransactionStatus = StorageTransactionsStatus.Confirmed,
         NetWeight = net, ShipmentReleaseKey = releaseKey,
     };

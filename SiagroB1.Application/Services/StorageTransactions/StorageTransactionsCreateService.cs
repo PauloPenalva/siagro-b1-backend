@@ -74,7 +74,7 @@ public class StorageTransactionsCreateService(
                 await unitOfWork.SaveChangesAsync();
 
                 if (entity.ShipmentReleaseKey.HasValue &&
-                    entity.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+                    ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(entity.TransactionType))
                 {
                     await recalcShipped.RecalculateAsync(entity.ShipmentReleaseKey.Value);
                 }

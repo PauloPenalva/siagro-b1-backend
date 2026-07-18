@@ -22,11 +22,14 @@ public class ShipmentReleaseMovementGuardServiceTests
         return sr.Key;
     }
 
-    private static StorageTransaction SalesTx(Guid releaseKey) => new()
+    private static StorageTransaction SalesTx(Guid releaseKey) =>
+        Tx(releaseKey, StorageTransactionType.SalesShipment);
+
+    private static StorageTransaction Tx(Guid? releaseKey, StorageTransactionType type) => new()
     {
         Key = Guid.NewGuid(), Code = "ST", CardCode = "F0001", ItemCode = "SOJA",
         UnitOfMeasureCode = "KG", WarehouseCode = "01",
-        TransactionType = StorageTransactionType.SalesShipment,
+        TransactionType = type,
         ShipmentReleaseKey = releaseKey,
     };
 
@@ -52,14 +55,49 @@ public class ShipmentReleaseMovementGuardServiceTests
     }
 
     [Fact]
-    public async Task EnsureCanShip_NoReleaseKeyOrNonSalesType_DoesNotThrow()
+    public async Task EnsureCanShip_NoReleaseKey_DoesNotThrow()
     {
         var service = new ShipmentReleaseMovementGuardService(_db.Context);
 
-        await service.EnsureCanShipAsync(new StorageTransaction
-        {
-            Key = Guid.NewGuid(), CardCode = "F", ItemCode = "S", UnitOfMeasureCode = "KG", WarehouseCode = "01",
-            TransactionType = StorageTransactionType.Purchase, ShipmentReleaseKey = null,
-        });
+        await service.EnsureCanShipAsync(Tx(null, StorageTransactionType.Purchase));
+    }
+
+    // Romaneio de compra contra liberação indisponível: sem o guard, um lançamento
+    // novo poderia ir para o armazém da liberação já cancelada/trocada.
+
+    [Theory]
+    [InlineData(StorageTransactionType.Purchase, ReleaseStatus.Completed)]
+    [InlineData(StorageTransactionType.Purchase, ReleaseStatus.Cancelled)]
+    [InlineData(StorageTransactionType.Purchase, ReleaseStatus.Paused)]
+    [InlineData(StorageTransactionType.PurchaseReturn, ReleaseStatus.Completed)]
+    [InlineData(StorageTransactionType.PurchaseReturn, ReleaseStatus.Cancelled)]
+    [InlineData(StorageTransactionType.PurchaseReturn, ReleaseStatus.Paused)]
+    public async Task EnsureCanShip_PurchaseAgainstNonShippableRelease_Throws(
+        StorageTransactionType type, ReleaseStatus status)
+    {
+        var key = await SeedReleaseAsync(status);
+        var service = new ShipmentReleaseMovementGuardService(_db.Context);
+
+        await Assert.ThrowsAsync<ApplicationException>(() => service.EnsureCanShipAsync(Tx(key, type)));
+    }
+
+    [Theory]
+    [InlineData(StorageTransactionType.Purchase)]
+    [InlineData(StorageTransactionType.PurchaseReturn)]
+    public async Task EnsureCanShip_PurchaseAgainstActivedRelease_DoesNotThrow(StorageTransactionType type)
+    {
+        var key = await SeedReleaseAsync(ReleaseStatus.Actived);
+        var service = new ShipmentReleaseMovementGuardService(_db.Context);
+
+        await service.EnsureCanShipAsync(Tx(key, type)); // no throw
+    }
+
+    [Fact]
+    public async Task EnsureCanShip_UnguardedType_DoesNotThrow()
+    {
+        var key = await SeedReleaseAsync(ReleaseStatus.Cancelled);
+        var service = new ShipmentReleaseMovementGuardService(_db.Context);
+
+        await service.EnsureCanShipAsync(Tx(key, StorageTransactionType.Transfer)); // no throw
     }
 }

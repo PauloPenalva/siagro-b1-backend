@@ -19,9 +19,17 @@ public class ShipmentReleasesCancelationController(
             {
                 return BadRequest("Missing required parameters");
             }
+
+            if (!parameters.TryGetValue("CancellationReason", out var reasonObj) ||
+                string.IsNullOrWhiteSpace(reasonObj?.ToString()))
+            {
+                return BadRequest("Informe o motivo do cancelamento.");
+            }
+
             var key = Guid.Parse(keyObj.ToString());
-            
-            await cancelationService.ExecuteAsync(key);
+            var userName = User.Identity?.Name ?? "Unknown";
+
+            await cancelationService.ExecuteAsync(key, userName, reasonObj.ToString()!);
             return Ok();
         }
         catch (Exception e)

@@ -53,6 +53,10 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
+            .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.ConsumedQuantity)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
+            .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.ReturnedToContractQuantity)));
         modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
@@ -255,6 +259,7 @@ public static class ODataConfigurations
         
         var shipmentReleasesCancelation = modelBuilder.Action("ShipmentReleasesCancelation");
         shipmentReleasesCancelation.Parameter<Guid>("Key");
+        shipmentReleasesCancelation.Parameter<string>("CancellationReason");
         shipmentReleasesCancelation.Returns<IActionResult>();
         
         var shipmentReleasesPause = modelBuilder.Action("ShipmentReleasesPause");

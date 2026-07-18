@@ -57,7 +57,7 @@ public class StorageTransactionsReverseService(
             await db.SaveChangesAsync();
 
             if (doc.ShipmentReleaseKey.HasValue &&
-                doc.TransactionType is StorageTransactionType.SalesShipment or StorageTransactionType.SalesShipmentReturn)
+                ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(doc.TransactionType))
             {
                 await recalcShipped.RecalculateAsync(doc.ShipmentReleaseKey.Value);
             }

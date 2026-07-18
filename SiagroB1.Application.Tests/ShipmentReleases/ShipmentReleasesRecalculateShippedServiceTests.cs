@@ -48,26 +48,26 @@ public class ShipmentReleasesRecalculateShippedServiceTests
         (await _db.Context.ShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == key)).ShippedQuantity;
 
     [Fact]
-    public async Task Recalc_ShipmentMinusReturn_UsingNetWeight()
+    public async Task Recalc_PurchaseMinusPurchaseReturn_UsingNetWeight()
     {
-        var sr = await SeedReleaseAsync(released: 100m);
+        var sr = await SeedReleaseAsync(released: 1000m);
         _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 80m),
-            Tx(sr.Key, StorageTransactionType.SalesShipmentReturn, 30m));
+            Tx(sr.Key, StorageTransactionType.Purchase, 400m),
+            Tx(sr.Key, StorageTransactionType.PurchaseReturn, 150m));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
 
-        Assert.Equal(50m, await ShippedAsync(sr.Key)); // 80 − 30
+        Assert.Equal(250m, await ShippedAsync(sr.Key)); // 400 − 150
     }
 
     [Fact]
     public async Task Recalc_IgnoresCancelled_CountsPending()
     {
-        var sr = await SeedReleaseAsync(released: 100m);
+        var sr = await SeedReleaseAsync(released: 1000m);
         _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 40m, StorageTransactionsStatus.Pending),
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 25m, StorageTransactionsStatus.Cancelled));
+            Tx(sr.Key, StorageTransactionType.Purchase, 40m, StorageTransactionsStatus.Pending),
+            Tx(sr.Key, StorageTransactionType.Purchase, 25m, StorageTransactionsStatus.Cancelled));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
@@ -76,14 +76,43 @@ public class ShipmentReleasesRecalculateShippedServiceTests
     }
 
     [Fact]
-    public async Task Recalc_IgnoresOtherTypesAndOtherReleases()
+    public async Task Recalc_IgnoresSalesTypes()
     {
-        var sr = await SeedReleaseAsync(released: 100m);
+        // tipos de venda pertencem ao fluxo de shipmentBilling, não ao de liberação
+        var sr = await SeedReleaseAsync(released: 1000m);
+        _db.Context.StorageTransactions.AddRange(
+            Tx(sr.Key, StorageTransactionType.SalesShipment, 500m),
+            Tx(sr.Key, StorageTransactionType.SalesShipmentReturn, 200m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(0m, await ShippedAsync(sr.Key));
+    }
+
+    [Fact]
+    public async Task Recalc_IgnoresComplements()
+    {
+        var sr = await SeedReleaseAsync(released: 1000m);
+        _db.Context.StorageTransactions.AddRange(
+            Tx(sr.Key, StorageTransactionType.PurchaseQtyComplement, 50m),
+            Tx(sr.Key, StorageTransactionType.PurchasePriceComplement, 70m),
+            Tx(sr.Key, StorageTransactionType.Purchase, 10m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(10m, await ShippedAsync(sr.Key));
+    }
+
+    [Fact]
+    public async Task Recalc_IgnoresOtherReleases()
+    {
+        var sr = await SeedReleaseAsync(released: 1000m);
         var other = Guid.NewGuid();
         _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.Purchase, 500m),          // tipo ignorado
-            Tx(other, StorageTransactionType.SalesShipment, 70m),       // outro release
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 10m));
+            Tx(other, StorageTransactionType.Purchase, 70m),
+            Tx(sr.Key, StorageTransactionType.Purchase, 10m));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
@@ -94,10 +123,23 @@ public class ShipmentReleasesRecalculateShippedServiceTests
     [Fact]
     public async Task Recalc_NoTransactions_SetsZero()
     {
-        var sr = await SeedReleaseAsync(released: 100m);
+        var sr = await SeedReleaseAsync(released: 1000m);
 
         await Service().RecalculateAsync(sr.Key);
 
         Assert.Equal(0m, await ShippedAsync(sr.Key));
+    }
+
+    [Theory]
+    [InlineData(StorageTransactionType.Purchase, true)]
+    [InlineData(StorageTransactionType.PurchaseReturn, true)]
+    [InlineData(StorageTransactionType.SalesShipment, false)]
+    [InlineData(StorageTransactionType.SalesShipmentReturn, false)]
+    [InlineData(StorageTransactionType.PurchaseQtyComplement, false)]
+    [InlineData(StorageTransactionType.PurchasePriceComplement, false)]
+    [InlineData(StorageTransactionType.Transfer, false)]
+    public void AffectsShippedQuantity_MatchesRule(StorageTransactionType type, bool expected)
+    {
+        Assert.Equal(expected, ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(type));
     }
 }

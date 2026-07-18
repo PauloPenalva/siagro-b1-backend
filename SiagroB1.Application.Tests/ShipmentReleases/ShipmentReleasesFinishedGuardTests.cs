@@ -66,9 +66,12 @@ public class ShipmentReleasesFinishedGuardTests
         var sr = await SeedReleaseAsync(pc.Key, ReleaseStatus.Actived);
 
         var service = new ShipmentReleasesCancelationService(
-            _db.Context, NullLogger<ShipmentReleasesCancelationService>.Instance);
+            _db.Context,
+            new ShipmentReleasesRecalculateShippedService(_db.Context),
+            NullLogger<ShipmentReleasesCancelationService>.Instance);
 
-        await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(sr.Key));
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => service.ExecuteAsync(sr.Key, "maria", "troca de armazém"));
 
         var reloaded = await _db.Context.ShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == sr.Key);
         Assert.Equal(ReleaseStatus.Actived, reloaded.Status);
