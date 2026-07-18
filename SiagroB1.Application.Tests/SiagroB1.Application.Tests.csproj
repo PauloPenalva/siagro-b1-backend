@@ -16,11 +16,23 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The real report templates, so ReportTemplateHeaderTests can load them. -->
+    <None Include="..\SiagroB1.Reports\Reports\Templates\*.frx"
+          Exclude="..\SiagroB1.Reports\Reports\Templates\Teste.frx"
+          Link="ReportTemplates\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\SiagroB1.Reports\wwwroot\images\*"
+          Link="ReportsContentRoot\wwwroot\images\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SiagroB1.Application\SiagroB1.Application.csproj" />
+    <ProjectReference Include="..\SiagroB1.Reports\SiagroB1.Reports.csproj" />
   </ItemGroup>
 
 </Project>

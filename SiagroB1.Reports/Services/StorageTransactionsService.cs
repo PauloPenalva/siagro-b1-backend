@@ -40,10 +40,7 @@ public class StorageTransactionsService(
                 TransactionType  = 0,
             });
         
-        var parameters = new Dictionary<string, object>
-        {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
+        var parameters = new Dictionary<string, object>();
         
         return await reportService.GeneratePdfAsync(
             "StorageTransactionsReceipt.frx",
@@ -84,10 +81,7 @@ public class StorageTransactionsService(
                 TransactionType  = 1
             });
         
-        var parameters = new Dictionary<string, object>
-        {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
+        var parameters = new Dictionary<string, object>();
         
         return await reportService.GeneratePdfAsync(
             "StorageTransactionsShipment.frx",

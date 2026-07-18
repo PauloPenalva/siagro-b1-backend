@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using FastReport;
+﻿using FastReport;
 using FastReport.Export.PdfSimple;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
@@ -9,9 +8,9 @@ using SiagroB1.Reports.Dtos;
 namespace SiagroB1.Reports.Services;
 
 public class StorageAddressReportService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     IWebHostEnvironment env,
-    IConfiguration configuration
+    ReportHeaderService reportHeader
     )
 {
     public async Task<byte[]> GeneratePdfAsync(StorageAddressReportRequest request, string userName, CancellationToken ct = default)
@@ -22,24 +21,15 @@ public class StorageAddressReportService(
             .ToListAsync(ct);
 
         var reportPath = Path.Combine(env.ContentRootPath, "Reports", "Templates", "StorageAddressesBalance.frx");
-        //var logoPath = Path.Combine(env.WebRootPath, "images", "logo.jpeg");
-        
+
         using var report = new Report();
         report.Load(reportPath);
+        reportHeader.Apply(report);
 
         report.RegisterData(rows, "StorageAddresses");
         report.GetDataSource("StorageAddresses")!.Enabled = true;
-        
-        // var picLogo = report.FindObject("picLogo") as PictureObject;
-        // if (picLogo != null && File.Exists(logoPath))
-        // {
-        //     using var img = Image.FromFile(logoPath);
-        //     picLogo.Image = (Image)img.Clone();
-        // }
 
-        var companyName = configuration.GetValue<string>("CompanyName") ?? "Company Code";
-        
-        FillParameters(report, companyName, userName,request, rows);
+        FillParameters(report, userName, request, rows);
 
         report.Prepare();
 
@@ -173,9 +163,9 @@ public class StorageAddressReportService(
         return projected;
     }
 
-    private static void FillParameters(Report report, string companyName, string userName, StorageAddressReportRequest filter, List<StorageAddressReportResponse> rows)
+    // pCompanyName e o logo são preenchidos por ReportHeaderService, não aqui.
+    private static void FillParameters(Report report, string userName, StorageAddressReportRequest filter, List<StorageAddressReportResponse> rows)
     {
-        report.SetParameterValue("pCompanyName", companyName ?? "");
         report.SetParameterValue("pTitle", "Relatório de Saldos por Lote");
         report.SetParameterValue("pBranchCode", filter.BranchCode ?? "");
         report.SetParameterValue("pCodeFrom", filter.CodeFrom ?? "");

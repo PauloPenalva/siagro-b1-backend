@@ -6,7 +6,8 @@ namespace SiagroB1.Reports.Services;
 
 public class FastReportService(
     IWebHostEnvironment env,
-    IConfiguration configuration) : IFastReportService
+    IConfiguration configuration,
+    ReportHeaderService reportHeader) : IFastReportService
 {
     
     public async Task<byte[]> GeneratePdfAsync(
@@ -22,7 +23,8 @@ public class FastReportService(
         FastReport.Utils.Config.WebMode = true;
         using var report = new Report();
         report.Load(reportPath);
-        
+        reportHeader.Apply(report);
+
         var sqlConn = report.Dictionary.Connections
             .OfType<MsSqlDataConnection>()
             .FirstOrDefault();
@@ -66,7 +68,8 @@ public class FastReportService(
         FastReport.Utils.Config.WebMode = true;
         using var report = new Report();
         report.Load(reportPath);
-        
+        reportHeader.Apply(report);
+
         report.RegisterData(data, refName);
 
         report.GetDataSource(dataSourceName).Enabled = true;

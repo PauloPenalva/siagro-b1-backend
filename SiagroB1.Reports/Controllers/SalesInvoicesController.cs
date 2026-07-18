@@ -10,10 +10,7 @@ public class SalesInvoicesController(IFastReportService reportService) : Control
     [HttpGet("SalesInvoices")]
     public async Task<IActionResult> SalesInvoices()
     {
-        var parameters = new Dictionary<string, object>
-        {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
+        var parameters = new Dictionary<string, object>();
 
         var pdf = await reportService.GeneratePdfAsync("SalesInvoices.frx", parameters);
         

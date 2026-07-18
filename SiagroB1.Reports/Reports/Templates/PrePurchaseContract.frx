@@ -1,109 +1,127 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Report ScriptLanguage="CSharp">
-  <Dictionary/>
-  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="5" RightMargin="5" TopMargin="5" BottomMargin="5">
-    <ReportTitleBand Name="ReportTitle1" Width="756" Height="1050">
-
-      <TextObject Name="Titulo" Left="180" Top="10" Width="400" Height="25"
-       Text="PRÉ - CONTRATO DE COMPRA DE CEREAIS"
-       HorzAlign="Center" Font="Arial,12pt,style=Bold"/>
-
-      <ShapeObject Name="S1" Left="0" Top="45" Width="756" Height="40"/>
-      <TextObject Name="Compradora" Left="5" Top="55" Width="740" Height="20"
-       Text="COMPRADORA: [Compradora]" Font="Arial,10pt,style=Bold"/>
-
-      <ShapeObject Name="S2" Left="0" Top="85" Width="756" Height="35"/>
-      <TextObject Name="Cnpjs" Left="5" Top="95" Width="740" Height="20"
-       Text="CNPJ: [CnpjCompradora]"/>
-
-      <ShapeObject Name="S3" Left="0" Top="120" Width="756" Height="40"/>
-      <TextObject Name="Vend" Left="5" Top="132" Width="740" Height="20"
-       Text="VENDEDOR: [Vendedor]" Font="Arial,10pt,style=Bold"/>
-
-      <ShapeObject Name="S4A" Left="0" Top="160" Width="270" Height="35"/>
-      <ShapeObject Name="S4B" Left="270" Top="160" Width="240" Height="35"/>
-      <ShapeObject Name="S4C" Left="510" Top="160" Width="246" Height="35"/>
-
-      <TextObject Name="CnpjVend" Left="5" Top="170" Width="260" Height="20" Text="CNPJ: [Cnpj]"/>
-      <TextObject Name="IE" Left="275" Top="170" Width="230" Height="20" Text="I.E.: [InscricaoEstadual]"/>
-      <TextObject Name="CPF" Left="515" Top="170" Width="230" Height="20" Text="CPF: [Cpf]"/>
-
-      <ShapeObject Name="S5" Left="0" Top="195" Width="756" Height="35"/>
-      <TextObject Name="Endereco" Left="5" Top="205" Width="740" Height="20" Text="END.: [Endereco]"/>
-
-      <ShapeObject Name="S6A" Left="0" Top="230" Width="510" Height="38"/>
-      <ShapeObject Name="S6B" Left="510" Top="230" Width="246" Height="38"/>
-      <TextObject Name="Car" Left="5" Top="242" Width="500" Height="20" Text="Nº CAR: [Car]"/>
-      <TextObject Name="Cidade" Left="515" Top="242" Width="230" Height="20" Text="[CidadeUfCep]"/>
-
-      <ShapeObject Name="S7" Left="0" Top="268" Width="756" Height="35"/>
-      <TextObject Name="Empresa" Left="5" Top="278" Width="740" Height="20" Text="EMPRESA/SÓCIO ADMINISTRADOR: [Empresa]"/>
-
-      <ShapeObject Name="S8" Left="0" Top="303" Width="756" Height="35"/>
-      <TextObject Name="Email" Left="5" Top="313" Width="740" Height="20" Text="E-MAIL: [EmailContrato]"/>
-
-      <ShapeObject Name="S9" Left="0" Top="338" Width="756" Height="35"/>
-      <TextObject Name="C1" Left="0" Top="348" Width="756" Height="20" HorzAlign="Center"
-       Text="CLÁUSULA PRIMEIRA - PRODUTO - QUALIDADE - ENTREGA"
-       Font="Arial,10pt,style=Bold"/>
-
-      <ShapeObject Name="S10A" Left="0" Top="373" Width="510" Height="35"/>
-      <ShapeObject Name="S10B" Left="510" Top="373" Width="246" Height="35"/>
-      <TextObject Name="Produto" Left="5" Top="383" Width="500" Height="20" Text="PRODUTO: [Produto]"/>
-      <TextObject Name="Safra" Left="515" Top="383" Width="230" Height="20" Text="SAFRA: [Safra]"/>
-
-      <ShapeObject Name="S11A" Left="0" Top="408" Width="100" Height="35"/>
-      <ShapeObject Name="S11B" Left="100" Top="408" Width="656" Height="35"/>
-      <TextObject Name="Q1" Left="5" Top="418" Width="90" Height="20" Text="Quantidade:" Font="Arial,9pt,style=Bold"/>
-      <TextObject Name="Q2" Left="105" Top="418" Width="200" Height="20" Text="[Quantidade]"/>
-
-      <ShapeObject Name="Qualidade" Left="0" Top="443" Width="756" Height="120"/>
-      <TextObject Name="QualidadeTxt" Left="5" Top="450" Width="740" Height="100"
-       Text="UMIDADE: [Umidade]&#13;&#10;IMPUREZA: [Impureza]&#13;&#10;AVARIADOS: [Avariados]&#13;&#10;ARDIDO/BROTADO: [ArdidoBrotado]&#13;&#10;QUEIMADOS: [Queimados]&#13;&#10;FALLING NUMBER: [FallingNumber]&#13;&#10;W: [W]  PH: [PH]"/>
-
-      <ShapeObject Name="Ent1" Left="0" Top="563" Width="756" Height="35"/>
-      <TextObject Name="Entrega" Left="5" Top="573" Width="740" Height="20"
-       Text="ENTREGA/RETIRADA: [Armazem]"/>
-
-      <ShapeObject Name="Ent2" Left="0" Top="598" Width="756" Height="35"/>
-      <TextObject Name="EntregaData" Left="5" Top="608" Width="740" Height="20"
-       Text="DATA ENTREGA/RETIRADA: [DataEntrega]"/>
-
-      <ShapeObject Name="C2S" Left="0" Top="633" Width="756" Height="35"/>
-      <TextObject Name="C2" Left="0" Top="643" Width="756" Height="20" HorzAlign="Center"
-       Text="CLÁUSULA SEGUNDA – PREÇOS E CONDIÇÕES"
-       Font="Arial,10pt,style=Bold"/>
-
-      <ShapeObject Name="PrecoS" Left="0" Top="668" Width="756" Height="35"/>
-      <TextObject Name="Preco" Left="5" Top="678" Width="740" Height="20"
-       Text="PREÇO SACA - R$ [PrecoSaca]"/>
-
-      <ShapeObject Name="Pag1" Left="0" Top="703" Width="420" Height="40"/>
-      <ShapeObject Name="Pag2" Left="420" Top="703" Width="336" Height="40"/>
-      <TextObject Name="Forma" Left="5" Top="713" Width="400" Height="20"
-       Text="FORMA PAGAMENTO: [FormaPagamento]"/>
-      <TextObject Name="DataPag" Left="425" Top="713" Width="320" Height="20"
-       Text="DATA PAGAMENTO: [DataPagamento]"/>
-
-      <ShapeObject Name="Desc" Left="0" Top="743" Width="756" Height="30"/>
-      <TextObject Name="DescTxt" Left="0" Top="750" Width="756" Height="20"
-       HorzAlign="Center" Text="DESCONTOS"/>
-
-      <ShapeObject Name="F1" Left="0" Top="773" Width="756" Height="30"/>
-      <TextObject Name="Funrural" Left="5" Top="780" Width="740" Height="20" Text="FUNRURAL: [FunruralValor]"/>
-
-      <ShapeObject Name="F2" Left="0" Top="803" Width="756" Height="30"/>
-      <TextObject Name="Senar" Left="5" Top="810" Width="740" Height="20" Text="SENAR: [SenarValor]"/>
-
-      <ShapeObject Name="F3" Left="0" Top="833" Width="756" Height="30"/>
-      <TextObject Name="ICMS" Left="5" Top="840" Width="740" Height="20" Text="ICMS: [IcmsValor]"/>
-
-      <ShapeObject Name="F4" Left="0" Top="863" Width="756" Height="30"/>
-      <TextObject Name="Frete" Left="5" Top="870" Width="740" Height="20" Text="FRETE: [FreteValor]"/>
-
-      <ShapeObject Name="OBS" Left="0" Top="893" Width="756" Height="50"/>
-      <TextObject Name="ObsTxt" Left="5" Top="905" Width="740" Height="20" Text="OBS.: [Observacao]"/>
-
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="07/18/2026 09:00:00" ReportInfo.Modified="07/18/2026 16:52:33" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="PreContract" ReferenceName="PreContract" DataType="System.Int32" Enabled="true">
+      <Column Name="Title" DataType="System.String"/>
+      <Column Name="CompanyName" DataType="System.String"/>
+      <Column Name="CompanyTaxId" DataType="System.String"/>
+      <Column Name="CardCode" DataType="System.String"/>
+      <Column Name="CardName" DataType="System.String"/>
+      <Column Name="TaxId" DataType="System.String"/>
+      <Column Name="Street" DataType="System.String"/>
+      <Column Name="CityStateZip" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="CreationDate" DataType="System.DateTime"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="HarvestSeasonName" DataType="System.String"/>
+      <Column Name="TotalVolume" DataType="System.Decimal"/>
+      <Column Name="UnitOfMeasureCode" DataType="System.String"/>
+      <Column Name="StandardPrice" DataType="System.Decimal"/>
+      <Column Name="PaymentTerms" DataType="System.String"/>
+      <Column Name="StandardCashFlowDate" DataType="System.DateTime"/>
+      <Column Name="DeliveryStartDate" DataType="System.DateTime"/>
+      <Column Name="DeliveryEndDate" DataType="System.DateTime"/>
+      <Column Name="DeliveryLocationName" DataType="System.String"/>
+      <Column Name="WarehouseTaxId" DataType="System.String"/>
+      <Column Name="FreightTermsText" DataType="System.String"/>
+      <Column Name="FreightCostStandard" DataType="System.Decimal"/>
+      <Column Name="FreightUmCode" DataType="System.String"/>
+      <Column Name="FunruralTypeText" DataType="System.String"/>
+      <Column Name="Comments" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="QualityParameters" ReferenceName="QualityParameters" DataType="System.Int32" Enabled="true">
+      <Column Name="AttribCode" DataType="System.String"/>
+      <Column Name="AttribName" DataType="System.String"/>
+      <Column Name="MaxLimitRate" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="Taxes" ReferenceName="Taxes" DataType="System.Int32" Enabled="true">
+      <Column Name="TaxCode" DataType="System.String"/>
+      <Column Name="TaxName" DataType="System.String"/>
+      <Column Name="Rate" DataType="System.Decimal"/>
+      <Column Name="TotalTax" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="756" Height="41.8">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="655.9" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+    </PageHeaderBand>
+    <ReportTitleBand Name="ReportTitle1" Top="45" Width="756" Height="45">
+      <TextObject Name="Titulo" Width="755.9" Height="22" Text="[PreContract.Title]" HorzAlign="Center" VertAlign="Center" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="ContratoRef" Top="24" Width="400" Height="16" Text="Contrato: [PreContract.Code]" Font="Arial, 8pt"/>
+      <TextObject Name="ContratoData" Left="500" Top="24" Width="255.9" Height="16" Text="[PreContract.CreationDate]" Format="Date" Format.Format="d" HorzAlign="Right" Font="Arial, 8pt"/>
     </ReportTitleBand>
+    <DataBand Name="DataHeader" Top="93.2" Width="756" Height="290">
+      <TextObject Name="Compradora" Width="755.9" Height="20" Border.Lines="All" Text="COMPRADORA: [PreContract.CompanyName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="CnpjCompradora" Top="20" Width="755.9" Height="20" Border.Lines="All" Text="CNPJ: [PreContract.CompanyTaxId]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Vendedor" Top="45" Width="755.9" Height="20" Border.Lines="All" Text="VENDEDOR: [PreContract.CardCode] - [PreContract.CardName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="CnpjVend" Top="65" Width="280" Height="20" Border.Lines="All" Text="CNPJ/CPF: [PreContract.TaxId]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="IE" Left="280" Top="65" Width="240" Height="20" Border.Lines="All" Text="I.E.: ______________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="CPF" Left="520" Top="65" Width="235.9" Height="20" Border.Lines="All" Text="CPF: ______________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Endereco" Top="85" Width="500" Height="20" Border.Lines="All" Text="END.: [PreContract.Street]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="CidadeUfCep" Left="500" Top="85" Width="255.9" Height="20" Border.Lines="All" Text="[PreContract.CityStateZip]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Car" Top="105" Width="755.9" Height="20" Border.Lines="All" Text="Nº CAR (CADASTRO AMBIENTAL RURAL): ______________________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Empresa" Top="125" Width="755.9" Height="20" Border.Lines="All" Text="EMPRESA / SÓCIO ADMINISTRADOR: ________________________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Email" Top="145" Width="755.9" Height="20" Border.Lines="All" Text="E-MAIL OU WHATSAPP PARA ENVIO DE CONTRATO: ______________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Clausula1" Top="172" Width="755.9" Height="20" Border.Lines="All" Text="CLÁUSULA PRIMEIRA - PRODUTO - QUALIDADE - ENTREGA" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="Produto" Top="192" Width="500" Height="20" Border.Lines="All" Text="PRODUTO: [PreContract.ItemCode] - [PreContract.ItemName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Safra" Left="500" Top="192" Width="255.9" Height="20" Border.Lines="All" Text="SAFRA: [PreContract.HarvestSeasonName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="QtdLabel" Top="212" Width="140" Height="20" Border.Lines="All" Text="QUANTIDADE:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="QtdValor" Left="140" Top="212" Width="200" Height="20" Border.Lines="All" Text="[PreContract.TotalVolume]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="QtdUm" Left="340" Top="212" Width="415.9" Height="20" Border.Lines="All" Text="[PreContract.UnitOfMeasureCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="QualidadeTit" Top="240" Width="755.9" Height="20" Border.Lines="All" Text="QUALIDADE" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="QualHdr1" Top="260" Width="500" Height="18" Border.Lines="All" Text="PARÂMETRO" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="QualHdr2" Left="500" Top="260" Width="255.9" Height="18" Border.Lines="All" Text="LIMITE MÁXIMO" Padding="3, 0, 3, 0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </DataBand>
+    <DataBand Name="DataQuality" Top="386.4" Width="756" Height="18" DataSource="QualityParameters">
+      <TextObject Name="QualNome" Width="500" Height="18" Border.Lines="All" Text="[QualityParameters.AttribCode] - [QualityParameters.AttribName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="QualValor" Left="500" Width="255.9" Height="18" Border.Lines="All" Text="[QualityParameters.MaxLimitRate]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+    </DataBand>
+    <DataBand Name="DataDelivery" Top="407.6" Width="756" Height="166" CanGrow="true">
+      <TextObject Name="Entrega" Width="500" Height="20" Border.Lines="All" Text="ENTREGA/RETIRADA: [PreContract.DeliveryLocationName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="CnpjArmazem" Left="500" Width="255.9" Height="20" Border.Lines="All" Text="CNPJ ARMAZÉM: [PreContract.WarehouseTaxId]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="EntregaLabel" Top="20" Width="240" Height="20" Border.Lines="All" Text="DATA ENTREGA/RETIRADA:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="EntregaIni" Left="240" Top="20" Width="150" Height="20" Border.Lines="All" Text="[PreContract.DeliveryStartDate]" Padding="3, 0, 3, 0" Format="Date" Format.Format="d" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="EntregaAte" Left="390" Top="20" Width="60" Height="20" Border.Lines="All" Text="até" Padding="3, 0, 3, 0" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="EntregaFim" Left="450" Top="20" Width="305.9" Height="20" Border.Lines="All" Text="[PreContract.DeliveryEndDate]" Padding="3, 0, 3, 0" Format="Date" Format.Format="d" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Clausula2" Top="48" Width="755.9" Height="20" Border.Lines="All" Text="CLÁUSULA SEGUNDA – PREÇOS E CONDIÇÕES" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="PrecoLabel" Top="68" Width="140" Height="20" Border.Lines="All" Text="PREÇO - R$" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="PrecoValor" Left="140" Top="68" Width="200" Height="20" Border.Lines="All" Text="[PreContract.StandardPrice]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="PrecoUm" Left="340" Top="68" Width="415.9" Height="20" Border.Lines="All" Text="POR [PreContract.UnitOfMeasureCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="DataPagLabel" Top="88" Width="240" Height="20" Border.Lines="All" Text="DATA PAGAMENTO:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="DataPagValor" Left="240" Top="88" Width="515.9" Height="20" Border.Lines="All" Text="[PreContract.StandardCashFlowDate]" Padding="3, 0, 3, 0" Format="Date" Format.Format="d" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="FormaPagLabel" Top="108" Width="755.9" Height="18" Border.Lines="All" Text="FORMA PAGAMENTO:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="FormaPag" Top="126" Width="755.9" Height="40" Border.Lines="All" CanGrow="true" Text="[PreContract.PaymentTerms]" Padding="3, 3, 3, 3" Font="Arial, 9pt"/>
+    </DataBand>
+    <DataBand Name="DataDiscounts" Top="577" Width="756" Height="66">
+      <TextObject Name="Funrural" Width="755.9" Height="20" Border.Lines="All" Text="FUNRURAL: [PreContract.FunruralTypeText]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="DescontosTit" Top="28" Width="755.9" Height="20" Border.Lines="All" Text="DESCONTOS" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="TaxHdr1" Top="48" Width="420" Height="18" Border.Lines="All" Text="IMPOSTO" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="TaxHdr2" Left="420" Top="48" Width="160" Height="18" Border.Lines="All" Text="ALÍQUOTA (%)" Padding="3, 0, 3, 0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="TaxHdr3" Left="580" Top="48" Width="175.9" Height="18" Border.Lines="All" Text="VALOR (R$)" Padding="3, 0, 3, 0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </DataBand>
+    <DataBand Name="DataTaxes" Top="646.2" Width="756" Height="18" DataSource="Taxes">
+      <TextObject Name="TaxNome" Width="420" Height="18" Border.Lines="All" Text="[Taxes.TaxCode] - [Taxes.TaxName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="TaxRate" Left="420" Width="160" Height="18" Border.Lines="All" Text="[Taxes.Rate]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="4" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="TaxValor" Left="580" Width="175.9" Height="18" Border.Lines="All" Text="[Taxes.TotalTax]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+    </DataBand>
+    <DataBand Name="DataFooterBlock" Top="667.4" Width="756" Height="95" CanGrow="true">
+      <TextObject Name="FreteLabel" Width="200" Height="20" Border.Lines="All" Text="FRETE: [PreContract.FreightTermsText]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="FreteValor" Left="200" Width="180" Height="20" Border.Lines="All" Text="[PreContract.FreightCostStandard]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="FreteUm" Left="380" Width="375.9" Height="20" Border.Lines="All" Text="POR [PreContract.FreightUmCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="ObsLabel" Top="28" Width="755.9" Height="18" Text="OBS.:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="ObsTxt" Top="46" Width="755.9" Height="45" Border.Lines="All" CanGrow="true" Text="[PreContract.Comments]" Padding="3, 3, 3, 3" Font="Arial, 9pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="765.6" Width="756" Height="140">
+      <TextObject Name="LocalData" Top="12" Width="500" Height="18" Text="______________________________, _____ de ______________________ de _________." Font="Arial, 9pt"/>
+      <TextObject Name="AssVendLinha" Top="60" Width="360" Height="16" Text="__________________________________________" HorzAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="AssVendTxt" Top="76" Width="360" Height="16" Text="VENDEDOR" HorzAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="AssCompLinha" Left="395.9" Top="60" Width="360" Height="16" Text="__________________________________________" HorzAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="AssCompTxt" Left="395.9" Top="76" Width="360" Height="16" Text="COMPRADOR DE CEREAIS" HorzAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="CienciaFrete" Top="105" Width="755.9" Height="18" Text="CIÊNCIA FRETE: ______________________________________________________" Font="Arial, 9pt"/>
+      <TextObject Name="Impresso" Top="124" Width="755.9" Height="14" Text="Impresso em: [Date]" HorzAlign="Right" Font="Arial, 7pt"/>
+    </ReportSummaryBand>
   </ReportPage>
 </Report>

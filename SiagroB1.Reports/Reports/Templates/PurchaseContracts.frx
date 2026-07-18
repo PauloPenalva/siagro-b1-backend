@@ -20,15 +20,18 @@
       <Column Name="PaymentTerms" DataType="System.String"/>
       <Column Name="AvaiableVolume" DataType="System.Decimal"/>
     </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
     <Total Name="TotalAvailableVolume" Expression="[PurchaseContracts.AvaiableVolume]" Evaluator="Data1" PrintOn="ReportSummary1"/>
     <Total Name="TotalVolume" Expression="[PurchaseContracts.TotalVolume]" Evaluator="Data1" PrintOn="ReportSummary1"/>
   </Dictionary>
   <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" RawPaperSize="9" Watermark.Font="Arial, 60pt">
-    <PageHeaderBand Name="PageHeader1" Width="1047.06" Height="47.25">
-      <TextObject Name="Text1" Top="9.45" Width="1048.95" Height="37.8" Text="Contratos de Compra" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold, Italic"/>
-      <TextObject Name="Text38" Left="951.45" Top="9.45" Width="94.5" Height="18.9" Text="[Date]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+    <PageHeaderBand Name="PageHeader1" Width="1047.06" Height="89.25">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="600" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="Text1" Top="51.45" Width="1048.95" Height="37.8" Text="Contratos de Compra" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold, Italic"/>
+      <TextObject Name="Text38" Left="951.45" Top="51.45" Width="94.5" Height="18.9" Text="[Date]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
     </PageHeaderBand>
-    <ColumnHeaderBand Name="ColumnHeader1" Top="50.45" Width="1047.06" Height="9.45" Fill.Color="Black">
+    <ColumnHeaderBand Name="ColumnHeader1" Top="92.45" Width="1047.06" Height="9.45" Fill.Color="Black">
       <TextObject Name="Text11" Left="286.95" Width="179.55" Height="9.45" Text="Fornecedor" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic" TextFill.Color="GhostWhite"/>
       <TextObject Name="Text3" Width="56.7" Height="9.45" Text="Filial" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic" TextFill.Color="GhostWhite"/>
       <TextObject Name="Text5" Left="56.7" Width="66.15" Height="9.45" Text="Contrato" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic" TextFill.Color="GhostWhite"/>
@@ -44,7 +47,7 @@
       <TextObject Name="Text27" Left="963.9" Width="56.7" Height="9.45" Text="Saldo" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic" TextFill.Color="GhostWhite"/>
       <TextObject Name="Text28" Left="1020.6" Width="28.35" Height="9.45" Text="UM" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic" TextFill.Color="GhostWhite"/>
     </ColumnHeaderBand>
-    <DataBand Name="Data1" Top="63.1" Width="1047.06" Height="9.45" EvenStyle="EvenRows" DataSource="PurchaseContracts">
+    <DataBand Name="Data1" Top="105.1" Width="1047.06" Height="9.45" EvenStyle="EvenRows" DataSource="PurchaseContracts">
       <TextObject Name="Text2" Width="56.7" Height="9.45" Text="[PurchaseContracts.BranchCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt"/>
       <TextObject Name="Text4" Left="56.7" Width="66.15" Height="9.45" Text="[PurchaseContracts.Code]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt"/>
       <TextObject Name="Text6" Left="122.85" Width="94.5" Height="9.45" Text="[PurchaseContracts.Complement]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt"/>
@@ -60,14 +63,14 @@
       <TextObject Name="Text26" Left="963.9" Width="56.7" Height="9.45" Text="[PurchaseContracts.AvaiableVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 6pt" Trimming="EllipsisCharacter"/>
       <TextObject Name="Text29" Left="1020.6" Top="-0.54" Width="28.35" Height="9.45" Text="[PurchaseContracts.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="75.75" Width="1047.06" Height="18.9">
+    <ReportSummaryBand Name="ReportSummary1" Top="117.75" Width="1047.06" Height="18.9">
       <TextObject Name="Text39" Left="908.2" Width="113.4" Height="9.45" Text="[TotalAvailableVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text40" Left="576.45" Width="113.4" Height="9.45" Text="[TotalVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text41" Width="56.7" Height="9.45" Text="Total:" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text42" Left="689.85" Width="28.35" Height="9.45" Text="[PurchaseContracts.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic"/>
       <TextObject Name="Text43" Left="1020.6" Width="28.35" Height="9.45" Text="[PurchaseContracts.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" Font="Arial, 6pt, style=Bold, Italic"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="97.85" Width="1047.06" Height="18.9">
+    <PageFooterBand Name="PageFooter1" Top="139.85" Width="1047.06" Height="18.9">
       <TextObject Name="Text35" Left="1007.7" Top="2" Width="37.8" Height="9.45" Text="[TotalPages#]" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text34" Left="998.25" Top="2" Width="9.45" Height="9.45" Text="/" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text36" Left="960.45" Top="2" Width="37.8" Height="9.45" Text="[Page#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>

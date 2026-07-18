@@ -36,23 +36,27 @@ namespace FastReport
         <Column Name="InvoiceStatus" DataType="System.Int32"/>
       </TableDataSource>
     </MsSqlDataConnection>
-    <Parameter Name="COMPANY_LOGO" DataType="System.String" AsString=""/>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
     <Total Name="TotalGrossWeight" Expression="[SalesInvoices.GrossWeight]" Evaluator="Data1" PrintOn="PageFooter1"/>
   </Dictionary>
   <ReportPage Name="Page1" Watermark.Font="Arial, 60pt">
-    <ReportTitleBand Name="ReportTitle1" Width="718.2" Height="47.25">
+    <PageHeaderBand Name="PageHeader1" Width="718.2" Height="41.8">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="600" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+    </PageHeaderBand>
+    <ReportTitleBand Name="ReportTitle1" Top="45" Width="718.2" Height="47.25">
       <TextObject Name="Text1" Left="229.8" Top="13.35" Width="226.8" Height="18.9" Text="Documentos de Saída" HorzAlign="Center" VertAlign="Center" Font="Arial, 10pt, style=Bold, Italic"/>
       <TextObject Name="Text14" Left="614.25" Top="9.45" Width="94.5" Height="18.9" Text="[Date]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
     </ReportTitleBand>
-    <PageHeaderBand Name="PageHeader1" Top="50.45" Width="718.2" Height="11.45" Border.Lines="All" Fill.Color="Gainsboro">
+    <ColumnHeaderBand Name="ColumnHeader1" Top="95.45" Width="718.2" Height="11.45" Border.Lines="All" Fill.Color="Gainsboro">
       <TextObject Name="Text3" Left="1.9" Top="2" Width="94.5" Height="9.45" Text="Documento" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text5" Left="97.4" Top="2" Width="94.5" Height="9.45" Text="Data" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text7" Left="193.7" Top="2" Width="94.5" Height="9.45" Text="Peso Bruto" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text9" Left="324.45" Top="2" Width="56.7" Height="9.45" Text="Cliente" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text11" Left="385.35" Top="2" Width="255.15" Height="9.45" Text="Nome" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text13" Left="642.6" Top="2" Width="66.15" Height="9.45" Text="Status" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
-    </PageHeaderBand>
-    <DataBand Name="Data1" Top="65.1" Width="718.2" Height="10.9" EvenStyle="EvenRows" DataSource="Table1">
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Top="110.1" Width="718.2" Height="10.9" EvenStyle="EvenRows" DataSource="Table1">
       <TextObject Name="Text2" Left="1.9" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.InvoiceNumber]" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text4" Left="97.4" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.InvoiceDate]" Format="Date" Format.Format="d" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text6" Left="193.7" Top="1.45" Width="94.5" Height="9.45" Text="[SalesInvoices.GrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Tahoma, 8pt" Trimming="EllipsisCharacter"/>
@@ -61,12 +65,12 @@ namespace FastReport
       <TextObject Name="Text12" Left="289.85" Top="1" Width="28.35" Height="9.45" Text="KG" VertAlign="Center" Font="Tahoma, 8pt"/>
       <TextObject Name="Text24" Left="642.6" Top="1" Width="66.15" Height="9.45" Text="[SalesInvoices.InvoiceStatus]" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 8pt"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="79.2" Width="718.2" Height="11.45">
+    <ReportSummaryBand Name="ReportSummary1" Top="124.2" Width="718.2" Height="11.45">
       <TextObject Name="Text15" Left="165.55" Top="2" Width="122.85" Height="9.45" Text="[TotalGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text16" Left="288.95" Top="2" Width="28.35" Height="9.45" Text="KG" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
       <TextObject Name="Text17" Left="1.9" Top="2" Width="94.5" Height="9.45" Text="Total:" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 8pt, style=Bold, Italic"/>
     </ReportSummaryBand>
-    <PageFooterBand Name="PageFooter1" Top="93.85" Width="718.2" Height="18.9">
+    <PageFooterBand Name="PageFooter1" Top="138.85" Width="718.2" Height="18.9">
       <TextObject Name="Text20" Left="670.95" Width="9.45" Height="9.45" Text="/" HorzAlign="Center" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text21" Left="680.4" Width="37.8" Height="9.45" Text="[TotalPages#]" VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="Text22" Left="633.15" Width="37.8" Height="9.45" Text="[Page#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>

@@ -8,7 +8,8 @@ using FastReport.Export.PdfSimple;
 
 public class StorageStatementReportGenerator(
     IStorageStatementReportService reportService,
-    IWebHostEnvironment environment)
+    IWebHostEnvironment environment,
+    Services.ReportHeaderService reportHeader)
 {
     public async Task<byte[]> GeneratePdfAsync(
         StorageStatementReportFilter filter,
@@ -24,6 +25,7 @@ public class StorageStatementReportGenerator(
 
         using var report = new Report();
         report.Load(reportPath);
+        reportHeader.Apply(report);
 
         report.RegisterData(data.rows, "Statement");
         //report.RegisterData(data.header, "Header");

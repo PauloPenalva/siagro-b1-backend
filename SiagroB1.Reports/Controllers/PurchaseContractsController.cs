@@ -14,10 +14,7 @@ public class PurchaseContractsController(
     [HttpGet("PurchaseContracts")]
     public async Task<IActionResult> Get()
     {
-        var parameters = new Dictionary<string, object>
-        {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
+        var parameters = new Dictionary<string, object>();
 
 
         var purchaseContracts = await db.Context.PurchaseContracts

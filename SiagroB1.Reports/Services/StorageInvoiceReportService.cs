@@ -7,7 +7,8 @@ namespace SiagroB1.Reports.Services;
 
 public class StorageInvoiceReportService(
     IWebHostEnvironment env,
-    IStorageInvoicePrintDataService printDataService)
+    IStorageInvoicePrintDataService printDataService,
+    ReportHeaderService reportHeader)
     : IStorageInvoiceReportService
 {
     public async Task<byte[]> GeneratePdfAsync(Guid storageInvoiceKey, CancellationToken ct = default)
@@ -22,6 +23,7 @@ public class StorageInvoiceReportService(
 
         using var report = new Report();
         report.Load(reportPath);
+        reportHeader.Apply(report);
 
         report.RegisterData(new List<StorageInvoicePrintDto> { dto }, "Invoice");
         report.RegisterData(dto.Items, "InvoiceItems");

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Reports.DI;
+using SiagroB1.Reports.PartnerSources;
 using SiagroB1.Security.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +41,29 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         options.EnableSensitiveDataLogging();
     }
 );
+
+// Modo de integração do deployment, igual ao lido pelo SiagroB1.Web. Em SAPB1 os
+// dados de parceiro vivem em OCRD/CRD1 e as tabelas BUSINESS_PARTNERS do Siagro
+// ficam vazias — por isso a origem do parceiro é escolhida aqui.
+var erp = builder.Configuration.GetValue<string>("Erp") ?? "STANDALONE";
+
+if (string.Equals(erp, "SAPB1", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<SapErpDbContext>(options =>
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("SapDB"),
+            b =>
+            {
+                b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            })
+    );
+
+    builder.Services.AddScoped<IPartnerSource, SapPartnerSource>();
+}
+else
+{
+    builder.Services.AddScoped<IPartnerSource, StandalonePartnerSource>();
+}
 
 builder.Services.AddScoped<IDbConnection>(sp =>
 {

@@ -17,7 +17,8 @@ public class WeighingTicketPrintDataService(
     IWebHostEnvironment env,
     IDbConnection connection,
     IFastReportService reportService,
-    IStringLocalizer<Resource> resource)
+    IStringLocalizer<Resource> resource,
+    ReportHeaderService reportHeader)
 {
     
     public async Task<byte[]> GeneratePdfAsync(Guid key)
@@ -25,11 +26,6 @@ public class WeighingTicketPrintDataService(
         var data = await GetAsync(key);
         var list = new List<WeighingTicketPrintDto> { data };
 
-        var parameters = new Dictionary<string, object>
-        {
-            ["COMPANY_LOGO"] = "logo.png"
-        };
-        
         var reportPath = Path.Combine(
             env.ContentRootPath,
             "Reports",
@@ -39,17 +35,13 @@ public class WeighingTicketPrintDataService(
         FastReport.Utils.Config.WebMode = true;
         using var report = new Report();
         report.Load(reportPath);
-        
-        report.RegisterData(list, "Ticket"); 
+        reportHeader.Apply(report);
+
+        report.RegisterData(list, "Ticket");
         report.RegisterData(data.QualityInspections, "QualityInspections");
 
         report.GetDataSource("Ticket").Enabled = true;
         report.GetDataSource("QualityInspections").Enabled = true;
-        
-        foreach (var param in parameters)
-        {
-            report.SetParameterValue(param.Key, param.Value);
-        }
 
         if (!await report.PrepareAsync()) return Array.Empty<byte>();
         var pdfExport = new PDFSimpleExport();

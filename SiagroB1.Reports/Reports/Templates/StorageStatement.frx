@@ -38,6 +38,8 @@
       <Column Name="GroupTotalServicos" DataType="System.Decimal"/>
       <Column Name="IsGroupLastRow" DataType="System.Boolean"/>
     </BusinessObjectDataSource>
+
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
   </Dictionary>
 
   <ReportPage Name="Page1"
@@ -49,8 +51,21 @@
               TopMargin="5"
               BottomMargin="5">
 
+    <!-- IDENTIFICAÇÃO DA EMPRESA (repete em todas as páginas) -->
+    <PageHeaderBand Name="PageHeader1" Height="41.8">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany"
+                  Left="100"
+                  Top="2"
+                  Width="980"
+                  Height="37.8"
+                  Text="[pCompanyName]"
+                  VertAlign="Center"
+                  Font="Arial, 11pt, style=Bold"/>
+    </PageHeaderBand>
+
     <!-- CABEÇALHO -->
-    <ReportTitleBand Name="ReportTitle1" Height="45">
+    <ReportTitleBand Name="ReportTitle1" Top="45" Height="45">
       <TextObject Name="Title"
                   Left="0"
                   Top="0"
@@ -71,7 +86,7 @@
     </ReportTitleBand>
 
     <!-- CABEÇALHO COLUNAS -->
-    <ColumnHeaderBand Name="ColumnHeader1" Top="50" Height="22">
+    <ColumnHeaderBand Name="ColumnHeader1" Top="95" Height="22">
 
       <TextObject Left="0" Width="60" Height="22" Text="Data" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Left="60" Width="40" Height="22" Text="Hora" Border.Lines="All" HorzAlign="Center" Font="Arial, 7pt, style=Bold"/>
@@ -93,7 +108,7 @@
 
     <!-- DADOS -->
     <DataBand Name="Data1"
-              Top="75"
+              Top="120"
               Height="18"
               DataSource="Statement">
 

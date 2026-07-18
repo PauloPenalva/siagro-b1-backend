@@ -33,14 +33,17 @@
       <Column Name="QualityAttribName" DataType="System.String"/>
       <Column Name="Value" DataType="System.Decimal"/>
     </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
   </Dictionary>
   <ReportPage Name="Page1" PaperWidth="80" LeftMargin="2" TopMargin="2" RightMargin="2" BottomMargin="2" Watermark.Font="Arial, 60pt">
-    <ReportTitleBand Name="ReportTitle1" Width="287.28" Height="75.6" Guides="66.15,66.15,75.6,75.6,66.15,75.6,75.6">
-      <TextObject Name="Text1" Width="287.28" Height="15.12" Text="[Ticket.CompanyName]" HorzAlign="Center" Font="Arial, 9pt, style=Bold"/>
-      <TextObject Name="Text2" Top="17.01" Width="287.28" Height="15.12" Text="[Ticket.Title]" HorzAlign="Center" Font="Arial, 10pt, style=Bold"/>
-      <TextObject Name="Text3" Top="53.91" Width="287.28" Height="11.34" Text="Ticket: [Ticket.Code]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+    <ReportTitleBand Name="ReportTitle1" Width="287.28" Height="115.6" Guides="66.15,66.15,75.6,75.6,66.15,75.6,75.6">
+      <PictureObject Name="picLogo" Left="103.64" Top="0" Width="80" Height="32" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Top="34" Width="287.28" Height="15.12" Text="[pCompanyName]" HorzAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="Text1" Top="49.12" Width="287.28" Height="15.12" Text="[Ticket.CompanyName]" HorzAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="Text2" Top="66.13" Width="287.28" Height="15.12" Text="[Ticket.Title]" HorzAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="Text3" Top="103.03" Width="287.28" Height="11.34" Text="Ticket: [Ticket.Code]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
     </ReportTitleBand>
-    <DataBand Name="Data1" Top="78.8" Width="287.28" Height="198.45" Guides="0">
+    <DataBand Name="Data1" Top="118.8" Width="287.28" Height="198.45" Guides="0">
       <TextObject Name="Text8" Top="23.65" Width="287.28" Height="11.34" Text="Produto: [Ticket.ItemCode] [Ticket.ItemName]" Font="Arial, 8pt"/>
       <TextObject Name="Text9" Top="36.89" Width="287.28" Height="11.34" Text="Cliente: [Ticket.CardCode] [Ticket.CardName]" Font="Arial, 8pt"/>
       <TextObject Name="Text10" Top="51.02" Width="287.28" Height="11.34" Text="Veiculo: [Ticket.TruckCode]" Font="Arial, 8pt"/>
@@ -55,12 +58,12 @@
       <TextObject Name="Text19" Top="179.55" Width="287.28" Height="18.9" Text="QUALIDADE" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="Text27" Left="188.55" Top="0.66" Width="98.28" Height="11.34" Text="Data: [Ticket.Date]" Format="Date" Format.Format="d" Font="Arial, 8pt"/>
     </DataBand>
-    <GroupHeaderBand Name="GroupHeader1" Top="280.45" Width="287.28" Height="9.45"/>
-    <DataBand Name="Data2" Top="293.1" Width="287.28" Height="15.12" DataSource="QualityInspections">
+    <GroupHeaderBand Name="GroupHeader1" Top="320.45" Width="287.28" Height="9.45"/>
+    <DataBand Name="Data2" Top="333.1" Width="287.28" Height="15.12" DataSource="QualityInspections">
       <TextObject Name="Text20" Width="210" Height="15.12" Text="[QualityInspections.QualityAttribCode] - [QualityInspections.QualityAttribName]" Font="Arial, 8pt"/>
       <TextObject Name="Text21" Left="212" Width="75.28" Height="15.12" Text="[QualityInspections.Value]" HorzAlign="Right" Font="Arial, 8pt"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="311.42" Width="287.28" Height="109.62">
+    <ReportSummaryBand Name="ReportSummary1" Top="351.42" Width="287.28" Height="109.62">
       <TextObject Name="LineB" Width="287.28" Height="11.34" Text="----------------------------------------" HorzAlign="Center" Font="Courier New, 8pt"/>
       <TextObject Name="Text22" Top="13.23" Width="287.28" Height="11.34" Text="Observações:" Font="Arial, 8pt, style=Bold"/>
       <TextObject Name="Text23" Top="25.47" Width="287.28" Height="26.46" CanGrow="true" Text="[Ticket.Comments]" Font="Arial, 8pt"/>

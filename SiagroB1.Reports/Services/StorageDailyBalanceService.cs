@@ -36,7 +36,6 @@ public class StorageDailyBalanceService(
         
         var parameters = new Dictionary<string, object>
         {
-            ["COMPANY_LOGO"] = "logo.png",
             ["StorageAddressCode"] = request.Code,
             ["FromDate"] = request.FromDate,
             ["ToDate"] = request.ToDate,
