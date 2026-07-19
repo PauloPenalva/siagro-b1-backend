@@ -32,7 +32,11 @@ public class SalesContractsUpdateService(
             // SaveAsync changes
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
-            existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            // Uma leitura só do parceiro para as três colunas desnormalizadas.
+            var partner = await businessPartnerService.GetByIdAsync(entity.CardCode);
+            existingEntity.CardName = partner?.CardName;
+            existingEntity.CardFName = partner?.CardFName;
+            existingEntity.CardTaxId = partner?.TaxId;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             // Precisa ser `existingEntity`: o SetValues acima já copiou `entity`, então
             // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.

@@ -37,6 +37,17 @@ public class SalesContract : DocumentEntity
     [Column(TypeName = "VARCHAR(200)")]
     public string? CardName { get; set; }
 
+    /// <summary>
+    /// Nome fantasia e CNPJ do parceiro, desnormalizados na gravação. Não use
+    /// propriedade de navegação: em modo SAPB1 o parceiro vem do SAP e a tabela
+    /// local BUSINESS_PARTNERS está vazia — o INNER JOIN zeraria a coleção.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardFName { get; set; }
+
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CardTaxId { get; set; }
+
     public DateTime DeliveryStartDate { get; set; }
 
     public DateTime DeliveryEndDate { get; set; }

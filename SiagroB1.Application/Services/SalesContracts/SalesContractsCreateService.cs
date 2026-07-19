@@ -27,7 +27,11 @@ public class SalesContractsCreateService(
             entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
-            entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            // Uma leitura só do parceiro para as três colunas desnormalizadas.
+            var partner = await businessPartnerService.GetByIdAsync(entity.CardCode);
+            entity.CardName = partner?.CardName;
+            entity.CardFName = partner?.CardFName;
+            entity.CardTaxId = partner?.TaxId;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
