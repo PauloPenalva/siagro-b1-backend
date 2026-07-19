@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719173145_AddDenormalizedNamesForSapEntities")]
+    partial class AddDenormalizedNamesForSapEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -303,6 +306,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UomCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<string>("UomName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -642,6 +648,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UnitOfMeasureCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<string>("UnitOfMeasureName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1027,6 +1036,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UnitOfMeasureCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<string>("UnitOfMeasureName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1572,6 +1584,9 @@ namespace SiagroB1.Migrations.Migrations
                         .IsRequired()
                         .HasColumnType("VARCHAR(4) NOT NULL");
 
+                    b.Property<string>("UoMName")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -2008,6 +2023,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UnitOfMeasureCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<string>("UnitOfMeasureName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

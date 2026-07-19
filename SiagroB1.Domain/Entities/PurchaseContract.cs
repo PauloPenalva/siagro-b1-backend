@@ -61,7 +61,7 @@ public class PurchaseContract : DocumentEntity
 
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UnitOfMeasureCode { get; set; }
-    
+
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("HarvestSeason")]
     public required string HarvestSeasonCode { get; set; }

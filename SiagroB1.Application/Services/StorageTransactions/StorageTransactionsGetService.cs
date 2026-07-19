@@ -16,6 +16,9 @@ public class StorageTransactionsGetService(IUnitOfWork unitOfWork,ILogger<Storag
         {
             storageTransaction = await unitOfWork.Context.StorageTransactions
                 .Include(x => x.DocNumber)
+                .Include(x => x.ProcessingCost)
+                .Include(x => x.TruckDriver)
+                .Include(x => x.StorageAddress)
                 .Include(x => x.QualityInspections)
                 .ThenInclude(q => q.QualityAttrib)
                 .FirstOrDefaultAsync(x => x.Key == key);

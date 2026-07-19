@@ -14,6 +14,7 @@ public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddresses
         {
             return await db.Context.StorageAddresses
                 .Include(x => x.Transactions)
+                .Include(x => x.ProcessingCost)
                 .FirstOrDefaultAsync(x => x.Code == code);
         }
         catch (Exception ex)

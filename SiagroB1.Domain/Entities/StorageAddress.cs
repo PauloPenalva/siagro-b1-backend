@@ -44,7 +44,7 @@ public class StorageAddress : MasterEntity
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UoM { get; set; }
-    
+
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public string? ProcessingCostCode { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }

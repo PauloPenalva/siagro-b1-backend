@@ -13,6 +13,8 @@ public class WeighingTicketsGetService(AppDbContext context, ILogger<WeighingTic
         try
         {
             return await context.WeighingTickets
+                .Include(x => x.TruckDriver)
+                .Include(x => x.StorageAddress)
                 .Include(x => x.QualityInspections)
                 .ThenInclude(x => x.QualityAttrib)
                 .FirstOrDefaultAsync(x => x.Key == key);

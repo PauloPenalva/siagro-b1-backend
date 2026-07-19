@@ -24,7 +24,15 @@ public class SalesInvoicesUpdateService(
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
-            
+            existingEntity.TruckingCompanyName =
+                entity.TruckingCompanyCode != null
+                    ? (await businessPartnerService.GetByIdAsync(entity.TruckingCompanyCode))?.CardName
+                    : string.Empty;
+            existingEntity.DeliveryCardName =
+                entity.DeliveryCardCode != null
+                    ? (await businessPartnerService.GetByIdAsync(entity.DeliveryCardCode))?.CardName
+                    : string.Empty;
+
             await db.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

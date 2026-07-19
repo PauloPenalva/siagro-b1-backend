@@ -34,6 +34,7 @@ public class OwnershipTransfer : DocumentEntity
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UomCode { get; set; }
 
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 }

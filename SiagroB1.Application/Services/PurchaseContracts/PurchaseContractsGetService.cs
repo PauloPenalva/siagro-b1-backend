@@ -22,6 +22,8 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
                 .Include(p => p.Taxes)
                     .ThenInclude(t => t.Tax)
                 .Include(x => x.ShipmentReleases)
+                .Include(x => x.HarvestSeason)
+                .Include(x => x.LogisticRegion)
                 .Include(x => x.DocNumber)
                 .Include(x => x.Brokers)
                 .Include(x => x.Allocations)

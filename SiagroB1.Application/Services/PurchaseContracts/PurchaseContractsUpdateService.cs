@@ -41,8 +41,10 @@ public class PurchaseContractsUpdateService(
             existingEntity.UpdatedBy = userName;
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;;
-            entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+            // Precisa ser `existingEntity`: o SetValues acima já copiou `entity`, então
+            // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.
+            existingEntity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;
+            existingEntity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
 
             await context.SaveChangesAsync();
         }

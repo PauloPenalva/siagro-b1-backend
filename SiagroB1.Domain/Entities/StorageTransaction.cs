@@ -12,7 +12,9 @@ public class StorageTransaction : DocumentEntity
     public string? Code { get; set; }
     
     [Column(TypeName = "VARCHAR(50)")]
+    [ForeignKey(nameof(StorageAddress))]
     public string? StorageAddressCode { get; set; }
+    public virtual StorageAddress? StorageAddress { get; set; }
     
     public DateTime? TransactionDate { get; set; } = DateTime.Now.Date;
     
@@ -37,7 +39,7 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UnitOfMeasureCode { get; set; }
-    
+
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal GrossWeight { get; set; }
     
@@ -79,7 +81,9 @@ public class StorageTransaction : DocumentEntity
     public Guid? ShippingOrderKey { get; set; }
     
     [Column(TypeName = "VARCHAR(11) NULL")]
+    [ForeignKey(nameof(TruckDriver))]
     public string? TruckDriverCode { get; set; }
+    public virtual TruckDriver? TruckDriver { get; set; }
     
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public string? TruckCode { get; set; }

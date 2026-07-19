@@ -15,6 +15,8 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await context.SalesContracts
                 .Include(x => x.DocNumber)
+                .Include(x => x.HarvestSeason)
+                .Include(x => x.LogisticRegion)
                 .Include(x => x.SalesInvoiceItems)
                 .ThenInclude(x => x.SalesInvoice)
                 .FirstOrDefaultAsync(p => p.Key == key);

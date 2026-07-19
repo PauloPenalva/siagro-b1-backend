@@ -52,10 +52,13 @@ public class SalesContract : DocumentEntity
     [Column(TypeName = "VARCHAR(200)")]
     public string? ItemName { get; set; }
     
+    // Não declare navegação para a UoM: em modo SAPB1 ela vem do SAP e a tabela
+    // local UNITS_OF_MEASURE está vazia. (Havia aqui um
+    // [ForeignKey("UnitOfMeasureModel")] apontando para propriedade inexistente.)
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
-    [ForeignKey("UnitOfMeasureModel")]
     public required string UnitOfMeasureCode { get; set; }
-    
+
+
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey("HarvestSeason")]
     public required string HarvestSeasonCode { get; set; }

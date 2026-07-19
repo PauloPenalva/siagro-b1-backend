@@ -13,7 +13,9 @@ public class StorageInvoice : DocumentEntity
     public string? Code { get; set; }
 
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
+    [ForeignKey(nameof(StorageAddress))]
     public required string StorageAddressCode { get; set; }
+    public virtual StorageAddress? StorageAddress { get; set; }
 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string CardCode { get; set; }

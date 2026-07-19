@@ -30,9 +30,13 @@ public class SalesInvoicesCreateService(
             salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             salesInvoice.CardName = (await businessPartnerService.GetByIdAsync(salesInvoice.CardCode))?.CardName;
-            salesInvoice.TruckingCompanyName = 
-                salesInvoice.TruckingCompanyCode != null 
+            salesInvoice.TruckingCompanyName =
+                salesInvoice.TruckingCompanyCode != null
                     ? (await businessPartnerService.GetByIdAsync(salesInvoice.TruckingCompanyCode))?.CardName
+                    : string.Empty;
+            salesInvoice.DeliveryCardName =
+                salesInvoice.DeliveryCardCode != null
+                    ? (await businessPartnerService.GetByIdAsync(salesInvoice.DeliveryCardCode))?.CardName
                     : string.Empty;
 
             foreach (var item in salesInvoice.Items)

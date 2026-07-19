@@ -16,8 +16,16 @@ public class PurchaseContractBroker
     /// <summary>
     /// SAP ENTITY
     /// </summary>
-    [Column(TypeName = "VARCHAR(10) NOT NULL")] 
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string CardCode { get; set; }
+
+    /// <summary>
+    /// Nome do parceiro, desnormalizado na gravação. Não use propriedade de
+    /// navegação aqui: em modo SAPB1 o parceiro vem do SAP e a tabela local
+    /// BUSINESS_PARTNERS está vazia — o INNER JOIN zeraria a coleção.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardName { get; set; }
     
     [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
     public decimal Commission { get; set; }

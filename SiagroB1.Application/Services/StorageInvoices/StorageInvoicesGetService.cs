@@ -14,6 +14,7 @@ public class StorageInvoicesGetService(IUnitOfWork db, ILogger<StorageInvoicesGe
         {
             return await db.Context.StorageInvoices
                 .Include(x => x.Items)
+                .Include(x => x.StorageAddress)
                 .FirstOrDefaultAsync(x => x.Key == key);
         }
         catch (Exception ex)

@@ -18,6 +18,7 @@ public class MenuItemsGetService(
         try
         {
             return await db.MenuItems
+                .Include(x => x.Parent)
                 .Include(x => x.Children)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
