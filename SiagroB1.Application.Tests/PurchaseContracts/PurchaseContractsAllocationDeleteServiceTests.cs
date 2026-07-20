@@ -198,6 +198,72 @@ public class PurchaseContractsAllocationDeleteServiceTests
         Assert.Equal(1000m, await AvailableAsync());
     }
 
+    /// <summary>
+    /// Cria uma entrada em armazenagem apontando para o romaneio de compra da alocação.
+    /// </summary>
+    private async Task SeedStorageEntryAsync(
+        StorageTransaction purchase,
+        StorageEntryTransactionStatus status = StorageEntryTransactionStatus.Confirmed)
+    {
+        _db.Context.StorageEntryTransactions.Add(new StorageEntryTransaction
+        {
+            Key = Guid.NewGuid(),
+            PurchaseStorageTransactionKey = purchase.Key,
+            ReceiptStorageTransactionKey = Guid.NewGuid(),
+            PurchaseContractKey = Guid.NewGuid(),
+            StorageAddressCode = "LOTE-01",
+            Status = status,
+            AllocatedVolume = purchase.NetWeight,
+            ReceiptNetWeight = purchase.NetWeight,
+        });
+        await _db.Context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task ExecuteWithTransactionAsync_AllocationOfStorageEntry_ThrowsAndKeepsAllocation()
+    {
+        // Excluir só a alocação devolveria o volume ao contrato, mas deixaria o
+        // produto no lote e a liberação consumida — a entrada tem de ser estornada.
+        var st = NewStorageTransaction(netWeight: 1000m, availableVolume: 0m);
+        var alloc = NewAllocation(st, volume: 1000m);
+        await SeedAsync(st, alloc);
+        await SeedStorageEntryAsync(st);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            CreateService().ExecuteWithTransactionAsync(alloc.Key, "tester"));
+
+        Assert.Contains("entrada em armazenagem", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteWithTransactionAsync_AllocationOfCancelledStorageEntry_IsAllowed()
+    {
+        // Entrada já estornada não guarda mais o par: nada a proteger.
+        var st = NewStorageTransaction(netWeight: 1000m, availableVolume: 0m);
+        var alloc = NewAllocation(st, volume: 1000m);
+        await SeedAsync(st, alloc);
+        await SeedStorageEntryAsync(st, StorageEntryTransactionStatus.Cancelled);
+
+        await CreateService().ExecuteWithTransactionAsync(alloc.Key, "tester");
+
+        Assert.Equal(0, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AllocationOfStorageEntry_IsAllowed_SoCancelServiceCanCascade()
+    {
+        // O guard vale só para a tela. O estorno chama ExecuteAsync e precisa passar.
+        var st = NewStorageTransaction(netWeight: 1000m, availableVolume: 0m);
+        var alloc = NewAllocation(st, volume: 1000m);
+        await SeedAsync(st, alloc);
+        await SeedStorageEntryAsync(st);
+
+        await CreateService().ExecuteAsync(alloc.Key, "tester");
+
+        Assert.Equal(0, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
+
     [Fact]
     public async Task ExecuteWithTransactionAsync_PropagatesOriginalExceptionType()
     {

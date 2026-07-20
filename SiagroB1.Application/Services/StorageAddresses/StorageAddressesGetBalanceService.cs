@@ -1,11 +1,12 @@
 ﻿using System.Data;
 using Dapper;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Application.Services.StorageAddresses;
 
 public class StorageAddressesGetBalanceService(
         IDbConnection conn
-    )
+    ) : IStorageAddressBalanceReader
 {
     public decimal GetBalance(string storageAddressCode)
     {

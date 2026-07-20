@@ -25,6 +25,21 @@ public class PurchaseContractsAllocationDeleteService(
         if (contract?.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível estornar a alocação.");
 
+        // A alocação de uma entrada em armazenagem faz parte de um agregado: soltá-la
+        // aqui devolveria o volume ao contrato mas deixaria o produto no lote e a
+        // liberação consumida. O estorno da entrada é o único caminho consistente
+        // (e ele passa por ExecuteAsync, sem tocar neste guard).
+        var storageEntry = await db.Context.StorageEntryTransactions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                x.PurchaseStorageTransactionKey == alloc.StorageTransactionKey &&
+                x.Status == StorageEntryTransactionStatus.Confirmed);
+
+        if (storageEntry != null)
+            throw new ApplicationException(
+                "Esta alocação pertence a uma entrada em armazenagem própria. " +
+                "Estorne a entrada correspondente em vez de excluir a alocação.");
+
         try
         {
             await db.BeginTransactionAsync();

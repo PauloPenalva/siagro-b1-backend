@@ -19,6 +19,7 @@ using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
+using SiagroB1.Application.Services.StorageEntryTransactions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.Users;
@@ -255,6 +256,10 @@ public static class ServiceCollectionExtensions
          
         // shipping transactions
         services.AddScoped<ShippingTransactionsCreateService>();
+
+        // storage entry transactions (entrada de compra em armazenagem própria)
+        services.AddScoped<StorageEntryTransactionsCreateService>();
+        services.AddScoped<StorageEntryTransactionsCancelService>();
         
         // storage addresses
         services.AddScoped<StorageAddressesCreateService>();
@@ -264,6 +269,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesUpdateService>();
         services.AddScoped<StorageAddressesListOpenedByItemService>();
         services.AddScoped<StorageAddressesGetBalanceService>();
+        services.AddScoped<IStorageAddressBalanceReader>(sp =>
+            sp.GetRequiredService<StorageAddressesGetBalanceService>());
         services.AddScoped<StorageAddressesCalculationOrchestratorService>();
         services.AddScoped<StorageAddressesDailyBalanceBuilderService>();
         services.AddScoped<StorageAddressesStorageChargeCalculatorService>();

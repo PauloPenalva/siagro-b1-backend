@@ -36,6 +36,7 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
             .AddProperty(typeof(StorageAddress).GetProperty(nameof(StorageAddress.Balance)));
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
+        modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
         modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
@@ -100,6 +101,16 @@ public static class ODataConfigurations
         shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
         shippingTransactionCreate.Returns<IActionResult>();
         
+        var storageEntryTransactionCreate = modelBuilder.Action("StorageEntryTransactionsCreate");
+        storageEntryTransactionCreate.Parameter<Guid>("PurchaseContractKey");
+        storageEntryTransactionCreate.Parameter<string>("StorageAddressCode");
+        storageEntryTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
+        storageEntryTransactionCreate.Returns<IActionResult>();
+
+        var storageEntryTransactionCancel = modelBuilder.Action("StorageEntryTransactionsCancel");
+        storageEntryTransactionCancel.Parameter<Guid>("Key");
+        storageEntryTransactionCancel.Returns<IActionResult>();
+
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
         storageTransactionsConfirmed.Returns<IActionResult>();
