@@ -36,6 +36,14 @@ public class SalesInvoiceItem
     
     public Guid? SalesContractKey { get; set; }
     public virtual SalesContract? SalesContract { get; set; }
+
+    /// <summary>
+    /// Liberação de entrega de venda selecionada no faturamento. Transporta a chave do
+    /// dialog até o vínculo dos romaneios (<c>SalesInvoicesCreateService</c>) e serve de
+    /// rastro de auditoria da liberação consumida por esta linha.
+    /// </summary>
+    public Guid? SalesShipmentReleaseKey { get; set; }
+    public virtual SalesShipmentRelease? SalesShipmentRelease { get; set; }
     
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal DeliveredQuantity { get; set; }

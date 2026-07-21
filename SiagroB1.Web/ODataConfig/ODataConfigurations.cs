@@ -49,7 +49,13 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvaiableVolume)));
-        
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalShipmentReleases)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalAvailableToRelease)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.PhysicalAvailableToRelease)));
+
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
@@ -58,6 +64,13 @@ public static class ODataConfigurations
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.ConsumedQuantity)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.ReturnedToContractQuantity)));
+        modelBuilder.EntitySet<SalesShipmentRelease>("SalesShipmentReleases");
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesShipmentRelease))
+            .AddProperty(typeof(SalesShipmentRelease).GetProperty(nameof(SalesShipmentRelease.AvailableQuantity)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesShipmentRelease))
+            .AddProperty(typeof(SalesShipmentRelease).GetProperty(nameof(SalesShipmentRelease.ConsumedQuantity)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesShipmentRelease))
+            .AddProperty(typeof(SalesShipmentRelease).GetProperty(nameof(SalesShipmentRelease.ReturnedToContractQuantity)));
         modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
@@ -328,7 +341,51 @@ public static class ODataConfigurations
         var shipmentReleasesReopen = modelBuilder.Action("ShipmentReleasesReopen");
         shipmentReleasesReopen.Parameter<Guid>("Key");
         shipmentReleasesReopen.Returns<IActionResult>();
-        
+
+        // ===== Liberações de entrega de VENDA (SalesShipmentRelease) =====
+        var salesShipmentReleasesApprovation = modelBuilder.Action("SalesShipmentReleasesApprovation");
+        salesShipmentReleasesApprovation.Parameter<Guid>("Key");
+        salesShipmentReleasesApprovation.Returns<IActionResult>();
+
+        var salesShipmentReleasesCancelation = modelBuilder.Action("SalesShipmentReleasesCancelation");
+        salesShipmentReleasesCancelation.Parameter<Guid>("Key");
+        salesShipmentReleasesCancelation.Parameter<string>("CancellationReason");
+        salesShipmentReleasesCancelation.Returns<IActionResult>();
+
+        var salesShipmentReleasesPause = modelBuilder.Action("SalesShipmentReleasesPause");
+        salesShipmentReleasesPause.Parameter<Guid>("Key");
+        salesShipmentReleasesPause.Returns<IActionResult>();
+
+        var salesShipmentReleasesRecalculateBalance = modelBuilder.Action("SalesShipmentReleasesRecalculateBalance");
+        salesShipmentReleasesRecalculateBalance.Parameter<Guid>("Key");
+        salesShipmentReleasesRecalculateBalance.Returns<SalesShipmentReleaseRecalcResultDto>();
+
+        var salesShipmentReleasesRecalculateAllBalances = modelBuilder.Action("SalesShipmentReleasesRecalculateAllBalances");
+        salesShipmentReleasesRecalculateAllBalances.Returns<SalesShipmentReleaseRecalcAllResultDto>();
+
+        var salesShipmentReleasesClose = modelBuilder.Action("SalesShipmentReleasesClose");
+        salesShipmentReleasesClose.Parameter<Guid>("Key");
+        salesShipmentReleasesClose.Returns<IActionResult>();
+
+        var salesShipmentReleasesReopen = modelBuilder.Action("SalesShipmentReleasesReopen");
+        salesShipmentReleasesReopen.Parameter<Guid>("Key");
+        salesShipmentReleasesReopen.Returns<IActionResult>();
+
+        var salesShipmentReleasesGetAvailable = modelBuilder.Function("SalesShipmentReleasesGetAvailable");
+        salesShipmentReleasesGetAvailable.Parameter<string>("ItemCode");
+        salesShipmentReleasesGetAvailable.Returns<ICollection<SalesShipmentReleaseAvailableDto>>();
+
+        var salesContractsClose = modelBuilder.Action("SalesContractsClose");
+        salesContractsClose.Parameter<Guid>("Key");
+        salesContractsClose.Returns<IActionResult>();
+
+        var salesContractsReopen = modelBuilder.Action("SalesContractsReopen");
+        salesContractsReopen.Parameter<Guid>("Key");
+        salesContractsReopen.Returns<IActionResult>();
+
+        var salesContractsGetShipmentReleasesAvailable = modelBuilder.Function("SalesContractsGetShipmentReleasesAvailable");
+        salesContractsGetShipmentReleasesAvailable.Returns<SalesContract>();
+
         var shipmentBillingCreateSalesInvoice = 
             modelBuilder.Action("ShipmentBillingCreateSalesInvoice");
         shipmentBillingCreateSalesInvoice.EntityParameter<SalesInvoice>("SalesInvoice");

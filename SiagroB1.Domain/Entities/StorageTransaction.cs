@@ -75,6 +75,14 @@ public class StorageTransaction : DocumentEntity
     
     public Guid? ShipmentReleaseKey  { get; set; }
     public virtual ShipmentRelease? ShipmentRelease { get; set; }
+
+    /// <summary>
+    /// Liberação de entrega de VENDA que este romaneio consome. Gravada no faturamento
+    /// (<c>SalesInvoicesCreateService</c>) e limpa no cancelamento da invoice. Independente
+    /// de <see cref="ShipmentReleaseKey"/> (que segue exclusivo de compra).
+    /// </summary>
+    public Guid? SalesShipmentReleaseKey { get; set; }
+    public virtual SalesShipmentRelease? SalesShipmentRelease { get; set; }
     
     public TransactionCode? TransactionOrigin { get; set; } 
     

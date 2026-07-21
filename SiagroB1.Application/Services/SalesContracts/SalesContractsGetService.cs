@@ -19,6 +19,10 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
                 .Include(x => x.LogisticRegion)
                 .Include(x => x.SalesInvoiceItems)
                 .ThenInclude(x => x.SalesInvoice)
+                // Necessário para a seção "Liberações de Entrega" do Detail ($expand
+                // serializa a partir da nav carregada) e para os computed
+                // TotalShipmentReleases/TotalAvailableToRelease no header.
+                .Include(x => x.SalesShipmentReleases)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)

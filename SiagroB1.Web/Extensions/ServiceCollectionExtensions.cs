@@ -16,6 +16,7 @@ using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
@@ -214,6 +215,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAttachmentsCreateService>();
         services.AddScoped<SalesContractsAttachmentsDeleteService>();
         services.AddScoped<SalesContractsAttachmentsGetService>();
+        services.AddScoped<SalesContractsCloseService>();
+        services.AddScoped<SalesContractsReopenService>();
+        services.AddScoped<SalesContractsGetShipmentReleasesAvailableService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
@@ -249,6 +253,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentReleasesUpdateService>();
         services.AddScoped<ShipmentReleasesPauseService>();
         services.AddScoped<ShipmentReleasesPurchaseContractsService>();
+
+        // sales shipment releases
+        services.AddScoped<SalesShipmentReleasesRecalculateShippedService>();
+        services.AddScoped<SalesShipmentReleasesRecalculateBalanceService>();
+        services.AddScoped<SalesShipmentReleasesCloseService>();
+        services.AddScoped<SalesShipmentReleasesReopenService>();
+        services.AddScoped<SalesShipmentReleaseMovementGuardService>();
+        services.AddScoped<SalesShipmentReleasesApprovationService>();
+        services.AddScoped<SalesShipmentReleasesCancelationService>();
+        services.AddScoped<SalesShipmentReleasesCreateService>();
+        services.AddScoped<SalesShipmentReleasesDeleteService>();
+        services.AddScoped<SalesShipmentReleasesGetService>();
+        services.AddScoped<SalesShipmentReleasesUpdateService>();
+        services.AddScoped<SalesShipmentReleasesPauseService>();
+        services.AddScoped<SalesShipmentReleasesGetAvailableService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();

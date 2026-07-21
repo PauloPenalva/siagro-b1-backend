@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -10,6 +11,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesConfirmService(
     IUnitOfWork db,
+    SalesShipmentReleasesRecalculateShippedService recalcShipped,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -31,11 +33,14 @@ public class SalesInvoicesConfirmService(
 
         try
         {
+            var affectedReleaseKeys = new HashSet<Guid>();
+
             if (invoice.InvoiceType == SalesInvoiceType.Return)
             {
                 await ProcessReturnInvoiceAsync(
                     invoice,
-                    userName);
+                    userName,
+                    affectedReleaseKeys);
             }
             else
             {
@@ -49,6 +54,11 @@ public class SalesInvoicesConfirmService(
             invoice.ApprovedAt = DateTime.Now;
 
             await db.SaveChangesAsync();
+
+            // Romaneios da origem viraram Returned → saem da soma da liberação (saldo restaurado).
+            foreach (var releaseKey in affectedReleaseKeys)
+                await recalcShipped.RecalculateAsync(releaseKey);
+
             await db.CommitAsync();
         }
         catch
@@ -92,7 +102,8 @@ public class SalesInvoicesConfirmService(
 
     private async Task ProcessReturnInvoiceAsync(
         SalesInvoice returnInvoice,
-        string userName)
+        string userName,
+        HashSet<Guid> affectedReleaseKeys)
     {
         foreach (var item in returnInvoice.Items)
         {
@@ -125,6 +136,9 @@ public class SalesInvoicesConfirmService(
 
         foreach (var transaction in originInvoice.SalesTransactions)
         {
+            if (transaction.SalesShipmentReleaseKey is { } releaseKey)
+                affectedReleaseKeys.Add(releaseKey);
+
             transaction.TransactionStatus =
                 StorageTransactionsStatus.Returned;
 

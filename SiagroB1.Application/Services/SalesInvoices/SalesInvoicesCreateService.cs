@@ -45,25 +45,33 @@ public class SalesInvoicesCreateService(
             }
 
             var salesTransactions = new List<Guid>();
-            
+
             foreach (var salesTransaction in salesInvoice.SalesTransactions)
             {
                 salesTransactions.Add(salesTransaction.Key);
             }
-            
+
             salesInvoice.SalesTransactions.Clear();
-            
+
             await db.Context.SalesInvoices.AddAsync(salesInvoice);
+
+            // Liberação de entrega de venda selecionada no faturamento (um contrato/liberação
+            // por invoice — mesmo produto/veículo). Grava-se a chave nos romaneios para que a
+            // liberação consuma o saldo; o recálculo do ShippedQuantity é disparado pelo
+            // orquestrador (ShipmentBillingCreateSalesInvoiceService) após o SaveChanges.
+            var salesShipmentReleaseKey = salesInvoice.Items
+                .FirstOrDefault(i => i.SalesShipmentReleaseKey != null)?.SalesShipmentReleaseKey;
 
             foreach (var transactionKey in salesTransactions)
             {
                 var existingTransaction = await db.Context.StorageTransactions
                     .FirstOrDefaultAsync(x => x.Key == transactionKey) ??
                                           throw new ApplicationException($"Transaction {transactionKey} not found.");
-                
+
                 existingTransaction.InvoiceNumber = salesInvoice.InvoiceNumber;
                 existingTransaction.InvoiceQty = existingTransaction.GrossWeight;
                 existingTransaction.SalesInvoiceKey = salesInvoice.Key;
+                existingTransaction.SalesShipmentReleaseKey = salesShipmentReleaseKey;
                 existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
             }
             

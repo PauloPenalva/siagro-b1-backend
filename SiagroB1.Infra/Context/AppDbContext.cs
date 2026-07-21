@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractAllocation> PurchaseContractsAllocations { get; set; }
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
+    public DbSet<SalesShipmentRelease> SalesShipmentReleases { get; set; }
     public DbSet<StorageAddress> StorageAddresses { get; set; }
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }

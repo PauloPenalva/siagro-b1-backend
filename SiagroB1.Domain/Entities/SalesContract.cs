@@ -103,7 +103,9 @@ public class SalesContract : DocumentEntity
     public string? ApprovalComments { get; set; }
     
     public ICollection<SalesInvoiceItem>  SalesInvoiceItems { get; set; } = [];
-    
+
+    public ICollection<SalesShipmentRelease> SalesShipmentReleases { get; set; } = [];
+
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
     
     public void AddAttachment(SalesContractAttachment attachment)
@@ -136,5 +138,64 @@ public class SalesContract : DocumentEntity
     [NotMapped]
     public bool HasInvoices => SalesInvoiceItems?
         .Any(i => i.SalesInvoice?.InvoiceStatus != InvoiceStatus.Cancelled) ?? false;
-    
+
+    /// <summary>
+    /// Saldo de liberação de entrega. Espelha <c>PurchaseContract</c>: soma o
+    /// <see cref="SalesShipmentRelease.ConsumedQuantity"/> de TODAS as liberações
+    /// (inclusive canceladas, que contribuem só com o efetivamente romaneado/faturado).
+    /// Independente de <see cref="AvaiableVolume"/> (baseado em nota) — coexistem.
+    /// </summary>
+    [NotMapped]
+    public decimal TotalShipmentReleases =>
+        decimal.Round(
+            (SalesShipmentReleases?
+                .Sum(x => x.ConsumedQuantity) ?? 0),
+            2, MidpointRounding.ToEven);
+
+    [NotMapped]
+    public decimal TotalAvailableToRelease =>
+        decimal.Round(TotalVolume - TotalShipmentReleases, 2, MidpointRounding.ToEven);
+
+    [NotMapped]
+    public decimal TotalShipmentReleasesWithoutProvisioning =>
+        decimal.Round(
+            (SalesShipmentReleases?
+                .Where(x =>
+                    x.Status is ReleaseStatus.Actived or ReleaseStatus.Completed
+                             or ReleaseStatus.Paused or ReleaseStatus.Cancelled)
+                .Sum(x => x.ConsumedQuantity) ?? 0),
+            2, MidpointRounding.ToEven);
+
+    [NotMapped]
+    public decimal TotalAvailableToReleaseWithoutProvisioning =>
+        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
+
+    [NotMapped]
+    public bool HasShipmentReleases => SalesShipmentReleases
+        .Any(x => x.Status != ReleaseStatus.Cancelled || x.ShippedQuantity > 0);
+
+    /// <summary>
+    /// Volume reservado por liberações de entrega ABERTAS (Pending/Actived/Paused) que
+    /// ainda não virou nota — o saldo não romaneado de cada uma (<c>AvailableQuantity</c>).
+    /// A parte já faturada da liberação já está descontada em <see cref="AvaiableVolume"/>
+    /// (via <c>SalesInvoiceItems</c>), então aqui contamos só o não faturado para não duplicar.
+    /// </summary>
+    [NotMapped]
+    public decimal ReservedByOpenReleases =>
+        decimal.Round(
+            (SalesShipmentReleases?
+                .Where(r => r.Status is ReleaseStatus.Pending or ReleaseStatus.Actived or ReleaseStatus.Paused)
+                .Sum(r => r.AvailableQuantity) ?? 0),
+            3, MidpointRounding.ToEven);
+
+    /// <summary>
+    /// Saldo FÍSICO ainda liberável: o disponível por nota (<see cref="AvaiableVolume"/>,
+    /// já líquido do que foi faturado — inclusive por fora de liberação, no fluxo legado)
+    /// menos o já reservado por liberações abertas. Impede liberar volume que o contrato
+    /// não tem mais para embarcar. Vale: physical = AvaiableVolume − ReservedByOpenReleases.
+    /// </summary>
+    [NotMapped]
+    public decimal PhysicalAvailableToRelease =>
+        decimal.Round(AvaiableVolume - ReservedByOpenReleases, 3, MidpointRounding.ToEven);
+
 }
