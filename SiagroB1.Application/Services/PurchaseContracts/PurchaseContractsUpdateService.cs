@@ -66,6 +66,8 @@ public class PurchaseContractsUpdateService(
         price.FreightCost = entity.FreightCostStandard;
         price.FixationVolume = entity.TotalVolume;
         price.FixationPrice = entity.StandardPrice;
-        price.Status = PriceFixationStatus.InApproval;
+        // Confirmed pelo mesmo motivo da criação: é o espelho do preço já acordado.
+        // Devolver para InApproval aqui zeraria TotalPrice/TotalTax a cada edição.
+        price.Status = PriceFixationStatus.Confirmed;
     }
 }

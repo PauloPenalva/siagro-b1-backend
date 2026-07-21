@@ -119,6 +119,16 @@ public class PurchaseContract : DocumentEntity
     public decimal AllocatedVolume { get; set; }
 
     /// <summary>
+    /// Volume já fixado (persistido, derivado). Soma <see cref="PurchaseContractPriceFixation.FixationVolume"/>
+    /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas
+    /// pessoas não fixem a mesma tonelagem enquanto a diretoria decide.
+    /// Recalculado exclusivamente por PurchaseContractsFixedVolumeService e protegido por
+    /// <see cref="RowVersion"/>. Não depende de navegação em runtime — funciona sob $select do OData.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal FixedVolume { get; set; }
+
+    /// <summary>
     /// Token de concorrência otimista (SQL Server rowversion). Protege
     /// <see cref="AllocatedVolume"/> contra alocações concorrentes ao mesmo contrato.
     /// </summary>
@@ -136,25 +146,20 @@ public class PurchaseContract : DocumentEntity
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
     
     [NotMapped]
-    public decimal FixedVolume => 
-        decimal.Round(PriceFixations?
-                .Where(x => x.Status is PriceFixationStatus.Confirmed
-                    or PriceFixationStatus.InApproval)
-                .Sum(x => x.FixationVolume ) ?? 0, 
-            2, 
-            MidpointRounding.ToEven) ;
-    
-    [NotMapped]
     public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume;
     
+    /// <remarks>
+    /// Conta APENAS fixações confirmadas. Uma fixação em aprovação reserva volume
+    /// (ver <see cref="FixedVolume"/>) mas não pode contaminar a base tributária —
+    /// PurchaseContractTax.TotalTax deriva deste valor.
+    /// </remarks>
     [NotMapped]
-    public decimal TotalPrice => 
+    public decimal TotalPrice =>
         decimal.Round(
             (PriceFixations?
-                .Where(x => x.Status is PriceFixationStatus.Confirmed 
-                    or PriceFixationStatus.InApproval)
+                .Where(x => x.Status == PriceFixationStatus.Confirmed)
                 .Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
-            2 , 
+            2 ,
             MidpointRounding.ToEven) ;
     
     [NotMapped]

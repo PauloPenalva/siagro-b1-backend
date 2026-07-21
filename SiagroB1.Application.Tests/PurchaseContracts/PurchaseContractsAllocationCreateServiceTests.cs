@@ -14,6 +14,20 @@ public class PurchaseContractsAllocationCreateServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
+    /// <summary>
+    /// A safra PRECISA existir. <see cref="PurchaseContract.HarvestSeasonCode"/> é uma FK
+    /// obrigatória (<c>required string</c>), então o <c>.Include(x =&gt; x.HarvestSeason)</c> de
+    /// <see cref="PurchaseContractsGetService.GetByIdAsync"/> vira INNER JOIN: sem a linha em
+    /// HARVEST_SEASSONS o contrato some da consulta e o serviço recebe null — o que
+    /// silenciosamente pula a guarda de contrato encerrado (<c>?.</c>) e a atribuição de
+    /// AllocatedVolume (<c>if (purchaseContract != null)</c>), sem erro nenhum.
+    /// </summary>
+    public PurchaseContractsAllocationCreateServiceTests()
+    {
+        _db.Context.HarvestSeasons.Add(new HarvestSeason { Code = "24/25", Name = "Safra 24/25" });
+        _db.Context.SaveChanges();
+    }
+
     private PurchaseContractsAllocationCreateService CreateService() => new(
         _db,
         new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance),

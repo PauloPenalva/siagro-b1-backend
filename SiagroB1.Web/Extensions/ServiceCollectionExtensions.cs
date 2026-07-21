@@ -171,8 +171,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsDeleteService>();
         services.AddScoped<PurchaseContractsGetService>();
         services.AddScoped<PurchaseContractsGetShipmentReleasesAvailableService>();
-        services.AddScoped<PurchaseContractsPriceFixationsCreateService>();
-        services.AddScoped<PurchaseContractsPriceFixationsDeleteService>();
+        services.AddScoped<PurchaseContractsFixedVolumeService>();
+        services.AddScoped<PurchaseContractsPriceFixationsApprovalService>();
+        services.AddScoped<PurchaseContractsPriceFixationsCancelService>();
+        services.AddScoped<PurchaseContractsPriceFixationCreateService>();
+        services.AddScoped<PurchaseContractsPriceFixationsRejectService>();
+        services.AddScoped<PurchaseContractsPriceFixationDeleteService>();
         services.AddScoped<PurchaseContractsPriceFixationsGetService>();
         services.AddScoped<PurchaseContractsPriceFixationsUpdateService>();
         services.AddScoped<PurchaseContractsQualityParametersCreateService>();

@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720182459_ConfirmFixedContractAutoFixations")]
+    partial class ConfirmFixedContractAutoFixations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -820,9 +823,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
-                    b.Property<DateTime?>("FinancialDueDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("FixationDate")
                         .HasColumnType("datetime2");
 
@@ -834,9 +834,6 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<decimal>("FreightCost")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
-
-                    b.Property<string>("PaymentDetails")
-                        .HasColumnType("VARCHAR(1000)");
 
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");

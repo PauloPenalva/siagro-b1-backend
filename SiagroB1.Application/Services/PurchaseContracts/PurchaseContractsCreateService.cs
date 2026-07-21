@@ -57,6 +57,14 @@ public class PurchaseContractsCreateService(
             {
                 await CreatePriceFixation(entity);
             }
+            else
+            {
+                // Contrato a fixar (PAF) não tem preço na negociação: o preço nasce das
+                // fixações aprovadas pela diretoria. Zerado no servidor porque TotalStandard
+                // (TotalVolume × StandardPrice) mostraria um valor fantasma que nunca foi
+                // acordado — a UI desabilita o campo, mas um POST direto não passa por ela.
+                entity.StandardPrice = 0;
+            }
             
             await context.PurchaseContracts.AddAsync(entity);
             await context.SaveChangesAsync();
@@ -81,7 +89,11 @@ public class PurchaseContractsCreateService(
             FreightCost = entity.FreightCostStandard,
             FixationVolume = entity.TotalVolume,
             FixationPrice = entity.StandardPrice,
-            Status = PriceFixationStatus.InApproval
+            // Confirmed, não InApproval: num contrato de preço fixo o preço já foi acordado
+            // na negociação — esta fixação é o espelho dele, não um pedido à diretoria.
+            // Nascer InApproval zeraria TotalPrice (que conta só Confirmed) e, com ele,
+            // TotalTax; e ainda entulharia a fila de aprovação com item inaprovável.
+            Status = PriceFixationStatus.Confirmed
         };
 
         await context.PurchaseContractsPriceFixations.AddAsync(price);

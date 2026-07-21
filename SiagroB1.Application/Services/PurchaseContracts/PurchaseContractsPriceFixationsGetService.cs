@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
@@ -43,6 +44,26 @@ public class PurchaseContractsPriceFixationsGetService(AppDbContext context, ILo
     {
         return context.PurchaseContractsPriceFixations
             .Where(x => x.PurchaseContractKey == parentKey)
+            .AsNoTracking();
+    }
+
+    /// <summary>
+    /// Fila da diretoria: fixações em aprovação de contratos a fixar (PAF), de todos os
+    /// contratos. Inclui o contrato para a UI mostrar código, fornecedor e produto sem
+    /// nova query.
+    /// </summary>
+    /// <remarks>
+    /// Filtra por <see cref="ContractType.ToBeDetermined"/> de propósito: contrato de preço
+    /// fixo tem uma fixação automática que espelha o preço já acordado na negociação, e ela
+    /// não é um pedido de aprovação. Sem este filtro a fila nasce com centenas de itens que
+    /// ninguém deve aprovar.
+    /// </remarks>
+    public IQueryable<PurchaseContractPriceFixation> QueryPending()
+    {
+        return context.PurchaseContractsPriceFixations
+            .Include(x => x.PurchaseContract)
+            .Where(x => x.Status == PriceFixationStatus.InApproval
+                        && x.PurchaseContract!.Type == ContractType.ToBeDetermined)
             .AsNoTracking();
     }
 

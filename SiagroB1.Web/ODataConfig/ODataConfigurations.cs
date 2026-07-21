@@ -244,6 +244,34 @@ public static class ODataConfigurations
         purchaseContractsClose.Parameter<Guid>("Key");
         purchaseContractsClose.Returns<IActionResult>();
 
+        // Criação de fixação como action (e não POST na navegação): o frontend invoca
+        // pelo ODataModel e a linha nova aparece sem recarregar a rota.
+        var priceFixationCreate = modelBuilder.Action("PurchaseContractsPriceFixationCreate");
+        priceFixationCreate.Parameter<Guid>("PurchaseContractKey");
+        priceFixationCreate.EntityParameter<PurchaseContractPriceFixation>("Fixation");
+        priceFixationCreate.Returns<IActionResult>();
+
+        // Exclusão de fixação em aprovação como action. Key é a chave da FIXAÇÃO.
+        var priceFixationDelete = modelBuilder.Action("PurchaseContractsPriceFixationDelete");
+        priceFixationDelete.Parameter<Guid>("Key");
+        priceFixationDelete.Returns<IActionResult>();
+
+        // Fixação de preço: aprovação/rejeição pela diretoria e estorno de confirmada.
+        // O parâmetro Key é a chave da FIXAÇÃO, não a do contrato.
+        var priceFixationApproval = modelBuilder.Action("PurchaseContractsPriceFixationApproval");
+        priceFixationApproval.Parameter<Guid>("Key");
+        priceFixationApproval.Parameter<string>("Comments");
+        priceFixationApproval.Returns<IActionResult>();
+
+        var priceFixationReject = modelBuilder.Action("PurchaseContractsPriceFixationReject");
+        priceFixationReject.Parameter<Guid>("Key");
+        priceFixationReject.Parameter<string>("Comments");
+        priceFixationReject.Returns<IActionResult>();
+
+        var priceFixationCancel = modelBuilder.Action("PurchaseContractsPriceFixationCancel");
+        priceFixationCancel.Parameter<Guid>("Key");
+        priceFixationCancel.Returns<IActionResult>();
+
         var purchaseContractsReopen = modelBuilder.Action("PurchaseContractsReopen");
         purchaseContractsReopen.Parameter<Guid>("Key");
         purchaseContractsReopen.Returns<IActionResult>();
