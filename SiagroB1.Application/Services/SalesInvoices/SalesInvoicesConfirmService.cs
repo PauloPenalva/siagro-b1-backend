@@ -1,17 +1,21 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesConfirmService(
     IUnitOfWork db,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
+    SalesContractsAllocationCreateService allocationCreate,
+    SalesContractsAllocationCreateForReturnService allocationCreateForReturn,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -41,12 +45,29 @@ public class SalesInvoicesConfirmService(
                     invoice,
                     userName,
                     affectedReleaseKeys);
+
+                // Ledger: linhas negativas proporcionais à distribuição vigente dos itens
+                // de origem (respeita realocações). Devolve saldo às liberações onde o
+                // volume está alocado hoje.
+                var returnReleases = await allocationCreateForReturn.ExecuteAsync(
+                    invoice, userName, CommitMode.Deferred);
+                affectedReleaseKeys.UnionWith(returnReleases);
             }
             else
             {
                 await ProcessNormalInvoiceAsync(
                     invoice,
                     userName);
+
+                // Ledger: alocação padrão (item → contrato original, consumindo a liberação).
+                await allocationCreate.ExecuteForInvoiceAsync(
+                    invoice, userName, CommitMode.Deferred);
+
+                foreach (var item in invoice.Items)
+                {
+                    if (item.SalesShipmentReleaseKey is { } itemReleaseKey)
+                        affectedReleaseKeys.Add(itemReleaseKey);
+                }
             }
 
             invoice.InvoiceStatus = InvoiceStatus.Confirmed;
@@ -55,7 +76,7 @@ public class SalesInvoicesConfirmService(
 
             await db.SaveChangesAsync();
 
-            // Romaneios da origem viraram Returned → saem da soma da liberação (saldo restaurado).
+            // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.
             foreach (var releaseKey in affectedReleaseKeys)
                 await recalcShipped.RecalculateAsync(releaseKey);
 

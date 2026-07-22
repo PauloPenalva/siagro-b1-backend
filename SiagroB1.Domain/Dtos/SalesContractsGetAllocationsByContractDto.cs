@@ -42,4 +42,29 @@ public class SalesContractsGetAllocationsByContractDto
     
     [JsonPropertyName("DeliveryStatus")]
     public string? DeliveryStatus { get; set; }
+
+    [JsonPropertyName("AllocationKey")]
+    public Guid? AllocationKey { get; set; }
+
+    [JsonPropertyName("OriginLabel")]
+    public string? OriginLabel { get; set; }
+
+    [JsonPropertyName("InvoiceUnitPrice")]
+    public decimal? InvoiceUnitPrice { get; set; }
+
+    [JsonPropertyName("ContractPrice")]
+    public decimal? ContractPrice { get; set; }
+
+    [JsonPropertyName("PriceDifference")]
+    public decimal? PriceDifference { get; set; }
+
+    [JsonPropertyName("SalesShipmentReleaseRowId")]
+    public int? SalesShipmentReleaseRowId { get; set; }
+
+    [JsonPropertyName("SalesShipmentReleaseDate")]
+    public DateTime? SalesShipmentReleaseDate { get; set; }
+
+    /// <summary>Código do contrato do outro lado da realocação (origem/destino), para rastreio.</summary>
+    [JsonPropertyName("CounterpartyContractCode")]
+    public string? CounterpartyContractCode { get; set; }
 }

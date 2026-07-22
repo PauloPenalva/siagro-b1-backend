@@ -47,12 +47,23 @@ public class SalesShipmentReleasesCreateServiceTests
                 InvoiceStatus = InvoiceStatus.Confirmed, InvoiceType = SalesInvoiceType.Normal,
             };
             _db.Context.SalesInvoices.Add(inv);
-            _db.Context.SalesInvoicesItems.Add(new SalesInvoiceItem
+            var item = new SalesInvoiceItem
             {
                 Key = Guid.NewGuid(), SalesInvoiceKey = inv.Key, SalesContractKey = sc.Key,
                 ItemCode = "SOJA", UnitOfMeasureCode = "KG",
                 Quantity = invoicedQuantity, DeliveryStatus = SalesInvoiceDeliveryStatus.Open,
+            };
+            _db.Context.SalesInvoicesItems.Add(item);
+
+            // O consumo do contrato agora vem do ledger de alocações (persistido no
+            // AllocatedVolume pelo faturamento).
+            _db.Context.SalesContractsAllocations.Add(new SalesContractAllocation
+            {
+                Key = Guid.NewGuid(), SalesContractKey = sc.Key,
+                SalesInvoiceItemKey = item.Key!.Value, Volume = invoicedQuantity,
+                Origin = SalesContractAllocationOrigin.Billing,
             });
+            sc.AllocatedVolume = invoicedQuantity;
         }
 
         await _db.Context.SaveChangesAsync();

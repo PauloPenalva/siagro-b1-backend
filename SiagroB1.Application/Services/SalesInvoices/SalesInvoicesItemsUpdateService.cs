@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -20,9 +21,23 @@ public class SalesInvoicesItemsUpdateService(
         try
         {
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
-            
+
+            var deliveryChanged =
+                existingEntity.DeliveredQuantity != entity.DeliveredQuantity ||
+                existingEntity.QuantityLoss != entity.QuantityLoss ||
+                existingEntity.DeliveryStatus != entity.DeliveryStatus;
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
             await db.SaveChangesAsync();
+
+            // Entrega/quebra mudou → o fator efetivo do item mudou; recalcula os contratos
+            // com alocação neste item no ledger (inclui destinos de realocação).
+            if (deliveryChanged)
+            {
+                await SalesContractsRecalculateBalanceService.RecalculateForItemsAsync(
+                    db.Context, [key]);
+                await db.SaveChangesAsync();
+            }
         }
         catch (DbUpdateConcurrencyException)
         {

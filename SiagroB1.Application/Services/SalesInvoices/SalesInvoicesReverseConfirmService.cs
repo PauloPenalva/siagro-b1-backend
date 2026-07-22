@@ -1,15 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesReverseConfirmService(
     IUnitOfWork db,
+    SalesContractsAllocationDeleteForInvoiceService allocationDelete,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -65,6 +68,11 @@ public class SalesInvoicesReverseConfirmService(
 
             invoice.ApprovedAt = null;
             invoice.ApprovedBy = null;
+
+            // Ledger: estorno de confirmação remove as alocações desta nota (Normal → as
+            // alocações padrão; devolução → as linhas negativas, restaurando o consumo) e
+            // recalcula contratos/liberações derivado-da-soma, na mesma transação.
+            await allocationDelete.ExecuteAsync(invoice.Key, userName, CommitMode.Deferred);
 
             await db.SaveChangesAsync();
 

@@ -218,6 +218,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsCloseService>();
         services.AddScoped<SalesContractsReopenService>();
         services.AddScoped<SalesContractsGetShipmentReleasesAvailableService>();
+        services.AddScoped<SalesContractsRecalculateBalanceService>();
+        services.AddScoped<SalesContractsAllocationGetService>();
+        services.AddScoped<SalesContractsAllocationCreateService>();
+        services.AddScoped<SalesContractsAllocationCreateForReturnService>();
+        services.AddScoped<SalesContractsAllocationDeleteForInvoiceService>();
+        services.AddScoped<SalesContractsReallocationCreateService>();
+        services.AddScoped<SalesContractsReallocationDeleteService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();

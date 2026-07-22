@@ -29,31 +29,27 @@ public class SalesShipmentReleasesRecalculateShippedServiceTests
         return sr;
     }
 
-    private StorageTransaction Tx(Guid releaseKey, StorageTransactionType type, decimal net,
-        StorageTransactionsStatus status = StorageTransactionsStatus.Invoiced) => new()
+    private SalesContractAllocation Alloc(Guid? releaseKey, decimal volume,
+        SalesContractAllocationOrigin origin = SalesContractAllocationOrigin.Billing) => new()
     {
         Key = Guid.NewGuid(),
-        Code = "ST",
-        CardCode = "C0001",
-        ItemCode = "SOJA",
-        UnitOfMeasureCode = "KG",
-        WarehouseCode = "01",
-        TransactionType = type,
-        TransactionStatus = status,
-        NetWeight = net,
+        SalesContractKey = Guid.NewGuid(),
+        SalesInvoiceItemKey = Guid.NewGuid(),
         SalesShipmentReleaseKey = releaseKey,
+        Volume = volume,
+        Origin = origin,
     };
 
     private async Task<decimal> ShippedAsync(Guid key) =>
         (await _db.Context.SalesShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == key)).ShippedQuantity;
 
     [Fact]
-    public async Task Recalc_SumsInvoicedSalesShipmentsNetWeight()
+    public async Task Recalc_SumsSignedAllocationVolumes()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
-        _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 400m),
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 150m));
+        _db.Context.SalesContractsAllocations.AddRange(
+            Alloc(sr.Key, 400m),
+            Alloc(sr.Key, 150m));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
@@ -62,43 +58,45 @@ public class SalesShipmentReleasesRecalculateShippedServiceTests
     }
 
     [Fact]
-    public async Task Recalc_IgnoresReturnedAndCancelledAndConfirmed()
+    public async Task Recalc_ReturnRowsRestoreBalance()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
-        _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 400m),                                        // Invoiced conta
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 300m, StorageTransactionsStatus.Returned),   // devolvido restaura
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 200m, StorageTransactionsStatus.Cancelled),  // cancelado
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 100m, StorageTransactionsStatus.Confirmed)); // ainda não faturado
+        _db.Context.SalesContractsAllocations.AddRange(
+            Alloc(sr.Key, 400m),
+            Alloc(sr.Key, -300m, SalesContractAllocationOrigin.Return)); // devolução devolve saldo
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
 
-        Assert.Equal(400m, await ShippedAsync(sr.Key));
+        Assert.Equal(100m, await ShippedAsync(sr.Key));
     }
 
     [Fact]
-    public async Task Recalc_IgnoresPurchaseTypes()
+    public async Task Recalc_ReallocationMovesBalanceBetweenReleases()
     {
-        var sr = await SeedReleaseAsync(released: 1000m);
-        _db.Context.StorageTransactions.AddRange(
-            Tx(sr.Key, StorageTransactionType.Purchase, 500m),
-            Tx(sr.Key, StorageTransactionType.PurchaseReturn, 200m));
+        var origin = await SeedReleaseAsync(released: 1000m);
+        var target = await SeedReleaseAsync(released: 500m);
+        _db.Context.SalesContractsAllocations.AddRange(
+            Alloc(origin.Key, 400m),                                              // faturamento
+            Alloc(origin.Key, -100m, SalesContractAllocationOrigin.Reallocation), // devolve à origem
+            Alloc(target.Key, 100m, SalesContractAllocationOrigin.Reallocation)); // consome destino
         await _db.Context.SaveChangesAsync();
 
-        await Service().RecalculateAsync(sr.Key);
+        await Service().RecalculateAsync(origin.Key);
+        await Service().RecalculateAsync(target.Key);
 
-        Assert.Equal(0m, await ShippedAsync(sr.Key));
+        Assert.Equal(300m, await ShippedAsync(origin.Key));
+        Assert.Equal(100m, await ShippedAsync(target.Key));
     }
 
     [Fact]
-    public async Task Recalc_IgnoresOtherReleases()
+    public async Task Recalc_IgnoresOtherReleasesAndLegacyRowsWithoutRelease()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
-        var other = Guid.NewGuid();
-        _db.Context.StorageTransactions.AddRange(
-            Tx(other, StorageTransactionType.SalesShipment, 70m),
-            Tx(sr.Key, StorageTransactionType.SalesShipment, 10m));
+        _db.Context.SalesContractsAllocations.AddRange(
+            Alloc(Guid.NewGuid(), 70m),  // outra liberação
+            Alloc(null, 50m),            // fluxo legado, sem liberação
+            Alloc(sr.Key, 10m));
         await _db.Context.SaveChangesAsync();
 
         await Service().RecalculateAsync(sr.Key);
@@ -107,7 +105,7 @@ public class SalesShipmentReleasesRecalculateShippedServiceTests
     }
 
     [Fact]
-    public async Task Recalc_NoTransactions_SetsZero()
+    public async Task Recalc_NoAllocations_SetsZero()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
 

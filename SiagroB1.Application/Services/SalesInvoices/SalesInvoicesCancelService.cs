@@ -1,15 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesCancelService(
     IUnitOfWork db,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
+    SalesContractsAllocationDeleteForInvoiceService allocationDelete,
     ILogger<SalesInvoicesCancelService> logger)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -64,6 +67,10 @@ public class SalesInvoicesCancelService(
             }
 
             existingInvoice.InvoiceStatus = InvoiceStatus.Cancelled;
+
+            // Ledger: remove as alocações da nota (inclui pares de realocação) e recalcula
+            // contratos e liberações derivado-da-soma, na mesma transação.
+            await allocationDelete.ExecuteAsync(key, userName, CommitMode.Deferred);
 
             await db.SaveChangesAsync();
 

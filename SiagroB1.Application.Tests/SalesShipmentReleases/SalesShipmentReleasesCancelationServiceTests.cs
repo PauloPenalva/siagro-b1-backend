@@ -41,16 +41,19 @@ public class SalesShipmentReleasesCancelationServiceTests
         return sr;
     }
 
-    private async Task AddTransactionAsync(
-        Guid releaseKey, StorageTransactionType type, decimal netWeight, string code = "ST-001",
-        StorageTransactionsStatus status = StorageTransactionsStatus.Invoiced)
+    /// <summary>
+    /// Consumo da liberação agora vem do ledger de alocações (faturamento grava a linha).
+    /// </summary>
+    private async Task AddAllocationAsync(Guid releaseKey, decimal volume)
     {
-        _db.Context.StorageTransactions.Add(new StorageTransaction
+        _db.Context.SalesContractsAllocations.Add(new SalesContractAllocation
         {
-            Key = Guid.NewGuid(), Code = code, CardCode = "C0001", ItemCode = "SOJA",
-            UnitOfMeasureCode = "KG", WarehouseCode = "01",
-            TransactionType = type, TransactionStatus = status,
-            NetWeight = netWeight, SalesShipmentReleaseKey = releaseKey,
+            Key = Guid.NewGuid(),
+            SalesContractKey = Guid.NewGuid(),
+            SalesInvoiceItemKey = Guid.NewGuid(),
+            SalesShipmentReleaseKey = releaseKey,
+            Volume = volume,
+            Origin = SalesContractAllocationOrigin.Billing,
         });
         await _db.Context.SaveChangesAsync();
     }
@@ -62,7 +65,7 @@ public class SalesShipmentReleasesCancelationServiceTests
     public async Task Cancel_ActivedWithSale_Succeeds_AndConsumesOnlyShipped()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
-        await AddTransactionAsync(sr.Key, StorageTransactionType.SalesShipment, 300m);
+        await AddAllocationAsync(sr.Key, 300m);
 
         await Service().ExecuteAsync(sr.Key, "maria", Reason);
 
@@ -91,7 +94,7 @@ public class SalesShipmentReleasesCancelationServiceTests
     public async Task Cancel_WithZeroBalance_ThrowsSuggestingFinalize()
     {
         var sr = await SeedReleaseAsync(released: 1000m);
-        await AddTransactionAsync(sr.Key, StorageTransactionType.SalesShipment, 1000m);
+        await AddAllocationAsync(sr.Key, 1000m);
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(sr.Key, "maria", Reason));

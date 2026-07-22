@@ -15,6 +15,7 @@ public class SalesContractsGetAllocationsByContractController(
     public async Task<ActionResult<ICollection<SalesContractsGetAllocationsByContractDto>>> GetAsync([FromRoute] Guid key)
     {
         var invoices = service.ExecuteAsync(key);
-        return Ok(new { invoices });
+        var totals = service.GetTotals(key);
+        return Ok(new { invoices, totals });
     }
 }

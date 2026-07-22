@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721210757_CreateTableSalesContractsAllocations")]
+    partial class CreateTableSalesContractsAllocations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1131,9 +1134,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("ContractPrice")
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
 
-                    b.Property<Guid?>("CounterpartySalesContractKey")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1177,8 +1177,6 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
                     b.HasKey("Key");
-
-                    b.HasIndex("CounterpartySalesContractKey");
 
                     b.HasIndex("ReallocationGroupKey");
 

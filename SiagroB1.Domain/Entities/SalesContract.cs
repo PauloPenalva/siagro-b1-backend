@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
@@ -106,7 +107,26 @@ public class SalesContract : DocumentEntity
 
     public ICollection<SalesShipmentRelease> SalesShipmentReleases { get; set; } = [];
 
+    public ICollection<SalesContractAllocation> Allocations { get; set; } = [];
+
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
+
+    /// <summary>
+    /// Volume alocado (persistido, derivado): Σ Volume assinado das
+    /// <see cref="Allocations"/> × fator efetivo do item (item Closed conta
+    /// NetQuantity/Quantity — quebra devolve saldo ao contrato). Recalculado
+    /// exclusivamente por SalesContractsRecalculateBalanceService (derivado-da-soma,
+    /// nunca incremental) e protegido por <see cref="RowVersion"/>.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal AllocatedVolume { get; set; }
+
+    /// <summary>
+    /// Token de concorrência otimista (SQL Server rowversion). Protege
+    /// <see cref="AllocatedVolume"/> contra alocações/realocações concorrentes.
+    /// </summary>
+    [Timestamp]
+    public byte[]? RowVersion { get; set; }
     
     public void AddAttachment(SalesContractAttachment attachment)
     {
@@ -118,22 +138,35 @@ public class SalesContract : DocumentEntity
     public decimal TotalPrice => 
         decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);
 
+    /// <remarks>
+    /// LEGADO: a fonte de verdade do consumo agora é <see cref="AllocatedVolume"/>
+    /// (ledger SALES_CONTRACTS_ALLOCATIONS). Mantido apenas para conferência/auditoria;
+    /// depende de navegação carregada (Include aninhado) para retornar valor correto.
+    /// </remarks>
     [NotMapped]
     public decimal TotalVolumeOutgoing => SalesInvoiceItems?
-        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed or 
+        .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed or
                     InvoiceStatus.Returned &&
                     x.SalesInvoice.InvoiceType == SalesInvoiceType.Normal)
         .Sum(x => x.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed ? x.NetQuantity : x.Quantity) ?? 0;
-    
+
+    /// <remarks>
+    /// LEGADO: ver <see cref="TotalVolumeOutgoing"/>.
+    /// </remarks>
     [NotMapped]
     public decimal TotalVolumeIncoming => SalesInvoiceItems?
         .Where(x => x.SalesInvoice?.InvoiceStatus is InvoiceStatus.Confirmed &&
                     x.SalesInvoice.InvoiceType == SalesInvoiceType.Return)
         .Sum(x => x.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed ? x.NetQuantity : x.Quantity) ?? 0;
-    
+
+    /// <summary>
+    /// Saldo disponível por nota: TotalVolume − <see cref="AllocatedVolume"/> (persistido,
+    /// recalculado a partir do ledger de alocações). Não depende de navegação — funciona
+    /// sob $select do OData e sem Includes.
+    /// </summary>
     [NotMapped]
     public decimal AvaiableVolume =>
-        decimal.Round(TotalVolume - TotalVolumeOutgoing + TotalVolumeIncoming, 3, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - AllocatedVolume, 3, MidpointRounding.ToEven);
     
     [NotMapped]
     public bool HasInvoices => SalesInvoiceItems?
@@ -178,7 +211,7 @@ public class SalesContract : DocumentEntity
     /// Volume reservado por liberações de entrega ABERTAS (Pending/Actived/Paused) que
     /// ainda não virou nota — o saldo não romaneado de cada uma (<c>AvailableQuantity</c>).
     /// A parte já faturada da liberação já está descontada em <see cref="AvaiableVolume"/>
-    /// (via <c>SalesInvoiceItems</c>), então aqui contamos só o não faturado para não duplicar.
+    /// (via ledger de alocações), então aqui contamos só o não faturado para não duplicar.
     /// </summary>
     [NotMapped]
     public decimal ReservedByOpenReleases =>

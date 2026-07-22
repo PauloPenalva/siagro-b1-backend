@@ -16,18 +16,20 @@ public class SalesShipmentReleasesRecalculateShippedService(AppDbContext context
         type is StorageTransactionType.SalesShipment;
 
     /// <summary>
-    /// Calcula o volume romaneado/faturado SEM persistir nada, para quem precisa decidir
-    /// antes de gravar (ex.: cancelamento, que recusa quando não há saldo).
-    /// Conta apenas romaneios de venda efetivamente faturados (<c>Invoiced</c>); cancelados
-    /// (voltam a <c>Confirmed</c> e perdem a chave) e devolvidos (<c>Returned</c>) ficam de fora.
+    /// Calcula o volume consumido da liberação SEM persistir nada, para quem precisa
+    /// decidir antes de gravar (ex.: cancelamento, que recusa quando não há saldo).
+    /// Fonte: ledger SALES_CONTRACTS_ALLOCATIONS — Σ Volume assinado por liberação
+    /// (nominal, sem fator de quebra: quebra de entrega não devolve saldo à liberação).
+    /// Reproduz os comportamentos do faturamento sem hooks extras: devolução confirma
+    /// linhas negativas na mesma liberação de origem (soma volta ao pré-faturamento),
+    /// cancelamento deleta as linhas (soma zera) e realocação devolve saldo à liberação
+    /// de origem (linha −) enquanto consome a do destino (linha +).
     /// </summary>
     public async Task<decimal> CalculateShippedAsync(Guid salesShipmentReleaseKey)
     {
-        return await context.StorageTransactions
-            .Where(t => t.SalesShipmentReleaseKey == salesShipmentReleaseKey
-                        && t.TransactionType == StorageTransactionType.SalesShipment
-                        && t.TransactionStatus == StorageTransactionsStatus.Invoiced)
-            .SumAsync(t => t.NetWeight);
+        return await context.SalesContractsAllocations
+            .Where(a => a.SalesShipmentReleaseKey == salesShipmentReleaseKey)
+            .SumAsync(a => a.Volume);
     }
 
     public async Task RecalculateAsync(Guid salesShipmentReleaseKey)

@@ -30,6 +30,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");
         modelBuilder.EntitySet<PurchaseContractQualityParameter>("PurchaseContractsQualityParameters");
         modelBuilder.EntitySet<PurchaseContractAllocation>("PurchaseContractsAllocations");
+        modelBuilder.EntitySet<SalesContractAllocation>("SalesContractsAllocations");
         modelBuilder.EntitySet<PurchaseContractAttachment>("PurchaseContractsAttachments");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
@@ -385,6 +386,25 @@ public static class ODataConfigurations
 
         var salesContractsGetShipmentReleasesAvailable = modelBuilder.Function("SalesContractsGetShipmentReleasesAvailable");
         salesContractsGetShipmentReleasesAvailable.Returns<SalesContract>();
+
+        var salesContractsCreateReallocation = modelBuilder.Action("SalesContractsCreateReallocation");
+        salesContractsCreateReallocation.Parameter<Guid>("SalesInvoiceItemKey");
+        salesContractsCreateReallocation.Parameter<Guid>("SourceSalesContractKey");
+        salesContractsCreateReallocation.Parameter<Guid>("TargetSalesContractKey");
+        salesContractsCreateReallocation.Parameter<Guid>("TargetSalesShipmentReleaseKey");
+        salesContractsCreateReallocation.Parameter<decimal>("Volume");
+        salesContractsCreateReallocation.Returns<IActionResult>();
+
+        var salesContractsDeleteReallocation = modelBuilder.Action("SalesContractsDeleteReallocation");
+        salesContractsDeleteReallocation.Parameter<Guid>("Key");
+        salesContractsDeleteReallocation.Returns<IActionResult>();
+
+        var salesContractsRecalculateBalance = modelBuilder.Action("SalesContractsRecalculateBalance");
+        salesContractsRecalculateBalance.Parameter<Guid>("Key");
+        salesContractsRecalculateBalance.Returns<SalesContractRecalcResultDto>();
+
+        var salesContractsRecalculateAllBalances = modelBuilder.Action("SalesContractsRecalculateAllBalances");
+        salesContractsRecalculateAllBalances.Returns<SalesContractRecalcAllResultDto>();
 
         var shipmentBillingCreateSalesInvoice = 
             modelBuilder.Action("ShipmentBillingCreateSalesInvoice");

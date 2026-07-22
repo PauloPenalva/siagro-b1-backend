@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
@@ -13,6 +14,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
     SalesInvoicesCreateService salesInvoicesCreateService,
     SalesShipmentReleaseMovementGuardService movementGuard,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
+    SalesContractsAllocationCreateService allocationCreate,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
@@ -34,7 +36,11 @@ public class ShipmentBillingCreateSalesInvoiceService(
             salesInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
             await db.SaveChangesAsync();
 
-            // Romaneios já gravados como Invoiced com a chave da liberação → baixa o saldo liberado.
+            // Alocação padrão no ledger (item → contrato original, consumindo a liberação)
+            // — precisa estar gravada ANTES do recálculo, que agora lê do ledger.
+            await allocationCreate.ExecuteForInvoiceAsync(salesInvoice, username);
+
+            // Ledger gravado → baixa o saldo liberado a partir das alocações.
             await recalcShipped.RecalculateAsync(releaseKey);
         }
         catch (Exception e)

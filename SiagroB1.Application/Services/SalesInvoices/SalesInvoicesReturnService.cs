@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -60,9 +61,17 @@ public class SalesInvoicesReturnService(
                 item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
                 item.DeliveredQuantity = item.Quantity;
             }
-            
+
             await db.SaveChangesAsync();
-            
+
+            // Fechar os itens muda o fator efetivo (item com QuantityLoss passa a contar
+            // NetQuantity) → recalcula os contratos com alocação nesses itens no ledger.
+            await SalesContractsRecalculateBalanceService.RecalculateForItemsAsync(
+                db.Context,
+                originalInvoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList());
+
+            await db.SaveChangesAsync();
+
             await db.CommitAsync();
             
             return returnInvoice;

@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractBroker> PurchaseContractsBrokers { get; set; }
     public DbSet<PurchaseContractQualityParameter> PurchaseContractsQualityParameters { get; set; }
     public DbSet<PurchaseContractAllocation> PurchaseContractsAllocations { get; set; }
+    public DbSet<SalesContractAllocation> SalesContractsAllocations { get; set; }
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
     public DbSet<SalesShipmentRelease> SalesShipmentReleases { get; set; }
