@@ -61,6 +61,8 @@ public static class ODataConfigurations
 
         modelBuilder.EntitySet<SalesContractPriceFixation>("SalesContractsPriceFixations");
 
+        modelBuilder.EntitySet<SalesContractDeliveryLocation>("SalesContractsDeliveryLocations");
+
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))

@@ -233,6 +233,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsPriceFixationsUpdateService>();
         services.AddScoped<SalesContractsPriceFixationDeleteService>();
         services.AddScoped<SalesContractsPriceFixationsGetService>();
+        services.AddScoped<SalesContractsDeliveryLocationsCreateService>();
+        services.AddScoped<SalesContractsDeliveryLocationsUpdateService>();
+        services.AddScoped<SalesContractsDeliveryLocationsDeleteService>();
+        services.AddScoped<SalesContractsDeliveryLocationsGetService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
