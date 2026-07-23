@@ -14,20 +14,26 @@ public class SalesShipmentReleasesCreateServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    // Resolve o nome do armazém; devolve null (DeliveryLocationName fica null, tudo bem).
-    private sealed class NullWarehouseService : IWarehouseService
+    // No escopo de VENDA o local de entrega é um cliente (business partner), não um armazém.
+    // Este fake resolve o CardName por CardCode; códigos desconhecidos devolvem null.
+    private sealed class FakeBusinessPartnerService(Dictionary<string, string>? names = null) : IBusinessPartnerService
     {
-        public Task<IEnumerable<WarehouseModel>> GetAllAsync() => throw new NotImplementedException();
-        public Task<WarehouseModel?> GetByIdAsync(string code) => Task.FromResult<WarehouseModel?>(null);
-        public Task<WarehouseModel> CreateAsync(WarehouseModel model) => throw new NotImplementedException();
-        public Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model) => throw new NotImplementedException();
+        private readonly Dictionary<string, string> _names = names ?? new();
+        public Task<BusinessPartnerModel?> GetByIdAsync(string code) => Task.FromResult(
+            _names.TryGetValue(code, out var name)
+                ? new BusinessPartnerModel { CardCode = code, CardName = name }
+                : null);
+        public Task<IEnumerable<BusinessPartnerModel>> GetAllAsync() => throw new NotImplementedException();
+        public Task<BusinessPartnerModel> CreateAsync(BusinessPartnerModel entity) => throw new NotImplementedException();
+        public Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel entity) => throw new NotImplementedException();
         public Task<bool> DeleteAsync(string code) => throw new NotImplementedException();
-        public IQueryable<WarehouseModel> QueryAll() => throw new NotImplementedException();
-        public Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync() => throw new NotImplementedException();
+        public IQueryable<BusinessPartnerModel> QueryAll() => throw new NotImplementedException();
+        public Task<bool> DeleteAsyncWithTransaction(string code, Func<BusinessPartnerModel, Task>? preDeleteAction = null) => throw new NotImplementedException();
+        public Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync() => throw new NotImplementedException();
     }
 
-    private SalesShipmentReleasesCreateService Service() => new(
-        _db, new NullWarehouseService(), NullLogger<SalesShipmentReleasesCreateService>.Instance);
+    private SalesShipmentReleasesCreateService Service(IBusinessPartnerService? businessPartners = null) => new(
+        _db, businessPartners ?? new FakeBusinessPartnerService(), NullLogger<SalesShipmentReleasesCreateService>.Instance);
 
     private async Task<SalesContract> SeedContractAsync(decimal totalVolume, decimal invoicedQuantity)
     {
@@ -98,6 +104,26 @@ public class SalesShipmentReleasesCreateServiceTests
 
         Assert.Equal(ReleaseStatus.Pending, created.Status);
         Assert.Single(_db.Context.SalesShipmentReleases);
+    }
+
+    [Fact]
+    public async Task Create_ResolvesDeliveryLocationName_FromBusinessPartner()
+    {
+        // No escopo de venda, o local de entrega é um cliente: o nome deve vir do
+        // cadastro de parceiros (CardName), não do armazém.
+        var sc = await SeedContractAsync(totalVolume: 1_000_000m, invoicedQuantity: 0m);
+        var businessPartners = new FakeBusinessPartnerService(new()
+        {
+            ["C002255"] = "4R SILVICULTURA LTDA - EPP",
+        });
+        var release = new SalesShipmentRelease
+        {
+            SalesContractKey = sc.Key, DeliveryLocationCode = "C002255", ReleasedQuantity = 100_000m,
+        };
+
+        var created = await Service(businessPartners).ExecuteAsync(release, "tester");
+
+        Assert.Equal("4R SILVICULTURA LTDA - EPP", created.DeliveryLocationName);
     }
 
     [Fact]

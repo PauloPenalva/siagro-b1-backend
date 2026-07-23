@@ -56,6 +56,10 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalAvailableToRelease)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.PhysicalAvailableToRelease)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
+            .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.AvailableVolumeToPricing)));
+
+        modelBuilder.EntitySet<SalesContractPriceFixation>("SalesContractsPriceFixations");
 
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
@@ -364,6 +368,9 @@ public static class ODataConfigurations
         var salesShipmentReleasesRecalculateAllBalances = modelBuilder.Action("SalesShipmentReleasesRecalculateAllBalances");
         salesShipmentReleasesRecalculateAllBalances.Returns<SalesShipmentReleaseRecalcAllResultDto>();
 
+        var salesShipmentReleasesBackfillDeliveryLocationName = modelBuilder.Action("SalesShipmentReleasesBackfillDeliveryLocationName");
+        salesShipmentReleasesBackfillDeliveryLocationName.Returns<SalesShipmentReleaseBackfillResultDto>();
+
         var salesShipmentReleasesClose = modelBuilder.Action("SalesShipmentReleasesClose");
         salesShipmentReleasesClose.Parameter<Guid>("Key");
         salesShipmentReleasesClose.Returns<IActionResult>();
@@ -405,6 +412,33 @@ public static class ODataConfigurations
 
         var salesContractsRecalculateAllBalances = modelBuilder.Action("SalesContractsRecalculateAllBalances");
         salesContractsRecalculateAllBalances.Returns<SalesContractRecalcAllResultDto>();
+
+        // Fixação de preço de contrato de venda: criação/exclusão como actions (o frontend
+        // invoca pelo ODataModel e a linha aparece/some sem recarregar a rota) e o ciclo de
+        // aprovação da diretoria. Espelha as actions de PurchaseContractsPriceFixation*.
+        var salesPriceFixationCreate = modelBuilder.Action("SalesContractsPriceFixationCreate");
+        salesPriceFixationCreate.Parameter<Guid>("SalesContractKey");
+        salesPriceFixationCreate.EntityParameter<SalesContractPriceFixation>("Fixation");
+        salesPriceFixationCreate.Returns<IActionResult>();
+
+        // Key é a chave da FIXAÇÃO, não a do contrato.
+        var salesPriceFixationDelete = modelBuilder.Action("SalesContractsPriceFixationDelete");
+        salesPriceFixationDelete.Parameter<Guid>("Key");
+        salesPriceFixationDelete.Returns<IActionResult>();
+
+        var salesPriceFixationApproval = modelBuilder.Action("SalesContractsPriceFixationApproval");
+        salesPriceFixationApproval.Parameter<Guid>("Key");
+        salesPriceFixationApproval.Parameter<string>("Comments");
+        salesPriceFixationApproval.Returns<IActionResult>();
+
+        var salesPriceFixationReject = modelBuilder.Action("SalesContractsPriceFixationReject");
+        salesPriceFixationReject.Parameter<Guid>("Key");
+        salesPriceFixationReject.Parameter<string>("Comments");
+        salesPriceFixationReject.Returns<IActionResult>();
+
+        var salesPriceFixationCancel = modelBuilder.Action("SalesContractsPriceFixationCancel");
+        salesPriceFixationCancel.Parameter<Guid>("Key");
+        salesPriceFixationCancel.Returns<IActionResult>();
 
         var shipmentBillingCreateSalesInvoice = 
             modelBuilder.Action("ShipmentBillingCreateSalesInvoice");

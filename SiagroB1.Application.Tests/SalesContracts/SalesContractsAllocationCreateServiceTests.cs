@@ -11,7 +11,8 @@ public class SalesContractsAllocationCreateServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private SalesContractsAllocationCreateService Service() => new(_db);
+    private SalesContractsAllocationCreateService Service() =>
+        new(_db, new SalesContractsFixedVolumeService(_db.Context));
 
     [Fact]
     public async Task ExecuteForInvoice_CreatesDefaultAllocation_WithSnapshotsAndBalances()

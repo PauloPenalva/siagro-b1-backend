@@ -12,7 +12,8 @@ public class SalesContractsAllocationReturnProportionalTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private SalesContractsAllocationCreateForReturnService Service() => new(_db);
+    private SalesContractsAllocationCreateForReturnService Service() =>
+        new(_db, new SalesContractsFixedVolumeService(_db.Context));
 
     private SalesContract _a = null!;
     private SalesContract _b = null!;

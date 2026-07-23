@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="07/23/2026 18:00:00" ReportInfo.Modified="07/23/2026 18:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="PriceFixation" ReferenceName="PriceFixation" DataType="System.Int32" Enabled="true">
+      <Column Name="Title" DataType="System.String"/>
+      <Column Name="CompanyName" DataType="System.String"/>
+      <Column Name="CompanyTaxId" DataType="System.String"/>
+      <Column Name="CardCode" DataType="System.String"/>
+      <Column Name="CardName" DataType="System.String"/>
+      <Column Name="TaxId" DataType="System.String"/>
+      <Column Name="Street" DataType="System.String"/>
+      <Column Name="CityStateZip" DataType="System.String"/>
+      <Column Name="ContractCode" DataType="System.String"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="HarvestSeasonName" DataType="System.String"/>
+      <Column Name="UnitOfMeasureCode" DataType="System.String"/>
+      <Column Name="FixationDate" DataType="System.DateTime"/>
+      <Column Name="FixationVolume" DataType="System.Decimal"/>
+      <Column Name="FixationPrice" DataType="System.Decimal"/>
+      <Column Name="FreightCost" DataType="System.Decimal"/>
+      <Column Name="FixationTotal" DataType="System.Decimal"/>
+      <Column Name="ApprovedBy" DataType="System.String"/>
+      <Column Name="ApprovedAt" DataType="System.DateTime"/>
+      <Column Name="ApprovalComments" DataType="System.String"/>
+      <Column Name="ContractTotalVolume" DataType="System.Decimal"/>
+      <Column Name="ContractFixedVolume" DataType="System.Decimal"/>
+      <Column Name="ContractAvailableVolumeToPricing" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" TitleBeforeHeader="false" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="756" Height="41.8">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="655.9" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+    </PageHeaderBand>
+    <DataBand Name="Data1" Top="45.8" Width="756" Height="500" DataSource="PriceFixation">
+      <TextObject Name="txtTitle" Left="0" Top="0" Width="756" Height="24" Text="[PriceFixation.Title]" HorzAlign="Center" VertAlign="Center" Font="Arial, 13pt, style=Bold"/>
+
+      <TextObject Name="lblContract" Left="0" Top="32" Width="120" Height="18" Text="Contrato:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valContract" Left="120" Top="32" Width="260" Height="18" Text="[PriceFixation.ContractCode]" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="lblHarvest" Left="390" Top="32" Width="120" Height="18" Text="Safra:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valHarvest" Left="510" Top="32" Width="246" Height="18" Text="[PriceFixation.HarvestSeasonName]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblPartner" Left="0" Top="54" Width="120" Height="18" Text="Cliente:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valPartner" Left="120" Top="54" Width="636" Height="18" Text="[PriceFixation.CardName]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblTaxId" Left="0" Top="76" Width="120" Height="18" Text="CPF/CNPJ:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valTaxId" Left="120" Top="76" Width="260" Height="18" Text="[PriceFixation.TaxId]" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="lblCode" Left="390" Top="76" Width="120" Height="18" Text="Código:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valCode" Left="510" Top="76" Width="246" Height="18" Text="[PriceFixation.CardCode]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblAddress" Left="0" Top="98" Width="120" Height="18" Text="Endereço:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valAddress" Left="120" Top="98" Width="636" Height="18" Text="[PriceFixation.Street]" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="lblCity" Left="0" Top="120" Width="120" Height="18" Text="Cidade/UF:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valCity" Left="120" Top="120" Width="636" Height="18" Text="[PriceFixation.CityStateZip]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblItem" Left="0" Top="142" Width="120" Height="18" Text="Produto:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valItem" Left="120" Top="142" Width="636" Height="18" Text="[PriceFixation.ItemName]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="sepFixation" Left="0" Top="170" Width="756" Height="20" Text="DADOS DA FIXAÇÃO" HorzAlign="Center" VertAlign="Center" Fill.Color="WhiteSmoke" Font="Arial, 10pt, style=Bold"/>
+
+      <TextObject Name="lblFixDate" Left="0" Top="196" Width="120" Height="18" Text="Data:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valFixDate" Left="120" Top="196" Width="260" Height="18" Text="[PriceFixation.FixationDate]" Format="Date" Format.Format="dd/MM/yyyy" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblFixVolume" Left="0" Top="218" Width="120" Height="18" Text="Volume:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valFixVolume" Left="120" Top="218" Width="180" Height="18" Text="[PriceFixation.FixationVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="valFixUm" Left="304" Top="218" Width="76" Height="18" Text="[PriceFixation.UnitOfMeasureCode]" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblFixPrice" Left="0" Top="240" Width="120" Height="18" Text="Preço unitário:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valFixPrice" Left="120" Top="240" Width="260" Height="18" Text="[PriceFixation.FixationPrice]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="8" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblFreight" Left="0" Top="262" Width="120" Height="18" Text="Frete:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valFreight" Left="120" Top="262" Width="260" Height="18" Text="[PriceFixation.FreightCost]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblTotal" Left="0" Top="288" Width="120" Height="22" Text="VALOR TOTAL:" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="valTotal" Left="120" Top="288" Width="260" Height="22" Text="[PriceFixation.FixationTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+
+      <TextObject Name="sepContract" Left="0" Top="322" Width="756" Height="20" Text="POSIÇÃO DO CONTRATO" HorzAlign="Center" VertAlign="Center" Fill.Color="WhiteSmoke" Font="Arial, 10pt, style=Bold"/>
+
+      <TextObject Name="lblCtrTotal" Left="0" Top="348" Width="160" Height="18" Text="Volume contratado:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valCtrTotal" Left="160" Top="348" Width="220" Height="18" Text="[PriceFixation.ContractTotalVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblCtrFixed" Left="0" Top="370" Width="160" Height="18" Text="Total já fixado:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valCtrFixed" Left="160" Top="370" Width="220" Height="18" Text="[PriceFixation.ContractFixedVolume]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblCtrAvail" Left="0" Top="392" Width="160" Height="18" Text="Saldo a fixar:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valCtrAvail" Left="160" Top="392" Width="220" Height="18" Text="[PriceFixation.ContractAvailableVolumeToPricing]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblApprovedBy" Left="0" Top="424" Width="160" Height="18" Text="Aprovado por:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valApprovedBy" Left="160" Top="424" Width="220" Height="18" Text="[PriceFixation.ApprovedBy]" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="lblApprovedAt" Left="390" Top="424" Width="120" Height="18" Text="Em:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valApprovedAt" Left="510" Top="424" Width="246" Height="18" Text="[PriceFixation.ApprovedAt]" Format="Date" Format.Format="dd/MM/yyyy HH:mm" VertAlign="Center" Font="Arial, 9pt"/>
+
+      <TextObject Name="lblComments" Left="0" Top="450" Width="160" Height="18" Text="Observações:" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="valComments" Left="160" Top="450" Width="596" Height="40" Text="[PriceFixation.ApprovalComments]" Font="Arial, 9pt" WordWrap="true"/>
+    </DataBand>
+    <PageFooterBand Name="PageFooter1" Top="549.8" Width="756" Height="20">
+      <TextObject Name="txtPage" Left="0" Top="0" Width="756" Height="18" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

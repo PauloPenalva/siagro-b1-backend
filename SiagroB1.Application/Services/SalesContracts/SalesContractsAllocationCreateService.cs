@@ -13,7 +13,9 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// <c>SalesInvoicesConfirmService.ProcessNormalInvoiceAsync</c>) dentro da transação do
 /// fluxo — por isso opera com <see cref="CommitMode.Deferred"/> sem SaveChanges próprio.
 /// </summary>
-public class SalesContractsAllocationCreateService(IUnitOfWork db)
+public class SalesContractsAllocationCreateService(
+    IUnitOfWork db,
+    SalesContractsFixedVolumeService fixedVolumeService)
 {
     public async Task ExecuteForInvoiceAsync(SalesInvoice invoice, string userName,
         CommitMode commitMode = CommitMode.Auto)
@@ -42,6 +44,11 @@ public class SalesContractsAllocationCreateService(IUnitOfWork db)
             .Where(c => contractKeys.Contains(c.Key))
             .ToDictionaryAsync(c => c.Key);
 
+        // Preço de contrato snapshotado no ledger vem da fixação Confirmed vigente
+        // (fonte única do preço). Para contrato de preço fixo é igual a contract.Price
+        // (a fixação automática o espelha); para PAF vem das fixações aprovadas, ou 0
+        // enquanto nenhuma foi confirmada.
+        var unitPrices = new Dictionary<Guid, decimal>();
         foreach (var contractKey in contractKeys)
         {
             if (!contracts.TryGetValue(contractKey, out var contract))
@@ -49,12 +56,16 @@ public class SalesContractsAllocationCreateService(IUnitOfWork db)
 
             if (contract.Status == ContractStatus.Finished)
                 throw new ApplicationException("Contrato encerrado: não é possível alocar.");
+
+            unitPrices[contractKey] =
+                await fixedVolumeService.ConfirmedUnitPriceAsync(contractKey, contract.Price);
         }
 
         var pending = new List<SalesContractAllocation>();
         foreach (var item in items)
         {
             var contract = contracts[item.SalesContractKey!.Value];
+            var contractPrice = unitPrices[item.SalesContractKey!.Value];
             var allocation = new SalesContractAllocation
             {
                 SalesContractKey = contract.Key,
@@ -62,9 +73,9 @@ public class SalesContractsAllocationCreateService(IUnitOfWork db)
                 SalesShipmentReleaseKey = item.SalesShipmentReleaseKey,
                 Volume = item.Quantity,
                 InvoiceUnitPrice = item.UnitPrice,
-                ContractPrice = contract.Price,
+                ContractPrice = contractPrice,
                 PriceDifference = decimal.Round(
-                    item.Quantity * (item.UnitPrice - contract.Price), 2, MidpointRounding.ToEven),
+                    item.Quantity * (item.UnitPrice - contractPrice), 2, MidpointRounding.ToEven),
                 Origin = SalesContractAllocationOrigin.Billing,
                 ApprovedAt = DateTime.Now,
                 ApprovedBy = userName,

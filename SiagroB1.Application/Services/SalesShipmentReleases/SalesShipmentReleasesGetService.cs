@@ -15,6 +15,7 @@ public class SalesShipmentReleasesGetService(IUnitOfWork db, ILogger<SalesShipme
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await db.Context.SalesShipmentReleases
                 .Include(x => x.SalesContract)
+                .Include(x => x.Branch)
                 .FirstOrDefaultAsync(x => x.Key == key);
         }
         catch (Exception ex)

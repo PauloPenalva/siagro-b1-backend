@@ -225,6 +225,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAllocationDeleteForInvoiceService>();
         services.AddScoped<SalesContractsReallocationCreateService>();
         services.AddScoped<SalesContractsReallocationDeleteService>();
+        services.AddScoped<SalesContractsFixedVolumeService>();
+        services.AddScoped<SalesContractsPriceFixationCreateService>();
+        services.AddScoped<SalesContractsPriceFixationsApprovalService>();
+        services.AddScoped<SalesContractsPriceFixationsRejectService>();
+        services.AddScoped<SalesContractsPriceFixationsCancelService>();
+        services.AddScoped<SalesContractsPriceFixationsUpdateService>();
+        services.AddScoped<SalesContractsPriceFixationDeleteService>();
+        services.AddScoped<SalesContractsPriceFixationsGetService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
@@ -270,6 +278,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesShipmentReleasesApprovationService>();
         services.AddScoped<SalesShipmentReleasesCancelationService>();
         services.AddScoped<SalesShipmentReleasesCreateService>();
+        services.AddScoped<SalesShipmentReleasesBackfillDeliveryLocationNameService>();
         services.AddScoped<SalesShipmentReleasesDeleteService>();
         services.AddScoped<SalesShipmentReleasesGetService>();
         services.AddScoped<SalesShipmentReleasesUpdateService>();

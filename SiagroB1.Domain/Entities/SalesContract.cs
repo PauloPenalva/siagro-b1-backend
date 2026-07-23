@@ -109,7 +109,19 @@ public class SalesContract : DocumentEntity
 
     public ICollection<SalesContractAllocation> Allocations { get; set; } = [];
 
+    public ICollection<SalesContractPriceFixation> PriceFixations { get; set; } = [];
+
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
+
+    /// <summary>
+    /// Volume já fixado (persistido, derivado). Soma <see cref="SalesContractPriceFixation.FixationVolume"/>
+    /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas
+    /// pessoas não fixem a mesma tonelagem enquanto a diretoria decide. Recalculado exclusivamente por
+    /// SalesContractsFixedVolumeService e protegido por <see cref="RowVersion"/>. Não depende de
+    /// navegação em runtime — funciona sob $select do OData.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal FixedVolume { get; set; }
 
     /// <summary>
     /// Volume alocado (persistido, derivado): Σ Volume assinado das
@@ -123,7 +135,8 @@ public class SalesContract : DocumentEntity
 
     /// <summary>
     /// Token de concorrência otimista (SQL Server rowversion). Protege
-    /// <see cref="AllocatedVolume"/> contra alocações/realocações concorrentes.
+    /// <see cref="AllocatedVolume"/> contra alocações/realocações concorrentes e
+    /// <see cref="FixedVolume"/> contra fixações concorrentes ao mesmo contrato.
     /// </summary>
     [Timestamp]
     public byte[]? RowVersion { get; set; }
@@ -134,9 +147,23 @@ public class SalesContract : DocumentEntity
         Attachments.Add(attachment);
     }
     
+    /// <remarks>
+    /// Conta APENAS fixações confirmadas. Uma fixação em aprovação reserva volume
+    /// (ver <see cref="FixedVolume"/>) mas não pode entrar no total até ser aprovada
+    /// pela diretoria. Espelha <c>PurchaseContract.TotalPrice</c>.
+    /// </remarks>
     [NotMapped]
-    public decimal TotalPrice => 
-        decimal.Round((TotalVolume * Price), 2 , MidpointRounding.ToEven);
+    public decimal TotalPrice =>
+        decimal.Round(
+            (PriceFixations?
+                .Where(x => x.Status == PriceFixationStatus.Confirmed)
+                .Sum(x => x.FixationPrice * x.FixationVolume) ?? 0),
+            2,
+            MidpointRounding.ToEven);
+
+    [NotMapped]
+    public decimal AvailableVolumeToPricing =>
+        decimal.Round(TotalVolume - FixedVolume, 3, MidpointRounding.ToEven);
 
     /// <remarks>
     /// LEGADO: a fonte de verdade do consumo agora é <see cref="AllocatedVolume"/>

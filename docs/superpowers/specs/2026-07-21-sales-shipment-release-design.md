@@ -148,6 +148,62 @@ Rotas/targets no `manifest.json`, menu no grupo Vendas, `ServerRoutes.ts`.
    (`Pending`) não aparece no faturamento até ser ativada. Comportamento intencional,
    mas parece "lista vazia" em teste.
 
+## Correções pós-implementação (23/07/2026)
+
+Após a verificação inicial, três bugs relacionados ao **local de entrega de venda** foram
+reportados e corrigidos na mesma sessão. Fio condutor comum: a tela de venda foi copiada
+da de compra e herdou resoluções pensadas para **armazém**, mas no escopo de venda
+`DeliveryLocationCode`/`DeliveryLocationName` representam um **cliente** (business
+partner `CardType='C'`), não um armazém.
+
+1. **Nome do local de entrega em branco (tela Add + lista + detalhe).**
+   `SalesShipmentReleasesCreateService` resolvia o nome via
+   `IWarehouseService.GetByIdAsync(DeliveryLocationCode).Name` — sempre `null`, pois o
+   código é um `CardCode` de cliente. Corrigido para `IBusinessPartnerService
+   .GetByIdAsync(code).CardName` (serviço registrado nos dois modos ERP — SAP e
+   standalone — logo funciona no Yokotobi, onde a tabela local de parceiros é vazia).
+   `Update` é imutável (`throw`), então `Create` é o único ponto de escrita.
+   No frontend, a tela `salesContracts/shipmentRelease/Add.view.xml` já usava
+   `.openCostumersValueHelp` corretamente, mas o `descriptionProperty` apontava
+   `DeliveryLocationName:Name` (propriedade de armazém) — corrigido para `:CardName`.
+   Mesma correção aplicada no filtro da lista (`salesShipmentReleases/fragments
+   /Filterbar.fragment.xml`): `valueHelpRequest` trocado de `.openWarehouseValueHelp`
+   para `.openCostumersValueHelp`.
+   Rótulos "Armazém" renomeados para "Local de entrega" na coluna da lista
+   (`Main.view.xml`), no detalhe (`Form.fragment.xml`) e no filtro — **exceto** o
+   "Armazém" da aba Romaneios (`Transactions.fragment.xml`, que é `WarehouseCode`, um
+   armazém de verdade, e não deve mudar).
+   **Backfill:** como o nome só resolve em runtime (modo SAP não tem os clientes na
+   tabela local, então uma migration SQL não serviria), foi criada a action de
+   manutenção `SalesShipmentReleasesBackfillDeliveryLocationNameService`, exposta como
+   unbound action `POST odata/SalesShipmentReleasesBackfillDeliveryLocationName`
+   (espelha o padrão `RecalculateAllBalances`). Roda uma vez via HTTP, sem botão no
+   frontend; devolve `{Scanned, Updated}`.
+
+2. **Campo "Filial" em branco no detalhe (venda E compra).** O detalhe binda
+   `{Branch/ShortName}`. O endpoint by-key (`[EnableQuery]` sobre `GetByIdAsync`)
+   **materializa** a entidade — e o `$expand` do OData não expande uma navigation
+   property em objeto único já materializado, só o que o serviço trouxe via `.Include`.
+   `SalesContract`/`PurchaseContract` estavam incluídos (por isso Cliente/Produto
+   carregavam), mas `Branch` não. A **lista** funciona porque usa `QueryAll`
+   (`IQueryable`), onde o `$expand` do cliente é aplicado normalmente pelo pipeline
+   OData. Corrigido com `.Include(x => x.Branch)` em
+   `SalesShipmentReleasesGetService.GetByIdAsync` **e**, por ter o mesmo defeito,
+   em `ShipmentReleasesGetService.GetByIdAsync` (compra) — mesmo padrão de armadilha do
+   item 2 da seção anterior, mas para a nav `Branch` em vez de `SalesShipmentReleases`.
+
+Verificação: `SiagroB1.Application.Tests` subiu de 267 para **370 testes verdes**
+(+resolução de nome no Create, +backfill com 2 cenários, +Include de Branch em ambos os
+GetService). Confirmado também na camada OData real (`?$expand=Branch` por chave passou
+a devolver o objeto `Branch`) e no browser (menu Vendas, ambiente Yokotobi/yktb): F4
+"Clientes" no campo Local de entrega, nome preenchido na lista/detalhe/backfill, e
+"Filial" exibindo corretamente no detalhe de venda e de compra.
+
+⚠️ Armadilha de teste: no EF Core **InMemory**, um GET-by-key com `.Include` falha
+silenciosamente (retorna `null`) se alguma FK apontar para uma entidade não semeada —
+diferente do SQL Server real. Os testes de `GetByIdAsync` precisam semear **todas** as
+entidades relacionadas (contrato **e** `Branch`), não só a que está sendo testada.
+
 ## Verificação executada (21/07/2026, dev Yokotobi)
 
 - `dotnet build` 0 erros; **267 testes** verdes em `SiagroB1.Application.Tests`

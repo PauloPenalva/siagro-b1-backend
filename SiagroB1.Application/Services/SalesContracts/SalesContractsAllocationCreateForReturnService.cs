@@ -16,13 +16,16 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// Σ das linhas do próprio item + das linhas dos itens de devolução que apontam para ele.
 /// Retorna as liberações afetadas para o chamador recalcular o ShippedQuantity.
 /// </summary>
-public class SalesContractsAllocationCreateForReturnService(IUnitOfWork db)
+public class SalesContractsAllocationCreateForReturnService(
+    IUnitOfWork db,
+    SalesContractsFixedVolumeService fixedVolumeService)
 {
     public async Task<ISet<Guid>> ExecuteAsync(SalesInvoice returnInvoice, string userName,
         CommitMode commitMode = CommitMode.Auto)
     {
         var affectedReleases = new HashSet<Guid>();
         var affectedContracts = new Dictionary<Guid, SalesContract>();
+        var unitPrices = new Dictionary<Guid, decimal>();
         var pending = new List<SalesContractAllocation>();
 
         var items = returnInvoice.Items
@@ -88,6 +91,7 @@ public class SalesContractsAllocationCreateForReturnService(IUnitOfWork db)
                     continue;
 
                 var contract = await GetContractAsync(affectedContracts, share.Group.SalesContractKey);
+                var contractPrice = await GetUnitPriceAsync(unitPrices, contract);
 
                 var allocation = new SalesContractAllocation
                 {
@@ -96,9 +100,9 @@ public class SalesContractsAllocationCreateForReturnService(IUnitOfWork db)
                     SalesShipmentReleaseKey = share.Group.SalesShipmentReleaseKey,
                     Volume = -volume,
                     InvoiceUnitPrice = item.UnitPrice,
-                    ContractPrice = contract.Price,
+                    ContractPrice = contractPrice,
                     PriceDifference = decimal.Round(
-                        -volume * (item.UnitPrice - contract.Price), 2, MidpointRounding.ToEven),
+                        -volume * (item.UnitPrice - contractPrice), 2, MidpointRounding.ToEven),
                     Origin = SalesContractAllocationOrigin.Return,
                     ApprovedAt = DateTime.Now,
                     ApprovedBy = userName,
@@ -143,5 +147,21 @@ public class SalesContractsAllocationCreateForReturnService(IUnitOfWork db)
 
         cache[contractKey] = contract;
         return contract;
+    }
+
+    /// <summary>
+    /// Preço de contrato snapshotado na devolução: fixação Confirmed vigente (fonte única
+    /// do preço), com fallback para <c>SalesContract.Price</c> — idêntico ao usado no
+    /// faturamento (<c>SalesContractsAllocationCreateService</c>), para o par −/+ conciliar.
+    /// </summary>
+    private async Task<decimal> GetUnitPriceAsync(
+        Dictionary<Guid, decimal> cache, SalesContract contract)
+    {
+        if (cache.TryGetValue(contract.Key, out var cached))
+            return cached;
+
+        var price = await fixedVolumeService.ConfirmedUnitPriceAsync(contract.Key, contract.Price);
+        cache[contract.Key] = price;
+        return price;
     }
 }

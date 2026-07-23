@@ -10,7 +10,7 @@ namespace SiagroB1.Application.Services.SalesShipmentReleases;
 
 public class SalesShipmentReleasesCreateService(
     IUnitOfWork db,
-    IWarehouseService warehouseService,
+    IBusinessPartnerService businessPartnerService,
     ILogger<SalesShipmentReleasesCreateService> logger)
 {
     public async Task<SalesShipmentRelease> ExecuteAsync(SalesShipmentRelease entity, string userName)
@@ -39,7 +39,9 @@ public class SalesShipmentReleasesCreateService(
             entity.Status = ReleaseStatus.Pending;
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = userName;
-            entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;
+            // No escopo de venda, o local de entrega é um cliente (business partner),
+            // não um armazém: o nome vem do CardName do parceiro.
+            entity.DeliveryLocationName = (await businessPartnerService.GetByIdAsync(entity.DeliveryLocationCode))?.CardName;
             await db.Context.SalesShipmentReleases.AddAsync(entity);
             await db.SaveChangesAsync();
             return entity;

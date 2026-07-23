@@ -37,6 +37,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
+    public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<ShippingOrder> ShippingOrders { get; set; }
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
