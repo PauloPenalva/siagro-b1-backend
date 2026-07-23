@@ -24,6 +24,11 @@ public class SalesContractsCreateService(
         if (entity.Type == ContractType.Fixed && entity.Price <= 0)
             throw new ApplicationException("Preço é obrigatório para contrato de preço fixo.");
 
+        // Duplicidade de local de entrega barrada ANTES do try — o catch abaixo
+        // mascara toda excecao como "Unable to create sales contract.".
+        if (HasDuplicateDeliveryLocation(entity.DeliveryLocations))
+            throw new ApplicationException("Local de entrega repetido no contrato.");
+
         try
         {
             await db.BeginTransactionAsync();
@@ -39,6 +44,13 @@ public class SalesContractsCreateService(
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
+
+            foreach (var location in entity.DeliveryLocations)
+            {
+                location.SalesContract = entity;
+                location.CardName =
+                    (await businessPartnerService.GetByIdAsync(location.CardCode))?.CardName;
+            }
 
             if (entity.Type == ContractType.Fixed)
             {
@@ -70,6 +82,14 @@ public class SalesContractsCreateService(
             throw new ApplicationException("Unable to create sales contract.");
         }
     }
+
+    /// <summary>
+    /// True se dois locais de entrega apontarem para o mesmo cliente (CardCode).
+    /// Puro/estático de propósito: é a única parte da criação testável em unidade
+    /// (o restante depende de DocNumberSequenceService, que exige IDbConnection real).
+    /// </summary>
+    public static bool HasDuplicateDeliveryLocation(IEnumerable<SalesContractDeliveryLocation> locations) =>
+        locations.GroupBy(l => l.CardCode).Any(g => g.Count() > 1);
 
     private async Task CreatePriceFixation(SalesContract entity)
     {
