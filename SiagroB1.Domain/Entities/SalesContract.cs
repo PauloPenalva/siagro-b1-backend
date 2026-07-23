@@ -113,6 +113,8 @@ public class SalesContract : DocumentEntity
 
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
 
+    public ICollection<SalesContractDeliveryLocation> DeliveryLocations { get; set; } = [];
+
     /// <summary>
     /// Volume já fixado (persistido, derivado). Soma <see cref="SalesContractPriceFixation.FixationVolume"/>
     /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas
