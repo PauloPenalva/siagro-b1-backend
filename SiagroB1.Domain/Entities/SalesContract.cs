@@ -116,6 +116,11 @@ public class SalesContract : DocumentEntity
     public ICollection<SalesContractDeliveryLocation> DeliveryLocations { get; set; } = [];
 
     /// <summary>
+    /// Alterações pontuais feitas depois da aprovação (observação, locais de entrega, anexos).
+    /// </summary>
+    public ICollection<SalesContractChangeLog> ChangeLogs { get; set; } = [];
+
+    /// <summary>
     /// Volume já fixado (persistido, derivado). Soma <see cref="SalesContractPriceFixation.FixationVolume"/>
     /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas
     /// pessoas não fixem a mesma tonelagem enquanto a diretoria decide. Recalculado exclusivamente por

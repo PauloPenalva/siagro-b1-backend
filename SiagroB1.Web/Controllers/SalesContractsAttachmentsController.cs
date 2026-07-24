@@ -9,8 +9,8 @@ public class SalesContractsAttachmentsController(
 {
     public async Task<IActionResult> Delete([FromRoute] Guid key)
     {
-        await service.Delete(key);
-        
+        await service.Delete(key, User.Identity?.Name ?? "Unknown");
+
         return NoContent();
     }
 }

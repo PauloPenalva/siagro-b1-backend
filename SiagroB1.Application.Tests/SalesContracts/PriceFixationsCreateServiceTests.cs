@@ -14,6 +14,7 @@ public class PriceFixationsCreateServiceTests
     private SalesContractsPriceFixationCreateService Service() =>
         new(_db.Context,
             new SalesContractsFixedVolumeService(_db.Context),
+            new SalesContractsChangeLogService(_db.Context),
             NullLogger<SalesContractsPriceFixationCreateService>.Instance);
 
     private async Task<SalesContract> SeedAsync(

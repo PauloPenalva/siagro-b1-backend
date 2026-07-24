@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
@@ -18,7 +19,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// </remarks>
 public class SalesContractsPriceFixationsCancelService(
     AppDbContext context,
-    SalesContractsFixedVolumeService fixedVolumeService)
+    SalesContractsFixedVolumeService fixedVolumeService,
+    SalesContractsChangeLogService changeLog)
 {
     public async Task ExecuteAsync(Guid fixationKey, string canceledBy)
     {
@@ -42,6 +44,10 @@ public class SalesContractsPriceFixationsCancelService(
 
         await using var transaction = await context.Database.BeginTransactionAsync();
 
+        var previous = ContractChangeLogFields.DescribePriceFixation(
+            fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+            contract.UnitOfMeasureCode);
+
         fixation.Status = PriceFixationStatus.InApproval;
 
         // A aprovação anterior deixa de valer: manter aprovador e comentário faria a
@@ -55,6 +61,15 @@ public class SalesContractsPriceFixationsCancelService(
         fixation.CanceledAt = DateTime.Now;
         fixation.UpdatedAt = DateTime.Now;
         fixation.UpdatedBy = canceledBy;
+
+        changeLog.Register(
+            contract.Key,
+            ContractChangeLogFields.PriceFixation,
+            previous,
+            ContractChangeLogFields.DescribePriceFixation(
+                fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+                contract.UnitOfMeasureCode),
+            canceledBy);
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória.

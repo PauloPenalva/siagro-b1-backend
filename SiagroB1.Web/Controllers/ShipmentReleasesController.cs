@@ -52,7 +52,9 @@ public class ShipmentReleasesController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            // Guarda de negócio (contrato encerrado) lança ApplicationException: é recusa
+            // de regra, não falha do servidor. Mesmo mapeamento já usado no Delete abaixo.
+            if (ex is DefaultException or ApplicationException)
             {
                 return BadRequest(ex.Message);
             }

@@ -15,6 +15,7 @@ namespace SiagroB1.Application.Services.SalesContracts;
 public class SalesContractsPriceFixationCreateService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
+    SalesContractsChangeLogService changeLog,
     ILogger<SalesContractsPriceFixationCreateService> logger)
 {
     public async Task<SalesContractPriceFixation> ExecuteAsync(
@@ -58,6 +59,15 @@ public class SalesContractsPriceFixationCreateService(
             // Recalcula já contando a nova fixação; o RowVersion do contrato
             // faz a guarda contra fixações concorrentes.
             contract.FixedVolume += associationEntity.FixationVolume;
+
+            changeLog.Register(
+                contract.Key,
+                ContractChangeLogFields.PriceFixation,
+                null,
+                ContractChangeLogFields.DescribePriceFixation(
+                    associationEntity.FixationVolume, associationEntity.FixationPrice,
+                    associationEntity.Status, contract.UnitOfMeasureCode),
+                createdBy);
 
             await context.SaveChangesAsync();
 

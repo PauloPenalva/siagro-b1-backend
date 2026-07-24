@@ -12,7 +12,8 @@ public class PriceFixationsCancelServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private PurchaseContractsPriceFixationsCancelService Service() =>
-        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context));
+        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
+            new PurchaseContractsChangeLogService(_db.Context));
 
     private async Task<(PurchaseContract Contract, PurchaseContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.Confirmed,
@@ -146,7 +147,8 @@ public class PriceFixationsCancelServiceTests
         Assert.Equal(0m, afterCancel.TotalPrice);
 
         await new PurchaseContractsPriceFixationsApprovalService(
-                _db.Context, new PurchaseContractsFixedVolumeService(_db.Context))
+                _db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
+                new PurchaseContractsChangeLogService(_db.Context))
             .ExecuteAsync(fixation.Key, "reaprovado", "diretoria");
 
         var afterReapproval = await _db.Context.PurchaseContracts

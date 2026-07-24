@@ -15,7 +15,7 @@ public class SalesContractsDeliveryLocationsCreateServiceTests
         new(new() { ["C0001"] = "Terminal Santos", ["C0002"] = "Terminal Paranagua" });
 
     private SalesContractsDeliveryLocationsCreateService Service() =>
-        new(_db.Context, _partners,
+        new(_db.Context, _partners, new SalesContractsChangeLogService(_db.Context),
             NullLogger<SalesContractsDeliveryLocationsCreateService>.Instance);
 
     private async Task<SalesContract> SeedContractAsync()
@@ -41,7 +41,7 @@ public class SalesContractsDeliveryLocationsCreateServiceTests
         var contract = await SeedContractAsync();
 
         var created = await Service().ExecuteAsync(contract.Key,
-            new SalesContractDeliveryLocation { CardCode = "C0001" });
+            new SalesContractDeliveryLocation { CardCode = "C0001" }, "tester");
 
         Assert.Equal("Terminal Santos", created.CardName);
         Assert.Equal(contract.Key, created.SalesContractKey);
@@ -52,11 +52,11 @@ public class SalesContractsDeliveryLocationsCreateServiceTests
     {
         var contract = await SeedContractAsync();
         await Service().ExecuteAsync(contract.Key,
-            new SalesContractDeliveryLocation { CardCode = "C0001" });
+            new SalesContractDeliveryLocation { CardCode = "C0001" }, "tester");
 
         await Assert.ThrowsAsync<DefaultException>(() =>
             Service().ExecuteAsync(contract.Key,
-                new SalesContractDeliveryLocation { CardCode = "C0001" }));
+                new SalesContractDeliveryLocation { CardCode = "C0001" }, "tester"));
     }
 
     [Fact]
@@ -64,6 +64,6 @@ public class SalesContractsDeliveryLocationsCreateServiceTests
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
             Service().ExecuteAsync(Guid.NewGuid(),
-                new SalesContractDeliveryLocation { CardCode = "C0001" }));
+                new SalesContractDeliveryLocation { CardCode = "C0001" }, "tester"));
     }
 }

@@ -110,6 +110,11 @@ public class PurchaseContract : DocumentEntity
     public ICollection<PurchaseContractAllocation> Allocations { get; set; } = [];
     
     public ICollection<PurchaseContractAttachment> Attachments { get; set; } = [];
+
+    /// <summary>
+    /// Log de alterações do contrato — hoje, o ciclo de vida das fixações de preço.
+    /// </summary>
+    public ICollection<PurchaseContractChangeLog> ChangeLogs { get; set; } = [];
     
     public TechnologyType? TechnologyType { get; set; }
 

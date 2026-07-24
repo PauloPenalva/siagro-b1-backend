@@ -32,6 +32,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractAllocation>("PurchaseContractsAllocations");
         modelBuilder.EntitySet<SalesContractAllocation>("SalesContractsAllocations");
         modelBuilder.EntitySet<PurchaseContractAttachment>("PurchaseContractsAttachments");
+
+        modelBuilder.EntitySet<PurchaseContractChangeLog>("PurchaseContractsChangeLogs");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
@@ -62,6 +64,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContractPriceFixation>("SalesContractsPriceFixations");
 
         modelBuilder.EntitySet<SalesContractDeliveryLocation>("SalesContractsDeliveryLocations");
+
+        modelBuilder.EntitySet<SalesContractChangeLog>("SalesContractsChangeLogs");
 
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");

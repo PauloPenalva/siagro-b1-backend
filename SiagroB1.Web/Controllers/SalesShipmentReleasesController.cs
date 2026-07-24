@@ -52,7 +52,10 @@ public class SalesShipmentReleasesController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            // As guardas de negócio do create (contrato encerrado, saldo físico, local de
+            // entrega fora do contrato) lançam ApplicationException: são recusas de regra,
+            // não falhas do servidor. Mesmo mapeamento já usado no Delete abaixo.
+            if (ex is DefaultException or ApplicationException)
             {
                 return BadRequest(ex.Message);
             }

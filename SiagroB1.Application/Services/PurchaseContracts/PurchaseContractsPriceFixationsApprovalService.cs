@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
@@ -7,7 +8,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsPriceFixationsApprovalService(
     AppDbContext context,
-    PurchaseContractsFixedVolumeService fixedVolumeService)
+    PurchaseContractsFixedVolumeService fixedVolumeService,
+    PurchaseContractsChangeLogService changeLog)
 {
     public async Task ExecuteAsync(Guid fixationKey, string? comments, string approvedBy)
     {
@@ -30,12 +32,25 @@ public class PurchaseContractsPriceFixationsApprovalService(
 
         await using var transaction = await context.Database.BeginTransactionAsync();
 
+        var previous = ContractChangeLogFields.DescribePriceFixation(
+            fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+            contract.UnitOfMeasureCode);
+
         fixation.Status = PriceFixationStatus.Confirmed;
         fixation.ApprovedBy = approvedBy;
         fixation.ApprovedAt = DateTime.Now;
         fixation.ApprovalComments = comments;
         fixation.UpdatedAt = DateTime.Now;
         fixation.UpdatedBy = approvedBy;
+
+        changeLog.Register(
+            contract.Key,
+            ContractChangeLogFields.PriceFixation,
+            previous,
+            ContractChangeLogFields.DescribePriceFixation(
+                fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+                contract.UnitOfMeasureCode),
+            approvedBy);
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória. Aqui o total não muda (InApproval

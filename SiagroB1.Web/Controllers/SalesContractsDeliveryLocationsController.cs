@@ -23,7 +23,7 @@ public class SalesContractsDeliveryLocationsController(
         if (!ModelState.IsValid) return BadRequest(ModelState);
         try
         {
-            await createService.ExecuteAsync(key, associationEntity);
+            await createService.ExecuteAsync(key, associationEntity, User.Identity?.Name ?? "Unknown");
             return Created(associationEntity);
         }
         catch (Exception ex)
@@ -61,7 +61,7 @@ public class SalesContractsDeliveryLocationsController(
     {
         try
         {
-            await deleteService.ExecuteAsync(associationKey);
+            await deleteService.ExecuteAsync(associationKey, User.Identity?.Name ?? "Unknown");
         }
         catch (NotFoundException) { return NotFound(); }
         catch (Exception ex)

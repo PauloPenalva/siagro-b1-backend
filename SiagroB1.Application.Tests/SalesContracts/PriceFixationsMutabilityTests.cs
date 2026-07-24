@@ -20,6 +20,7 @@ public class PriceFixationsMutabilityTests
     private SalesContractsPriceFixationDeleteService DeleteService() =>
         new(_db.Context,
             new SalesContractsFixedVolumeService(_db.Context),
+            new SalesContractsChangeLogService(_db.Context),
             NullLogger<SalesContractsPriceFixationDeleteService>.Instance);
 
     private async Task<SalesContractPriceFixation> SeedAsync(PriceFixationStatus status)
@@ -139,7 +140,7 @@ public class PriceFixationsMutabilityTests
     {
         var fixation = await SeedAsync(PriceFixationStatus.InApproval);
 
-        await DeleteService().ExecuteAsync(fixation.Key);
+        await DeleteService().ExecuteAsync(fixation.Key, "tester");
 
         Assert.False(await _db.Context.SalesContractsPriceFixations
             .AnyAsync(x => x.Key == fixation.Key));
@@ -155,6 +156,6 @@ public class PriceFixationsMutabilityTests
         var fixation = await SeedAsync(PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            DeleteService().ExecuteAsync(fixation.Key));
+            DeleteService().ExecuteAsync(fixation.Key, "tester"));
     }
 }

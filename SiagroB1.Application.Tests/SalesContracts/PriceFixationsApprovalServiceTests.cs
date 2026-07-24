@@ -14,6 +14,8 @@ public class PriceFixationsApprovalServiceTests
 
     private SalesContractsFixedVolumeService FixedVolume() => new(_db.Context);
 
+    private SalesContractsChangeLogService ChangeLog() => new(_db.Context);
+
     private async Task<(SalesContract Contract, SalesContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.InApproval,
         ContractStatus contractStatus = ContractStatus.Approved)
@@ -59,7 +61,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (_, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
             .ExecuteAsync(fixation.Key, "aprovado em reunião", "diretoria");
 
         var reloaded = await ReloadFixationAsync(fixation.Key);
@@ -74,7 +76,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         Assert.Equal(30_000m, (await ReloadContractAsync(contract.Key)).FixedVolume);
@@ -85,7 +87,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         var reloaded = await _db.Context.SalesContracts
@@ -102,7 +104,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(status: PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -112,7 +114,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(contractStatus: ContractStatus.Finished);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -120,7 +122,7 @@ public class PriceFixationsApprovalServiceTests
     public async Task Approve_UnknownFixation_ThrowsNotFound()
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
                 .ExecuteAsync(Guid.NewGuid(), null, "diretoria"));
     }
 
@@ -129,7 +131,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume())
+        await new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog())
             .ExecuteAsync(fixation.Key, "preço fora do mercado", "diretoria");
 
         var reloadedFixation = await ReloadFixationAsync(fixation.Key);
@@ -147,7 +149,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(status: PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume())
+            new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog())
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 }

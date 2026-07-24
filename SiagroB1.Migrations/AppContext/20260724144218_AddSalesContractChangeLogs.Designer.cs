@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724144218_AddSalesContractChangeLogs")]
+    partial class AddSalesContractChangeLogs
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -791,38 +794,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("PurchaseContractKey");
 
                     b.ToTable("PURCHASE_CONTRACTS_BROKERS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractChangeLog", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("ChangedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ChangedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Field")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<string>("NewValue")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<string>("OldValue")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<Guid?>("PurchaseContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("PurchaseContractKey");
-
-                    b.ToTable("PURCHASE_CONTRACTS_CHANGE_LOGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
@@ -2994,16 +2965,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("PurchaseContract");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractChangeLog", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
-                        .WithMany("ChangeLogs")
-                        .HasForeignKey("PurchaseContractKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("PurchaseContract");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
@@ -3552,8 +3513,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Brokers");
-
-                    b.Navigation("ChangeLogs");
 
                     b.Navigation("PriceFixations");
 

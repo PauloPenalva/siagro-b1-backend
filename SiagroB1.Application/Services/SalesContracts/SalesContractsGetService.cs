@@ -15,6 +15,9 @@ public class SalesContractsGetService(AppDbContext context, ILogger<SalesContrac
             logger.LogInformation("Fetching entity with ID {Id}", key);
             return await context.SalesContracts
                 .Include(x => x.DocNumber)
+                // Filial do contrato. Sem o Include o $expand=Branch da tela devolve nulo:
+                // o EnableQuery projeta sobre a entidade já materializada, não sobre a query.
+                .Include(x => x.Branch)
                 .Include(x => x.HarvestSeason)
                 .Include(x => x.LogisticRegion)
                 .Include(x => x.SalesInvoiceItems)

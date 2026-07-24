@@ -22,7 +22,7 @@ public class PurchaseContractsPriceFixationDeleteController(
 
             var key = (Guid) keyObj;
 
-            await service.ExecuteAsync(key);
+            await service.ExecuteAsync(key, User.Identity?.Name ?? "Unknown");
             return Ok();
         }
         catch (Exception e)

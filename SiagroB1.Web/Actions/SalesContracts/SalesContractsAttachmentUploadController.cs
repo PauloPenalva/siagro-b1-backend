@@ -34,7 +34,7 @@ public class SalesContractsAttachmentUploadController(SalesContractsAttachmentsC
                 CreatedBy = User.Identity?.Name ?? "unknown"
             };  
           
-            await service.SaveAsync(contractKey, attachment);
+            await service.SaveAsync(contractKey, attachment, User.Identity?.Name ?? "Unknown");
             return Ok();
         }
         catch (Exception e)

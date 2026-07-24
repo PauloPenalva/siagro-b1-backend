@@ -19,11 +19,25 @@ public class SalesShipmentReleasesCreateService(
             .AsNoTracking()
             .Include(x => x.SalesInvoiceItems).ThenInclude(i => i.SalesInvoice)
             .Include(x => x.SalesShipmentReleases)
+            .Include(x => x.DeliveryLocations)
             .FirstOrDefaultAsync(x => x.Key == entity.SalesContractKey) ??
                             throw new NotFoundException("Sales contract not found.");
 
         if (salesContract.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível criar liberação de entrega.");
+
+        // A entrega só pode sair para um dos locais informados no contrato — não para
+        // qualquer cliente da base. O value help da tela já lista apenas esses locais;
+        // aqui a mesma regra fecha o caminho de quem chama a API direto.
+        if (salesContract.DeliveryLocations.Count == 0)
+            throw new ApplicationException(
+                "Contrato de venda sem local de entrega cadastrado: informe os locais de " +
+                "entrega no contrato antes de solicitar a liberação.");
+
+        if (salesContract.DeliveryLocations.All(l => l.CardCode != entity.DeliveryLocationCode))
+            throw new ApplicationException(
+                $"Local de entrega '{entity.DeliveryLocationCode}' não está entre os locais de " +
+                "entrega do contrato de venda.");
 
         // Saldo FÍSICO: não permite liberar mais do que o contrato tem para embarcar
         // (o fluxo legado fatura direto no contrato, sem passar por liberação — por isso

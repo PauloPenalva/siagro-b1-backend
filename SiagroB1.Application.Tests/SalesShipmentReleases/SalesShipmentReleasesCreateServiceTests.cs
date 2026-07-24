@@ -35,7 +35,16 @@ public class SalesShipmentReleasesCreateServiceTests
     private SalesShipmentReleasesCreateService Service(IBusinessPartnerService? businessPartners = null) => new(
         _db, businessPartners ?? new FakeBusinessPartnerService(), NullLogger<SalesShipmentReleasesCreateService>.Instance);
 
-    private async Task<SalesContract> SeedContractAsync(decimal totalVolume, decimal invoicedQuantity)
+    /// <summary>
+    /// A liberação só sai para um dos locais de entrega do contrato, então todo contrato
+    /// de teste nasce com os códigos usados pelos cenários (<see cref="NewRelease"/> e o
+    /// teste de resolução de nome). Passe um array vazio em
+    /// <paramref name="deliveryLocations"/> para exercitar o contrato sem locais cadastrados.
+    /// </summary>
+    private async Task<SalesContract> SeedContractAsync(
+        decimal totalVolume,
+        decimal invoicedQuantity,
+        string[]? deliveryLocations = null)
     {
         var sc = new SalesContract
         {
@@ -44,6 +53,15 @@ public class SalesShipmentReleasesCreateServiceTests
             TotalVolume = totalVolume, Status = ContractStatus.Approved,
         };
         _db.Context.SalesContracts.Add(sc);
+
+        foreach (var cardCode in deliveryLocations ?? ["01", "C002255"])
+        {
+            _db.Context.SalesContractsDeliveryLocations.Add(new SalesContractDeliveryLocation
+            {
+                Key = Guid.NewGuid(), SalesContractKey = sc.Key, CardCode = cardCode,
+                CardName = $"LOCAL {cardCode}",
+            });
+        }
 
         if (invoicedQuantity > 0)
         {
@@ -148,6 +166,37 @@ public class SalesShipmentReleasesCreateServiceTests
         // a de 100k ainda cabe
         var ok = await Service().ExecuteAsync(NewRelease(sc.Key, 100_000m), "tester");
         Assert.Equal(ReleaseStatus.Pending, ok.Status);
+    }
+
+    [Fact]
+    public async Task Create_ContractWithoutDeliveryLocations_Throws()
+    {
+        // Sem locais cadastrados não há para onde liberar: o usuário precisa informá-los
+        // no contrato antes de solicitar a liberação.
+        var sc = await SeedContractAsync(totalVolume: 1_000_000m, invoicedQuantity: 0m, deliveryLocations: []);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(NewRelease(sc.Key, 100_000m), "tester"));
+
+        Assert.Contains("local de entrega", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(_db.Context.SalesShipmentReleases);
+    }
+
+    [Fact]
+    public async Task Create_DeliveryLocationNotInContract_Throws()
+    {
+        // O local precisa ser um dos do contrato — não qualquer cliente da base.
+        var sc = await SeedContractAsync(totalVolume: 1_000_000m, invoicedQuantity: 0m, deliveryLocations: ["01"]);
+        var release = new SalesShipmentRelease
+        {
+            SalesContractKey = sc.Key, DeliveryLocationCode = "C009999", ReleasedQuantity = 100_000m,
+        };
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(release, "tester"));
+
+        Assert.Contains("C009999", ex.Message);
+        Assert.Empty(_db.Context.SalesShipmentReleases);
     }
 
     [Fact]

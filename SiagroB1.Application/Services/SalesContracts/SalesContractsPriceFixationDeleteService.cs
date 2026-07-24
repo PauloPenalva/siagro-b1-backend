@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
@@ -15,9 +16,10 @@ namespace SiagroB1.Application.Services.SalesContracts;
 public class SalesContractsPriceFixationDeleteService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
+    SalesContractsChangeLogService changeLog,
     ILogger<SalesContractsPriceFixationDeleteService> logger)
 {
-    public async Task ExecuteAsync(Guid fixationKey)
+    public async Task ExecuteAsync(Guid fixationKey, string deletedBy)
     {
         try
         {
@@ -34,6 +36,18 @@ public class SalesContractsPriceFixationDeleteService(
             var contract = fixation.SalesContract;
 
             context.SalesContractsPriceFixations.Remove(fixation);
+
+            if (contract != null)
+            {
+                changeLog.Register(
+                    contract.Key,
+                    ContractChangeLogFields.PriceFixation,
+                    ContractChangeLogFields.DescribePriceFixation(
+                        fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+                        contract.UnitOfMeasureCode),
+                    null,
+                    deletedBy);
+            }
 
             // Persiste a remoção ANTES de recalcular: RecalculateAsync consulta o banco
             // e ainda enxergaria a fixação removida se recalculássemos agora.
