@@ -66,6 +66,8 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted))
                 continue;
 
+            // PurchaseContractComment está fora de propósito: comentário é anotação, não altera
+            // valor nem saldo, e o requisito é justamente poder comentar contrato encerrado.
             Guid? key = entry.Entity switch
             {
                 PurchaseContractBroker b => b.PurchaseContractKey,

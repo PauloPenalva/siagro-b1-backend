@@ -29,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractQualityParameter> PurchaseContractsQualityParameters { get; set; }
     public DbSet<PurchaseContractAllocation> PurchaseContractsAllocations { get; set; }
     public DbSet<PurchaseContractChangeLog> PurchaseContractsChangeLogs { get; set; }
+    public DbSet<PurchaseContractComment> PurchaseContractsComments { get; set; }
     public DbSet<SalesContractAllocation> SalesContractsAllocations { get; set; }
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
@@ -41,6 +42,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
     public DbSet<SalesContractChangeLog> SalesContractsChangeLogs { get; set; }
+    public DbSet<SalesContractComment> SalesContractsComments { get; set; }
     public DbSet<ShippingOrder> ShippingOrders { get; set; }
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }

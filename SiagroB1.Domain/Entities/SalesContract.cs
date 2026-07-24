@@ -116,7 +116,15 @@ public class SalesContract : DocumentEntity
     public ICollection<SalesContractDeliveryLocation> DeliveryLocations { get; set; } = [];
 
     /// <summary>
-    /// Alterações pontuais feitas depois da aprovação (observação, locais de entrega, anexos).
+    /// Comentários do contrato: anotações com data, hora e autor, mantidas na tela Detail.
+    /// Chama-se <c>CommentEntries</c> e não <c>Comments</c> porque <see cref="Comments"/> já é o
+    /// escalar de "Observações" do cabeçalho.
+    /// </summary>
+    public ICollection<SalesContractComment> CommentEntries { get; set; } = [];
+
+    /// <summary>
+    /// Alterações pontuais feitas depois da aprovação (locais de entrega, anexos), o ciclo de
+    /// vida das fixações de preço e os comentários.
     /// </summary>
     public ICollection<SalesContractChangeLog> ChangeLogs { get; set; } = [];
 

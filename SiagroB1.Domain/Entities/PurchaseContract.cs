@@ -112,7 +112,15 @@ public class PurchaseContract : DocumentEntity
     public ICollection<PurchaseContractAttachment> Attachments { get; set; } = [];
 
     /// <summary>
-    /// Log de alterações do contrato — hoje, o ciclo de vida das fixações de preço.
+    /// Comentários do contrato: anotações com data, hora e autor, mantidas na tela Detail.
+    /// Chama-se <c>CommentEntries</c> e não <c>Comments</c> porque <see cref="Comments"/> já é o
+    /// escalar de "Observações" do cabeçalho.
+    /// </summary>
+    public ICollection<PurchaseContractComment> CommentEntries { get; set; } = [];
+
+    /// <summary>
+    /// Log de alterações do contrato — hoje, o ciclo de vida das fixações de preço e os
+    /// comentários.
     /// </summary>
     public ICollection<PurchaseContractChangeLog> ChangeLogs { get; set; } = [];
     

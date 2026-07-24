@@ -34,6 +34,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractAttachment>("PurchaseContractsAttachments");
 
         modelBuilder.EntitySet<PurchaseContractChangeLog>("PurchaseContractsChangeLogs");
+        modelBuilder.EntitySet<PurchaseContractComment>("PurchaseContractsComments");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
@@ -66,6 +67,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContractDeliveryLocation>("SalesContractsDeliveryLocations");
 
         modelBuilder.EntitySet<SalesContractChangeLog>("SalesContractsChangeLogs");
+
+        modelBuilder.EntitySet<SalesContractComment>("SalesContractsComments");
 
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
@@ -446,7 +449,40 @@ public static class ODataConfigurations
         salesPriceFixationCancel.Parameter<Guid>("Key");
         salesPriceFixationCancel.Returns<IActionResult>();
 
-        var shipmentBillingCreateSalesInvoice = 
+        // Comentários do contrato (compra e venda). Tudo por action, e não POST/PATCH na coleção
+        // aninhada, por dois motivos: a mutação e a linha do log de alterações entram no mesmo
+        // SaveChanges de um service único, e o Detail do frontend não tem o "Salvar" da tela — o
+        // update group é diferido, e uma escrita pendente ali derrubaria o batch inteiro.
+        var purchaseContractsCommentCreate = modelBuilder.Action("PurchaseContractsCommentCreate");
+        purchaseContractsCommentCreate.Parameter<Guid>("ContractKey");
+        purchaseContractsCommentCreate.Parameter<string>("Text");
+        purchaseContractsCommentCreate.Returns<IActionResult>();
+
+        // Key é a chave do COMENTÁRIO, não a do contrato.
+        var purchaseContractsCommentUpdate = modelBuilder.Action("PurchaseContractsCommentUpdate");
+        purchaseContractsCommentUpdate.Parameter<Guid>("Key");
+        purchaseContractsCommentUpdate.Parameter<string>("Text");
+        purchaseContractsCommentUpdate.Returns<IActionResult>();
+
+        var purchaseContractsCommentDelete = modelBuilder.Action("PurchaseContractsCommentDelete");
+        purchaseContractsCommentDelete.Parameter<Guid>("Key");
+        purchaseContractsCommentDelete.Returns<IActionResult>();
+
+        var salesContractsCommentCreate = modelBuilder.Action("SalesContractsCommentCreate");
+        salesContractsCommentCreate.Parameter<Guid>("ContractKey");
+        salesContractsCommentCreate.Parameter<string>("Text");
+        salesContractsCommentCreate.Returns<IActionResult>();
+
+        var salesContractsCommentUpdate = modelBuilder.Action("SalesContractsCommentUpdate");
+        salesContractsCommentUpdate.Parameter<Guid>("Key");
+        salesContractsCommentUpdate.Parameter<string>("Text");
+        salesContractsCommentUpdate.Returns<IActionResult>();
+
+        var salesContractsCommentDelete = modelBuilder.Action("SalesContractsCommentDelete");
+        salesContractsCommentDelete.Parameter<Guid>("Key");
+        salesContractsCommentDelete.Returns<IActionResult>();
+
+        var shipmentBillingCreateSalesInvoice =
             modelBuilder.Action("ShipmentBillingCreateSalesInvoice");
         shipmentBillingCreateSalesInvoice.EntityParameter<SalesInvoice>("SalesInvoice");
         shipmentBillingCreateSalesInvoice.Returns<IActionResult>();

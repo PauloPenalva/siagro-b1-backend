@@ -14,6 +14,12 @@ public static class ContractChangeLogFields
     public const string Attachment = "Attachment";
     public const string PriceFixation = "PriceFixation";
 
+    /// <summary>
+    /// Comentário do contrato (coleção <c>CommentEntries</c>). Singular de propósito: o código
+    /// legado <c>Comments</c> é a OBSERVAÇÃO do cabeçalho, que já tem linhas gravadas no banco.
+    /// </summary>
+    public const string Comment = "Comment";
+
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>
