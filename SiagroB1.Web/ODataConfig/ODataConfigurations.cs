@@ -91,6 +91,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
+        modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
+        modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
         modelBuilder.EntitySet<DocNumber>("DocNumbers");
         modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))
@@ -513,7 +515,22 @@ public static class ODataConfigurations
         salesInvoicesSetDocumentNumber.Parameter<string>("DocumentSeries");
         salesInvoicesSetDocumentNumber.Parameter<string>("ChaveNFe");
         salesInvoicesSetDocumentNumber.Returns<IActionResult>();
-        
+
+        var salesInvoicesCommentCreate = modelBuilder.Action("SalesInvoicesCommentCreate");
+        salesInvoicesCommentCreate.Parameter<Guid>("InvoiceKey");
+        salesInvoicesCommentCreate.Parameter<string>("Text");
+        salesInvoicesCommentCreate.Returns<IActionResult>();
+
+        var salesInvoicesCommentUpdate = modelBuilder.Action("SalesInvoicesCommentUpdate");
+        salesInvoicesCommentUpdate.Parameter<Guid>("Key");
+        salesInvoicesCommentUpdate.Parameter<string>("Text");
+        salesInvoicesCommentUpdate.Returns<IActionResult>();
+
+        var salesInvoicesCommentDelete = modelBuilder.Action("SalesInvoicesCommentDelete");
+        salesInvoicesCommentDelete.Parameter<Guid>("Key");
+        salesInvoicesCommentDelete.Returns<IActionResult>();
+
+
         var weighingTicketsFirstWeighing = modelBuilder.Action("WeighingTicketsFirstWeighing");
         weighingTicketsFirstWeighing.Parameter<Guid>("Key");
         weighingTicketsFirstWeighing.Parameter<int>("Value");

@@ -4,9 +4,13 @@ using SiagroB1.Domain.Enums;
 namespace SiagroB1.Domain.Entities;
 
 /// <summary>
-/// Códigos gravados na coluna <c>Field</c> do log de alterações do contrato (compra e venda).
-/// São contrato com a tela: o formatter do frontend traduz cada código para o rótulo em pt-BR.
-/// Não renomeie sem migrar as linhas já gravadas.
+/// Códigos gravados na coluna <c>Field</c> dos logs de alterações: contrato de compra, contrato de
+/// venda e documento de saída. São contrato com a tela: o formatter do frontend traduz cada código
+/// para o rótulo em pt-BR. Não renomeie sem migrar as linhas já gravadas.
+///
+/// O nome da classe é histórico — nasceu com o log do contrato. Os códigos são compartilhados de
+/// propósito: o documento de saída grava o mesmo <see cref="Comment"/>, e a tela o traduz com o
+/// mesmo formatter.
 /// </summary>
 public static class ContractChangeLogFields
 {
@@ -15,8 +19,9 @@ public static class ContractChangeLogFields
     public const string PriceFixation = "PriceFixation";
 
     /// <summary>
-    /// Comentário do contrato (coleção <c>CommentEntries</c>). Singular de propósito: o código
-    /// legado <c>Comments</c> é a OBSERVAÇÃO do cabeçalho, que já tem linhas gravadas no banco.
+    /// Comentário do contrato ou do documento de saída (coleção <c>CommentEntries</c>). Singular de
+    /// propósito: o código legado <c>Comments</c> é a OBSERVAÇÃO do cabeçalho, que já tem linhas
+    /// gravadas no banco.
     /// </summary>
     public const string Comment = "Comment";
 

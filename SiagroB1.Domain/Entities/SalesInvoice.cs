@@ -86,8 +86,20 @@ public class SalesInvoice : DocumentEntity
     public DateTime? DeliveryDate { get; set; }
     
     public ICollection<SalesInvoiceItem> Items { get; set; } = [];
-    
+
     public ICollection<StorageTransaction> SalesTransactions { get; set; } = [];
+
+    /// <summary>
+    /// Comentários do documento: anotações com data, hora e autor, editáveis a qualquer tempo.
+    /// Chama-se <c>CommentEntries</c>, e não <c>Comments</c>, porque <see cref="Comments"/> já é o
+    /// escalar de "Observações" do cabeçalho.
+    /// </summary>
+    public ICollection<SalesInvoiceComment> CommentEntries { get; set; } = [];
+
+    /// <summary>
+    /// Log de alterações do documento. Hoje só recebe as linhas de comentário.
+    /// </summary>
+    public ICollection<SalesInvoiceChangeLog> ChangeLogs { get; set; } = [];
     
     public Guid? SalesInvoiceOriginKey { get; set; }
     public SalesInvoice? SalesInvoiceOrigin { get; set; }
