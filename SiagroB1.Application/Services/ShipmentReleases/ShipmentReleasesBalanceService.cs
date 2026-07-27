@@ -46,7 +46,11 @@ public class ShipmentReleasesBalanceService(
             .AsNoTracking()
             .Where(sr =>
                 sr.PurchaseContract.ItemCode == itemCode &&
-                sr.Status == ReleaseStatus.Actived)
+                sr.Status == ReleaseStatus.Actived &&
+                // Sem saldo a embarcar a linha não serve para nada na tela. O filtro é por
+                // liberação, antes do agrupamento, para que o saldo exibido no armazém seja
+                // exatamente a soma dos contratos listados na tela seguinte.
+                sr.ReleasedQuantity - sr.ShippedQuantity > 0)
             .GroupBy(sr => new
             {
                 sr.DeliveryLocationCode,

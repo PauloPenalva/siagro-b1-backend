@@ -50,7 +50,9 @@ public class ShipmentReleasesPurchaseContractsService(
             .Where(sr =>
                 sr.PurchaseContract.ItemCode == itemCode &&
                 sr.DeliveryLocationCode == warehouseCode &&
-                sr.Status == ReleaseStatus.Actived)
+                sr.Status == ReleaseStatus.Actived &&
+                // Mesma regra da lista de armazéns: contrato sem saldo a embarcar fica fora.
+                sr.ReleasedQuantity - sr.ShippedQuantity > 0)
             .GroupBy(sr => new
             {
                 sr.Key,
