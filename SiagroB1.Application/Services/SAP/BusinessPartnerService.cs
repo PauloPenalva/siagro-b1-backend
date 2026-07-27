@@ -116,11 +116,16 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
         throw new NotImplementedException();
     }
 
-    public async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
+    public async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync(IReadOnlyCollection<string> cardCodes)
     {
+        if (cardCodes.Count == 0)
+        {
+            return new Dictionary<string, SupplierInfo>();
+        }
+
         return await context.BusinessPartners
             .AsNoTracking()
-            .Where(x => x.QryGroup23 == "Y")
+            .Where(bp => cardCodes.Contains(bp.CardCode))
             .Select(bp => new SupplierInfo
             {
                 CardCode = bp.CardCode,
@@ -130,7 +135,6 @@ public class BusinessPartnerService(SapErpDbContext context, ILogger<BusinessPar
                 Notes = bp.Notes,
                 Address = bp.Addresses
                     .Where(a => a.AdresType == "S")
-                    .Take(1)
                     .OrderBy(a => a.AddressName)
                     .Select(a => new SupplierAddress
                     {

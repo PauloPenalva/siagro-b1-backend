@@ -52,6 +52,7 @@ public class WarehouseService(
             .Select(bp => new WarehouseInfo
             {
                 CardCode = bp.CardCode,
+                CardName = bp.CardName,
                 CardFName = bp.CardFName,
                 TaxId = bp.TaxId,
                 Notes = bp.Notes,

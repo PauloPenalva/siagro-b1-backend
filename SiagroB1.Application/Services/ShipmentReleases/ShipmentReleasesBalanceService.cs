@@ -87,7 +87,9 @@ public class ShipmentReleasesBalanceService(
                 ReleasedQuantity = b.ReleasedQuantity,
                 AvailableQuantity = b.ReleasedQuantity - b.UsedQuantity,
                 TaxId = wh?.TaxId,
-                FName = wh?.CardFName,
+                // "Nome Fantasia" vem do AliasName, que é opcional no SAP: sem ele a célula
+                // ficava vazia, então cai para a razão social do parceiro.
+                FName = string.IsNullOrWhiteSpace(wh?.CardFName) ? wh?.CardName : wh.CardFName,
                 Notes = wh?.Notes,
                 City = wh?.Address?.City,
                 State = wh?.Address?.State

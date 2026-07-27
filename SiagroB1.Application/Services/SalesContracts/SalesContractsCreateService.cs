@@ -91,20 +91,26 @@ public class SalesContractsCreateService(
     public static bool HasDuplicateDeliveryLocation(IEnumerable<SalesContractDeliveryLocation> locations) =>
         locations.GroupBy(l => l.CardCode).Any(g => g.Count() > 1);
 
-    private async Task CreatePriceFixation(SalesContract entity)
+    /// <summary>
+    /// Mapeia o contrato de preço fixo na sua fixação automática. Estático/puro pelo mesmo
+    /// motivo de <see cref="HasDuplicateDeliveryLocation"/>: é a parte da criação que dá para
+    /// testar em unidade.
+    /// </summary>
+    public static SalesContractPriceFixation BuildAutoFixation(SalesContract entity) => new()
     {
-        var fixation = new SalesContractPriceFixation
-        {
-            SalesContract = entity,
-            FixationDate = DateTime.Now.Date,
-            FixationVolume = entity.TotalVolume,
-            FixationPrice = entity.Price,
-            // Confirmed, não InApproval: num contrato de preço fixo o preço já foi acordado
-            // na negociação. Nascer InApproval zeraria TotalPrice (que conta só Confirmed) e
-            // entulharia a fila de aprovação com item inaprovável.
-            Status = PriceFixationStatus.Confirmed
-        };
+        SalesContract = entity,
+        FixationDate = DateTime.Now.Date,
+        // Frete acordado na negociação, espelhando o contrato de compra. É o que alimenta
+        // o campo Frete do relatório de fixação.
+        FreightCost = entity.FreightCostStandard,
+        FixationVolume = entity.TotalVolume,
+        FixationPrice = entity.Price,
+        // Confirmed, não InApproval: num contrato de preço fixo o preço já foi acordado
+        // na negociação. Nascer InApproval zeraria TotalPrice (que conta só Confirmed) e
+        // entulharia a fila de aprovação com item inaprovável.
+        Status = PriceFixationStatus.Confirmed
+    };
 
-        await db.Context.SalesContractsPriceFixations.AddAsync(fixation);
-    }
+    private async Task CreatePriceFixation(SalesContract entity) =>
+        await db.Context.SalesContractsPriceFixations.AddAsync(BuildAutoFixation(entity));
 }

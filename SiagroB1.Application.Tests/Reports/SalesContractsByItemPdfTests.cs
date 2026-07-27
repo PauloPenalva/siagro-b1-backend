@@ -68,6 +68,9 @@ public class SalesContractsByItemPdfTests : IDisposable
             TotalVolume = 1500m,
             Price = 128.5m,
             FreightTerms = FreightTerms.Cif,
+            // Com valor: a coluna Frete passa a imprimir "CIF - 45,00", o texto mais
+            // largo que ela precisa acomodar sem truncar.
+            FreightCostStandard = 45m,
             DeliveryStartDate = new DateTime(2026, 8, 1),
             DeliveryEndDate = new DateTime(2026, 8, 31),
         });

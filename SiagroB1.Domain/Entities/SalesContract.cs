@@ -56,9 +56,27 @@ public class SalesContract : DocumentEntity
     public FreightTerms FreightTerms { get; set; }
 
     /// <summary>
+    /// Custo do frete negociado, por unidade de <see cref="FreightUmCode"/>. Espelha
+    /// <c>PurchaseContract.FreightCostStandard</c> e existe para alimentar a futura apuração
+    /// de resultado do contrato. Copiado para <c>SalesContractPriceFixation.FreightCost</c>
+    /// na fixação automática dos contratos FIX.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]
+    public decimal FreightCostStandard { get; set; }
+
+    /// <summary>
+    /// Unidade de medida do frete. Sem FK nem navegação para <c>UnitOfMeasure</c> — mesmo
+    /// motivo de <see cref="UnitOfMeasureCode"/>: em modo SAPB1 a UoM vem do SAP e a tabela
+    /// local UNITS_OF_MEASURE está vazia. É assim também no contrato de compra, cuja FK
+    /// original foi removida do modelo.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(4) NOT NULL")]
+    public string? FreightUmCode { get; set; }
+
+    /// <summary>
     /// SAP ENTITY
     /// </summary>
-    [Column(TypeName = "VARCHAR(10) NOT NULL")]  
+    [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string ItemCode { get; set; }
     
     [Column(TypeName = "VARCHAR(200)")]

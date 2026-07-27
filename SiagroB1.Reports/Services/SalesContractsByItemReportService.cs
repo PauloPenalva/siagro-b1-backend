@@ -148,15 +148,14 @@ public class SalesContractsByItemReportService(
         Price = contract.Price,
         Market = DescribeMarket(contract.MarketType),
         PaymentForecast = contract.StandardCashFlowDate is { } forecast ? Date(forecast) : "",
-        Freight = DescribeFreight(contract.FreightTerms),
+        Freight = DescribeFreight(contract.FreightTerms, contract.FreightCostStandard),
         Seller = contract.AgentName ?? "",
     };
 
-    /// <remarks>Sem valor: o contrato de venda não tem campo de custo de frete.</remarks>
-    private static string DescribeFreight(FreightTerms terms) => terms switch
+    private static string DescribeFreight(FreightTerms terms, decimal cost) => terms switch
     {
-        FreightTerms.Cif => "CIF",
-        FreightTerms.Fob => "FOB",
+        FreightTerms.Cif => $"CIF - {cost.ToString("N2", Culture)}",
+        FreightTerms.Fob => $"FOB - {cost.ToString("N2", Culture)}",
         _ => "Sem frete",
     };
 

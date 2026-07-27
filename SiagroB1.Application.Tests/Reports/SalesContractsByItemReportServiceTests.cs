@@ -10,7 +10,8 @@ namespace SiagroB1.Application.Tests.Reports;
 /// <summary>
 /// Espelho de PurchaseContractsByItemReportServiceTests para o contrato de VENDA.
 /// Cobre o que muda: Cliente/Vendedor no lugar de Fornecedor/Comprador, Região
-/// Logística no lugar do local de entrega, Tipo Mercado, e frete só com o tipo.
+/// Logística no lugar do local de entrega, e Tipo Mercado. O frete, que antes saía
+/// só com o tipo, agora imprime tipo + valor igual ao da compra.
 /// </summary>
 public class SalesContractsByItemReportServiceTests
 {
@@ -105,14 +106,16 @@ public class SalesContractsByItemReportServiceTests
     }
 
     [Theory]
-    [InlineData(FreightTerms.Cif, "CIF")]
-    [InlineData(FreightTerms.Fob, "FOB")]
-    [InlineData(FreightTerms.None, "Sem frete")]
-    public async Task BuildRows_FreightPrintsOnlyTheTerms(FreightTerms terms, string expected)
+    [InlineData(FreightTerms.Cif, 45, "CIF - 45,00")]
+    [InlineData(FreightTerms.Fob, 45, "FOB - 45,00")]
+    // Valor preenchido não pode vazar para contrato sem frete.
+    [InlineData(FreightTerms.None, 45, "Sem frete")]
+    public async Task BuildRows_FormatsFreight(FreightTerms terms, decimal cost, string expected)
     {
         var db = TestDb.CreateUnitOfWork();
         var contract = NewContract("CV-1");
         contract.FreightTerms = terms;
+        contract.FreightCostStandard = cost;
         db.Context.SalesContracts.Add(contract);
         await db.Context.SaveChangesAsync();
         db.Context.ChangeTracker.Clear();

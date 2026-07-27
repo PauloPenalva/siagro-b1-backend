@@ -18,8 +18,8 @@ public class ShipmentReleasesPurchaseContractsService(
 
         try
         {
-            var suppliers = await LoadSuppliersAsync();
             var releases = await LoadShipmentReleasesAsync(itemCode, warehouseCode);
+            var suppliers = await LoadSuppliersAsync(releases);
 
             return MapToDto(releases, suppliers);
         }
@@ -35,9 +35,12 @@ public class ShipmentReleasesPurchaseContractsService(
 
     #region Private Methods
     
-    private async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
+    private async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync(
+        IEnumerable<ShipmentReleasesPurchaseContractsProjection> releases)
     {
-        return await businessPartnerService.LoadSuppliersAsync();
+        var cardCodes = releases.Select(r => r.CardCode).Distinct().ToList();
+
+        return await businessPartnerService.LoadSuppliersAsync(cardCodes);
     }
 
     private async Task<List<ShipmentReleasesPurchaseContractsProjection>> LoadShipmentReleasesAsync(string itemCode, string warehouseCode)
@@ -69,7 +72,7 @@ public class ShipmentReleasesPurchaseContractsService(
                 PurchaseContractCode = g.Key.Code,
                 BranchShortName = g.Key.ShortName,
                 CardCode = g.Key.CardCode,
-                CardFName = g.Key.CardName,
+                CardName = g.Key.CardName,
                 DeliveryLocationCode = g.Key.DeliveryLocationCode,
                 DeliveryLocationName = g.Key.DeliveryLocationName,
                 ItemCode = g.Key.ItemCode,
@@ -88,7 +91,7 @@ public class ShipmentReleasesPurchaseContractsService(
     {
         return balances.Select(b =>
         {
-            suppliers.TryGetValue(b.CardCode, out var wh);
+            suppliers.TryGetValue(b.CardCode, out var supplier);
 
             return new ShipmentRelesesPurchaseContractsResponseDto
             {
@@ -101,12 +104,14 @@ public class ShipmentReleasesPurchaseContractsService(
                 ItemName = b.ItemName,
                 UnitOfMeasureCode = b.UnitOfMeasureCode,
                 AvailableQuantity = b.ReleasedQuantity - b.UsedQuantity,
-                TaxId = wh?.TaxId,
-                FName = wh?.CardName,
-                FCode = wh?.CardCode,
-                Notes = wh?.Notes,
-                City = wh?.Address?.City,
-                State = wh?.Address?.State,
+                TaxId = supplier?.TaxId,
+                // O nome sai do campo desnormalizado do contrato: o parceiro mora no SAP e
+                // nem sempre é resolvido pelo cadastro, mas o contrato sempre carrega o nome.
+                FName = b.CardName ?? supplier?.CardName,
+                FCode = b.CardCode,
+                Notes = supplier?.Notes,
+                City = supplier?.Address?.City,
+                State = supplier?.Address?.State,
                 RowId = b.RowId,
             };
         }).ToList();
@@ -132,7 +137,9 @@ public class ShipmentReleasesPurchaseContractsService(
         public decimal ReleasedQuantity { get; init; }
         public decimal UsedQuantity { get; init; }
         public required string CardCode { get; init; }
-        public string? CardFName { get; init; }
+
+        /// <summary>Nome desnormalizado em <c>PURCHASE_CONTRACTS.CardName</c>.</summary>
+        public string? CardName { get; init; }
     }
     
 }

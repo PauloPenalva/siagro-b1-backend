@@ -29,7 +29,7 @@ public class SalesShipmentReleasesCreateServiceTests
         public Task<bool> DeleteAsync(string code) => throw new NotImplementedException();
         public IQueryable<BusinessPartnerModel> QueryAll() => throw new NotImplementedException();
         public Task<bool> DeleteAsyncWithTransaction(string code, Func<BusinessPartnerModel, Task>? preDeleteAction = null) => throw new NotImplementedException();
-        public Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync() => throw new NotImplementedException();
+        public Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync(IReadOnlyCollection<string> cardCodes) => throw new NotImplementedException();
     }
 
     private SalesShipmentReleasesCreateService Service(IBusinessPartnerService? businessPartners = null) => new(

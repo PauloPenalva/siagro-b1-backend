@@ -152,16 +152,22 @@ public class BusinessPartnerService(
         throw new NotImplementedException();
     }
 
-    public async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync()
+    public async Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync(IReadOnlyCollection<string> cardCodes)
     {
+        if (cardCodes.Count == 0)
+        {
+            return new Dictionary<string, SupplierInfo>();
+        }
+
         return await db.Context.BusinessPartners
             .AsNoTracking()
-            .Where(x => x.QryGroup23 == "Y")
+            .Where(bp => cardCodes.Contains(bp.CardCode))
             .Select(bp => new SupplierInfo
             {
                 CardCode = bp.CardCode,
                 CardFName = bp.CardFName,
                 CardName = bp.CardName,
+                TaxId = bp.TaxId,
                 Notes = bp.Notes,
                 Address = bp.Addresses
                     .Where(a => a.AdresType == "S")
