@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="07/27/2026 09:00:00" ReportInfo.Modified="07/27/2026 16:10:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Styles>
+    <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
+  </Styles>
+  <Dictionary>
+    <BusinessObjectDataSource Name="PurchaseContractsByItem" ReferenceName="PurchaseContractsByItem" DataType="System.Int32" Enabled="true">
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="ItemName" DataType="System.String"/>
+      <Column Name="Product" DataType="System.String"/>
+      <Column Name="ContractCode" DataType="System.String"/>
+      <Column Name="Branch" DataType="System.String"/>
+      <Column Name="DeliveryLocation" DataType="System.String"/>
+      <Column Name="Supplier" DataType="System.String"/>
+      <Column Name="Quantity" DataType="System.Decimal"/>
+      <Column Name="UnitOfMeasure" DataType="System.String"/>
+      <Column Name="Price" DataType="System.Decimal"/>
+      <Column Name="Funrural" DataType="System.String"/>
+      <Column Name="PaymentForecast" DataType="System.String"/>
+      <Column Name="Commission" DataType="System.String"/>
+      <Column Name="Freight" DataType="System.String"/>
+      <Column Name="Buyer" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Total Name="TotalQtdeGrupo" Expression="[PurchaseContractsByItem.Quantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalContratosGrupo" TotalType="Count" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalQtdeGeral" Expression="[PurchaseContractsByItem.Quantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalContratosGeral" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Contratos de Compra por Produto" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hContrato" Left="0" Width="52" Height="17" Text="Contrato" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hFilial" Left="52" Width="84" Height="17" Text="Filial" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hLocal" Left="136" Width="200" Height="17" Text="Local entrega" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hFornecedor" Left="336" Width="199" Height="17" Text="Fornecedor" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hQtde" Left="535" Width="84" Height="17" Text="Qtde" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hUm" Left="623" Width="24" Height="17" Text="UM" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hPreco" Left="643" Width="44" Height="17" Text="Preço" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hFunrural" Left="687" Width="50" Height="17" Text="Funrural" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hPrevPagto" Left="737" Width="60" Height="17" Text="Prev.Pagto" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hComissao" Left="797" Width="108" Height="17" Text="Comissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hFrete" Left="905" Width="64" Height="17" Text="Frete" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hComprador" Left="969" Width="115" Height="17" Text="Comprador" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" Top="136.7" Width="1084" Height="20" Condition="[PurchaseContractsByItem.Product]">
+      <TextObject Name="txtProduct" Left="0" Top="2" Width="600" Height="17" Text="[PurchaseContractsByItem.Product]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <DataBand Name="Data1" Top="159.75" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="PurchaseContractsByItem">
+        <TextObject Name="dContrato" Left="0" Width="52" Height="17" Text="[PurchaseContractsByItem.ContractCode]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dFilial" Left="52" Width="84" Height="17" Text="[PurchaseContractsByItem.Branch]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="dLocal" Left="136" Width="200" Height="17" Text="[PurchaseContractsByItem.DeliveryLocation]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="dFornecedor" Left="336" Width="199" Height="17" Text="[PurchaseContractsByItem.Supplier]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt" Trimming="EllipsisCharacter"/>
+        <TextObject Name="dQtde" Left="535" Width="84" Height="17" Text="[PurchaseContractsByItem.Quantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dUm" Left="623" Width="24" Height="17" Text="[PurchaseContractsByItem.UnitOfMeasure]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dPreco" Left="643" Width="44" Height="17" Text="[PurchaseContractsByItem.Price]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dFunrural" Left="687" Width="50" Height="17" Text="[PurchaseContractsByItem.Funrural]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dPrevPagto" Left="737" Width="60" Height="17" Text="[PurchaseContractsByItem.PaymentForecast]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dComissao" Left="797" Width="108" Height="17" Text="[PurchaseContractsByItem.Commission]" VertAlign="Top" WordWrap="true" CanGrow="true" Font="Consolas, 6pt"/>
+        <TextObject Name="dFrete" Left="905" Width="64" Height="17" Text="[PurchaseContractsByItem.Freight]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="dComprador" Left="969" Width="115" Height="17" Text="[PurchaseContractsByItem.Buyer]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt" Trimming="EllipsisCharacter"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
+        <TextObject Name="fSubtotalLabel" Left="180" Top="2" Width="245" Height="17" Text="Subtotal do produto:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="fSubtotalCount" Left="430" Top="2" Width="55" Height="17" Text="[TotalContratosGrupo]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="fSubtotalQtde" Left="483" Top="2" Width="136" Height="17" Text="[TotalQtdeGrupo]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="26">
+      <TextObject Name="sTotalLabel" Left="180" Top="4" Width="245" Height="17" Text="TOTAL GERAL:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="sTotalCount" Left="430" Top="4" Width="55" Height="17" Text="[TotalContratosGeral]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="sTotalQtde" Left="483" Top="4" Width="136" Height="17" Text="[TotalQtdeGeral]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="232" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
