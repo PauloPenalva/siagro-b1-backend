@@ -30,9 +30,11 @@ public class SalesInvoicesSetDocumentNumberController(
             
             var userName = User.Identity?.Name ?? "Unknown";
             var key = Guid.Parse(keyObj.ToString());
-            var documentNumber = documentNumberObj.ToString();
-            var documentSeries = documentSeriesObj.ToString();
-            var chaveNFe = chaveNFeObj.ToString();
+            // Os três são parâmetros OData anuláveis: a chave de acesso é opcional no diálogo e
+            // chega null quando o campo nunca foi preenchido.
+            var documentNumber = documentNumberObj?.ToString();
+            var documentSeries = documentSeriesObj?.ToString();
+            var chaveNFe = chaveNFeObj?.ToString();
             
             await service.ExecuteAsync(key, documentNumber, documentSeries, chaveNFe, userName);
             
