@@ -68,6 +68,15 @@ public class SalesInvoicesCreateService(
                     .FirstOrDefaultAsync(x => x.Key == transactionKey) ??
                                           throw new ApplicationException($"Transaction {transactionKey} not found.");
 
+                // Rede de segurança: nunca re-apontar um romaneio já vinculado a outro
+                // documento de saída — era assim que a duplicidade deixava a invoice
+                // anterior órfã e o saldo do contrato descontado duas vezes. A mensagem
+                // amigável vem do ShipmentBillingTransactionGuardService, antes daqui.
+                if (existingTransaction.SalesInvoiceKey != null)
+                    throw new ApplicationException(
+                        $"Romaneio {existingTransaction.Code} já está vinculado ao documento " +
+                        $"de saída {existingTransaction.InvoiceNumber}.");
+
                 existingTransaction.InvoiceNumber = salesInvoice.InvoiceNumber;
                 existingTransaction.InvoiceQty = existingTransaction.GrossWeight;
                 existingTransaction.SalesInvoiceKey = salesInvoice.Key;

@@ -35,7 +35,11 @@ public class StorageAddressesCreateService(
         }
         catch (Exception ex)
         {
-            await db.RollbackAsync();
+            // Sem RollbackAsync aqui: não há BeginTransactionAsync, então a chamada era
+            // no-op e só passava a falsa impressão de fluxo transacional. O único
+            // SaveChangesAsync acima já é atômico por si. Se um dia este método ganhar
+            // um segundo SaveChanges, abrir transação de verdade (Begin/Commit), como em
+            // SalesInvoicesConfirmService.
             logger.LogError(ex, "Error creating entity.");
             throw new DefaultException("Error creating entity.");
         }

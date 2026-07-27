@@ -12,6 +12,7 @@ namespace SiagroB1.Application.Services.ShipmentBilling;
 public class ShipmentBillingCreateSalesInvoiceService(
     IUnitOfWork db,
     SalesInvoicesCreateService salesInvoicesCreateService,
+    ShipmentBillingTransactionGuardService transactionGuard,
     SalesShipmentReleaseMovementGuardService movementGuard,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
     SalesContractsAllocationCreateService allocationCreate,
@@ -24,6 +25,12 @@ public class ShipmentBillingCreateSalesInvoiceService(
         var releaseKey = salesInvoice.Items
             .First(i => i.SalesShipmentReleaseKey != null).SalesShipmentReleaseKey!.Value;
 
+        // Bloqueia refaturar romaneio já vinculado a um documento de saída (duplo clique,
+        // retentativa após erro, duas abas) — é o que produzia invoice duplicada e saldo
+        // de contrato descontado duas vezes.
+        await transactionGuard.EnsureCanBillAsync(
+            salesInvoice.SalesTransactions.Select(t => t.Key).ToList());
+
         // Bloqueia faturar contra liberação finalizada/cancelada/pausada.
         await movementGuard.EnsureCanBillAsync(releaseKey);
 
@@ -31,6 +38,11 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
         try
         {
+            // Tudo numa transação só: sem ela o RollbackAsync abaixo era no-op e uma falha
+            // depois do primeiro SaveChanges deixava invoice e vínculo gravados, mas com
+            // erro na tela — convidando o usuário a refaturar.
+            await db.BeginTransactionAsync();
+
             await salesInvoicesCreateService.ExecuteAsync(salesInvoice, username);
 
             salesInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
@@ -42,6 +54,8 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
             // Ledger gravado → baixa o saldo liberado a partir das alocações.
             await recalcShipped.RecalculateAsync(releaseKey);
+
+            await db.CommitAsync();
         }
         catch (Exception e)
         {

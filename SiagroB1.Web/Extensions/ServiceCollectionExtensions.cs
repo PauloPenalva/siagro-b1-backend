@@ -273,6 +273,7 @@ public static class ServiceCollectionExtensions
         
         // shipment billing
         services.AddScoped<ShipmentBillingCreateSalesInvoiceService>();
+        services.AddScoped<ShipmentBillingTransactionGuardService>();
         services.AddScoped<ShipmentBillingDeleteService>();
         
         // shipment releases
