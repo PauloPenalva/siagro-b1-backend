@@ -10,6 +10,29 @@ namespace SiagroB1.Migrations.AppContext
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Saneamento obrigatorio antes da FK STORAGE_TRANSACTIONS -> TRUCK_DRIVERS.
+            // Ate aqui nao havia FK nem guarda de aplicacao: o DELETE generico de
+            // TruckDriversController/BaseService removia o motorista sem verificar uso,
+            // deixando romaneios apontando para codigos inexistentes (26 linhas em
+            // IDX_SIAGRO_HOM, 4 CPFs distintos). Recriamos o cadastro ausente com nome
+            // placeholder em vez de zerar TruckDriverCode, para nao perder o CPF do
+            // motorista no historico do romaneio (nao ha copia em WEIGHING_TICKETS).
+            // Idempotente: o NOT EXISTS torna a re-execucao inofensiva.
+            migrationBuilder.Sql("""
+                INSERT INTO dbo.TRUCK_DRIVERS (Code, Name, Document, Phone)
+                SELECT DISTINCT
+                    st.TruckDriverCode,
+                    'REGULARIZAR - CPF ' + st.TruckDriverCode,
+                    st.TruckDriverCode,
+                    ''
+                FROM dbo.STORAGE_TRANSACTIONS st
+                WHERE st.TruckDriverCode IS NOT NULL
+                  AND st.TruckDriverCode <> ''
+                  AND NOT EXISTS (
+                      SELECT 1 FROM dbo.TRUCK_DRIVERS td
+                      WHERE td.Code = st.TruckDriverCode);
+                """);
+
             migrationBuilder.AddColumn<string>(
                 name: "UnitOfMeasureName",
                 table: "STORAGE_TRANSACTIONS",

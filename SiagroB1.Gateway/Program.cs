@@ -80,33 +80,21 @@ app.UseStaticFiles(new StaticFileOptions
     ContentTypeProvider = provider,
     OnPrepareResponse = ctx =>
     {
-        var path = ctx.Context.Request.Path.Value;
-    
-        if (path.EndsWith("index.html"))
-        {
-            ctx.Context.Response.Headers["Cache-Control"] =
-                "no-cache, no-store, must-revalidate";
-        }
-        else
-        {
-            ctx.Context.Response.Headers["Cache-Control"] =
-                "public,max-age=31536000,immutable";
-        }
+        // Só o que está dentro de uma pasta ~<timestamp>~ pode ser cacheado para sempre:
+        // o nome da pasta já identifica a versão do conteúdo e muda a cada build.
+        //
+        // Todo o resto precisa ser revalidado - em especial o sap-ui-cachebuster-info.json,
+        // que é o índice de onde o app lê os timestamps atuais. Cacheá-lo de forma imutável
+        // fazia o browser continuar pedindo as URLs ~antigas~ indefinidamente, e só um
+        // Ctrl+F5 trazia a versão nova.
+        //
+        // "no-cache" não impede o armazenamento: o browser guarda e revalida por ETag,
+        // recebendo 304 quando nada mudou.
+        ctx.Context.Response.Headers.CacheControl = IsVersionedResource(ctx.Context.Request.Path.Value)
+            ? "public,max-age=31536000,immutable"
+            : "no-cache, must-revalidate";
     }
 });
-
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.Equals("/index.html"))
-    {
-        context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-        context.Response.Headers["Pragma"] = "no-cache";
-        context.Response.Headers["Expires"] = "0";
-    }
-
-    await next();
-});
-
 
 app.UseRouting();
 app.UseCookieAuth();
@@ -118,3 +106,28 @@ app.MapControllers();
 app.MapReverseProxy();
 
 await app.RunAsync();
+
+/// <summary>
+/// Indica se o caminho aponta para um recurso versionado pelo cache buster do UI5,
+/// isto é, se algum de seus segmentos tem a forma <c>~1765897191667~</c>.
+/// </summary>
+static bool IsVersionedResource(string? path)
+{
+    if (string.IsNullOrEmpty(path))
+    {
+        return false;
+    }
+
+    foreach (var segment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+    {
+        if (segment.Length > 2 &&
+            segment[0] == '~' &&
+            segment[^1] == '~' &&
+            segment[1..^1].All(char.IsAsciiDigit))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
