@@ -1,8 +1,11 @@
 ﻿using SiagroB1.Application.Jobs;
+using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.MenuItem;
+using SiagroB1.Application.Services.Notifications;
+using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Application.Services.Permissions;
 using SiagroB1.Application.Services.ProcessingCosts;
@@ -154,6 +157,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IProcessingCostServiceDetailService, ProcessingCostServiceDetailService>();
         services.AddScoped<IProcessingCostService, ProcessingCostService>();
         services.AddScoped<IProcessingCostCsvImportService, ProcessingCostCsvImportService>();
+
+        // notifications
+        services.AddScoped<ContractNotificationOutboxService>();
+        services.AddScoped<ContractNotificationPayloadBuilder>();
+        services.AddScoped<NotificationRecipientResolver>();
+        services.AddScoped<NotificationGroupsService>();
+        services.AddScoped<NotificationGroupMembersService>();
+        services.AddScoped<NotificationGroupSubscriptionsService>();
+        services.AddScoped<NotificationOutboxGetService>();
+        services.AddScoped<NotificationDeliveryLogsGetService>();
+        services.AddScoped<NotificationOutboxResendService>();
+        services.AddScoped<IContractNotificationDispatchJob, ContractNotificationDispatchJob>();
+        services.AddScoped<IContractNotificationSweepJob, ContractNotificationSweepJob>();
 
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();

@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
-public class PurchaseContractsCancelService(IUnitOfWork db)
+public class PurchaseContractsCancelService(
+    IUnitOfWork db,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string? comments, string userName)
     {
@@ -26,6 +29,8 @@ public class PurchaseContractsCancelService(IUnitOfWork db)
         contract.ApprovalComments = comments;
         contract.CanceledAt = DateTime.Now;
         contract.CanceledBy = userName;
+
+        notificationOutbox.Register(contract, NotificationEventType.Canceled, userName);
 
         await db.SaveChangesAsync();
     }

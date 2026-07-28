@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -5,7 +6,9 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
-public class SalesContractsCancelService(IUnitOfWork db)
+public class SalesContractsCancelService(
+    IUnitOfWork db,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string? comments, string userName)
     {
@@ -26,6 +29,8 @@ public class SalesContractsCancelService(IUnitOfWork db)
         contract.ApprovalComments = comments;
         contract.CanceledAt = DateTime.Now;
         contract.CanceledBy = userName;
+
+        notificationOutbox.Register(contract, NotificationEventType.Canceled, userName);
 
         await db.SaveChangesAsync();
     }

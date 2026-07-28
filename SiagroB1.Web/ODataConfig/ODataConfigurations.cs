@@ -43,6 +43,13 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
+
+        // notifications
+        modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
+        modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");
+        modelBuilder.EntitySet<NotificationGroupSubscription>("NotificationGroupSubscriptions");
+        modelBuilder.EntitySet<NotificationOutboxMessage>("NotificationOutboxMessages");
+        modelBuilder.EntitySet<NotificationDeliveryLog>("NotificationDeliveryLogs");
         modelBuilder.EntitySet<PurchaseContract>("PurchaseContracts");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalStandard)));
@@ -237,6 +244,10 @@ public static class ODataConfigurations
         var purchaseContractsGetShipmentReleasesAvailable = modelBuilder.Function("PurchaseContractsGetShipmentReleasesAvailable");
         purchaseContractsGetShipmentReleasesAvailable.Returns<PurchaseContract>();
         
+        var notificationOutboxResend = modelBuilder.Action("NotificationOutboxResend");
+        notificationOutboxResend.Parameter<Guid>("Key");
+        notificationOutboxResend.Returns<IActionResult>();
+
         var purchaseContractsApproval = modelBuilder.Action("PurchaseContractsApproval");
         purchaseContractsApproval.Parameter<Guid>("Key");
         purchaseContractsApproval.Parameter<string>("Comments");

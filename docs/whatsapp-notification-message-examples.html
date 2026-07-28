@@ -1,0 +1,509 @@
+<!doctype html>
+<!--
+  Exemplos de como a notificação de contrato chega no WhatsApp.
+
+  Gerado a partir do formato real de ContractNotificationMessageBuilder
+  (SiagroB1.Application/Services/Notifications). Os DADOS são fictícios; o que é
+  fiel é o layout do texto. Ao mudar o montador, atualize esta página junto.
+
+  Arquivo autônomo: basta abrir no navegador, não depende de servidor nem de rede
+  (todo o CSS é inline e não há nenhuma requisição externa).
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  img, svg { max-width: 100%; height: auto; }
+</style>
+<title>Notificação de contrato no WhatsApp</title>
+
+<style>
+  :root {
+    --ground: #eff2ed;
+    --surface: #ffffff;
+    --ink: #14201c;
+    --muted: #66756c;
+    --rule: #d7dfd8;
+    --accent: #1d6b48;
+    --accent-soft: #e2efe8;
+
+    /* Cores do aparelho: são as do WhatsApp, fixas nos dois temas da página.
+       O telefone é um objeto retratado, como uma captura de tela. */
+    --wa-header: #008069;
+    --wa-chat: #e5ddd5;
+    --wa-bubble: #ffffff;
+    --wa-text: #111b21;
+    --wa-meta: #667781;
+    --wa-link: #027eb5;
+
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #101512;
+      --surface: #19201c;
+      --ink: #e4ebe6;
+      --muted: #93a49a;
+      --rule: #29332d;
+      --accent: #57b485;
+      --accent-soft: #1b2a22;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #101512;
+    --surface: #19201c;
+    --ink: #e4ebe6;
+    --muted: #93a49a;
+    --rule: #29332d;
+    --accent: #57b485;
+    --accent-soft: #1b2a22;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #eff2ed;
+    --surface: #ffffff;
+    --ink: #14201c;
+    --muted: #66756c;
+    --rule: #d7dfd8;
+    --accent: #1d6b48;
+    --accent-soft: #e2efe8;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    margin: 0;
+    padding: clamp(1.5rem, 5vw, 4rem) clamp(1rem, 5vw, 2rem) 5rem;
+  }
+
+  .wrap { max-width: 60rem; margin: 0 auto; display: flex; flex-direction: column; gap: 3.5rem; }
+  .prose { max-width: 34rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.9rem, 5vw, 2.9rem);
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+    margin: .4rem 0 0;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.3rem, 3vw, 1.6rem);
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  .lede { font-size: 1.06rem; color: var(--muted); }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--accent-soft); padding: .1em .35em; border-radius: 3px; }
+
+  section { display: flex; flex-direction: column; gap: 1.5rem; }
+  .rule { height: 1px; background: var(--rule); border: 0; margin: 0; }
+
+  /* --- grade de telefones --- */
+  .phones {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: 2.5rem 2rem;
+  }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: .9rem; }
+
+  figcaption { display: flex; flex-direction: column; gap: .25rem; }
+  .case-event { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
+  .case-note { font-size: .88rem; color: var(--muted); }
+
+  .phone {
+    background: #0b0f0d;
+    border-radius: 1.6rem;
+    padding: .5rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 12px 28px -12px rgba(0,0,0,.35);
+  }
+
+  .screen { border-radius: 1.15rem; overflow: hidden; background: var(--wa-chat); }
+
+  .wa-bar {
+    background: var(--wa-header);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .65rem .8rem;
+  }
+  .wa-back { font-size: 1.1rem; line-height: 1; opacity: .95; }
+  .wa-avatar {
+    width: 1.9rem; height: 1.9rem; border-radius: 50%;
+    background: #ffffff2e;
+    display: grid; place-items: center;
+    font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+  }
+  .wa-who { display: flex; flex-direction: column; line-height: 1.25; }
+  .wa-name { font-size: .88rem; font-weight: 600; }
+  .wa-sub { font-size: .68rem; opacity: .8; }
+
+  .wa-chat { padding: .9rem .7rem 1.1rem; display: flex; flex-direction: column; gap: .55rem; }
+
+  .bubble {
+    background: var(--wa-bubble);
+    color: var(--wa-text);
+    border-radius: .5rem;
+    border-top-left-radius: 0;
+    padding: .5rem .6rem .35rem;
+    max-width: 92%;
+    box-shadow: 0 1px .5px rgba(11,20,26,.13);
+  }
+
+  .msg {
+    font-family: var(--sans);
+    font-size: .845rem;
+    line-height: 1.42;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+  }
+  .msg strong { font-weight: 700; }
+  .msg .url { color: var(--wa-link); }
+
+  .stamp {
+    display: block;
+    text-align: right;
+    font-size: .63rem;
+    color: var(--wa-meta);
+    margin-top: .2rem;
+  }
+
+  /* --- tabela de anatomia --- */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td:first-child { font-family: var(--mono); font-size: .82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* --- legenda de marcadores --- */
+  .markers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: .8rem 1.4rem; }
+  .marker { display: flex; gap: .6rem; align-items: baseline; }
+  .marker .dot { font-size: 1rem; line-height: 1; }
+  .marker .what { font-size: .9rem; }
+  .marker .what b { font-weight: 600; }
+  .marker .what span { color: var(--muted); }
+
+  .callout {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 .4rem .4rem 0;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    font-size: .93rem;
+  }
+  .callout p { max-width: 46rem; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="prose">
+    <p class="eyebrow">Siagro B1 · Notificação de contrato</p>
+    <h1>Como a mensagem chega no WhatsApp</h1>
+    <p class="lede">
+      Exemplos gerados a partir do formato real produzido por
+      <code>ContractNotificationMessageBuilder</code>. Os dados são fictícios; o layout do texto é o
+      que sai hoje.
+    </p>
+  </header>
+
+  <hr class="rule">
+
+  <section>
+    <div class="prose">
+      <h2>Quatro eventos, quatro formatos</h2>
+      <p>
+        O corpo muda conforme o evento: criação e transições de status mostram o bloco de dados do
+        contrato; a alteração troca esse bloco pela lista do que mudou; a fixação de preço acrescenta
+        um bloco próprio.
+      </p>
+    </div>
+
+    <div class="phones">
+
+      <figure>
+        <div class="phone">
+          <div class="screen">
+            <div class="wa-bar">
+              <span class="wa-back" aria-hidden="true">‹</span>
+              <span class="wa-avatar" aria-hidden="true">SB</span>
+              <span class="wa-who">
+                <span class="wa-name">Siagro B1</span>
+                <span class="wa-sub">online</span>
+              </span>
+            </div>
+            <div class="wa-chat">
+              <div class="bubble">
+<p class="msg">🟢 <strong>CONTRATO DE COMPRA 00004431 — INCLUÍDO</strong>
+
+Fornecedor: F0001 - OSWALDO VASCONCELOS BARROS
+Produto: SOJA - SOJA EM GRAOS
+Volume: 500.000,000 KG
+Preço: R$ 2,50
+Entrega: 01/08/2026 a 31/08/2026
+Local de entrega: ARMAZEM MATRIZ
+Safra: 24/25
+Filial: 01
+Situação: Rascunho
+
+Por paulo.penalva em 28/07/2026 14:32
+<span class="url">http://siagro.exemplo.com.br/#/purchase-contracts/a1b2c3d4/detail</span></p>
+                <span class="stamp">14:33</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="case-event">Incluído</span>
+          <span class="case-note">Contrato de compra recém-criado. Nasce em rascunho — por isso a situação aparece assim.</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="screen">
+            <div class="wa-bar">
+              <span class="wa-back" aria-hidden="true">‹</span>
+              <span class="wa-avatar" aria-hidden="true">SB</span>
+              <span class="wa-who">
+                <span class="wa-name">Siagro B1</span>
+                <span class="wa-sub">online</span>
+              </span>
+            </div>
+            <div class="wa-chat">
+              <div class="bubble">
+<p class="msg">🟡 <strong>CONTRATO DE COMPRA 00004431 — ALTERADO</strong>
+
+Fornecedor: F0001 - OSWALDO VASCONCELOS BARROS
+
+<strong>Alterações:</strong>
+• Volume total: 400.000,000 → 500.000,000
+• Preço: 2,40 → 2,50
+• Fim da entrega: 25/08/2026 → 31/08/2026
+
+Por paulo.penalva em 28/07/2026 14:41
+<span class="url">http://siagro.exemplo.com.br/#/purchase-contracts/a1b2c3d4/detail</span></p>
+                <span class="stamp">14:42</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="case-event">Alterado</span>
+          <span class="case-note">Só o que mudou. Repetir o contrato inteiro esconderia a informação nova no meio do que já era conhecido.</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="screen">
+            <div class="wa-bar">
+              <span class="wa-back" aria-hidden="true">‹</span>
+              <span class="wa-avatar" aria-hidden="true">SB</span>
+              <span class="wa-who">
+                <span class="wa-name">Siagro B1</span>
+                <span class="wa-sub">online</span>
+              </span>
+            </div>
+            <div class="wa-chat">
+              <div class="bubble">
+<p class="msg">🟢 <strong>CONTRATO DE VENDA 00000777 — APROVADO</strong>
+
+Cliente: C0001 - CEREAIS PONTA GROSSA LTDA
+Produto: SOJA - SOJA EM GRAOS
+Volume: 100.000,000 KG
+Preço: R$ 3,00
+Entrega: 01/09/2026 a 30/09/2026
+Safra: 24/25
+Filial: 01
+Situação: Aprovado
+
+Por diretoria em 28/07/2026 15:03
+<span class="url">http://siagro.exemplo.com.br/#/sales-contracts/e5f6a7b8/detail</span></p>
+                <span class="stamp">15:04</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="case-event">Aprovado · venda</span>
+          <span class="case-note">Na venda o parceiro é rotulado <b>Cliente</b>, não Fornecedor, e não há local de entrega único.</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="screen">
+            <div class="wa-bar">
+              <span class="wa-back" aria-hidden="true">‹</span>
+              <span class="wa-avatar" aria-hidden="true">SB</span>
+              <span class="wa-who">
+                <span class="wa-name">Siagro B1</span>
+                <span class="wa-sub">online</span>
+              </span>
+            </div>
+            <div class="wa-chat">
+              <div class="bubble">
+<p class="msg">🔵 <strong>CONTRATO DE COMPRA 00004500 — FIXAÇÃO DE PREÇO APROVADA</strong>
+
+Fornecedor: F0002 - AGRICOLA SUKESSADA LTDA
+Produto: MILHO - MILHO EM GRAOS
+Volume: 1.000.000,000 KG
+Entrega: 01/10/2026 a 31/10/2026
+Safra: 24/25
+Filial: 01
+Situação: Aprovado
+
+<strong>Fixação:</strong>
+Volume: 250.000,000 KG
+Preço: R$ 1,85
+Situação: Confirmada
+
+Por diretoria em 28/07/2026 16:10
+<span class="url">http://siagro.exemplo.com.br/#/purchase-contracts/c9d0e1f2/detail</span></p>
+                <span class="stamp">16:11</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="case-event">Fixação de preço aprovada</span>
+          <span class="case-note">Contrato a fixar (PAF): repare que o bloco do contrato sai <b>sem</b> a linha de preço — o preço vem das fixações.</span>
+        </figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section>
+    <div class="prose">
+      <h2>O que cada marcador significa</h2>
+      <p>
+        O emoji abre a mensagem para que a pessoa faça a triagem sem ler o resto — verde entrou ou
+        avançou, amarelo mudou, vermelho parou.
+      </p>
+    </div>
+    <div class="markers">
+      <div class="marker"><span class="dot">🟢</span><span class="what"><b>Verde</b> <span>— incluído, aprovado, reaberto</span></span></div>
+      <div class="marker"><span class="dot">🟡</span><span class="what"><b>Amarelo</b> <span>— alterado, enviado para aprovação, aprovação retirada</span></span></div>
+      <div class="marker"><span class="dot">🔴</span><span class="what"><b>Vermelho</b> <span>— rejeitado, cancelado</span></span></div>
+      <div class="marker"><span class="dot">⚫</span><span class="what"><b>Preto</b> <span>— encerrado</span></span></div>
+      <div class="marker"><span class="dot">🔵</span><span class="what"><b>Azul</b> <span>— eventos de fixação de preço</span></span></div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section>
+    <div class="prose">
+      <h2>De onde sai cada linha</h2>
+      <p>
+        Todo o texto vem do snapshot gravado em <code>PayloadJson</code> no momento do evento — não de
+        uma releitura do contrato. Se o contrato mudar de novo antes do envio, a mensagem continua
+        descrevendo o que de fato aconteceu.
+      </p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Linha</th>
+            <th scope="col">Origem</th>
+            <th scope="col">Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cabeçalho</td>
+            <td>Tipo do documento + <code>Code</code> + evento</td>
+            <td>Em negrito, entre <code>*asteriscos*</code> — é assim que o WhatsApp aplica negrito.</td>
+          </tr>
+          <tr>
+            <td>Fornecedor / Cliente</td>
+            <td><code>CardCode</code> + <code>CardName</code></td>
+            <td>O rótulo muda conforme compra ou venda.</td>
+          </tr>
+          <tr>
+            <td>Volume</td>
+            <td><code>TotalVolume</code> + <code>UnitOfMeasureCode</code></td>
+            <td>Três casas decimais, no padrão pt-BR.</td>
+          </tr>
+          <tr>
+            <td>Preço</td>
+            <td><code>StandardPrice</code> ou <code>Price</code></td>
+            <td>Omitido quando é zero: em contrato a fixar, "R$ 0,00" sugeriria um valor acordado que não existe.</td>
+          </tr>
+          <tr>
+            <td>Entrega, Safra, Filial</td>
+            <td>Campos do cabeçalho</td>
+            <td>Cada linha só aparece se o campo estiver preenchido.</td>
+          </tr>
+          <tr>
+            <td>Alterações</td>
+            <td>Diff de <code>OriginalValues</code> × <code>CurrentValues</code></td>
+            <td>Só em edição, e apenas com campos da allow-list — colunas derivadas nunca entram.</td>
+          </tr>
+          <tr>
+            <td>Assinatura</td>
+            <td><code>TriggeredBy</code> + <code>OccurredAt</code></td>
+            <td>Quem disparou e quando o evento ocorreu, não quando a mensagem saiu.</td>
+          </tr>
+          <tr>
+            <td>Link</td>
+            <td><code>Notifications:AppBaseUrl</code> + rota</td>
+            <td>Sempre a última linha.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="callout">
+    <p>
+      <b>Sobre a prévia do link.</b> O link fica em último lugar de propósito: o WhatsApp monta a
+      prévia a partir da última URL do texto, e no meio da mensagem ela empurraria o conteúdo para
+      baixo do "ler mais".
+    </p>
+    <p>
+      A prévia só aparece se o endereço em <code>AppBaseUrl</code> for alcançável pela internet. Com
+      o sistema publicado apenas na rede interna, o link chega como texto azul clicável — funciona
+      para quem está na rede, sem cartão de prévia.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

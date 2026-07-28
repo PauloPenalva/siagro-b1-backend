@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -8,7 +9,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsCloseService(
     AppDbContext context,
-    PurchaseContractsFixedVolumeService fixedVolumeService)
+    PurchaseContractsFixedVolumeService fixedVolumeService,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -22,6 +24,8 @@ public class PurchaseContractsCloseService(
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
+
+        notificationOutbox.Register(contract, NotificationEventType.Closed, userName);
 
         await context.SaveChangesAsync();
     }

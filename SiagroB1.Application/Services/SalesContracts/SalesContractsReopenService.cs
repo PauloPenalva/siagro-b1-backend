@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -5,7 +6,9 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
-public class SalesContractsReopenService(AppDbContext context)
+public class SalesContractsReopenService(
+    AppDbContext context,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -16,6 +19,8 @@ public class SalesContractsReopenService(AppDbContext context)
         contract.Status = ContractStatus.Approved;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
+
+        notificationOutbox.Register(contract, NotificationEventType.Reopened, userName);
 
         await context.SaveChangesAsync();
     }

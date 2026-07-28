@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -16,6 +17,7 @@ public class PurchaseContractsPriceFixationCreateService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
     PurchaseContractsChangeLogService changeLog,
+    ContractNotificationOutboxService notificationOutbox,
     ILogger<PurchaseContractsPriceFixationCreateService> logger)
 {
     public async Task<PurchaseContractPriceFixation> ExecuteAsync(
@@ -68,6 +70,9 @@ public class PurchaseContractsPriceFixationCreateService(
                     associationEntity.FixationVolume, associationEntity.FixationPrice,
                     associationEntity.Status, contract.UnitOfMeasureCode),
                 createdBy);
+
+            notificationOutbox.RegisterPriceFixation(
+                contract, associationEntity, NotificationEventType.PriceFixationCreated, createdBy);
 
             await context.SaveChangesAsync();
 

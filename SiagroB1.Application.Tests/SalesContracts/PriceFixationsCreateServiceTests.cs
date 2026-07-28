@@ -15,6 +15,7 @@ public class PriceFixationsCreateServiceTests
         new(_db.Context,
             new SalesContractsFixedVolumeService(_db.Context),
             new SalesContractsChangeLogService(_db.Context),
+            TestNotificationOutbox.For(_db.Context),
             NullLogger<SalesContractsPriceFixationCreateService>.Instance);
 
     private async Task<SalesContract> SeedAsync(

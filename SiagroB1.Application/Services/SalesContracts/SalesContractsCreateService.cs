@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -13,6 +14,7 @@ public class SalesContractsCreateService(
     IItemService itemService,
     IAgentService  agentService,
     DocNumberSequenceService numberSequenceService,
+    ContractNotificationOutboxService notificationOutbox,
     ILogger<SalesContractsCreateService> logger)
 {
     private static readonly TransactionCode TransactionCode = TransactionCode.SalesContract;
@@ -70,6 +72,11 @@ public class SalesContractsCreateService(
             }
 
             await db.Context.SalesContracts.AddAsync(entity);
+
+            // Depois do AddAsync (o Key já vem preenchido pelo gerador client-side do EF) e
+            // dentro do try, para que a linha da outbox caia no mesmo rollback do contrato.
+            notificationOutbox.Register(entity, NotificationEventType.Created, createdBy);
+
             await db.SaveChangesAsync();
 
             await db.CommitAsync();

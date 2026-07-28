@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -20,7 +21,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 public class SalesContractsPriceFixationsCancelService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
-    SalesContractsChangeLogService changeLog)
+    SalesContractsChangeLogService changeLog,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid fixationKey, string canceledBy)
     {
@@ -70,6 +72,11 @@ public class SalesContractsPriceFixationsCancelService(
                 fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
                 contract.UnitOfMeasureCode),
             canceledBy);
+        // Reversed, e nao Canceled: apesar do nome do servico, a fixacao volta para
+        // InApproval — o evento tem de dizer o que de fato aconteceu com ela.
+        notificationOutbox.RegisterPriceFixation(
+            contract, fixation, NotificationEventType.PriceFixationReversed, canceledBy);
+
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória.

@@ -70,7 +70,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     
     public DbSet<Address> Addresses { get; set; }
     public DbSet<TruckScale> TruckScales { get; set; }
-    
+
+    public DbSet<NotificationGroup> NotificationGroups { get; set; }
+    public DbSet<NotificationGroupMember> NotificationGroupMembers { get; set; }
+    public DbSet<NotificationGroupSubscription> NotificationGroupSubscriptions { get; set; }
+    public DbSet<NotificationOutboxMessage> NotificationOutboxMessages { get; set; }
+    public DbSet<NotificationDeliveryLog> NotificationDeliveryLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction

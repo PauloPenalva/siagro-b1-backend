@@ -21,17 +21,17 @@ public class PurchaseContractsPriceFixationChangeLogTests
     private PurchaseContractsFixedVolumeService FixedVolume() => new(_db.Context);
 
     private PurchaseContractsPriceFixationCreateService CreateService() => new(
-        _db.Context, FixedVolume(), ChangeLog(),
+        _db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context),
         NullLogger<PurchaseContractsPriceFixationCreateService>.Instance);
 
     private PurchaseContractsPriceFixationsApprovalService ApprovalService() =>
-        new(_db.Context, FixedVolume(), ChangeLog());
+        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
 
     private PurchaseContractsPriceFixationsRejectService RejectService() =>
-        new(_db.Context, FixedVolume(), ChangeLog());
+        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
 
     private PurchaseContractsPriceFixationsCancelService CancelService() =>
-        new(_db.Context, FixedVolume(), ChangeLog());
+        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
 
     private PurchaseContractsPriceFixationDeleteService DeleteService() => new(
         _db.Context, FixedVolume(), ChangeLog(),

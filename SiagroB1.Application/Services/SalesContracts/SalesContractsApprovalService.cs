@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -5,7 +6,9 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
-public class SalesContractsApprovalService(AppDbContext context)
+public class SalesContractsApprovalService(
+    AppDbContext context,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string? comments, string approvedBy)
     {
@@ -17,6 +20,8 @@ public class SalesContractsApprovalService(AppDbContext context)
         contract.ApprovalComments = comments;
         contract.ApprovedAt = DateTime.Now;
         contract.ApprovedBy = approvedBy;
+
+        notificationOutbox.Register(contract, NotificationEventType.Approved, approvedBy);
 
         await context.SaveChangesAsync();
     }

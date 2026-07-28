@@ -8,11 +8,15 @@ using Microsoft.AspNetCore.OData.Batch;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
+using SiagroB1.Application.Jobs;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Infra.Interceptors;
+using SiagroB1.Infra.WhatsApp;
+using SiagroB1.Web.Security;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
@@ -116,7 +120,26 @@ builder.Services.AddApplicationServices();
 builder.Services.AddHangfire(config =>
     config.UseSqlServerStorage(builder.Configuration.GetConnectionString("SiagroDB")));
 
-builder.Services.AddHangfireServer();
+builder.Services.AddHangfireServer(options => options.Queues = ["default"]);
+
+// Fila dedicada com UM worker: envio de WhatsApp em rajada é o que faz um provedor
+// não-oficial banir o número da empresa. Serializar os envios é a contenção principal.
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = [ContractNotificationDispatchJob.QueueName];
+    options.WorkerCount = 1;
+});
+
+// Primeiro HttpClient do solution. Instância e token do PlugZapi vão no PATH da URL, montados
+// a cada requisição pelo sender — por isso só o BaseAddress fica aqui.
+builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =>
+{
+    var baseUrl = builder.Configuration["Notifications:WhatsApp:BaseUrl"]
+                  ?? "https://api.plugzapi.com.br";
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
 
 modelBuilder.ConfigureODataEntities();
 
@@ -137,8 +160,6 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 app.UseRequestLocalization(localizationOptions);
-
-app.UseHangfireDashboard("/hangfire");
 
 app.UseODataBatching();
 app.UseRouting();
@@ -167,6 +188,15 @@ app.UseCookieAuth();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// DEPOIS de UseAuthorization, de propósito: o dashboard estava registrado antes de
+// UseAuthentication, então qualquer filtro de autorização leria um User vazio e não protegeria
+// nada. Os argumentos dos jobs de notificação são só o Guid da outbox — telefone e texto da
+// mensagem nunca aparecem aqui. Mantenha essa invariante.
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new HangfireDashboardAuthorizationFilter()],
+});
+
 app.UseRouting()
     .UseEndpoints(endpoints => endpoints
         .MapControllers()
@@ -177,5 +207,13 @@ RecurringJob.AddOrUpdate<IStorageAddressesDailyCalculationJob>(
     "storage-daily-calculation-job",
     job => job.ExecuteAsync(null, CancellationToken.None),
     "0 1 * * *");
+
+// O varredor é o mecanismo de ENTREGA das notificações, não uma rede de segurança: enfileirar
+// direto no serviço de mutação faria o worker poder ler a outbox antes do COMMIT da transação
+// de negócio, não achar a linha e desistir em silêncio.
+RecurringJob.AddOrUpdate<IContractNotificationSweepJob>(
+    "contract-notification-sweep",
+    job => job.ExecuteAsync(CancellationToken.None),
+    Cron.Minutely());
 
 await app.RunAsync();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,7 +10,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsPriceFixationsRejectService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
-    PurchaseContractsChangeLogService changeLog)
+    PurchaseContractsChangeLogService changeLog,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid fixationKey, string? comments, string rejectedBy)
     {
@@ -48,6 +50,9 @@ public class PurchaseContractsPriceFixationsRejectService(
                 fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
                 contract.UnitOfMeasureCode),
             rejectedBy);
+
+        notificationOutbox.RegisterPriceFixation(
+            contract, fixation, NotificationEventType.PriceFixationRejected, rejectedBy);
 
         // Salva o status ANTES de recalcular. RecalculateAsync consulta o banco e
         // não enxerga mudanças apenas rastreadas em memória — recalcular antes deste

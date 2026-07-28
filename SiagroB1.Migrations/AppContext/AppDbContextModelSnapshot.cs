@@ -234,6 +234,345 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("LOGISTIC_REGIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Attempt")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("VARCHAR(1000)");
+
+                    b.Property<string>("GroupName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int?>("HttpStatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("NotificationGroupKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OutboxMessageKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("RecipientName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("RecipientPhone")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("OutboxMessageKey");
+
+                    b.HasIndex("SentAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("NOTIFICATION_DELIVERY_LOGS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroup", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("NOTIFICATION_GROUPS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroupMember", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<Guid>("NotificationGroupKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<string>("PhoneE164")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("WhatsAppJid")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("NotificationGroupKey");
+
+                    b.HasIndex("NotificationGroupKey", "PhoneE164")
+                        .IsUnique();
+
+                    b.ToTable("NOTIFICATION_GROUP_MEMBERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroupSubscription", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("NotificationGroupKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("DocumentType", "EventType");
+
+                    b.HasIndex("NotificationGroupKey", "DocumentType", "EventType")
+                        .IsUnique();
+
+                    b.ToTable("NOTIFICATION_GROUP_SUBSCRIPTIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationOutboxMessage", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("DocumentCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid>("DocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("VARCHAR(1000)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TriggeredBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("DocumentKey");
+
+                    b.HasIndex("Status", "OccurredAt");
+
+                    b.ToTable("NOTIFICATION_OUTBOX_MESSAGES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
                 {
                     b.Property<Guid>("Key")
@@ -2950,6 +3289,39 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.NotificationOutboxMessage", "OutboxMessage")
+                        .WithMany("Deliveries")
+                        .HasForeignKey("OutboxMessageKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("OutboxMessage");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroupMember", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.NotificationGroup", "NotificationGroup")
+                        .WithMany("Members")
+                        .HasForeignKey("NotificationGroupKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("NotificationGroup");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroupSubscription", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.NotificationGroup", "NotificationGroup")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("NotificationGroupKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("NotificationGroup");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -3688,6 +4060,18 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>
                 {
                     b.Navigation("Addresses");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroup", b =>
+                {
+                    b.Navigation("Members");
+
+                    b.Navigation("Subscriptions");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationOutboxMessage", b =>
+                {
+                    b.Navigation("Deliveries");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>

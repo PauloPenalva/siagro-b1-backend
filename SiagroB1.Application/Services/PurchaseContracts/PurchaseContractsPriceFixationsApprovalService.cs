@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,7 +10,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsPriceFixationsApprovalService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
-    PurchaseContractsChangeLogService changeLog)
+    PurchaseContractsChangeLogService changeLog,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid fixationKey, string? comments, string approvedBy)
     {
@@ -51,6 +53,11 @@ public class PurchaseContractsPriceFixationsApprovalService(
                 fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
                 contract.UnitOfMeasureCode),
             approvedBy);
+
+        // No PRIMEIRO SaveChanges, junto da mudança de status. Registrar antes do segundo
+        // (que só recalcula FixedVolume) geraria uma segunda linha para o mesmo evento.
+        notificationOutbox.RegisterPriceFixation(
+            contract, fixation, NotificationEventType.PriceFixationApproved, approvedBy);
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória. Aqui o total não muda (InApproval

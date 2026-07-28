@@ -61,7 +61,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (_, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
             .ExecuteAsync(fixation.Key, "aprovado em reunião", "diretoria");
 
         var reloaded = await ReloadFixationAsync(fixation.Key);
@@ -76,7 +76,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         Assert.Equal(30_000m, (await ReloadContractAsync(contract.Key)).FixedVolume);
@@ -87,7 +87,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         var reloaded = await _db.Context.SalesContracts
@@ -104,7 +104,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(status: PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -114,7 +114,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(contractStatus: ContractStatus.Finished);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -122,7 +122,7 @@ public class PriceFixationsApprovalServiceTests
     public async Task Approve_UnknownFixation_ThrowsNotFound()
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog())
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
                 .ExecuteAsync(Guid.NewGuid(), null, "diretoria"));
     }
 
@@ -131,7 +131,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog())
+        await new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
             .ExecuteAsync(fixation.Key, "preço fora do mercado", "diretoria");
 
         var reloadedFixation = await ReloadFixationAsync(fixation.Key);
@@ -149,7 +149,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(status: PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog())
+            new SalesContractsPriceFixationsRejectService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 }

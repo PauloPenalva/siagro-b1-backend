@@ -13,7 +13,7 @@ public class SalesContractsCloseFixationGuardTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private SalesContractsCloseService CloseService() =>
-        new(_db.Context, new SalesContractsFixedVolumeService(_db.Context));
+        new(_db.Context, new SalesContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context));
 
     private static SalesContract NewContract(ContractStatus status, ContractType type) => new()
     {

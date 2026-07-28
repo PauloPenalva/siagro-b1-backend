@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,10 +10,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.SalesContracts;
 
 public class SalesContractsUpdateService(
-    AppDbContext context, 
+    AppDbContext context,
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     IAgentService agentService,
+    ContractNotificationOutboxService notificationOutbox,
     ILogger<SalesContractsUpdateService> logger)
 {
     public async Task<SalesContract?> ExecuteAsync(Guid key, SalesContract entity, string userName)
@@ -41,6 +43,17 @@ public class SalesContractsUpdateService(
             // Precisa ser `existingEntity`: o SetValues acima já copiou `entity`, então
             // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.
             existingEntity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+
+            // O diff tem de sair AQUI: depois do SaveChanges o EF sincroniza OriginalValues com
+            // o que foi gravado e a comparação sai vazia. Sem campo notificável alterado não há
+            // notificação — uma edição que só mexeu em coluna derivada não vira mensagem.
+            var changes = ContractHeaderDiffBuilder.Build(
+                context.Entry(existingEntity), NotificationDocumentType.SalesContract);
+
+            if (changes.Count > 0)
+                notificationOutbox.Register(
+                    existingEntity, NotificationEventType.HeaderUpdated, userName, changes);
+
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

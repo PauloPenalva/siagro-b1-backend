@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -9,7 +10,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 public class SalesContractsPriceFixationsApprovalService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
-    SalesContractsChangeLogService changeLog)
+    SalesContractsChangeLogService changeLog,
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid fixationKey, string? comments, string approvedBy)
     {
@@ -51,6 +53,9 @@ public class SalesContractsPriceFixationsApprovalService(
                 fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
                 contract.UnitOfMeasureCode),
             approvedBy);
+        notificationOutbox.RegisterPriceFixation(
+            contract, fixation, NotificationEventType.PriceFixationApproved, approvedBy);
+
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória. Aqui o total não muda (InApproval

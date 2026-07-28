@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,11 +10,12 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsUpdateService(
-    AppDbContext context, 
+    AppDbContext context,
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     IWarehouseService warehouseService,
     IAgentService agentService,
+    ContractNotificationOutboxService notificationOutbox,
     ILogger<PurchaseContractsUpdateService> logger
     )
 {
@@ -45,6 +47,16 @@ public class PurchaseContractsUpdateService(
             // gravar em `entity` aqui não chega ao registro rastreado e a coluna fica velha.
             existingEntity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;
             existingEntity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
+
+            // O diff tem de sair AQUI: depois do SaveChanges o EF sincroniza OriginalValues com
+            // o que foi gravado e a comparação sai vazia. Sem campo notificável alterado não há
+            // notificação — uma edição que só mexeu em coluna derivada não vira mensagem.
+            var changes = ContractHeaderDiffBuilder.Build(
+                context.Entry(existingEntity), NotificationDocumentType.PurchaseContract);
+
+            if (changes.Count > 0)
+                notificationOutbox.Register(
+                    existingEntity, NotificationEventType.HeaderUpdated, userName, changes);
 
             await context.SaveChangesAsync();
         }

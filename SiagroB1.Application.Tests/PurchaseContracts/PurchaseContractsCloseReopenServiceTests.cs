@@ -37,7 +37,7 @@ public class PurchaseContractsCloseReopenServiceTests
         await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == key);
 
     private PurchaseContractsCloseService CloseService() =>
-        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context));
+        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context));
 
     private async Task<PurchaseContract> SeedPafAsync(
         decimal totalVolume,
@@ -190,7 +190,7 @@ public class PurchaseContractsCloseReopenServiceTests
     {
         var pc = await SeedAsync(ContractStatus.Finished);
 
-        await new PurchaseContractsReopenService(_db.Context).ExecuteAsync(pc.Key, "tester");
+        await new PurchaseContractsReopenService(_db.Context, TestNotificationOutbox.For(_db.Context)).ExecuteAsync(pc.Key, "tester");
 
         Assert.Equal(ContractStatus.Approved, (await ReloadAsync(pc.Key)).Status);
     }
@@ -201,6 +201,6 @@ public class PurchaseContractsCloseReopenServiceTests
         var pc = await SeedAsync(ContractStatus.Approved);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new PurchaseContractsReopenService(_db.Context).ExecuteAsync(pc.Key, "tester"));
+            new PurchaseContractsReopenService(_db.Context, TestNotificationOutbox.For(_db.Context)).ExecuteAsync(pc.Key, "tester"));
     }
 }

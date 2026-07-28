@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,7 +10,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsWithdrawApprovalService(
     IUnitOfWork db,
-    IStringLocalizer<Resource> resource
+    IStringLocalizer<Resource> resource,
+    ContractNotificationOutboxService notificationOutbox
     )
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -28,6 +30,9 @@ public class PurchaseContractsWithdrawApprovalService(
         contract.Status = ContractStatus.Draft;
         contract.UpdatedBy = userName;
         contract.UpdatedAt = DateTime.Now;
+
+        notificationOutbox.Register(contract, NotificationEventType.ApprovalWithdrawn, userName);
+
         await db.SaveChangesAsync();
     }
 }

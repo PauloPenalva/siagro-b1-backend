@@ -13,7 +13,7 @@ public class PriceFixationsCancelServiceTests
 
     private PurchaseContractsPriceFixationsCancelService Service() =>
         new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
-            new PurchaseContractsChangeLogService(_db.Context));
+            new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context));
 
     private async Task<(PurchaseContract Contract, PurchaseContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.Confirmed,
@@ -148,7 +148,7 @@ public class PriceFixationsCancelServiceTests
 
         await new PurchaseContractsPriceFixationsApprovalService(
                 _db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
-                new PurchaseContractsChangeLogService(_db.Context))
+                new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context))
             .ExecuteAsync(fixation.Key, "reaprovado", "diretoria");
 
         var afterReapproval = await _db.Context.PurchaseContracts
