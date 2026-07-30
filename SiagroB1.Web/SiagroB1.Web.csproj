@@ -4,6 +4,9 @@
     <Content Update="appsettings*.json">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
+    <Content Update="appsettings.Yokotobi-Production.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   
   <ItemGroup>
