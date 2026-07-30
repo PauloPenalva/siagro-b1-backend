@@ -67,4 +67,8 @@ public class SalesContractsGetAllocationsByContractDto
     /// <summary>Código do contrato do outro lado da realocação (origem/destino), para rastreio.</summary>
     [JsonPropertyName("CounterpartyContractCode")]
     public string? CounterpartyContractCode { get; set; }
+
+    /// <summary>Justificativa do ajuste, preenchida nas linhas de origem "Conciliação".</summary>
+    [JsonPropertyName("ReconciliationReason")]
+    public string? ReconciliationReason { get; set; }
 }

@@ -29,8 +29,11 @@ public class SalesContractsGetAllocationsByContractService(
                WHEN 0 THEN 'Faturamento'
                WHEN 1 THEN 'Realocação'
                WHEN 2 THEN 'Devolução'
-               ELSE 'Migração'
+               WHEN 3 THEN 'Migração'
+               WHEN 4 THEN 'Conciliação'
+               ELSE '-'
            END AS OriginLabel,
+           A.ReconciliationReason AS ReconciliationReason,
            A.Volume AS Quantity,
            INVI.UnitOfMeasureCode AS UnitOfMeasureCode,
            INV.TruckCode AS TruckCode,

@@ -420,9 +420,21 @@ public static class ODataConfigurations
         salesContractsCreateReallocation.Parameter<Guid>("SalesInvoiceItemKey");
         salesContractsCreateReallocation.Parameter<Guid>("SourceSalesContractKey");
         salesContractsCreateReallocation.Parameter<Guid>("TargetSalesContractKey");
-        salesContractsCreateReallocation.Parameter<Guid>("TargetSalesShipmentReleaseKey");
+        // Nulo = o servidor escolhe a liberação do destino por FIFO (data de liberação).
+        salesContractsCreateReallocation.Parameter<Guid?>("TargetSalesShipmentReleaseKey");
         salesContractsCreateReallocation.Parameter<decimal>("Volume");
+        // Opt-in explícito para o saldo do destino ficar negativo; exige Reason.
+        salesContractsCreateReallocation.Parameter<bool>("AllowNegativeBalance");
+        salesContractsCreateReallocation.Parameter<string>("Reason");
         salesContractsCreateReallocation.Returns<IActionResult>();
+
+        var salesContractsGetReconciliationTargets = modelBuilder.Function("SalesContractsGetReconciliationTargets");
+        salesContractsGetReconciliationTargets.Parameter<Guid>("SalesInvoiceItemKey");
+        salesContractsGetReconciliationTargets.Parameter<Guid>("SourceSalesContractKey");
+        salesContractsGetReconciliationTargets.Returns<ICollection<SalesContractReconciliationTargetDto>>();
+
+        var salesContractsGetNegativeBalances = modelBuilder.Function("SalesContractsGetNegativeBalances");
+        salesContractsGetNegativeBalances.Returns<ICollection<SalesContractNegativeBalanceDto>>();
 
         var salesContractsDeleteReallocation = modelBuilder.Action("SalesContractsDeleteReallocation");
         salesContractsDeleteReallocation.Parameter<Guid>("Key");

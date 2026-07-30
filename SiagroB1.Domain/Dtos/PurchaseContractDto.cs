@@ -15,4 +15,10 @@ public class PurchaseContractDto
     
     [JsonPropertyName("UnitOfMeasureCode")]
     public string UnitOfMeasureCode { get; set; }
+
+    [JsonPropertyName("AgentCode")]
+    public int? AgentCode { get; set; }
+
+    [JsonPropertyName("AgentName")]
+    public string? AgentName { get; set; }
 }

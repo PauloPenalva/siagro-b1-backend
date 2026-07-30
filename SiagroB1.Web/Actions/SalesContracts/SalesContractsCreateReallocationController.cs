@@ -20,11 +20,28 @@ public class SalesContractsCreateReallocationController(SalesContractsReallocati
             if (!parameters.TryGetValue("SalesInvoiceItemKey", out var itemKeyObj) ||
                 !parameters.TryGetValue("SourceSalesContractKey", out var sourceKeyObj) ||
                 !parameters.TryGetValue("TargetSalesContractKey", out var targetKeyObj) ||
-                !parameters.TryGetValue("TargetSalesShipmentReleaseKey", out var targetReleaseKeyObj) ||
                 !parameters.TryGetValue("Volume", out var volumeObj))
             {
                 return BadRequest("Missing required parameters");
             }
+
+            // Parâmetros OPCIONAIS. Atenção: TryGetValue devolve true com valor null
+            // quando o cliente manda a chave com null — sem o `is not null` o ToString()
+            // estoura. A ausência da liberação é o que seleciona o modo CONCILIAÇÃO.
+            Guid? targetReleaseKey =
+                parameters.TryGetValue("TargetSalesShipmentReleaseKey", out var targetReleaseKeyObj)
+                && targetReleaseKeyObj is not null
+                    ? Guid.Parse(targetReleaseKeyObj.ToString()!)
+                    : null;
+
+            var reason = parameters.TryGetValue("Reason", out var reasonObj)
+                ? reasonObj?.ToString()
+                : null;
+
+            var allowNegativeBalance =
+                parameters.TryGetValue("AllowNegativeBalance", out var allowObj)
+                && allowObj is not null
+                && Convert.ToBoolean(allowObj);
 
             var userName = User.Identity?.Name ?? "Unknown";
 
@@ -32,9 +49,11 @@ public class SalesContractsCreateReallocationController(SalesContractsReallocati
                 Guid.Parse(itemKeyObj.ToString()!),
                 Guid.Parse(sourceKeyObj.ToString()!),
                 Guid.Parse(targetKeyObj.ToString()!),
-                Guid.Parse(targetReleaseKeyObj.ToString()!),
+                targetReleaseKey,
                 Convert.ToDecimal(volumeObj),
-                userName);
+                userName,
+                reason,
+                allowNegativeBalance);
 
             return Ok();
         }

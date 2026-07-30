@@ -16,4 +16,14 @@ public enum SalesContractAllocationOrigin
 
     /// <summary>Linha criada pela migração de backfill a partir das invoices pré-existentes.</summary>
     Backfill = 3,
+
+    /// <summary>
+    /// Par −/+ criado por ajuste manual de CONCILIAÇÃO: move volume entre contratos SEM
+    /// exigir liberação de entrega no destino, para corrigir a distribuição de contratos
+    /// legados (faturados por fora da liberação) cujo saldo ficou negativo. Diferente de
+    /// <see cref="Reallocation"/>, permite que o contrato de destino fique com saldo
+    /// negativo — é o que destrava a troca cruzada, em que cada movimento dependeria do
+    /// outro ter acontecido antes. Exige motivo e é restrita a ADMIN.
+    /// </summary>
+    Reconciliation = 4,
 }

@@ -67,6 +67,8 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
                     Code = x.Code,
                     AvaiableVolume = x.AvaiableVolume,
                     UnitOfMeasureCode = x.UnitOfMeasureCode,
+                    AgentCode = x.AgentCode,
+                    AgentName = x.AgentName,
                 });
             }
         });

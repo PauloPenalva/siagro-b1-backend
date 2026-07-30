@@ -78,4 +78,13 @@ public class SalesContractAllocation : BaseEntity
     /// contrato é resolvido por JOIN no relatório de entregas por contrato.
     /// </summary>
     public Guid? CounterpartySalesContractKey { get; set; }
+
+    /// <summary>
+    /// Justificativa do ajuste manual, gravada nas duas pontas do par para o motivo
+    /// aparecer de qualquer lado. Obrigatória quando <see cref="Origin"/> é
+    /// <see cref="SalesContractAllocationOrigin.Reconciliation"/> (é o que dá rastro ao
+    /// ajuste que fura o saldo do destino); opcional nas demais origens.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? ReconciliationReason { get; set; }
 }

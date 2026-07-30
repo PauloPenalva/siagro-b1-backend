@@ -247,6 +247,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAllocationDeleteForInvoiceService>();
         services.AddScoped<SalesContractsReallocationCreateService>();
         services.AddScoped<SalesContractsReallocationDeleteService>();
+        services.AddScoped<SalesContractsGetReconciliationTargetsService>();
+        services.AddScoped<SalesContractsGetNegativeBalancesService>();
         services.AddScoped<SalesContractsFixedVolumeService>();
         services.AddScoped<SalesContractsPriceFixationCreateService>();
         services.AddScoped<SalesContractsPriceFixationsApprovalService>();

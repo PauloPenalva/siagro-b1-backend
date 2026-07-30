@@ -8,7 +8,7 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.SalesContracts;
 
 /// <summary>
-/// Estorna uma realocação: remove o grupo inteiro de linhas −/+ (resolvido pelo
+/// Estorna uma realocação ou uma conciliação: remove o grupo inteiro de linhas −/+ (resolvido pelo
 /// ReallocationGroupKey de qualquer linha do par) e recalcula contratos e liberações
 /// derivado-da-soma. O estorno devolve o consumo à liberação de origem — por isso exige
 /// que ela tenha status válido e saldo para reabsorver o volume.
@@ -43,9 +43,13 @@ public class SalesContractsReallocationDeleteService(
                              .FirstOrDefaultAsync(a => a.Key == key)
                          ?? throw new NotFoundException("Alocação não encontrada.");
 
-        if (allocation.Origin != SalesContractAllocationOrigin.Reallocation
+        // Conciliação é um par −/+ com a mesma estrutura da realocação (mesmo
+        // ReallocationGroupKey), só que sem liberação no destino — estorna pelo mesmo
+        // caminho. As linhas com liberação nula simplesmente não entram em releaseDeltas.
+        if (allocation.Origin is not (SalesContractAllocationOrigin.Reallocation
+                                      or SalesContractAllocationOrigin.Reconciliation)
             || allocation.ReallocationGroupKey is null)
-            throw new ApplicationException("Somente realocações podem ser estornadas.");
+            throw new ApplicationException("Somente realocações e conciliações podem ser estornadas.");
 
         var groupKey = allocation.ReallocationGroupKey.Value;
         var group = await db.Context.SalesContractsAllocations
