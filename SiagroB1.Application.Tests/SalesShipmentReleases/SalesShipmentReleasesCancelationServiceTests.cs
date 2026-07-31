@@ -103,6 +103,25 @@ public class SalesShipmentReleasesCancelationServiceTests
         Assert.Equal(ReleaseStatus.Actived, (await ReloadAsync(sr.Key)).Status);
     }
 
+    /// <summary>
+    /// Faturada além do liberado, a liberação não cancela — e a mensagem NÃO pode mandar
+    /// finalizar, porque o guard de <c>SalesShipmentReleasesCloseService</c> também recusa
+    /// o negativo. A saída é regularizar o excedente.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_WithNegativeBalance_ThrowsWithoutSuggestingFinalize()
+    {
+        var sr = await SeedReleaseAsync(released: 1000m);
+        await AddAllocationAsync(sr.Key, 1300m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(sr.Key, "maria", Reason));
+
+        Assert.DoesNotContain("Finalizar", ex.Message);
+        Assert.Contains("além", ex.Message);
+        Assert.Equal(ReleaseStatus.Actived, (await ReloadAsync(sr.Key)).Status);
+    }
+
     [Fact]
     public async Task Cancel_FinishedContract_Throws()
     {

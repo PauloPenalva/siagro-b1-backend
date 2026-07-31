@@ -18,7 +18,9 @@ public class SalesContractsGetShipmentReleasesAvailableService(
     /// aprovados que ainda têm o que embarcar — evita liberar em contrato já esgotado
     /// (inclusive faturado por fora de liberação, no fluxo legado). Inclui liberações e
     /// notas para os getters serializarem corretamente na coluna "Saldo a liberar".
-    /// Mantenha em sincronia com o getter da entidade.
+    /// Mantenha em sincronia com o getter da entidade — inclusive o piso zero por liberação,
+    /// que impede uma liberação de saldo NEGATIVO (faturada além do liberado) de reduzir a
+    /// reserva e inflar o saldo físico.
     /// </summary>
     public IQueryable<SalesContract> Query()
     {
@@ -32,7 +34,9 @@ public class SalesContractsGetShipmentReleasesAvailableService(
                                 .Where(r => r.Status == ReleaseStatus.Pending
                                             || r.Status == ReleaseStatus.Actived
                                             || r.Status == ReleaseStatus.Paused)
-                                .Sum(r => r.ReleasedQuantity - r.ShippedQuantity)
+                                .Sum(r => r.ReleasedQuantity - r.ShippedQuantity > 0
+                                    ? r.ReleasedQuantity - r.ShippedQuantity
+                                    : 0)
                         ) > 0
                      );
     }

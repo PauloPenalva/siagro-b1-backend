@@ -12,7 +12,8 @@ public class SalesShipmentReleasesCloseReopenServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private SalesShipmentReleasesCloseService CloseService() => new(_db.Context);
+    private SalesShipmentReleasesCloseService CloseService() =>
+        new(_db.Context, new SalesShipmentReleasesRecalculateShippedService(_db.Context));
     private SalesShipmentReleasesReopenService ReopenService() => new(_db.Context);
 
     private async Task<SalesShipmentRelease> SeedAsync(ReleaseStatus status)

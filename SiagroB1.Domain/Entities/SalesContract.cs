@@ -273,12 +273,18 @@ public class SalesContract : DocumentEntity
     /// A parte já faturada da liberação já está descontada em <see cref="AvaiableVolume"/>
     /// (via ledger de alocações), então aqui contamos só o não faturado para não duplicar.
     /// </summary>
+    /// <remarks>
+    /// Piso zero por liberação: o faturamento pode furar a liberação, e uma liberação com saldo
+    /// NEGATIVO somada crua diminuiria a reserva — inflando <see cref="PhysicalAvailableToRelease"/>
+    /// e deixando liberar volume que não existe. O excedente já está descontado em
+    /// <see cref="AvaiableVolume"/>; contá-lo aqui de novo, com sinal invertido, o cancelaria.
+    /// </remarks>
     [NotMapped]
     public decimal ReservedByOpenReleases =>
         decimal.Round(
             (SalesShipmentReleases?
                 .Where(r => r.Status is ReleaseStatus.Pending or ReleaseStatus.Actived or ReleaseStatus.Paused)
-                .Sum(r => r.AvailableQuantity) ?? 0),
+                .Sum(r => Math.Max(decimal.Zero, r.AvailableQuantity)) ?? 0),
             3, MidpointRounding.ToEven);
 
     /// <summary>

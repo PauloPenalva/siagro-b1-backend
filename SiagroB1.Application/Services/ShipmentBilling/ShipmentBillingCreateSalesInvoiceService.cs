@@ -9,6 +9,25 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.ShipmentBilling;
 
+/// <summary>
+/// Fatura os romaneios embarcados contra uma liberação de entrega de venda.
+/// </summary>
+/// <remarks>
+/// <b>O faturamento NÃO valida saldo.</b> O caminhão já saiu e já pesou: um NetWeight maior que
+/// o saldo da liberação é fato consumado, não decisão a aprovar. Recusar não desfaz a entrega —
+/// só impede registrá-la, e empurra o usuário para contornos (foi o que produziu os contratos
+/// "AJUSTE DE SALDO" com TotalVolume = 1 absorvendo milhões de kg). O saldo da liberação e o do
+/// contrato podem, portanto, ficar NEGATIVOS aqui.
+/// <para>
+/// O controle é aplicado na saída, não na entrada: liberação com saldo negativo não finaliza
+/// (<c>SalesShipmentReleasesCloseService</c>) nem cancela (<c>SalesShipmentReleasesCancelationService</c>),
+/// e contrato negativo não encerra (<c>SalesContractsCloseService</c>). O negativo é um estado
+/// visível e temporário que obriga a regularização antes de congelar o registro.
+/// </para>
+/// Continuam valendo os guards que não são de saldo: duplicidade de romaneio
+/// (<c>ShipmentBillingTransactionGuardService</c>) e status da liberação
+/// (<c>SalesShipmentReleaseMovementGuardService</c>).
+/// </remarks>
 public class ShipmentBillingCreateSalesInvoiceService(
     IUnitOfWork db,
     SalesInvoicesCreateService salesInvoicesCreateService,
@@ -33,8 +52,6 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
         // Bloqueia faturar contra liberação finalizada/cancelada/pausada.
         await movementGuard.EnsureCanBillAsync(releaseKey);
-
-        await EnsureReleaseHasBalanceAsync(salesInvoice, releaseKey);
 
         try
         {
@@ -63,30 +80,6 @@ public class ShipmentBillingCreateSalesInvoiceService(
             logger.LogError(e, e.Message);
             throw new ApplicationException(e.Message);
         }
-    }
-
-    /// <summary>
-    /// Recusa o faturamento que exceda o saldo disponível da liberação. Mede pelo NetWeight
-    /// dos romaneios selecionados (mesmo eixo do consumo em
-    /// <see cref="SalesShipmentReleasesRecalculateShippedService"/>).
-    /// </summary>
-    private async Task EnsureReleaseHasBalanceAsync(SalesInvoice salesInvoice, Guid releaseKey)
-    {
-        var transactionKeys = salesInvoice.SalesTransactions.Select(t => t.Key).ToList();
-
-        var shippingVolume = await db.Context.StorageTransactions
-            .Where(t => transactionKeys.Contains(t.Key))
-            .SumAsync(t => t.NetWeight);
-
-        var release = await db.Context.SalesShipmentReleases
-            .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.Key == releaseKey)
-            ?? throw new ApplicationException("Liberação de entrega não encontrada.");
-
-        if (shippingVolume > release.AvailableQuantity)
-            throw new ApplicationException(
-                $"Volume a faturar ({shippingVolume:N3}) excede o saldo da liberação " +
-                $"({release.AvailableQuantity:N3}).");
     }
 
     private static void Validate(SalesInvoice salesInvoice)

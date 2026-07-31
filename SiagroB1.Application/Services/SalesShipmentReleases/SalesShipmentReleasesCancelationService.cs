@@ -39,7 +39,20 @@ public class SalesShipmentReleasesCancelationService(
         // Calcula sem gravar: uma tentativa recusada não pode deixar efeito no banco.
         var shipped = await recalcShipped.CalculateShippedAsync(sr.Key);
 
-        if (SalesShipmentRelease.CalculateAvailableQuantity(sr.ReleasedQuantity, shipped) <= decimal.Zero)
+        var balance = SalesShipmentRelease.CalculateAvailableQuantity(sr.ReleasedQuantity, shipped);
+
+        // Faturada ALÉM do liberado: nem cancelar nem finalizar resolvem — o excedente precisa
+        // ser regularizado primeiro. Não mandar finalizar aqui, que o guard do
+        // SalesShipmentReleasesCloseService também recusa o negativo.
+        if (balance < decimal.Zero)
+            throw new ApplicationException(
+                $"Liberação faturada além do volume liberado. Liberado: {sr.ReleasedQuantity:N3}, " +
+                $"faturado: {shipped:N3}, saldo: {balance:N3}. " +
+                "Regularize o excedente antes de cancelar a liberação.");
+
+        // Sem saldo a devolver ao contrato, cancelar não teria efeito algum:
+        // a liberação já cumpriu o que foi liberado e deve ser finalizada.
+        if (balance == decimal.Zero)
             throw new ApplicationException(
                 "Liberação de entrega sem saldo disponível: não é possível cancelar. Utilize a ação Finalizar.");
 
