@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,9 +10,10 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.ShipmentBilling;
 
 public class ShipmentBillingDeleteService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     StorageTransactionsGetService storageTransactionsGetService,
     PurchaseContractsAllocationDeleteService  purchaseContractsAllocationDeleteService,
+    ShipmentReleasesRecalculateShippedService recalcShipped,
     ILogger<ShipmentBillingDeleteService> logger)
 {
     public async Task ExecuteAsync(Guid key, string username)
@@ -64,7 +66,18 @@ public class ShipmentBillingDeleteService(
             sales.CanceledBy = username;
             
             await db.SaveChangesAsync();
-            
+
+            // O estorno cancela o par escrevendo o status direto, sem passar por
+            // StorageTransactionsCancelService — que é onde vive o hook de ShippedQuantity.
+            // Sem esta chamada o saldo da liberação de embarque não volta.
+            // Depois do SaveChanges (a consulta precisa enxergar o Cancelled) e ainda
+            // dentro da transação, para que uma falha aqui reverta o estorno inteiro.
+            if (purchase.ShipmentReleaseKey.HasValue &&
+                ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(purchase.TransactionType))
+            {
+                await recalcShipped.RecalculateAsync(purchase.ShipmentReleaseKey.Value);
+            }
+
             await db.CommitAsync();
         }
         catch (Exception e)
