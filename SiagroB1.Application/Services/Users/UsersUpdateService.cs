@@ -24,9 +24,9 @@ public class UsersUpdateService(
         {
             existingUser.IsActive = user.IsActive;
             existingUser.IsAdmin = user.IsAdmin;
-            existingUser.Email = user.Email;
+            existingUser.Email = NormalizeEmail(user.Email);
             existingUser.FullName = user.FullName!;
-            
+
             await db.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
@@ -45,5 +45,14 @@ public class UsersUpdateService(
             IsActive = existingUser.IsActive
         };
     }
-    
+
+    /// <summary>
+    /// Campo de e-mail limpo na tela chega como string vazia, não como nulo.
+    ///
+    /// O índice único de USERS.Email é filtrado (<c>WHERE Email IS NOT NULL</c>), então vários
+    /// nulos convivem — mas duas strings vazias colidem. Sem esta normalização, o segundo usuário
+    /// que tivesse o e-mail apagado seria recusado por chave duplicada.
+    /// </summary>
+    private static string? NormalizeEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? null : email.Trim();
 }

@@ -2,11 +2,15 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
+using SiagroB1.Infra.Email;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Interfaces;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
+using SiagroB1.Security.Services.SapUsers;
+using SiagroB1.Security.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +41,31 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BranchService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<MenuService>();
+builder.Services.AddSingleton<PasswordPolicy>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<UserProfileService>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+// Modo de integração: no SAPB1 o cadastro de usuários é mantido no SAP (tabela OUSR) e o
+// SiagroB1 apenas o espelha. O provisionamento pontual roda no login e no pedido de recuperação
+// de senha, então o Gateway também precisa enxergar o banco do SAP.
+var erp = builder.Configuration["Erp"] ?? "STANDALONE";
+
+if (string.Equals(erp.Trim(), "SAPB1", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddDbContext<SapErpDbContext>(options =>
+        options.UseSqlServer(
+            builder.Configuration.GetConnectionString("SapDB"),
+            // Timeout curto: esta consulta está no caminho do login, e o padrão de 30s deixaria a
+            // tela de entrada pendurada sempre que o banco do SAP estivesse indisponível.
+            sqlOptions => sqlOptions.CommandTimeout(5)));
+
+    builder.Services.AddScoped<ISapUserProvisioner, SapUserProvisioner>();
+}
+else
+{
+    builder.Services.AddScoped<ISapUserProvisioner, NullSapUserProvisioner>();
+}
 
 builder.Services.AddAuthentication(options =>
     {
@@ -66,6 +95,9 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+
+WarnIfPasswordRecoveryCannotSendEmail(app);
+
 var provider = new FileExtensionContentTypeProvider
 {
     Mappings =
@@ -106,6 +138,38 @@ app.MapControllers();
 app.MapReverseProxy();
 
 await app.RunAsync();
+
+/// <summary>
+/// Avisa, no boot, que a recuperação de senha não vai entregar nada.
+///
+/// Sem isto o problema é invisível: o usuário pede o link, a tela responde "enviaremos um link"
+/// (mensagem genérica de propósito, para o endpoint público não virar verificador de contas), e
+/// nada acontece. O único rastro fica numa linha de log perdida no meio do tráfego.
+///
+/// Em modo SAPB1 isso é grave: recuperar a senha é o ÚNICO caminho de primeiro acesso para quem
+/// veio do OUSR.
+/// </summary>
+static void WarnIfPasswordRecoveryCannotSendEmail(WebApplication app)
+{
+    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Email");
+    var configuration = app.Configuration;
+
+    if (!configuration.GetValue("Email:Enabled", false))
+    {
+        logger.LogWarning(
+            "ENVIO DE E-MAIL DESABILITADO (Email:Enabled = false). A recuperação de senha vai " +
+            "gerar o link e gravá-lo apenas no log, sem enviá-lo a ninguém.");
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(configuration["Email:Host"]) ||
+        string.IsNullOrWhiteSpace(configuration["Email:FromAddress"]))
+    {
+        logger.LogWarning(
+            "E-MAIL HABILITADO MAS INCOMPLETO: Email:Host e/ou Email:FromAddress não " +
+            "configurados. Nenhum e-mail de recuperação de senha será entregue.");
+    }
+}
 
 /// <summary>
 /// Indica se o caminho aponta para um recurso versionado pelo cache buster do UI5,

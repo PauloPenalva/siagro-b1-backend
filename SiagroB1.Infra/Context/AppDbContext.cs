@@ -91,6 +91,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
         
+        // Diferença entre entregue e faturado, mantida pelo próprio SQL Server. Coluna real
+        // (ordena, filtra e sai em relatório), mas derivada: assim não depende de nenhum dos
+        // serviços que escrevem Quantity/DeliveredQuantity lembrarem de atualizá-la.
+        // Entrega ainda não conferida (zerada e em aberto) tem diferença 0, não a quantidade
+        // inteira negativa: ali não há divergência apurada, só falta digitar.
+        // A precisão precisa ser explícita: sem ela o EF assume decimal(18,2) e a terceira
+        // casa das quantidades (ambas DECIMAL(18,3)) seria truncada silenciosamente.
+        modelBuilder.Entity<SalesInvoiceItem>()
+            .Property(i => i.DeliveryDifference)
+            .HasColumnType("DECIMAL(18,3)")
+            .HasComputedColumnSql(
+                "CASE WHEN [DeliveredQuantity] = 0 " +
+                $"AND [DeliveryStatus] = {(int)SalesInvoiceDeliveryStatus.Open} THEN 0 " +
+                "ELSE [DeliveredQuantity] - [Quantity] END",
+                stored: true);
+
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
 

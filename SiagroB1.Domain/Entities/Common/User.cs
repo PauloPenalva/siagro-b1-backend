@@ -33,7 +33,25 @@ public class User
     
     public DateTime? LastLoginAt { get; set; }
 
+    /// <summary>Tema escolhido pelo usuário (sap_fiori_3, sap_horizon_dark, ...).</summary>
+    [Column(TypeName = "VARCHAR(30)")]
+    public string? Theme { get; set; }
+
+    /// <summary>Foto do avatar. Nula quando o usuário não subiu nenhuma - a UI mostra as iniciais.</summary>
+    public byte[]? PhotoContent { get; set; }
+
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? PhotoContentType { get; set; }
+
     public virtual ICollection<UserProfile> Profiles { get; set; } = [];
-    
-    public string? Password { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Senha em claro, apenas para transporte no POST /odata/Users - o serviço de criação a
+    /// converte em <see cref="PasswordHash"/> e a descarta.
+    ///
+    /// <c>[NotMapped]</c> tira a propriedade do banco mas NÃO do EDM do OData (é atributo do EF, e o
+    /// ODataConventionModelBuilder não o enxerga), então a tela de cadastro continua enviando o campo.
+    /// </summary>
+    [NotMapped]
+    public string? Password { get; set; }
 }

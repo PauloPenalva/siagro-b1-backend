@@ -51,6 +51,16 @@ public class SalesInvoiceItem
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal QuantityLoss { get; set; }
     
+    /// <summary>
+    /// Diferença entre o entregue e o faturado (DeliveredQuantity − Quantity). Negativa quando
+    /// chegou menos do que foi faturado, que é o caso comum de quebra. Entrega ainda não
+    /// conferida (zerada e em aberto) fica 0, e não a quantidade inteira negativa. É computed
+    /// column PERSISTED: quem mantém o valor é o SQL Server, não a aplicação — por isso o
+    /// setter é privado e nenhum serviço escreve nela. Configurada em
+    /// <c>AppDbContext.OnModelCreating</c>.
+    /// </summary>
+    public decimal DeliveryDifference { get; private set; }
+
     [NotMapped]
     public decimal NetQuantity => DeliveredQuantity -  QuantityLoss;
 

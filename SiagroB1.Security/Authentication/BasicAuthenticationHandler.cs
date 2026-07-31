@@ -248,20 +248,26 @@ public class BasicAuthenticationHandler(
 
     private async Task<User?> ValidateUserAsync(string username, string password)
     {
+        // Rastreado de propósito: o rehash abaixo e o LastLoginAt gravado pelo chamador dependem
+        // disso - com AsNoTracking o SaveChangesAsync seguinte não gravava nada.
         var user = await context.Users
-            .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
 
         if (user == null) return null;
 
-        // Use BCrypt em produção!
-        // return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-        return user.PasswordHash == HashPassword(password) ? user : null;
-    }
+        if (!PasswordHasher.Verify(user.PasswordHash, password, out var needsUpgrade))
+        {
+            return null;
+        }
 
-    private string HashPassword(string password)
-    {
-        return Utils.HashPassword(password);
+        // Hash no formato antigo: migra para PBKDF2 enquanto a senha em claro está disponível.
+        if (needsUpgrade)
+        {
+            user.PasswordHash = PasswordHasher.Hash(password);
+            _logger.LogInformation("Hash de senha migrado para PBKDF2: {Username}", user.Username);
+        }
+
+        return user;
     }
 
     // ✅ Para logout (chamado pelo controller)

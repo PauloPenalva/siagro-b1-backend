@@ -21,6 +21,8 @@ public class PurchaseContractsCloseService(
         if (contract.Type == ContractType.ToBeDetermined)
             await GuardPriceFixationAsync(contract);
 
+        await GuardNegativeBalanceAsync(contract);
+
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
@@ -53,5 +55,26 @@ public class PurchaseContractsCloseService(
                 $"Volume entregue sem preço fixado. Entregue: {deliveredVolume:N3}, " +
                 $"fixado e confirmado: {confirmedVolume:N3}. " +
                 "Fixe o preço do volume entregue antes de encerrar o contrato.");
+    }
+
+    /// <summary>
+    /// Espelha <c>SalesContractsCloseService</c>: contrato consumido ALÉM do volume contratado
+    /// não pode ser congelado — encerrado, ele sai das listas de alocação e do recálculo em
+    /// lote, e o volume excedente fica órfão. Decide sobre o saldo RECALCULADO do ledger, não
+    /// sobre <see cref="PurchaseContract.AllocatedVolume"/>: o agregado é persistido-derivado e
+    /// pode estar defasado — usar o valor persistido barraria contratos corretos por drift.
+    /// Não persiste o recálculo.
+    /// </summary>
+    private async Task GuardNegativeBalanceAsync(PurchaseContract contract)
+    {
+        var allocated = await PurchaseContractsRecalculateBalanceService
+            .CalculateAllocatedAsync(context, contract.Key);
+        var balance = decimal.Round(contract.TotalVolume - allocated, 2, MidpointRounding.ToEven);
+
+        if (balance < 0)
+            throw new ApplicationException(
+                $"Contrato faturado além do volume contratado. Contratado: {contract.TotalVolume:N2}, " +
+                $"alocado: {allocated:N2}, saldo: {balance:N2}. " +
+                "Ajuste as alocações antes de encerrar.");
     }
 }

@@ -47,12 +47,21 @@ public class PurchaseContractsRecalculateBalanceService(AppDbContext context)
         };
     }
 
+    /// <summary>
+    /// Σ Volume assinado do ledger de alocações — fonte única do consumo do contrato,
+    /// idêntica ao runtime/backfill. Estática para o guard de encerramento reusar sem
+    /// instanciar o serviço (espelha <c>SalesContractsRecalculateBalanceService</c>).
+    /// </summary>
+    public static async Task<decimal> CalculateAllocatedAsync(
+        AppDbContext context, Guid purchaseContractKey) =>
+        await context.PurchaseContractsAllocations
+            .Where(a => a.PurchaseContractKey == purchaseContractKey)
+            .SumAsync(a => a.Volume);
+
     private async Task<PurchaseContractRecalcResultDto> RecalculateAsync(PurchaseContract contract)
     {
         // Σ com sinal — igual ao runtime/backfill.
-        var newAllocated = await context.PurchaseContractsAllocations
-            .Where(a => a.PurchaseContractKey == contract.Key)
-            .SumAsync(a => a.Volume);
+        var newAllocated = await CalculateAllocatedAsync(context, contract.Key);
 
         var previousAllocated = contract.AllocatedVolume;
         var previousAvaiable = contract.AvaiableVolume;

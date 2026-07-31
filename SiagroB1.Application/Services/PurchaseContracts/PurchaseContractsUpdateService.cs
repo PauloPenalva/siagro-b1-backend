@@ -29,10 +29,23 @@ public class PurchaseContractsUpdateService(
             throw new ApplicationException("You can only edit a purchase contract if its status is draft.");
         }
         
+        var entry = context.Entry(existingEntity);
+
+        // O tipo é definido na criação e não muda mais: trocar FIX por PAF (ou o contrário)
+        // desalinha o contrato da fixação de preço, que nasceu com regra diferente para cada um.
+        // Tem de sair do OriginalValues: no PATCH o controller aplica o delta sobre a entidade
+        // rastreada e a recarga pelo Key devolve essa mesma instância, então comparar `entity`
+        // com `existingEntity` é comparar o objeto com ele mesmo e nunca acusa nada.
+        var originalType = (ContractType)entry.OriginalValues[nameof(PurchaseContract.Type)]!;
+        if (entity.Type != originalType)
+        {
+            throw new ApplicationException("O tipo do contrato não pode ser alterado após a criação.");
+        }
+
         try
         {
-            context.Entry(existingEntity).CurrentValues.SetValues(entity);
-            
+            entry.CurrentValues.SetValues(entity);
+
             if (existingEntity.Type == ContractType.Fixed)
             {
                 await UpdatePriceFixation(existingEntity);

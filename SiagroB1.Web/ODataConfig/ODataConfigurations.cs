@@ -98,6 +98,11 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
+        // Precisa ser explícito mesmo sendo coluna mapeada: o setter é privado (quem escreve
+        // é o SQL Server) e a convenção do ODataConventionModelBuilder pula propriedade sem
+        // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.DeliveryDifference)));
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
         modelBuilder.EntitySet<DocNumber>("DocNumbers");
@@ -116,6 +121,11 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<TruckScale>("TruckScales");
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
+        // O segredo e a foto nunca trafegam pelo OData: o hash não deve ser legível nem gravável,
+        // e o blob da foto tem endpoint próprio (/security/users/me/photo).
+        modelBuilder.EntityType<User>().Ignore(u => u.PasswordHash);
+        modelBuilder.EntityType<User>().Ignore(u => u.PhotoContent);
+        modelBuilder.EntityType<User>().Ignore(u => u.PhotoContentType);
         modelBuilder.EntitySet<UserProfile>("UsersProfiles");
         modelBuilder.EntitySet<Profile>("Profiles");
         modelBuilder.EntitySet<ProfileRole>("ProfilesRoles");
@@ -244,6 +254,11 @@ public static class ODataConfigurations
         var purchaseContractsGetShipmentReleasesAvailable = modelBuilder.Function("PurchaseContractsGetShipmentReleasesAvailable");
         purchaseContractsGetShipmentReleasesAvailable.Returns<PurchaseContract>();
         
+        // Sem parâmetros: a chamada precisa dos parênteses tanto na rota quanto no bindContext do
+        // cliente ("/UsersSyncFromSap(...)"), senão o UI5 monta uma URL que o OData não reconhece.
+        var usersSyncFromSap = modelBuilder.Action("UsersSyncFromSap");
+        usersSyncFromSap.Returns<IActionResult>();
+
         var notificationOutboxResend = modelBuilder.Action("NotificationOutboxResend");
         notificationOutboxResend.Parameter<Guid>("Key");
         notificationOutboxResend.Returns<IActionResult>();

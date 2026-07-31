@@ -9,6 +9,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Jobs;
+using SiagroB1.Application.Services.Users;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -104,6 +105,11 @@ switch (erp.ToUpper().Trim())
             options.UseSqlServer(builder.Configuration.GetConnectionString("SapCommon")));
         
         builder.Services.AddSapServices();
+
+        // Espelhamento do cadastro de usuários do SAP: só existe neste modo, porque depende do
+        // SapErpDbContext registrado logo acima.
+        builder.Services.AddScoped<SapUserSyncService>();
+        builder.Services.AddScoped<ISapUserSyncJob, SapUserSyncJob>();
         break;
     
     case "STANDALONE":
@@ -215,5 +221,21 @@ RecurringJob.AddOrUpdate<IContractNotificationSweepJob>(
     "contract-notification-sweep",
     job => job.ExecuteAsync(CancellationToken.None),
     Cron.Minutely());
+
+// Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que
+// enxerga quem sumiu do OUSR - o provisionamento no login só vê quem está entrando.
+if (string.Equals(erp.Trim(), "SAPB1", StringComparison.OrdinalIgnoreCase))
+{
+    RecurringJob.AddOrUpdate<ISapUserSyncJob>(
+        "sap-user-sync",
+        job => job.ExecuteAsync(CancellationToken.None),
+        "*/15 * * * *");
+}
+else
+{
+    // Trocar o modo de integração não pode deixar um job órfão tentando ler um banco do SAP
+    // que não está mais configurado.
+    RecurringJob.RemoveIfExists("sap-user-sync");
+}
 
 await app.RunAsync();

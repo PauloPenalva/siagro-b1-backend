@@ -13,7 +13,10 @@ namespace SiagroB1.Infra.Context
         public DbSet<Usage> Usages { get; set; }
         
         public DbSet<Address> Addresses { get; set; }
-        
+
+        /// <summary>Cadastro de usuários do SAP (OUSR), espelhado em USERS quando Erp = SAPB1.</summary>
+        public DbSet<SapUser> SapUsers { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Address>()

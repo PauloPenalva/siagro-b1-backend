@@ -185,6 +185,78 @@ public class PurchaseContractsCloseReopenServiceTests
             CloseService().ExecuteAsync(pc.Key, "tester"));
     }
 
+    /// <param name="ledgerVolume">
+    /// Volume no ledger; quando difere de <paramref name="allocatedVolume"/>, reproduz o drift
+    /// do agregado persistido.
+    /// </param>
+    private async Task<PurchaseContract> SeedWithAllocationAsync(
+        decimal totalVolume, decimal allocatedVolume, decimal? ledgerVolume = null)
+    {
+        var contract = NewContract(ContractStatus.Approved);
+        contract.TotalVolume = totalVolume;
+        contract.AllocatedVolume = allocatedVolume;
+
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            // FK obrigatória da entidade; o provider InMemory não a valida, mas
+            // preenchemos para não depender disso.
+            StorageTransactionKey = Guid.NewGuid(),
+            Volume = ledgerVolume ?? allocatedVolume,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        return contract;
+    }
+
+    [Fact]
+    public async Task Close_NegativeBalance_Throws_AndKeepsApproved()
+    {
+        var pc = await SeedWithAllocationAsync(totalVolume: 1000m, allocatedVolume: 1200m);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            CloseService().ExecuteAsync(pc.Key, "tester"));
+
+        Assert.Contains("além do volume contratado", ex.Message);
+        Assert.Equal(ContractStatus.Approved, (await ReloadAsync(pc.Key)).Status);
+    }
+
+    [Fact]
+    public async Task Close_PositiveBalance_Succeeds()
+    {
+        var pc = await SeedWithAllocationAsync(totalVolume: 1000m, allocatedVolume: 600m);
+
+        await CloseService().ExecuteAsync(pc.Key, "tester");
+
+        Assert.Equal(ContractStatus.Finished, (await ReloadAsync(pc.Key)).Status);
+    }
+
+    [Fact]
+    public async Task Close_ZeroBalance_Succeeds()
+    {
+        var pc = await SeedWithAllocationAsync(totalVolume: 1000m, allocatedVolume: 1000m);
+
+        await CloseService().ExecuteAsync(pc.Key, "tester");
+
+        Assert.Equal(ContractStatus.Finished, (await ReloadAsync(pc.Key)).Status);
+    }
+
+    /// <summary>
+    /// Agregado persistido negativo por drift, ledger são: não pode barrar.
+    /// </summary>
+    [Fact]
+    public async Task Close_PersistedBalanceNegativeButLedgerHealthy_Succeeds()
+    {
+        var pc = await SeedWithAllocationAsync(
+            totalVolume: 1000m, allocatedVolume: 1200m, ledgerVolume: 800m);
+
+        await CloseService().ExecuteAsync(pc.Key, "tester");
+
+        Assert.Equal(ContractStatus.Finished, (await ReloadAsync(pc.Key)).Status);
+    }
+
     [Fact]
     public async Task Reopen_FinishedContract_BecomesApproved()
     {

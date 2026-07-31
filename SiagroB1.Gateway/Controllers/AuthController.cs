@@ -15,9 +15,62 @@ public class AuthController(
     ILogger<AuthController> logger,
     IConfiguration configuration,
     BranchService branchService,
-    MenuService menuService
+    MenuService menuService,
+    IPasswordResetService passwordResetService
     ) : ControllerBase
 {
+    /// <summary>
+    /// Pede o link de redefinição de senha.
+    ///
+    /// Responde sempre 200 com a mesma mensagem, exista ou não a conta: qualquer diferença
+    /// transformaria este endpoint público num verificador de usuários válidos.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        await passwordResetService.RequestAsync(
+            request?.UsernameOrEmail ?? string.Empty,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+
+        return Ok(new
+        {
+            Success = true,
+            Message = "Se o usuário informado existir e tiver e-mail cadastrado, " +
+                      "enviaremos um link para redefinição de senha."
+        });
+    }
+
+    /// <summary>Diz se o link ainda vale, para a tela não abrir um formulário que já vai falhar.</summary>
+    [HttpGet("reset-password/validate")]
+    public async Task<IActionResult> ValidateResetToken([FromQuery] string? token)
+    {
+        return Ok(new
+        {
+            Valid = await passwordResetService.ValidateAsync(token ?? string.Empty),
+            passwordResetService.PasswordRequirements
+        });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var result = await passwordResetService.ResetAsync(
+            request?.Token ?? string.Empty,
+            request?.NewPassword ?? string.Empty);
+
+        if (!result.Success)
+        {
+            return BadRequest(new { message = result.Message });
+        }
+
+        // A senha mudou: os cookies desta máquina apontam para uma sessão que acabou de ser
+        // invalidada, e deixá-los no browser só produziria um 401 na próxima navegação.
+        Response.Cookies.Delete("SIAGROB1.Session");
+        Response.Cookies.Delete("SIAGROB1.User");
+
+        return Ok(new { Success = true, result.Message });
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
@@ -102,7 +155,10 @@ public class AuthController(
                                 Authenticated = true,
                                 Username = userInfo.Username,
                                 FullName = userInfo.FullName,
+                                Email = userInfo.Email,
                                 IsAdmin = userInfo.IsAdmin,
+                                Theme = userInfo.Theme,
+                                HasPhoto = userInfo.HasPhoto,
                                 FromCookie = true,
                                 UserId = userInfo.Id,
                             });
@@ -132,7 +188,10 @@ public class AuthController(
             Authenticated = true,
             Username = User.Identity?.Name,
             FullName = userInfoFromDb?.FullName ?? User.FindFirst(ClaimTypes.GivenName)?.Value,
+            Email = userInfoFromDb?.Email ?? User.FindFirst(ClaimTypes.Email)?.Value,
             IsAdmin = User.HasClaim("IsAdmin", "True"),
+            Theme = userInfoFromDb?.Theme,
+            HasPhoto = userInfoFromDb?.HasPhoto ?? false,
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],
             FromPrincipal = true,
@@ -153,6 +212,9 @@ public class AuthController(
             Supports = new[] { "Login", "Logout", "Session Management" },
             Timestamp = DateTime.UtcNow,
             CompanyName = configuration["CompanyName"] ?? "COMPANY NAME",
+            // Modo de integração: em SAPB1 o cadastro de usuários é mantido no SAP, e as telas
+            // precisam saber disso para não oferecer uma edição que a sincronização vai desfazer.
+            Erp = configuration["Erp"] ?? "STANDALONE",
         });
     }
 

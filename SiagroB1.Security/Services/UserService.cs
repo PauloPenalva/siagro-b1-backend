@@ -18,7 +18,7 @@ public class UserService(CommonDbContext db, ILogger<UserService> logger)
         var user = new User
         {
             Username = "admin",
-            PasswordHash = Utils.HashPassword("1234"),  // Use BCrypt em produção!
+            PasswordHash = PasswordHasher.Hash("1234"),
             FullName = "Administrator",
             Email = "admin@siagrob1.com",
             IsAdmin = true,

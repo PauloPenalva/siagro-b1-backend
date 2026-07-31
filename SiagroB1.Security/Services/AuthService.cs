@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Dtos;
 using SiagroB1.Security.Interfaces;
@@ -14,13 +15,19 @@ namespace SiagroB1.Security.Services;
 public class AuthService(
     CommonDbContext db,
     IHttpContextAccessor httpContextAccessor,
+    ISapUserProvisioner sapUserProvisioner,
     ILogger<AuthService> logger) : IAuthService
 {
-    
+
     public async Task<LoginResponse> LoginAsync(string username, string password)
         {
             try
             {
+                // Em modo SAPB1 o cadastro é mantido no SAP: espelha a linha do OUSR antes de
+                // procurar o usuário, para que quem foi criado no SAP não precise esperar a
+                // varredura periódica. Fora desse modo, é no-op.
+                await sapUserProvisioner.EnsureAsync(username);
+
                 // Validar usuário
                 var user = await db.Users
                     .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
@@ -34,15 +41,22 @@ public class AuthService(
                     };
                 }
 
-                // Validar senha (use BCrypt em produção!)
-                var hashedPassword = Utils.HashPassword(password);
-                if (user.PasswordHash != hashedPassword)
+                // Validar senha
+                if (!PasswordHasher.Verify(user.PasswordHash, password, out var needsUpgrade))
                 {
                     return new LoginResponse()
                     {
                         Success = false,
                         Message = "Usuário ou Senha inválidos"
                     };
+                }
+
+                // Hash no formato antigo (SHA-256 sem salt): migra para PBKDF2 silenciosamente,
+                // aproveitando que a senha em claro só existe aqui.
+                if (needsUpgrade)
+                {
+                    user.PasswordHash = PasswordHasher.Hash(password);
+                    logger.LogInformation("Hash de senha migrado para PBKDF2: {Username}", user.Username);
                 }
 
                 // Criar sessão
@@ -110,15 +124,7 @@ public class AuthService(
                     Success = true,
                     Message = "Login realizado com sucesso",
                     SessionId = sessionId,
-                    User = new UserInfo
-                    {
-                        Id = user.Id.ToString(),
-                        Username = user.Username,
-                        FullName = user.FullName,
-                        Email = user.Email,
-                        IsAdmin = user.IsAdmin,
-                        LastLogin = user.LastLoginAt
-                    },
+                    User = ToUserInfo(user),
                     Claims = claims,
                     ExpiresAt = session.ExpiresAt
                 };
@@ -206,21 +212,36 @@ public class AuthService(
 
         public async Task<UserInfo?> GetUserInfoAsync(string username)
         {
-            var user = await db.Users
-                .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
-
-            if (user == null) return null;
-
-            return new UserInfo
-            {
-                Id = user.Id.ToString(),
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                IsAdmin = user.IsAdmin,
-                LastLogin = user.LastLoginAt
-            };
+            // Projeção em vez da entidade: o /status é consultado no boot e a cada revalidação de
+            // sessão, e carregar a entidade inteira traria o blob da foto junto toda vez.
+            return await db.Users
+                .AsNoTracking()
+                .Where(u => u.Username == username && u.IsActive)
+                .Select(u => new UserInfo
+                {
+                    Id = u.Id.ToString(),
+                    Username = u.Username,
+                    FullName = u.FullName,
+                    Email = u.Email,
+                    IsAdmin = u.IsAdmin,
+                    LastLogin = u.LastLoginAt,
+                    Theme = u.Theme,
+                    HasPhoto = u.PhotoContent != null && u.PhotoContent.Length > 0
+                })
+                .FirstOrDefaultAsync();
         }
+
+        private static UserInfo ToUserInfo(User user) => new()
+        {
+            Id = user.Id.ToString(),
+            Username = user.Username,
+            FullName = user.FullName,
+            Email = user.Email,
+            IsAdmin = user.IsAdmin,
+            LastLogin = user.LastLoginAt,
+            Theme = user.Theme,
+            HasPhoto = user.PhotoContent != null && user.PhotoContent.Length > 0
+        };
 
         private List<Claim> CreateClaims(User user)
         {

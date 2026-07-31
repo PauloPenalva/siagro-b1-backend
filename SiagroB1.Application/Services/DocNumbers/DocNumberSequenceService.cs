@@ -7,7 +7,10 @@ namespace SiagroB1.Application.Services.DocNumbers;
 
 public class DocNumberSequenceService(IDbConnection connection)
 {
-    public async Task<string> GetDocNumber(Guid docNumberKey)
+    // virtual: a numeração roda em T-SQL puro (Dapper, OUTPUT/UPDLOCK), que o provider
+    // InMemory dos testes não traduz. Permite substituí-la por um duplo nos testes de
+    // orquestração que só se interessam pelo efeito colateral do fluxo, não pela sequência.
+    public virtual async Task<string> GetDocNumber(Guid docNumberKey)
     {
         var nextNumber = await GetNextNumberAsync(docNumberKey);
         return await FormatNumberAsync(docNumberKey, nextNumber);
@@ -19,7 +22,7 @@ public class DocNumberSequenceService(IDbConnection connection)
         return await FormatNumberAsync(docNumber.Key, docNumber.LastNumber);
     }
     
-    public async Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
+    public virtual async Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
     {
         const string sql = """
                            SELECT [Key]

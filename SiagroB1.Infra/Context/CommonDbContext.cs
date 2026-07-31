@@ -16,6 +16,7 @@ namespace SiagroB1.Infra.Context
         public DbSet<Profile> Profiles { get; set; }
         public DbSet<ProfileRole> ProfileRoles { get; set; }
         public DbSet<UserProfile>  UserProfiles { get; set; }
-        
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
     }
 }

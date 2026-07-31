@@ -78,6 +78,40 @@ namespace SiagroB1.Migrations.CommonContext
                     b.ToTable("MENU_ITEMS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestIp")
+                        .HasColumnType("VARCHAR(45)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(64)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PASSWORD_RESET_TOKENS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.Permission", b =>
                 {
                     b.Property<string>("Code")
@@ -212,11 +246,17 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Password")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PasswordHash")
                         .HasColumnType("VARCHAR(256)");
+
+                    b.Property<byte[]>("PhotoContent")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Theme")
+                        .HasColumnType("VARCHAR(30)");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -301,6 +341,17 @@ namespace SiagroB1.Migrations.CommonContext
                         .HasForeignKey("ParentKey");
 
                     b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Common.PasswordResetToken", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Common.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.ProfileRole", b =>

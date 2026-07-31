@@ -25,9 +25,16 @@ public class UsersCreateService(
         
         try
         {
-            entity.PasswordHash = Utils.HashPassword(entity.Password!);
-            entity.Password = string.Empty;
-            
+            entity.PasswordHash = string.IsNullOrWhiteSpace(entity.Password)
+                ? null                                        // Sem senha: só entra pelo "esqueci minha senha".
+                : PasswordHasher.Hash(entity.Password);
+            entity.Password = null;
+
+            // E-mail é opcional (o OUSR do SAP também não o exige). O índice único de Email é
+            // filtrado por IS NOT NULL: vários nulos convivem, mas duas strings vazias colidem -
+            // e a tela manda "" quando o campo fica em branco.
+            entity.Email = string.IsNullOrWhiteSpace(entity.Email) ? null : entity.Email.Trim();
+
             await db.Users.AddAsync(entity);
             await db.SaveChangesAsync();
             return new UserDto()

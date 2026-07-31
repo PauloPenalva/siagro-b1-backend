@@ -1982,6 +1982,11 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("DeliveredQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<decimal>("DeliveryDifference")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("DECIMAL(18,3)")
+                        .HasComputedColumnSql("CASE WHEN [DeliveredQuantity] = 0 AND [DeliveryStatus] = 0 THEN 0 ELSE [DeliveredQuantity] - [Quantity] END", true);
+
                     b.Property<int>("DeliveryStatus")
                         .HasColumnType("int");
 
