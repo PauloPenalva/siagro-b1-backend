@@ -54,14 +54,11 @@ public class ShipmentBillingDeleteServiceTests
 
         var storageCopy = new StorageTransactionsCopyService(_db, docNumbers, storageCreate);
 
-        var allocationCreate = new PurchaseContractsAllocationCreateService(
-            _db,
-            GetService(),
-            new PurchaseContractsGetService(
-                _db, NullLogger<PurchaseContractsGetService>.Instance));
+        var allocationCreate = new PurchaseContractsAllocationCreateService(_db, GetService());
 
         return new ShippingTransactionsCreateService(
-            _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc);
+            _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc,
+            new FakeStorageAddressBalanceReader(100_000m));
     }
 
     private ShipmentBillingDeleteService DeleteService() =>

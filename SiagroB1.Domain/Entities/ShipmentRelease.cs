@@ -36,6 +36,37 @@ public class ShipmentRelease : DocumentEntity
     public decimal ShippedQuantity { get; set; }
 
     /// <summary>
+    /// De onde a liberação nasceu. <see cref="ReleaseOrigin.OwnershipTransfer"/>
+    /// significa que o físico JÁ foi entregue — a liberação existe apenas para
+    /// que a mercadoria seja embarcada e faturada.
+    /// </summary>
+    public ReleaseOrigin Origin { get; set; } = ReleaseOrigin.Standard;
+
+    /// <summary>
+    /// Transferência de titularidade que emitiu esta liberação. Índice único
+    /// filtrado no banco garante a invariante "uma transferência, uma liberação".
+    /// </summary>
+    public Guid? OwnershipTransferKey { get; set; }
+    public virtual OwnershipTransfer? OwnershipTransfer { get; set; }
+
+    /// <summary>
+    /// Lote de armazenagem próprio onde a mercadoria desta liberação já está
+    /// fisicamente depositada. Preenchido apenas nas liberações de transferência
+    /// de titularidade.
+    /// </summary>
+    /// <remarks>
+    /// Existe porque a Expedição de Grãos opera em nível de armazém, não de lote:
+    /// sem este vínculo, o par Purchase(8)/SalesShipment(7) do embarque não daria
+    /// baixa no lote e o Receipt(0) gravado pela transferência ficaria como saldo
+    /// fantasma para sempre. <c>ShippingTransactionsCreateService</c> propaga este
+    /// código para a perna de saída.
+    /// </remarks>
+    [Column(TypeName = "VARCHAR(50)")]
+    [ForeignKey(nameof(StorageAddress))]
+    public string? StorageAddressCode { get; set; }
+    public virtual StorageAddress? StorageAddress { get; set; }
+
+    /// <summary>
     /// Token de concorrência otimista (SQL Server rowversion).
     /// </summary>
     [Timestamp]

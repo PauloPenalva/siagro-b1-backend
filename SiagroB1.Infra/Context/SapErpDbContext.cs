@@ -9,7 +9,13 @@ namespace SiagroB1.Infra.Context
         public DbSet<Item> Items { get; set; }
         public DbSet<UnitOfMeasure> UnitsOfMeasure { get; set; }
         public DbSet<Agent> Agents { get; set; }
-        
+
+        /// <summary>Centros de custo do SAP (OPRC), somente leitura.</summary>
+        public DbSet<CostCenter> CostCenters { get; set; }
+
+        /// <summary>Plano de contas do SAP (OACT), somente leitura.</summary>
+        public DbSet<LedgerAccount> LedgerAccounts { get; set; }
+
         public DbSet<Usage> Usages { get; set; }
         
         public DbSet<Address> Addresses { get; set; }

@@ -8,6 +8,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.ShippingTransactions;
@@ -24,7 +25,7 @@ public class ShippingTransactionsCreateServiceTests
 
     private ShipmentReleasesRecalculateShippedService Recalc() => new(_db.Context);
 
-    private ShippingTransactionsCreateService CreateService()
+    private ShippingTransactionsCreateService CreateService(decimal lotBalance = 100_000m)
     {
         var recalc = Recalc();
         var guard = new ShipmentReleaseMovementGuardService(_db.Context);
@@ -52,12 +53,11 @@ public class ShippingTransactionsCreateServiceTests
         var allocationCreate = new PurchaseContractsAllocationCreateService(
             _db,
             new StorageTransactionsGetService(
-                _db, NullLogger<StorageTransactionsGetService>.Instance),
-            new PurchaseContractsGetService(
-                _db, NullLogger<PurchaseContractsGetService>.Instance));
+                _db, NullLogger<StorageTransactionsGetService>.Instance));
 
         return new ShippingTransactionsCreateService(
-            _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc);
+            _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc,
+            new FakeStorageAddressBalanceReader(lotBalance));
     }
 
     /// <summary>Contrato aprovado com uma liberação ativa e saldo de sobra.</summary>

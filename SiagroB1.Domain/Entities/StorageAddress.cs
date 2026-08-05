@@ -11,7 +11,13 @@ public class StorageAddress : MasterEntity
 {
     public DateTime? CreationDate { get; set; } = DateTime.Now.Date;
     
-    public StorageOwnershipType OwnershipType { get; set; }  
+    /// <summary>
+    /// Propriedade da mercadoria depositada no lote. Default deliberadamente
+    /// <see cref="StorageOwnershipType.ThirdParty"/>: um lote que não foi
+    /// classificado explicitamente não pode habilitar o vínculo de contrato de
+    /// compra na transferência de titularidade.
+    /// </summary>
+    public StorageOwnershipType OwnershipType { get; set; } = StorageOwnershipType.ThirdParty;
     
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Description { get; set; }

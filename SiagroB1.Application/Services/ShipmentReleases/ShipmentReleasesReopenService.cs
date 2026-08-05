@@ -13,6 +13,8 @@ public class ShipmentReleasesReopenService(AppDbContext context)
                           .FirstOrDefaultAsync(x => x.Key == key && x.Status == ReleaseStatus.Completed)
                       ?? throw new NotFoundException("Liberação não encontrada ou não está finalizada.");
 
+        ShipmentReleaseOwnershipTransferGuard.Ensure(release);
+
         release.Status = ReleaseStatus.Actived;
         release.UpdatedAt = DateTime.Now;
         release.UpdatedBy = userName;

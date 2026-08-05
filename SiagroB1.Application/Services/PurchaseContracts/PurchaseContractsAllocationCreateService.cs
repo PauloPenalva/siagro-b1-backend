@@ -10,9 +10,25 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 
 public class PurchaseContractsAllocationCreateService(
     IUnitOfWork  unitOfWork,
-    StorageTransactionsGetService storageTransactionsGetService,
-    PurchaseContractsGetService purchaseContractsGetService)
+    StorageTransactionsGetService storageTransactionsGetService)
 {
+    /// <summary>
+    /// Carrega o contrato rastreado, SEM os includes de PurchaseContractsGetService.
+    /// </summary>
+    /// <remarks>
+    /// Aquele Get inclui navegações de FK obrigatória (HarvestSeason, DocNumber), e o
+    /// EF traduz FK obrigatória como INNER JOIN: faltando a linha mestre, a consulta
+    /// devolve <c>null</c> e o contrato "some". Como o resto do método usa `?.`, o
+    /// efeito era silencioso e grave — a alocação era gravada e o AllocatedVolume do
+    /// contrato NÃO era atualizado, deixando o saldo físico defasado.
+    ///
+    /// Aqui só interessam Status e AvaiableVolume, ambos escalares — nenhuma navegação
+    /// é necessária.
+    /// </remarks>
+    private async Task<PurchaseContract?> LoadContractAsync(Guid purchaseContractKey) =>
+        await unitOfWork.Context.PurchaseContracts
+            .FirstOrDefaultAsync(x => x.Key == purchaseContractKey);
+
     public async Task ExecuteWithTransactionAsync(Guid purchaseContractKey, Guid storageTransactionKey, decimal volume,
         string userName)
     {
@@ -38,7 +54,7 @@ public class PurchaseContractsAllocationCreateService(
         )
     {
         var storageTransaction = await storageTransactionsGetService.GetByIdAsync(storageTransactionKey);
-        var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
+        var purchaseContract = await LoadContractAsync(purchaseContractKey);
 
         if (purchaseContract?.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível alocar.");
@@ -131,7 +147,7 @@ public class PurchaseContractsAllocationCreateService(
         CommitMode commitMode = CommitMode.Auto
         )
     {
-        var purchaseContract = await purchaseContractsGetService.GetByIdAsync(purchaseContractKey);
+        var purchaseContract = await LoadContractAsync(purchaseContractKey);
 
         if (purchaseContract?.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível alocar.");

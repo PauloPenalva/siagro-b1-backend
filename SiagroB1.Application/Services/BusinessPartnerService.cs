@@ -37,7 +37,26 @@ public class BusinessPartnerService(
                     CardType = x.CardType,
                     Notes = x.Notes,
                     QryGroup23 = x.QryGroup23,
-                    TaxId = x.TaxId
+                    TaxId = x.TaxId,
+                    // O Include acima é decorativo sem esta projeção: o EF materializa o
+                    // Model, não a entidade, e a coleção voltava SEMPRE vazia. Quem depende
+                    // dela é a resolução de CFOP (UF do destinatário), que rejeitaria todo
+                    // documento de saída em modo STANDALONE. O equivalente em SAPB1 já
+                    // projeta o endereço.
+                    Addresses = x.Addresses
+                        .Select(a => new AddressModel()
+                        {
+                            CardCode = a.CardCode,
+                            AddressName = a.AddressName,
+                            AdresType = a.AdresType,
+                            Block = a.Block,
+                            City = a.City,
+                            Country = a.Country,
+                            State = a.State,
+                            Street = a.Street,
+                            ZipCode = a.ZipCode
+                        })
+                        .ToList()
                 })
                 .FirstOrDefaultAsync(x => x.CardCode == code);
         }

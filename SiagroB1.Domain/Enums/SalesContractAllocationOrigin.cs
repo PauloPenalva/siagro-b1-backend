@@ -26,4 +26,16 @@ public enum SalesContractAllocationOrigin
     /// outro ter acontecido antes. Exige motivo e é restrita a ADMIN.
     /// </summary>
     Reconciliation = 4,
+
+    /// <summary>
+    /// Linha criada pela confirmação de um documento de saída AVULSO (sem romaneio),
+    /// segundo os efeitos configurados na natureza de operação: complemento de preço,
+    /// ajuste de quebra, devolução fora do fluxo de romaneio. O sinal do
+    /// <see cref="SalesContractAllocation.Volume"/> vem de
+    /// <see cref="ContractBalanceEffect"/> e o da
+    /// <see cref="SalesContractAllocation.PriceDifference"/> vem de
+    /// <see cref="ContractValueEffect"/>. Volume 0 quando o efeito é só de valor — não
+    /// altera a invariante "Σ Volume por item = consumo nominal do item".
+    /// </summary>
+    FiscalAdjustment = 5,
 }

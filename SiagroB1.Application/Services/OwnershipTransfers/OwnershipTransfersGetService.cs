@@ -12,7 +12,13 @@ public class OwnershipTransfersGetService(IUnitOfWork db, ILogger<OwnershipTrans
     {
         try
         {
+            // AsNoTracking é o que faz o PATCH funcionar: o controller aplica o Delta
+            // sobre esta instância e passa para o Update, que carrega a sua própria
+            // cópia rastreada. Rastreada aqui, seria o mesmo objeto — o serviço
+            // compararia a entidade com ela mesma e a guarda de status leria o valor
+            // já modificado em vez do valor do banco.
             return await db.Context.OwnershipTransfers
+                 .AsNoTracking()
                  .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)

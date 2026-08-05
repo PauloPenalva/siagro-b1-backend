@@ -14,6 +14,16 @@ public class BusinessPartnersAddressesController(
     ) 
     : ODataController
 {
+    /// <summary>
+    /// Tira as aspas do segmento de chave da URL.
+    ///
+    /// As rotas daqui são por ATRIBUTO, e não pela convenção do OData: em
+    /// <c>BusinessPartners('C90001')/Addresses</c> o <c>{key}</c> captura <c>'C90001'</c>
+    /// COM as aspas, e a busca pelo parceiro nunca acha nada. O sintoma era mudo na
+    /// leitura (lista de endereços sempre vazia) e um 500 seco na gravação.
+    /// </summary>
+    private static string Unquote(string key) => key.Trim('\'');
+
     [HttpPost("odata/BusinessPartners({key})/Addresses")]
     public async Task<ActionResult<AddressModel>> PostAsync(
         [FromRoute] string key, 
@@ -26,7 +36,7 @@ public class BusinessPartnersAddressesController(
             
         try
         {
-            await service.Create(key, model);
+            await service.Create(Unquote(key), model);
 
             return Created(model);
         }
@@ -56,7 +66,7 @@ public class BusinessPartnersAddressesController(
 
         try
         {
-            await service.Update(key, addressName, adresType, model);
+            await service.Update(Unquote(key), Unquote(addressName), Unquote(adresType), model);
         }
         catch (KeyNotFoundException)
         {
@@ -84,7 +94,7 @@ public class BusinessPartnersAddressesController(
     {
         try
         {
-            await service.Delete(key, addressName, adresType);
+            await service.Delete(Unquote(key), Unquote(addressName), Unquote(adresType));
         }
         catch (NotFoundException)
         {
@@ -109,7 +119,7 @@ public class BusinessPartnersAddressesController(
     [EnableQuery]
     public ActionResult<IEnumerable<PurchaseContractBroker>> GetAsync([FromRoute] string key)
     {
-        return Ok(service.QueryAll(key));
+        return Ok(service.QueryAll(Unquote(key)));
     }
     
     [HttpGet("odata/BusinessPartners({key})/Addresses(AddressName={addressName},AdresType={adresType},CardCode={cardCode})")]
@@ -120,7 +130,7 @@ public class BusinessPartnersAddressesController(
         [FromRoute] string adresType,
         [FromRoute] string cardCode)
     {
-        var item = await service.GetByIdAsync(key,addressName, adresType);
+        var item = await service.GetByIdAsync(Unquote(key), Unquote(addressName), Unquote(adresType));
 
         if (item == null)
         {
@@ -143,7 +153,7 @@ public class BusinessPartnersAddressesController(
             return BadRequest(ModelState);
         }
 
-        var t = await service.GetByIdAsync(key, addressName, adresType);
+        var t = await service.GetByIdAsync(Unquote(key), Unquote(addressName), Unquote(adresType));
 
         if (t == null)
         {
@@ -154,7 +164,7 @@ public class BusinessPartnersAddressesController(
         {
             patch.Patch(t);
 
-            await service.Update(key, addressName, adresType, t);
+            await service.Update(Unquote(key), Unquote(addressName), Unquote(adresType), t);
         }
         catch (KeyNotFoundException)
         {

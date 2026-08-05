@@ -15,6 +15,8 @@ public class ShipmentReleasesPauseService(AppDbContext context, ILogger<Shipment
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
         
+        ShipmentReleaseOwnershipTransferGuard.Ensure(sr);
+
         if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed or ReleaseStatus.Paused)
         {
             throw new ApplicationException("Shipment Release is not in Activated state.");

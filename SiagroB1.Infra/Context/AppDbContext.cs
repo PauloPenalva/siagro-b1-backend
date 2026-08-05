@@ -38,6 +38,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageTransaction> StorageTransactions { get; set; }
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
+    public DbSet<CostCenter> CostCenters { get; set; }
+    public DbSet<LedgerAccount> LedgerAccounts { get; set; }
+    public DbSet<Usage> Usages { get; set; }
+    public DbSet<UsageEffect> UsageEffects { get; set; }
+    public DbSet<CustomerReturn> CustomerReturns { get; set; }
+    public DbSet<CustomerReturnItem> CustomerReturnsItems { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
@@ -90,6 +96,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
             .IsUnique()
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
+
+        // Invariante "uma transferência de titularidade, uma liberação de embarque",
+        // no banco. As outras duas camadas são a guarda de status no confirm e a
+        // guarda inversa nos serviços de liberação; esta é a que sobrevive a
+        // qualquer caminho novo. Filtrado porque a esmagadora maioria das
+        // liberações é comum e tem a coluna nula.
+        modelBuilder.Entity<ShipmentRelease>()
+            .HasIndex(x => x.OwnershipTransferKey)
+            .IsUnique()
+            .HasFilter("[OwnershipTransferKey] IS NOT NULL");
         
         // Diferença entre entregue e faturado, mantida pelo próprio SQL Server. Coluna real
         // (ordena, filtra e sai em relatório), mas derivada: assim não depende de nenhum dos
@@ -106,6 +122,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 $"AND [DeliveryStatus] = {(int)SalesInvoiceDeliveryStatus.Open} THEN 0 " +
                 "ELSE [DeliveredQuantity] - [Quantity] END",
                 stored: true);
+
+        // Uma chave de NF-e do cliente, uma devolução registrada. Filtrado porque cancelar
+        // precisa liberar a chave para o relançamento — mesma trava já usada no documento de
+        // saída para a NF-e própria.
+        modelBuilder.Entity<CustomerReturn>()
+            .HasIndex(x => x.AccessKey)
+            .IsUnique()
+            .HasFilter($"[AccessKey] IS NOT NULL AND [Status] <> {(int)CustomerReturnStatus.Cancelled}");
 
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });

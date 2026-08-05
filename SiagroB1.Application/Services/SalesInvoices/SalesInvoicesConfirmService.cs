@@ -16,6 +16,8 @@ public class SalesInvoicesConfirmService(
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
     SalesContractsAllocationCreateService allocationCreate,
     SalesContractsAllocationCreateForReturnService allocationCreateForReturn,
+    SalesInvoicesUsageGuardService usageGuard,
+    SalesContractsAllocationCreateForFiscalAdjustmentService fiscalAdjustment,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -53,7 +55,7 @@ public class SalesInvoicesConfirmService(
                     invoice, userName, CommitMode.Deferred);
                 affectedReleaseKeys.UnionWith(returnReleases);
             }
-            else
+            else if (invoice.SalesTransactions.Count > 0)
             {
                 await ProcessNormalInvoiceAsync(
                     invoice,
@@ -68,6 +70,20 @@ public class SalesInvoicesConfirmService(
                     if (item.SalesShipmentReleaseKey is { } itemReleaseKey)
                         affectedReleaseKeys.Add(itemReleaseKey);
                 }
+            }
+            else
+            {
+                // Documento AVULSO (sem romaneio): quem decide o efeito no contrato é a
+                // natureza de operação.
+                //
+                // O caminho é escolhido pela ORIGEM do documento — tem romaneio ou não — e
+                // não pela natureza. É isso que impede o caminho novo de mexer no
+                // faturamento que já funciona: nota de romaneio continua entrando pelo ramo
+                // acima, com o mesmo comportamento de antes.
+                var lineUsages = await usageGuard.ValidateAsync(invoice);
+
+                await fiscalAdjustment.ExecuteAsync(
+                    invoice, lineUsages, userName, CommitMode.Deferred);
             }
 
             invoice.InvoiceStatus = InvoiceStatus.Confirmed;

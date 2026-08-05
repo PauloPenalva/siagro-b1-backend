@@ -16,6 +16,7 @@ using SiagroB1.Application.Services.Roles;
 using SiagroB1.Application.Services.RolesMenus;
 using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.CustomerReturns;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -45,7 +46,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfMeasureService, Application.Services.SAP.UnitOfMeasureService>();
         services.AddScoped<IAgentService, Application.Services.SAP.AgentService>();
         services.AddScoped<IWarehouseService, Application.Services.SAP.WarehouseService>();
-        
+        services.AddScoped<ICostCenterService, Application.Services.SAP.CostCenterService>();
+        services.AddScoped<ILedgerAccountService, Application.Services.SAP.LedgerAccountService>();
+        services.AddScoped<IUsage, Application.Services.SAP.UsageService>();
+
         return services;
     }
     
@@ -57,7 +61,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAgentService, Application.Services.AgentService>();
         services.AddScoped<IWarehouseService, Application.Services.WarehouseService>();
         services.AddScoped<IBusinessPartnerAddressService, Application.Services.BusinessPartnerAddressService>();
-        
+        services.AddScoped<ICostCenterService, Application.Services.CostCenterService>();
+        services.AddScoped<ILedgerAccountService, Application.Services.LedgerAccountService>();
+        services.AddScoped<IUsage, Application.Services.UsageService>();
+
         return services;
     }
     
@@ -270,6 +277,17 @@ public static class ServiceCollectionExtensions
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
+        // devolução do cliente (controle e conciliação)
+        services.AddScoped<CustomerReturnsGetService>();
+        services.AddScoped<CustomerReturnsCreateService>();
+        services.AddScoped<CustomerReturnsUpdateService>();
+        services.AddScoped<CustomerReturnsCancelService>();
+        services.AddScoped<CustomerReturnsImportXmlService>();
+        services.AddScoped<CustomerReturnsGetOriginItemsService>();
+
+        services.AddScoped<SalesContractsAllocationCreateForFiscalAdjustmentService>();
+        services.AddScoped<SalesInvoicesCfopResolveService>();
+        services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<SalesInvoicesCreateService>();
         services.AddScoped<SalesInvoicesDeleteService>();
         services.AddScoped<SalesInvoicesGetService>();
@@ -394,6 +412,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersGetService>();
         services.AddScoped<OwnershipTransfersConfirmService>();
         services.AddScoped<OwnershipTransfersCancelService>();
+        services.AddScoped<OwnershipTransfersValidateContractService>();
         services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
 
         //storage invoices

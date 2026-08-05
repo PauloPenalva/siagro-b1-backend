@@ -15,12 +15,16 @@ public class PurchaseContractsAllocationCreateServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     /// <summary>
-    /// A safra PRECISA existir. <see cref="PurchaseContract.HarvestSeasonCode"/> é uma FK
-    /// obrigatória (<c>required string</c>), então o <c>.Include(x =&gt; x.HarvestSeason)</c> de
-    /// <see cref="PurchaseContractsGetService.GetByIdAsync"/> vira INNER JOIN: sem a linha em
-    /// HARVEST_SEASSONS o contrato some da consulta e o serviço recebe null — o que
-    /// silenciosamente pula a guarda de contrato encerrado (<c>?.</c>) e a atribuição de
-    /// AllocatedVolume (<c>if (purchaseContract != null)</c>), sem erro nenhum.
+    /// A safra era OBRIGATÓRIA aqui, e o motivo virou correção de produção: o serviço
+    /// carregava o contrato por <c>PurchaseContractsGetService.GetByIdAsync</c>, que
+    /// inclui <c>HarvestSeason</c>. Como <see cref="PurchaseContract.HarvestSeasonCode"/>
+    /// é FK obrigatória, o EF traduz o Include como INNER JOIN: sem a linha em
+    /// HARVEST_SEASONS o contrato sumia da consulta e o serviço recebia null — o que
+    /// silenciosamente pulava a guarda de contrato encerrado (<c>?.</c>) e a atribuição
+    /// de AllocatedVolume, sem erro nenhum, deixando o saldo físico defasado.
+    ///
+    /// O serviço passou a carregar o contrato sem includes, então a semente não é mais
+    /// necessária — fica porque o cenário com safra é o realista.
     /// </summary>
     public PurchaseContractsAllocationCreateServiceTests()
     {
@@ -30,8 +34,7 @@ public class PurchaseContractsAllocationCreateServiceTests
 
     private PurchaseContractsAllocationCreateService CreateService() => new(
         _db,
-        new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance),
-        new PurchaseContractsGetService(_db, NullLogger<PurchaseContractsGetService>.Instance));
+        new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance));
 
     private static StorageTransaction NewPurchase(decimal netWeight, decimal available) => new()
     {

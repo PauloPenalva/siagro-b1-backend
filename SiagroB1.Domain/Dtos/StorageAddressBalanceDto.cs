@@ -42,4 +42,12 @@ public class StorageAddressBalanceDto
     
     [JsonPropertyName("UoM")]
     public string? UoM { get; set; }
+
+    /// <summary>
+    /// Propriedade da mercadoria no lote (<see cref="Enums.StorageOwnershipType"/>).
+    /// O assistente de transferência escolhe os lotes desta lista e não tem outra
+    /// forma de saber se pode habilitar o vínculo de contrato de compra.
+    /// </summary>
+    [JsonPropertyName("OwnershipType")]
+    public int OwnershipType { get; set; }
 }

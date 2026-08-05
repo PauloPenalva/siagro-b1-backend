@@ -36,6 +36,60 @@
     <data name="OWNERSHIP_TRANSFER_ORIGIN_BALANCE" xml:space="preserve">
         <value>O saldo do lote de origem é insuficiente para realizar a transferencia.</value>
     </data>
+    <data name="OWNERSHIP_TRANSFER_NOT_OPEN" xml:space="preserve">
+        <value>Somente transferências em aberto podem ser confirmadas.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_ALREADY_CANCELLED" xml:space="preserve">
+        <value>Transferência já cancelada.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CLOSED_UPDATE" xml:space="preserve">
+        <value>Transferência encerrada ou cancelada: não é possível alterar.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_SAME_ADDRESS" xml:space="preserve">
+        <value>O lote de origem e o lote de destino devem ser diferentes.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_INVALID_QUANTITY" xml:space="preserve">
+        <value>A quantidade da transferência deve ser maior que zero.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_ITEM_MISMATCH" xml:space="preserve">
+        <value>O produto da transferência é diferente do produto do lote de armazenagem.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_UOM_MISMATCH" xml:space="preserve">
+        <value>A unidade de medida da transferência é diferente da unidade do lote de armazenagem.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_LOT_CLOSED" xml:space="preserve">
+        <value>Lote de armazenagem encerrado: não é possível movimentar.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_DESTINATION_NOT_OWN" xml:space="preserve">
+        <value>O lote de destino não é estoque próprio: não é possível vincular contrato de compra.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_ORIGIN_IS_OWN" xml:space="preserve">
+        <value>O lote de origem já é estoque próprio: não há compra a registrar nesta transferência.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_NOT_FOUND" xml:space="preserve">
+        <value>Contrato de compra não encontrado.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_NOT_APPROVED" xml:space="preserve">
+        <value>Contrato de compra não aprovado: não é possível vincular à transferência.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_ITEM_MISMATCH" xml:space="preserve">
+        <value>O produto do contrato é diferente do produto da transferência.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_UOM_MISMATCH" xml:space="preserve">
+        <value>A unidade de medida do contrato é diferente da unidade da transferência.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_RELEASE_BALANCE" xml:space="preserve">
+        <value>Quantidade superior ao saldo disponível para liberação do contrato.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_CONTRACT_ALLOCATION_BALANCE" xml:space="preserve">
+        <value>Quantidade superior ao saldo disponível para alocação do contrato.</value>
+    </data>
+    <data name="OWNERSHIP_TRANSFER_RELEASE_ALREADY_SHIPPED" xml:space="preserve">
+        <value>Já existe embarque contra a liberação gerada por esta transferência: cancele o embarque antes.</value>
+    </data>
+    <data name="SHIPMENT_RELEASE_FROM_OWNERSHIP_TRANSFER" xml:space="preserve">
+        <value>Liberação originada de transferência de propriedade: cancele a transferência.</value>
+    </data>
     <data name="EXCEPTION_00001" xml:space="preserve">
         <value>Cliente informado no ticket é diferente do Cliente do lote de armazenagem</value>
     </data>

@@ -25,7 +25,8 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
                             SA.WarehouseName,
                             SA.ItemCode,
                             SA.ItemName,
-                            SA.UoM
+                            SA.UoM,
+                            SA.OwnershipType
                        FROM STORAGE_ADDRESSES SA
                   LEFT JOIN BRANCHS B
                          ON B.Code = SA.BranchCode
@@ -60,7 +61,8 @@ public class OwnershipTransfersListStorageAddressesBalanceByProductService(
                 ItemCode = item.ItemCode,
                 ItemName = item.ItemName,
                 Balance = balance,
-                UoM =  item.UoM
+                UoM =  item.UoM,
+                OwnershipType = item.OwnershipType
             });
         }
         

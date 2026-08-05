@@ -106,6 +106,13 @@ public class SalesInvoice : DocumentEntity
     
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);
+
+    /// <summary>
+    /// Total de impostos do documento, somado das linhas. Derivado, sem coluna persistida —
+    /// mesmo padrão de <see cref="TotalInvoiceItems"/>.
+    /// </summary>
+    [NotMapped]
+    public decimal TotalInvoiceTaxes => Items.Sum(i => i.TotalTaxes);
     
     public void AddItem(SalesInvoiceItem item)
     {

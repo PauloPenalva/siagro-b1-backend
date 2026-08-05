@@ -14,6 +14,8 @@ public class ShipmentReleasesCloseService(AppDbContext context)
                               (x.Status == ReleaseStatus.Actived || x.Status == ReleaseStatus.Paused))
                       ?? throw new NotFoundException("Liberação não encontrada ou não está ativa/pausada.");
 
+        ShipmentReleaseOwnershipTransferGuard.Ensure(release);
+
         release.Status = ReleaseStatus.Completed;
         release.UpdatedAt = DateTime.Now;
         release.UpdatedBy = userName;

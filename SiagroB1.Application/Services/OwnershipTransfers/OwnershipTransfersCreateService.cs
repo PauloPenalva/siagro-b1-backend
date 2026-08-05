@@ -11,6 +11,7 @@ namespace SiagroB1.Application.Services.OwnershipTransfers;
 public class OwnershipTransfersCreateService(
     IUnitOfWork db,
     IItemService itemService,
+    OwnershipTransfersValidateContractService validateContractService,
     DocNumberSequenceService numberSequenceService,
     ILogger<OwnershipTransfersCreateService> logger)
 {
@@ -25,7 +26,12 @@ public class OwnershipTransfersCreateService(
             ownershipTransfer.TransferCode = await numberSequenceService.GetDocNumber((Guid) ownershipTransfer.DocNumberKey);
             ownershipTransfer.TransferStatus = OwnershipTransferStatus.Open;
             ownershipTransfer.ItemName = (await itemService.GetByIdAsync(ownershipTransfer.ItemCode))?.ItemName;
-            
+
+            // Valida o vínculo já na gravação, para o usuário errar cedo. A confirmação
+            // revalida — o saldo do contrato se move entre os dois momentos.
+            ownershipTransfer.PurchaseContractCode =
+                (await validateContractService.ValidateForPersistAsync(ownershipTransfer))?.Code;
+
             await db.Context.OwnershipTransfers.AddAsync(ownershipTransfer);
             
             if (commitMode == CommitMode.Auto)

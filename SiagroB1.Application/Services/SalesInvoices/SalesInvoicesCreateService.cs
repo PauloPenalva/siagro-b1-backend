@@ -14,6 +14,8 @@ public class SalesInvoicesCreateService(
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     DocNumberSequenceService numberSequenceService,
+    SalesInvoicesUsageGuardService usageGuard,
+    SalesInvoicesCfopResolveService cfopResolve,
     ILogger<SalesInvoicesCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto)
@@ -21,8 +23,28 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
 
+        // Natureza de operação e CFOP são resolvidos ANTES de qualquer gravação: os dois
+        // rejeitam com mensagem de negócio, e não faz sentido numerar um documento que não
+        // vai nascer. Vale para o documento avulso e para o faturamento de romaneio — o
+        // laço de romaneios abaixo já é no-op quando SalesTransactions está vazio, que é
+        // exatamente o caso avulso.
+        //
+        // A natureza é de LINHA: cada item resolve o próprio CFOP, e um documento pode
+        // misturar naturezas (venda numa linha, complemento em outra).
+        var lineUsages = await usageGuard.ValidateAsync(salesInvoice);
+        var cfopByItem = new Dictionary<SalesInvoiceItem, string>();
+
+        foreach (var (item, usage) in lineUsages)
+        {
+            cfopByItem[item] = await cfopResolve.ResolveAsync(
+                usage.Code, salesInvoice.BranchCode, salesInvoice.CardCode);
+
+            // Nome desnormalizado vem do servidor, não da tela — mesmo tratamento de ItemName.
+            item.UsageName = usage.Name;
+        }
+
         salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
-        
+
         try
         {
             salesInvoice.CreatedAt = DateTime.Now;
@@ -42,6 +64,10 @@ public class SalesInvoicesCreateService(
             foreach (var item in salesInvoice.Items)
             {
                 item.ItemName = (await itemService.GetByIdAsync(item.ItemCode))?.ItemName;
+
+                // CFOP congelado como histórico da linha: mudar o cadastro da natureza
+                // depois não pode mudar o documento já emitido.
+                item.Cfop = cfopByItem[item];
             }
 
             var salesTransactions = new List<Guid>();

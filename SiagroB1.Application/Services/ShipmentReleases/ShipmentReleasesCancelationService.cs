@@ -25,7 +25,15 @@ public class ShipmentReleasesCancelationService(
     /// <c>PurchaseContractAllocation</c>), independente do eixo de liberação — as
     /// alocações permanecem intactas após o cancelamento.
     /// </remarks>
-    public async Task ExecuteAsync(Guid key, string userName, string cancellationReason)
+    /// <param name="allowOwnershipTransferOrigin">
+    /// Reservado ao cancelamento da própria transferência de titularidade. Pela tela de
+    /// Liberações a ação é recusada: quem manda no par é a transferência.
+    /// </param>
+    public async Task ExecuteAsync(
+        Guid key,
+        string userName,
+        string cancellationReason,
+        bool allowOwnershipTransferOrigin = false)
     {
         if (string.IsNullOrWhiteSpace(cancellationReason))
             throw new ApplicationException("Informe o motivo do cancelamento.");
@@ -33,6 +41,9 @@ public class ShipmentReleasesCancelationService(
         var sr = await context.ShipmentReleases
                      .FirstOrDefaultAsync(x => x.Key == key) ??
                  throw new NotFoundException($"Shipment Release not found key {key}");
+
+        if (!allowOwnershipTransferOrigin)
+            ShipmentReleaseOwnershipTransferGuard.Ensure(sr);
 
         var contract = await context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == sr.PurchaseContractKey);

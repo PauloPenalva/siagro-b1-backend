@@ -64,8 +64,108 @@ public class SalesInvoiceItem
     [NotMapped]
     public decimal NetQuantity => DeliveredQuantity -  QuantityLoss;
 
+    /// <summary>
+    /// Quebra apurada na entrega: faturado − líquido efetivamente recebido.
+    ///
+    /// É EXATAMENTE o volume que o fator efetivo devolveu ao contrato (o consumo passa a ser
+    /// <see cref="NetQuantity"/> quando a entrega fecha), e por isso é o número que a NF de
+    /// devolução do cliente precisa espelhar para o fiscal bater com o físico.
+    ///
+    /// Zero enquanto a entrega está aberta: sem conferência não há quebra apurada, e o fator
+    /// efetivo ainda vale 1.
+    /// </summary>
+    [NotMapped]
+    public decimal AssessedShortage =>
+        DeliveryStatus == SalesInvoiceDeliveryStatus.Closed
+            ? decimal.Round(Quantity - NetQuantity, 3, MidpointRounding.ToEven)
+            : 0m;
+
     [NotMapped] 
     public decimal NetTotal => NetQuantity * UnitPrice; 
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
+
+    /// <summary>
+    /// Natureza de operação da LINHA (<see cref="Usage"/>), como no SAP: cada item tem a sua,
+    /// resolve o próprio CFOP e produz o próprio efeito no contrato. Um documento pode
+    /// misturar naturezas.
+    ///
+    /// Gravada SEM chave estrangeira, como o restante do cadastro dual-mode: em modo SAPB1 a
+    /// tabela local fica vazia e uma FK obrigatória viraria INNER JOIN, zerando a coleção
+    /// inteira. A validação é no serviço.
+    ///
+    /// Obrigatória na criação; a COLUNA é nulável só por causa do legado — a migration de
+    /// backfill preenche as linhas existentes com a natureza semente.
+    /// </summary>
+    public int? UsageCode { get; set; }
+
+    /// <summary>
+    /// Nome da natureza, desnormalizado como <see cref="ItemName"/> — é o que a grade e os
+    /// relatórios mostram sem depender do cadastro (que em SAPB1 nem é local). Quem manda é
+    /// o servidor: o serviço de criação sobrescreve com o nome da natureza resolvida.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? UsageName { get; set; }
+
+    /// <summary>
+    /// CFOP resolvido da natureza de operação no momento da GRAVAÇÃO e congelado como
+    /// histórico: se o cadastro da natureza mudar depois, o documento já emitido não pode
+    /// mudar junto. Ver <c>SalesInvoicesCfopResolveService</c>.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? Cfop { get; set; }
+
+    [Column(TypeName = "VARCHAR(8)")]
+    public string? Ncm { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstIcms { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal IcmsBase { get; set; }
+
+    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    public decimal IcmsRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal IcmsValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstPis { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal PisBase { get; set; }
+
+    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    public decimal PisRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal PisValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstCofins { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal CofinsBase { get; set; }
+
+    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    public decimal CofinsRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal CofinsValue { get; set; }
+
+    /// <summary>Centro de custo da linha. Sem FK: o cadastro é dual-mode (OPRC/COST_CENTERS).</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Conta contábil da linha. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
+
+    /// <summary>
+    /// Total de impostos da linha. Derivado, sem coluna persistida — evita drift, ao custo
+    /// de não poder $filter/$orderby por ele (mesma limitação que o documento já tem).
+    /// </summary>
+    [NotMapped]
+    public decimal TotalTaxes => IcmsValue + PisValue + CofinsValue;
 }

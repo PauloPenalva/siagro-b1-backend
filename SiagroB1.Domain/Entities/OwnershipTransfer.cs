@@ -35,6 +35,24 @@ public class OwnershipTransfer : DocumentEntity
     public required string UomCode { get; set; }
 
 
+    /// <summary>
+    /// Contrato de compra baixado por esta transferência. Opcional: só pode ser
+    /// informado quando o lote de destino é estoque próprio
+    /// (<see cref="StorageOwnershipType.OwnedInOurCustody"/>) e o de origem não é.
+    /// </summary>
+    /// <remarks>
+    /// Confirmar a transferência com contrato emite uma
+    /// <see cref="ShipmentRelease"/> já <c>Actived</c> e com saldo. O eixo de
+    /// ALOCAÇÃO do contrato não é tocado aqui — quem aloca é o romaneio
+    /// <c>Purchase(8)</c> criado depois pela Expedição de Grãos.
+    /// </remarks>
+    public Guid? PurchaseContractKey { get; set; }
+    public virtual PurchaseContract? PurchaseContract { get; set; }
+
+    /// <summary>Código do contrato, desnormalizado para exibição (igual a <see cref="ItemName"/>).</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? PurchaseContractCode { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 }

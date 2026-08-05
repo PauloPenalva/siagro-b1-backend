@@ -44,6 +44,12 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
 
+        // dual-mode (SAPB1 lê de OPRC/OACT, STANDALONE das tabelas locais):
+        // registra o Model, nunca a entidade.
+        modelBuilder.EntitySet<CostCenterModel>("CostCenters");
+        modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
+        modelBuilder.EntitySet<UsageModel>("Usages");
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");
@@ -55,6 +61,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalStandard)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
             .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.TotalAvailableToRelease)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseContract))
+            .AddProperty(typeof(PurchaseContract).GetProperty(nameof(PurchaseContract.AvaiableVolume)));
         modelBuilder.EntitySet<SalesContract>("SalesContracts");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesContract))
             .AddProperty(typeof(SalesContract).GetProperty(nameof(SalesContract.TotalPrice)));
@@ -95,14 +103,45 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesInvoice>("SalesInvoices");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceTaxes)));
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalTaxes)));
         // Precisa ser explícito mesmo sendo coluna mapeada: o setter é privado (quem escreve
         // é o SQL Server) e a convenção do ODataConventionModelBuilder pula propriedade sem
         // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.DeliveryDifference)));
+        // Devolução emitida pelo CLIENTE: controle e conciliação, sem efeito em saldo.
+        modelBuilder.EntitySet<CustomerReturn>("CustomerReturns");
+        modelBuilder.EntitySet<CustomerReturnItem>("CustomerReturnsItems");
+        // Calculadas a partir da linha de origem — precisam ser declaradas para entrar no EDM.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
+            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.Total)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
+            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.AssessedShortage)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
+            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.Difference)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.AssessedShortage)));
+
+        var customerReturnsImportXml = modelBuilder.Action("CustomerReturnsImportXml");
+        customerReturnsImportXml.Parameter<string>("XmlContent");
+        customerReturnsImportXml.Parameter<string>("FileName");
+        // Tipado, e não IActionResult: é o que faz a resposta sair em PascalCase pelo EDM.
+        customerReturnsImportXml.Returns<CustomerReturnDraftDto>();
+
+        var customerReturnsCancel = modelBuilder.Action("CustomerReturnsCancel");
+        customerReturnsCancel.Parameter<Guid>("Key");
+        customerReturnsCancel.Returns<IActionResult>();
+
+        var customerReturnsOriginItems = modelBuilder.Function("CustomerReturnsOriginItems");
+        customerReturnsOriginItems.Parameter<string>("CardCode");
+        customerReturnsOriginItems.ReturnsCollection<CustomerReturnOriginItemDto>();
+
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
         modelBuilder.EntitySet<DocNumber>("DocNumbers");
@@ -539,6 +578,13 @@ public static class ODataConfigurations
         salesInvoicesReturn.Parameter<Guid>("Key");
         salesInvoicesReturn.Returns<IActionResult>();
         
+        // Prévia do CFOP para a tela; a gravação continua sendo do serviço de criação.
+        var salesInvoicesResolveCfop = modelBuilder.Function("SalesInvoicesResolveCfop");
+        salesInvoicesResolveCfop.Parameter<int>("UsageCode");
+        salesInvoicesResolveCfop.Parameter<string>("BranchCode");
+        salesInvoicesResolveCfop.Parameter<string>("CardCode");
+        salesInvoicesResolveCfop.Returns<string>();
+
         var salesInvoicesConfirm = modelBuilder.Action("SalesInvoicesConfirm");
         salesInvoicesConfirm.Parameter<Guid>("Key");
         salesInvoicesConfirm.Returns<IActionResult>();
