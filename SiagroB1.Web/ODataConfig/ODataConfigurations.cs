@@ -115,35 +115,67 @@ public static class ODataConfigurations
         // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.DeliveryDifference)));
-        // Devolução emitida pelo CLIENTE: controle e conciliação, sem efeito em saldo.
-        modelBuilder.EntitySet<CustomerReturn>("CustomerReturns");
-        modelBuilder.EntitySet<CustomerReturnItem>("CustomerReturnsItems");
-        // Calculadas a partir da linha de origem — precisam ser declaradas para entrar no EDM.
-        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
-            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.Total)));
-        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
-            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.AssessedShortage)));
-        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(CustomerReturnItem))
-            .AddProperty(typeof(CustomerReturnItem).GetProperty(nameof(CustomerReturnItem.Difference)));
+        // Quebra apurada da linha de saída: quem a consome agora é a linha do DOCUMENTO DE
+        // ENTRADA tipo devolução, que a espelha para conferir o fiscal contra o físico.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.AssessedShortage)));
 
-        var customerReturnsImportXml = modelBuilder.Action("CustomerReturnsImportXml");
-        customerReturnsImportXml.Parameter<string>("XmlContent");
-        customerReturnsImportXml.Parameter<string>("FileName");
-        // Tipado, e não IActionResult: é o que faz a resposta sair em PascalCase pelo EDM.
-        customerReturnsImportXml.Returns<CustomerReturnDraftDto>();
-
-        var customerReturnsCancel = modelBuilder.Action("CustomerReturnsCancel");
-        customerReturnsCancel.Parameter<Guid>("Key");
-        customerReturnsCancel.Returns<IActionResult>();
-
-        var customerReturnsOriginItems = modelBuilder.Function("CustomerReturnsOriginItems");
-        customerReturnsOriginItems.Parameter<string>("CardCode");
-        customerReturnsOriginItems.ReturnsCollection<CustomerReturnOriginItemDto>();
-
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
+
+        // Documento de ENTRADA: NF de fornecedor, venda futura do produtor e suas remessas,
+        // insumo, serviço, e a devolução emitida pelo cliente.
+        modelBuilder.EntitySet<PurchaseInvoice>("PurchaseInvoices");
+        modelBuilder.EntitySet<PurchaseInvoiceItem>("PurchaseInvoicesItems");
+        modelBuilder.EntitySet<PurchaseInvoiceComment>("PurchaseInvoicesComments");
+        modelBuilder.EntitySet<PurchaseInvoiceChangeLog>("PurchaseInvoicesChangeLogs");
+
+        // Calculadas: a convenção do ODataConventionModelBuilder não as inclui sozinha, e sem
+        // estas linhas o $select devolve 400.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceItems)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.Total)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.AssessedShortage)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.Difference)));
+
+        var purchaseInvoicesImportXml = modelBuilder.Action("PurchaseInvoicesImportXml");
+        purchaseInvoicesImportXml.Parameter<string>("XmlContent");
+        purchaseInvoicesImportXml.Parameter<string>("FileName");
+        // Tipado, e não IActionResult: é o que faz a resposta sair em PascalCase pelo EDM.
+        purchaseInvoicesImportXml.Returns<PurchaseInvoiceDraftDto>();
+
+        var purchaseInvoicesConfirm = modelBuilder.Action("PurchaseInvoicesConfirm");
+        purchaseInvoicesConfirm.Parameter<Guid>("Key");
+        purchaseInvoicesConfirm.Returns<IActionResult>();
+
+        var purchaseInvoicesReverseConfirm = modelBuilder.Action("PurchaseInvoicesReverseConfirm");
+        purchaseInvoicesReverseConfirm.Parameter<Guid>("Key");
+        purchaseInvoicesReverseConfirm.Returns<IActionResult>();
+
+        var purchaseInvoicesCancel = modelBuilder.Action("PurchaseInvoicesCancel");
+        purchaseInvoicesCancel.Parameter<Guid>("Key");
+        purchaseInvoicesCancel.Returns<IActionResult>();
+
+        var purchaseInvoicesCommentCreate = modelBuilder.Action("PurchaseInvoicesCommentCreate");
+        purchaseInvoicesCommentCreate.Parameter<Guid>("InvoiceKey");
+        purchaseInvoicesCommentCreate.Parameter<string>("Text");
+        purchaseInvoicesCommentCreate.Returns<IActionResult>();
+
+        var purchaseInvoicesCommentUpdate = modelBuilder.Action("PurchaseInvoicesCommentUpdate");
+        purchaseInvoicesCommentUpdate.Parameter<Guid>("Key");
+        purchaseInvoicesCommentUpdate.Parameter<string>("Text");
+        purchaseInvoicesCommentUpdate.Returns<IActionResult>();
+
+        var purchaseInvoicesCommentDelete = modelBuilder.Action("PurchaseInvoicesCommentDelete");
+        purchaseInvoicesCommentDelete.Parameter<Guid>("Key");
+        purchaseInvoicesCommentDelete.Returns<IActionResult>();
+
+        var purchaseInvoicesOriginItems = modelBuilder.Function("PurchaseInvoicesOriginItems");
+        purchaseInvoicesOriginItems.Parameter<string>("CardCode");
+        purchaseInvoicesOriginItems.ReturnsCollection<PurchaseInvoiceOriginItemDto>();
         modelBuilder.EntitySet<DocNumber>("DocNumbers");
         modelBuilder.EntitySet<WeighingTicket>("WeighingTickets");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))

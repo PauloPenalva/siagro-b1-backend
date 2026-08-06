@@ -42,8 +42,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LedgerAccount> LedgerAccounts { get; set; }
     public DbSet<Usage> Usages { get; set; }
     public DbSet<UsageEffect> UsageEffects { get; set; }
-    public DbSet<CustomerReturn> CustomerReturns { get; set; }
-    public DbSet<CustomerReturnItem> CustomerReturnsItems { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
@@ -54,6 +52,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
     public DbSet<SalesInvoiceComment> SalesInvoicesComments { get; set; }
+    public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
+    public DbSet<PurchaseInvoiceItem> PurchaseInvoicesItems { get; set; }
+    public DbSet<PurchaseInvoiceChangeLog> PurchaseInvoicesChangeLogs { get; set; }
+    public DbSet<PurchaseInvoiceComment> PurchaseInvoicesComments { get; set; }
     public DbSet<Agent> Agents { get; set; }
     public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
     public DbSet<StorageEntryTransaction> StorageEntryTransactions { get; set; }
@@ -123,13 +125,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 "ELSE [DeliveredQuantity] - [Quantity] END",
                 stored: true);
 
-        // Uma chave de NF-e do cliente, uma devolução registrada. Filtrado porque cancelar
-        // precisa liberar a chave para o relançamento — mesma trava já usada no documento de
-        // saída para a NF-e própria.
-        modelBuilder.Entity<CustomerReturn>()
-            .HasIndex(x => x.AccessKey)
+        // Uma chave de NF-e, um documento de entrada registrado. Filtrado porque cancelar precisa
+        // LIBERAR a chave para o relançamento — mesma trava já usada no documento de saída.
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasIndex(x => x.ChaveNFe)
             .IsUnique()
-            .HasFilter($"[AccessKey] IS NOT NULL AND [Status] <> {(int)CustomerReturnStatus.Cancelled}");
+            .HasFilter($"[ChaveNFe] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled}");
+
+        // Auto-relação: a NF de remessa aponta a NF de venda futura que a antecipou. Restrict, e
+        // não Cascade — apagar a nota futura não pode levar as remessas junto.
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne(x => x.PurchaseInvoiceOrigin)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceOriginKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.PurchaseInvoiceItemOrigin)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceItemOriginKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // FK OPCIONAL de propósito: entrada NORMAL não tem origem de saída, e uma FK obrigatória
+        // viraria INNER JOIN zerando a coleção inteira.
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.SalesInvoiceItem)
+            .WithMany()
+            .HasForeignKey(x => x.SalesInvoiceItemKey)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });

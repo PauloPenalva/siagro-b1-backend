@@ -12,11 +12,11 @@ using SiagroB1.Application.Services.ProcessingCosts;
 using SiagroB1.Application.Services.Profiles;
 using SiagroB1.Application.Services.ProfilesRoles;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.Roles;
 using SiagroB1.Application.Services.RolesMenus;
 using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
-using SiagroB1.Application.Services.CustomerReturns;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -277,14 +277,6 @@ public static class ServiceCollectionExtensions
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
-        // devolução do cliente (controle e conciliação)
-        services.AddScoped<CustomerReturnsGetService>();
-        services.AddScoped<CustomerReturnsCreateService>();
-        services.AddScoped<CustomerReturnsUpdateService>();
-        services.AddScoped<CustomerReturnsCancelService>();
-        services.AddScoped<CustomerReturnsImportXmlService>();
-        services.AddScoped<CustomerReturnsGetOriginItemsService>();
-
         services.AddScoped<SalesContractsAllocationCreateForFiscalAdjustmentService>();
         services.AddScoped<SalesInvoicesCfopResolveService>();
         services.AddScoped<SalesInvoicesUsageGuardService>();
@@ -306,7 +298,28 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesCommentUpdateService>();
         services.AddScoped<SalesInvoicesCommentDeleteService>();
         services.AddScoped<SalesInvoicesCommentsGetService>();
-        
+
+        // documento de entrada (NF de terceiro e emissão própria)
+        services.AddScoped<PurchaseInvoicesGetService>();
+        services.AddScoped<PurchaseInvoicesGetOriginItemsService>();
+        services.AddScoped<PurchaseInvoicesCreateService>();
+        services.AddScoped<PurchaseInvoicesUpdateService>();
+        services.AddScoped<PurchaseInvoicesDeleteService>();
+        services.AddScoped<PurchaseInvoicesConfirmService>();
+        services.AddScoped<PurchaseInvoicesReverseConfirmService>();
+        services.AddScoped<PurchaseInvoicesCancelService>();
+        services.AddScoped<PurchaseInvoicesImportXmlService>();
+        services.AddScoped<PurchaseInvoicesItemsGetService>();
+        services.AddScoped<PurchaseInvoicesItemsCreateService>();
+        services.AddScoped<PurchaseInvoicesItemsUpdateService>();
+        services.AddScoped<PurchaseInvoicesItemsDeleteService>();
+        services.AddScoped<PurchaseInvoicesChangeLogService>();
+        services.AddScoped<PurchaseInvoicesChangeLogsGetService>();
+        services.AddScoped<PurchaseInvoicesCommentCreateService>();
+        services.AddScoped<PurchaseInvoicesCommentUpdateService>();
+        services.AddScoped<PurchaseInvoicesCommentDeleteService>();
+        services.AddScoped<PurchaseInvoicesCommentsGetService>();
+
         // shipment billing
         services.AddScoped<ShipmentBillingCreateSalesInvoiceService>();
         services.AddScoped<ShipmentBillingTransactionGuardService>();
