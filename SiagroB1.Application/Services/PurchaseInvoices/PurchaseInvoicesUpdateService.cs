@@ -20,7 +20,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// </summary>
 public class PurchaseInvoicesUpdateService(
     IUnitOfWork db,
-    IBusinessPartnerService businessPartnerService)
+    IBusinessPartnerService businessPartnerService,
+    IItemService itemService)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoice entity, string userName)
     {
@@ -71,7 +72,7 @@ public class PurchaseInvoicesUpdateService(
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
-        SyncItems(existing, entity);
+        await SyncItemsAsync(existing, entity);
 
         await db.SaveChangesAsync();
     }
@@ -86,8 +87,12 @@ public class PurchaseInvoicesUpdateService(
     /// A remoção é feita no DbSet, e NÃO só na coleção: <c>PurchaseInvoiceKey</c> é nulável, então
     /// a relação é opcional e o EF trataria a saída da coleção como órfã (FK nula) em vez de
     /// exclusão. A linha sumiria do Include e continuaria na tabela.
+    ///
+    /// A descrição do produto é RE-RESOLVIDA, e não copiada, pelo mesmo motivo do nome do emitente
+    /// acima: o value help a grava com group ID null e o PATCH chega com a descrição do produto
+    /// ANTERIOR (ou em branco, numa linha nova). Ver <c>PurchaseInvoiceLineGuard</c>.
     /// </summary>
-    private void SyncItems(PurchaseInvoice existing, PurchaseInvoice entity)
+    private async Task SyncItemsAsync(PurchaseInvoice existing, PurchaseInvoice entity)
     {
         var incoming = entity.Items.ToList();
 
@@ -109,6 +114,9 @@ public class PurchaseInvoicesUpdateService(
 
             if (current is null)
             {
+                await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                    db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
+
                 // Add no DbSet, e NÃO em existing.Items: Key é ValueGeneratedOnAdd, e uma entidade
                 // com chave já preenchida entrando pela NAVEGAÇÃO é lida pelo EF como registro
                 // existente sendo reanexado — vira UPDATE de linha inexistente. O Add explícito
@@ -118,24 +126,34 @@ public class PurchaseInvoicesUpdateService(
                     Key = line.Key ?? Guid.NewGuid(),
                     PurchaseInvoiceKey = existing.Key,
                     ItemCode = line.ItemCode,
-                    ItemName = line.ItemName,
+                    ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
+                        itemService, line.ItemCode, line.ItemName),
                     Quantity = line.Quantity,
                     UnitPrice = line.UnitPrice,
                     UnitOfMeasureCode = line.UnitOfMeasureCode,
                     SalesInvoiceItemKey = line.SalesInvoiceItemKey,
                     PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey,
+                    PurchaseContractKey = line.PurchaseContractKey,
                 });
 
                 continue;
             }
 
+            await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
+
+            // Capturado ANTES da atribuição: depois dela a comparação é sempre falsa.
+            var itemCodeChanged = current.ItemCode != line.ItemCode;
+
             current.ItemCode = line.ItemCode;
-            current.ItemName = line.ItemName;
+            current.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
+                itemService, line.ItemCode, line.ItemName, itemCodeChanged);
             current.Quantity = line.Quantity;
             current.UnitPrice = line.UnitPrice;
             current.UnitOfMeasureCode = line.UnitOfMeasureCode;
             current.SalesInvoiceItemKey = line.SalesInvoiceItemKey;
             current.PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey;
+            current.PurchaseContractKey = line.PurchaseContractKey;
         }
     }
 }

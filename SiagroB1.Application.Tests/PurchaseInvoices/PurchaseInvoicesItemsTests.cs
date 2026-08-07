@@ -20,7 +20,11 @@ public class PurchaseInvoicesItemsTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private static FakeItemService Catalog() =>
-        new(new Dictionary<string, string> { ["SOJA"] = "SOJA DO CADASTRO" });
+        new(new Dictionary<string, string>
+        {
+            ["SOJA"] = "SOJA DO CADASTRO",
+            ["MILHO"] = "MILHO DO CADASTRO",
+        });
 
     private async Task<PurchaseInvoice> SeedAsync(InvoiceStatus status = InvoiceStatus.Pending)
     {
@@ -199,5 +203,80 @@ public class PurchaseInvoicesItemsTests
         await _db.Context.SaveChangesAsync();
 
         Assert.Single(await new PurchaseInvoicesItemsGetService(_db).QueryAll().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Changing_the_product_re_resolves_the_description()
+    {
+        var invoice = await SeedAsync();
+        var lineKey = Guid.NewGuid();
+
+        _db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
+        {
+            Key = lineKey,
+            PurchaseInvoiceKey = invoice.Key,
+            ItemCode = "SOJA",
+            ItemName = "SOJA DO CADASTRO",
+            Quantity = 10m,
+        });
+        await _db.Context.SaveChangesAsync();
+        _db.Context.ChangeTracker.Clear();
+
+        // É por aqui que a grade do Edit troca o produto — PATCH na LINHA, não no cabeçalho. O
+        // value help grava a descrição com group ID null, então o corpo traz só `ItemCode` e a
+        // descrição que sobra é a do produto ANTERIOR.
+        var patched = new PurchaseInvoiceItem
+        {
+            Key = lineKey,
+            PurchaseInvoiceKey = invoice.Key,
+            ItemCode = "MILHO",
+            ItemName = "SOJA DO CADASTRO",
+            Quantity = 10m,
+        };
+
+        await new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+            .ExecuteAsync(lineKey, patched, "tester");
+
+        var reloaded = await _db.Context.PurchaseInvoicesItems
+            .AsNoTracking().FirstAsync(x => x.Key == lineKey);
+
+        Assert.Equal("MILHO DO CADASTRO", reloaded.ItemName);
+    }
+
+    [Fact]
+    public async Task Description_survives_an_edit_that_keeps_the_product()
+    {
+        var invoice = await SeedAsync();
+        var lineKey = Guid.NewGuid();
+
+        _db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
+        {
+            Key = lineKey,
+            PurchaseInvoiceKey = invoice.Key,
+            ItemCode = "SOJA",
+            ItemName = "SOJA GRAO A GRANEL",
+            Quantity = 10m,
+        });
+        await _db.Context.SaveChangesAsync();
+        _db.Context.ChangeTracker.Clear();
+
+        // Produto igual, só a quantidade mudou: a descrição do XML não pode ser trocada pela do
+        // cadastro.
+        var patched = new PurchaseInvoiceItem
+        {
+            Key = lineKey,
+            PurchaseInvoiceKey = invoice.Key,
+            ItemCode = "SOJA",
+            ItemName = "SOJA GRAO A GRANEL",
+            Quantity = 25m,
+        };
+
+        await new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+            .ExecuteAsync(lineKey, patched, "tester");
+
+        var reloaded = await _db.Context.PurchaseInvoicesItems
+            .AsNoTracking().FirstAsync(x => x.Key == lineKey);
+
+        Assert.Equal("SOJA GRAO A GRANEL", reloaded.ItemName);
     }
 }

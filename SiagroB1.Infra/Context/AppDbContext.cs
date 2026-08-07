@@ -154,6 +154,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.SalesInvoiceItemKey)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // FK OPCIONAL, como a de origem acima: entrada de insumo/serviço não tem contrato, e uma FK
+        // obrigatória viraria INNER JOIN zerando a coleção inteira de itens.
+        // Restrict porque apagar um contrato não pode apagar a linha fiscal que o referencia.
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.PurchaseContract)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseContractKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
 

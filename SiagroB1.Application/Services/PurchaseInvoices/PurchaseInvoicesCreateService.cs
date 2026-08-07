@@ -16,7 +16,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// </summary>
 public class PurchaseInvoicesCreateService(
     IUnitOfWork db,
-    IBusinessPartnerService businessPartnerService)
+    IBusinessPartnerService businessPartnerService,
+    IItemService itemService)
 {
     public async Task ExecuteAsync(PurchaseInvoice invoice, string userName)
     {
@@ -40,6 +41,18 @@ public class PurchaseInvoicesCreateService(
         if (string.IsNullOrWhiteSpace(invoice.CardName))
             invoice.CardName =
                 (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.CardName;
+
+        // Mesma história do nome do emitente, uma linha por vez: a descrição escolhida no value
+        // help não entra no deep-insert, e sem isto a linha gravava com o produto certo e a
+        // descrição em branco. Descrição vinda do XML é preservada.
+        foreach (var item in invoice.Items)
+        {
+            item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
+                itemService, item.ItemCode, item.ItemName);
+
+            await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
+        }
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();

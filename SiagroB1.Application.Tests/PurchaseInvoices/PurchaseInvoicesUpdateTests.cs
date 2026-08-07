@@ -46,6 +46,16 @@ public class PurchaseInvoicesUpdateTests
             ["F0002"] = "OUTRO PARCEIRO",
         });
 
+    private static FakeItemService Catalog() =>
+        new(names: new Dictionary<string, string>
+        {
+            ["SOJA"] = "SOJA EM GRAOS",
+            ["MILHO"] = "MILHO EM GRAOS",
+        });
+
+    private static PurchaseInvoicesUpdateService Service(UnitOfWork db) =>
+        new(db, Partners(), Catalog());
+
     private static PurchaseInvoice Incoming(Guid? lineKey, Guid? originKey = null)
     {
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
@@ -70,7 +80,7 @@ public class PurchaseInvoicesUpdateTests
         incoming.TaxDocumentSeries = "2";
         incoming.TotalDocumentValue = 1234.56m;
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(saved.Key, incoming, "tester");
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
             .FirstAsync(x => x.Key == saved.Key);
@@ -90,7 +100,7 @@ public class PurchaseInvoicesUpdateTests
         incoming.CardCode = "F0002";
         incoming.CardName = "OUTRO PARCEIRO";
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(saved.Key, incoming, "tester");
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
             .FirstAsync(x => x.Key == saved.Key);
@@ -110,7 +120,7 @@ public class PurchaseInvoicesUpdateTests
         var incoming = Incoming(saved.Items.First().Key);
         incoming.CardName = "NOME COMO CONSTA NA NOTA";
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(
+        await Service(db).ExecuteAsync(
             saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
@@ -130,7 +140,7 @@ public class PurchaseInvoicesUpdateTests
         incoming.CardCode = "F0002";
         incoming.CardName = "PRODUTOR TESTE";   // nome do emitente ANTERIOR, que a tela reenvia
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(
+        await Service(db).ExecuteAsync(
             saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
@@ -148,7 +158,7 @@ public class PurchaseInvoicesUpdateTests
         var (db, saved) = await SeedAsync();
         var originKey = Guid.NewGuid();
 
-        await new PurchaseInvoicesUpdateService(db, Partners())
+        await Service(db)
             .ExecuteAsync(saved.Key, Incoming(saved.Items.First().Key, originKey), "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
@@ -164,7 +174,7 @@ public class PurchaseInvoicesUpdateTests
         var (db, saved) = await SeedAsync();
         var lineKey = saved.Items.First().Key;
 
-        await new PurchaseInvoicesUpdateService(db, Partners())
+        await Service(db)
             .ExecuteAsync(saved.Key, Incoming(lineKey, Guid.NewGuid()), "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
@@ -187,7 +197,7 @@ public class PurchaseInvoicesUpdateTests
             Key = Guid.NewGuid(), ItemCode = "MILHO", Quantity = 5m, UnitPrice = 2m,
         });
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(saved.Key, incoming, "tester");
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
             .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
@@ -209,7 +219,7 @@ public class PurchaseInvoicesUpdateTests
         // Linha nova digitada na grade chega sem Key: quem a gera é o servidor.
         incoming.AddItem(new PurchaseInvoiceItem { ItemCode = "MILHO", Quantity = 7m, UnitPrice = 3m });
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(saved.Key, incoming, "tester");
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
             .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
@@ -229,7 +239,7 @@ public class PurchaseInvoicesUpdateTests
         db.Context.ChangeTracker.Clear();
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesUpdateService(db, Partners())
+            () => Service(db)
                 .ExecuteAsync(saved.Key, Incoming(null), "tester"));
     }
 
@@ -245,7 +255,7 @@ public class PurchaseInvoicesUpdateTests
 
         // Confirmado tem efeito de negócio pendurado (Fase 3): o caminho é estornar antes.
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesUpdateService(db, Partners())
+            () => Service(db)
                 .ExecuteAsync(saved.Key, Incoming(null), "tester"));
     }
 
@@ -260,7 +270,7 @@ public class PurchaseInvoicesUpdateTests
         fetched.TaxDocumentNumber = "777";
         fetched.Items.First().SalesInvoiceItemKey = Guid.NewGuid();
 
-        await new PurchaseInvoicesUpdateService(db, Partners()).ExecuteAsync(saved.Key, fetched, "tester");
+        await Service(db).ExecuteAsync(saved.Key, fetched, "tester");
 
         var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
             .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
@@ -277,7 +287,84 @@ public class PurchaseInvoicesUpdateTests
         var db = TestDb.CreateUnitOfWork();
 
         await Assert.ThrowsAsync<NotFoundException>(
-            () => new PurchaseInvoicesUpdateService(db, Partners())
+            () => Service(db)
                 .ExecuteAsync(Guid.NewGuid(), Incoming(null), "tester"));
+    }
+
+    [Fact]
+    public async Task Changing_the_product_re_resolves_the_description()
+    {
+        var (db, saved) = await SeedAsync();
+
+        // O PATCH chega com a descrição do produto ANTERIOR: o value help a grava com group ID
+        // null e ela não entra no corpo. Copiar direto deixaria a linha com o código de um produto
+        // e a descrição de outro — mesma armadilha do nome do emitente.
+        var incoming = new PurchaseInvoice { CardCode = "F0001" };
+        incoming.AddItem(new PurchaseInvoiceItem
+        {
+            Key = saved.Items.First().Key,
+            ItemCode = "MILHO",
+            ItemName = "SOJA EM GRAOS",
+            Quantity = 10m,
+            UnitPrice = 1m,
+        });
+
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
+
+        var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
+            .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
+
+        Assert.Equal("MILHO EM GRAOS", reloaded.Items.Single().ItemName);
+    }
+
+    [Fact]
+    public async Task Description_is_kept_when_the_product_did_not_change()
+    {
+        var (db, saved) = await SeedAsync();
+
+        // Produto igual: a descrição que veio do XML continua valendo e não pode ser trocada
+        // pela do cadastro.
+        var incoming = new PurchaseInvoice { CardCode = "F0001" };
+        incoming.AddItem(new PurchaseInvoiceItem
+        {
+            Key = saved.Items.First().Key,
+            ItemCode = "SOJA",
+            ItemName = "SOJA GRAO A GRANEL",
+            Quantity = 10m,
+            UnitPrice = 1m,
+        });
+
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
+
+        var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
+            .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
+
+        Assert.Equal("SOJA GRAO A GRANEL", reloaded.Items.Single().ItemName);
+    }
+
+    [Fact]
+    public async Task New_line_gets_its_description_from_the_registry()
+    {
+        var (db, saved) = await SeedAsync();
+
+        var incoming = new PurchaseInvoice { CardCode = "F0001" };
+        incoming.AddItem(new PurchaseInvoiceItem
+        {
+            Key = saved.Items.First().Key, ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m,
+        });
+        // Linha incluída na grade durante a edição: chega sem chave e com o nome em branco.
+        incoming.AddItem(new PurchaseInvoiceItem
+        {
+            ItemCode = "MILHO", ItemName = "", Quantity = 5m, UnitPrice = 2m,
+        });
+
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
+
+        var reloaded = await db.Context.PurchaseInvoices.AsNoTracking()
+            .Include(x => x.Items).FirstAsync(x => x.Key == saved.Key);
+
+        Assert.Equal(
+            "MILHO EM GRAOS",
+            reloaded.Items.Single(i => i.ItemCode == "MILHO").ItemName);
     }
 }

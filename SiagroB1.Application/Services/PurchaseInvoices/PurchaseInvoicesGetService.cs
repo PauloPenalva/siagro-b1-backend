@@ -20,6 +20,10 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// Comentários e log de alterações NÃO entram aqui de propósito: são coleções que só a tela de
 /// detalhe consome, e carregá-las em toda listagem sairia caro. O frontend as busca em binding
 /// próprio, com <c>$$ownRequest</c>.
+///
+/// O <c>ThenInclude(PurchaseContract)</c> é a mesma armadilha do <c>SalesInvoice</c> acima: sem
+/// Include no servidor, o <c>$expand</c> do cliente não adianta — a navegação volta null e a
+/// coluna do contrato fica vazia mesmo com a chave gravada.
 /// </summary>
 public class PurchaseInvoicesGetService(IUnitOfWork db)
 {
@@ -29,6 +33,8 @@ public class PurchaseInvoicesGetService(IUnitOfWork db)
             .Include(x => x.Items)
             .ThenInclude(i => i.SalesInvoiceItem)
             .ThenInclude(si => si!.SalesInvoice)
+            .Include(x => x.Items)
+                .ThenInclude(i => i.PurchaseContract)
             .AsNoTracking();
     }
 
@@ -46,6 +52,8 @@ public class PurchaseInvoicesGetService(IUnitOfWork db)
                    .Include(x => x.Items)
                    .ThenInclude(i => i.SalesInvoiceItem)
                    .ThenInclude(si => si!.SalesInvoice)
+                   .Include(x => x.Items)
+                       .ThenInclude(i => i.PurchaseContract)
                    .AsNoTracking()
                    .FirstOrDefaultAsync(x => x.Key == key)
                ?? throw new NotFoundException("Documento de entrada não encontrado.");

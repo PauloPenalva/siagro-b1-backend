@@ -20,8 +20,11 @@ public class PurchaseInvoicesCreateTests
     private const string Chave = "35260800000000000000550010000000011000000017";
 
     private static PurchaseInvoicesCreateService Service(UnitOfWork db) =>
-        new(db, new FakeBusinessPartnerService(
-            names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }));
+        new(db,
+            new FakeBusinessPartnerService(
+                names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
+            new FakeItemService(
+                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }));
 
     private static PurchaseInvoice NewInvoice(string? chave = Chave)
     {
@@ -150,5 +153,59 @@ public class PurchaseInvoicesCreateTests
         await Service(db).ExecuteAsync(NewInvoice(chave: ""), "tester");
 
         Assert.Equal(2, await db.Context.PurchaseInvoices.CountAsync());
+    }
+
+    [Fact]
+    public async Task Item_name_is_resolved_from_the_registry_when_the_line_arrives_blank()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        // É o caso do value help: a descrição é copiada para a tela com group ID null e NÃO entra
+        // no deep-insert, então a linha chega com o produto certo e o nome vazio.
+        var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
+        invoice.AddItem(new PurchaseInvoiceItem
+        {
+            ItemCode = "SOJA", ItemName = "", Quantity = 10m, UnitPrice = 1m,
+        });
+
+        await Service(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal("SOJA EM GRAOS", invoice.Items.Single().ItemName);
+    }
+
+    [Fact]
+    public async Task Item_name_read_from_the_xml_wins_over_the_registry()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        // A descrição do XML é a que CONSTA NA NOTA do fornecedor — sobrescrevê-la pelo cadastro
+        // descaracterizaria o documento fiscal de terceiro.
+        var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
+        invoice.AddItem(new PurchaseInvoiceItem
+        {
+            ItemCode = "SOJA", ItemName = "SOJA GRAO A GRANEL", Quantity = 10m, UnitPrice = 1m,
+        });
+
+        await Service(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal("SOJA GRAO A GRANEL", invoice.Items.Single().ItemName);
+    }
+
+    [Fact]
+    public async Task Item_code_outside_the_registry_keeps_the_line_without_a_name()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        // Insumo/serviço, ou código do emitente que não existe no cadastro local: a linha grava
+        // assim mesmo. O documento de entrada é de CONTROLE e não pode barrar por isso.
+        var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
+        invoice.AddItem(new PurchaseInvoiceItem
+        {
+            ItemCode = "DESCONHECIDO", ItemName = "", Quantity = 1m, UnitPrice = 1m,
+        });
+
+        await Service(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Null(invoice.Items.Single().ItemName);
     }
 }

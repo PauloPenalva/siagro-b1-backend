@@ -50,6 +50,20 @@ public class PurchaseInvoiceItem
     public Guid? SalesInvoiceItemKey { get; set; }
     public virtual SalesInvoiceItem? SalesInvoiceItem { get; set; }
 
+    /// <summary>
+    /// Contrato de compra que esta linha referencia — a amarração que fecha a conciliação fiscal
+    /// da compra, espelhando <c>SalesInvoiceItem.SalesContractKey</c> do lado da venda.
+    ///
+    /// É REFERÊNCIA e não efeito: não cria allocation e não move saldo. O saldo físico continua
+    /// sendo movido só pelo romaneio.
+    ///
+    /// Nullable por três razões independentes: NF de insumo, serviço ou frete não tem contrato; a
+    /// linha importada de XML nasce sem vínculo, porque o XML não o carrega; e amarrar depois de
+    /// gravar é fluxo legítimo.
+    /// </summary>
+    public Guid? PurchaseContractKey { get; set; }
+    public virtual PurchaseContract? PurchaseContract { get; set; }
+
     /// <summary>Linha de remessa apontando a linha da NF de venda futura que a antecipou.</summary>
     public Guid? PurchaseInvoiceItemOriginKey { get; set; }
     public virtual PurchaseInvoiceItem? PurchaseInvoiceItemOrigin { get; set; }
