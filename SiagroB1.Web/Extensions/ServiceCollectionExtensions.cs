@@ -28,6 +28,7 @@ using SiagroB1.Application.Services.StorageEntryTransactions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.Security;
+using SiagroB1.Security.Shared;
 using SiagroB1.Application.Services.Users;
 using SiagroB1.Application.Services.UserTruckScales;
 using SiagroB1.Application.Services.UsersProfiles;
@@ -102,6 +103,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SystemSetupService>();
         
         // users
+        // A política de senha é do Security e já era registrada no Gateway (reset por e-mail e
+        // perfil); o Web precisa dela porque a criação do usuário também valida a senha.
+        services.AddSingleton<PasswordPolicy>();
         services.AddScoped<UsersCreateService>();
         services.AddScoped<UsersUpdateService>();
         services.AddScoped<UsersGetService>();

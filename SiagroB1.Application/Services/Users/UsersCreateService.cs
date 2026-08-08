@@ -9,8 +9,9 @@ using SiagroB1.Security.Shared;
 namespace SiagroB1.Application.Services.Users;
 
 public class UsersCreateService(
-    CommonDbContext db, 
+    CommonDbContext db,
     IStringLocalizer<Resource> resource,
+    PasswordPolicy passwordPolicy,
     ILogger<UsersCreateService> logger)
 {
     public async Task<UserDto> ExecuteAsync(User entity)
@@ -20,9 +21,18 @@ public class UsersCreateService(
         
         if (existsUser)
         {
-            throw new ApplicationException(resource["USER_ALREADY_EXISTS"].Value);    
+            throw new ApplicationException(resource["USER_ALREADY_EXISTS"].Value);
         }
-        
+
+        // Mesma regra do reset por e-mail e da troca no perfil - senha definida pelo admin não
+        // pode ser mais fraca do que a que o próprio usuário poderia escolher. Só incide quando
+        // vem senha: nascer SEM senha continua válido (o acesso vem pelo "esqueci minha senha").
+        if (!string.IsNullOrWhiteSpace(entity.Password)
+            && !passwordPolicy.IsValid(entity.Password, out var passwordError))
+        {
+            throw new ApplicationException(passwordError);
+        }
+
         try
         {
             entity.PasswordHash = string.IsNullOrWhiteSpace(entity.Password)

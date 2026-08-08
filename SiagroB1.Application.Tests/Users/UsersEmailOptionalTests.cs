@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.Users;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Infra.Context;
+using SiagroB1.Security.Shared;
 
 namespace SiagroB1.Application.Tests.Users;
 
@@ -24,7 +26,10 @@ public class UsersEmailOptionalTests
             .Options);
 
     private static UsersCreateService CreateService(CommonDbContext db) =>
-        new(db, new FakeStringLocalizer<Resource>(), new TestLogger<UsersCreateService>());
+        new(db,
+            new FakeStringLocalizer<Resource>(),
+            new PasswordPolicy(new ConfigurationBuilder().Build()),
+            new TestLogger<UsersCreateService>());
 
     private static UsersUpdateService UpdateService(CommonDbContext db) =>
         new(db, new FakeStringLocalizer<Resource>(), new TestLogger<UsersUpdateService>());
