@@ -17,17 +17,28 @@ public class WeighingTicketsFirstWeighingController(
         try
         {
             if (!parameters.TryGetValue("Key", out var keyObj) ||
-                !parameters.TryGetValue("Value",  out var valueObj) ||
-                !parameters.TryGetValue("Comments", out var commentsObj))
+                !parameters.TryGetValue("Value",  out var valueObj))
             {
                 return BadRequest("Missing required parameters");
             }
             var key = Guid.Parse(keyObj.ToString());
             var value = int.Parse(valueObj.ToString());
-            var comments = commentsObj?.ToString();
+
+            // Parâmetro string do OData é anulável: TryGetValue devolve true com valor null.
+            var comments = parameters.TryGetValue("Comments", out var commentsObj)
+                ? commentsObj?.ToString()
+                : null;
+
+            Guid? captureId = null;
+            if (parameters.TryGetValue("CaptureId", out var captureObj)
+                && Guid.TryParse(captureObj?.ToString(), out var parsed))
+            {
+                captureId = parsed;
+            }
+
             var userName = User.Identity?.Name ?? "Unknown";
-            
-            await service.ExecuteAsync(key, value, comments, userName);
+
+            await service.ExecuteAsync(key, value, comments, userName, captureId);
             return Ok();
         }
         catch (Exception e)

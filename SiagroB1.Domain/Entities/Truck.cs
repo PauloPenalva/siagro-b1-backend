@@ -20,4 +20,11 @@ public class Truck
     [ForeignKey("State")]
     public string? StateKey { get; set; }
     public virtual State? State { get; set; }
+
+    /// <summary>
+    /// Tara do veículo em quilos. Nula de propósito: torná-la obrigatória travaria a gravação dos
+    /// caminhões já cadastrados sem tara. Quem a cobra é a validação da pesagem, e só quando a
+    /// balança tem <see cref="TruckScale.ValidateTare"/> ligado.
+    /// </summary>
+    public int? TareWeight { get; set; }
 }

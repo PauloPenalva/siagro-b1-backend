@@ -78,6 +78,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     
     public DbSet<Address> Addresses { get; set; }
     public DbSet<TruckScale> TruckScales { get; set; }
+    public DbSet<UserTruckScale> UserTruckScales { get; set; }
 
     public DbSet<NotificationGroup> NotificationGroups { get; set; }
     public DbSet<NotificationGroupMember> NotificationGroupMembers { get; set; }

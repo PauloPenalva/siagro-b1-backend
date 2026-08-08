@@ -33,6 +33,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SiagroB1.Application\SiagroB1.Application.csproj" />
     <ProjectReference Include="..\SiagroB1.Reports\SiagroB1.Reports.csproj" />
+    <!-- Para inspecionar o EDM real montado por ODataConfigurations. -->
+    <ProjectReference Include="..\SiagroB1.Web\SiagroB1.Web.csproj" />
   </ItemGroup>
 
 </Project>

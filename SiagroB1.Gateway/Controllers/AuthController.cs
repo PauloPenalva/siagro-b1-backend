@@ -159,6 +159,10 @@ public class AuthController(
                                 IsAdmin = userInfo.IsAdmin,
                                 Theme = userInfo.Theme,
                                 HasPhoto = userInfo.HasPhoto,
+                                // Sem isto a tela perde as permissões em todo F5: o /status é a
+                                // única fonte de identidade depois do boot, e o login só acontece
+                                // uma vez por sessão.
+                                Permissions = userInfo.Permissions,
                                 FromCookie = true,
                                 UserId = userInfo.Id,
                             });
@@ -192,6 +196,7 @@ public class AuthController(
             IsAdmin = User.HasClaim("IsAdmin", "True"),
             Theme = userInfoFromDb?.Theme,
             HasPhoto = userInfoFromDb?.HasPhoto ?? false,
+            Permissions = userInfoFromDb?.Permissions ?? [],
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],
             FromPrincipal = true,

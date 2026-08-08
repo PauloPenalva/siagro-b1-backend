@@ -119,12 +119,15 @@ public class AuthService(
                 // Criar claims para o usuário
                 var claims = CreateClaims(user);
 
+                var loggedUser = ToUserInfo(user);
+                loggedUser.Permissions = await GetPermissionsAsync(user.Id);
+
                 return new LoginResponse()
                 {
                     Success = true,
                     Message = "Login realizado com sucesso",
                     SessionId = sessionId,
-                    User = ToUserInfo(user),
+                    User = loggedUser,
                     Claims = claims,
                     ExpiresAt = session.ExpiresAt
                 };
@@ -214,7 +217,7 @@ public class AuthService(
         {
             // Projeção em vez da entidade: o /status é consultado no boot e a cada revalidação de
             // sessão, e carregar a entidade inteira traria o blob da foto junto toda vez.
-            return await db.Users
+            var info = await db.Users
                 .AsNoTracking()
                 .Where(u => u.Username == username && u.IsActive)
                 .Select(u => new UserInfo
@@ -229,6 +232,24 @@ public class AuthService(
                     HasPhoto = u.PhotoContent != null && u.PhotoContent.Length > 0
                 })
                 .FirstOrDefaultAsync();
+
+            if (info != null)
+                info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id));
+
+            return info;
+        }
+
+        /// <summary>Permissões efetivas: usuário -> perfis -> papéis -> permissões.</summary>
+        private async Task<List<string>> GetPermissionsAsync(Guid userId)
+        {
+            var query =
+                from up in db.UserProfiles
+                join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
+                join rp in db.RolesPermissions on pr.RoleCode equals rp.RoleCode
+                where up.UserId == userId
+                select rp.PermissionCode;
+
+            return await query.Distinct().ToListAsync();
         }
 
         private static UserInfo ToUserInfo(User user) => new()

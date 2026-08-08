@@ -3412,6 +3412,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("StateKey")
                         .HasColumnType("VARCHAR(2)");
 
+                    b.Property<int?>("TareWeight")
+                        .HasColumnType("int");
+
                     b.HasKey("Code");
 
                     b.HasIndex("StateKey");
@@ -3446,13 +3449,46 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("Code")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int?>("DecimalPlaces")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FramePattern")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int?>("FramePrefixLength")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FrameTerminator")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("VARCHAR(50)");
+
                     b.Property<string>("Localization")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("LogRawFrames")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Protocol")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TareToleranceKg")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ValidateTare")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("WeightLength")
+                        .HasColumnType("int");
 
                     b.HasKey("Code");
 
@@ -3536,6 +3572,34 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("USAGE_EFFECTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.UserTruckScale", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TruckScaleCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TruckScaleCode");
+
+                    b.HasIndex("Username", "Purpose")
+                        .IsUnique();
+
+                    b.ToTable("USER_TRUCK_SCALES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Warehouse", b =>
                 {
                     b.Property<string>("Code")
@@ -3601,8 +3665,14 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("FirstWeighCaptured")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("FirstWeighDateTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("FirstWeighScaleCode")
+                        .HasColumnType("VARCHAR(11)");
 
                     b.Property<string>("FirstWeighUsername")
                         .HasColumnType("VARCHAR(200)");
@@ -3630,8 +3700,14 @@ namespace SiagroB1.Migrations.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
+                    b.Property<bool>("SecondWeighCaptured")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("SecondWeighDateTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("SecondWeighScaleCode")
+                        .HasColumnType("VARCHAR(11)");
 
                     b.Property<string>("SecondWeighUsername")
                         .HasColumnType("VARCHAR(200)");
@@ -4527,6 +4603,17 @@ namespace SiagroB1.Migrations.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("State");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.UserTruckScale", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TruckScale", "TruckScale")
+                        .WithMany()
+                        .HasForeignKey("TruckScaleCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("TruckScale");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>

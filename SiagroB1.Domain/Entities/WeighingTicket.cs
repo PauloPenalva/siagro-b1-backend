@@ -50,7 +50,14 @@ public class WeighingTicket : DocumentEntity
     
     [Column(TypeName = "VARCHAR(200)")]
     public string? FirstWeighUsername { get; set; }
-    
+
+    /// <summary>Balança que produziu a leitura. Coluna simples, sem FK, como FreightUmCode.</summary>
+    [Column(TypeName = "VARCHAR(11)")]
+    public string? FirstWeighScaleCode { get; set; }
+
+    /// <summary>Falso quando o peso foi digitado por quem tem permissão para isso.</summary>
+    public bool FirstWeighCaptured { get; set; }
+
     public int SecondWeighValue { get; set; } = 0;
 
     [Column(TypeName = "datetime2")]
@@ -58,7 +65,12 @@ public class WeighingTicket : DocumentEntity
     
     [Column(TypeName = "VARCHAR(200)")]
     public string? SecondWeighUsername { get; set; }
-    
+
+    [Column(TypeName = "VARCHAR(11)")]
+    public string? SecondWeighScaleCode { get; set; }
+
+    public bool SecondWeighCaptured { get; set; }
+
     [NotMapped]
     public int GrossWeight
     {

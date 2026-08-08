@@ -49,8 +49,9 @@ public class User
     /// Senha em claro, apenas para transporte no POST /odata/Users - o serviço de criação a
     /// converte em <see cref="PasswordHash"/> e a descarta.
     ///
-    /// <c>[NotMapped]</c> tira a propriedade do banco mas NÃO do EDM do OData (é atributo do EF, e o
-    /// ODataConventionModelBuilder não o enxerga), então a tela de cadastro continua enviando o campo.
+    /// <c>[NotMapped]</c> tira a propriedade do banco E do EDM do OData — o
+    /// ODataConventionModelBuilder honra o atributo. Para a tela de cadastro conseguir enviar o
+    /// campo, o EDM a readiciona à mão em <c>ODataConfigurations.ConfigureODataEntities</c>.
     /// </summary>
     [NotMapped]
     public string? Password { get; set; }

@@ -5,35 +5,30 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.WeighingTickets;
 
-public class WeighingTicketsFirstWeighingService(IUnitOfWork db)
+public class WeighingTicketsFirstWeighingService(IUnitOfWork db, WeighingCaptureValidator validator)
 {
-    public async Task ExecuteAsync(Guid key, int weigh, string comments, string username)
+    public async Task ExecuteAsync(Guid key, int weigh, string? comments, string username, Guid? captureId)
     {
         if (weigh <= 0)
             throw new ApplicationException("Quantidade deve ser maior que zero.");
-        
+
         var ticket = await db.Context.WeighingTickets
             .Where(x => x.Stage == WeighingTicketStage.ReadyForFirstWeighing)
             .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Weighing ticket not found.");
 
-        if (ticket.Stage != WeighingTicketStage.ReadyForFirstWeighing)
-            throw new ApplicationException("Ticket stage inválido.");
-        
-        try
-        {
-            ticket.Status = WeighingTicketStatus.Processing;
-            ticket.FirstWeighValue = weigh;
-            ticket.FirstWeighDateTime = DateTime.Now;
-            ticket.Stage = WeighingTicketStage.ReadyForSecondWeighing;
-            ticket.Comments = comments;
-            ticket.FirstWeighUsername =  username;
-            
-            await db.SaveChangesAsync();
-        }
-        catch (Exception e)
-        {
-            throw new ApplicationException(e.Message);
-        }
+        var origin = await validator.ResolveAsync(
+            username, weigh, captureId, WeighingScalePurpose.Opening, ticket.TruckCode);
+
+        ticket.Status = WeighingTicketStatus.Processing;
+        ticket.FirstWeighValue = weigh;
+        ticket.FirstWeighDateTime = DateTime.Now;
+        ticket.Stage = WeighingTicketStage.ReadyForSecondWeighing;
+        ticket.Comments = comments;
+        ticket.FirstWeighUsername = username;
+        ticket.FirstWeighScaleCode = origin.ScaleCode;
+        ticket.FirstWeighCaptured = origin.Captured;
+
+        await db.SaveChangesAsync();
     }
 }

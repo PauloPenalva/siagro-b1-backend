@@ -27,9 +27,13 @@ using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageEntryTransactions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.Security;
 using SiagroB1.Application.Services.Users;
+using SiagroB1.Application.Services.UserTruckScales;
 using SiagroB1.Application.Services.UsersProfiles;
 using SiagroB1.Application.Services.WeighingTickets;
+using SiagroB1.Application.Interfaces;
+using SiagroB1.Commons.Scales;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Web.Sockets;
 using SiagroB1.Web.Sockets.TruckScale;
@@ -70,11 +74,16 @@ public static class ServiceCollectionExtensions
     
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // websocket
-        services.AddSingleton<TruckScaleWebSocketConnectionManager>();
-        services.AddSingleton<WsMessageHandler>();
-        services.AddSingleton<PendingRequestStore>();
-        
+        // websocket da balança rodoviária
+        // Janela de 3 s com no mínimo 5 amostras; sem leitura por 2 s a balança é dada como offline.
+        services.AddSingleton(new LiveReadingStore(
+            window: TimeSpan.FromSeconds(3),
+            minimumSamples: 5,
+            offlineAfter: TimeSpan.FromSeconds(2)));
+
+        services.AddSingleton<TruckScaleHub>();
+        services.AddScoped<ScaleConfigProvider>();
+
         // commons services ( services folder )
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
@@ -404,6 +413,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageTransactionsReverseService>();
         
         // weighing tickets
+        services.AddScoped<IUserPermissions, UserPermissionsService>();
+        services.AddScoped<WeighingCaptureValidator>();
+
+        // balanças do usuário
+        services.AddScoped<UserTruckScalesGetService>();
+        services.AddScoped<UserTruckScalesCreateService>();
+        services.AddScoped<UserTruckScalesUpdateService>();
+        services.AddScoped<UserTruckScalesDeleteService>();
+
+        // Singleton: o comprovante nasce num request (a captura) e é consumido em outro (a
+        // pesagem). Escopo por request perderia o que acabou de emitir.
+        services.AddSingleton(new CaptureStore(TimeSpan.FromMinutes(10)));
+
         services.AddScoped<WeighingTicketsCancelService>();
         services.AddScoped<WeighingTicketsCompletedService>();
         services.AddScoped<WeighingTicketsCreateService>();

@@ -1,7 +1,4 @@
 using SiagroB1.Client;
-using SiagroB1.Client.Interfaces;
-using SiagroB1.Client.Mock;
-using SiagroB1.Client.Readers;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -11,14 +8,19 @@ if (OperatingSystem.IsWindows())
 if (OperatingSystem.IsLinux())
     builder.Services.AddSystemd();
 
-var useMock = builder.Configuration.GetValue<bool>("UseMockScale");
+// Uma instância do serviço atende N balanças: uma conexão WebSocket para cada.
+var scaleCodes = builder.Configuration.GetSection("TruckScaleIds").Get<string[]>() ?? [];
 
-if (useMock)
-    builder.Services.AddSingleton<IScaleReader, MockScaleReader>();
-else
-    builder.Services.AddSingleton<IScaleReader, TcpScaleReader>();
+if (scaleCodes.Length == 0)
+    throw new InvalidOperationException("Configure TruckScaleIds no appsettings.");
 
-builder.Services.AddHostedService<Worker>();
+foreach (var code in scaleCodes)
+{
+    builder.Services.AddSingleton<IHostedService>(sp => new ScaleWorker(
+        code,
+        sp.GetRequiredService<IConfiguration>(),
+        sp.GetRequiredService<ILogger<ScaleWorker>>()));
+}
 
 var host = builder.Build();
 host.Run();

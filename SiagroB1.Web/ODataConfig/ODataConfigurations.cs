@@ -190,6 +190,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
         modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType, x.CardCode });
         modelBuilder.EntitySet<TruckScale>("TruckScales");
+        modelBuilder.EntitySet<UserTruckScale>("UserTruckScales");
         modelBuilder.EntitySet<MenuItem>("MenuItems");
         modelBuilder.EntitySet<User>("Users");
         // O segredo e a foto nunca trafegam pelo OData: o hash não deve ser legível nem gravável,
@@ -197,6 +198,12 @@ public static class ODataConfigurations
         modelBuilder.EntityType<User>().Ignore(u => u.PasswordHash);
         modelBuilder.EntityType<User>().Ignore(u => u.PhotoContent);
         modelBuilder.EntityType<User>().Ignore(u => u.PhotoContentType);
+        // A senha em claro é [NotMapped] (não é coluna), e a convenção do
+        // ODataConventionModelBuilder TAMBÉM a tira do EDM — sem esta linha a tela de novo
+        // usuário quebra no binding e o POST nunca leva a senha. Vai só na ida: ao ler, o EF
+        // devolve sempre nulo, e o hash continua fora do EDM pelo Ignore acima.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(User))
+            .AddProperty(typeof(User).GetProperty(nameof(User.Password)));
         modelBuilder.EntitySet<UserProfile>("UsersProfiles");
         modelBuilder.EntitySet<Profile>("Profiles");
         modelBuilder.EntitySet<ProfileRole>("ProfilesRoles");
@@ -651,12 +658,14 @@ public static class ODataConfigurations
         weighingTicketsFirstWeighing.Parameter<Guid>("Key");
         weighingTicketsFirstWeighing.Parameter<int>("Value");
         weighingTicketsFirstWeighing.Parameter<string>("Comments");
+        weighingTicketsFirstWeighing.Parameter<string>("CaptureId");
         weighingTicketsFirstWeighing.Returns<IActionResult>();
         
         var weighingTicketsSecondWeighing = modelBuilder.Action("WeighingTicketsSecondWeighing");
         weighingTicketsSecondWeighing.Parameter<Guid>("Key");
         weighingTicketsSecondWeighing.Parameter<int>("Value");
         weighingTicketsSecondWeighing.Parameter<string>("Comments");
+        weighingTicketsSecondWeighing.Parameter<string>("CaptureId");
         weighingTicketsSecondWeighing.Returns<IActionResult>();
 
         var weighingTicketsCompleted = modelBuilder.Action("WeighingTicketsCompleted");

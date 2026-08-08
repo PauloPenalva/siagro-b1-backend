@@ -14,4 +14,10 @@ public class UserInfo
 
     /// <summary>Diz à shell se deve pedir a imagem do avatar ou mostrar as iniciais.</summary>
     public bool HasPhoto { get; set; }
+
+    /// <summary>
+    /// Permissões efetivas do usuário. A tela usa isto para não oferecer uma ação que voltaria
+    /// recusada; quem decide de fato continua sendo o servidor.
+    /// </summary>
+    public List<string> Permissions { get; set; } = [];
 }
