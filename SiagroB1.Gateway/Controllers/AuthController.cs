@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SiagroB1.Security.Dtos;
 using SiagroB1.Security.Interfaces;
 using SiagroB1.Security.Services;
+using SiagroB1.Security.Shared;
 
 namespace SiagroB1.Gateway.Controllers;
 
@@ -16,7 +17,8 @@ public class AuthController(
     IConfiguration configuration,
     BranchService branchService,
     MenuService menuService,
-    IPasswordResetService passwordResetService
+    IPasswordResetService passwordResetService,
+    PasswordPolicy passwordPolicy
     ) : ControllerBase
 {
     /// <summary>
@@ -90,7 +92,8 @@ public class AuthController(
                 Message = result.Message,
                 User = result.User,
                 SessionId = result.SessionId,
-                ExpiresAt = result.ExpiresAt
+                ExpiresAt = result.ExpiresAt,
+                PasswordRequirements = passwordPolicy.Description
             });
         }
 
@@ -163,6 +166,9 @@ public class AuthController(
                                 // única fonte de identidade depois do boot, e o login só acontece
                                 // uma vez por sessão.
                                 Permissions = userInfo.Permissions,
+                                // Mesma razão das permissões: a tela que pede senha precisa
+                                // mostrar a regra vigente, e a política é configurável.
+                                PasswordRequirements = passwordPolicy.Description,
                                 FromCookie = true,
                                 UserId = userInfo.Id,
                             });
@@ -197,6 +203,7 @@ public class AuthController(
             Theme = userInfoFromDb?.Theme,
             HasPhoto = userInfoFromDb?.HasPhoto ?? false,
             Permissions = userInfoFromDb?.Permissions ?? [],
+            PasswordRequirements = passwordPolicy.Description,
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],
             FromPrincipal = true,
@@ -242,7 +249,8 @@ public class AuthController(
                 Message = result.Message,
                 User = result.User,
                 SessionId = result.SessionId,
-                ExpiresAt = result.ExpiresAt
+                ExpiresAt = result.ExpiresAt,
+                PasswordRequirements = passwordPolicy.Description
             });
         }
 
