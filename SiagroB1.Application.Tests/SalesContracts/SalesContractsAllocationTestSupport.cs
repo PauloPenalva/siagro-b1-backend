@@ -13,11 +13,14 @@ internal static class SalesContractsAllocationTestSupport
     internal static SalesContract NewContract(
         decimal totalVolume, decimal price = 100m,
         ContractStatus status = ContractStatus.Approved,
-        string cardCode = "C0001", string itemCode = "SOJA", string uom = "KG") => new()
+        string cardCode = "C0001", string itemCode = "SOJA", string uom = "KG",
+        string? cardName = null, string? cardTaxId = null) => new()
     {
         Key = Guid.NewGuid(),
         Code = Guid.NewGuid().ToString("N")[..8],
         CardCode = cardCode,
+        CardName = cardName,
+        CardTaxId = cardTaxId,
         ItemCode = itemCode,
         UnitOfMeasureCode = uom,
         HarvestSeasonCode = "24/25",

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using SiagroB1.Client.Dtos;
 using SiagroB1.Client.Readers;
+using SiagroB1.Commons.Scales;
 
 namespace SiagroB1.Client;
 
@@ -36,6 +37,11 @@ public class ScaleWorker(
             try
             {
                 using var ws = new ClientWebSocket();
+
+                var clientKey = config[ScaleClientAuth.ConfigurationKey];
+
+                if (!string.IsNullOrWhiteSpace(clientKey))
+                    ws.Options.SetRequestHeader(ScaleClientAuth.HeaderName, clientKey);
 
                 var url = $"{config["WebSocketUrl"]}?truckScaleId={scaleCode}";
                 await ws.ConnectAsync(new Uri(url), stoppingToken);

@@ -32,6 +32,18 @@ public class SalesContractReconciliationTargetDto
     [JsonPropertyName("CardName")]
     public string? CardName { get; set; }
 
+    /// <summary>CNPJ/CPF do cliente, desnormalizado em SALES_CONTRACTS.</summary>
+    [JsonPropertyName("CardTaxId")]
+    public string? CardTaxId { get; set; }
+
+    /// <summary>
+    /// Contrato de cliente diferente do cliente da NOTA. Vem calculado do servidor porque
+    /// o CardCode da nota não está no $select do binding da tela (autoExpandSelect só
+    /// seleciona o que algum controle binda), e buscá-lo depois cairia em late property.
+    /// </summary>
+    [JsonPropertyName("IsOtherCustomer")]
+    public bool IsOtherCustomer { get; set; }
+
     [JsonPropertyName("ItemCode")]
     public string? ItemCode { get; set; }
 

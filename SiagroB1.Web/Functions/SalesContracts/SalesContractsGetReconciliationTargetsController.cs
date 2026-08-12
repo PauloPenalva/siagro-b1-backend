@@ -12,13 +12,15 @@ public class SalesContractsGetReconciliationTargetsController(
     : ODataController
 {
     [EnableQuery]
-    [HttpGet("odata/SalesContractsGetReconciliationTargets(SalesInvoiceItemKey={salesInvoiceItemKey},SourceSalesContractKey={sourceSalesContractKey})")]
+    [HttpGet("odata/SalesContractsGetReconciliationTargets(SalesInvoiceItemKey={salesInvoiceItemKey},SourceSalesContractKey={sourceSalesContractKey},IncludeOtherCustomers={includeOtherCustomers})")]
     public async Task<ActionResult<IEnumerable<SalesContractReconciliationTargetDto>>> GetAsync(
-        [FromRoute] Guid salesInvoiceItemKey, [FromRoute] Guid sourceSalesContractKey)
+        [FromRoute] Guid salesInvoiceItemKey, [FromRoute] Guid sourceSalesContractKey,
+        [FromRoute] bool includeOtherCustomers)
     {
         try
         {
-            return Ok(await service.ExecuteAsync(salesInvoiceItemKey, sourceSalesContractKey));
+            return Ok(await service.ExecuteAsync(
+                salesInvoiceItemKey, sourceSalesContractKey, includeOtherCustomers));
         }
         catch (NotFoundException e)
         {

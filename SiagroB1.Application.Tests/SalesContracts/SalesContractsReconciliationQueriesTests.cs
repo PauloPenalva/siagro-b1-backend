@@ -62,6 +62,46 @@ public class SalesContractsReconciliationQueriesTests
         Assert.Equal([valid.Key.ToString()], targets.Select(t => t.SalesContractKey).ToList());
     }
 
+    /// <summary>
+    /// Com o opt-in, contrato de OUTRO cliente vira destino válido — é o caminho da nota
+    /// que, na conferência com o relatório do cliente, pertence ao contrato de outra
+    /// empresa. Produto e unidade de medida continuam filtrando: o guard da action recusa
+    /// esses, então listá-los só ofereceria destino inválido.
+    /// </summary>
+    [Fact]
+    public async Task Targets_IncludeOtherCustomers_ReturnsOtherCustomersButStillFiltersItemAndUom()
+    {
+        var source = NewContract(totalVolume: 1000m);
+        var finished = NewContract(totalVolume: 500m, status: ContractStatus.Finished);
+        var otherCustomer = NewContract(totalVolume: 500m, cardCode: "C9999",
+            cardName: "OUTRA EMPRESA LTDA", cardTaxId: "12345678000199");
+        var otherItem = NewContract(totalVolume: 500m, cardCode: "C9999", itemCode: "MILHO");
+        var otherUom = NewContract(totalVolume: 500m, cardCode: "C9999", uom: "SC");
+        var sameCustomer = NewContract(totalVolume: 500m);
+
+        var invoice = NewInvoice();
+        var item = NewItem(invoice, source.Key, null, quantity: 200m);
+        _db.Context.AddRange(source, finished, otherCustomer, otherItem, otherUom, sameCustomer, invoice);
+        await _db.Context.SaveChangesAsync();
+
+        var targets = await new SalesContractsGetReconciliationTargetsService(_db)
+            .ExecuteAsync(item.Key!.Value, source.Key, includeOtherCustomers: true);
+
+        var keys = targets.Select(t => t.SalesContractKey).ToList();
+        Assert.Contains(otherCustomer.Key.ToString(), keys);
+        Assert.Contains(sameCustomer.Key.ToString(), keys);
+        Assert.DoesNotContain(finished.Key.ToString(), keys);
+        Assert.DoesNotContain(otherItem.Key.ToString(), keys);
+        Assert.DoesNotContain(otherUom.Key.ToString(), keys);
+
+        var other = targets.Single(t => t.SalesContractKey == otherCustomer.Key.ToString());
+        Assert.True(other.IsOtherCustomer);
+        Assert.Equal("OUTRA EMPRESA LTDA", other.CardName);
+        Assert.Equal("12345678000199", other.CardTaxId);
+
+        Assert.False(targets.Single(t => t.SalesContractKey == sameCustomer.Key.ToString()).IsOtherCustomer);
+    }
+
     [Fact]
     public async Task NegativeBalances_ReturnsOnlyNegatives_ExcludingFinished()
     {

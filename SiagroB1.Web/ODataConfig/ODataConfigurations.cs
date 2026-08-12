@@ -524,6 +524,7 @@ public static class ODataConfigurations
         var salesContractsGetReconciliationTargets = modelBuilder.Function("SalesContractsGetReconciliationTargets");
         salesContractsGetReconciliationTargets.Parameter<Guid>("SalesInvoiceItemKey");
         salesContractsGetReconciliationTargets.Parameter<Guid>("SourceSalesContractKey");
+        salesContractsGetReconciliationTargets.Parameter<bool>("IncludeOtherCustomers");
         salesContractsGetReconciliationTargets.Returns<ICollection<SalesContractReconciliationTargetDto>>();
 
         var salesContractsGetNegativeBalances = modelBuilder.Function("SalesContractsGetNegativeBalances");

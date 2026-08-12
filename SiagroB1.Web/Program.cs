@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services.Users;
+using SiagroB1.Commons.Scales;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -238,4 +239,29 @@ else
     RecurringJob.RemoveIfExists("sap-user-sync");
 }
 
+WarnIfTruckScaleChannelIsUnauthenticated(app);
+
 await app.RunAsync();
+
+/// <summary>
+/// Avisa, no boot, que o canal WebSocket da balança aceita qualquer um.
+///
+/// Sem isto o problema é invisível: tudo funciona igual. Só que, com o caminho publicado pelo
+/// Gateway, quem descobrir o código de uma balança recebe a configuração do indicador e passa a
+/// injetar peso no LiveReadingStore - que é de onde `POST /scales/{code}/capture` emite o
+/// comprovante. Peso forjado vira romaneio, exatamente o que o comprovante existe para impedir.
+///
+/// Continua liberado por padrão para não quebrar as instalações que seguem só em rede interna.
+/// </summary>
+static void WarnIfTruckScaleChannelIsUnauthenticated(WebApplication app)
+{
+    if (!string.IsNullOrWhiteSpace(app.Configuration[ScaleClientAuth.ConfigurationKey]))
+        return;
+
+    app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("TruckScaleWebSocket")
+        .LogWarning(
+            "CANAL DA BALANÇA SEM AUTENTICAÇÃO ({ConfigurationKey} não configurada). Qualquer um " +
+            "que alcance /ws/truck-scale pode ler a configuração do indicador e injetar peso.",
+            ScaleClientAuth.ConfigurationKey);
+}

@@ -15,14 +15,20 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// NÃO se exige liberação de entrega. Contratos esgotados ou já negativos são exatamente
 /// os que precisam aparecer — filtrá-los é o que hoje deixa a conciliação sem saída.
 ///
-/// Cliente, produto e unidade de medida são derivados da NOTA no servidor, para que a
-/// lista case exatamente com os guards de <see cref="SalesContractsReallocationCreateService"/>
-/// e o usuário não veja destino que a action vai recusar.
+/// Produto e unidade de medida são derivados da NOTA no servidor, para que a lista case
+/// exatamente com os guards de <see cref="SalesContractsReallocationCreateService"/> e o
+/// usuário não veja destino que a action vai recusar.
+///
+/// O <b>cliente</b> é opt-in: por padrão só o cliente da nota, e com
+/// <c>includeOtherCustomers</c> a lista abre para todos. Conciliar entre clientes é
+/// operação normal desta tela — a conferência com o relatório do cliente revela notas que
+/// pertencem ao contrato de outra empresa —, mas abrir isso por padrão deixaria a lista
+/// longa e o destino errado a um clique de distância.
 /// </summary>
 public class SalesContractsGetReconciliationTargetsService(IUnitOfWork db)
 {
     public async Task<ICollection<SalesContractReconciliationTargetDto>> ExecuteAsync(
-        Guid salesInvoiceItemKey, Guid sourceSalesContractKey)
+        Guid salesInvoiceItemKey, Guid sourceSalesContractKey, bool includeOtherCustomers = false)
     {
         var item = await db.Context.SalesInvoicesItems
                        .AsNoTracking()
@@ -32,14 +38,20 @@ public class SalesContractsGetReconciliationTargetsService(IUnitOfWork db)
 
         var cardCode = item.SalesInvoice?.CardCode;
 
-        return await db.Context.SalesContracts
+        var query = db.Context.SalesContracts
             .AsNoTracking()
             .Where(c => c.Key != sourceSalesContractKey
                         && c.Status != ContractStatus.Finished
-                        && c.CardCode == cardCode
+                        && (includeOtherCustomers || c.CardCode == cardCode)
                         && c.ItemCode == item.ItemCode
-                        && c.UnitOfMeasureCode == item.UnitOfMeasureCode)
-            .OrderBy(c => c.Code)
+                        && c.UnitOfMeasureCode == item.UnitOfMeasureCode);
+
+        // Com vários clientes na lista, agrupar por cliente é o que a torna legível.
+        query = includeOtherCustomers
+            ? query.OrderBy(c => c.CardName).ThenBy(c => c.Code)
+            : query.OrderBy(c => c.Code);
+
+        return await query
             .Select(c => new SalesContractReconciliationTargetDto
             {
                 SalesContractKey = c.Key.ToString(),
@@ -49,6 +61,8 @@ public class SalesContractsGetReconciliationTargetsService(IUnitOfWork db)
                 BranchShortName = c.Branch != null ? c.Branch.ShortName : null,
                 CardCode = c.CardCode,
                 CardName = c.CardName,
+                CardTaxId = c.CardTaxId,
+                IsOtherCustomer = c.CardCode != cardCode,
                 ItemCode = c.ItemCode,
                 ItemName = c.ItemName,
                 UnitOfMeasureCode = c.UnitOfMeasureCode,

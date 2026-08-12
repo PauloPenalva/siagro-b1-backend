@@ -138,22 +138,39 @@ public class SalesContractsReallocationCreateServiceTests
         Assert.Contains("encerrado", ex.Message);
     }
 
+    /// <summary>
+    /// Contrato de outro cliente é destino VÁLIDO: a conferência com o relatório de
+    /// entrega revela notas que pertencem ao contrato de outra empresa, e essa é a única
+    /// saída para corrigi-las.
+    /// </summary>
     [Fact]
-    public async Task Execute_DifferentCustomerOrProductOrUom_Throws()
+    public async Task Execute_DifferentCustomer_CreatesPair()
     {
         await SeedAsync();
         var target = await _db.Context.SalesContracts.SingleAsync(c => c.Key == _target.Key);
         target.CardCode = "OUTRO";
         await _db.Context.SaveChangesAsync();
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
-            _item.Key!.Value, _source.Key, _target.Key, _targetRelease.Key, 80m, "tester"));
-        Assert.Contains("outro cliente", ex.Message);
+        await Service().ExecuteAsync(_item.Key!.Value, _source.Key, _target.Key,
+            _targetRelease.Key, 80m, "tester");
 
-        target.CardCode = "C0001";
+        var rows = await _db.Context.SalesContractsAllocations.AsNoTracking()
+            .Where(a => a.Origin == SalesContractAllocationOrigin.Reallocation)
+            .ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(0m, rows.Sum(r => r.Volume)); // o par −/+ se anula no ledger
+        Assert.Equal(120m, (await ContractAsync(_db, _source.Key)).AllocatedVolume);
+        Assert.Equal(80m, (await ContractAsync(_db, _target.Key)).AllocatedVolume);
+    }
+
+    [Fact]
+    public async Task Execute_DifferentProductOrUom_Throws()
+    {
+        await SeedAsync();
+        var target = await _db.Context.SalesContracts.SingleAsync(c => c.Key == _target.Key);
         target.ItemCode = "MILHO";
         await _db.Context.SaveChangesAsync();
-        ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
             _item.Key!.Value, _source.Key, _target.Key, _targetRelease.Key, 80m, "tester"));
         Assert.Contains("outro produto", ex.Message);
 

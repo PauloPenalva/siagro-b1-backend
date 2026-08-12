@@ -176,16 +176,9 @@ public class SalesContractsReconciliationTests
         await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
             item.Key!.Value, source.Key, source.Key, null, 200m, "tester", Reason));
 
-        // Cliente diferente continua bloqueado.
+        // Produto diferente continua bloqueado. (Cliente diferente NÃO bloqueia mais —
+        // ver Execute_DifferentCustomer_CreatesPair.)
         var trackedTarget = await _db.Context.SalesContracts.SingleAsync(c => c.Key == target.Key);
-        trackedTarget.CardCode = "OUTRO";
-        await _db.Context.SaveChangesAsync();
-        ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
-            item.Key!.Value, source.Key, target.Key, null, 200m, "tester", Reason));
-        Assert.Contains("outro cliente", ex.Message);
-
-        // Produto diferente continua bloqueado.
-        trackedTarget.CardCode = "C0001";
         trackedTarget.ItemCode = "MILHO";
         await _db.Context.SaveChangesAsync();
         ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(

@@ -83,9 +83,10 @@ public class SalesContractsReallocationCreateService(
         if (source.Status == ContractStatus.Finished || target.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível realocar.");
 
-        if (target.CardCode != item.SalesInvoice.CardCode)
-            throw new ApplicationException("O contrato de destino pertence a outro cliente.");
-
+        // Cliente do destino NÃO é validado: conciliar para o contrato de outro cliente é
+        // caso de uso desta tela — a conferência com o relatório de entrega revela notas
+        // que pertencem ao contrato de outra empresa. Produto e unidade de medida seguem
+        // travados, porque aí o volume deixaria de ser comparável.
         if (target.ItemCode != item.ItemCode)
             throw new ApplicationException("O contrato de destino é de outro produto.");
 

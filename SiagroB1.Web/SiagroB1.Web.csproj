@@ -10,6 +10,9 @@
     <Content Update="appsettings.Yokotobi-Production.json">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </Content>
+    <Content Update="appsettings.MhAgro-Production.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   
   <ItemGroup>

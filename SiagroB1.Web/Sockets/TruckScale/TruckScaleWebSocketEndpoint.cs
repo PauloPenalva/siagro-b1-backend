@@ -3,6 +3,7 @@ namespace SiagroB1.Web.Sockets.TruckScale;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using SiagroB1.Commons.Scales;
 
 public static class TruckScaleWebSocketEndpoint
 {
@@ -14,8 +15,9 @@ public static class TruckScaleWebSocketEndpoint
 
     public static void MapTruckScaleWebSocket(this IEndpointRouteBuilder app)
     {
-        // Canal de rede interna: fica na porta do Web e NÃO é exposto pelo Gateway. É isso que
-        // dispensa autenticar o SiagroB1.Client.
+        // O Gateway publica este caminho (rota `truck-scale-ws-route`) para alcançar o Client
+        // instalado no PC da balança. Deixou de ser canal exclusivo de rede interna, e por isso a
+        // conexão passou a exigir a chave compartilhada de ScaleClientAuth.
         app.Map("/ws/truck-scale", HandleAsync);
     }
 
@@ -28,7 +30,31 @@ public static class TruckScaleWebSocketEndpoint
 
         var scaleCode = context.Request.Query["truckScaleId"].ToString();
 
-        if (string.IsNullOrEmpty(scaleCode) || !context.WebSockets.IsWebSocketRequest)
+        if (string.IsNullOrEmpty(scaleCode))
+        {
+            context.Response.StatusCode = 400;
+            return;
+        }
+
+        var configuration = context.RequestServices.GetRequiredService<IConfiguration>();
+
+        // Antes do IsWebSocketRequest e antes de consultar o cadastro, de propósito: a diferença
+        // entre 404 e 101 revela quais códigos de balança existem, e quem não tem a chave não deve
+        // conseguir sondar isso.
+        if (!ScaleClientAuth.IsAuthorized(
+                configuredKey: configuration[ScaleClientAuth.ConfigurationKey],
+                presentedKey: context.Request.Headers[ScaleClientAuth.HeaderName]))
+        {
+            logger.LogWarning(
+                "Chave inválida na conexão da balança {ScaleCode} vinda de {RemoteIp}.",
+                scaleCode,
+                context.Connection.RemoteIpAddress);
+
+            context.Response.StatusCode = 401;
+            return;
+        }
+
+        if (!context.WebSockets.IsWebSocketRequest)
         {
             context.Response.StatusCode = 400;
             return;
