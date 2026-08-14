@@ -192,13 +192,41 @@ public class SalesInvoicesUsageGuardServiceTests
         Assert.Equal(defaultCode, invoice.Items.Single().UsageCode);
     }
 
+    /// <summary>
+    /// Sem natureza padrão, o faturamento de romaneio segue — e a linha nasce SEM natureza.
+    ///
+    /// É o retrato do modo SAPB1: as naturezas vêm do OUSG e o efeito mora em USAGE_EFFECTS,
+    /// tabela do Siagro que nasce vazia, então nenhuma é padrão. Recusar aqui travava a tela
+    /// de Faturamento de Expedição inteira numa base recém-implantada. Pode ser tolerado
+    /// porque o consumo do contrato nesse caminho vem da ORIGEM do documento, não do efeito
+    /// da natureza — o que fica em branco é só metadado fiscal.
+    /// </summary>
     [Fact]
-    public async Task Shipment_billing_fails_when_no_default_usage_is_registered()
+    public async Task Shipment_billing_without_default_usage_resolves_no_usage()
     {
         var db = TestDb.CreateUnitOfWork();
         await SeedUsageAsync(db);
 
         var invoice = Invoice(usageCode: null);
+        invoice.SalesTransactions.Add(Transaction());
+
+        var resolved = await Service(db).ValidateAsync(invoice);
+
+        Assert.Empty(resolved);
+        Assert.Null(invoice.Items.Single().UsageCode);
+    }
+
+    /// <summary>
+    /// A tolerância é da linha SEM natureza, não do documento de romaneio inteiro: linha com
+    /// natureza explícita continua validada, mesmo vindo de romaneio.
+    /// </summary>
+    [Fact]
+    public async Task Shipment_billing_still_validates_an_explicit_usage()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var usageCode = await SeedUsageAsync(db, requiresContract: true);
+
+        var invoice = Invoice(usageCode);
         invoice.SalesTransactions.Add(Transaction());
 
         await Assert.ThrowsAsync<DefaultException>(() =>

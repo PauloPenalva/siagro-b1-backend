@@ -3,7 +3,9 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
 
@@ -31,13 +33,23 @@ public class SalesInvoicesCreateService(
         //
         // A natureza é de LINHA: cada item resolve o próprio CFOP, e um documento pode
         // misturar naturezas (venda numa linha, complemento em outra).
+        //
+        // A lista vem PARCIAL quando o romaneio fatura em base sem natureza padrão: as linhas
+        // ausentes ficam sem natureza e sem CFOP, de propósito.
         var lineUsages = await usageGuard.ValidateAsync(salesInvoice);
+
+        // Documento nascido de romaneio. O caminho avulso tem a coleção vazia.
+        var fromShipmentBilling = salesInvoice.SalesTransactions.Count > 0;
         var cfopByItem = new Dictionary<SalesInvoiceItem, string>();
 
         foreach (var (item, usage) in lineUsages)
         {
-            cfopByItem[item] = await cfopResolve.ResolveAsync(
-                usage.Code, salesInvoice.BranchCode, salesInvoice.CardCode);
+            var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling);
+
+            if (cfop != null)
+            {
+                cfopByItem[item] = cfop;
+            }
 
             // Nome desnormalizado vem do servidor, não da tela — mesmo tratamento de ItemName.
             item.UsageName = usage.Name;
@@ -66,8 +78,9 @@ public class SalesInvoicesCreateService(
                 item.ItemName = (await itemService.GetByIdAsync(item.ItemCode))?.ItemName;
 
                 // CFOP congelado como histórico da linha: mudar o cadastro da natureza
-                // depois não pode mudar o documento já emitido.
-                item.Cfop = cfopByItem[item];
+                // depois não pode mudar o documento já emitido. Ausente quando o cadastro
+                // fiscal ainda não está completo e o documento veio de romaneio.
+                item.Cfop = cfopByItem.GetValueOrDefault(item);
             }
 
             var salesTransactions = new List<Guid>();
@@ -117,6 +130,35 @@ public class SalesInvoicesCreateService(
         {
             logger.LogError("Error: {message}", e.Message);
             throw new ApplicationException(e.Message);
+        }
+    }
+
+    /// <summary>
+    /// CFOP da linha. No documento AVULSO qualquer lacuna do cadastro é erro de negócio e sobe
+    /// para a tela — é lá que a natureza produz efeito no contrato, e o usuário escolheu a
+    /// natureza sabendo disso.
+    ///
+    /// No documento nascido de ROMANEIO o cadastro incompleto não pode barrar o registro: o
+    /// caminhão já saiu e já pesou. As lacunas reais numa base recém-implantada são a UF da
+    /// filial e a UF do parceiro (colunas novas, sem backfill possível) e o CFOP não preenchido
+    /// na natureza. Aqui elas viram aviso no log e a linha nasce sem CFOP — metadado fiscal em
+    /// branco, saldo do contrato intacto.
+    /// </summary>
+    private async Task<string?> ResolveCfopAsync(
+        SalesInvoice salesInvoice, UsageModel usage, bool fromShipmentBilling)
+    {
+        try
+        {
+            return await cfopResolve.ResolveAsync(
+                usage.Code, salesInvoice.BranchCode, salesInvoice.CardCode);
+        }
+        catch (DefaultException e) when (fromShipmentBilling)
+        {
+            logger.LogWarning(
+                "Faturamento de romaneio sem CFOP na natureza {UsageCode}: {Message}",
+                usage.Code, e.Message);
+
+            return null;
         }
     }
 }
