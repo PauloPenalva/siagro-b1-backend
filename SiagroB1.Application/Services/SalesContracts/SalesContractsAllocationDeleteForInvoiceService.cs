@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
@@ -25,7 +26,10 @@ public class SalesContractsAllocationDeleteForInvoiceService(IUnitOfWork db)
         if (allocations.Count == 0)
             return;
 
-        var deletedKeys = allocations.Select(a => a.Key).ToList();
+        // Todas as linhas destes itens estão sendo removidas, então excluir os ITENS da soma
+        // já exclui exatamente as linhas removidas — que continuam visíveis no banco até o
+        // flush. É também o eixo que as fórmulas canônicas de saldo aceitam.
+        var deletedItemKeys = allocations.Select(a => a.SalesInvoiceItemKey).Distinct().ToList();
         var affectedContracts = allocations.Select(a => a.SalesContractKey).Distinct().ToList();
         var affectedReleases = allocations
             .Where(a => a.SalesShipmentReleaseKey != null)
@@ -35,7 +39,9 @@ public class SalesContractsAllocationDeleteForInvoiceService(IUnitOfWork db)
 
         db.Context.SalesContractsAllocations.RemoveRange(allocations);
 
-        // Derivado-da-soma excluindo as linhas removidas (ainda visíveis no banco até o flush).
+        // Derivado-da-soma pelas fórmulas canônicas dos dois eixos, que já aplicam a regra da
+        // entrega (item em aberto consome o nominal; encerrado, o líquido) concentrando a
+        // quebra na linha dona.
         foreach (var contractKey in affectedContracts)
         {
             var contract = await db.Context.SalesContracts
@@ -43,16 +49,8 @@ public class SalesContractsAllocationDeleteForInvoiceService(IUnitOfWork db)
             if (contract is null)
                 continue;
 
-            var remaining = await db.Context.SalesContractsAllocations
-                .Where(a => a.SalesContractKey == contractKey && !deletedKeys.Contains(a.Key))
-                .SumAsync(a => a.Volume *
-                    (a.SalesInvoiceItem!.DeliveryStatus == Domain.Enums.SalesInvoiceDeliveryStatus.Closed
-                     && a.SalesInvoiceItem.Quantity != 0
-                        ? (a.SalesInvoiceItem.DeliveredQuantity - a.SalesInvoiceItem.QuantityLoss)
-                          / a.SalesInvoiceItem.Quantity
-                        : 1m));
-
-            contract.AllocatedVolume = decimal.Round(remaining, 3, MidpointRounding.ToEven);
+            contract.AllocatedVolume = await SalesContractsRecalculateBalanceService
+                .CalculateAllocatedAsync(db.Context, contractKey, deletedItemKeys);
         }
 
         foreach (var releaseKey in affectedReleases)
@@ -62,9 +60,8 @@ public class SalesContractsAllocationDeleteForInvoiceService(IUnitOfWork db)
             if (release is null)
                 continue;
 
-            release.ShippedQuantity = await db.Context.SalesContractsAllocations
-                .Where(a => a.SalesShipmentReleaseKey == releaseKey && !deletedKeys.Contains(a.Key))
-                .SumAsync(a => a.Volume);
+            release.ShippedQuantity = await SalesShipmentReleasesRecalculateShippedService
+                .CalculateShippedAsync(db.Context, releaseKey, deletedItemKeys);
         }
 
         if (commitMode == CommitMode.Auto)

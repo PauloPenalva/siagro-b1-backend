@@ -83,6 +83,14 @@ public class StorageTransaction : DocumentEntity
     /// </summary>
     public Guid? SalesShipmentReleaseKey { get; set; }
     public virtual SalesShipmentRelease? SalesShipmentRelease { get; set; }
+
+    /// <summary>
+    /// Carga em que este romaneio foi montado. FK escalar (e não tabela de junção) porque é o
+    /// único desenho em que o BANCO proíbe "romaneio em duas cargas". Nula enquanto o romaneio
+    /// está solto na Montagem de Carga; o cancelamento da carga volta a zerá-la.
+    /// </summary>
+    public Guid? ShipmentLoadKey { get; set; }
+    public virtual ShipmentLoad? ShipmentLoad { get; set; }
     
     public TransactionCode? TransactionOrigin { get; set; } 
     

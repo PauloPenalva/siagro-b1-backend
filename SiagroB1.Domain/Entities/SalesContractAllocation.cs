@@ -14,6 +14,10 @@ namespace SiagroB1.Domain.Entities;
 /// <see cref="ReallocationGroupKey"/>. Invariante: Σ Volume por item = consumo nominal
 /// do item (uma realocação soma zero por item, apenas move volume entre contratos e
 /// liberações).
+///
+/// A quebra de entrega NÃO entra no <see cref="Volume"/>: ela é descontada no recálculo do
+/// saldo, inteira, da linha marcada com <see cref="OwnsDeliveryDifference"/> — nos DOIS
+/// eixos derivados deste ledger, o contrato e a liberação de entrega.
 /// </summary>
 [Table("SALES_CONTRACTS_ALLOCATIONS")]
 [Index(nameof(SalesContractKey))]
@@ -39,11 +43,29 @@ public class SalesContractAllocation : BaseEntity
 
     /// <summary>
     /// Volume nominal ASSINADO: faturamento +, devolução −, realocação par −/+.
-    /// Quebra de entrega não altera a linha — o fator efetivo é aplicado no recálculo
-    /// do contrato (ver SalesContractsRecalculateBalanceService).
+    /// Quebra de entrega não altera a linha — ela é descontada no recálculo do contrato E da
+    /// liberação de entrega, e SÓ da linha marcada com <see cref="OwnsDeliveryDifference"/>
+    /// (ver SalesContractsRecalculateBalanceService e
+    /// SalesShipmentReleasesRecalculateShippedService).
     /// </summary>
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal Volume { get; set; }
+
+    /// <summary>
+    /// Marca a ÚNICA linha do item que carrega a diferença de entrega INTEIRA. Quando um
+    /// item é dividido entre vários contratos, a quebra apurada na conferência não é
+    /// rateada: ela sai toda do contrato desta linha, e as demais consomem o volume nominal.
+    ///
+    /// Nasce na linha do faturamento (a mais antiga do item) e ACOMPANHA O VOLUME quando uma
+    /// realocação zera o líquido do contrato dono — a titularidade é gravada, nunca inferida
+    /// na leitura. Quem mantém a regra é
+    /// <c>SalesContractsDeliveryDifferenceOwnerService</c>, chamado por todo caminho que
+    /// mexe no ledger; o estorno se auto-corrige por ela, sem bookkeeping.
+    ///
+    /// Invariante "um dono por item" travada no banco por índice único filtrado
+    /// (<c>WHERE OwnsDeliveryDifference = 1</c>).
+    /// </summary>
+    public bool OwnsDeliveryDifference { get; set; }
 
     /// <summary>Snapshot de <see cref="SalesInvoiceItem.UnitPrice"/> no momento da gravação.</summary>
     [Column(TypeName = "DECIMAL(18,8) DEFAULT 0")]

@@ -85,7 +85,13 @@ public class SalesContractsAllocationCreateService(
             await db.Context.SalesContractsAllocations.AddAsync(allocation);
         }
 
+        // Cada item recebe aqui a sua PRIMEIRA linha do ledger (o filtro de idempotência
+        // acima já descartou os que têm linha): ela nasce dona da diferença de entrega.
+        foreach (var group in pending.GroupBy(a => a.SalesInvoiceItemKey))
+            SalesContractsDeliveryDifferenceOwnerService.EnsureOwner(group.ToList());
+
         // Derivado-da-soma (nunca incremental): Σ do banco + linhas pendentes desta chamada.
+        // Nenhuma linha persistida destes itens existe, então a soma SQL não lê flag antiga.
         foreach (var contractKey in contractKeys)
         {
             var contract = contracts[contractKey];
@@ -93,8 +99,8 @@ public class SalesContractsAllocationCreateService(
                 .CalculateAllocatedAsync(db.Context, contractKey);
             var pendingSum = pending
                 .Where(a => a.SalesContractKey == contractKey)
-                .Sum(a => a.Volume * SalesContractsRecalculateBalanceService.EffectiveFactor(
-                    items.First(i => i.Key!.Value == a.SalesInvoiceItemKey)));
+                .Sum(a => SalesContractsRecalculateBalanceService.EffectiveVolume(
+                    a, items.First(i => i.Key!.Value == a.SalesInvoiceItemKey)));
 
             contract.AllocatedVolume = decimal.Round(persisted + pendingSum, 3, MidpointRounding.ToEven);
         }

@@ -181,6 +181,14 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(WeighingTicket))
             .AddProperty(typeof(WeighingTicket).GetProperty(nameof(WeighingTicket.GrossWeight)));
         modelBuilder.EntitySet<QualityInspection>("WeighingTicketsQualityInspections");
+        modelBuilder.EntitySet<ShipmentLoad>("ShipmentLoads");
+        // [NotMapped] tira a propriedade do EDM tambem - sem estes dois AddProperty o
+        // =AvailableQuantity devolve 400 e a tela nao consegue mostrar o saldo.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoad))
+            .AddProperty(typeof(ShipmentLoad).GetProperty(nameof(ShipmentLoad.AvailableQuantity)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoad))
+            .AddProperty(typeof(ShipmentLoad).GetProperty(nameof(ShipmentLoad.IsFullyInvoiced)));
+        modelBuilder.EntitySet<ShipmentLoadMovement>("ShipmentLoadMovements");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
@@ -467,6 +475,20 @@ public static class ODataConfigurations
         salesShipmentReleasesApprovation.Parameter<Guid>("Key");
         salesShipmentReleasesApprovation.Returns<IActionResult>();
 
+        var shipmentLoadsCreate = modelBuilder.Action("ShipmentLoadsCreate");
+        shipmentLoadsCreate.CollectionParameter<Guid>("StorageTransactionKeys");
+        shipmentLoadsCreate.Parameter<string>("Comments").Optional();
+        shipmentLoadsCreate.Returns<IActionResult>();
+
+        var shipmentLoadsCancel = modelBuilder.Action("ShipmentLoadsCancel");
+        shipmentLoadsCancel.Parameter<Guid>("Key");
+        shipmentLoadsCancel.Parameter<string>("CancellationReason");
+        shipmentLoadsCancel.Returns<IActionResult>();
+
+        var shipmentLoadsRecalculateInvoiced = modelBuilder.Action("ShipmentLoadsRecalculateInvoiced");
+        shipmentLoadsRecalculateInvoiced.Parameter<Guid>("Key");
+        shipmentLoadsRecalculateInvoiced.Returns<IActionResult>();
+
         var salesShipmentReleasesCancelation = modelBuilder.Action("SalesShipmentReleasesCancelation");
         salesShipmentReleasesCancelation.Parameter<Guid>("Key");
         salesShipmentReleasesCancelation.Parameter<string>("CancellationReason");
@@ -496,6 +518,11 @@ public static class ODataConfigurations
 
         var salesShipmentReleasesGetAvailable = modelBuilder.Function("SalesShipmentReleasesGetAvailable");
         salesShipmentReleasesGetAvailable.Parameter<string>("ItemCode");
+        // Escape do filtro de saldo do contrato. NAO existe guard de saldo no faturamento
+        // (decisao de 21/08/2026, ancorada no <remarks> de ShipmentBillingCreateSalesInvoiceService):
+        // este parametro so muda o que a lista MOSTRA, nunca o que o servico aceita. Opcional para
+        // a rota de um parametro so continuar valida.
+        salesShipmentReleasesGetAvailable.Parameter<bool>("IncludeContractsWithoutBalance").Optional();
         salesShipmentReleasesGetAvailable.Returns<ICollection<SalesShipmentReleaseAvailableDto>>();
 
         var salesContractsClose = modelBuilder.Action("SalesContractsClose");
@@ -606,9 +633,11 @@ public static class ODataConfigurations
         shipmentBillingCreateSalesInvoice.EntityParameter<SalesInvoice>("SalesInvoice");
         shipmentBillingCreateSalesInvoice.Returns<IActionResult>();
         
-        var shipmentBillingDelete = modelBuilder.Action("ShipmentBillingDeleteInvoice");
-        shipmentBillingDelete.Parameter<Guid>("Key");
-        shipmentBillingDelete.Returns<IActionResult>();
+        // Era ShipmentBillingDeleteInvoice. Renomeada junto com o serviço: o estorno desfaz a
+        // EXPEDIÇÃO, não o faturamento, e saiu da tela de faturamento para a Montagem de Carga.
+        var shippingTransactionsReverse = modelBuilder.Action("ShippingTransactionsReverse");
+        shippingTransactionsReverse.Parameter<Guid>("Key");
+        shippingTransactionsReverse.Returns<IActionResult>();
 
         var salesInvoicesCancel = modelBuilder.Action("SalesInvoicesCancel");
         salesInvoicesCancel.Parameter<Guid>("Key");

@@ -30,15 +30,36 @@ public class SalesShipmentReleasesRecalculateShippedServiceTests
     }
 
     private SalesContractAllocation Alloc(Guid? releaseKey, decimal volume,
-        SalesContractAllocationOrigin origin = SalesContractAllocationOrigin.Billing) => new()
+        SalesContractAllocationOrigin origin = SalesContractAllocationOrigin.Billing,
+        Guid? itemKey = null, bool owner = false) => new()
     {
         Key = Guid.NewGuid(),
         SalesContractKey = Guid.NewGuid(),
-        SalesInvoiceItemKey = Guid.NewGuid(),
+        SalesInvoiceItemKey = itemKey ?? Guid.NewGuid(),
         SalesShipmentReleaseKey = releaseKey,
         Volume = volume,
         Origin = origin,
+        OwnsDeliveryDifference = owner,
     };
+
+    private SalesInvoiceItem SeedItem(
+        decimal quantity,
+        SalesInvoiceDeliveryStatus deliveryStatus = SalesInvoiceDeliveryStatus.Open,
+        decimal delivered = 0m, decimal loss = 0m)
+    {
+        var item = new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(),
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            Quantity = quantity,
+            DeliveredQuantity = delivered,
+            QuantityLoss = loss,
+            DeliveryStatus = deliveryStatus,
+        };
+        _db.Context.SalesInvoicesItems.Add(item);
+        return item;
+    }
 
     private async Task<decimal> ShippedAsync(Guid key) =>
         (await _db.Context.SalesShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == key)).ShippedQuantity;
@@ -112,6 +133,72 @@ public class SalesShipmentReleasesRecalculateShippedServiceTests
         await Service().RecalculateAsync(sr.Key);
 
         Assert.Equal(0m, await ShippedAsync(sr.Key));
+    }
+
+    [Fact]
+    public async Task Recalc_OpenItem_DeductsNominalQuantity()
+    {
+        // Entrega ainda não conferida: consome o volume nominal, mesmo que a balança do
+        // cliente já tenha números lançados.
+        var sr = await SeedReleaseAsync(released: 1000m);
+        var item = SeedItem(100m, SalesInvoiceDeliveryStatus.Open, delivered: 90m);
+        _db.Context.SalesContractsAllocations.Add(
+            Alloc(sr.Key, 100m, itemKey: item.Key!.Value, owner: true));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(100m, await ShippedAsync(sr.Key));
+    }
+
+    [Fact]
+    public async Task Recalc_ClosedItemWithLoss_DeductsNetQuantity()
+    {
+        // Mesma regra do contrato: entrega encerrada consome o líquido (entregue − perda),
+        // devolvendo a quebra ao saldo da liberação.
+        var sr = await SeedReleaseAsync(released: 1000m);
+        var item = SeedItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 95m, loss: 5m);
+        _db.Context.SalesContractsAllocations.Add(
+            Alloc(sr.Key, 100m, itemKey: item.Key!.Value, owner: true));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(90m, await ShippedAsync(sr.Key));
+    }
+
+    [Fact]
+    public async Task Recalc_ClosedItemSplitBetweenReleases_ShortageFallsOnOwnerReleaseOnly()
+    {
+        // Item dividido em duas liberações: a quebra não é rateada, sai inteira da
+        // liberação da linha dona (mesma concentração do contrato).
+        var owner = await SeedReleaseAsync(released: 1000m);
+        var other = await SeedReleaseAsync(released: 1000m);
+        var item = SeedItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 92m, loss: 2m);
+        _db.Context.SalesContractsAllocations.AddRange(
+            Alloc(owner.Key, 60m, itemKey: item.Key!.Value, owner: true),
+            Alloc(other.Key, 40m, itemKey: item.Key!.Value));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(owner.Key);
+        await Service().RecalculateAsync(other.Key);
+
+        Assert.Equal(50m, await ShippedAsync(owner.Key)); // 60 − 10 de quebra
+        Assert.Equal(40m, await ShippedAsync(other.Key)); // nominal
+    }
+
+    [Fact]
+    public async Task Recalc_ClosedItemWithoutShortage_DeductsNominalQuantity()
+    {
+        var sr = await SeedReleaseAsync(released: 1000m);
+        var item = SeedItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 100m);
+        _db.Context.SalesContractsAllocations.Add(
+            Alloc(sr.Key, 100m, itemKey: item.Key!.Value, owner: true));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(100m, await ShippedAsync(sr.Key));
     }
 
     [Theory]

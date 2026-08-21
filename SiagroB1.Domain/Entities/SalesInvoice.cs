@@ -101,6 +101,14 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     public ICollection<SalesInvoiceChangeLog> ChangeLogs { get; set; } = [];
     
+    /// <summary>
+    /// Carga que este documento consome. No cabeçalho porque uma nota consome de UMA carga.
+    /// A nulidade é o discriminador de fluxo: nula = documento legado (por romaneio solto) ou
+    /// avulso; preenchida = documento de carga, que não escreve SalesTransactions.
+    /// </summary>
+    public Guid? ShipmentLoadKey { get; set; }
+    public virtual ShipmentLoad? ShipmentLoad { get; set; }
+
     public Guid? SalesInvoiceOriginKey { get; set; }
     public SalesInvoice? SalesInvoiceOrigin { get; set; }
     

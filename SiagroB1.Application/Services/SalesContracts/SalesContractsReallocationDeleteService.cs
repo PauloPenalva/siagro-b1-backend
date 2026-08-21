@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -118,27 +119,30 @@ public class SalesContractsReallocationDeleteService(
 
         db.Context.SalesContractsAllocations.RemoveRange(group);
 
-        // Recalcs derivado-da-soma excluindo as linhas removidas.
-        foreach (var contract in contracts.Values)
-        {
-            var remaining = await db.Context.SalesContractsAllocations
-                .Where(a => a.SalesContractKey == contract.Key && !deletedKeys.Contains(a.Key))
-                .SumAsync(a => a.Volume *
-                    (a.SalesInvoiceItem!.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed
-                     && a.SalesInvoiceItem.Quantity != 0
-                        ? (a.SalesInvoiceItem.DeliveredQuantity - a.SalesInvoiceItem.QuantityLoss)
-                          / a.SalesInvoiceItem.Quantity
-                        : 1m));
+        // Titularidade da diferença sobre o que SOBROU do item. Se a linha dona era uma das
+        // removidas, a regra reelege sozinha (tipicamente a do faturamento) — é o que dispensa
+        // o estorno de qualquer bookkeeping de titularidade.
+        var remainingItemLines = await db.Context.SalesContractsAllocations
+            .Include(a => a.SalesInvoiceItem)
+            .Where(a => a.SalesInvoiceItemKey == itemKey && !deletedKeys.Contains(a.Key))
+            .ToListAsync();
 
-            contract.AllocatedVolume = decimal.Round(remaining, 3, MidpointRounding.ToEven);
-        }
+        SalesContractsDeliveryDifferenceOwnerService.EnsureOwner(remainingItemLines);
 
-        foreach (var release in releases.Values)
-        {
-            release.ShippedQuantity = await db.Context.SalesContractsAllocations
-                .Where(a => a.SalesShipmentReleaseKey == release.Key && !deletedKeys.Contains(a.Key))
-                .SumAsync(a => a.Volume);
-        }
+        // O grupo inteiro é sempre do mesmo item, então excluir o item da soma SQL já exclui
+        // as linhas removidas — que ainda estão no banco, porque o SaveChanges vem depois.
+        var item = await db.Context.SalesInvoicesItems.FirstAsync(i => i.Key == itemKey);
+
+        await SalesContractsRecalculateBalanceService.RecalculateForTouchedItemAsync(
+            db.Context, itemKey, item, remainingItemLines,
+            extraContractKeys: contracts.Keys);
+
+        // Mesma regra do contrato — o estorno devolve o LÍQUIDO à liberação de origem quando
+        // a entrega já foi conferida. As liberações do grupo entram por extraReleaseKeys: a
+        // do destino pode ter perdido a única linha do item e não apareceria em
+        // remainingItemLines.
+        await SalesShipmentReleasesRecalculateShippedService.RecalculateForTouchedItemAsync(
+            db.Context, itemKey, item, remainingItemLines, extraReleaseKeys: releases.Keys);
 
         await db.SaveChangesAsync();
 

@@ -14,13 +14,38 @@ public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
     /// Espelho em SQL da regra <see cref="Domain.Entities.SalesShipmentRelease.AvailableQuantity"/>
     /// (EF não traduz a propriedade [NotMapped]).
     /// </summary>
-    public IQueryable<SalesShipmentReleaseAvailableDto> Query(string itemCode)
+    /// <param name="includeContractsWithoutBalance">
+    /// Remove APENAS a cláusula de saldo do CONTRATO, revelando contratos com saldo zero ou
+    /// negativo. A cláusula <c>Status == Approved</c> e o filtro de saldo da LIBERAÇÃO
+    /// continuam valendo nos dois casos.
+    /// <para>
+    /// É conveniência de consulta, não autorização: o faturamento <b>não tem guard de saldo de
+    /// contrato</b> (ver o <c>&lt;remarks&gt;</c> de
+    /// <c>ShipmentBillingCreateSalesInvoiceService</c>), então ligar ou desligar isto não muda
+    /// o que o serviço aceita — só o que a lista mostra. O escape existe justamente para o
+    /// filtro não virar a trava que aquela decisão removeu: esconder o contrato sem saldo
+    /// levaria o usuário a criar um contrato "AJUSTE DE SALDO", que é o desfecho que a
+    /// decisão evita.
+    /// </para>
+    /// </param>
+    public IQueryable<SalesShipmentReleaseAvailableDto> Query(
+        string itemCode, bool includeContractsWithoutBalance = false)
     {
-        return db.Context.SalesShipmentReleases
+        var query = db.Context.SalesShipmentReleases
             .Where(r => r.Status == ReleaseStatus.Actived
                         && r.SalesContract != null
                         && r.SalesContract.ItemCode == itemCode
-                        && (r.ReleasedQuantity - r.ShippedQuantity) > 0)
+                        && r.SalesContract.Status == ContractStatus.Approved
+                        && (r.ReleasedQuantity - r.ShippedQuantity) > 0);
+
+        if (!includeContractsWithoutBalance)
+        {
+            // Expandido em SQL porque AvaiableVolume é [NotMapped] e o EF não o traduz.
+            query = query.Where(r =>
+                r.SalesContract!.TotalVolume - r.SalesContract.AllocatedVolume > 0);
+        }
+
+        return query
             .OrderByDescending(r => r.RowId)
             .Select(r => new SalesShipmentReleaseAvailableDto
             {
@@ -40,6 +65,9 @@ public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
                 DeliveryLocationCode = r.DeliveryLocationCode,
                 DeliveryLocationName = r.DeliveryLocationName,
                 AvailableQuantity = r.ReleasedQuantity - r.ShippedQuantity,
+                SalesContractStatus = r.SalesContract.Status,
+                SalesContractAvailableVolume =
+                    r.SalesContract.TotalVolume - r.SalesContract.AllocatedVolume,
             });
     }
 }

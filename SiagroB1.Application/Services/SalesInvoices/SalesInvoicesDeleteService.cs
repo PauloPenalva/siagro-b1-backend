@@ -1,30 +1,40 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
-public class SalesInvoicesDeleteService(IUnitOfWork db, ILogger<SalesInvoicesDeleteService> logger)
+public class SalesInvoicesDeleteService(
+    IUnitOfWork db,
+    ShipmentLoadsBalanceHookService loadHook,
+    ILogger<SalesInvoicesDeleteService> logger)
 {
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(Guid key, string userName)
     {
-        return await DeleteAsyncWithTransaction(key, async entity =>
+        return await DeleteAsyncWithTransaction(key, userName, async entity =>
         {
             if (entity.InvoiceStatus != InvoiceStatus.Pending)
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
             
             await db.Context.Entry(entity).Collection(e => e.Items).LoadAsync();
-            
+
+            // Excluir um RETORNO tem o mesmo efeito do cancelamento sobre a origem: o
+            // documento deixa de existir, então o status "Retornado" e o fechamento da
+            // entrega que ele aplicou são desfeitos. No-op para documento normal.
+            await SalesInvoicesReturnOriginRestoreService.ExecuteAsync(
+                db.Context, entity, userName);
+
             if (entity.Items.Any())
                 db.Context.SalesInvoicesItems.RemoveRange(entity.Items);
-            
+
             await db.SaveChangesAsync();
         });
     }
     
-    private async Task<bool> DeleteAsyncWithTransaction(Guid key, Func<SalesInvoice, Task>? preDeleteAction = null)
+    private async Task<bool> DeleteAsyncWithTransaction(Guid key, string userName, Func<SalesInvoice, Task>? preDeleteAction = null)
     {
         try
         {
@@ -44,6 +54,22 @@ public class SalesInvoicesDeleteService(IUnitOfWork db, ILogger<SalesInvoicesDel
 
             db.Context.SalesInvoices.Remove(entity);
             
+            await db.SaveChangesAsync();
+
+            // Saldo da carga, DEPOIS do flush do Remove. E ainda com excludedInvoiceKeys como
+            // cinto de segurança: a nota removida só some do SumAsync depois do flush, e
+            // depender só disso deixaria o resultado à mercê da ordem das operações.
+            //
+            // Aqui o discriminador tem de ser o ESCALAR ShipmentLoadKey: este serviço não faz
+            // Include de SalesTransactions, então SalesInvoiceOriginResolver.Resolve navegaria
+            // numa coleção não carregada.
+            await loadHook.ApplyAsync(
+                entity,
+                ShipmentLoadMovementType.BillingDeleted,
+                userName,
+                $"Documento de saída {entity.InvoiceNumber} excluído.",
+                excludedInvoiceKeys: [entity.Key]);
+
             await db.SaveChangesAsync();
             await db.CommitAsync();
             return true;

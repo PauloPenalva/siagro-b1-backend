@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+using SiagroB1.Domain.Enums;
+
 namespace SiagroB1.Domain.Dtos;
 
 /// <summary>
@@ -56,4 +58,19 @@ public class SalesShipmentReleaseAvailableDto
 
     [JsonPropertyName("AvailableQuantity")]
     public decimal AvailableQuantity { get; set; }
+
+    /// <summary>
+    /// Situação do contrato de venda. Sempre <c>Approved</c> na lista — vem no DTO para a tela
+    /// exibir, não para filtrar de novo.
+    /// </summary>
+    [JsonPropertyName("SalesContractStatus")]
+    public ContractStatus? SalesContractStatus { get; set; }
+
+    /// <summary>
+    /// Saldo do contrato de venda, podendo ser NEGATIVO quando a lista é pedida com
+    /// <c>includeContractsWithoutBalance</c>. A tela mostra o número para o usuário decidir:
+    /// o faturamento não valida saldo de contrato.
+    /// </summary>
+    [JsonPropertyName("SalesContractAvailableVolume")]
+    public decimal SalesContractAvailableVolume { get; set; }
 }

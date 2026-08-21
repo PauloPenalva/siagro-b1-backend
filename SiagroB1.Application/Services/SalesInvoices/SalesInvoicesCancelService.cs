@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -13,6 +14,7 @@ public class SalesInvoicesCancelService(
     IUnitOfWork db,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
+    ShipmentLoadsBalanceHookService loadHook,
     ILogger<SalesInvoicesCancelService> logger)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -72,11 +74,29 @@ public class SalesInvoicesCancelService(
             // contratos e liberações derivado-da-soma, na mesma transação.
             await allocationDelete.ExecuteAsync(key, userName, CommitMode.Deferred);
 
+            // Cancelar um RETORNO faz o documento deixar de valer: a origem volta a
+            // "Confirmada" e a entrega reabre. Depois do allocationDelete, para que o
+            // recálculo da restauração seja o último a rodar. No-op para documento normal.
+            await SalesInvoicesReturnOriginRestoreService.ExecuteAsync(
+                db.Context, existingInvoice, userName);
+
             await db.SaveChangesAsync();
 
             // Romaneios voltaram a Confirmed e perderam a chave → o saldo liberado é restaurado.
+            // No fluxo da CARGA a coleção nasce vazia e este laço é no-op: allocationDelete já
+            // recalcula contratos E liberações a partir do ledger. Não é esquecimento.
             foreach (var releaseKey in affectedReleaseKeys)
                 await recalcShipped.RecalculateAsync(releaseKey);
+
+            // Saldo da carga. Vale para os DOIS tipos: cancelar uma nota normal devolve saldo,
+            // cancelar uma devolução volta a consumi-lo — o gancho deriva o sinal do delta.
+            await loadHook.ApplyAsync(
+                existingInvoice,
+                ShipmentLoadMovementType.BillingCancelled,
+                userName,
+                $"Documento de saída {existingInvoice.InvoiceNumber} cancelado.");
+
+            await db.SaveChangesAsync();
 
             await db.CommitAsync();
         }

@@ -19,6 +19,7 @@ using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentBilling;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
@@ -336,7 +337,7 @@ public static class ServiceCollectionExtensions
         // shipment billing
         services.AddScoped<ShipmentBillingCreateSalesInvoiceService>();
         services.AddScoped<ShipmentBillingTransactionGuardService>();
-        services.AddScoped<ShipmentBillingDeleteService>();
+        services.AddScoped<ShippingTransactionsReverseService>();
         
         // shipment releases
         services.AddScoped<ShipmentReleasesRecalculateShippedService>();
@@ -369,6 +370,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesShipmentReleasesUpdateService>();
         services.AddScoped<SalesShipmentReleasesPauseService>();
         services.AddScoped<SalesShipmentReleasesGetAvailableService>();
+        services.AddScoped<ShipmentLoadsCreateService>();
+        services.AddScoped<ShipmentLoadsCancelService>();
+        services.AddScoped<ShipmentLoadsGetService>();
+        services.AddScoped<ShipmentLoadsMovementLogService>();
+        services.AddScoped<ShipmentLoadsBillingGuardService>();
+        services.AddScoped<ShipmentLoadsRecalculateInvoicedService>();
+        services.AddScoped<ShipmentLoadsBalanceHookService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();

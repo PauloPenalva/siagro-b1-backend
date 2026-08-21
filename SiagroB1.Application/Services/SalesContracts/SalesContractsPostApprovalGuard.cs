@@ -5,13 +5,15 @@ using SiagroB1.Domain.Exceptions;
 namespace SiagroB1.Application.Services.SalesContracts;
 
 /// <summary>
-/// Regra única de quem pode sofrer edição pontual (observação, locais de entrega, anexos)
-/// depois de aprovado.
+/// Regra única de quem pode sofrer edição pontual (locais de entrega) depois de aprovado.
 ///
 /// O contrato aprovado é imutável em tudo o mais — <c>SalesContractsUpdateService</c> segue
-/// recusando qualquer edição fora de Draft. Estes três pontos são a exceção deliberada: sem
-/// eles um contrato aprovado e já faturado nunca conseguiria cadastrar o local de entrega
+/// recusando qualquer edição fora de Draft. O local de entrega é a exceção deliberada: sem
+/// ele um contrato aprovado e já faturado nunca conseguiria cadastrar o local de entrega
 /// exigido pela liberação de entrega, porque também não pode voltar para Draft.
+///
+/// Anexo NÃO passa mais por aqui: é documentação, não movimento, e vale em qualquer status
+/// (ver <c>SalesContractsAttachmentsCreateService</c>).
 /// </summary>
 public static class SalesContractsPostApprovalGuard
 {
@@ -24,6 +26,6 @@ public static class SalesContractsPostApprovalGuard
 
         throw new DefaultException(
             "Contrato de venda não permite alteração neste status: só é possível alterar " +
-            "observação, locais de entrega e anexos em contrato em rascunho ou aprovado.");
+            "locais de entrega em contrato em rascunho ou aprovado.");
     }
 }

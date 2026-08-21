@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -13,6 +14,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesReturnService(
     IUnitOfWork db, 
     SalesInvoicesCreateService createService,
+    ShipmentLoadsBalanceHookService loadHook,
     ILogger<SalesInvoicesReturnService> logger)
 {
     public async Task<SalesInvoice> ExecuteAsync(Guid key, string userName)
@@ -69,6 +71,18 @@ public class SalesInvoicesReturnService(
             await SalesContractsRecalculateBalanceService.RecalculateForItemsAsync(
                 db.Context,
                 originalInvoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList());
+
+            await db.SaveChangesAsync();
+
+            // Carga: CRIAR a devolução não devolve saldo — a origem vira Returned e Returned
+            // continua consumindo. O saldo volta quando a devolução for CONFIRMADA, que é onde
+            // o projeto considera que ela de fato ocorreu. O movimento aqui é só narrativa; o
+            // gancho grava delta zero e registra a intenção no histórico.
+            await loadHook.ApplyAsync(
+                originalInvoice,
+                ShipmentLoadMovementType.ReturnRequested,
+                userName,
+                $"Devolução {returnInvoice.InvoiceNumber} criada para o documento {originalInvoice.InvoiceNumber}.");
 
             await db.SaveChangesAsync();
 

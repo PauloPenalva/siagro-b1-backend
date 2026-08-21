@@ -47,6 +47,76 @@ public class SalesContractsAllocationDeleteForInvoiceServiceTests
         Assert.Equal(0m, (await ReleaseAsync(_db, releaseB.Key)).ShippedQuantity);
     }
 
+    /// <summary>
+    /// O que SOBREVIVE ao cancelamento é reavaliado pela mesma regra dos demais caminhos:
+    /// item com entrega encerrada consome o líquido, tanto no contrato quanto na liberação.
+    /// </summary>
+    [Fact]
+    public async Task Execute_SurvivingClosedLine_RecalculatesWithNetQuantity()
+    {
+        var contract = NewContract(totalVolume: 1000m);
+        var release = NewRelease(contract.Key, released: 500m, shipped: 300m);
+        contract.AllocatedVolume = 300m;
+
+        var cancelled = NewInvoice();
+        var cancelledItem = NewItem(cancelled, contract.Key, release.Key, quantity: 200m);
+
+        var survivor = NewInvoice();
+        var survivorItem = NewItem(survivor, contract.Key, release.Key, quantity: 100m);
+        survivorItem.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        survivorItem.DeliveredQuantity = 90m; // quebra de 10
+
+        var survivorLine = NewAllocation(contract.Key, survivorItem.Key!.Value, 100m, release.Key);
+        survivorLine.OwnsDeliveryDifference = true;
+
+        _db.Context.AddRange(contract, release, cancelled, survivor);
+        _db.Context.SalesContractsAllocations.AddRange(
+            NewAllocation(contract.Key, cancelledItem.Key!.Value, 200m, release.Key),
+            survivorLine);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(cancelled.Key, "tester");
+
+        Assert.Equal(90m, (await ContractAsync(_db, contract.Key)).AllocatedVolume);
+        Assert.Equal(90m, (await ReleaseAsync(_db, release.Key)).ShippedQuantity);
+    }
+
+    /// <summary>
+    /// Item sobrevivente dividido entre contratos: a quebra não é rateada, sai inteira da
+    /// linha dona — o mesmo que os demais recálculos fazem.
+    /// </summary>
+    [Fact]
+    public async Task Execute_SurvivingSplitItem_ConcentratesShortageOnOwnerLine()
+    {
+        var a = NewContract(totalVolume: 1000m);
+        var b = NewContract(totalVolume: 1000m);
+        a.AllocatedVolume = 260m;
+        b.AllocatedVolume = 40m;
+
+        var cancelled = NewInvoice();
+        var cancelledItem = NewItem(cancelled, a.Key, null, quantity: 200m);
+
+        var survivor = NewInvoice();
+        var survivorItem = NewItem(survivor, a.Key, null, quantity: 100m);
+        survivorItem.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        survivorItem.DeliveredQuantity = 90m; // quebra de 10
+
+        var ownerLine = NewAllocation(a.Key, survivorItem.Key!.Value, 60m);
+        ownerLine.OwnsDeliveryDifference = true;
+
+        _db.Context.AddRange(a, b, cancelled, survivor);
+        _db.Context.SalesContractsAllocations.AddRange(
+            NewAllocation(a.Key, cancelledItem.Key!.Value, 200m),
+            ownerLine,
+            NewAllocation(b.Key, survivorItem.Key!.Value, 40m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(cancelled.Key, "tester");
+
+        Assert.Equal(50m, (await ContractAsync(_db, a.Key)).AllocatedVolume); // 60 − 10
+        Assert.Equal(40m, (await ContractAsync(_db, b.Key)).AllocatedVolume); // nominal
+    }
+
     [Fact]
     public async Task Execute_KeepsAllocationsOfOtherInvoices()
     {

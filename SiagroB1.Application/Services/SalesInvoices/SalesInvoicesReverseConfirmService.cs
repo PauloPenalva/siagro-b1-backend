@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -13,6 +14,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesReverseConfirmService(
     IUnitOfWork db,
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
+    ShipmentLoadsBalanceHookService loadHook,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -76,6 +78,21 @@ public class SalesInvoicesReverseConfirmService(
 
             await db.SaveChangesAsync();
 
+            // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
+            // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é
+            // cancelar ou excluir, não estornar. Desfazer no mesmo nível em que o efeito foi
+            // aplicado.
+            if (invoice.InvoiceType == SalesInvoiceType.Return)
+            {
+                await loadHook.ApplyAsync(
+                    invoice,
+                    ShipmentLoadMovementType.ReturnReversed,
+                    userName,
+                    $"Confirmação da devolução {invoice.InvoiceNumber} estornada: saldo consumido de novo.");
+
+                await db.SaveChangesAsync();
+            }
+
             await db.CommitAsync();
         }
         catch
@@ -126,12 +143,16 @@ public class SalesInvoicesReverseConfirmService(
 
         var originInvoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
+            .Include(x => x.Items)
             .FirstOrDefaultAsync(
                 x => x.Key == returnInvoice.SalesInvoiceOriginKey)
             ?? throw new ApplicationException(
                 "Origin invoice not found.");
 
-        originInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
+        // O estorno NÃO mexe no status nem na entrega da origem: esses efeitos nascem com a
+        // CRIAÇÃO do retorno e só o cancelamento/exclusão os desfaz
+        // (SalesInvoicesReturnOriginRestoreService). Aqui o retorno volta a Pendente, mas
+        // continua existindo — a origem segue retornada.
         originInvoice.UpdatedAt = DateTime.Now;
         originInvoice.UpdatedBy = userName;
 
@@ -185,19 +206,25 @@ public class SalesInvoicesReverseConfirmService(
     {
         var originInvoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
+            .Include(x => x.Items)
             .FirstOrDefaultAsync(
                 x => x.Key == returnInvoice.SalesInvoiceOriginKey)
             ?? throw new ApplicationException(
                 "Origin invoice not found.");
-        
-        originInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
+
+        // Mesma regra do fluxo novo: o estorno não desfaz o que a criação do retorno aplicou
+        // na origem.
         originInvoice.UpdatedAt = DateTime.Now;
         originInvoice.UpdatedBy = userName;
-        
+
         var orphanTransactions =
             await db.Context.StorageTransactions
                 .Where(x =>
                     x.SalesInvoiceKey == null &&
+                    // Romaneio montado em carga NÃO é órfão. O critério abaixo (mesmo cliente,
+                    // mesmo produto) é largo o bastante para sequestrar um romaneio de outra
+                    // carga, possivelmente já faturada.
+                    x.ShipmentLoadKey == null &&
                     x.TransactionStatus ==
                         StorageTransactionsStatus.Confirmed &&
                     x.CardCode ==

@@ -32,10 +32,10 @@ public class SalesInvoicesUsageGuardService(IUsage usageService)
 
         foreach (var item in invoice.Items)
         {
-            var usage = await ResolveForItemAsync(invoice, item, cache);
+            var usage = await ResolveForItemAsync(item, cache);
 
-            // Sem natureza resolvida — romaneio em base sem natureza padrão. A linha nasce
-            // sem natureza e sem CFOP em vez de derrubar o faturamento.
+            // Sem natureza resolvida — base sem natureza padrão. A linha nasce sem natureza
+            // e sem CFOP em vez de derrubar o documento.
             if (usage is null)
             {
                 continue;
@@ -56,11 +56,11 @@ public class SalesInvoicesUsageGuardService(IUsage usageService)
     }
 
     private async Task<UsageModel?> ResolveForItemAsync(
-        SalesInvoice invoice, SalesInvoiceItem item, Dictionary<int, UsageModel> cache)
+        SalesInvoiceItem item, Dictionary<int, UsageModel> cache)
     {
         if (item.UsageCode is not { } usageCode)
         {
-            return await ResolveDefaultForShipmentBillingAsync(invoice);
+            return await ResolveDefaultUsageAsync();
         }
 
         if (cache.TryGetValue(usageCode, out var cached))
@@ -123,27 +123,22 @@ public class SalesInvoicesUsageGuardService(IUsage usageService)
     }
 
     /// <summary>
-    /// O faturamento de romaneio não escolhe natureza em tela: usa a marcada como padrão.
-    /// A regra vale SÓ para o documento nascido de romaneio — no avulso a natureza é sempre
-    /// explícita, senão um erro de tela viraria efeito silencioso no contrato.
+    /// Linha sem natureza escolhida usa a marcada como padrão. Vale para QUALQUER caminho: o
+    /// faturamento de romaneio não escolhe natureza em tela, e o retorno de documento de saída
+    /// nasce da cópia do original, cujas linhas chegam aqui sem natureza.
     ///
-    /// Não havendo natureza padrão, devolve <c>null</c> e o romaneio fatura sem natureza.
+    /// Não havendo natureza padrão, devolve <c>null</c> e o documento nasce sem natureza —
+    /// a natureza deixou de ser obrigatória no documento avulso.
     /// É o retrato do modo SAPB1: a identidade vem do OUSG e o efeito de <c>USAGE_EFFECTS</c>,
     /// tabela do Siagro que nasce vazia — nenhuma natureza é padrão numa base recém-implantada,
     /// e recusar aqui travava a tela de Faturamento de Expedição inteira.
     ///
-    /// Tolerar é seguro NESTE caminho porque ele não consulta os efeitos da natureza: quem
-    /// debita o contrato é <c>SalesContractsAllocationCreateService</c>, dirigido pela ORIGEM
-    /// do documento. O que fica em branco é metadado fiscal, não saldo. No avulso é o oposto —
-    /// lá o efeito vem da natureza, e por isso ela continua obrigatória.
+    /// Tolerar é seguro porque este caminho não consulta os efeitos da natureza: quem debita o
+    /// contrato é <c>SalesContractsAllocationCreateService</c>, dirigido pela ORIGEM do
+    /// documento. O que fica em branco é metadado fiscal, não saldo.
     /// </summary>
-    private async Task<UsageModel?> ResolveDefaultForShipmentBillingAsync(SalesInvoice invoice)
+    private async Task<UsageModel?> ResolveDefaultUsageAsync()
     {
-        if (invoice.SalesTransactions.Count == 0)
-        {
-            throw new DefaultException("Natureza de operação é obrigatória.");
-        }
-
         var usages = await usageService.GetAllAsync();
 
         return usages.FirstOrDefault(u => u is { IsDefault: true, Inactive: false });

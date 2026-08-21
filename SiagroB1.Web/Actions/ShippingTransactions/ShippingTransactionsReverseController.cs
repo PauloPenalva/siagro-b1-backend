@@ -1,19 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services.ShipmentBilling;
+using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 
-namespace SiagroB1.Web.Actions.ShipmentBilling;
+namespace SiagroB1.Web.Actions.ShippingTransactions;
 
-public class ShipmentBillingDeleteController(
-    ShipmentBillingDeleteService service
+public class ShippingTransactionsReverseController(
+    ShippingTransactionsReverseService service
     )
     : ODataController
 {
 
-    [HttpPost("odata/ShipmentBillingDeleteInvoice")]
+    [HttpPost("odata/ShippingTransactionsReverse")]
     public async Task<ActionResult> PostAsync(ODataActionParameters parameters)
     {
         if (!ModelState.IsValid)
@@ -21,7 +21,9 @@ public class ShipmentBillingDeleteController(
         
         try
         {
-            if (!parameters.TryGetValue("Key", out var keyObj))
+            // parameters vem NULO quando o corpo não casa com nenhum parâmetro do EDM — sem a
+            // guarda o TryGetValue estoura NRE e o cliente recebe um 500 de corpo vazio.
+            if (parameters == null || !parameters.TryGetValue("Key", out var keyObj))
             {
                 return BadRequest("Missing required parameters");
             }

@@ -11,17 +11,15 @@ public class SalesContractsAttachmentsDeleteService(
     SalesContractsChangeLogService changeLog,
     ILogger<SalesContractsAttachmentsDeleteService> logger)
 {
+    /// <summary>
+    /// Espelha o create: anexo pode ser removido em QUALQUER status do contrato, inclusive
+    /// encerrado e cancelado — nada de <see cref="SalesContractsPostApprovalGuard"/> aqui.
+    /// </summary>
     public async Task Delete(Guid key, string userName)
     {
         var attachment = await db.Context.SalesContractAttachments
-                             .Include(x => x.SalesContract)
                              .FirstOrDefaultAsync(x => x.Key == key) ??
                          throw new NotFoundException($"Anexo não encontrado.");
-
-        if (attachment.SalesContract is not null)
-        {
-            SalesContractsPostApprovalGuard.EnsureEditable(attachment.SalesContract);
-        }
 
         try
         {

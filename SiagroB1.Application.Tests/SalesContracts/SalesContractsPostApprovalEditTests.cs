@@ -45,6 +45,20 @@ public class SalesContractsPostApprovalEditTests
         _db.Context, ChangeLog(),
         NullLogger<SalesContractsDeliveryLocationsDeleteService>.Instance);
 
+    private SalesContractsAttachmentsCreateService AttachmentCreateService() => new(
+        _db, ChangeLog(),
+        NullLogger<SalesContractsAttachmentsCreateService>.Instance);
+
+    private SalesContractsAttachmentsDeleteService AttachmentDeleteService() => new(
+        _db, ChangeLog(),
+        NullLogger<SalesContractsAttachmentsDeleteService>.Instance);
+
+    private static SalesContractAttachment NewAttachment(string fileName = "contrato.pdf") => new()
+    {
+        Description = "Aditivo", FileName = fileName, ContentType = "application/pdf",
+        FileData = [1, 2, 3], CreatedAt = new DateTime(2026, 8, 19), CreatedBy = "joao",
+    };
+
     private async Task<SalesContract> SeedContractAsync(
         ContractStatus status = ContractStatus.Approved)
     {
@@ -134,5 +148,43 @@ public class SalesContractsPostApprovalEditTests
             () => LocationDeleteService().ExecuteAsync(created.Key!.Value, "joao"));
 
         Assert.Single(_db.Context.SalesContractsDeliveryLocations);
+    }
+
+    // ---------- anexos ----------
+
+    [Fact]
+    public async Task Attachment_AddedOnFinishedContract_IsSavedAndLogged()
+    {
+        // Anexo é documentação, não movimento: precisa ser aceito em qualquer status,
+        // inclusive no contrato encerrado, onde o guard pós-aprovação barrava.
+        var sc = await SeedContractAsync(ContractStatus.Finished);
+
+        await AttachmentCreateService().SaveAsync(sc.Key, NewAttachment(), "joao");
+
+        var attachment = Assert.Single(_db.Context.SalesContractAttachments);
+        Assert.Equal(sc.Key, attachment.SalesContractKey);
+
+        var log = Assert.Single(LogsOf(sc.Key));
+        Assert.Equal(ContractChangeLogFields.Attachment, log.Field);
+        Assert.Null(log.OldValue);
+        Assert.Equal("contrato.pdf", log.NewValue);
+    }
+
+    [Fact]
+    public async Task Attachment_RemovedOnFinishedContract_IsDeletedAndLogged()
+    {
+        var sc = await SeedContractAsync();
+        await AttachmentCreateService().SaveAsync(sc.Key, NewAttachment(), "joao");
+        var key = _db.Context.SalesContractAttachments.Single().Key!.Value;
+
+        sc.Status = ContractStatus.Finished;
+        await _db.Context.SaveChangesAsync();
+
+        await AttachmentDeleteService().Delete(key, "joao");
+
+        Assert.Empty(_db.Context.SalesContractAttachments);
+        var removal = Assert.Single(LogsOf(sc.Key).Where(l => l.NewValue is null));
+        Assert.Equal(ContractChangeLogFields.Attachment, removal.Field);
+        Assert.Equal("contrato.pdf", removal.OldValue);
     }
 }

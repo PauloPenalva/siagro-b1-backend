@@ -14,6 +14,10 @@ public static class SalesInvoiceCopyFactory
         {
             DocNumberKey = original.DocNumberKey,
             BranchCode =  original.BranchCode,
+
+            // A devolução aponta a MESMA carga da origem: é o que faz a devolução confirmada
+            // reabrir o saldo daquela carga (a fórmula liga origem e retorno pela carga).
+            ShipmentLoadKey = original.ShipmentLoadKey,
             InvoiceStatus = InvoiceStatus.Pending,
             InvoiceType = original.InvoiceType,
             CardCode =  original.CardCode,

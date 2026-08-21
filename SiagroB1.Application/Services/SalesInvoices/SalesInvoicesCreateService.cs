@@ -38,8 +38,12 @@ public class SalesInvoicesCreateService(
         // ausentes ficam sem natureza e sem CFOP, de propósito.
         var lineUsages = await usageGuard.ValidateAsync(salesInvoice);
 
-        // Documento nascido de romaneio. O caminho avulso tem a coleção vazia.
-        var fromShipmentBilling = salesInvoice.SalesTransactions.Count > 0;
+        // Documento nascido de romaneio — por CARGA ou pelo caminho legado. A coleção
+        // SalesTransactions é vazia no documento de carga (ele chega ao romaneio pela carga),
+        // então perguntá-la sozinha classificaria a carga como avulsa e LIGARIA a exigência de
+        // CFOP: numa base sem natureza padrão o faturamento passaria a RECUSAR, que é
+        // exatamente o que o <remarks> deste serviço diz que não pode acontecer.
+        var fromShipmentBilling = SalesInvoiceOriginResolver.ConsumesShipments(salesInvoice);
         var cfopByItem = new Dictionary<SalesInvoiceItem, string>();
 
         foreach (var (item, usage) in lineUsages)

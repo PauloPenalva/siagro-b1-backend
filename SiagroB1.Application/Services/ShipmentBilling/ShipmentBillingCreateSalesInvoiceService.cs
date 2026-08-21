@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -10,23 +11,27 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.ShipmentBilling;
 
 /// <summary>
-/// Fatura os romaneios embarcados contra uma liberação de entrega de venda.
+/// Emite o documento de saída contra uma liberação de entrega de venda. Atende os dois
+/// caminhos: o novo, por <b>CARGA</b> (com faturamento parcial), e o legado, por romaneios
+/// soltos — discriminados por <see cref="SalesInvoice.ShipmentLoadKey"/>.
 /// </summary>
 /// <remarks>
-/// <b>O faturamento NÃO valida saldo.</b> O caminhão já saiu e já pesou: um NetWeight maior que
-/// o saldo da liberação é fato consumado, não decisão a aprovar. Recusar não desfaz a entrega —
-/// só impede registrá-la, e empurra o usuário para contornos (foi o que produziu os contratos
-/// "AJUSTE DE SALDO" com TotalVolume = 1 absorvendo milhões de kg). O saldo da liberação e o do
-/// contrato podem, portanto, ficar NEGATIVOS aqui.
+/// <b>O faturamento NÃO valida saldo de contrato.</b> O caminhão já saiu e já pesou: um
+/// NetWeight maior que o saldo da liberação é fato consumado, não decisão a aprovar. Recusar
+/// não desfaz a entrega — só impede registrá-la, e empurra o usuário para contornos (foi o que
+/// produziu os contratos "AJUSTE DE SALDO" com TotalVolume = 1 absorvendo milhões de kg). O
+/// saldo da liberação e o do contrato podem, portanto, ficar NEGATIVOS aqui.
 /// <para>
 /// O controle é aplicado na saída, não na entrada: liberação com saldo negativo não finaliza
 /// (<c>SalesShipmentReleasesCloseService</c>) nem cancela (<c>SalesShipmentReleasesCancelationService</c>),
 /// e contrato negativo não encerra (<c>SalesContractsCloseService</c>). O negativo é um estado
 /// visível e temporário que obriga a regularização antes de congelar o registro.
 /// </para>
-/// Continuam valendo os guards que não são de saldo: duplicidade de romaneio
-/// (<c>ShipmentBillingTransactionGuardService</c>) e status da liberação
-/// (<c>SalesShipmentReleaseMovementGuardService</c>).
+/// Continuam valendo os guards que não são de saldo COMERCIAL: duplicidade de romaneio
+/// (<c>ShipmentBillingTransactionGuardService</c>, só no caminho legado), status da liberação
+/// (<c>SalesShipmentReleaseMovementGuardService</c>) e saldo FÍSICO da carga
+/// (<c>ShipmentLoadsBillingGuardService</c>) — este último não é crédito comercial, é o volume
+/// que efetivamente saiu no caminhão e não pode ser faturado duas vezes.
 /// </remarks>
 public class ShipmentBillingCreateSalesInvoiceService(
     IUnitOfWork db,
@@ -35,6 +40,9 @@ public class ShipmentBillingCreateSalesInvoiceService(
     SalesShipmentReleaseMovementGuardService movementGuard,
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
     SalesContractsAllocationCreateService allocationCreate,
+    ShipmentLoadsBillingGuardService loadGuard,
+    ShipmentLoadsRecalculateInvoicedService loadRecalc,
+    ShipmentLoadsMovementLogService movementLog,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
@@ -44,11 +52,25 @@ public class ShipmentBillingCreateSalesInvoiceService(
         var releaseKey = salesInvoice.Items
             .First(i => i.SalesShipmentReleaseKey != null).SalesShipmentReleaseKey!.Value;
 
-        // Bloqueia refaturar romaneio já vinculado a um documento de saída (duplo clique,
-        // retentativa após erro, duas abas) — é o que produzia invoice duplicada e saldo
-        // de contrato descontado duas vezes.
-        await transactionGuard.EnsureCanBillAsync(
-            salesInvoice.SalesTransactions.Select(t => t.Key).ToList());
+        var loadKey = salesInvoice.ShipmentLoadKey;
+        var quantity = decimal.Round(
+            salesInvoice.Items.Sum(i => i.Quantity), 3, MidpointRounding.ToEven);
+
+        if (loadKey.HasValue)
+        {
+            // Saldo FÍSICO da carga, decidido sobre o recalculado. Antes de qualquer escrita:
+            // uma tentativa recusada não pode deixar efeito no banco.
+            await loadGuard.EnsureCanBillAsync(loadKey.Value, quantity);
+        }
+        else
+        {
+            // Bloqueia refaturar romaneio já vinculado a um documento de saída (duplo clique,
+            // retentativa após erro, duas abas) — é o que produzia invoice duplicada e saldo
+            // de contrato descontado duas vezes. Só o caminho LEGADO manda romaneios no
+            // payload; no caminho da carga a invariante equivalente é o guard acima.
+            await transactionGuard.EnsureCanBillAsync(
+                salesInvoice.SalesTransactions.Select(t => t.Key).ToList());
+        }
 
         // Bloqueia faturar contra liberação finalizada/cancelada/pausada.
         await movementGuard.EnsureCanBillAsync(releaseKey);
@@ -72,6 +94,27 @@ public class ShipmentBillingCreateSalesInvoiceService(
             // Ledger gravado → baixa o saldo liberado a partir das alocações.
             await recalcShipped.RecalculateAsync(releaseKey);
 
+            if (loadKey.HasValue)
+            {
+                // DEPOIS do SaveChanges acima: a projeção SQL do saldo da carga soma as notas
+                // vivas, e leria o estado anterior se a nota ainda não estivesse gravada.
+                await loadRecalc.RecalculateAsync(loadKey.Value);
+
+                var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == loadKey.Value);
+
+                movementLog.Register(
+                    loadKey.Value,
+                    ShipmentLoadMovementType.Billed,
+                    -quantity,
+                    load.AvailableQuantity,
+                    $"Documento de saída {salesInvoice.InvoiceNumber} emitido: {quantity:N3}.",
+                    username,
+                    salesInvoice.Key,
+                    salesInvoice.InvoiceNumber);
+
+                await db.SaveChangesAsync();
+            }
+
             await db.CommitAsync();
         }
         catch (Exception e)
@@ -94,7 +137,10 @@ public class ShipmentBillingCreateSalesInvoiceService(
             throw new ApplicationException("Sales Shipment Release Key is empty.");
         }
 
-        if (salesInvoice.SalesTransactions == null || salesInvoice.SalesTransactions.Count == 0)
+        // Exigência do caminho LEGADO apenas: o documento de carga não conhece romaneio,
+        // chega neles pela carga. Exigir a coleção nos dois casos travaria o fluxo novo.
+        if (salesInvoice.ShipmentLoadKey == null &&
+            (salesInvoice.SalesTransactions == null || salesInvoice.SalesTransactions.Count == 0))
         {
             throw new ApplicationException("Sales Transactions is empty.");
         }

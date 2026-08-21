@@ -124,6 +124,10 @@ public class SalesContractsAllocationCreateForFiscalAdjustmentService(
             await db.Context.SalesContractsAllocations.AddAsync(allocation);
         }
 
+        // Primeira linha do item de ajuste: nasce dona da diferença de entrega.
+        foreach (var group in pending.GroupBy(a => a.SalesInvoiceItemKey))
+            SalesContractsDeliveryDifferenceOwnerService.EnsureOwner(group.ToList());
+
         // Derivado-da-soma (nunca incremental): Σ do banco + linhas pendentes desta chamada.
         foreach (var contractKey in contractKeys)
         {
@@ -132,8 +136,8 @@ public class SalesContractsAllocationCreateForFiscalAdjustmentService(
                 .CalculateAllocatedAsync(db.Context, contractKey);
             var pendingSum = pending
                 .Where(a => a.SalesContractKey == contractKey)
-                .Sum(a => a.Volume * SalesContractsRecalculateBalanceService.EffectiveFactor(
-                    items.First(i => i.Key!.Value == a.SalesInvoiceItemKey)));
+                .Sum(a => SalesContractsRecalculateBalanceService.EffectiveVolume(
+                    a, items.First(i => i.Key!.Value == a.SalesInvoiceItemKey)));
 
             contract.AllocatedVolume = decimal.Round(
                 persisted + pendingSum, 3, MidpointRounding.ToEven);

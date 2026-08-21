@@ -21,6 +21,22 @@ public class StorageTransactionsReverseService(
         var doc = await db.Context.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException(resource["EXCEPTION_00007"].Value);
+
+        // Romaneio montado em carga não é cancelável/estornável por aqui: durante o
+        // faturamento PARCIAL ele ainda está Confirmed, então um guard por status deixaria
+        // passar e destruiria romaneio já faturado em parte. Por isso a condição é a presença
+        // da CARGA, não o status — que é projeção da carga e oscila.
+        if (doc.ShipmentLoadKey != null)
+        {
+            var loadCode = await db.Context.ShipmentLoads
+                .Where(x => x.Key == doc.ShipmentLoadKey)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} está montado na carga {loadCode}. " +
+                "Cancele a carga na Montagem de Carga antes de  o romaneio.");
+        }
         
         if (doc.TransactionOrigin == TransactionCode.StorageTransaction)
             transactionCode = TransactionCode.StorageTransaction;    

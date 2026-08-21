@@ -13,6 +13,13 @@ public class SalesContractsAttachmentUploadController(SalesContractsAttachmentsC
     [HttpPost("odata/SalesContractsAttachmentUpload")]
     public async Task<ActionResult> Upload([FromBody] ODataActionParameters parameters)
     {
+        // Quando falta um parâmetro declarado no EDM, o binder do OData entrega `parameters`
+        // NULO — e o `ContainsKey` abaixo estourava NullReferenceException, devolvendo 500 com
+        // corpo vazio. Era esse o erro por trás do "Erro ao enviar anexo" intermitente, quando o
+        // cliente montava o payload sem ContractKey.
+        if (parameters is null || !parameters.ContainsKey("ContractKey"))
+            return BadRequest("ContractKey é obrigatório.");
+
         if (!parameters.ContainsKey("File") || !parameters.ContainsKey("Description"))
             return BadRequest();
 

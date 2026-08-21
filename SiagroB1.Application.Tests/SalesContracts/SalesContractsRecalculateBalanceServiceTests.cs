@@ -44,13 +44,15 @@ public class SalesContractsRecalculateBalanceServiceTests
         DeliveryStatus = deliveryStatus,
     };
 
-    private SalesContractAllocation NewAllocation(Guid contractKey, Guid itemKey, decimal volume) => new()
+    private SalesContractAllocation NewAllocation(
+        Guid contractKey, Guid itemKey, decimal volume, bool owner = false) => new()
     {
         Key = Guid.NewGuid(),
         SalesContractKey = contractKey,
         SalesInvoiceItemKey = itemKey,
         Volume = volume,
         Origin = SalesContractAllocationOrigin.Billing,
+        OwnsDeliveryDifference = owner,
     };
 
     private async Task<decimal> AllocatedAsync(Guid key) =>
@@ -79,15 +81,16 @@ public class SalesContractsRecalculateBalanceServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ClosedItemWithLoss_AppliesEffectiveFactor()
+    public async Task ExecuteAsync_ClosedItemWithLoss_SubtractsShortageFromOwnerLine()
     {
-        // Item fechado com quebra: entregue 90 de 100 → fator 0,9. A quebra devolve saldo
-        // ao contrato (linha de 100 conta 90).
+        // Item fechado com quebra: líquido 90 de 100 faturados (entregue 95, perda 5). A
+        // quebra de 10 sai da linha dona, que aqui é a única do item.
         var sc = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
         var item = NewItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 95m, loss: 5m);
         _db.Context.SalesContracts.Add(sc);
         _db.Context.SalesInvoicesItems.Add(item);
-        _db.Context.SalesContractsAllocations.Add(NewAllocation(sc.Key, item.Key!.Value, 100m));
+        _db.Context.SalesContractsAllocations.Add(
+            NewAllocation(sc.Key, item.Key!.Value, 100m, owner: true));
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().ExecuteAsync(sc.Key);
@@ -96,22 +99,78 @@ public class SalesContractsRecalculateBalanceServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ReallocatedItemWithLoss_DistributesProRata()
+    public async Task ExecuteAsync_ReallocatedItemWithLoss_ConcentratesShortageOnOwnerContract()
     {
-        // Item de 100 dividido 60/40 entre dois contratos; quebra de 10 no fechamento
-        // (fator 0,9) distribui pró-rata: 54 e 36.
+        // Item de 100 dividido 60/40 entre dois contratos, com quebra de 10 no fechamento.
+        // A quebra NÃO é rateada: sai inteira do contrato da linha dona (A → 50), e o outro
+        // consome o nominal (B → 40).
         var a = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
         var b = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
         var item = NewItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 90m, loss: 0m);
         _db.Context.SalesContracts.AddRange(a, b);
         _db.Context.SalesInvoicesItems.Add(item);
         _db.Context.SalesContractsAllocations.AddRange(
-            NewAllocation(a.Key, item.Key!.Value, 60m),
+            NewAllocation(a.Key, item.Key!.Value, 60m, owner: true),
             NewAllocation(b.Key, item.Key!.Value, 40m));
         await _db.Context.SaveChangesAsync();
 
-        Assert.Equal(54m, (await Service().ExecuteAsync(a.Key)).NewAllocatedVolume);
-        Assert.Equal(36m, (await Service().ExecuteAsync(b.Key)).NewAllocatedVolume);
+        Assert.Equal(50m, (await Service().ExecuteAsync(a.Key)).NewAllocatedVolume);
+        Assert.Equal(40m, (await Service().ExecuteAsync(b.Key)).NewAllocatedVolume);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReallocatedItemWithLoss_PreservesTotalConsumption()
+    {
+        // Rede de segurança da feature: concentrar só muda a REPARTIÇÃO. O total consumido
+        // pelos contratos que dividem o item continua sendo o líquido entregue.
+        var a = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
+        var b = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
+        var item = NewItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 92m, loss: 2m);
+        _db.Context.SalesContracts.AddRange(a, b);
+        _db.Context.SalesInvoicesItems.Add(item);
+        _db.Context.SalesContractsAllocations.AddRange(
+            NewAllocation(a.Key, item.Key!.Value, 60m, owner: true),
+            NewAllocation(b.Key, item.Key!.Value, 40m));
+        await _db.Context.SaveChangesAsync();
+
+        var totalA = (await Service().ExecuteAsync(a.Key)).NewAllocatedVolume;
+        var totalB = (await Service().ExecuteAsync(b.Key)).NewAllocatedVolume;
+
+        Assert.Equal(item.NetQuantity, totalA + totalB); // 90 = 100 − (100 − 90)
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OpenItem_ConsumesNominal_EvenOnOwnerLine()
+    {
+        // Sem conferência não há quebra apurada: a linha dona consome o nominal.
+        var sc = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
+        var item = NewItem(100m, SalesInvoiceDeliveryStatus.Open, delivered: 90m, loss: 5m);
+        _db.Context.SalesContracts.Add(sc);
+        _db.Context.SalesInvoicesItems.Add(item);
+        _db.Context.SalesContractsAllocations.Add(
+            NewAllocation(sc.Key, item.Key!.Value, 100m, owner: true));
+        await _db.Context.SaveChangesAsync();
+
+        Assert.Equal(100m, (await Service().ExecuteAsync(sc.Key)).NewAllocatedVolume);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NonOwnerLineOfClosedItem_NeverSubtractsShortage()
+    {
+        // Contrato que só tem a linha NÃO dona do item consome o nominal puro, mesmo com o
+        // item fechado com quebra.
+        var owner = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
+        var other = NewContract(totalVolume: 1000m, allocatedVolume: 0m);
+        var item = NewItem(100m, SalesInvoiceDeliveryStatus.Closed, delivered: 70m, loss: 0m);
+        _db.Context.SalesContracts.AddRange(owner, other);
+        _db.Context.SalesInvoicesItems.Add(item);
+        _db.Context.SalesContractsAllocations.AddRange(
+            NewAllocation(owner.Key, item.Key!.Value, 50m, owner: true),
+            NewAllocation(other.Key, item.Key!.Value, 50m));
+        await _db.Context.SaveChangesAsync();
+
+        Assert.Equal(50m, (await Service().ExecuteAsync(other.Key)).NewAllocatedVolume);
+        Assert.Equal(20m, (await Service().ExecuteAsync(owner.Key)).NewAllocatedVolume); // 50 − 30
     }
 
     [Fact]

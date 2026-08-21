@@ -80,8 +80,38 @@ public class SalesInvoicesItemsUpdateServiceTests
         return (contract, item);
     }
 
+    /// <summary>
+    /// Pendura uma liberação de entrega na alocação já semeada, com o saldo consumido
+    /// coerente com o estado nominal (o que o faturamento teria gravado).
+    /// </summary>
+    private async Task<SalesShipmentRelease> SeedReleaseForAsync(
+        SalesContract contract, decimal shipped,
+        ReleaseStatus status = ReleaseStatus.Actived)
+    {
+        var release = new SalesShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            SalesContractKey = contract.Key,
+            DeliveryLocationCode = "C0001",
+            ReleasedQuantity = 500m,
+            ShippedQuantity = shipped,
+            Status = status,
+        };
+        _db.Context.SalesShipmentReleases.Add(release);
+
+        var allocation = await _db.Context.SalesContractsAllocations
+            .SingleAsync(a => a.SalesContractKey == contract.Key);
+        allocation.SalesShipmentReleaseKey = release.Key;
+
+        await _db.Context.SaveChangesAsync();
+        return release;
+    }
+
     private async Task<decimal> AllocatedAsync(Guid key) =>
         (await _db.Context.SalesContracts.AsNoTracking().SingleAsync(x => x.Key == key)).AllocatedVolume;
+
+    private async Task<decimal> ShippedAsync(Guid key) =>
+        (await _db.Context.SalesShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == key)).ShippedQuantity;
 
     private async Task<SalesInvoiceItem> StoredItemAsync(Guid key) =>
         await _db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(x => x.Key == key);
@@ -134,6 +164,64 @@ public class SalesInvoicesItemsUpdateServiceTests
         await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
 
         Assert.Equal(100m, await AllocatedAsync(contract.Key));
+    }
+
+    /// <summary>
+    /// A liberação segue a MESMA regra do contrato: encerrar a entrega passa a consumir o
+    /// líquido, devolvendo a quebra ao saldo liberado.
+    /// </summary>
+    [Fact]
+    public async Task ClosingWithLoss_RecalculatesShipmentReleaseBalance()
+    {
+        var (contract, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+        var release = await SeedReleaseForAsync(contract, shipped: 100m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveredQuantity = 95m;
+        tracked.QuantityLoss = 5m;
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        Assert.Equal(90m, await ShippedAsync(release.Key));
+    }
+
+    [Fact]
+    public async Task ReopeningClosedItem_RestoresShipmentReleaseNominalBalance()
+    {
+        var (contract, item) = await SeedAsync(
+            quantity: 100m, allocatedVolume: 90m,
+            deliveryStatus: SalesInvoiceDeliveryStatus.Closed, delivered: 95m, loss: 5m);
+        var release = await SeedReleaseForAsync(contract, shipped: 90m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Open;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        Assert.Equal(100m, await ShippedAsync(release.Key));
+    }
+
+    /// <summary>
+    /// Liberação finalizada/cancelada fica congelada, como o contrato encerrado — quem
+    /// precisa mexer usa o recálculo manual.
+    /// </summary>
+    [Theory]
+    [InlineData(ReleaseStatus.Completed)]
+    [InlineData(ReleaseStatus.Cancelled)]
+    public async Task ClosingWithLoss_FrozenRelease_KeepsShippedQuantity(ReleaseStatus status)
+    {
+        var (contract, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+        var release = await SeedReleaseForAsync(contract, shipped: 100m, status: status);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveredQuantity = 95m;
+        tracked.QuantityLoss = 5m;
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        Assert.Equal(100m, await ShippedAsync(release.Key));
     }
 
     [Fact]

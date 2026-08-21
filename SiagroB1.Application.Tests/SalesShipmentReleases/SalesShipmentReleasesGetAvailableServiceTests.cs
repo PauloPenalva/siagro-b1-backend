@@ -13,13 +13,15 @@ public class SalesShipmentReleasesGetAvailableServiceTests
     private SalesShipmentReleasesGetAvailableService Service() => new(_db);
 
     private async Task SeedAsync(
-        string itemCode, ReleaseStatus status, decimal released, decimal shipped, decimal price = 50m)
+        string itemCode, ReleaseStatus status, decimal released, decimal shipped, decimal price = 50m,
+        ContractStatus contractStatus = ContractStatus.Approved, decimal allocatedVolume = 0m)
     {
         var sc = new SalesContract
         {
             Key = Guid.NewGuid(), Code = "SC", CardCode = "C0001", CardName = "Cliente",
             ItemCode = itemCode, ItemName = itemCode, UnitOfMeasureCode = "KG",
             HarvestSeasonCode = "24/25", TotalVolume = 10000m, Price = price,
+            Status = contractStatus, AllocatedVolume = allocatedVolume,
         };
         _db.Context.SalesContracts.Add(sc);
         _db.Context.SalesShipmentReleases.Add(new SalesShipmentRelease
@@ -45,5 +47,52 @@ public class SalesShipmentReleasesGetAvailableServiceTests
         Assert.Equal("SOJA", result[0].ItemCode);
         Assert.Equal(50m, result[0].Price);
         Assert.Equal("C0001", result[0].CardCode);
+    }
+[Fact]
+    public async Task Query_HidesContractsWithoutBalanceByDefault()
+    {
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m);                       // saldo 10000
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, allocatedVolume: 10000m); // saldo 0
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, allocatedVolume: 12000m); // negativo
+
+        var result = Service().Query("SOJA").ToList();
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task Query_CanIncludeContractsWithoutBalance()
+    {
+        // O switch é o escape que impede o filtro de virar a trava que a decisão de
+        // 21/08/2026 tirou do serviço: sem guard de saldo, esconder o contrato só levaria o
+        // usuário a criar um contrato "AJUSTE DE SALDO".
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m);
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, allocatedVolume: 10000m);
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, allocatedVolume: 12000m);
+
+        var result = Service().Query("SOJA", includeContractsWithoutBalance: true).ToList();
+
+        Assert.Equal(3, result.Count);
+        Assert.Contains(result, r => r.SalesContractAvailableVolume < decimal.Zero);
+    }
+
+    [Fact]
+    public async Task Query_NeverShowsContractsThatAreNotApproved()
+    {
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, contractStatus: ContractStatus.Draft);
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, contractStatus: ContractStatus.Finished);
+
+        // O parâmetro afrouxa APENAS a cláusula de saldo; status continua valendo nos dois casos.
+        Assert.Empty(Service().Query("SOJA").ToList());
+        Assert.Empty(Service().Query("SOJA", includeContractsWithoutBalance: true).ToList());
+    }
+
+    [Fact]
+    public async Task Query_StillFiltersTheReleaseBalanceWhenIncludingContractsWithoutBalance()
+    {
+        // Eixo diferente: o switch é sobre o saldo do CONTRATO, não o da liberação.
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 500m, shipped: 500m, allocatedVolume: 10000m);
+
+        Assert.Empty(Service().Query("SOJA", includeContractsWithoutBalance: true).ToList());
     }
 }

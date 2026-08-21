@@ -53,6 +53,62 @@ public class SalesContractsReallocationDeleteServiceTests
     }
 
     [Fact]
+    public async Task Execute_ReversalOfFullyMovedItem_ReturnsDifferenceToBillingLine()
+    {
+        await SeedAsync();
+
+        // Move o resto (120) para B: A fica com líquido zero e a titularidade migra para B.
+        var extraGroup = Guid.NewGuid();
+        _db.Context.SalesContractsAllocations.AddRange(
+            NewAllocation(_a.Key, _item.Key!.Value, -120m, _releaseA.Key,
+                origin: SalesContractAllocationOrigin.Reallocation, groupKey: extraGroup),
+            NewAllocation(_b.Key, _item.Key!.Value, 120m, _releaseB.Key,
+                origin: SalesContractAllocationOrigin.Reallocation, contractPrice: 120m,
+                groupKey: extraGroup));
+
+        _item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        _item.DeliveredQuantity = 180m; // quebra de 20
+        await _db.Context.SaveChangesAsync();
+
+        var toReverse = await _db.Context.SalesContractsAllocations
+            .FirstAsync(a => a.ReallocationGroupKey == extraGroup && a.Volume > 0);
+
+        await Service().ExecuteWithTransactionAsync(toReverse.Key, "tester");
+
+        var lines = await _db.Context.SalesContractsAllocations.AsNoTracking()
+            .Where(a => a.SalesInvoiceItemKey == _item.Key!.Value)
+            .ToListAsync();
+
+        // Estornado o par, A volta a ter líquido (120) e reassume a diferença — sem que o
+        // estorno precise lembrar de quem ela era.
+        var owner = Assert.Single(lines, l => l.OwnsDeliveryDifference);
+        Assert.Equal(_a.Key, owner.SalesContractKey);
+        Assert.Equal(SalesContractAllocationOrigin.Billing, owner.Origin);
+
+        Assert.Equal(100m, (await ContractAsync(_db, _a.Key)).AllocatedVolume); // 120 − 20
+        Assert.Equal(80m, (await ContractAsync(_db, _b.Key)).AllocatedVolume);
+    }
+
+    /// <summary>
+    /// Estornar devolve à liberação de origem o LÍQUIDO, não o nominal: com a entrega já
+    /// conferida, o saldo da liberação segue a mesma regra do contrato.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ReversalOfClosedItem_RestoresNetBalanceOnReleases()
+    {
+        await SeedAsync();
+
+        _item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        _item.DeliveredQuantity = 180m; // quebra de 20 sobre os 200 faturados
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteWithTransactionAsync(_positiveRow.Key, "tester");
+
+        Assert.Equal(180m, (await ReleaseAsync(_db, _releaseA.Key)).ShippedQuantity); // 200 − 20
+        Assert.Equal(0m, (await ReleaseAsync(_db, _releaseB.Key)).ShippedQuantity);
+    }
+
+    [Fact]
     public async Task Execute_RemovesWholeGroup_AndRestoresBalances()
     {
         await SeedAsync();

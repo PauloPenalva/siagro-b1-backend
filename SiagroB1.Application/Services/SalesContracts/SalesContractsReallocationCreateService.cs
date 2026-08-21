@@ -255,45 +255,25 @@ public class SalesContractsReallocationCreateService(
 
         await db.Context.SalesContractsAllocations.AddRangeAsync(pending);
 
-        // Recalcs derivado-da-soma (banco + pendentes desta chamada).
-        var factor = SalesContractsRecalculateBalanceService.EffectiveFactor(item);
-        foreach (var contract in new[] { source, target })
-        {
-            var persisted = await SalesContractsRecalculateBalanceService
-                .CalculateAllocatedAsync(db.Context, contract.Key);
-            var pendingSum = pending
-                .Where(a => a.SalesContractKey == contract.Key)
-                .Sum(a => a.Volume * factor);
+        // Titularidade da diferença de entrega sobre o conjunto PÓS-MUTAÇÃO do item: se estas
+        // linhas zeram o líquido do contrato dono (troca cruzada, em que a nota inteira muda
+        // de contrato), a quebra ACOMPANHA O VOLUME para o destino em vez de ficar sozinha
+        // na origem.
+        var itemLines = await db.Context.SalesContractsAllocations
+            .Where(a => a.SalesInvoiceItemKey == salesInvoiceItemKey)
+            .ToListAsync();
+        itemLines.AddRange(pending);
+        SalesContractsDeliveryDifferenceOwnerService.EnsureOwner(itemLines);
 
-            contract.AllocatedVolume = decimal.Round(persisted + pendingSum, 3, MidpointRounding.ToEven);
-        }
+        await SalesContractsRecalculateBalanceService.RecalculateForTouchedItemAsync(
+            db.Context, salesInvoiceItemKey, item, itemLines,
+            extraContractKeys: [source.Key, target.Key]);
 
-        var affectedReleaseKeys = pending
-            .Where(a => a.SalesShipmentReleaseKey != null)
-            .Select(a => a.SalesShipmentReleaseKey!.Value)
-            .Distinct()
-            .ToList();
-
-        foreach (var releaseKey in affectedReleaseKeys)
-        {
-            // As liberações de destino já estão carregadas (rastreadas) pela seleção acima;
-            // as de origem vêm do ledger e precisam de busca.
-            if (!targetReleases.TryGetValue(releaseKey, out var release))
-                release = await db.Context.SalesShipmentReleases
-                    .FirstOrDefaultAsync(r => r.Key == releaseKey);
-
-            if (release is null)
-                continue;
-
-            var persisted = await db.Context.SalesContractsAllocations
-                .Where(a => a.SalesShipmentReleaseKey == releaseKey)
-                .SumAsync(a => a.Volume);
-            var pendingSum = pending
-                .Where(a => a.SalesShipmentReleaseKey == releaseKey)
-                .Sum(a => a.Volume);
-
-            release.ShippedQuantity = persisted + pendingSum;
-        }
+        // Mesma regra e mesmo conjunto pós-mutação do contrato: a liberação também consome o
+        // líquido quando a entrega já foi conferida. As de destino já estão rastreadas por
+        // targetReleases; o helper reencontra a mesma instância pelo identity map.
+        await SalesShipmentReleasesRecalculateShippedService.RecalculateForTouchedItemAsync(
+            db.Context, salesInvoiceItemKey, item, itemLines);
 
         if (commitMode == CommitMode.Auto)
             await db.SaveChangesAsync();

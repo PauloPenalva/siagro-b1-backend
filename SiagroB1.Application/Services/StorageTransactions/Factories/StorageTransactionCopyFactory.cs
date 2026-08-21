@@ -65,7 +65,11 @@ public static class StorageTransactionCopyFactory
             AvaiableVolumeToAllocate = original.AvaiableVolumeToAllocate,
             Comments = original.Comments,
 
-            SalesInvoiceKey = null // regra clara: não herdar
+            SalesInvoiceKey = null, // regra clara: não herdar
+
+            // Idem: a perna SalesShipment nova nasceria dentro da carga VELHA do original,
+            // inflando o total de uma carga que ela não integra.
+            ShipmentLoadKey = null
         };
 
         // ===== Copiar apenas entidades filhas do aggregate =====

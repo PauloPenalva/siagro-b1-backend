@@ -1834,6 +1834,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("Origin")
                         .HasColumnType("int");
 
+                    b.Property<bool>("OwnsDeliveryDifference")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("PriceDifference")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
@@ -1878,6 +1881,10 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("SalesInvoiceItemKey");
 
                     b.HasIndex("SalesShipmentReleaseKey");
+
+                    b.HasIndex(new[] { "SalesInvoiceItemKey" }, "IX_SALES_CONTRACTS_ALLOCATIONS_DeliveryDifferenceOwner")
+                        .IsUnique()
+                        .HasFilter("[OwnsDeliveryDifference] = 1");
 
                     b.ToTable("SALES_CONTRACTS_ALLOCATIONS");
                 });
@@ -2159,6 +2166,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("SalesInvoiceOriginKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("TaxComments")
                         .HasColumnType("VARCHAR(500) DEFAULT ''");
 
@@ -2193,6 +2203,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("DocNumberKey");
 
                     b.HasIndex("SalesInvoiceOriginKey");
+
+                    b.HasIndex("ShipmentLoadKey");
 
                     b.ToTable("SALES_INVOICES");
                 });
@@ -2452,6 +2464,174 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("SalesContractKey");
 
                     b.ToTable("SALES_SHIPMENT_RELEASES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoad", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("InvoicedQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<DateTime>("LoadDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<string>("TruckCode")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("TruckDriverCode")
+                        .HasColumnType("VARCHAR(11) NULL");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(4) NOT NULL");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("WarehouseCode")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.HasIndex("DocNumberKey");
+
+                    b.ToTable("SHIPMENT_LOADS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadMovement", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasColumnType("VARCHAR(9)");
+
+                    b.Property<int>("MovementType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<Guid?>("SalesInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ShipmentLoadKey");
+
+                    b.ToTable("SHIPMENT_LOAD_MOVEMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -3246,6 +3426,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("SalesShipmentReleaseKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("ShipmentPrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
@@ -3315,6 +3498,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("SalesInvoiceKey");
 
                     b.HasIndex("SalesShipmentReleaseKey");
+
+                    b.HasIndex("ShipmentLoadKey");
 
                     b.HasIndex("ShipmentReleaseKey");
 
@@ -4265,11 +4450,18 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("SalesInvoiceOriginKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("Invoices")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
 
                     b.Navigation("SalesInvoiceOrigin");
+
+                    b.Navigation("ShipmentLoad");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceChangeLog", b =>
@@ -4346,6 +4538,34 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("DocNumber");
 
                     b.Navigation("SalesContract");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoad", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                        .WithMany()
+                        .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("DocNumber");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadMovement", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("Movements")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("ShipmentLoad");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -4543,6 +4763,11 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("SalesShipmentReleaseKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("Transactions")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
                         .WithMany("Transactions")
                         .HasForeignKey("ShipmentReleaseKey")
@@ -4569,6 +4794,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("SalesInvoice");
 
                     b.Navigation("SalesShipmentRelease");
+
+                    b.Navigation("ShipmentLoad");
 
                     b.Navigation("ShipmentRelease");
 
@@ -4746,6 +4973,15 @@ namespace SiagroB1.Migrations.Migrations
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesShipmentRelease", b =>
                 {
+                    b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoad", b =>
+                {
+                    b.Navigation("Invoices");
+
+                    b.Navigation("Movements");
+
                     b.Navigation("Transactions");
                 });
 

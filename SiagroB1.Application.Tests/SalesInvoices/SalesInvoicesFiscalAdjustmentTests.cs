@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Tests.SalesContracts;
 using SiagroB1.Application.Tests.Support;
@@ -61,12 +62,14 @@ public class SalesInvoicesFiscalAdjustmentTests
                 db, new SalesContractsFixedVolumeService(db.Context)),
             new SalesInvoicesUsageGuardService(Usages(db)),
             FiscalAdjustment(db),
+            new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private static SalesInvoicesCancelService Cancel(UnitOfWork db) =>
         new(db,
             new SalesShipmentReleasesRecalculateShippedService(db.Context),
             new SalesContractsAllocationDeleteForInvoiceService(db),
+            new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
             NullLogger<SalesInvoicesCancelService>.Instance);
 
     /// <summary>

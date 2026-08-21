@@ -19,8 +19,9 @@ namespace SiagroB1.Application.Tests.SalesInvoices;
 /// O caminho de romaneio não consulta os efeitos da natureza — quem debita o contrato ali é
 /// <c>SalesContractsAllocationCreateService</c>, dirigido pela origem do documento. Faturar
 /// sem natureza deixa apenas metadado fiscal em branco, e por isso pode ser tolerado. No
-/// avulso é o contrário: o efeito no contrato vem da natureza, e faltar natureza ou CFOP é
-/// erro de negócio que precisa chegar à tela.
+/// avulso o efeito no contrato vem da natureza, e por isso CFOP faltando na natureza ESCOLHIDA
+/// continua sendo erro de negócio que precisa chegar à tela — mas a natureza em si não é
+/// obrigatória: sem escolha explícita, vale a natureza padrão.
 ///
 /// O que motivou a tolerância: em modo SAPB1 as naturezas vêm do OUSG e o efeito mora em
 /// USAGE_EFFECTS, tabela do Siagro que nasce vazia — nenhuma natureza padrão existe, e o
@@ -242,17 +243,23 @@ public class SalesInvoicesShipmentBillingFiscalToleranceTests
     }
 
     /// <summary>
-    /// O avulso não herda a tolerância: sem natureza explícita continua recusado na tela.
+    /// Natureza deixou de ser obrigatória fora do romaneio: o documento sem natureza explícita
+    /// cai na natureza padrão em vez de ser recusado. É o que destrava o RETORNO de documento
+    /// de saída, cuja cópia nasce com as linhas sem natureza.
     /// </summary>
     [Fact]
-    public async Task Standalone_invoice_without_usage_still_fails()
+    public async Task Standalone_invoice_without_usage_falls_back_to_the_default_usage()
     {
         var db = TestDb.CreateUnitOfWork();
         await SeedBranchAsync(db, "RS");
-        await SeedDefaultUsageAsync(db);
+        var defaultCode = await SeedDefaultUsageAsync(db);
 
-        await Assert.ThrowsAsync<DefaultException>(() =>
-            Create(db, Partners()).ExecuteAsync(Invoice(), "tester"));
+        var invoice = Invoice();
+
+        await Create(db, Partners()).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal(defaultCode, invoice.Items.Single().UsageCode);
+        Assert.Equal("5102", invoice.Items.Single().Cfop);
     }
 
     /// <summary>

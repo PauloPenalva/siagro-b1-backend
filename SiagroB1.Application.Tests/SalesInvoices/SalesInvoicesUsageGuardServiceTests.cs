@@ -99,13 +99,19 @@ public class SalesInvoicesUsageGuardServiceTests
     private static SalesInvoicesUsageGuardService Service(UnitOfWork db) =>
         new(Usages(db));
 
+    /// <summary>
+    /// Natureza NÃO é obrigatória: sem natureza na linha e sem natureza padrão na base, a
+    /// linha fica de fora do resultado e nasce sem natureza e sem CFOP. É o que permite o
+    /// retorno de documento de saída, cuja cópia chega aqui com as linhas sem natureza.
+    /// </summary>
     [Fact]
-    public async Task Invoice_without_usage_fails()
+    public async Task Invoice_without_usage_and_without_default_resolves_no_usage()
     {
         var db = TestDb.CreateUnitOfWork();
 
-        await Assert.ThrowsAsync<DefaultException>(() =>
-            Service(db).ValidateAsync(Invoice(usageCode: null)));
+        var resolved = await Service(db).ValidateAsync(Invoice(usageCode: null));
+
+        Assert.Empty(resolved);
     }
 
     [Fact]
@@ -233,15 +239,22 @@ public class SalesInvoicesUsageGuardServiceTests
             Service(db).ValidateAsync(invoice));
     }
 
+    /// <summary>
+    /// A natureza padrão vale também FORA do romaneio — documento avulso e retorno de
+    /// documento de saída chegam aqui sem romaneio e sem natureza na linha.
+    /// </summary>
     [Fact]
-    public async Task Standalone_invoice_never_falls_back_to_the_default_usage()
+    public async Task Standalone_invoice_falls_back_to_the_default_usage()
     {
         var db = TestDb.CreateUnitOfWork();
-        await SeedDefaultUsageAsync(db);
+        var defaultCode = await SeedDefaultUsageAsync(db);
 
-        // Sem romaneio: a natureza tem que ser explícita.
-        await Assert.ThrowsAsync<DefaultException>(() =>
-            Service(db).ValidateAsync(Invoice(usageCode: null)));
+        var invoice = Invoice(usageCode: null, contractKey: Guid.NewGuid());
+
+        var usage = (await Service(db).ValidateAsync(invoice)).Single().Usage;
+
+        Assert.Equal(defaultCode, usage.Code);
+        Assert.Equal(defaultCode, invoice.Items.Single().UsageCode);
     }
 
     [Fact]

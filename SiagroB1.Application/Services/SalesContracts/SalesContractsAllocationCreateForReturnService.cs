@@ -116,15 +116,22 @@ public class SalesContractsAllocationCreateForReturnService(
             }
         }
 
-        // Derivado-da-soma (banco + pendentes). Itens de devolução entram com fator 1:
-        // a confirmação fecha o item com DeliveredQuantity = Quantity (sem quebra).
+        // Primeira linha do item de devolução: nasce dona da diferença de entrega. Todas as
+        // linhas do item são negativas, então a regra recai no passo 3 (linha mais antiga) —
+        // o que importa é o item não ficar sem dono.
+        foreach (var group in pending.GroupBy(a => a.SalesInvoiceItemKey))
+            SalesContractsDeliveryDifferenceOwnerService.EnsureOwner(group.ToList());
+
+        // Derivado-da-soma (banco + pendentes). Itens de devolução não têm quebra: a
+        // confirmação fecha o item com DeliveredQuantity = Quantity, e AssessedShortage é 0.
         foreach (var (contractKey, contract) in affectedContracts)
         {
             var persisted = await SalesContractsRecalculateBalanceService
                 .CalculateAllocatedAsync(db.Context, contractKey);
             var pendingSum = pending
                 .Where(a => a.SalesContractKey == contractKey)
-                .Sum(a => a.Volume);
+                .Sum(a => SalesContractsRecalculateBalanceService.EffectiveVolume(
+                    a, items.First(i => i.Key!.Value == a.SalesInvoiceItemKey)));
 
             contract.AllocatedVolume = decimal.Round(persisted + pendingSum, 3, MidpointRounding.ToEven);
         }

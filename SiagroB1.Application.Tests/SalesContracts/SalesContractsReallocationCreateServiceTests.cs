@@ -46,6 +46,90 @@ public class SalesContractsReallocationCreateServiceTests
         await _db.Context.SaveChangesAsync();
     }
 
+    /// <summary>Fecha a conferência do item com quebra: líquido 180 dos 200 faturados.</summary>
+    private async Task CloseDeliveryWithShortageAsync()
+    {
+        _item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        _item.DeliveredQuantity = 180m;
+        await _db.Context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// O saldo da liberação segue a mesma regra do contrato: a quebra sai inteira da
+    /// liberação da linha dona, e as demais consomem o nominal.
+    /// </summary>
+    [Fact]
+    public async Task Execute_PartialReallocationOfClosedItem_KeepsShortageOnSourceRelease()
+    {
+        await SeedAsync();
+        await CloseDeliveryWithShortageAsync();
+
+        await Service().ExecuteAsync(_item.Key!.Value, _source.Key, _target.Key,
+            _targetRelease.Key, 80m, "tester");
+
+        Assert.Equal(100m, (await ReleaseAsync(_db, _sourceRelease.Key)).ShippedQuantity); // 200 − 80 − 20
+        Assert.Equal(80m, (await ReleaseAsync(_db, _targetRelease.Key)).ShippedQuantity);  // nominal
+    }
+
+    [Fact]
+    public async Task Execute_FullReallocationOfClosedItem_MovesShortageToTargetRelease()
+    {
+        await SeedAsync();
+        await CloseDeliveryWithShortageAsync();
+
+        await Service().ExecuteAsync(_item.Key!.Value, _source.Key, _target.Key,
+            _targetRelease.Key, 200m, "tester");
+
+        // A titularidade acompanha o volume, então a quebra também muda de liberação.
+        Assert.Equal(0m, (await ReleaseAsync(_db, _sourceRelease.Key)).ShippedQuantity);
+        Assert.Equal(180m, (await ReleaseAsync(_db, _targetRelease.Key)).ShippedQuantity);
+    }
+
+    [Fact]
+    public async Task Execute_PartialReallocationOfClosedItem_KeepsDifferenceAtSource()
+    {
+        await SeedAsync();
+        await CloseDeliveryWithShortageAsync();
+
+        await Service().ExecuteAsync(_item.Key!.Value, _source.Key, _target.Key,
+            _targetRelease.Key, 80m, "tester");
+
+        var lines = await _db.Context.SalesContractsAllocations.AsNoTracking()
+            .Where(a => a.SalesInvoiceItemKey == _item.Key!.Value)
+            .ToListAsync();
+
+        // A origem ainda tem 120 líquidos: a titularidade não se mexe.
+        var owner = Assert.Single(lines, l => l.OwnsDeliveryDifference);
+        Assert.Equal(_source.Key, owner.SalesContractKey);
+
+        // Quebra inteira na origem (200 − 80 − 20) e nominal no destino — nada de pró-rata.
+        Assert.Equal(100m, (await ContractAsync(_db, _source.Key)).AllocatedVolume);
+        Assert.Equal(80m, (await ContractAsync(_db, _target.Key)).AllocatedVolume);
+    }
+
+    [Fact]
+    public async Task Execute_FullReallocationOfClosedItem_MovesDifferenceWithTheVolume()
+    {
+        await SeedAsync();
+        await CloseDeliveryWithShortageAsync();
+
+        // Troca cruzada: a nota inteira pertencia ao outro contrato.
+        await Service().ExecuteAsync(_item.Key!.Value, _source.Key, _target.Key,
+            _targetRelease.Key, 200m, "tester");
+
+        var lines = await _db.Context.SalesContractsAllocations.AsNoTracking()
+            .Where(a => a.SalesInvoiceItemKey == _item.Key!.Value)
+            .ToListAsync();
+
+        // Origem zerada → a quebra acompanha o volume, em vez de ficar sozinha lá.
+        var owner = Assert.Single(lines, l => l.OwnsDeliveryDifference);
+        Assert.Equal(_target.Key, owner.SalesContractKey);
+        Assert.True(owner.Volume > 0);
+
+        Assert.Equal(0m, (await ContractAsync(_db, _source.Key)).AllocatedVolume);
+        Assert.Equal(180m, (await ContractAsync(_db, _target.Key)).AllocatedVolume);
+    }
+
     [Fact]
     public async Task Execute_CreatesPair_MovesBalances_AndComputesPriceDifference()
     {

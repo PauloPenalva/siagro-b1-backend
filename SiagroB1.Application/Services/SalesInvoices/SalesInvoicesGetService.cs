@@ -19,6 +19,7 @@ public class SalesInvoicesGetService(IUnitOfWork db, ILogger<SalesInvoicesGetSer
                 .Include(x => x.SalesTransactions)
                 .ThenInclude(s => s.ShipmentRelease)
                 .ThenInclude(r => r.PurchaseContract)
+                .Include(x => x.ShipmentLoad)
                 .FirstOrDefaultAsync(p => p.Key == key);
         }
         catch (Exception ex)

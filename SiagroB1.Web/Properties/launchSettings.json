@@ -16,7 +16,7 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:50000",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Yokotobi"
+        "ASPNETCORE_ENVIRONMENT": "Yokotobi-Development"
       }
     },
     "standalone": {

@@ -14,7 +14,7 @@ public class PurchaseContractsAllocationDeleteService(
     public async Task ExecuteWithTransactionAsync(Guid key, string userName)
     {
         // Estorno manual (tela): contrato encerrado não aceita movimentação.
-        // O cascade interno (ExecuteAsync, ex.: ShipmentBillingDelete) não passa por aqui.
+        // O cascade interno (ExecuteAsync, ex.: ShippingTransactionsReverse) não passa por aqui.
         var alloc = await db.Context.PurchaseContractsAllocations
                         .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException("Purchase contract allocation not found.");

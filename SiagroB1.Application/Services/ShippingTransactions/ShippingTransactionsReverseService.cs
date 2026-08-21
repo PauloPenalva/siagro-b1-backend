@@ -7,14 +7,24 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
-namespace SiagroB1.Application.Services.ShipmentBilling;
+namespace SiagroB1.Application.Services.ShippingTransactions;
 
-public class ShipmentBillingDeleteService(
+/// <summary>
+/// Estorno da Expedição de Grãos: desfaz o par Purchase/SalesShipment criado por
+/// <see cref="ShippingTransactionsCreateService"/>, devolvendo o saldo ao contrato de compra e
+/// à liberação de embarque. Acionado pela Montagem de Carga, sobre romaneio ainda solto.
+/// </summary>
+/// <remarks>
+/// Era <c>ShipmentBilling/ShipmentBillingDeleteService</c>, acionado pela tela de faturamento.
+/// Mudou de lugar junto com o botão: quem fatura passa a lidar com CARGAS, e o romaneio solto
+/// (o que ainda dá para estornar) só existe na Montagem.
+/// </remarks>
+public class ShippingTransactionsReverseService(
     IUnitOfWork db,
     StorageTransactionsGetService storageTransactionsGetService,
     PurchaseContractsAllocationDeleteService  purchaseContractsAllocationDeleteService,
     ShipmentReleasesRecalculateShippedService recalcShipped,
-    ILogger<ShipmentBillingDeleteService> logger)
+    ILogger<ShippingTransactionsReverseService> logger)
 {
     public async Task ExecuteAsync(Guid key, string username)
     {
@@ -28,6 +38,22 @@ public class ShipmentBillingDeleteService(
         {
             throw new ApplicationException("Sales transaction already invoiced.");
         }
+        // Romaneio já montado em carga não volta por aqui: o estorno cancela o par e devolve os
+        // saldos à origem, arrancando volume de baixo de uma carga possivelmente já faturada em
+        // parte. Guard pela presença da CARGA e não pelo status: no faturamento parcial o
+        // romaneio ainda está Confirmed, e o guard de Invoiced acima deixaria passar.
+        if (shipping.SalesStorageTransaction is { ShipmentLoadKey: not null })
+        {
+            var loadCode = await db.Context.ShipmentLoads
+                .Where(x => x.Key == shipping.SalesStorageTransaction.ShipmentLoadKey)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {shipping.SalesStorageTransaction.Code} está montado na carga {loadCode}. " +
+                "Cancele a carga antes de estornar o romaneio.");
+        }
+
         
         if (shipping.PurchaseStorageTransaction is { TransactionStatus: StorageTransactionsStatus.Invoiced })
         {

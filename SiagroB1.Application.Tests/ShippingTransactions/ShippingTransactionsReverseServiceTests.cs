@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.PurchaseContracts;
-using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -11,16 +10,16 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 
-namespace SiagroB1.Application.Tests.ShipmentBilling;
+namespace SiagroB1.Application.Tests.ShippingTransactions;
 
 /// <summary>
-/// Estorno do romaneio de embarque (tela /shipment-billing). O estorno cancela o par
+/// Estorno do romaneio de embarque (tela /shipment-loads, Montagem de Carga). Vive ao lado do
+/// <c>ShippingTransactionsCreateService</c>, que é o que ele desfaz. Cancela o par
 /// Purchase/SalesShipment escrevendo o status direto — não passa por
-/// <c>StorageTransactionsCancelService</c>, que é onde vive o hook de
-/// <c>ShippedQuantity</c>. Sem um recálculo explícito, o saldo da liberação de embarque
-/// fica preso no valor de antes do estorno.
+/// <c>StorageTransactionsCancelService</c>, que é onde vive o hook de <c>ShippedQuantity</c>;
+/// sem um recálculo explícito o saldo da liberação de embarque fica preso no valor anterior.
 /// </summary>
-public class ShipmentBillingDeleteServiceTests
+public class ShippingTransactionsReverseServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
@@ -61,13 +60,13 @@ public class ShipmentBillingDeleteServiceTests
             new FakeStorageAddressBalanceReader(100_000m));
     }
 
-    private ShipmentBillingDeleteService DeleteService() =>
+    private ShippingTransactionsReverseService ReverseService() =>
         new(_db,
             GetService(),
             new PurchaseContractsAllocationDeleteService(
                 _db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
             Recalc(),
-            NullLogger<ShipmentBillingDeleteService>.Instance);
+            NullLogger<ShippingTransactionsReverseService>.Instance);
 
     /// <summary>Contrato aprovado com uma liberação ativa e saldo de sobra.</summary>
     private async Task<(PurchaseContract Contract, ShipmentRelease Release)> SeedAsync(
@@ -125,7 +124,7 @@ public class ShipmentBillingDeleteServiceTests
         var purchase = NewPurchase(release.Key, 1000m);
         var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
 
-        await DeleteService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
 
         var reloaded = await _db.Context.ShipmentReleases
             .AsNoTracking().SingleAsync(x => x.Key == release.Key);
@@ -145,7 +144,7 @@ public class ShipmentBillingDeleteServiceTests
         var purchase = NewPurchase(release.Key, 1000m);
         var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
 
-        await DeleteService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
 
         var reloaded = await _db.Context.PurchaseContracts
             .AsNoTracking().SingleAsync(x => x.Key == contract.Key);
@@ -168,13 +167,52 @@ public class ShipmentBillingDeleteServiceTests
         await CreateService()
             .ExecuteAsync(contract.Key, NewPurchase(release.Key, 400m), "tester");
 
-        await DeleteService().ExecuteAsync(first.SalesStorageTransactionKey, "tester");
+        await ReverseService().ExecuteAsync(first.SalesStorageTransactionKey, "tester");
 
         var reloaded = await _db.Context.ShipmentReleases
             .AsNoTracking().SingleAsync(x => x.Key == release.Key);
 
         Assert.Equal(400m, reloaded.ShippedQuantity);
         Assert.Equal(1100m, reloaded.AvailableQuantity);
+    }
+
+    /// <summary>
+    /// Romaneio montado em carga não é estornável: o estorno cancela o par e devolve os saldos
+    /// à origem, o que arrancaria volume de baixo de uma carga possivelmente já faturada.
+    /// O guard é pela presença da carga, não pelo status — durante o faturamento parcial o
+    /// romaneio ainda está Confirmed.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ComRomaneioMontadoEmCarga_Recusa()
+    {
+        var (contract, release) = await SeedAsync();
+        var purchase = NewPurchase(release.Key, 1000m);
+        var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
+
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000007",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            TotalQuantity = 1000m,
+        };
+        _db.Context.ShipmentLoads.Add(load);
+
+        var sales = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        sales.ShipmentLoadKey = load.Key;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
+
+        Assert.Contains("CG000007", error.Message);
+
+        // Nada de estorno pela metade: o par continua vivo e o saldo da liberação intocado.
+        var reloadedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
     }
 
     [Fact]
@@ -188,7 +226,7 @@ public class ShipmentBillingDeleteServiceTests
         // compartilha o DbContext — a chave precisa ser capturada antes da chamada.
         var purchaseKey = shipping.PurchaseStorageTransactionKey;
 
-        await DeleteService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
 
         var reloaded = await _db.Context.StorageTransactions
             .AsNoTracking().SingleAsync(x => x.Key == purchaseKey);

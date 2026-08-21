@@ -61,6 +61,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageEntryTransaction> StorageEntryTransactions { get; set; }
     public DbSet<DocNumber> DocNumbers { get; set; }
     public DbSet<OwnershipTransfer> OwnershipTransfers { get; set; }
+    public DbSet<ShipmentLoad> ShipmentLoads { get; set; }
+    public DbSet<ShipmentLoadMovement> ShipmentLoadMovements { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     
@@ -125,6 +127,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 $"AND [DeliveryStatus] = {(int)SalesInvoiceDeliveryStatus.Open} THEN 0 " +
                 "ELSE [DeliveredQuantity] - [Quantity] END",
                 stored: true);
+
+        // Invariante "um dono da diferença de entrega por item de nota", no banco. A regra é
+        // mantida por SalesContractsDeliveryDifferenceOwnerService em todo caminho que mexe no
+        // ledger; este índice é o que sobrevive a um caminho novo que esqueça de chamá-la —
+        // dois donos passariam despercebidos e fariam a quebra ser descontada em dobro.
+        // Filtrado porque a esmagadora maioria das linhas NÃO é dona (só uma por item é).
+        modelBuilder.Entity<SalesContractAllocation>()
+            .HasIndex(x => x.SalesInvoiceItemKey, "IX_SALES_CONTRACTS_ALLOCATIONS_DeliveryDifferenceOwner")
+            .IsUnique()
+            .HasFilter("[OwnsDeliveryDifference] = 1");
 
         // Uma chave de NF-e, um documento de entrada registrado. Filtrado porque cancelar precisa
         // LIBERAR a chave para o relançamento — mesma trava já usada no documento de saída.

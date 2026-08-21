@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -18,6 +19,7 @@ public class SalesInvoicesConfirmService(
     SalesContractsAllocationCreateForReturnService allocationCreateForReturn,
     SalesInvoicesUsageGuardService usageGuard,
     SalesContractsAllocationCreateForFiscalAdjustmentService fiscalAdjustment,
+    ShipmentLoadsBalanceHookService loadHook,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -55,7 +57,11 @@ public class SalesInvoicesConfirmService(
                     invoice, userName, CommitMode.Deferred);
                 affectedReleaseKeys.UnionWith(returnReleases);
             }
-            else if (invoice.SalesTransactions.Count > 0)
+            // Pelo RESOLVEDOR, não pela contagem de SalesTransactions: o documento de carga
+            // tem essa coleção vazia e cairia no ramo AVULSO abaixo, gravando alocação de
+            // ajuste fiscal em vez de faturamento — corrompendo o saldo do contrato em
+            // silêncio, e só por Estornar Confirmação -> Confirmar.
+            else if (SalesInvoiceOriginResolver.ConsumesShipments(invoice))
             {
                 await ProcessNormalInvoiceAsync(
                     invoice,
@@ -95,6 +101,20 @@ public class SalesInvoicesConfirmService(
             // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.
             foreach (var releaseKey in affectedReleaseKeys)
                 await recalcShipped.RecalculateAsync(releaseKey);
+
+            // Saldo da carga: só a DEVOLUÇÃO mexe nele aqui. Confirmar uma nota NORMAL não
+            // muda nada, porque Pending já consome — o consumo nasce na criação da nota. O
+            // "não-gancho" da nota normal é deliberado, não esquecimento.
+            if (invoice.InvoiceType == SalesInvoiceType.Return)
+            {
+                await loadHook.ApplyAsync(
+                    invoice,
+                    ShipmentLoadMovementType.Returned,
+                    userName,
+                    $"Devolução {invoice.InvoiceNumber} confirmada: saldo devolvido à carga.");
+
+                await db.SaveChangesAsync();
+            }
 
             await db.CommitAsync();
         }
@@ -165,6 +185,17 @@ public class SalesInvoicesConfirmService(
             throw new ApplicationException(
                 "Sales invoice origin is cancelled.");
         }
+
+        // A titularidade do status da origem é DESTA operação, não só da criação do retorno
+        // (SalesInvoicesReturnService). O estorno devolve a origem para Confirmed; sem
+        // regravar aqui, a sequência Retornar → Confirmar → Estornar → Confirmar deixaria a
+        // origem presa em Confirmed com o retorno confirmado ao lado. Idempotente de
+        // propósito: reescrever o mesmo valor não tem efeito, e o estado se autocorrige.
+        //
+        // Antes do return abaixo: documento sem romaneio também tem que marcar a origem.
+        originInvoice.InvoiceStatus = InvoiceStatus.Returned;
+        originInvoice.UpdatedAt = DateTime.Now;
+        originInvoice.UpdatedBy = userName;
 
         if (originInvoice.SalesTransactions == null)
         {

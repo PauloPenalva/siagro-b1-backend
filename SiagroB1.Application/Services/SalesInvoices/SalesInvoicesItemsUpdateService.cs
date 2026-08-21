@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -54,6 +55,13 @@ public class SalesInvoicesItemsUpdateService(
             if (deliveryChanged)
             {
                 await SalesContractsRecalculateBalanceService.RecalculateForItemsAsync(
+                    db.Context, [key]);
+                await db.SaveChangesAsync();
+
+                // A liberação de entrega segue a MESMA regra do contrato, então precisa do
+                // mesmo gatilho. Depois do flush acima: a titularidade da diferença é
+                // reeleita em memória lá, e a projeção SQL daqui leria a flag antiga.
+                await SalesShipmentReleasesRecalculateShippedService.RecalculateForItemsAsync(
                     db.Context, [key]);
                 await db.SaveChangesAsync();
             }
