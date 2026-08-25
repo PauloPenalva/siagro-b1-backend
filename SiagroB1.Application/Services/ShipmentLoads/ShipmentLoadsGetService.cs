@@ -28,10 +28,7 @@ public class ShipmentLoadsGetService(IUnitOfWork db, ILogger<ShipmentLoadsGetSer
 
     public IQueryable<ShipmentLoad> QueryAll()
     {
-        return db.Context.ShipmentLoads
-            .AsSplitQuery()
-            .Include(x => x.Transactions)
-            .AsNoTracking();
+        return db.Context.ShipmentLoads.AsNoTracking();
     }
 
     public IQueryable<ShipmentLoadMovement> QueryMovements()

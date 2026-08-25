@@ -22,6 +22,8 @@ public class WeighingCaptureRulesTests
 
             return Task.FromResult(granted);
         }
+
+        public Task<bool> HasRoleAsync(string username, string roleCode) => Task.FromResult(false);
     }
 
     private static readonly DateTime Now = DateTime.Now;

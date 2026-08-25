@@ -37,4 +37,17 @@ public class UserPermissionsService(CommonDbContext db) : IUserPermissions
         await db.Users
             .AsNoTracking()
             .AnyAsync(u => u.Username == username && u.IsActive && u.IsAdmin);
+
+    /// <summary>Papel atribuído via perfil, sem o bypass de <c>IsAdmin</c> — para checar o papel em si.</summary>
+    public async Task<bool> HasRoleAsync(string username, string roleCode)
+    {
+        var query =
+            from u in db.Users
+            join up in db.UserProfiles on u.Id equals up.UserId
+            join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
+            where u.Username == username && u.IsActive && pr.RoleCode == roleCode
+            select pr;
+
+        return await query.AnyAsync();
+    }
 }

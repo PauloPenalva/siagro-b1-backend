@@ -93,4 +93,47 @@ public class UserPermissionsServiceTests
 
         Assert.Single(await service.GetAsync("joao"));
     }
+
+    [Fact]
+    public async Task HasRoleAsync_is_true_for_the_role_granted_through_profile()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");
+
+        var service = new UserPermissionsService(db);
+
+        Assert.True(await service.HasRoleAsync("joao", "OPERADOR"));
+    }
+
+    [Fact]
+    public async Task HasRoleAsync_does_not_bypass_for_IsAdmin()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "admin", "SOME_OTHER_PERMISSION", isAdmin: true);
+
+        var service = new UserPermissionsService(db);
+
+        Assert.False(await service.HasRoleAsync("admin", "ADMIN"));
+    }
+
+    [Fact]
+    public async Task HasRoleAsync_is_false_for_a_user_without_that_role()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");
+
+        var service = new UserPermissionsService(db);
+
+        Assert.False(await service.HasRoleAsync("joao", "ADMIN"));
+    }
+
+    [Fact]
+    public async Task HasRoleAsync_is_false_for_an_unknown_user()
+    {
+        using var db = CreateDb();
+
+        var service = new UserPermissionsService(db);
+
+        Assert.False(await service.HasRoleAsync("ninguem", "ADMIN"));
+    }
 }

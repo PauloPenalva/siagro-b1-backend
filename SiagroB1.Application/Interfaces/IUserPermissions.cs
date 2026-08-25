@@ -12,4 +12,6 @@ public interface IUserPermissions
     Task<bool> HasAsync(string username, string permissionCode);
 
     Task<List<string>> GetAsync(string username);
+
+    Task<bool> HasRoleAsync(string username, string roleCode);
 }

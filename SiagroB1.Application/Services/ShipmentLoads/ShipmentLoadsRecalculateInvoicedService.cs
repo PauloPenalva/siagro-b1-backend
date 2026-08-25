@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
@@ -30,16 +31,16 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <c>Purchase</c>/<c>PurchaseReturn</c> e filtra por <c>!= Cancelled</c>.
 /// </para>
 /// </remarks>
-public class ShipmentLoadsRecalculateInvoicedService(AppDbContext context)
+public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
 
     public Task RecalculateAsync(Guid shipmentLoadKey) =>
-        RecalculateAsync(context, shipmentLoadKey, excludedInvoiceKeys: null);
+        RecalculateAsync(db.Context, shipmentLoadKey, excludedInvoiceKeys: null);
 
     public Task RecalculateAsync(Guid shipmentLoadKey, ICollection<Guid>? excludedInvoiceKeys) =>
-        RecalculateAsync(context, shipmentLoadKey, excludedInvoiceKeys);
+        RecalculateAsync(db.Context, shipmentLoadKey, excludedInvoiceKeys);
 
     /// <summary>
     /// Recalcula e ENFILEIRA as alterações no contexto, sem <c>SaveChanges</c> — quem chama
