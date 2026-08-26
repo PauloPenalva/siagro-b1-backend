@@ -15,4 +15,11 @@ public class SalesInvoicesChangeLogsGetService(AppDbContext context)
             .AsNoTracking()
             .Where(x => x.SalesInvoiceKey == salesInvoiceKey)
             .OrderByDescending(x => x.ChangedAt);
+
+    /// <summary>
+    /// Log completo, para o entity set. Quem filtra é o $filter da requisição — hoje o diálogo
+    /// da conferência de entregas, que pede as linhas de UM item.
+    /// </summary>
+    public IQueryable<SalesInvoiceChangeLog> QueryAll() =>
+        context.SalesInvoicesChangeLogs.AsNoTracking();
 }

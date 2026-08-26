@@ -86,6 +86,20 @@ public class SalesInvoiceItem
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
 
     /// <summary>
+    /// Quando a ENTREGA desta linha foi conferida pela última vez (telas de Conferência de
+    /// entregas e de Estorno). Só é carimbada quando quantidade entregue, desconto ou status
+    /// da entrega mudam — um ajuste fiscal feito em outra tela não finge ser conferência.
+    ///
+    /// Nulável e sem backfill: linha nunca conferida fica em branco na grade. A entidade não
+    /// herda de <c>BaseEntity</c> de propósito (a chave aqui não é Identity e não há RowId).
+    /// </summary>
+    public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>Usuário da última conferência de entrega. Ver <see cref="UpdatedAt"/>.</summary>
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? UpdatedBy { get; set; }
+
+    /// <summary>
     /// Natureza de operação da LINHA (<see cref="Usage"/>), como no SAP: cada item tem a sua,
     /// resolve o próprio CFOP e produz o próprio efeito no contrato. Um documento pode
     /// misturar naturezas.

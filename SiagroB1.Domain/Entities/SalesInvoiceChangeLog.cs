@@ -24,6 +24,17 @@ public class SalesInvoiceChangeLog
     public Guid? SalesInvoiceKey { get; set; }
     public virtual SalesInvoice? SalesInvoice { get; set; }
 
+    /// <summary>
+    /// Item do documento a que a alteração se refere, quando ela é de LINHA (conferência de
+    /// entrega). Nulo nas alterações de cabeçalho — as linhas de <see cref="ContractChangeLogFields.Comment"/>
+    /// já gravadas continuam só com <see cref="SalesInvoiceKey"/>, por isso a coluna é nulável.
+    ///
+    /// Sem propriedade de navegação de volta: o diálogo da conferência consulta o entity set
+    /// <c>SalesInvoicesChangeLogs</c> filtrando por esta chave, e não a rota aninhada
+    /// <c>SalesInvoicesItems(key)/ChangeLogs</c>, que precisaria ser declarada à mão no controller.
+    /// </summary>
+    public Guid? SalesInvoiceItemKey { get; set; }
+
     public DateTime ChangedAt { get; set; } = DateTime.Now;
 
     [Column(TypeName = "VARCHAR(100)")]

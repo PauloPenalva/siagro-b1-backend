@@ -25,6 +25,34 @@ public static class ContractChangeLogFields
     /// </summary>
     public const string Comment = "Comment";
 
+    /// <summary>Quantidade entregue conferida na balança do cliente (linha do documento de saída).</summary>
+    public const string DeliveredQuantity = "DeliveredQuantity";
+
+    /// <summary>Desconto/quebra de qualidade apurado na conferência (linha do documento de saída).</summary>
+    public const string QuantityLoss = "QuantityLoss";
+
+    /// <summary>Situação da entrega da linha: Aberto / Encerrado.</summary>
+    public const string DeliveryStatus = "DeliveryStatus";
+
+    /// <summary>
+    /// Quantidade como ela aparece no log: sempre 3 casas em pt-BR, igual à grade da
+    /// conferência. Formatar no servidor mantém "de" e "para" comparáveis mesmo que a
+    /// máscara da tela mude depois.
+    /// </summary>
+    public static string DescribeQuantity(decimal value) => value.ToString("N3", PtBr);
+
+    /// <summary>
+    /// Situação da entrega em pt-BR. Fica aqui, e não num formatter do frontend, porque
+    /// OldValue/NewValue são texto livre — a tela não teria como saber que aquela linha é
+    /// um enum.
+    /// </summary>
+    public static string DescribeDeliveryStatus(SalesInvoiceDeliveryStatus status) => status switch
+    {
+        SalesInvoiceDeliveryStatus.Open => "Aberto",
+        SalesInvoiceDeliveryStatus.Closed => "Encerrado",
+        _ => status.ToString(),
+    };
+
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>

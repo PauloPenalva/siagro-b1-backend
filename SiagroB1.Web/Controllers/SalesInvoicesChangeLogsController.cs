@@ -14,6 +14,17 @@ public class SalesInvoicesChangeLogsController(
     SalesInvoicesChangeLogsGetService getService)
     : ODataController
 {
+    /// <summary>
+    /// Entity set. Serve o diálogo de log da conferência de entregas, que pede as linhas de um
+    /// item via $filter — e não a rota aninhada <c>SalesInvoicesItems(key)/ChangeLogs</c>, que
+    /// teria de ser declarada aqui do mesmo jeito.
+    /// </summary>
+    [EnableQuery]
+    public ActionResult<IEnumerable<SalesInvoiceChangeLog>> Get()
+    {
+        return Ok(getService.QueryAll());
+    }
+
     [HttpGet("odata/SalesInvoices({key:guid})/ChangeLogs")]
     [HttpGet("odata/SalesInvoices/{key:guid}/ChangeLogs")]
     [EnableQuery]

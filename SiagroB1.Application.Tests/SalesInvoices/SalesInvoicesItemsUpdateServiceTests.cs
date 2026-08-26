@@ -279,4 +279,124 @@ public class SalesInvoicesItemsUpdateServiceTests
 
         Assert.Equal("MILHO EM GRAOS", (await StoredItemAsync(item.Key!.Value)).ItemName);
     }
+
+    private async Task<List<SalesInvoiceChangeLog>> LogsForItemAsync(Guid itemKey) =>
+        await _db.Context.SalesInvoicesChangeLogs.AsNoTracking()
+            .Where(l => l.SalesInvoiceItemKey == itemKey)
+            .ToListAsync();
+
+    /// <summary>
+    /// Confere entrega e encerra: carimba quem/quando no item e grava uma linha de log por
+    /// campo alterado, com o "de" vindo do OriginalValues (o PATCH chega rastreado).
+    /// </summary>
+    [Fact]
+    public async Task ClosingDelivery_StampsUpdatedByAndLogsEachChangedField()
+    {
+        var (_, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveredQuantity = 95m;
+        tracked.QuantityLoss = 5m;
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        var stored = await StoredItemAsync(item.Key!.Value);
+        Assert.Equal("tester", stored.UpdatedBy);
+        Assert.NotNull(stored.UpdatedAt);
+
+        var logs = await LogsForItemAsync(item.Key!.Value);
+        Assert.Equal(3, logs.Count);
+        Assert.All(logs, l =>
+        {
+            Assert.Equal("tester", l.ChangedBy);
+            Assert.Equal(item.SalesInvoiceKey, l.SalesInvoiceKey);
+        });
+
+        var delivered = logs.Single(l => l.Field == ContractChangeLogFields.DeliveredQuantity);
+        Assert.Equal("0,000", delivered.OldValue);
+        Assert.Equal("95,000", delivered.NewValue);
+
+        var loss = logs.Single(l => l.Field == ContractChangeLogFields.QuantityLoss);
+        Assert.Equal("0,000", loss.OldValue);
+        Assert.Equal("5,000", loss.NewValue);
+
+        var status = logs.Single(l => l.Field == ContractChangeLogFields.DeliveryStatus);
+        Assert.Equal("Aberto", status.OldValue);
+        Assert.Equal("Encerrado", status.NewValue);
+    }
+
+    /// <summary>Só o campo que mudou vira linha — digitar de novo o mesmo valor não polui o log.</summary>
+    [Fact]
+    public async Task ChangingOnlyDeliveredQuantity_LogsSingleLine()
+    {
+        var (_, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveredQuantity = 98.5m;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        var log = Assert.Single(await LogsForItemAsync(item.Key!.Value));
+        Assert.Equal(ContractChangeLogFields.DeliveredQuantity, log.Field);
+        Assert.Equal("98,500", log.NewValue);
+    }
+
+    /// <summary>
+    /// Ajuste que não toca na entrega (natureza, fiscal, feito em OUTRA tela) não pode
+    /// fingir que houve conferência: nem carimbo, nem log.
+    /// </summary>
+    [Fact]
+    public async Task EditingNonDeliveryField_DoesNotStampOrLog()
+    {
+        var (_, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.ItemCode = "MILHO";
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "tester");
+
+        var stored = await StoredItemAsync(item.Key!.Value);
+        Assert.Null(stored.UpdatedAt);
+        Assert.True(string.IsNullOrEmpty(stored.UpdatedBy));
+        Assert.Empty(await LogsForItemAsync(item.Key!.Value));
+    }
+
+    /// <summary>Estorno (Encerrado -> Aberto) também é rastreado.</summary>
+    [Fact]
+    public async Task ReopeningDelivery_LogsStatusChange()
+    {
+        var (_, item) = await SeedAsync(
+            quantity: 100m, allocatedVolume: 90m,
+            deliveryStatus: SalesInvoiceDeliveryStatus.Closed, delivered: 95m, loss: 5m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Open;
+
+        await Service().ExecuteAsync(item.Key!.Value, tracked, "estornador");
+
+        var log = Assert.Single(await LogsForItemAsync(item.Key!.Value));
+        Assert.Equal(ContractChangeLogFields.DeliveryStatus, log.Field);
+        Assert.Equal("Encerrado", log.OldValue);
+        Assert.Equal("Aberto", log.NewValue);
+        Assert.Equal("estornador", log.ChangedBy);
+    }
+
+    /// <summary>
+    /// Encerramento barrado pelo guard de líquido não pode deixar rastro: o log só nasce
+    /// depois de a gravação passar.
+    /// </summary>
+    [Fact]
+    public async Task ClosingRejectedByNetGuard_LeavesNoLog()
+    {
+        var (_, item) = await SeedAsync(quantity: 100m, allocatedVolume: 100m);
+
+        var tracked = await _db.Context.SalesInvoicesItems.SingleAsync(x => x.Key == item.Key);
+        tracked.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+        await Assert.ThrowsAsync<DefaultException>(
+            () => Service().ExecuteAsync(item.Key!.Value, tracked, "tester"));
+
+        Assert.Empty(await LogsForItemAsync(item.Key!.Value));
+    }
 }

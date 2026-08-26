@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -47,7 +48,22 @@ public class SalesInvoicesItemsUpdateService(
                     "Não é possível encerrar a entrega com peso líquido zerado ou negativo. " +
                     "Informe a quantidade entregue e o desconto antes de encerrar.");
 
+            // Log e carimbo ANTES do SaveChanges, mas montados a partir do OriginalValues:
+            // depois do SetValues o "de" já teria sido sobrescrito. Nada disso chega ao banco
+            // se o guard acima tiver estourado.
+            var logs = deliveryChanged ? BuildDeliveryLogs(existingEntity, entity, original, userName) : [];
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
+
+            if (deliveryChanged)
+            {
+                // Depois do SetValues: os carimbos não vêm no corpo do PATCH, e o SetValues
+                // sobrescreveria com o nulo da entidade recebida no caminho PUT.
+                existingEntity.UpdatedAt = DateTime.Now;
+                existingEntity.UpdatedBy = userName;
+                db.Context.SalesInvoicesChangeLogs.AddRange(logs);
+            }
+
             await db.SaveChangesAsync();
 
             // Entrega/quebra mudou → o fator efetivo do item mudou; recalcula os contratos
@@ -75,4 +91,51 @@ public class SalesInvoicesItemsUpdateService(
         return entity;
     }
     
+
+    /// <summary>
+    /// Uma linha de log por campo da conferência que realmente mudou. O "de" sai do
+    /// <paramref name="original"/> (no PATCH a entidade chega rastreada e mutada, então o
+    /// valor anterior só existe no rastreador) e os dois lados são formatados aqui, para
+    /// "de" e "para" ficarem comparáveis mesmo que a máscara da tela mude depois.
+    /// </summary>
+    private static List<SalesInvoiceChangeLog> BuildDeliveryLogs(
+        SalesInvoiceItem existingEntity,
+        SalesInvoiceItem entity,
+        PropertyValues original,
+        string userName)
+    {
+        var logs = new List<SalesInvoiceChangeLog>();
+
+        void Add(string field, string oldValue, string newValue)
+        {
+            if (oldValue == newValue) return;
+
+            logs.Add(new SalesInvoiceChangeLog
+            {
+                SalesInvoiceKey = existingEntity.SalesInvoiceKey,
+                SalesInvoiceItemKey = existingEntity.Key,
+                ChangedBy = userName,
+                Field = field,
+                OldValue = oldValue,
+                NewValue = newValue,
+            });
+        }
+
+        Add(ContractChangeLogFields.DeliveredQuantity,
+            ContractChangeLogFields.DescribeQuantity(
+                (decimal)original[nameof(SalesInvoiceItem.DeliveredQuantity)]!),
+            ContractChangeLogFields.DescribeQuantity(entity.DeliveredQuantity));
+
+        Add(ContractChangeLogFields.QuantityLoss,
+            ContractChangeLogFields.DescribeQuantity(
+                (decimal)original[nameof(SalesInvoiceItem.QuantityLoss)]!),
+            ContractChangeLogFields.DescribeQuantity(entity.QuantityLoss));
+
+        Add(ContractChangeLogFields.DeliveryStatus,
+            ContractChangeLogFields.DescribeDeliveryStatus(
+                (SalesInvoiceDeliveryStatus)original[nameof(SalesInvoiceItem.DeliveryStatus)]!),
+            ContractChangeLogFields.DescribeDeliveryStatus(entity.DeliveryStatus));
+
+        return logs;
+    }
 }
