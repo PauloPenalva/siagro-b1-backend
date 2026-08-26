@@ -194,6 +194,21 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
         modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ItemModel>("Items");
+
+        var itemsGetComplement = modelBuilder.Function("ItemsGetComplement");
+        itemsGetComplement.Parameter<string>("ItemCode");
+        itemsGetComplement.Returns<ItemComplementDto>();
+
+        // Os dois campos do complemento sao opcionais: limpar o complemento e operacao valida.
+        // Parametro opcional chega NULO no controller — ver o <remarks> de ItemsSetComplementController.
+        var itemsSetComplement = modelBuilder.Action("ItemsSetComplement");
+        itemsSetComplement.Parameter<string>("ItemCode");
+        itemsSetComplement.Parameter<string>("CommercialUnitOfMeasureCode").Optional();
+        // double, NAO decimal: o UI5 v4 serializa Edm.Decimal como STRING e o desserializador do
+        // OData recusa o corpo inteiro com um 400 que nao nomeia o campo ("The parameters field
+        // is required"), como se nenhum parametro tivesse chegado.
+        itemsSetComplement.Parameter<double?>("CommercialFactor").Optional();
+        itemsSetComplement.Returns<ItemComplementDto>();
         modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
         modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType, x.CardCode });

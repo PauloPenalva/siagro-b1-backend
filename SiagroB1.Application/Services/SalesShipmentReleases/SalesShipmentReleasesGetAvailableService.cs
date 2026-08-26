@@ -46,7 +46,8 @@ public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
         }
 
         return query
-            .OrderByDescending(r => r.RowId)
+            .OrderBy(r => r.SalesContract!.StandardCashFlowDate)
+            .ThenByDescending(r => r.RowId)
             .Select(r => new SalesShipmentReleaseAvailableDto
             {
                 SalesShipmentReleaseKey = r.Key.ToString(),
@@ -62,12 +63,27 @@ public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
                 ItemName = r.SalesContract.ItemName,
                 UnitOfMeasureCode = r.SalesContract.UnitOfMeasureCode,
                 Price = r.SalesContract.Price,
+                // itemCode é fixo para toda a query (parâmetro do método), então dá para
+                // correlacionar direto sem join por linha.
+                // Os dois campos andam juntos: com a UoM preenchida e o fator nulo, o preco caia
+                // para KG enquanto a sigla continuava "SC" — par inconsistente na tela.
+                CommercialUnitOfMeasureCode = db.Context.ItemComplements
+                    .Where(c => c.ItemCode == itemCode && c.CommercialFactor != null)
+                    .Select(c => c.CommercialUnitOfMeasureCode)
+                    .FirstOrDefault(),
+                CommercialPrice = db.Context.ItemComplements
+                    .Where(c => c.ItemCode == itemCode && c.CommercialUnitOfMeasureCode != null)
+                    .Select(c => r.SalesContract.Price * c.CommercialFactor)
+                    .FirstOrDefault(),
                 DeliveryLocationCode = r.DeliveryLocationCode,
                 DeliveryLocationName = r.DeliveryLocationName,
                 AvailableQuantity = r.ReleasedQuantity - r.ShippedQuantity,
                 SalesContractStatus = r.SalesContract.Status,
                 SalesContractAvailableVolume =
                     r.SalesContract.TotalVolume - r.SalesContract.AllocatedVolume,
+                StandardCashFlowDate = r.SalesContract.StandardCashFlowDate,
+                SalesContractFreightCostStandard = r.SalesContract.FreightCostStandard,
+                SalesContractFreightUmCode = r.SalesContract.FreightUmCode,
             });
     }
 }

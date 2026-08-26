@@ -35,6 +35,7 @@ public class ShipmentLoadsCreateService(
         var distinctKeys = storageTransactionKeys.Distinct().ToList();
 
         var shipments = await db.Context.StorageTransactions
+            .Include(x => x.TruckDriver)
             .Where(x => distinctKeys.Contains(x.Key))
             .ToListAsync();
 
@@ -60,6 +61,7 @@ public class ShipmentLoadsCreateService(
             UnitOfMeasureCode = first.UnitOfMeasureCode,
             TruckCode = first.TruckCode,
             TruckDriverCode = first.TruckDriverCode,
+            TruckDriverName = first.TruckDriver?.Name,
             WarehouseCode = first.WarehouseCode,
             WarehouseName = first.WarehouseName,
             // BRUTO, não líquido: é o número que hoje vira a quantidade da nota. Ver o

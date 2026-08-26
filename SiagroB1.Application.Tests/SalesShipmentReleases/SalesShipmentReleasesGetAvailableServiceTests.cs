@@ -95,4 +95,54 @@ public class SalesShipmentReleasesGetAvailableServiceTests
 
         Assert.Empty(Service().Query("SOJA", includeContractsWithoutBalance: true).ToList());
     }
+
+    [Fact]
+    public async Task Query_IncludesCommercialPriceWhenItemHasCommercialUnitOfMeasureConfigured()
+    {
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, price: 50m);
+        _db.Context.ItemComplements.Add(new ItemComplement
+        {
+            ItemCode = "SOJA", CommercialUnitOfMeasureCode = "SC", CommercialFactor = 60m,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var result = Service().Query("SOJA").ToList();
+
+        Assert.Single(result);
+        Assert.Equal("SC", result[0].CommercialUnitOfMeasureCode);
+        Assert.Equal(3000m, result[0].CommercialPrice);
+    }
+
+    /// <summary>
+    /// Complemento pela metade nao converte: sigla comercial com preco em KG ao lado seria um par
+    /// inconsistente, pior que simplesmente cair para KG.
+    /// </summary>
+    [Fact]
+    public async Task Query_CommercialFieldsAreNullWhenTheComplementIsHalfFilled()
+    {
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, price: 50m);
+        _db.Context.ItemComplements.Add(new ItemComplement
+        {
+            ItemCode = "SOJA", CommercialUnitOfMeasureCode = "SC", CommercialFactor = null,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var result = Service().Query("SOJA").ToList();
+
+        Assert.Null(result[0].CommercialUnitOfMeasureCode);
+        Assert.Null(result[0].CommercialPrice);
+    }
+
+    [Fact]
+    public async Task Query_CommercialFieldsAreNullWhenItemHasNoCommercialUnitOfMeasureConfigured()
+    {
+        await SeedAsync("SOJA", ReleaseStatus.Actived, released: 1000m, shipped: 0m, price: 50m);
+
+        var result = Service().Query("SOJA").ToList();
+
+        Assert.Single(result);
+        Assert.Null(result[0].CommercialUnitOfMeasureCode);
+        Assert.Null(result[0].CommercialPrice);
+        Assert.Equal(50m, result[0].Price);
+    }
 }

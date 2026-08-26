@@ -87,6 +87,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ScaleConfigProvider>();
 
         // commons services ( services folder )
+        // Sempre AppDbContext, independente do modo ERP (SAPB1/STANDALONE) — não pertence a
+        // nenhum forkeamento acima porque este dado não existe no SAP.
+        services.AddScoped<IItemComplementService, ItemComplementService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();

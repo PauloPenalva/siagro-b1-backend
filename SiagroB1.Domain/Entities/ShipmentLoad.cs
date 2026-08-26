@@ -43,6 +43,9 @@ public class ShipmentLoad : DocumentEntity
     [Column(TypeName = "VARCHAR(11) NULL")]
     public string? TruckDriverCode { get; set; }
 
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? TruckDriverName { get; set; }
+
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public string? WarehouseCode { get; set; }
 

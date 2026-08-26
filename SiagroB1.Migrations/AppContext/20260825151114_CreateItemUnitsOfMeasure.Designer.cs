@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825151114_CreateItemUnitsOfMeasure")]
+    partial class CreateItemUnitsOfMeasure
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -240,20 +243,24 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("ITEMS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ItemComplement", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ItemUnitOfMeasure", b =>
                 {
                     b.Property<string>("ItemCode")
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
-                    b.Property<decimal?>("CommercialFactor")
-                        .HasColumnType("DECIMAL(18,6)");
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
 
-                    b.Property<string>("CommercialUnitOfMeasureCode")
-                        .HasColumnType("VARCHAR(4)");
+                    b.Property<decimal>("Factor")
+                        .HasColumnType("DECIMAL(18,6) NOT NULL");
 
-                    b.HasKey("ItemCode");
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(4) NOT NULL");
 
-                    b.ToTable("ITEM_COMPLEMENTS");
+                    b.HasKey("ItemCode", "Purpose");
+
+                    b.ToTable("ITEM_UNITS_OF_MEASURE");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.LedgerAccount", b =>

@@ -50,6 +50,20 @@ public class SalesShipmentReleaseAvailableDto
     [JsonPropertyName("Price")]
     public decimal Price { get; set; }
 
+    /// <summary>
+    /// UoM comercial do item (ex.: "SC", "TON"), quando cadastrada via <c>ItemsSetCommercialUnitOfMeasure</c>.
+    /// Nulo quando o item não tem UoM comercial configurada — a tela usa <see cref="Price"/> em KG.
+    /// </summary>
+    [JsonPropertyName("CommercialUnitOfMeasureCode")]
+    public string? CommercialUnitOfMeasureCode { get; set; }
+
+    /// <summary>
+    /// <see cref="Price"/> (KG) convertido para a UoM comercial (<c>Price * Factor</c>). Nulo junto
+    /// com <see cref="CommercialUnitOfMeasureCode"/> quando o item não tem UoM comercial configurada.
+    /// </summary>
+    [JsonPropertyName("CommercialPrice")]
+    public decimal? CommercialPrice { get; set; }
+
     [JsonPropertyName("DeliveryLocationCode")]
     public string? DeliveryLocationCode { get; set; }
 
@@ -63,7 +77,15 @@ public class SalesShipmentReleaseAvailableDto
     /// Situação do contrato de venda. Sempre <c>Approved</c> na lista — vem no DTO para a tela
     /// exibir, não para filtrar de novo.
     /// </summary>
+    /// <remarks>
+    /// Este endpoint devolve array JSON cru (sem envelope OData, ver o serviço), então quem
+    /// serializa é o System.Text.Json padrão, não o writer do OData — sem
+    /// <see cref="JsonStringEnumConverter"/> o enum sai como INTEIRO e o
+    /// <c>formatter.formatContractStatus</c> do frontend (que espera "Approved") devolve
+    /// undefined em silêncio.
+    /// </remarks>
     [JsonPropertyName("SalesContractStatus")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public ContractStatus? SalesContractStatus { get; set; }
 
     /// <summary>
@@ -73,4 +95,18 @@ public class SalesShipmentReleaseAvailableDto
     /// </summary>
     [JsonPropertyName("SalesContractAvailableVolume")]
     public decimal SalesContractAvailableVolume { get; set; }
+
+    [JsonPropertyName("StandardCashFlowDate")]
+    public DateTime? StandardCashFlowDate { get; set; }
+
+    /// <summary>
+    /// Frete standard do contrato de venda (<c>SalesContract.FreightCostStandard</c>), por
+    /// unidade de <see cref="SalesContractFreightUmCode"/>. Exibido na lista para o usuário
+    /// conferir o frete negociado ao escolher a liberação — não entra em nenhum cálculo aqui.
+    /// </summary>
+    [JsonPropertyName("SalesContractFreightCostStandard")]
+    public decimal SalesContractFreightCostStandard { get; set; }
+
+    [JsonPropertyName("SalesContractFreightUmCode")]
+    public string? SalesContractFreightUmCode { get; set; }
 }

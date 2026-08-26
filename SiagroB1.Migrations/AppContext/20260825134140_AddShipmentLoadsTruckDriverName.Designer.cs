@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825134140_AddShipmentLoadsTruckDriverName")]
+    partial class AddShipmentLoadsTruckDriverName
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -238,22 +241,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("ItemCode");
 
                     b.ToTable("ITEMS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ItemComplement", b =>
-                {
-                    b.Property<string>("ItemCode")
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<decimal?>("CommercialFactor")
-                        .HasColumnType("DECIMAL(18,6)");
-
-                    b.Property<string>("CommercialUnitOfMeasureCode")
-                        .HasColumnType("VARCHAR(4)");
-
-                    b.HasKey("ItemCode");
-
-                    b.ToTable("ITEM_COMPLEMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.LedgerAccount", b =>
