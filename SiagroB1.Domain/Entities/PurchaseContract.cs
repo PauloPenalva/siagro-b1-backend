@@ -23,7 +23,14 @@ public class PurchaseContract : DocumentEntity
     public MarketType? MarketType { get; set; }
     
     public ContractStatus? Status { get; set; } = ContractStatus.Draft;
-    
+
+    /// <summary>
+    /// Situação da assinatura do contrato. Independente de <see cref="Status"/> e alterável a
+    /// qualquer tempo pela action dedicada — nunca pelo PATCH do cabeçalho, que só aceita
+    /// contrato em rascunho. Nulo = não informado.
+    /// </summary>
+    public SignatureStatus? SignatureStatus { get; set; }
+
     public int? AgentCode { get; set; }
     
     [Column(TypeName = "VARCHAR(100)")] 

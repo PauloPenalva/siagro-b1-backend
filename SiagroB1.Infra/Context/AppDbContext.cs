@@ -77,6 +77,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Item> Items { get; set; }
 
     public DbSet<ItemComplement> ItemComplements { get; set; }
+
+    public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
     public DbSet<BusinessPartner>  BusinessPartners { get; set; }
     
@@ -183,6 +185,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<ItemComplement>()
             .HasKey(x => x.ItemCode);
+
+        modelBuilder.Entity<WarehouseComplement>()
+            .HasKey(x => x.WarehouseCode);
 
         modelBuilder.Entity<Address>()
             .HasOne(a => a.BusinessPartner)

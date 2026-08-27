@@ -209,6 +209,19 @@ public static class ODataConfigurations
         // is required"), como se nenhum parametro tivesse chegado.
         itemsSetComplement.Parameter<double?>("CommercialFactor").Optional();
         itemsSetComplement.Returns<ItemComplementDto>();
+
+        var warehousesGetComplement = modelBuilder.Function("WarehousesGetComplement");
+        warehousesGetComplement.Parameter<string>("WarehouseCode");
+        warehousesGetComplement.Returns<WarehouseComplementDto>();
+
+        // Flags opcionais: ausente vale false, mesmo significado de "sem registro de complemento".
+        // Parametro opcional chega NULO no controller — ver o <remarks> do controller da action.
+        var warehousesSetComplement = modelBuilder.Action("WarehousesSetComplement");
+        warehousesSetComplement.Parameter<string>("WarehouseCode");
+        warehousesSetComplement.Parameter<bool?>("IsParticipant").Optional();
+        warehousesSetComplement.Parameter<bool?>("IsOwn").Optional();
+        warehousesSetComplement.Parameter<string>("Notes").Optional();
+        warehousesSetComplement.Returns<WarehouseComplementDto>();
         modelBuilder.EntitySet<AgentModel>("Agents");
         modelBuilder.EntitySet<BusinessPartnerModel>("BusinessPartners");
         modelBuilder.EntityType<AddressModel>().HasKey(x => new { x.AddressName, x.AdresType, x.CardCode });
@@ -400,6 +413,15 @@ public static class ODataConfigurations
         purchaseContractsClose.Parameter<Guid>("Key");
         purchaseContractsClose.Returns<IActionResult>();
 
+        // Situação de assinatura como action: o PATCH do cabeçalho só aceita contrato em rascunho,
+        // e este campo vale em qualquer status. O parâmetro é string (e não o enum) de propósito —
+        // parâmetro não primitivo em action tem histórico de quebrar só pela tela; o controller faz
+        // o parse. Nulo/vazio limpa o campo.
+        var purchaseContractsSetSignatureStatus = modelBuilder.Action("PurchaseContractsSetSignatureStatus");
+        purchaseContractsSetSignatureStatus.Parameter<Guid>("Key");
+        purchaseContractsSetSignatureStatus.Parameter<string>("SignatureStatus").Nullable = true;
+        purchaseContractsSetSignatureStatus.Returns<IActionResult>();
+
         // Criação de fixação como action (e não POST na navegação): o frontend invoca
         // pelo ODataModel e a linha nova aparece sem recarregar a rota.
         var priceFixationCreate = modelBuilder.Action("PurchaseContractsPriceFixationCreate");
@@ -543,6 +565,12 @@ public static class ODataConfigurations
         var salesContractsClose = modelBuilder.Action("SalesContractsClose");
         salesContractsClose.Parameter<Guid>("Key");
         salesContractsClose.Returns<IActionResult>();
+
+        // Espelho de PurchaseContractsSetSignatureStatus — ver o comentário lá.
+        var salesContractsSetSignatureStatus = modelBuilder.Action("SalesContractsSetSignatureStatus");
+        salesContractsSetSignatureStatus.Parameter<Guid>("Key");
+        salesContractsSetSignatureStatus.Parameter<string>("SignatureStatus").Nullable = true;
+        salesContractsSetSignatureStatus.Returns<IActionResult>();
 
         var salesContractsReopen = modelBuilder.Action("SalesContractsReopen");
         salesContractsReopen.Parameter<Guid>("Key");

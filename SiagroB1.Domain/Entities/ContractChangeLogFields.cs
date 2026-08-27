@@ -34,6 +34,22 @@ public static class ContractChangeLogFields
     /// <summary>Situação da entrega da linha: Aberto / Encerrado.</summary>
     public const string DeliveryStatus = "DeliveryStatus";
 
+    /// <summary>Situação da assinatura do contrato: Aguardando Assinatura / Assinado.</summary>
+    public const string SignatureStatus = "SignatureStatus";
+
+    /// <summary>
+    /// Situação da assinatura em pt-BR. Fica aqui, e não num formatter do frontend, pelo mesmo
+    /// motivo de <see cref="DescribeDeliveryStatus"/>: OldValue/NewValue são texto livre.
+    /// Nulo devolve nulo — o log já usa nulo para "não havia valor".
+    /// </summary>
+    public static string? DescribeSignatureStatus(SiagroB1.Domain.Enums.SignatureStatus? status) => status switch
+    {
+        Enums.SignatureStatus.AwaitingSignature => "Aguardando Assinatura",
+        Enums.SignatureStatus.Signed => "Assinado",
+        null => null,
+        _ => status.ToString(),
+    };
+
     /// <summary>
     /// Quantidade como ela aparece no log: sempre 3 casas em pt-BR, igual à grade da
     /// conferência. Formatar no servidor mantém "de" e "para" comparáveis mesmo que a

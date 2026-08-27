@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
 #nullable disable
 
-namespace SiagroB1.Migrations.Migrations
+namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827140703_AddContractSignatureStatus")]
+    partial class AddContractSignatureStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3835,25 +3838,6 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Code");
 
                     b.ToTable("WAREHOUSES");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseComplement", b =>
-                {
-                    b.Property<string>("WarehouseCode")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
-
-                    b.Property<bool>("IsOwn")
-                        .HasColumnType("BIT");
-
-                    b.Property<bool>("IsParticipant")
-                        .HasColumnType("BIT");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.HasKey("WarehouseCode");
-
-                    b.ToTable("WAREHOUSE_COMPLEMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>

@@ -90,6 +90,7 @@ public static class ServiceCollectionExtensions
         // Sempre AppDbContext, independente do modo ERP (SAPB1/STANDALONE) — não pertence a
         // nenhum forkeamento acima porque este dado não existe no SAP.
         services.AddScoped<IItemComplementService, ItemComplementService>();
+        services.AddScoped<IWarehouseComplementService, WarehouseComplementService>();
         services.AddScoped<IBranchService, BranchService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
@@ -198,6 +199,7 @@ public static class ServiceCollectionExtensions
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
         services.AddScoped<PurchaseContractsCloseService>();
+        services.AddScoped<PurchaseContractsSetSignatureStatusService>();
         services.AddScoped<PurchaseContractsReopenService>();
         services.AddScoped<PurchaseContractsAllocationCreateService>();
         services.AddScoped<PurchaseContractsAllocationDeleteService>();
@@ -262,6 +264,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAttachmentsDeleteService>();
         services.AddScoped<SalesContractsAttachmentsGetService>();
         services.AddScoped<SalesContractsCloseService>();
+        services.AddScoped<SalesContractsSetSignatureStatusService>();
         services.AddScoped<SalesContractsReopenService>();
         services.AddScoped<SalesContractsGetShipmentReleasesAvailableService>();
         services.AddScoped<SalesContractsRecalculateBalanceService>();
