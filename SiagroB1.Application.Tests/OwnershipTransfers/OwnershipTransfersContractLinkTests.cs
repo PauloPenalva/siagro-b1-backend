@@ -22,7 +22,8 @@ public class OwnershipTransfersContractLinkTests
         string contractUom = "KG",
         StorageOwnershipType originType = StorageOwnershipType.ThirdParty,
         StorageOwnershipType destinationType = StorageOwnershipType.OwnedInOurCustody,
-        bool withContract = true)
+        bool withContract = true,
+        bool destinationWarehouseIsOwn = true)
     {
         var origin = OwnershipTransfersTestContext.Lot("LOTE-ORIG", "P0001", originType);
         var destination = OwnershipTransfersTestContext.Lot("LOTE-DEST", "E0001", destinationType);
@@ -32,6 +33,15 @@ public class OwnershipTransfersContractLinkTests
         var transfer = OwnershipTransfersTestContext.Transfer(origin, destination, quantity);
         if (withContract)
             transfer.PurchaseContractKey = contract.Key;
+
+        // O gate do destino é o complemento do ARMAZÉM, não mais o tipo do lote: sem
+        // esta linha o cadastro equivale a "não é próprio" e a confirmação é recusada.
+        if (destinationWarehouseIsOwn)
+            _ctx.Db.Context.WarehouseComplements.Add(new WarehouseComplement
+            {
+                WarehouseCode = destination.WarehouseCode,
+                IsOwn = true,
+            });
 
         _ctx.Db.Context.StorageAddresses.AddRange(origin, destination);
         _ctx.Db.Context.PurchaseContracts.Add(contract);
@@ -146,13 +156,27 @@ public class OwnershipTransfersContractLinkTests
     }
 
     [Fact]
-    public async Task Confirm_RejectsWhenDestinationLotIsNotOwnStock()
+    public async Task Confirm_RejectsWhenDestinationWarehouseIsNotMarkedAsOwn()
     {
-        var (transfer, _) = await SeedAsync(destinationType: StorageOwnershipType.ThirdParty);
+        var (transfer, _) = await SeedAsync(destinationWarehouseIsOwn: false);
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => _ctx.Confirm().ExecuteAsync(transfer.Key, "tester"));
         Assert.Equal("OWNERSHIP_TRANSFER_CONTRACT_DESTINATION_NOT_OWN", ex.Message);
+    }
+
+    /// <summary>
+    /// O gate do destino desceu de lote para ARMAZÉM: um lote de terceiro dentro de um
+    /// armazém próprio passa a ser destino válido. Quem reprova agora é o cadastro.
+    /// </summary>
+    [Fact]
+    public async Task Confirm_AcceptsAnyDestinationLotWhenTheWarehouseIsOwn()
+    {
+        var (transfer, _) = await SeedAsync(destinationType: StorageOwnershipType.ThirdParty);
+
+        await _ctx.Confirm().ExecuteAsync(transfer.Key, "tester");
+
+        Assert.NotNull(await ReleaseOfAsync(transfer.Key));
     }
 
     [Fact]
@@ -226,7 +250,7 @@ public class OwnershipTransfersContractLinkTests
     [Fact]
     public async Task Confirm_RejectionLeavesNoReleaseAndNoMovement()
     {
-        var (transfer, _) = await SeedAsync(destinationType: StorageOwnershipType.ThirdParty);
+        var (transfer, _) = await SeedAsync(destinationWarehouseIsOwn: false);
 
         await Assert.ThrowsAsync<ApplicationException>(
             () => _ctx.Confirm().ExecuteAsync(transfer.Key, "tester"));

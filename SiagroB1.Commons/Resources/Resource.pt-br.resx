@@ -61,7 +61,7 @@
         <value>Lote de armazenagem encerrado: não é possível movimentar.</value>
     </data>
     <data name="OWNERSHIP_TRANSFER_CONTRACT_DESTINATION_NOT_OWN" xml:space="preserve">
-        <value>O lote de destino não é estoque próprio: não é possível vincular contrato de compra.</value>
+        <value>O armazém do lote de destino não está cadastrado como armazém próprio: não é possível vincular contrato de compra.</value>
     </data>
     <data name="OWNERSHIP_TRANSFER_CONTRACT_ORIGIN_IS_OWN" xml:space="preserve">
         <value>O lote de origem já é estoque próprio: não há compra a registrar nesta transferência.</value>

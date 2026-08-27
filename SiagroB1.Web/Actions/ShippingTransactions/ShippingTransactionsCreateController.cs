@@ -20,7 +20,11 @@ public class ShippingTransactionsCreateController(ShippingTransactionsCreateServ
         try
         {
             var userName = User.Identity?.Name ?? "Unknown";
-            var purchaseContractKey = (Guid) parameters["PurchaseContractKey"];
+            // Opcional: o embarque de uma liberação emitida por transferência de
+            // titularidade não tem contrato a informar. Leitura defensiva porque o
+            // parâmetro ausente vem como chave inexistente, e presente-mas-vazio como null.
+            parameters.TryGetValue("PurchaseContractKey", out var purchaseContractKeyObj);
+            var purchaseContractKey = purchaseContractKeyObj as Guid?;
             var storageTransaction = (StorageTransaction) parameters["StorageTransaction"];
             
             var shippingTransaction = await service.ExecuteAsync(purchaseContractKey, storageTransaction, userName);

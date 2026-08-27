@@ -25,11 +25,15 @@ public class SalesShipmentReleasesGetService(IUnitOfWork db, ILogger<SalesShipme
         }
     }
 
+    /// <summary>
+    /// Espelho de <c>ShipmentReleasesGetService.QueryAll</c>: <b>sem
+    /// <c>Include(Transactions)</c></b>, pelo mesmo motivo (Include incondicional
+    /// estourando o CommandTimeout na carga inicial, sem ninguém consumir a coleção — o
+    /// Detail usa binding próprio em <c>/StorageTransactions</c>).
+    /// </summary>
     public IQueryable<SalesShipmentRelease> QueryAll()
     {
         return db.Context.SalesShipmentReleases
-            .AsSplitQuery()
-            .Include(x => x.Transactions)
             .AsNoTracking();
     }
 }

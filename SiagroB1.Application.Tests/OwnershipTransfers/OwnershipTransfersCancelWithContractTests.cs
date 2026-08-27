@@ -26,6 +26,13 @@ public class OwnershipTransfersCancelWithContractTests
         var transfer = OwnershipTransfersTestContext.Transfer(origin, destination, quantity);
         transfer.PurchaseContractKey = contract.Key;
 
+        // O vínculo com contrato exige o armazém de destino cadastrado como próprio.
+        _ctx.Db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = destination.WarehouseCode,
+            IsOwn = true,
+        });
+
         _ctx.Db.Context.StorageAddresses.AddRange(origin, destination);
         _ctx.Db.Context.PurchaseContracts.Add(contract);
         _ctx.Db.Context.OwnershipTransfers.Add(transfer);
@@ -41,6 +48,11 @@ public class OwnershipTransfersCancelWithContractTests
             .AsNoTracking().SingleAsync(x => x.OwnershipTransferKey == transferKey);
 
     /// <summary>Simula um embarque contra a liberação (o Purchase(8) da Expedição).</summary>
+    /// <summary>
+    /// Simula o embarque da liberação pela Expedição de Grãos. Numa liberação de
+    /// transferência a compra já foi registrada no confirm, então o único romaneio que a
+    /// Expedição cria — e o único que consome a liberação — é a perna de SAÍDA.
+    /// </summary>
     private async Task ShipAsync(Guid releaseKey, decimal netWeight)
     {
         _ctx.Db.Context.StorageTransactions.Add(new StorageTransaction
@@ -50,7 +62,7 @@ public class OwnershipTransfersCancelWithContractTests
             ItemCode = "SOJA",
             UnitOfMeasureCode = "KG",
             WarehouseCode = "01",
-            TransactionType = StorageTransactionType.Purchase,
+            TransactionType = StorageTransactionType.SalesShipment,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             NetWeight = netWeight,
             GrossWeight = netWeight,

@@ -51,8 +51,14 @@ public class StorageTransactionsCancelHookTests
         Assert.Equal(0m, reloaded.ShippedQuantity); // transação cancelada saiu da soma
     }
 
+    /// <summary>
+    /// Numa liberação COMUM quem consome é o Purchase(8); cancelar a perna de venda do
+    /// par da Expedição não pode devolver saldo. O hook hoje dispara também para tipos de
+    /// venda (precisa disparar para as liberações de transferência), então o que segura a
+    /// regra é a fórmula por origem — e é isso que este teste protege.
+    /// </summary>
     [Fact]
-    public async Task Cancel_SalesShipmentLinkedToRelease_DoesNotTouchShippedQuantity()
+    public async Task Cancel_SalesShipmentLinkedToAStandardRelease_DoesNotTouchShippedQuantity()
     {
         var release = new ShipmentRelease
         {
@@ -62,8 +68,10 @@ public class StorageTransactionsCancelHookTests
             ReleasedQuantity = 100m,
             ShippedQuantity = 80m,
             Status = ReleaseStatus.Actived,
+            Origin = ReleaseOrigin.Standard,
         };
-        var tx = new StorageTransaction
+
+        StorageTransaction Leg(StorageTransactionType type) => new()
         {
             Key = Guid.NewGuid(),
             Code = "ST",
@@ -71,22 +79,27 @@ public class StorageTransactionsCancelHookTests
             ItemCode = "SOJA",
             UnitOfMeasureCode = "KG",
             WarehouseCode = "01",
-            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionType = type,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             TransactionOrigin = TransactionCode.StorageTransaction,
             NetWeight = 80m,
             ShipmentReleaseKey = release.Key,
         };
+
+        // O par que a Expedição cria: é o Purchase(8) que responde pelos 80 consumidos.
+        var purchase = Leg(StorageTransactionType.Purchase);
+        var sales = Leg(StorageTransactionType.SalesShipment);
+
         _db.Context.ShipmentReleases.Add(release);
-        _db.Context.StorageTransactions.Add(tx);
+        _db.Context.StorageTransactions.AddRange(purchase, sales);
         await _db.Context.SaveChangesAsync();
 
         var recalc = new ShipmentReleasesRecalculateShippedService(_db.Context);
         var service = new StorageTransactionsCancelService(_db, recalc);
 
-        await service.ExecuteAsync(tx.Key, "tester");
+        await service.ExecuteAsync(sales.Key, "tester");
 
         var reloaded = await _db.Context.ShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == release.Key);
-        Assert.Equal(80m, reloaded.ShippedQuantity); // hook não dispara para tipo de venda
+        Assert.Equal(80m, reloaded.ShippedQuantity);
     }
 }

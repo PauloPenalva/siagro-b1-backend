@@ -102,7 +102,7 @@ public class OwnershipTransfersCancelService(
         if (release == null)
             return null;
 
-        if (await recalcShipped.CalculateShippedAsync(release.Key) > decimal.Zero)
+        if (await recalcShipped.CalculateShippedAsync(release.Key, release.Origin) > decimal.Zero)
             throw new ApplicationException(
                 resource["OWNERSHIP_TRANSFER_RELEASE_ALREADY_SHIPPED"].Value);
 

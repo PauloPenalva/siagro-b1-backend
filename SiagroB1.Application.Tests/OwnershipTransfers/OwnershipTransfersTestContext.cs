@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -49,8 +50,13 @@ internal sealed class OwnershipTransfersTestContext
             NullLogger<StorageTransactionsCreateService>.Instance);
     }
 
+    /// <summary>
+    /// Usa o serviço real de complemento (e não um fake): ele lê a mesma
+    /// <c>WAREHOUSE_COMPLEMENTS</c> do InMemory que os testes semeiam, então o gate
+    /// "armazém próprio" é exercitado de ponta a ponta.
+    /// </summary>
     public OwnershipTransfersValidateContractService ValidateContract() =>
-        new(Db, new FakeStringLocalizer<Resource>());
+        new(Db, new WarehouseComplementService(Db), new FakeStringLocalizer<Resource>());
 
     public PurchaseContractsAllocationCreateService AllocationCreate() =>
         new(Db,

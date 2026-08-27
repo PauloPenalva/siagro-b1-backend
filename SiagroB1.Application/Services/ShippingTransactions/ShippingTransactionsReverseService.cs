@@ -62,31 +62,43 @@ public class ShippingTransactionsReverseService(
         
         try
         {
+            // Embarque de liberação de transferência de titularidade não tem perna de
+            // compra: a Expedição criou só a saída. Ver ShippingTransactionsCreateService.
             var purchaseStorageTransactionKey = shipping.PurchaseStorageTransactionKey;
             var salesStorageTransactionKey =  shipping.SalesStorageTransactionKey;
-            
+
             await db.BeginTransactionAsync();
 
-            shipping.PurchaseStorageTransactionKey = Guid.Empty;
+            shipping.PurchaseStorageTransactionKey = null;
             shipping.SalesStorageTransactionKey = Guid.Empty;
-            
+
             db.Context.ShippingTransactions.Remove(shipping);
 
-            var purchase = await storageTransactionsGetService.GetByIdAsync(purchaseStorageTransactionKey);
+            var purchase = purchaseStorageTransactionKey.HasValue
+                ? await storageTransactionsGetService.GetByIdAsync(purchaseStorageTransactionKey.Value)
+                : null;
             var sales = await storageTransactionsGetService.GetByIdAsync(salesStorageTransactionKey);
 
-            var purchaseContractAllocKey = await db.Context.PurchaseContractsAllocations
-                .Where(x => x.StorageTransactionKey == purchaseStorageTransactionKey)
-                .Select(x => x.Key)
-                .FirstOrDefaultAsync();
-                
-            if (purchaseContractAllocKey != Guid.Empty)
-                await purchaseContractsAllocationDeleteService.ExecuteAsync(purchaseContractAllocKey, username);
+            // Sem perna de compra não há alocação a desfazer, e isso é intencional: a
+            // alocação do contrato pertence à TRANSFERÊNCIA, não a este embarque. O grão
+            // continua sendo da companhia, no lote — só voltou a não estar embarcado.
+            // Desfazê-la aqui devolveria saldo de contrato que deve seguir debitado; quem
+            // devolve é o cancelamento da transferência.
+            if (purchaseStorageTransactionKey.HasValue)
+            {
+                var purchaseContractAllocKey = await db.Context.PurchaseContractsAllocations
+                    .Where(x => x.StorageTransactionKey == purchaseStorageTransactionKey.Value)
+                    .Select(x => x.Key)
+                    .FirstOrDefaultAsync();
 
-            purchase.TransactionStatus = StorageTransactionsStatus.Cancelled;
-            purchase.CanceledAt = DateTime.Now;
-            purchase.CanceledBy = username;
-            
+                if (purchaseContractAllocKey != Guid.Empty)
+                    await purchaseContractsAllocationDeleteService.ExecuteAsync(purchaseContractAllocKey, username);
+
+                purchase!.TransactionStatus = StorageTransactionsStatus.Cancelled;
+                purchase.CanceledAt = DateTime.Now;
+                purchase.CanceledBy = username;
+            }
+
             sales.TransactionStatus = StorageTransactionsStatus.Cancelled;
             sales.CanceledAt = DateTime.Now;
             sales.CanceledBy = username;
@@ -98,11 +110,10 @@ public class ShippingTransactionsReverseService(
             // Sem esta chamada o saldo da liberação de embarque não volta.
             // Depois do SaveChanges (a consulta precisa enxergar o Cancelled) e ainda
             // dentro da transação, para que uma falha aqui reverta o estorno inteiro.
-            if (purchase.ShipmentReleaseKey.HasValue &&
-                ShipmentReleasesRecalculateShippedService.AffectsShippedQuantity(purchase.TransactionType))
-            {
-                await recalcShipped.RecalculateAsync(purchase.ShipmentReleaseKey.Value);
-            }
+            // Lido da perna de SAÍDA, a única presente nos dois caminhos: no embarque de
+            // transferência é ela quem consome a liberação.
+            if (sales.ShipmentReleaseKey.HasValue)
+                await recalcShipped.RecalculateAsync(sales.ShipmentReleaseKey.Value);
 
             await db.CommitAsync();
         }

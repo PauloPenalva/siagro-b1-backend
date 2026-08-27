@@ -125,24 +125,82 @@ public class ShippingTransactionsLotAwarenessTests
         ShipmentReleaseKey = releaseKey,
     };
 
+    /// <summary>
+    /// Embarque de liberação de transferência: a compra já foi registrada no confirm da
+    /// transferência, então a Expedição cria SÓ a saída — carimbada com o lote, para
+    /// drenar o saldo que o Receipt(0) da transferência deixou lá.
+    /// </summary>
     [Fact]
-    public async Task Execute_PutsTheLotOnlyOnTheSalesShipmentLeg()
+    public async Task Execute_OwnershipTransferRelease_CreatesOnlyTheSalesShipmentLeg()
+    {
+        var (contract, release) = await SeedAsync(
+            "LOTE-DEST", ReleaseOrigin.OwnershipTransfer);
+
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+
+        var legs = await _db.Context.StorageTransactions
+            .AsNoTracking().Where(x => x.ShipmentReleaseKey == release.Key).ToListAsync();
+
+        var sales = Assert.Single(legs);
+        Assert.Equal(StorageTransactionType.SalesShipment, sales.TransactionType);
+        Assert.Equal("LOTE-DEST", sales.StorageAddressCode);
+        Assert.Null(shipping.PurchaseStorageTransactionKey);
+    }
+
+    /// <summary>
+    /// O contrato pertence à transferência: um segundo débito pelo mesmo grão dobraria o
+    /// consumo. Já era assim antes do desenho 2 (o guard só pulava a alocação); aqui o
+    /// Purchase(8) sequer existe.
+    /// </summary>
+    [Fact]
+    public async Task Execute_OwnershipTransferRelease_DoesNotAllocateTheContract()
     {
         var (contract, release) = await SeedAsync(
             "LOTE-DEST", ReleaseOrigin.OwnershipTransfer);
 
         await CreateService().ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
 
-        var pair = await _db.Context.StorageTransactions
-            .AsNoTracking().Where(x => x.ShipmentReleaseKey == release.Key).ToListAsync();
+        Assert.Empty(await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+    }
 
-        var sales = Assert.Single(pair, x => x.TransactionType == StorageTransactionType.SalesShipment);
-        Assert.Equal("LOTE-DEST", sales.StorageAddressCode);
+    /// <summary>
+    /// A saída é o único romaneio do embarque de transferência, logo é ela quem consome a
+    /// liberação — a fórmula por origem em <c>CalculateShippedAsync</c> é o que sustenta isso.
+    /// </summary>
+    [Fact]
+    public async Task Execute_OwnershipTransferRelease_ConsumesTheReleaseThroughTheSalesLeg()
+    {
+        var (contract, release) = await SeedAsync(
+            "LOTE-DEST", ReleaseOrigin.OwnershipTransfer);
 
-        // A perna comercial não carrega lote: o Purchase(8) não entra na fórmula de
-        // saldo do lote e sujaria o extrato.
-        var purchase = Assert.Single(pair, x => x.TransactionType == StorageTransactionType.Purchase);
-        Assert.Null(purchase.StorageAddressCode);
+        await CreateService().ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+
+        var reloaded = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(1000m, reloaded.ShippedQuantity);
+        Assert.Equal(500m, reloaded.AvailableQuantity); // 1500 liberados − 1000 embarcados
+    }
+
+    /// <summary>
+    /// O armazém vem do payload da tela e é ele que o saldo de armazém debita. Divergindo
+    /// do armazém do lote, a entrada da transferência ficaria presa num armazém e a saída
+    /// debitaria outro.
+    /// </summary>
+    [Fact]
+    public async Task Execute_BlocksWhenTheShipmentWarehouseDiffersFromTheLotWarehouse()
+    {
+        var (contract, release) = await SeedAsync(
+            "LOTE-DEST", ReleaseOrigin.OwnershipTransfer);
+
+        var purchase = NewPurchase(release.Key, 1000m);
+        purchase.WarehouseCode = "02";
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => CreateService().ExecuteAsync(contract.Key, purchase, "tester"));
+
+        Assert.Contains("armazém do embarque", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await _db.Context.StorageTransactions.AsNoTracking().ToListAsync());
     }
 
     [Fact]
