@@ -51,4 +51,19 @@ public class ShipmentRelesesPurchaseContractsResponseDto
     
     [JsonPropertyName("FCode")]
     public string? FCode { get; set; }
+
+    /// <summary>
+    /// Origem da liberação. A tela usa este flag para esconder as colunas de contrato:
+    /// numa liberação emitida por transferência de titularidade a compra já foi
+    /// registrada, e o embarque não pede contrato. Ver <c>ShippingTransactionsCreateService</c>.
+    /// </summary>
+    [JsonPropertyName("IsOwnershipTransfer")]
+    public bool IsOwnershipTransfer { get; set; }
+
+    /// <summary>
+    /// Previsão de pagamento do contrato (<c>PURCHASE_CONTRACTS.StandardCashFlowDate</c>).
+    /// É por ela que a lista é ordenada: o mais próximo de vencer embarca primeiro.
+    /// </summary>
+    [JsonPropertyName("StandardCashFlowDate")]
+    public DateTime? StandardCashFlowDate { get; set; }
 }

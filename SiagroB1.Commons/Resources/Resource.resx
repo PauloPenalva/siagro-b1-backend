@@ -61,7 +61,7 @@
         <value>Closed storage address: it cannot be moved.</value>
     </data>
     <data name="OWNERSHIP_TRANSFER_CONTRACT_DESTINATION_NOT_OWN" xml:space="preserve">
-        <value>The destination storage address is not own stock: a purchase contract cannot be linked.</value>
+        <value>The destination storage address warehouse is not registered as an own warehouse: a purchase contract cannot be linked.</value>
     </data>
     <data name="OWNERSHIP_TRANSFER_CONTRACT_ORIGIN_IS_OWN" xml:space="preserve">
         <value>The origin storage address is already own stock: there is no purchase to register.</value>

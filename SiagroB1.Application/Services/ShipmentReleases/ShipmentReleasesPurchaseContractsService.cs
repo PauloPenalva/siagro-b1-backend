@@ -66,6 +66,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 sr.Branch.ShortName,
                 sr.PurchaseContract.CardCode,
                 sr.PurchaseContract.CardName,
+                sr.Origin,
+                sr.PurchaseContract.StandardCashFlowDate,
             })
             .Select(g => new ShipmentReleasesPurchaseContractsProjection
             {
@@ -75,6 +77,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 BranchShortName = g.Key.ShortName,
                 CardCode = g.Key.CardCode,
                 CardName = g.Key.CardName,
+                Origin = g.Key.Origin,
+                StandardCashFlowDate = g.Key.StandardCashFlowDate,
                 DeliveryLocationCode = g.Key.DeliveryLocationCode,
                 DeliveryLocationName = g.Key.DeliveryLocationName,
                 ItemCode = g.Key.ItemCode,
@@ -83,7 +87,13 @@ public class ShipmentReleasesPurchaseContractsService(
                 ReleasedQuantity = g.Sum(x => x.ReleasedQuantity),
                 UsedQuantity = g.Sum(sr => sr.ShippedQuantity)
             })
-            .OrderBy(x => x.DeliveryLocationName)
+            // Previsão de pagamento crescente: o contrato mais próximo de vencer embarca
+            // primeiro. Contrato sem data vai para o FIM (o SQL Server ordena NULL antes
+            // em ASC, e o que interessa aqui é o que tem prazo). Local de entrega segue
+            // como desempate, mantendo a ordem anterior dentro da mesma data.
+            .OrderBy(x => x.StandardCashFlowDate == null)
+            .ThenBy(x => x.StandardCashFlowDate)
+            .ThenBy(x => x.DeliveryLocationName)
             .ToListAsync();
     }
 
@@ -115,6 +125,8 @@ public class ShipmentReleasesPurchaseContractsService(
                 City = supplier?.Address?.City,
                 State = supplier?.Address?.State,
                 RowId = b.RowId,
+                IsOwnershipTransfer = b.Origin == ReleaseOrigin.OwnershipTransfer,
+                StandardCashFlowDate = b.StandardCashFlowDate,
             };
         }).ToList();
     }
@@ -142,6 +154,10 @@ public class ShipmentReleasesPurchaseContractsService(
 
         /// <summary>Nome desnormalizado em <c>PURCHASE_CONTRACTS.CardName</c>.</summary>
         public string? CardName { get; init; }
+
+        public ReleaseOrigin Origin { get; init; }
+
+        public DateTime? StandardCashFlowDate { get; init; }
     }
     
 }

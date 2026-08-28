@@ -13,7 +13,8 @@ public class ShipmentReleasesRecalculateShippedServiceTests
 
     private ShipmentReleasesRecalculateShippedService Service() => new(_db.Context);
 
-    private async Task<ShipmentRelease> SeedReleaseAsync(decimal released)
+    private async Task<ShipmentRelease> SeedReleaseAsync(
+        decimal released, ReleaseOrigin origin = ReleaseOrigin.Standard)
     {
         var sr = new ShipmentRelease
         {
@@ -23,6 +24,7 @@ public class ShipmentReleasesRecalculateShippedServiceTests
             ReleasedQuantity = released,
             ShippedQuantity = 999m, // valor errado, deve ser recalculado
             Status = ReleaseStatus.Actived,
+            Origin = origin,
         };
         _db.Context.ShipmentReleases.Add(sr);
         await _db.Context.SaveChangesAsync();
@@ -73,6 +75,43 @@ public class ShipmentReleasesRecalculateShippedServiceTests
         await Service().RecalculateAsync(sr.Key);
 
         Assert.Equal(40m, await ShippedAsync(sr.Key)); // pending conta, cancelled não
+    }
+
+    /// <summary>
+    /// Liberação emitida por transferência de titularidade: a compra já foi registrada no
+    /// confirm da transferência, então a Expedição não cria Purchase(8) nenhum. Quem
+    /// consome a liberação é a perna de SAÍDA.
+    /// </summary>
+    [Fact]
+    public async Task Recalc_OwnershipTransferRelease_CountsSalesShipmentMinusReturn()
+    {
+        var sr = await SeedReleaseAsync(1000m, ReleaseOrigin.OwnershipTransfer);
+        _db.Context.StorageTransactions.AddRange(
+            Tx(sr.Key, StorageTransactionType.SalesShipment, 400m),
+            Tx(sr.Key, StorageTransactionType.SalesShipmentReturn, 150m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(250m, await ShippedAsync(sr.Key)); // 400 − 150
+    }
+
+    /// <summary>
+    /// Simetria da regra: numa liberação de transferência o Purchase(8) não conta. Serve de
+    /// rede contra dado legado do desenho antigo ser somado duas vezes.
+    /// </summary>
+    [Fact]
+    public async Task Recalc_OwnershipTransferRelease_IgnoresPurchaseTypes()
+    {
+        var sr = await SeedReleaseAsync(1000m, ReleaseOrigin.OwnershipTransfer);
+        _db.Context.StorageTransactions.AddRange(
+            Tx(sr.Key, StorageTransactionType.Purchase, 500m),
+            Tx(sr.Key, StorageTransactionType.SalesShipment, 300m));
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(sr.Key);
+
+        Assert.Equal(300m, await ShippedAsync(sr.Key));
     }
 
     [Fact]
@@ -133,8 +172,11 @@ public class ShipmentReleasesRecalculateShippedServiceTests
     [Theory]
     [InlineData(StorageTransactionType.Purchase, true)]
     [InlineData(StorageTransactionType.PurchaseReturn, true)]
-    [InlineData(StorageTransactionType.SalesShipment, false)]
-    [InlineData(StorageTransactionType.SalesShipmentReturn, false)]
+    // Superconjunto: os hooks que consultam este predicado só têm a chave da liberação,
+    // não a origem dela — quem decide o que soma é CalculateShippedAsync. Disparar um
+    // recálculo a mais é idempotente; deixar de disparar perde o consumo da liberação.
+    [InlineData(StorageTransactionType.SalesShipment, true)]
+    [InlineData(StorageTransactionType.SalesShipmentReturn, true)]
     [InlineData(StorageTransactionType.PurchaseQtyComplement, false)]
     [InlineData(StorageTransactionType.PurchasePriceComplement, false)]
     [InlineData(StorageTransactionType.Transfer, false)]

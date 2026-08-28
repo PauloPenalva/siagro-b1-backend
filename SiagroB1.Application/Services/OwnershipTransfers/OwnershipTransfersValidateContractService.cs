@@ -4,6 +4,7 @@ using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.OwnershipTransfers;
@@ -16,6 +17,7 @@ namespace SiagroB1.Application.Services.OwnershipTransfers;
 /// </summary>
 public class OwnershipTransfersValidateContractService(
     IUnitOfWork db,
+    IWarehouseComplementService warehouseComplementService,
     IStringLocalizer<Resource> resource)
 {
     /// <summary>
@@ -58,7 +60,14 @@ public class OwnershipTransfersValidateContractService(
         if (!transfer.PurchaseContractKey.HasValue)
             return null;
 
-        if (destination.OwnershipType != StorageOwnershipType.OwnedInOurCustody)
+        // O destino é qualificado pelo ARMAZÉM, não pelo lote: é a companhia que passa a
+        // responder pelo grão, e quem diz se o depósito é dela é o complemento cadastral
+        // do armazém. Ausência de registro em WAREHOUSE_COMPLEMENTS equivale a "não é
+        // próprio" — falha fechada, mesma convenção do cadastro.
+        var destinationComplement =
+            await warehouseComplementService.GetAsync(destination.WarehouseCode);
+
+        if (destinationComplement?.IsOwn != true)
             throw new ApplicationException(
                 resource["OWNERSHIP_TRANSFER_CONTRACT_DESTINATION_NOT_OWN"].Value);
 
@@ -97,8 +106,9 @@ public class OwnershipTransfersValidateContractService(
             throw new ApplicationException(
                 resource["OWNERSHIP_TRANSFER_CONTRACT_RELEASE_BALANCE"].Value);
 
-        // O eixo de alocação não é consumido agora, mas precisa ter espaço: quem aloca
-        // é o Purchase(8) da Expedição de Grãos, e essa alocação não pode falhar depois.
+        // Espaço no eixo de alocação: quem aloca é o Purchase(8) criado pelo próprio
+        // confirm, logo abaixo, e essa alocação não pode falhar depois de a transferência
+        // já ter movido os lotes.
         if (transfer.Quantity - contract.AvaiableVolume > BalanceTolerance)
             throw new ApplicationException(
                 resource["OWNERSHIP_TRANSFER_CONTRACT_ALLOCATION_BALANCE"].Value);

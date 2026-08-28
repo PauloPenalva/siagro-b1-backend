@@ -55,7 +55,7 @@ public class ShipmentReleasesCancelationService(
             throw new ApplicationException("Liberação já cancelada ou finalizada: não é possível cancelar.");
 
         // Calcula sem gravar: uma tentativa recusada não pode deixar efeito no banco.
-        var shipped = await recalcShipped.CalculateShippedAsync(sr.Key);
+        var shipped = await recalcShipped.CalculateShippedAsync(sr.Key, sr.Origin);
 
         // Sem saldo a devolver ao contrato, cancelar não teria efeito algum:
         // a liberação já cumpriu o que foi liberado e deve ser finalizada.

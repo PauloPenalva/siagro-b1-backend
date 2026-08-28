@@ -71,7 +71,9 @@ public class ShippingTransactionsReverseServiceTests
     /// <summary>Contrato aprovado com uma liberação ativa e saldo de sobra.</summary>
     private async Task<(PurchaseContract Contract, ShipmentRelease Release)> SeedAsync(
         decimal totalVolume = 10000m,
-        decimal releasedQuantity = 1500m)
+        decimal releasedQuantity = 1500m,
+        ReleaseOrigin origin = ReleaseOrigin.Standard,
+        string? lotCode = null)
     {
         var contract = new PurchaseContract
         {
@@ -95,7 +97,24 @@ public class ShippingTransactionsReverseServiceTests
             ReleasedQuantity = releasedQuantity,
             ShippedQuantity = 0m,
             Status = ReleaseStatus.Actived,
+            Origin = origin,
+            StorageAddressCode = lotCode,
         };
+
+        if (lotCode != null)
+        {
+            _db.Context.StorageAddresses.Add(new StorageAddress
+            {
+                Code = lotCode,
+                Description = "Lote próprio",
+                CardCode = "E0001",
+                ItemCode = "SOJA",
+                WarehouseCode = "01",
+                UoM = "KG",
+                OwnershipType = StorageOwnershipType.OwnedInOurCustody,
+                Status = StorageAddressStatus.Open,
+            });
+        }
 
         _db.Context.PurchaseContracts.Add(contract);
         _db.Context.ShipmentReleases.Add(release);
@@ -232,5 +251,62 @@ public class ShippingTransactionsReverseServiceTests
             .AsNoTracking().SingleAsync(x => x.Key == purchaseKey);
 
         Assert.Equal(StorageTransactionsStatus.Cancelled, reloaded.TransactionStatus);
+    }
+
+    /// <summary>
+    /// Embarque de liberação de transferência: sem perna de compra, o estorno tem de
+    /// devolver o saldo lendo a liberação pela perna de SAÍDA. Lendo pela de compra (que
+    /// não existe) o saldo ficaria preso — falha silenciosa, sem exceção nenhuma.
+    /// </summary>
+    [Fact]
+    public async Task Execute_OwnershipTransferShipment_ReturnsTheReleaseBalance()
+    {
+        var (contract, release) = await SeedAsync(
+            origin: ReleaseOrigin.OwnershipTransfer, lotCode: "LOTE-DEST");
+
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+        Assert.Null(shipping.PurchaseStorageTransactionKey);
+
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        var reloaded = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(0m, reloaded.ShippedQuantity);
+        Assert.Equal(1500m, reloaded.AvailableQuantity);
+    }
+
+    /// <summary>
+    /// O contrato foi debitado pela TRANSFERÊNCIA, não por este embarque: estornar o
+    /// embarque não pode devolver esse volume — o grão continua sendo da companhia.
+    /// </summary>
+    [Fact]
+    public async Task Execute_OwnershipTransferShipment_LeavesTheContractAllocationAlone()
+    {
+        var (contract, release) = await SeedAsync(
+            origin: ReleaseOrigin.OwnershipTransfer, lotCode: "LOTE-DEST");
+
+        // Alocação escrita pelo confirm da transferência, apontando para outro romaneio.
+        var transferPurchase = NewPurchase(releaseKey: null, grossWeight: 1000m);
+        transferPurchase.NetWeight = 1000m;
+        transferPurchase.TransactionStatus = StorageTransactionsStatus.Confirmed;
+        _db.Context.StorageTransactions.Add(transferPurchase);
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            StorageTransactionKey = transferPurchase.Key,
+            Volume = 1000m,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        var allocation = Assert.Single(
+            await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(1000m, allocation.Volume);
     }
 }

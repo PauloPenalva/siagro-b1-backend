@@ -257,7 +257,7 @@ public static class ODataConfigurations
         docNumberGetInfoByTransaction.Returns<IActionResult>();
         
         var shippingTransactionCreate = modelBuilder.Action("ShippingTransactionsCreate");
-        shippingTransactionCreate.Parameter<Guid>("PurchaseContractKey");
+        shippingTransactionCreate.Parameter<Guid?>("PurchaseContractKey").Optional();
         shippingTransactionCreate.EntityParameter<StorageTransaction>("StorageTransaction");
         shippingTransactionCreate.Returns<IActionResult>();
         
