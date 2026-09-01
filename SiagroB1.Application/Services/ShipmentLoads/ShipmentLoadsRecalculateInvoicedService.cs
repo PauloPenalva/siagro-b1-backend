@@ -8,15 +8,21 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
 /// Escritor ÚNICO de <see cref="ShipmentLoad.InvoicedQuantity"/>, de
-/// <see cref="ShipmentLoad.Status"/> (exceto <c>Cancelled</c>, que só o cancelamento grava) e
-/// do <c>TransactionStatus</c> dos romaneios da carga.
+/// <see cref="ShipmentLoad.Status"/> e do <c>TransactionStatus</c> dos romaneios da carga.
 /// </summary>
 /// <remarks>
+/// Duas exceções ao "escritor único" do <see cref="ShipmentLoad.Status"/>, ambas deliberadas:
+/// <c>Cancelled</c>, que só o cancelamento grava, e <c>Planned</c> na criação, que é apenas o
+/// mesmo valor que <see cref="ResolveStatus"/> devolveria para uma carga sem volume. A
+/// vinculação e a desvinculação de romaneios NÃO escrevem status: elas alteram
+/// <see cref="ShipmentLoad.TotalQuantity"/> e chamam este serviço.
+/// <para>
 /// O saldo é persistido-derivado por SOMATÓRIO das notas, e não um ledger assinado: o eixo da
 /// carga não tem movimento irreconstituível (realocação, conciliação cruzada, ajuste fiscal),
 /// então um ledger seria uma segunda fonte de verdade do mesmo número — e a divergência entre
 /// as duas seria invisível. Persistido, e não <c>[NotMapped]</c>, porque as duas telas filtram
 /// e ordenam por saldo e status no servidor.
+/// </para>
 /// <para>
 /// O par estático/instância é o mesmo de <c>SalesShipmentReleasesRecalculateShippedService</c>:
 /// o estático calcula sem <c>SaveChanges</c>, para compor dentro de transação alheia.
@@ -90,8 +96,27 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
         }
     }
 
+    /// <summary>
+    /// Resolve a situação a partir do volume montado e do saldo faturado.
+    /// </summary>
+    /// <remarks>
+    /// <b>O primeiro ramo é o que separa planejamento de carga real</b>, e ele existe por um
+    /// motivo concreto: sem ele, uma carga recém-criada pela Logística (<c>TotalQuantity</c> e
+    /// <c>InvoicedQuantity</c> zerados) casaria o ramo <c>invoiced &lt;= 0</c> e viraria
+    /// <c>Open</c> — passando a aparecer na tela de Faturamento de Expedição com saldo zero, em
+    /// silêncio. O caminho mais curto para reproduzir isso era abrir a carga planejada e clicar
+    /// em "Recalcular Saldo".
+    /// <para>
+    /// A decisão é por <see cref="ShipmentLoad.TotalQuantity"/> e NÃO pela contagem de
+    /// romaneios: o que caracteriza um planejamento é não haver volume. Uma carga com volume e
+    /// sem romaneio (possível só em teste) é <c>Open</c>, porque 90 toneladas não são um
+    /// planejamento; e um romaneio de peso bruto zero deixa a carga em <c>Planned</c> sem
+    /// consequência, já que não há o que faturar.
+    /// </para>
+    /// </remarks>
     public static ShipmentLoadStatus ResolveStatus(decimal totalQuantity, decimal invoicedQuantity) =>
-        invoicedQuantity <= decimal.Zero ? ShipmentLoadStatus.Open
+        totalQuantity <= Tolerance ? ShipmentLoadStatus.Planned
+        : invoicedQuantity <= decimal.Zero ? ShipmentLoadStatus.Open
         : invoicedQuantity >= totalQuantity - Tolerance ? ShipmentLoadStatus.Invoiced
         : ShipmentLoadStatus.PartiallyInvoiced;
 

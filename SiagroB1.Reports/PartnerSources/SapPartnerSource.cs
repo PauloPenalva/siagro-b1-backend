@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities.SAP;
 using SiagroB1.Infra.Context;
 using SiagroB1.Reports.Dtos;
 
@@ -22,8 +23,34 @@ public class SapPartnerSource(SapErpDbContext context) : IPartnerSource
 
         // No SAP, AdresType "S" corresponde ao endereço FATURAMENTO — filtrar por
         // tipo em vez de pelo nome, que aparece como "FATURAMENTO" e "Faturamento".
-        var address = partner.Addresses.FirstOrDefault(a => a.AdresType == "S")
+        // Entre os do tipo "S", o endereço padrão do parceiro (ShipToDef) tem precedência.
+        var address = partner.Addresses.FirstOrDefault(a => a.AdresType == "S" && a.AddressName == partner.ShipToDef)
+                      ?? partner.Addresses.FirstOrDefault(a => a.AdresType == "S")
                       ?? partner.Addresses.FirstOrDefault();
+
+        // CRD1.County é varchar com o AbsId de OCNT dentro; se não for numérico, ignoramos
+        // e o município cai no texto livre de CRD1.City.
+        var county = int.TryParse(address?.County, out var countyId)
+            ? await context.Set<County>()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.AbsId == countyId, ct)
+            : null;
+
+        // CNPJ/CPF/IE vivem em CRD7, uma linha por endereço. A escolha da linha segue a
+        // prioridade da query homologada pelo cliente (ver SapPartnerMapper).
+        var taxExtensions = await context.Set<AddressTaxExtension>()
+            .AsNoTracking()
+            .Where(x => x.CardCode == cardCode && x.AddressType == "S")
+            .ToListAsync(ct);
+
+        var fiscal = SapPartnerMapper.SelectFiscalAddress(taxExtensions, partner.ShipToDef);
+
+        // Sócios administradores e contato para envio saem das pessoas de contato (OCPR),
+        // classificadas pelo cargo digitado à mão.
+        var contacts = await context.Set<ContactPerson>()
+            .AsNoTracking()
+            .Where(c => c.CardCode == cardCode)
+            .ToListAsync(ct);
 
         return new ReportPartnerDto
         {
@@ -33,7 +60,13 @@ public class SapPartnerSource(SapErpDbContext context) : IPartnerSource
             Street = address?.Street,
             City = address?.City,
             State = address?.State,
-            ZipCode = address?.ZipCode
+            ZipCode = address?.ZipCode,
+            Cnpj = fiscal?.Cnpj,
+            Cpf = fiscal?.Cpf,
+            StateRegistration = fiscal?.StateRegistration,
+            FullAddress = SapPartnerMapper.BuildFullAddress(address, county),
+            ManagingPartners = SapPartnerMapper.BuildManagingPartners(contacts),
+            ContractContact = SapPartnerMapper.BuildContractContact(contacts)
         };
     }
 }

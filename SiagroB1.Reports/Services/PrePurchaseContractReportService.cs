@@ -15,14 +15,27 @@ namespace SiagroB1.Reports.Services;
 /// contrato de compra e encaminhado ao departamento jurídico, que redige o contrato
 /// definitivo com o produtor/fornecedor.
 /// </summary>
+/// <remarks>
+/// O layout é uma personalização do cliente Yokotobi e depende de campos que só
+/// existem no banco do SAP Business One (CRD7/CRD1/OCNT), por isso a impressão é
+/// recusada fora do modo SAPB1. Novos clientes que quiserem esse documento precisam
+/// de um layout e de uma origem de dados próprios.
+/// </remarks>
 public class PrePurchaseContractReportService(
     IUnitOfWork db,
     IWebHostEnvironment env,
     IPartnerSource partnerSource,
+    IConfiguration configuration,
     ReportHeaderService reportHeader)
 {
     public async Task<byte[]> GeneratePdfAsync(Guid key)
     {
+        var erp = configuration.GetValue<string>("Erp") ?? "STANDALONE";
+
+        if (!string.Equals(erp, "SAPB1", StringComparison.OrdinalIgnoreCase))
+            throw new BusinessException(
+                "A impressão do pré-contrato está disponível apenas na integração com o SAP Business One.");
+
         var data = await GetAsync(key);
 
         var reportPath = Path.Combine(
@@ -90,9 +103,13 @@ public class PrePurchaseContractReportService(
 
             CardCode = contract.CardCode,
             CardName = partner?.CardName ?? contract.CardName,
-            TaxId = partner?.TaxId,
-            Street = partner?.Street,
-            CityStateZip = BuildCityStateZip(partner),
+            Cnpj = partner?.Cnpj,
+            Cpf = partner?.Cpf,
+            StateRegistration = partner?.StateRegistration,
+            ManagingPartners = partner?.ManagingPartners,
+            ContractContact = partner?.ContractContact,
+            // Endereço já concatenado (logradouro, nº, bairro, município, UF, CEP).
+            Street = partner?.FullAddress ?? partner?.Street,
 
             Code = contract.Code,
             CreationDate = contract.CreationDate,
@@ -153,17 +170,4 @@ public class PrePurchaseContractReportService(
         };
     }
 
-    private static string? BuildCityStateZip(ReportPartnerDto? partner)
-    {
-        if (partner is null) return null;
-
-        var cityState = string.Join("/", new[] { partner.City, partner.State }
-            .Where(x => !string.IsNullOrWhiteSpace(x)));
-
-        var parts = new[] { cityState, partner.ZipCode }
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .ToArray();
-
-        return parts.Length == 0 ? null : string.Join(" - ", parts);
-    }
 }

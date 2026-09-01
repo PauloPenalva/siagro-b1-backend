@@ -7,9 +7,12 @@
       <Column Name="CompanyTaxId" DataType="System.String"/>
       <Column Name="CardCode" DataType="System.String"/>
       <Column Name="CardName" DataType="System.String"/>
-      <Column Name="TaxId" DataType="System.String"/>
+      <Column Name="Cnpj" DataType="System.String"/>
+      <Column Name="Cpf" DataType="System.String"/>
+      <Column Name="StateRegistration" DataType="System.String"/>
+      <Column Name="ManagingPartners" DataType="System.String"/>
+      <Column Name="ContractContact" DataType="System.String"/>
       <Column Name="Street" DataType="System.String"/>
-      <Column Name="CityStateZip" DataType="System.String"/>
       <Column Name="Code" DataType="System.String"/>
       <Column Name="CreationDate" DataType="System.DateTime"/>
       <Column Name="ItemCode" DataType="System.String"/>
@@ -57,14 +60,13 @@
       <TextObject Name="Compradora" Width="755.9" Height="20" Border.Lines="All" Text="COMPRADORA: [PreContract.CompanyName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="CnpjCompradora" Top="20" Width="755.9" Height="20" Border.Lines="All" Text="CNPJ: [PreContract.CompanyTaxId]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="Vendedor" Top="45" Width="755.9" Height="20" Border.Lines="All" Text="VENDEDOR: [PreContract.CardCode] - [PreContract.CardName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
-      <TextObject Name="CnpjVend" Top="65" Width="280" Height="20" Border.Lines="All" Text="CNPJ/CPF: [PreContract.TaxId]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="IE" Left="280" Top="65" Width="240" Height="20" Border.Lines="All" Text="I.E.: ______________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="CPF" Left="520" Top="65" Width="235.9" Height="20" Border.Lines="All" Text="CPF: ______________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="Endereco" Top="85" Width="500" Height="20" Border.Lines="All" Text="END.: [PreContract.Street]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="CidadeUfCep" Left="500" Top="85" Width="255.9" Height="20" Border.Lines="All" Text="[PreContract.CityStateZip]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="CnpjVend" Top="65" Width="280" Height="20" Border.Lines="All" Text="CNPJ/CPF: [PreContract.Cnpj]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="IE" Left="280" Top="65" Width="240" Height="20" Border.Lines="All" Text="I.E.: [PreContract.StateRegistration]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="CPF" Left="520" Top="65" Width="235.9" Height="20" Border.Lines="All" Text="CPF: [PreContract.Cpf]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Endereco" Top="85" Width="755.9" Height="20" Border.Lines="All" Text="END.: [PreContract.Street]" Padding="3, 0, 3, 0" VertAlign="Center" WordWrap="false" AutoShrink="FontSize" AutoShrinkMinSize="6" Font="Arial, 9pt"/>
       <TextObject Name="Car" Top="105" Width="755.9" Height="20" Border.Lines="All" Text="Nº CAR (CADASTRO AMBIENTAL RURAL): ______________________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="Empresa" Top="125" Width="755.9" Height="20" Border.Lines="All" Text="EMPRESA / SÓCIO ADMINISTRADOR: ________________________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
-      <TextObject Name="Email" Top="145" Width="755.9" Height="20" Border.Lines="All" Text="E-MAIL OU WHATSAPP PARA ENVIO DE CONTRATO: ______________________________" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="Empresa" Top="125" Width="755.9" Height="20" Border.Lines="All" Text="EMPRESA / SÓCIO ADMINISTRADOR: [PreContract.ManagingPartners]" Padding="3, 0, 3, 0" VertAlign="Center" WordWrap="false" AutoShrink="FontSize" AutoShrinkMinSize="6" Font="Arial, 9pt"/>
+      <TextObject Name="Email" Top="145" Width="755.9" Height="20" Border.Lines="All" Text="E-MAIL OU WHATSAPP PARA ENVIO DE CONTRATO: [PreContract.ContractContact]" Padding="3, 0, 3, 0" VertAlign="Center" WordWrap="false" AutoShrink="FontSize" AutoShrinkMinSize="6" Font="Arial, 9pt"/>
       <TextObject Name="Clausula1" Top="172" Width="755.9" Height="20" Border.Lines="All" Text="CLÁUSULA PRIMEIRA - PRODUTO - QUALIDADE - ENTREGA" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="Produto" Top="192" Width="500" Height="20" Border.Lines="All" Text="PRODUTO: [PreContract.ItemCode] - [PreContract.ItemName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="Safra" Left="500" Top="192" Width="255.9" Height="20" Border.Lines="All" Text="SAFRA: [PreContract.HarvestSeasonName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>

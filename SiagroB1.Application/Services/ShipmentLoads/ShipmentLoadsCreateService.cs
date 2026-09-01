@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -7,16 +6,22 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Montagem de Carga: agrupa romaneios de embarque soltos num documento próprio.
+/// Criação da carga pela LOGÍSTICA: o planejamento do carregamento, antes de o caminhão
+/// carregar. A carga nasce vazia, em <see cref="ShipmentLoadStatus.Planned"/>, e os romaneios
+/// de embarque são vinculados depois por
+/// <see cref="ShipmentLoadsAttachTransactionsService"/>.
 /// </summary>
 /// <remarks>
-/// Guarda a invariante I1 — <b>um romaneio, uma carga</b>. A FK escalar
-/// <c>StorageTransaction.ShipmentLoadKey</c> é quem torna isso impossível de furar no banco;
-/// este serviço é a camada que produz a mensagem acionável, nomeando o romaneio E a carga em
-/// que ele já está.
+/// Este serviço já foi o oposto: montava a carga a partir de uma seleção de romaneios e copiava
+/// os atributos do primeiro deles. Aquele caminho foi REMOVIDO — a carga precisa existir antes
+/// do carregamento, que é o problema que a feature resolve. As validações de elegibilidade e de
+/// homogeneidade que moravam aqui migraram para a vinculação, onde passaram a comparar o
+/// romaneio contra a CARGA em vez de contra o primeiro romaneio da seleção.
 /// <para>
-/// A aglutinação exige <c>TruckCode</c> + <c>ItemCode</c> + <c>BranchCode</c> iguais — a mesma
-/// regra que a tela de faturamento aplicava à mão antes de a Carga existir.
+/// Placa, produto e filial são obrigatórios porque são a chave de homogeneidade da vinculação:
+/// sem eles não há contra o que comparar o romaneio. O banco não ajuda a cobrar isso —
+/// <c>TruckCode</c> é nullable na coluna, apesar do <c>NOT NULL</c> decorativo no atributo —,
+/// então a obrigatoriedade é imposta aqui.
 /// </para>
 /// </remarks>
 public class ShipmentLoadsCreateService(
@@ -24,54 +29,23 @@ public class ShipmentLoadsCreateService(
     DocNumberSequenceService docNumberSequence,
     ShipmentLoadsMovementLogService movementLog)
 {
-    public async Task<ShipmentLoad> ExecuteAsync(
-        ICollection<Guid> storageTransactionKeys,
-        string? comments,
-        string userName)
+    public async Task<ShipmentLoad> ExecuteAsync(ShipmentLoad load, string userName)
     {
-        if (storageTransactionKeys.Count == 0)
-            throw new ApplicationException("Selecione ao menos um romaneio de embarque para montar a carga.");
-
-        var distinctKeys = storageTransactionKeys.Distinct().ToList();
-
-        var shipments = await db.Context.StorageTransactions
-            .Include(x => x.TruckDriver)
-            .Where(x => distinctKeys.Contains(x.Key))
-            .ToListAsync();
-
-        if (shipments.Count != distinctKeys.Count)
-            throw new ApplicationException("Romaneio de embarque não encontrado.");
-
-        await ValidateEligibilityAsync(shipments);
-        ValidateHomogeneity(shipments);
-
-        var first = shipments[0];
+        Validate(load);
 
         var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.ShipmentLoad);
 
-        var load = new ShipmentLoad
-        {
-            Code = await docNumberSequence.GetDocNumber(docNumberKey),
-            DocNumberKey = docNumberKey,
-            LoadDate = DateTime.Now.Date,
-            Status = ShipmentLoadStatus.Open,
-            BranchCode = first.BranchCode,
-            ItemCode = first.ItemCode,
-            ItemName = first.ItemName,
-            UnitOfMeasureCode = first.UnitOfMeasureCode,
-            TruckCode = first.TruckCode,
-            TruckDriverCode = first.TruckDriverCode,
-            TruckDriverName = first.TruckDriver?.Name,
-            WarehouseCode = first.WarehouseCode,
-            WarehouseName = first.WarehouseName,
-            // BRUTO, não líquido: é o número que hoje vira a quantidade da nota. Ver o
-            // <remarks> de ShipmentLoad.
-            TotalQuantity = decimal.Round(shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven),
-            InvoicedQuantity = decimal.Zero,
-            Comments = comments,
-            CreatedBy = userName,
-            UpdatedBy = userName,
-        };
+        load.Key = Guid.NewGuid();
+        load.Code = await docNumberSequence.GetDocNumber(docNumberKey);
+        load.DocNumberKey = docNumberKey;
+        load.Status = ShipmentLoadStatus.Planned;
+        load.TotalQuantity = decimal.Zero;
+        load.InvoicedQuantity = decimal.Zero;
+        load.CancellationReason = null;
+        load.CreatedAt = DateTime.Now;
+        load.CreatedBy = userName;
+        load.UpdatedAt = DateTime.Now;
+        load.UpdatedBy = userName;
 
         try
         {
@@ -79,24 +53,19 @@ public class ShipmentLoadsCreateService(
 
             db.Context.ShipmentLoads.Add(load);
 
-            foreach (var shipment in shipments)
-            {
-                shipment.ShipmentLoad = load;
-                shipment.UpdatedAt = DateTime.Now;
-                shipment.UpdatedBy = userName;
-            }
-
-            // Primeiro SaveChanges: é ele que materializa a chave da carga. O movimento
-            // precisa dela, e a coluna não tem FK para gravar antes.
+            // Primeiro SaveChanges: é ele que materializa a chave da carga, de que o movimento
+            // precisa. A coluna do histórico tem FK, então não dá para gravar antes.
             await db.SaveChangesAsync();
 
             movementLog.Register(
                 load.Key,
-                ShipmentLoadMovementType.Assembled,
+                ShipmentLoadMovementType.Planned,
                 decimal.Zero,
-                load.AvailableQuantity,
-                $"Carga montada com {shipments.Count} romaneio(s): " +
-                string.Join(", ", shipments.Select(x => x.Code)),
+                decimal.Zero,
+                $"Carga planejada. Veículo {load.TruckCode}, produto {load.ItemCode}" +
+                (string.IsNullOrWhiteSpace(load.TruckDriverName)
+                    ? "."
+                    : $", motorista {load.TruckDriverName}."),
                 userName);
 
             await db.SaveChangesAsync();
@@ -112,44 +81,24 @@ public class ShipmentLoadsCreateService(
         return load;
     }
 
-    /// <summary>
-    /// Recusa nomeando o <c>Code</c> do romaneio — sem isso o usuário recebe uma negativa que
-    /// não diz em qual das linhas selecionadas está o problema.
-    /// </summary>
-    private async Task ValidateEligibilityAsync(List<StorageTransaction> shipments)
+    private static void Validate(ShipmentLoad load)
     {
-        var invalidType = shipments.FirstOrDefault(x => x.TransactionType != StorageTransactionType.SalesShipment);
-        if (invalidType != null)
-            throw new ApplicationException(
-                $"O documento {invalidType.Code} não é um romaneio de embarque e não pode entrar em uma carga.");
+        if (string.IsNullOrWhiteSpace(load.BranchCode))
+            throw new ApplicationException("Informe a filial da carga.");
 
-        var notConfirmed = shipments.FirstOrDefault(x => x.TransactionStatus != StorageTransactionsStatus.Confirmed);
-        if (notConfirmed != null)
-            throw new ApplicationException(
-                $"O romaneio {notConfirmed.Code} não está confirmado e não pode entrar em uma carga.");
+        if (string.IsNullOrWhiteSpace(load.TruckCode))
+            throw new ApplicationException("Informe a placa do veículo.");
 
-        var alreadyLoaded = shipments.FirstOrDefault(x => x.ShipmentLoadKey != null);
-        if (alreadyLoaded == null)
-            return;
+        if (string.IsNullOrWhiteSpace(load.ItemCode))
+            throw new ApplicationException("Informe o produto da carga.");
 
-        var loadCode = await db.Context.ShipmentLoads
-            .Where(x => x.Key == alreadyLoaded.ShipmentLoadKey)
-            .Select(x => x.Code)
-            .FirstOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(load.UnitOfMeasureCode))
+            throw new ApplicationException("Informe a unidade de medida do produto.");
 
-        throw new ApplicationException(
-            $"O romaneio {alreadyLoaded.Code} já está montado na carga {loadCode}.");
-    }
+        if (string.IsNullOrWhiteSpace(load.WarehouseCode))
+            throw new ApplicationException("Informe o armazém de carga.");
 
-    private static void ValidateHomogeneity(List<StorageTransaction> shipments)
-    {
-        if (shipments.Select(x => x.TruckCode).Distinct().Count() > 1)
-            throw new ApplicationException("Todos os romaneios da carga devem ser do mesmo veículo.");
-
-        if (shipments.Select(x => x.ItemCode).Distinct().Count() > 1)
-            throw new ApplicationException("Todos os romaneios da carga devem ser do mesmo produto.");
-
-        if (shipments.Select(x => x.BranchCode).Distinct().Count() > 1)
-            throw new ApplicationException("Todos os romaneios da carga devem ser da mesma filial.");
+        if (load.FreightPrice is < 0)
+            throw new ApplicationException("O valor do frete não pode ser negativo.");
     }
 }

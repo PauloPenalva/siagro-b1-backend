@@ -49,6 +49,15 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException($"A carga {load.Code} está cancelada e não pode ser faturada.");
 
+        // Recusa por STATUS, não pela comparação de saldo abaixo. A carga planejada tem volume
+        // zero e cairia lá de qualquer jeito, mas com a mensagem errada ("quantidade maior que
+        // o saldo... Total da carga: 0,000"), que manda o usuário procurar um problema de
+        // quantidade quando o que falta é vincular romaneio.
+        if (load.Status == ShipmentLoadStatus.Planned)
+            throw new ApplicationException(
+                $"A carga {load.Code} ainda está apenas planejada. Vincule os romaneios de " +
+                "embarque antes de faturá-la.");
+
         var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
             context, shipmentLoadKey, excludedInvoiceKeys: null);
 

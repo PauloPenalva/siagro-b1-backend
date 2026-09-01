@@ -10,18 +10,6 @@ namespace SiagroB1.Migrations.AppContext
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "SignatureStatus",
-                table: "SALES_CONTRACTS",
-                type: "int",
-                nullable: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "SignatureStatus",
-                table: "PURCHASE_CONTRACTS",
-                type: "int",
-                nullable: true);
-
             migrationBuilder.CreateTable(
                 name: "WAREHOUSE_COMPLEMENTS",
                 columns: table => new
@@ -41,14 +29,6 @@ namespace SiagroB1.Migrations.AppContext
         {
             migrationBuilder.DropTable(
                 name: "WAREHOUSE_COMPLEMENTS");
-
-            migrationBuilder.DropColumn(
-                name: "SignatureStatus",
-                table: "SALES_CONTRACTS");
-
-            migrationBuilder.DropColumn(
-                name: "SignatureStatus",
-                table: "PURCHASE_CONTRACTS");
         }
     }
 }

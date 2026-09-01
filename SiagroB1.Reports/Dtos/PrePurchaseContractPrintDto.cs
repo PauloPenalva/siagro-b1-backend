@@ -11,9 +11,12 @@ public class PrePurchaseContractPrintDto
     // Vendedor (parceiro de negócios)
     public string? CardCode { get; set; }
     public string? CardName { get; set; }
-    public string? TaxId { get; set; }
+    public string? Cnpj { get; set; }
+    public string? Cpf { get; set; }
+    public string? StateRegistration { get; set; }
+    public string? ManagingPartners { get; set; }
+    public string? ContractContact { get; set; }
     public string? Street { get; set; }
-    public string? CityStateZip { get; set; }
 
     // Contrato
     public string? Code { get; set; }

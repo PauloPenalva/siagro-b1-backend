@@ -8,9 +8,13 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.ShipmentLoads;
 
 /// <summary>
-/// Montagem de Carga. Cobre a invariante I1 — "um romaneio, uma carga" — e a regra de
-/// aglutinação (mesmo veículo, produto e filial).
+/// Criação da carga pelo formulário da Logística — o planejamento, antes do carregamento.
 /// </summary>
+/// <remarks>
+/// Os testes de homogeneidade e de elegibilidade de romaneio que moravam aqui migraram para
+/// <see cref="ShipmentLoadsAttachTransactionsServiceTests"/>: a criação deixou de conhecer
+/// romaneio. O que sobrou é o que o formulário exige e o estado em que a carga nasce.
+/// </remarks>
 public class ShipmentLoadsCreateServiceTests
 {
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
@@ -20,190 +24,118 @@ public class ShipmentLoadsCreateServiceTests
         new FakeDocNumberSequenceService(),
         new ShipmentLoadsMovementLogService(_db.Context));
 
-    private StorageTransaction Shipment(
-        string code,
-        decimal grossWeight = 30_000,
-        string truckCode = "ABC1D23",
+    private static ShipmentLoad Form(
+        string? branchCode = "01",
+        string? truckCode = "ABC1D23",
         string itemCode = "SOJA",
-        string branchCode = "01",
-        StorageTransactionType type = StorageTransactionType.SalesShipment,
-        StorageTransactionsStatus status = StorageTransactionsStatus.Confirmed,
-        Guid? shipmentLoadKey = null)
+        string unitOfMeasureCode = "KG",
+        string? warehouseCode = "ARM01",
+        decimal? freightPrice = 2_500.50m) => new()
     {
-        var transaction = new StorageTransaction
-        {
-            Key = Guid.NewGuid(),
-            Code = code,
-            CardCode = "C001",
-            ItemCode = itemCode,
-            ItemName = "SOJA EM GRAOS",
-            UnitOfMeasureCode = "KG",
-            WarehouseCode = "ARM01",
-            WarehouseName = "ARMAZEM 01",
-            BranchCode = branchCode,
-            TruckCode = truckCode,
-            TruckDriverCode = "M001",
-            GrossWeight = grossWeight,
-            NetWeight = grossWeight,
-            TransactionType = type,
-            TransactionStatus = status,
-            ShipmentLoadKey = shipmentLoadKey,
-        };
-
-        _db.Context.StorageTransactions.Add(transaction);
-        return transaction;
-    }
+        BranchCode = branchCode,
+        LoadDate = new DateTime(2026, 8, 28),
+        TruckCode = truckCode,
+        TruckDriverCode = "M001",
+        TruckDriverName = "JOAO MOTORISTA",
+        CarrierCardCode = "T001",
+        CarrierName = "TRANSPORTADORA TESTE",
+        ItemCode = itemCode,
+        ItemName = "SOJA EM GRAOS",
+        UnitOfMeasureCode = unitOfMeasureCode,
+        WarehouseCode = warehouseCode,
+        WarehouseName = "ARMAZEM 01",
+        CardCode = "C001",
+        CardName = "CLIENTE TESTE",
+        HasExcess = true,
+        FreightPrice = freightPrice,
+        Comments = "Carga do dia",
+    };
 
     [Fact]
-    public async Task Assembles_three_homogeneous_shipments_into_one_load()
+    public async Task A_new_load_is_born_planned_and_empty()
     {
-        var a = Shipment("R1", 30_000);
-        var b = Shipment("R2", 31_500);
-        var c = Shipment("R3", 28_500);
-        await _db.Context.SaveChangesAsync();
-
-        var load = await Service().ExecuteAsync([a.Key, b.Key, c.Key], "Carga do dia", "tester");
+        var load = await Service().ExecuteAsync(Form(), "tester");
 
         Assert.False(string.IsNullOrWhiteSpace(load.Code));
-        Assert.Equal(ShipmentLoadStatus.Open, load.Status);
-        // Soma o BRUTO, e não o líquido: é o número que hoje vira a quantidade da nota.
-        Assert.Equal(90_000m, load.TotalQuantity);
+        // O par que define planejamento: sem volume, situação Planejada. Se este teste
+        // ficar vermelho com Open, o ramo Planned de ResolveStatus foi removido.
+        Assert.Equal(ShipmentLoadStatus.Planned, load.Status);
+        Assert.Equal(decimal.Zero, load.TotalQuantity);
         Assert.Equal(decimal.Zero, load.InvoicedQuantity);
-        Assert.Equal(90_000m, load.AvailableQuantity);
-        Assert.Equal("SOJA", load.ItemCode);
-        Assert.Equal("ABC1D23", load.TruckCode);
-        Assert.Equal("01", load.BranchCode);
-        Assert.Equal("Carga do dia", load.Comments);
-
-        var linked = await _db.Context.StorageTransactions
-            .Where(x => x.ShipmentLoadKey == load.Key)
-            .Select(x => x.Code)
-            .ToListAsync();
-
-        Assert.Equal(3, linked.Count);
+        Assert.Equal(decimal.Zero, load.AvailableQuantity);
     }
 
     [Fact]
-    public async Task Assembling_records_an_Assembled_movement()
+    public async Task The_logistics_fields_are_persisted()
     {
-        var a = Shipment("R1", 30_000);
-        await _db.Context.SaveChangesAsync();
+        await Service().ExecuteAsync(Form(), "tester");
 
-        var load = await Service().ExecuteAsync([a.Key], null, "tester");
+        var saved = await _db.Context.ShipmentLoads.SingleAsync();
+
+        Assert.Equal("ABC1D23", saved.TruckCode);
+        Assert.Equal("JOAO MOTORISTA", saved.TruckDriverName);
+        Assert.Equal("T001", saved.CarrierCardCode);
+        Assert.Equal("TRANSPORTADORA TESTE", saved.CarrierName);
+        Assert.Equal("C001", saved.CardCode);
+        Assert.Equal("CLIENTE TESTE", saved.CardName);
+        Assert.True(saved.HasExcess);
+        Assert.Equal(2_500.50m, saved.FreightPrice);
+        Assert.Equal("Carga do dia", saved.Comments);
+        Assert.Equal("tester", saved.CreatedBy);
+    }
+
+    [Fact]
+    public async Task Creating_records_a_Planned_movement()
+    {
+        var load = await Service().ExecuteAsync(Form(), "tester");
 
         var movement = await _db.Context.ShipmentLoadMovements
             .SingleAsync(x => x.ShipmentLoadKey == load.Key);
 
-        Assert.Equal(ShipmentLoadMovementType.Assembled, movement.MovementType);
-        // Montar não consome nada: o movimento é narrativa, com saldo cheio depois dele.
+        Assert.Equal(ShipmentLoadMovementType.Planned, movement.MovementType);
+        // Planejar não move volume nenhum: o movimento é narrativa.
         Assert.Equal(decimal.Zero, movement.Quantity);
-        Assert.Equal(30_000m, movement.BalanceAfter);
+        Assert.Equal(decimal.Zero, movement.BalanceAfter);
         Assert.Equal("tester", movement.CreatedBy);
     }
 
-    [Fact]
-    public async Task Refuses_an_empty_selection()
+    [Theory]
+    [InlineData(null, "ABC1D23", "SOJA", "KG", "ARM01", "filial")]
+    [InlineData("01", null, "SOJA", "KG", "ARM01", "placa")]
+    [InlineData("01", "ABC1D23", "", "KG", "ARM01", "produto")]
+    [InlineData("01", "ABC1D23", "SOJA", "", "ARM01", "unidade")]
+    [InlineData("01", "ABC1D23", "SOJA", "KG", null, "armazém")]
+    public async Task Refuses_a_form_missing_a_required_field(
+        string? branch, string? truck, string item, string uom, string? warehouse, string expected)
     {
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([], null, "tester"));
+            () => Service().ExecuteAsync(
+                Form(branchCode: branch, truckCode: truck, itemCode: item,
+                     unitOfMeasureCode: uom, warehouseCode: warehouse),
+                "tester"));
 
-        Assert.Contains("romaneio", error.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Refuses_shipments_from_different_trucks()
-    {
-        var a = Shipment("R1", truckCode: "ABC1D23");
-        var b = Shipment("R2", truckCode: "XYZ9W87");
-        await _db.Context.SaveChangesAsync();
-
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key, b.Key], null, "tester"));
-
-        Assert.Contains("veículo", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(expected, error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(_db.Context.ShipmentLoads);
     }
 
     [Fact]
-    public async Task Refuses_shipments_of_different_items()
+    public async Task Refuses_a_negative_freight_price()
     {
-        var a = Shipment("R1", itemCode: "SOJA");
-        var b = Shipment("R2", itemCode: "MILHO");
-        await _db.Context.SaveChangesAsync();
-
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key, b.Key], null, "tester"));
+            () => Service().ExecuteAsync(Form(freightPrice: -1m), "tester"));
 
-        Assert.Contains("produto", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("frete", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// O frete é anulável de propósito, para distinguir "não informado" de "zero" — e a
+    /// Logística nem sempre sabe o valor no momento do planejamento.
+    /// </summary>
     [Fact]
-    public async Task Refuses_shipments_of_different_branches()
+    public async Task Accepts_a_form_without_a_freight_price()
     {
-        var a = Shipment("R1", branchCode: "01");
-        var b = Shipment("R2", branchCode: "02");
-        await _db.Context.SaveChangesAsync();
+        var load = await Service().ExecuteAsync(Form(freightPrice: null), "tester");
 
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key, b.Key], null, "tester"));
-
-        Assert.Contains("filial", error.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Refuses_a_shipment_already_in_another_load_naming_both_codes()
-    {
-        var existing = new ShipmentLoad
-        {
-            Key = Guid.NewGuid(),
-            Code = "CG000042",
-            ItemCode = "SOJA",
-            UnitOfMeasureCode = "KG",
-        };
-        _db.Context.ShipmentLoads.Add(existing);
-
-        var a = Shipment("R1", shipmentLoadKey: existing.Key);
-        await _db.Context.SaveChangesAsync();
-
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key], null, "tester"));
-
-        // Nomear os dois códigos é o que torna o erro acionável: o usuário precisa saber
-        // QUAL romaneio e em QUAL carga ele já está.
-        Assert.Contains("R1", error.Message);
-        Assert.Contains("CG000042", error.Message);
-    }
-
-    [Fact]
-    public async Task Refuses_a_shipment_that_is_not_confirmed()
-    {
-        var a = Shipment("R1", status: StorageTransactionsStatus.Pending);
-        await _db.Context.SaveChangesAsync();
-
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key], null, "tester"));
-
-        Assert.Contains("R1", error.Message);
-    }
-
-    [Fact]
-    public async Task Refuses_a_transaction_that_is_not_a_shipment()
-    {
-        var a = Shipment("R1", type: StorageTransactionType.Purchase);
-        await _db.Context.SaveChangesAsync();
-
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([a.Key], null, "tester"));
-
-        Assert.Contains("R1", error.Message);
-    }
-
-    [Fact]
-    public async Task Refuses_a_key_that_does_not_exist()
-    {
-        var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync([Guid.NewGuid()], null, "tester"));
-
-        Assert.Contains("não encontrado", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(load.FreightPrice);
     }
 }

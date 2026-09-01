@@ -24,6 +24,22 @@ public class WarehouseComplementService(IUnitOfWork db) : IWarehouseComplementSe
             .FirstOrDefaultAsync();
     }
 
+    public async Task<IEnumerable<WarehouseComplementDto>> GetOwnAsync()
+    {
+        return await db.Context.WarehouseComplements
+            .Where(x => x.IsOwn)
+            .OrderBy(x => x.WarehouseCode)
+            .Select(x => new WarehouseComplementDto
+            {
+                WarehouseCode = x.WarehouseCode,
+                IsParticipant = x.IsParticipant,
+                IsOwn = x.IsOwn,
+                Notes = x.Notes,
+            })
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
     public async Task<WarehouseComplementDto> SetAsync(
         string warehouseCode, bool isParticipant, bool isOwn, string? notes)
     {

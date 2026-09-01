@@ -69,6 +69,7 @@ public class ShipmentLoadBillingServiceTests
             UnitOfMeasureCode = "KG",
             TruckCode = "ABC1D23",
             TotalQuantity = 90_000m,
+            Status = ShipmentLoadStatus.Open,
         };
 
         var contract = SalesContractsAllocationTestSupport.NewContract(totalVolume: 1_000_000m);

@@ -215,6 +215,7 @@ public class ShippingTransactionsReverseServiceTests
             ItemCode = "SOJA",
             UnitOfMeasureCode = "KG",
             TotalQuantity = 1000m,
+            Status = ShipmentLoadStatus.Open,
         };
         _db.Context.ShipmentLoads.Add(load);
 

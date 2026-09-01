@@ -51,6 +51,7 @@ public class ShipmentLoadInvoiceBranchRegressionTests
             ItemCode = "SOJA",
             UnitOfMeasureCode = "KG",
             TotalQuantity = 100m,
+            Status = ShipmentLoadStatus.Open,
         };
 
         var contract = SalesContractsAllocationTestSupport.NewContract(totalVolume: 1_000m);

@@ -214,6 +214,11 @@ public static class ODataConfigurations
         warehousesGetComplement.Parameter<string>("WarehouseCode");
         warehousesGetComplement.Returns<WarehouseComplementDto>();
 
+        // Sem parâmetro: o value help de contrato da transferência de titularidade precisa do
+        // conjunto de armazéns próprios para filtrar os contratos pelo local de entrega.
+        modelBuilder.Function("WarehousesGetOwnComplements")
+            .ReturnsCollection<WarehouseComplementDto>();
+
         // Flags opcionais: ausente vale false, mesmo significado de "sem registro de complemento".
         // Parametro opcional chega NULO no controller — ver o <remarks> do controller da action.
         var warehousesSetComplement = modelBuilder.Action("WarehousesSetComplement");
@@ -512,10 +517,65 @@ public static class ODataConfigurations
         salesShipmentReleasesApprovation.Parameter<Guid>("Key");
         salesShipmentReleasesApprovation.Returns<IActionResult>();
 
+        // Formulário da Logística: só Key, produto, unidade, placa, filial e armazém são de
+        // fato exigidos pelo serviço. Os demais entram Optional porque a carga é planejamento —
+        // a Logística grava o que sabe no momento.
         var shipmentLoadsCreate = modelBuilder.Action("ShipmentLoadsCreate");
-        shipmentLoadsCreate.CollectionParameter<Guid>("StorageTransactionKeys");
+        shipmentLoadsCreate.Parameter<string>("BranchCode");
+        shipmentLoadsCreate.Parameter<DateTime>("LoadDate").Optional();
+        shipmentLoadsCreate.Parameter<string>("TruckCode");
+        shipmentLoadsCreate.Parameter<string>("TruckDriverCode").Optional();
+        shipmentLoadsCreate.Parameter<string>("TruckDriverName").Optional();
+        shipmentLoadsCreate.Parameter<string>("CarrierCardCode").Optional();
+        shipmentLoadsCreate.Parameter<string>("CarrierName").Optional();
+        shipmentLoadsCreate.Parameter<string>("ItemCode");
+        shipmentLoadsCreate.Parameter<string>("ItemName").Optional();
+        shipmentLoadsCreate.Parameter<string>("UnitOfMeasureCode");
+        shipmentLoadsCreate.Parameter<string>("WarehouseCode");
+        shipmentLoadsCreate.Parameter<string>("WarehouseName").Optional();
+        shipmentLoadsCreate.Parameter<string>("CardCode").Optional();
+        shipmentLoadsCreate.Parameter<string>("CardName").Optional();
+        shipmentLoadsCreate.Parameter<bool>("HasExcess").Optional();
+        // Edm.Double, NUNCA Edm.Decimal: decimal faz parse para string no cliente e o backend
+        // devolve 400 sem nomear o campo.
+        shipmentLoadsCreate.Parameter<double>("FreightPrice").Optional();
         shipmentLoadsCreate.Parameter<string>("Comments").Optional();
         shipmentLoadsCreate.Returns<IActionResult>();
+
+        var shipmentLoadsUpdate = modelBuilder.Action("ShipmentLoadsUpdate");
+        shipmentLoadsUpdate.Parameter<Guid>("Key");
+        shipmentLoadsUpdate.Parameter<string>("BranchCode");
+        shipmentLoadsUpdate.Parameter<DateTime>("LoadDate").Optional();
+        shipmentLoadsUpdate.Parameter<string>("TruckCode");
+        shipmentLoadsUpdate.Parameter<string>("TruckDriverCode").Optional();
+        shipmentLoadsUpdate.Parameter<string>("TruckDriverName").Optional();
+        shipmentLoadsUpdate.Parameter<string>("CarrierCardCode").Optional();
+        shipmentLoadsUpdate.Parameter<string>("CarrierName").Optional();
+        shipmentLoadsUpdate.Parameter<string>("ItemCode");
+        shipmentLoadsUpdate.Parameter<string>("ItemName").Optional();
+        shipmentLoadsUpdate.Parameter<string>("UnitOfMeasureCode");
+        shipmentLoadsUpdate.Parameter<string>("WarehouseCode");
+        shipmentLoadsUpdate.Parameter<string>("WarehouseName").Optional();
+        shipmentLoadsUpdate.Parameter<string>("CardCode").Optional();
+        shipmentLoadsUpdate.Parameter<string>("CardName").Optional();
+        shipmentLoadsUpdate.Parameter<bool>("HasExcess").Optional();
+        shipmentLoadsUpdate.Parameter<double>("FreightPrice").Optional();
+        shipmentLoadsUpdate.Parameter<string>("Comments").Optional();
+        shipmentLoadsUpdate.Returns<IActionResult>();
+
+        var shipmentLoadsAttach = modelBuilder.Action("ShipmentLoadsAttachTransactions");
+        shipmentLoadsAttach.Parameter<Guid>("Key");
+        shipmentLoadsAttach.CollectionParameter<Guid>("StorageTransactionKeys");
+        shipmentLoadsAttach.Returns<IActionResult>();
+
+        var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
+        shipmentLoadsDetach.Parameter<Guid>("Key");
+        shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
+        shipmentLoadsDetach.Returns<IActionResult>();
+
+        var shipmentLoadsDelete = modelBuilder.Action("ShipmentLoadsDelete");
+        shipmentLoadsDelete.Parameter<Guid>("Key");
+        shipmentLoadsDelete.Returns<IActionResult>();
 
         var shipmentLoadsCancel = modelBuilder.Action("ShipmentLoadsCancel");
         shipmentLoadsCancel.Parameter<Guid>("Key");

@@ -144,4 +144,26 @@ public class ShipmentLoadsBillingGuardServiceTests
 
         await Guard().EnsureCanBillAsync(load.Key, 50_000.001m);
     }
+
+    /// <summary>
+    /// Carga apenas planejada é recusada PELO STATUS, e não pela comparação de saldo.
+    /// </summary>
+    /// <remarks>
+    /// Sem esta cláusula ela seria recusada de qualquer jeito — volume zero, saldo zero —, mas
+    /// com uma mensagem sobre quantidade, que manda o usuário procurar um problema que não
+    /// existe. O que falta é vincular romaneio, e a mensagem precisa dizer isso.
+    /// </remarks>
+    [Fact]
+    public async Task A_planned_load_is_refused_with_an_actionable_message()
+    {
+        var load = Load(total: 0, status: ShipmentLoadStatus.Planned);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000m));
+
+        Assert.Contains("CG000007", error.Message);
+        Assert.Contains("planejada", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("romaneio", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

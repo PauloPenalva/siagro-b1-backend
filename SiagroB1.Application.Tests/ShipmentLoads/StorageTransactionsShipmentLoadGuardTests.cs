@@ -29,6 +29,7 @@ public class StorageTransactionsShipmentLoadGuardTests
             ItemCode = "SOJA",
             UnitOfMeasureCode = "KG",
             TotalQuantity = 30_000,
+            Status = ShipmentLoadStatus.Open,
         };
         _db.Context.ShipmentLoads.Add(load);
 

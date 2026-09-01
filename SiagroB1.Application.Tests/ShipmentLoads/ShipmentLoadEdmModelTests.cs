@@ -45,15 +45,19 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains(nameof(ShipmentLoad.IsFullyInvoiced), properties);
     }
 
-    [Fact]
-    public void ShipmentLoadsCreate_takes_a_collection_of_transaction_keys()
+    [Theory]
+    [InlineData("ShipmentLoadsAttachTransactions")]
+    [InlineData("ShipmentLoadsDetachTransactions")]
+    public void The_shipment_link_actions_take_a_collection_of_transaction_keys(string actionName)
     {
         // CollectionParameter<Guid> não tem precedente neste EDM — este teste é a validação
-        // barata do que o plano manda conferir contra o $metadata.
+        // barata do que o plano manda conferir contra o $metadata. Migrou de
+        // ShipmentLoadsCreate junto com o parâmetro: a criação deixou de conhecer romaneio
+        // quando a carga passou a nascer do planejamento da Logística.
         var action = Model()
             .SchemaElements
             .OfType<IEdmAction>()
-            .Single(a => a.Name == "ShipmentLoadsCreate");
+            .Single(a => a.Name == actionName);
 
         var parameter = action.Parameters.Single(p => p.Name == "StorageTransactionKeys");
 
@@ -61,6 +65,40 @@ public class ShipmentLoadEdmModelTests
         Assert.Equal("Edm.Guid", parameter.Type.AsCollection().ElementType().FullName());
     }
 
+    /// <summary>
+    /// O formulário da Logística tem muitos campos opcionais, e um parâmetro que falte no EDM
+    /// derruba a action inteira com um 500 de corpo vazio.
+    /// </summary>
+    [Theory]
+    [InlineData("ShipmentLoadsCreate")]
+    [InlineData("ShipmentLoadsUpdate")]
+    public void The_logistics_form_actions_expose_every_field(string actionName)
+    {
+        var action = Model()
+            .SchemaElements
+            .OfType<IEdmAction>()
+            .Single(a => a.Name == actionName);
+
+        var parameters = action.Parameters.Select(p => p.Name).ToList();
+
+        Assert.Contains("BranchCode", parameters);
+        Assert.Contains("TruckCode", parameters);
+        Assert.Contains("TruckDriverCode", parameters);
+        Assert.Contains("CarrierCardCode", parameters);
+        Assert.Contains("CarrierName", parameters);
+        Assert.Contains("ItemCode", parameters);
+        Assert.Contains("UnitOfMeasureCode", parameters);
+        Assert.Contains("WarehouseCode", parameters);
+        Assert.Contains("CardCode", parameters);
+        Assert.Contains("HasExcess", parameters);
+        Assert.Contains("FreightPrice", parameters);
+        Assert.Contains("Comments", parameters);
+
+        // Edm.Double, NUNCA Edm.Decimal: decimal faz parse para string no cliente e o backend
+        // devolve 400 que não nomeia o campo.
+        var freight = action.Parameters.Single(p => p.Name == "FreightPrice");
+        Assert.Equal("Edm.Double", freight.Type.Definition.FullTypeName());
+    }
     [Fact]
     public void SalesShipmentReleasesGetAvailable_can_include_contracts_without_balance()
     {

@@ -25,6 +25,10 @@ public class BusinessPartner
     [Column(name: "U_YKT_CNPJ_CPF",TypeName = "VARCHAR(14) NOT NULL")]
     public string? TaxId { get; set; }
     
+    /// <summary>Nome do endereço de entrega padrão do parceiro (aponta para CRD1.Address).</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? ShipToDef { get; set; }
+
     [Column(TypeName = "VARCHAR(1)")]
     public string? QryGroup23 { get;  set; }
     

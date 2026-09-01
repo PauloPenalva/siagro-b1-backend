@@ -20,6 +20,15 @@ namespace SiagroB1.Infra.Context
         
         public DbSet<Address> Addresses { get; set; }
 
+        /// <summary>Extensão fiscal do endereço (CRD7): CNPJ, CPF e IE.</summary>
+        public DbSet<AddressTaxExtension> AddressTaxExtensions { get; set; }
+
+        /// <summary>Municípios (OCNT), referenciados por CRD1.County.</summary>
+        public DbSet<County> Counties { get; set; }
+
+        /// <summary>Pessoas de contato do parceiro (OCPR).</summary>
+        public DbSet<ContactPerson> ContactPersons { get; set; }
+
         /// <summary>Cadastro de usuários do SAP (OUSR), espelhado em USERS quando Erp = SAPB1.</summary>
         public DbSet<SapUser> SapUsers { get; set; }
 
@@ -27,6 +36,9 @@ namespace SiagroB1.Infra.Context
         {
             modelBuilder.Entity<Address>()
                 .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
+
+            modelBuilder.Entity<AddressTaxExtension>()
+                .HasKey(a => new { a.CardCode, a.AddressName, a.AddressType });
 
             modelBuilder.Entity<Address>()
                 .HasOne(a => a.BusinessPartner)

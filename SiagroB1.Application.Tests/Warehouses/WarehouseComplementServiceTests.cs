@@ -118,6 +118,39 @@ public class WarehouseComplementServiceTests
     }
 
     [Fact]
+    public async Task GetOwnAsync_ReturnsEmptyWhenNoWarehouseIsMarked()
+    {
+        await Service().SetAsync("ARM01", true, false, null);
+
+        Assert.Empty(await Service().GetOwnAsync());
+    }
+
+    /// <summary>
+    /// Os dois flags são independentes: participante não implica próprio, e é o próprio que
+    /// qualifica o contrato na transferência de titularidade.
+    /// </summary>
+    [Fact]
+    public async Task GetOwnAsync_ReturnsOnlyTheOwnWarehouses()
+    {
+        await Service().SetAsync("ARM01", false, true, null);
+        await Service().SetAsync("ARM02", true, false, null);
+        await Service().SetAsync("ARM03", true, true, null);
+
+        var result = (await Service().GetOwnAsync()).ToList();
+
+        Assert.Equal(["ARM01", "ARM03"], result.Select(x => x.WarehouseCode));
+    }
+
+    [Fact]
+    public async Task GetOwnAsync_StopsReturningAWarehouseThatIsTurnedOff()
+    {
+        await Service().SetAsync("ARM01", true, true, null);
+        await Service().SetAsync("ARM01", true, false, null);
+
+        Assert.Empty(await Service().GetOwnAsync());
+    }
+
+    [Fact]
     public async Task SetAsync_AcceptsAWarehouseThatDoesNotExistInTheLocalMaster()
     {
         // Em modo SAPB1 o armazém é um parceiro do OCRD, então a tabela não tem FK para WAREHOUSES.

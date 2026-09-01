@@ -383,6 +383,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsBillingGuardService>();
         services.AddScoped<ShipmentLoadsRecalculateInvoicedService>();
         services.AddScoped<ShipmentLoadsBalanceHookService>();
+        services.AddScoped<ShipmentLoadsUpdateService>();
+        services.AddScoped<ShipmentLoadsDeleteService>();
+        services.AddScoped<ShipmentLoadsAttachTransactionsService>();
+        services.AddScoped<ShipmentLoadsDetachTransactionsService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();
