@@ -22,6 +22,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </remarks>
 public class ShipmentLoadsCancelService(
     IUnitOfWork db,
+    ShipmentLoadsCompositionGuardService compositionGuard,
     ShipmentLoadsMovementLogService movementLog)
 {
     public async Task ExecuteAsync(Guid key, string cancellationReason, string userName)
@@ -36,15 +37,7 @@ public class ShipmentLoadsCancelService(
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException("Carga já cancelada.");
 
-        var liveInvoice = await db.Context.SalesInvoices
-            .Where(x => x.ShipmentLoadKey == key && x.InvoiceStatus != InvoiceStatus.Cancelled)
-            .Select(x => new { x.InvoiceNumber, x.InvoiceStatus })
-            .FirstOrDefaultAsync();
-
-        if (liveInvoice != null)
-            throw new ApplicationException(
-                $"A carga {load.Code} possui o documento de saída {liveInvoice.InvoiceNumber} em situação " +
-                $"{liveInvoice.InvoiceStatus}. Cancele o documento antes de cancelar a carga.");
+        await compositionGuard.EnsureCanChangeCompositionAsync(load);
 
         var shipments = await db.Context.StorageTransactions
             .Where(x => x.ShipmentLoadKey == key)

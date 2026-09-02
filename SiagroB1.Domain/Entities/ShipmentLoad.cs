@@ -118,6 +118,22 @@ public class ShipmentLoad : DocumentEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal InvoicedQuantity { get; set; }
 
+    /// <summary>
+    /// Persistido-derivado: soma do <c>GrossWeight</c> das devoluções em armazém geradas pela
+    /// RECUSA desta carga (romaneios <c>SalesShipmentReturn</c> com
+    /// <c>RefusedFromShipmentLoadKey</c> apontando para ela, exceto cancelados). Escritor
+    /// único: <c>ShipmentLoadsRecalculateReturnedService</c>, chamado de dentro de
+    /// <c>ShipmentLoadsRecalculateInvoicedService</c>.
+    /// </summary>
+    /// <remarks>
+    /// É o terceiro termo do saldo, e existe porque a mercadoria devolvida a um armazém saiu
+    /// FISICAMENTE da carga: a devolução confirmada zera o <see cref="InvoicedQuantity"/>, e sem
+    /// este termo a carga voltaria a oferecer para faturamento um volume que já está creditado
+    /// em outro armazém.
+    /// </remarks>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal ReturnedToWarehouseQuantity { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
@@ -141,20 +157,41 @@ public class ShipmentLoad : DocumentEntity
     public virtual ICollection<ShipmentLoadMovement> Movements { get; } = [];
 
     /// <summary>
-    /// Saldo a faturar, derivado dos dois persistidos. Carga cancelada não tem saldo.
+    /// Devoluções em armazém geradas pela RECUSA desta carga. Coleção separada de
+    /// <see cref="Transactions"/> de propósito: aquela é o que foi EMBARCADO na carga, esta é o
+    /// que voltou dela. Ver <c>StorageTransaction.RefusedFromShipmentLoadKey</c>.
+    /// </summary>
+    public virtual ICollection<StorageTransaction> RefusalReturns { get; } = [];
+
+    /// <summary>
+    /// Saldo a faturar, derivado dos três persistidos. Carga cancelada não tem saldo.
     /// </summary>
     [NotMapped]
     public decimal AvailableQuantity =>
         Status != ShipmentLoadStatus.Cancelled
-            ? CalculateAvailableQuantity(TotalQuantity, InvoicedQuantity)
+            ? CalculateAvailableQuantity(TotalQuantity, InvoicedQuantity, ReturnedToWarehouseQuantity)
             : decimal.Zero;
 
     /// <summary>
     /// Regra de arredondamento do saldo, compartilhada com quem precisa avaliá-lo antes de
     /// gravar (ex.: <c>ShipmentLoadsBillingGuardService</c>).
     /// </summary>
-    public static decimal CalculateAvailableQuantity(decimal totalQuantity, decimal invoicedQuantity) =>
-        decimal.Round(totalQuantity - invoicedQuantity, 3, MidpointRounding.ToEven);
+    /// <remarks>
+    /// Os dois abatimentos são de naturezas diferentes e se somam sem se sobrepor:
+    /// <paramref name="invoicedQuantity"/> é o volume COMERCIALMENTE consumido pelas notas
+    /// vivas, e <paramref name="returnedToWarehouseQuantity"/> é o volume que saiu
+    /// FISICAMENTE da carga de volta para um armazém. Uma recusa que devolve mercadoria ao
+    /// armazém primeiro devolve o saldo comercial (a devolução confirmada abate a origem) e só
+    /// então o retira pelo segundo termo — nunca o mesmo volume duas vezes.
+    /// </remarks>
+    public static decimal CalculateAvailableQuantity(
+        decimal totalQuantity,
+        decimal invoicedQuantity,
+        decimal returnedToWarehouseQuantity) =>
+        decimal.Round(
+            totalQuantity - invoicedQuantity - returnedToWarehouseQuantity,
+            3,
+            MidpointRounding.ToEven);
 
     [NotMapped]
     public bool IsFullyInvoiced => AvailableQuantity <= decimal.Zero;

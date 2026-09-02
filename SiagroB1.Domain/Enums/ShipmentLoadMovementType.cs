@@ -22,5 +22,7 @@ public enum ShipmentLoadMovementType
     Planned = 8,               // Carga criada pela Logística, ainda sem romaneio
     TransactionsAttached = 9,  // Romaneio(s) vinculado(s) — aumenta o volume da carga
     TransactionsDetached = 10, // Romaneio(s) desvinculado(s) — reduz o volume da carga
-    Updated = 11               // Dados cadastrais da carga alterados
+    Updated = 11,              // Dados cadastrais da carga alterados
+    Refused = 12,              // Recusa registrada — narrativa com cliente, local de entrega e motivo
+    ReturnedToWarehouse = 13   // Mercadoria devolvida a armazém — retira o saldo da carga
 }

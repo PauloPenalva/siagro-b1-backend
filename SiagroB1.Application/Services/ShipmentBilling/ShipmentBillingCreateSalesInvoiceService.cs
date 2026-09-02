@@ -102,6 +102,10 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
                 var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == loadKey.Value);
 
+                // Cliente e local de entrega no movimento: é o que faz a narrativa do frete
+                // registrar PARA ONDE a carga foi em cada faturamento. Numa carga recusada e
+                // refaturada, são estas duas linhas — a de antes e a de depois da recusa — que
+                // mostram os dois destinos.
                 movementLog.Register(
                     loadKey.Value,
                     ShipmentLoadMovementType.Billed,
@@ -110,7 +114,8 @@ public class ShipmentBillingCreateSalesInvoiceService(
                     $"Documento de saída {salesInvoice.InvoiceNumber} emitido: {quantity:N3}.",
                     username,
                     salesInvoice.Key,
-                    salesInvoice.InvoiceNumber);
+                    salesInvoice.InvoiceNumber,
+                    ShipmentLoadMovementContext.FromInvoice(salesInvoice));
 
                 await db.SaveChangesAsync();
             }

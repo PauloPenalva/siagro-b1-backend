@@ -60,4 +60,16 @@ public class ShipmentLoadsController(ShipmentLoadsGetService getService) : OData
     {
         return Ok(getService.QueryMovements().Where(x => x.ShipmentLoadKey == key));
     }
+
+    /// <summary>
+    /// Devoluções em armazém geradas pela RECUSA desta carga — o que voltou dela, por oposição a
+    /// <c>Transactions</c>, que é o que foi embarcado nela.
+    /// </summary>
+    [HttpGet("odata/ShipmentLoads({key:guid})/RefusalReturns")]
+    [HttpGet("odata/ShipmentLoads/{key:guid}/RefusalReturns")]
+    [EnableQuery]
+    public ActionResult<IEnumerable<StorageTransaction>> GetRefusalReturns([FromRoute] Guid key)
+    {
+        return Ok(getService.QueryRefusalReturns(key));
+    }
 }

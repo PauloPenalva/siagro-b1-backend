@@ -17,7 +17,9 @@ public class ShipmentLoadsDetachTransactionsServiceTests
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private ShipmentLoadsDetachTransactionsService Service() => new(
-        _db, new ShipmentLoadsMovementLogService(_db.Context));
+        _db,
+        new ShipmentLoadsCompositionGuardService(_db.Context),
+        new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(
         ShipmentLoadStatus status = ShipmentLoadStatus.Open,
@@ -67,17 +69,39 @@ public class ShipmentLoadsDetachTransactionsServiceTests
         return transaction;
     }
 
-    private void Invoice(ShipmentLoad load, InvoiceStatus status)
+    /// <summary>
+    /// A nota nasce COM item: a trava decide pelo volume consumido, e uma nota sem linha não
+    /// consome nada. Um documento sem item nunca existe no fluxo real.
+    /// </summary>
+    private SalesInvoice Invoice(
+        ShipmentLoad load,
+        InvoiceStatus status,
+        SalesInvoiceType type = SalesInvoiceType.Normal,
+        decimal quantity = 30_000m,
+        Guid? originKey = null,
+        string invoiceNumber = "000001")
     {
-        _db.Context.SalesInvoices.Add(new SalesInvoice
+        var invoice = new SalesInvoice
         {
             Key = Guid.NewGuid(),
-            InvoiceNumber = "000001",
+            InvoiceNumber = invoiceNumber,
             ShipmentLoadKey = load.Key,
             InvoiceStatus = status,
-            InvoiceType = SalesInvoiceType.Normal,
+            InvoiceType = type,
+            SalesInvoiceOriginKey = originKey,
             CardCode = "C001",
+        };
+
+        invoice.AddItem(new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(),
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            Quantity = quantity,
         });
+
+        _db.Context.SalesInvoices.Add(invoice);
+        return invoice;
     }
 
     [Fact]
@@ -158,6 +182,51 @@ public class ShipmentLoadsDetachTransactionsServiceTests
         Assert.Contains("CG000001", error.Message);
         // Nada foi gravado: o romaneio continua na carga.
         Assert.Equal(load.Key, (await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
+    }
+
+    /// <summary>
+    /// Recusa TOTAL para refaturamento: a devolução confirmada zera o consumo e a composição
+    /// volta a poder mudar, apesar de continuarem existindo DOIS documentos vivos (origem
+    /// <c>Returned</c> + retorno <c>Confirmed</c>).
+    /// </summary>
+    [Fact]
+    public async Task A_fully_returned_load_can_be_detached_again()
+    {
+        var load = Load(ShipmentLoadStatus.PartiallyInvoiced);
+        var a = Shipment(load.Key, "R1", 30_000);
+        var origin = Invoice(load, InvoiceStatus.Returned);
+        Invoice(load, InvoiceStatus.Confirmed, SalesInvoiceType.Return,
+            originKey: origin.Key, invoiceNumber: "000002");
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, [a.Key], "tester");
+
+        Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
+    }
+
+    /// <summary>
+    /// Devolução ao ARMAZÉM continua travando: o grão já está creditado no armazém de destino, e
+    /// soltar o romaneio o devolveria à Montagem para ser faturado de novo.
+    /// </summary>
+    [Fact]
+    public async Task A_load_returned_to_a_warehouse_cannot_be_detached()
+    {
+        var load = Load(ShipmentLoadStatus.PartiallyInvoiced);
+        var a = Shipment(load.Key, "R1", 30_000);
+
+        var refusalReturn = Shipment(load.Key, "RM000777", 30_000);
+        refusalReturn.TransactionType = StorageTransactionType.SalesShipmentReturn;
+        refusalReturn.ShipmentLoadKey = null;
+        refusalReturn.RefusedFromShipmentLoadKey = load.Key;
+
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("devolvido(s) ao armazém", error.Message);
+        Assert.Equal(load.Key, (await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == a.Key)).ShipmentLoadKey);
     }
 
     [Fact]

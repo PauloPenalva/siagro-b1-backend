@@ -119,4 +119,72 @@ public class ShipmentLoadEdmModelTests
         // parametro so, que continua declarada no controller.
         Assert.IsAssignableFrom<IEdmOptionalParameter>(parameter);
     }
+
+    /// <summary>
+    /// O terceiro termo do saldo precisa existir no EDM: as duas telas mostram a quantidade
+    /// devolvida ao armazém, e sem a propriedade o $select devolve 400.
+    /// </summary>
+    [Fact]
+    public void ShipmentLoads_exposes_the_returned_to_warehouse_quantity()
+    {
+        var properties = EntityType(nameof(ShipmentLoad)).Properties().Select(p => p.Name).ToArray();
+
+        Assert.Contains(nameof(ShipmentLoad.ReturnedToWarehouseQuantity), properties);
+    }
+
+    /// <summary>
+    /// A ação de recusa: arrays PARALELOS de chaves e quantidades.
+    /// </summary>
+    [Fact]
+    public void ShipmentLoadsRefuse_takes_parallel_collections_of_keys_and_quantities()
+    {
+        var action = Model()
+            .SchemaElements
+            .OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsRefuse");
+
+        var parameters = action.Parameters.Select(p => p.Name).ToArray();
+
+        Assert.Contains("Key", parameters);
+        Assert.Contains("SalesInvoiceKeys", parameters);
+        Assert.Contains("Quantities", parameters);
+        Assert.Contains("Destination", parameters);
+        Assert.Contains("DestinationWarehouseCode", parameters);
+        Assert.Contains("Reason", parameters);
+
+        Assert.Equal(
+            "Collection(Edm.Guid)",
+            action.Parameters.Single(p => p.Name == "SalesInvoiceKeys").Type.Definition.FullTypeName());
+
+        // ⚠️ Collection(Edm.Double), NUNCA Edm.Decimal: decimal faz o cliente serializar o
+        // número como string e o backend devolve 400 que não nomeia o campo.
+        Assert.Equal(
+            "Collection(Edm.Double)",
+            action.Parameters.Single(p => p.Name == "Quantities").Type.Definition.FullTypeName());
+
+        // Destination é string ("Rebilling" | "Warehouse"), não enum: não há precedente de enum
+        // em parâmetro de action neste EDM.
+        Assert.Equal(
+            "Edm.String",
+            action.Parameters.Single(p => p.Name == "Destination").Type.Definition.FullTypeName());
+
+        // Só o armazém é opcional — ele não se aplica ao destino de refaturamento.
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "DestinationWarehouseCode"));
+    }
+
+    [Fact]
+    public void ShipmentLoadsGetRefusableDocuments_is_a_function_returning_a_collection()
+    {
+        var function = Model()
+            .SchemaElements
+            .OfType<IEdmFunction>()
+            .Single(f => f.Name == "ShipmentLoadsGetRefusableDocuments");
+
+        Assert.Equal(
+            "Edm.Guid",
+            function.Parameters.Single(p => p.Name == "Key").Type.Definition.FullTypeName());
+
+        Assert.True(function.ReturnType.IsCollection());
+    }
 }

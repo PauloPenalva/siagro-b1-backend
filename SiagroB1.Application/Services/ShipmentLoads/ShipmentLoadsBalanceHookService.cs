@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -38,14 +39,20 @@ public class ShipmentLoadsBalanceHookService(
     /// Notas a excluir da soma. Necessário quando a nota é REMOVIDA na mesma transação: o
     /// <c>SumAsync</c> agrega no servidor e ainda a enxergaria.
     /// </param>
+    /// <param name="reason">
+    /// Motivo da operação, quando houver — hoje só a recusa de carga tem um. Vai para a coluna
+    /// própria do movimento, e não diluído na <paramref name="description"/>, para poder virar
+    /// coluna na grade.
+    /// </param>
     public async Task ApplyAsync(
         SalesInvoice invoice,
         ShipmentLoadMovementType movementType,
         string userName,
         string description,
-        ICollection<Guid>? excludedInvoiceKeys = null)
+        ICollection<Guid>? excludedInvoiceKeys = null,
+        string? reason = null)
     {
-        var loadKey = await ResolveLoadKeyAsync(invoice);
+        var loadKey = await SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync(context, invoice);
 
         if (loadKey == null)
             return;
@@ -62,6 +69,9 @@ public class ShipmentLoadsBalanceHookService(
 
         var balanceAfter = load.AvailableQuantity;
 
+        // O contexto sai do PRÓPRIO documento, sem o chamador ter de montá-lo: cliente e local
+        // de entrega já estão nele, e é isso que faz a narrativa do frete existir em todos os
+        // movimentos de nota — faturamento, cancelamento, devolução — de uma vez só.
         movementLog.Register(
             loadKey.Value,
             movementType,
@@ -70,25 +80,8 @@ public class ShipmentLoadsBalanceHookService(
             description,
             userName,
             invoice.Key,
-            invoice.InvoiceNumber);
+            invoice.InvoiceNumber,
+            ShipmentLoadMovementContext.FromInvoice(invoice, reason));
     }
 
-    /// <summary>
-    /// A carga afetada pelo documento. Normalmente é a própria: <c>SalesInvoiceCopyFactory</c>
-    /// copia <c>ShipmentLoadKey</c> para a devolução, de modo que retorno e origem apontem a
-    /// mesma carga. O fallback pela origem cobre devoluções criadas ANTES dessa cópia existir.
-    /// </summary>
-    private async Task<Guid?> ResolveLoadKeyAsync(SalesInvoice invoice)
-    {
-        if (invoice.ShipmentLoadKey is { } own)
-            return own;
-
-        if (invoice.InvoiceType != SalesInvoiceType.Return || invoice.SalesInvoiceOriginKey == null)
-            return null;
-
-        return await context.SalesInvoices
-            .Where(x => x.Key == invoice.SalesInvoiceOriginKey.Value)
-            .Select(x => x.ShipmentLoadKey)
-            .FirstOrDefaultAsync();
-    }
 }

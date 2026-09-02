@@ -29,6 +29,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </remarks>
 public class ShipmentLoadsDetachTransactionsService(
     IUnitOfWork db,
+    ShipmentLoadsCompositionGuardService compositionGuard,
     ShipmentLoadsMovementLogService movementLog)
 {
     public async Task<ShipmentLoad> ExecuteAsync(
@@ -47,7 +48,7 @@ public class ShipmentLoadsDetachTransactionsService(
             throw new ApplicationException(
                 $"A carga {load.Code} está cancelada — seus romaneios já foram devolvidos.");
 
-        await EnsureNoLiveInvoiceAsync(load);
+        await compositionGuard.EnsureCanChangeCompositionAsync(load);
 
         var distinctKeys = storageTransactionKeys.Distinct().ToList();
 
@@ -116,19 +117,4 @@ public class ShipmentLoadsDetachTransactionsService(
         return load;
     }
 
-    private async Task EnsureNoLiveInvoiceAsync(ShipmentLoad load)
-    {
-        var liveInvoice = await db.Context.SalesInvoices
-            .Where(x => x.ShipmentLoadKey == load.Key && x.InvoiceStatus != InvoiceStatus.Cancelled)
-            .Select(x => new { x.InvoiceNumber, x.InvoiceStatus })
-            .FirstOrDefaultAsync();
-
-        if (liveInvoice == null)
-            return;
-
-        throw new ApplicationException(
-            $"A carga {load.Code} possui o documento de saída {liveInvoice.InvoiceNumber} em " +
-            $"situação {liveInvoice.InvoiceStatus} e sua composição não pode ser alterada. " +
-            "Cancele o documento antes de desvincular romaneios.");
-    }
 }

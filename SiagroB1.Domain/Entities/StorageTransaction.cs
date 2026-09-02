@@ -91,7 +91,27 @@ public class StorageTransaction : DocumentEntity
     /// </summary>
     public Guid? ShipmentLoadKey { get; set; }
     public virtual ShipmentLoad? ShipmentLoad { get; set; }
-    
+
+    /// <summary>
+    /// Carga de onde esta mercadoria foi RECUSADA e devolvida a um armazém. Preenchida só nas
+    /// transações <see cref="StorageTransactionType.SalesShipmentReturn"/> geradas pela recusa
+    /// de carga.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Coluna própria, e NÃO <see cref="ShipmentLoadKey"/>.</b> Aquela FK significa
+    /// "romaneio montado NESTA carga" e é o que <c>ShipmentLoadsRecalculateTotalService</c>
+    /// soma para obter o volume embarcado — reusá-la faria a devolução AUMENTAR o total da
+    /// carga de onde a mercadoria saiu. São vínculos opostos: um diz o que entrou na carga, o
+    /// outro o que saiu dela de volta.
+    /// <para>
+    /// FK real com <c>NoAction</c>, como todo o projeto: a carga não é apagada enquanto tiver
+    /// devolução, e o vínculo é o que alimenta
+    /// <c>ShipmentLoadsRecalculateReturnedService</c>.
+    /// </para>
+    /// </remarks>
+    public Guid? RefusedFromShipmentLoadKey { get; set; }
+    public virtual ShipmentLoad? RefusedFromShipmentLoad { get; set; }
+
     public TransactionCode? TransactionOrigin { get; set; } 
     
     public Guid? ShippingOrderKey { get; set; }

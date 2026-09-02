@@ -17,6 +17,7 @@ public class ShipmentLoadsCancelServiceTests
 
     private ShipmentLoadsCancelService Service() => new(
         _db,
+        new ShipmentLoadsCompositionGuardService(_db.Context),
         new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(ShipmentLoadStatus status = ShipmentLoadStatus.Open)
@@ -59,21 +60,45 @@ public class ShipmentLoadsCancelServiceTests
         return transaction;
     }
 
-    private SalesInvoice Invoice(ShipmentLoad load, InvoiceStatus status)
+    /// <summary>
+    /// A nota nasce COM item: a trava decide pelo volume consumido, e uma nota sem linha não
+    /// consome nada. Um documento sem item nunca existe no fluxo real.
+    /// </summary>
+    private SalesInvoice Invoice(
+        ShipmentLoad load,
+        InvoiceStatus status,
+        SalesInvoiceType type = SalesInvoiceType.Normal,
+        decimal quantity = 30_000m,
+        Guid? originKey = null,
+        string invoiceNumber = "000000123")
     {
         var invoice = new SalesInvoice
         {
             Key = Guid.NewGuid(),
             CardCode = "C001",
-            InvoiceNumber = "000000123",
+            InvoiceNumber = invoiceNumber,
             InvoiceStatus = status,
+            InvoiceType = type,
+            SalesInvoiceOriginKey = originKey,
             ShipmentLoadKey = load.Key,
         };
+
+        invoice.AddItem(new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(),
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            Quantity = quantity,
+        });
 
         _db.Context.SalesInvoices.Add(invoice);
         return invoice;
     }
 
+    /// <summary>
+    /// Volume ainda consumido trava a composição — inclusive em <c>Returned</c>, porque a origem
+    /// retornada continua consumindo até a DEVOLUÇÃO ser confirmada.
+    /// </summary>
     [Theory]
     [InlineData(InvoiceStatus.Pending)]
     [InlineData(InvoiceStatus.Confirmed)]
@@ -88,6 +113,59 @@ public class ShipmentLoadsCancelServiceTests
             () => Service().ExecuteAsync(load.Key, "Erro de montagem", "tester"));
 
         Assert.Contains("000000123", error.Message);
+        Assert.Equal(ShipmentLoadStatus.Open, (await _db.Context.ShipmentLoads.SingleAsync()).Status);
+    }
+
+    /// <summary>
+    /// Recusa TOTAL para refaturamento: a devolução confirmada zera o consumo e a carga volta a
+    /// poder ser cancelada, apesar de continuarem existindo DOIS documentos vivos (a origem
+    /// <c>Returned</c> e o retorno <c>Confirmed</c>). Antes desta regra a carga recusada ficava
+    /// congelada para sempre, sem saída nenhuma pela tela.
+    /// </summary>
+    [Fact]
+    public async Task Cancels_a_fully_returned_load_even_with_two_live_invoices()
+    {
+        var load = Load();
+        var origin = Invoice(load, InvoiceStatus.Returned);
+        Invoice(load, InvoiceStatus.Confirmed, SalesInvoiceType.Return,
+            originKey: origin.Key, invoiceNumber: "000000124");
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, "Recusada e desmontada", "tester");
+
+        Assert.Equal(ShipmentLoadStatus.Cancelled, (await _db.Context.ShipmentLoads.SingleAsync()).Status);
+    }
+
+    /// <summary>
+    /// Devolução ao ARMAZÉM continua travando: o consumo comercial voltou a zero, mas o grão já
+    /// está creditado no armazém de destino. Soltar os romaneios os devolveria à Montagem, onde
+    /// entrariam em outra carga — o mesmo volume vendido duas vezes E creditado num armazém.
+    /// </summary>
+    [Fact]
+    public async Task Refuses_to_cancel_a_load_whose_goods_went_back_to_a_warehouse()
+    {
+        var load = Load();
+
+        _db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000777",
+            CardCode = "C001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 30_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, "Erro de montagem", "tester"));
+
+        Assert.Contains("devolvido(s) ao armazém", error.Message);
         Assert.Equal(ShipmentLoadStatus.Open, (await _db.Context.ShipmentLoads.SingleAsync()).Status);
     }
 

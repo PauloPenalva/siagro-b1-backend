@@ -21,7 +21,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero));
+                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero));
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.PartiallyInvoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 40_000m));
+                totalQuantity: 90_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 90_000m));
+                totalQuantity: 90_000m, invoicedQuantity: 90_000m, returnedToWarehouseQuantity: decimal.Zero));
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero));
+                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
     }
 
     /// <summary>
@@ -75,6 +75,73 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero));
+                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
+    }
+
+    // ─── Terceiro termo: mercadoria recusada e devolvida a um armazém ───
+
+    /// <summary>
+    /// Recusa TOTAL com retorno ao armazém: nada faturado, tudo devolvido. Sem o termo no
+    /// consumo isto casaria <c>consumed &lt;= 0</c> e a carga voltaria a <c>Open</c>, oferecendo
+    /// ao Faturamento de Expedição um volume que já está creditado em outro armazém.
+    /// </summary>
+    [Fact]
+    public void Everything_returned_to_a_warehouse_closes_the_load_as_returned()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Returned,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 90_000m));
+    }
+
+    /// <summary>
+    /// Carga MISTA — parte entregue e faturada, parte recusada e devolvida ao armazém. Os dois
+    /// abatimentos somam o total, então a carga está encerrada.
+    /// </summary>
+    [Fact]
+    public void Part_invoiced_plus_part_returned_closes_the_load_as_returned()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Returned,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 15_000m));
+    }
+
+    /// <summary>
+    /// O rótulo <c>Returned</c> prevalece sobre <c>Invoiced</c> na carga mista: esconder o
+    /// retorno físico na lista é pior do que a carga aparecer como "Devolvida" — a tela de
+    /// Detalhe mostra as três quantidades lado a lado.
+    /// </summary>
+    [Fact]
+    public void A_closed_load_without_any_return_is_still_invoiced()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Invoiced,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 40_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero));
+    }
+
+    /// <summary>
+    /// Recusa PARCIAL ao armazém deixa saldo: 15 de 40 voltaram, 25 ainda podem ser faturados.
+    /// </summary>
+    [Fact]
+    public void Part_returned_to_a_warehouse_leaves_the_rest_available()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.PartiallyInvoiced,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 40_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 15_000m));
+    }
+
+    /// <summary>
+    /// A tolerância de fechamento vale para a SOMA dos dois abatimentos, não para cada um.
+    /// </summary>
+    [Fact]
+    public void The_closing_tolerance_applies_to_the_sum_of_both_deductions()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Returned,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m));
     }
 }

@@ -51,4 +51,49 @@ public class ShipmentLoadMovement : BaseEntity
 
     [Column(TypeName = "VARCHAR(500)")]
     public string? Description { get; set; }
+
+    // ─── Contexto do movimento: a narrativa que o financeiro lê para pagar o frete ───
+    //
+    // Faturamento e recusa passam a gravar PARA ONDE a carga foi e POR QUE voltou, de modo que
+    // a movimentação conte a viagem inteira sem tabela nova:
+    //   Faturamento → cliente A, local A · Recusa → motivo · Devolução Confirmada
+    //   · Devolvida ao Armazém → armazém X · Faturamento → cliente B, local B
+    //
+    // Tudo anulável e desnormalizado, como o resto desta tabela: continua sendo NARRATIVA, e
+    // nada aqui é lido de volta para compor saldo.
+
+    /// <summary>Cliente do documento que originou o movimento.</summary>
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? CardCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? CardName { get; set; }
+
+    /// <summary>Local de entrega do documento que originou o movimento.</summary>
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? DeliveryCardCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? DeliveryCardName { get; set; }
+
+    /// <summary>Armazém de destino, só nos movimentos de devolução ao armazém.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? WarehouseCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? WarehouseName { get; set; }
+
+    /// <summary>
+    /// Motivo informado na recusa. Separado de <see cref="Description"/> para poder virar
+    /// coluna própria na grade e ser filtrado, em vez de ficar diluído na narrativa.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? Reason { get; set; }
+
+    /// <summary>
+    /// Romaneio de devolução gerado pelo movimento. Sem FK e sem navegação, pelo mesmo motivo
+    /// de <see cref="SalesInvoiceKey"/>: todas as FKs do projeto são <c>NoAction</c> e a linha
+    /// precisa sobreviver ao documento que ela narra.
+    /// </summary>
+    public Guid? StorageTransactionKey { get; set; }
 }

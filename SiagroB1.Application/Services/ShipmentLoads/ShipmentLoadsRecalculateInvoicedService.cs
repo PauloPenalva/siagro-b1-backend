@@ -67,11 +67,20 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
 
         var invoiced = await CalculateInvoicedAsync(context, shipmentLoadKey, excludedInvoiceKeys);
 
+        // O terceiro termo é gravado AQUI, e não por um serviço próprio: o status depende dele,
+        // e este é o escritor único do status. Ver ShipmentLoadsRecalculateReturnedService.
+        var returned = await ShipmentLoadsRecalculateReturnedService
+            .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
+
         load.InvoicedQuantity = invoiced;
-        load.Status = ResolveStatus(load.TotalQuantity, invoiced);
+        load.ReturnedToWarehouseQuantity = returned;
+        load.Status = ResolveStatus(load.TotalQuantity, invoiced, returned);
         load.UpdatedAt = DateTime.Now;
 
-        var shipmentStatus = load.Status == ShipmentLoadStatus.Invoiced
+        // Carga ENCERRADA (faturada ou devolvida ao armazém) não devolve romaneio para
+        // Confirmed, que é o filtro da tela de Montagem: a mercadoria já saiu, por venda ou por
+        // devolução, e o romaneio não pode reaparecer como disponível para outra carga.
+        var shipmentStatus = load.Status is ShipmentLoadStatus.Invoiced or ShipmentLoadStatus.Returned
             ? StorageTransactionsStatus.Invoiced
             : StorageTransactionsStatus.Confirmed;
 
@@ -114,11 +123,38 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
     /// consequência, já que não há o que faturar.
     /// </para>
     /// </remarks>
-    public static ShipmentLoadStatus ResolveStatus(decimal totalQuantity, decimal invoicedQuantity) =>
-        totalQuantity <= Tolerance ? ShipmentLoadStatus.Planned
-        : invoicedQuantity <= decimal.Zero ? ShipmentLoadStatus.Open
-        : invoicedQuantity >= totalQuantity - Tolerance ? ShipmentLoadStatus.Invoiced
-        : ShipmentLoadStatus.PartiallyInvoiced;
+    /// <remarks>
+    /// <b>O consumo é a soma dos dois abatimentos</b>, comercial e físico: uma carga com 25 t
+    /// faturadas e 15 t devolvidas ao armazém, de 40 t montadas, está encerrada — e sem somar os
+    /// dois ela leria "Faturada Parcial" com saldo zero, oferecendo-se ao Faturamento de
+    /// Expedição para sempre.
+    /// <para>
+    /// Havendo devolução ao armazém, o encerramento é <c>Returned</c> e não <c>Invoiced</c>:
+    /// parte da mercadoria não foi vendida, voltou. O rótulo prevalece porque esconder o retorno
+    /// físico na lista é pior do que a carga mista aparecer como "Devolvida" — a tela de
+    /// Detalhe mostra as três quantidades lado a lado.
+    /// </para>
+    /// </remarks>
+    public static ShipmentLoadStatus ResolveStatus(
+        decimal totalQuantity,
+        decimal invoicedQuantity,
+        decimal returnedToWarehouseQuantity)
+    {
+        if (totalQuantity <= Tolerance)
+            return ShipmentLoadStatus.Planned;
+
+        var consumed = invoicedQuantity + returnedToWarehouseQuantity;
+
+        if (consumed <= decimal.Zero)
+            return ShipmentLoadStatus.Open;
+
+        if (consumed < totalQuantity - Tolerance)
+            return ShipmentLoadStatus.PartiallyInvoiced;
+
+        return returnedToWarehouseQuantity > Tolerance
+            ? ShipmentLoadStatus.Returned
+            : ShipmentLoadStatus.Invoiced;
+    }
 
     /// <summary>
     /// A fórmula canônica:

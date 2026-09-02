@@ -18,5 +18,6 @@ public enum ShipmentLoadStatus
     PartiallyInvoiced = 1,  // Faturada em parte, ainda com saldo
     Invoiced = 2,           // Totalmente faturada
     Cancelled = 3,
-    Planned = 4             // Criada pela Logística, ainda sem romaneio vinculado
+    Planned = 4,            // Criada pela Logística, ainda sem romaneio vinculado
+    Returned = 5            // Mercadoria recusada e devolvida a armazém — encerrada, sem saldo
 }

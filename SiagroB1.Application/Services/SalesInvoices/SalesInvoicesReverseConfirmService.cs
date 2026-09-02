@@ -40,13 +40,30 @@ public class SalesInvoicesReverseConfirmService(
             {
                 /*
                  * Detecta se devolução é:
-                 * NOVA ou LEGADA
+                 * DE CARGA, NOVA ou LEGADA
                  */
+
+                // A devolução nascida de CARGA precisa ser testada PRIMEIRO. Ela nunca grava
+                // ReturnInvoiceKey em romaneio nenhum (a nota de carga tem SalesTransactions
+                // vazia — chega ao romaneio pela carga), então isNewFlow é sempre false e ela
+                // caía no ramo LEGADO, cuja consulta de "órfãos" — SalesInvoiceKey nulo +
+                // ShipmentLoadKey nulo + Confirmed + mesmo CardCode, casada só por ItemCode —
+                // SEQUESTRA romaneios soltos de outro carregamento, carimba-os como Invoiced e
+                // os anexa a esta nota de origem.
+                var shipmentLoadKey =
+                    await SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync(db.Context, invoice);
+
                 var isNewFlow = await db.Context.StorageTransactions
                     .AnyAsync(x =>
                         x.ReturnInvoiceKey == invoice.Key);
 
-                if (isNewFlow)
+                if (shipmentLoadKey != null)
+                {
+                    await ReverseLoadReturnAsync(
+                        invoice,
+                        userName);
+                }
+                else if (isNewFlow)
                 {
                     await ReverseNewReturnAsync(
                         invoice,
@@ -187,6 +204,51 @@ public class SalesInvoicesReverseConfirmService(
                     .Add(transaction);
             }
         }
+
+        foreach (var item in returnInvoice.Items)
+        {
+            item.DeliveredQuantity = 0;
+
+            item.DeliveryStatus =
+                SalesInvoiceDeliveryStatus.Open;
+        }
+    }
+
+    /*
+     * FLUXO DA CARGA
+     */
+    /// <summary>
+    /// Estorna a confirmação de uma devolução nascida de CARGA.
+    /// </summary>
+    /// <remarks>
+    /// <b>Não toca em romaneio nenhum, e é esse o ponto.</b> No fluxo da carga o romaneio não
+    /// pertence à nota: ele pertence à carga, e seu <c>TransactionStatus</c> é projeção de
+    /// <c>ShipmentLoadsRecalculateInvoicedService</c>. Reescrevê-lo aqui brigaria com o escritor
+    /// único; procurá-lo pelos critérios do fluxo legado sequestraria romaneio alheio.
+    /// <para>
+    /// O saldo da carga é restaurado pelo <c>loadHook.ApplyAsync(..., ReturnReversed, ...)</c>
+    /// do chamador, que recalcula a partir das notas — a devolução volta a <c>Pending</c> e
+    /// deixa de abater a origem.
+    /// </para>
+    /// <para>
+    /// Como nos outros dois ramos, o estorno NÃO desfaz o que a CRIAÇÃO do retorno aplicou na
+    /// origem: quem restaura status e entrega é o cancelamento/exclusão
+    /// (<c>SalesInvoicesReturnOriginRestoreService</c>).
+    /// </para>
+    /// </remarks>
+    private async Task ReverseLoadReturnAsync(
+        SalesInvoice returnInvoice,
+        string userName)
+    {
+        var originInvoice = await db.Context.SalesInvoices
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(
+                x => x.Key == returnInvoice.SalesInvoiceOriginKey)
+            ?? throw new ApplicationException(
+                "Origin invoice not found.");
+
+        originInvoice.UpdatedAt = DateTime.Now;
+        originInvoice.UpdatedBy = userName;
 
         foreach (var item in returnInvoice.Items)
         {

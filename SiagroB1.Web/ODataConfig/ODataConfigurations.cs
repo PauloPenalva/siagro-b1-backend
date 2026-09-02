@@ -586,6 +586,32 @@ public static class ODataConfigurations
         shipmentLoadsRecalculateInvoiced.Parameter<Guid>("Key");
         shipmentLoadsRecalculateInvoiced.Returns<IActionResult>();
 
+        // Recusa/devolução de carga.
+        //
+        // Arrays PARALELOS (chaves + quantidades, mesma ordem) em vez de um tipo complexo:
+        // CollectionParameter<Guid> tem precedente PROVADO em ShipmentLoadsAttachTransactions e
+        // chega ao controller como IEnumerable<Guid>, enquanto uma coleção de tipo complexo
+        // chegaria como EdmComplexObjectCollection, que os helpers deste projeto não leem.
+        //
+        // ⚠️ Edm.Double nas quantidades, NUNCA Edm.Decimal: decimal faz o cliente serializar o
+        // número como string e o backend devolve 400 que não nomeia o campo.
+        //
+        // Destination como STRING ("Rebilling" | "Warehouse") e não enum: não há precedente de
+        // enum em parâmetro de action neste EDM, e o tratamento de enum do UI5 em OData v4 é
+        // justamente uma das armadilhas que só aparecem no navegador.
+        var shipmentLoadsRefuse = modelBuilder.Action("ShipmentLoadsRefuse");
+        shipmentLoadsRefuse.Parameter<Guid>("Key");
+        shipmentLoadsRefuse.CollectionParameter<Guid>("SalesInvoiceKeys");
+        shipmentLoadsRefuse.CollectionParameter<double>("Quantities");
+        shipmentLoadsRefuse.Parameter<string>("Destination");
+        shipmentLoadsRefuse.Parameter<string>("DestinationWarehouseCode").Optional();
+        shipmentLoadsRefuse.Parameter<string>("Reason");
+        shipmentLoadsRefuse.Returns<IActionResult>();
+
+        var shipmentLoadsGetRefusableDocuments = modelBuilder.Function("ShipmentLoadsGetRefusableDocuments");
+        shipmentLoadsGetRefusableDocuments.Parameter<Guid>("Key");
+        shipmentLoadsGetRefusableDocuments.ReturnsCollection<ShipmentLoadRefusableDocumentDto>();
+
         var salesShipmentReleasesCancelation = modelBuilder.Action("SalesShipmentReleasesCancelation");
         salesShipmentReleasesCancelation.Parameter<Guid>("Key");
         salesShipmentReleasesCancelation.Parameter<string>("CancellationReason");

@@ -35,4 +35,16 @@ public class ShipmentLoadsGetService(IUnitOfWork db, ILogger<ShipmentLoadsGetSer
     {
         return db.Context.ShipmentLoadMovements.AsNoTracking();
     }
+
+    /// <summary>
+    /// Devoluções em armazém geradas pela recusa da carga. O filtro é por
+    /// <c>RefusedFromShipmentLoadKey</c> — nunca por <c>ShipmentLoadKey</c>, que significa o
+    /// oposto (romaneio montado NA carga).
+    /// </summary>
+    public IQueryable<StorageTransaction> QueryRefusalReturns(Guid shipmentLoadKey)
+    {
+        return db.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey);
+    }
 }

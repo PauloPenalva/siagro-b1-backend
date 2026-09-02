@@ -387,6 +387,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsDeleteService>();
         services.AddScoped<ShipmentLoadsAttachTransactionsService>();
         services.AddScoped<ShipmentLoadsDetachTransactionsService>();
+        services.AddScoped<ShipmentLoadsRefuseService>();
+        services.AddScoped<ShipmentLoadsRefusableDocumentsService>();
+        services.AddScoped<ShipmentLoadsCompositionGuardService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();

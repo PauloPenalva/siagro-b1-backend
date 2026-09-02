@@ -58,14 +58,27 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"A carga {load.Code} ainda está apenas planejada. Vincule os romaneios de " +
                 "embarque antes de faturá-la.");
 
+        // Carga encerrada por RECUSA com devolução ao armazém: a mercadoria já está creditada em
+        // outro armazém. Recusar por status, e não pela comparação de saldo, pelo mesmo motivo
+        // do ramo Planned acima — o saldo é zero e a mensagem de quantidade mandaria o usuário
+        // procurar um problema que não existe.
+        if (load.Status == ShipmentLoadStatus.Returned)
+            throw new ApplicationException(
+                $"A carga {load.Code} foi recusada e sua mercadoria devolvida ao armazém. " +
+                "Não há mais o que faturar nela.");
+
         var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
             context, shipmentLoadKey, excludedInvoiceKeys: null);
 
-        var available = ShipmentLoad.CalculateAvailableQuantity(load.TotalQuantity, invoiced);
+        var returned = await ShipmentLoadsRecalculateReturnedService
+            .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
+
+        var available = ShipmentLoad.CalculateAvailableQuantity(load.TotalQuantity, invoiced, returned);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(
                 $"Quantidade a faturar ({quantity:N3}) maior que o saldo da carga {load.Code} " +
-                $"({available:N3}). Total da carga: {load.TotalQuantity:N3}, já faturado: {invoiced:N3}.");
+                $"({available:N3}). Total da carga: {load.TotalQuantity:N3}, já faturado: {invoiced:N3}" +
+                (returned > decimal.Zero ? $", devolvido ao armazém: {returned:N3}" : string.Empty) + ".");
     }
 }

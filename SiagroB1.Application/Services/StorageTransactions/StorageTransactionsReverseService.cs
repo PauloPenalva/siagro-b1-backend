@@ -37,6 +37,21 @@ public class StorageTransactionsReverseService(
                 $"O romaneio {doc.Code} está montado na carga {loadCode}. " +
                 "Cancele a carga na Montagem de Carga antes de  o romaneio.");
         }
+
+        // Mesma proteção do cancelamento: a devolução gerada pela recusa tem ShipmentLoadKey
+        // nulo de propósito e escaparia do guard acima. Estorná-la voltaria o romaneio a
+        // Pending, tirando o crédito do armazém de destino sem devolver nada à carga.
+        if (doc.RefusedFromShipmentLoadKey != null)
+        {
+            var refusedLoadCode = await db.Context.ShipmentLoads
+                .Where(x => x.Key == doc.RefusedFromShipmentLoadKey)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} é a devolução da recusa da carga {refusedLoadCode} e " +
+                "não pode ser estornado por aqui.");
+        }
         
         if (doc.TransactionOrigin == TransactionCode.StorageTransaction)
             transactionCode = TransactionCode.StorageTransaction;    

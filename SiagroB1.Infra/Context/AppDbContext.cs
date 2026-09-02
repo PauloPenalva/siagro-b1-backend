@@ -193,6 +193,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(a => a.BusinessPartner)
             .WithMany(bp => bp.Addresses)
             .HasForeignKey(a => a.CardCode);
+
+        // STORAGE_TRANSACTIONS aponta a carga por DUAS chaves de significados opostos:
+        // ShipmentLoadKey é o romaneio MONTADO na carga (o que entrou) e
+        // RefusedFromShipmentLoadKey é a devolução gerada pela RECUSA dela (o que voltou).
+        // Com duas FKs para a mesma entidade e duas coleções inversas a convenção do EF não
+        // tem como parear sozinha, e emparelharia errado em silêncio — o que faria
+        // ShipmentLoadsRecalculateTotalService somar a devolução no volume embarcado.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.Transactions)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.RefusedFromShipmentLoad)
+            .WithMany(x => x.RefusalReturns)
+            .HasForeignKey(x => x.RefusedFromShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
     

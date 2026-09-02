@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
@@ -39,8 +40,13 @@ public static class ShipmentLoadsRecalculateTotalService
         if (load == null)
             return;
 
+        // Filtro de TIPO além da FK: o total é o volume EMBARCADO, e só romaneio de embarque
+        // conta. Hoje é redundante — ShipmentLoadsAttachTransactionsService só aceita
+        // SalesShipment —, mas é a garantia de que qualquer transação de outro tipo que venha
+        // a apontar a carga (uma devolução, por exemplo) não infle o total em silêncio.
         var shipments = await context.StorageTransactions
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey)
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                        x.TransactionType == StorageTransactionType.SalesShipment)
             .ToListAsync();
 
         load.TotalQuantity = decimal.Round(

@@ -31,27 +31,13 @@ public class SalesInvoicesReturnService(
         {
             await db.BeginTransactionAsync();
             
-            var returnInvoice = SalesInvoiceCopyFactory.CreateFrom(originalInvoice, userName);
-            returnInvoice.InvoiceType = SalesInvoiceType.Return;
-            returnInvoice.InvoiceStatus = InvoiceStatus.Pending;
+            // Devolução TOTAL (quantidades nulas): esta tela devolve o documento inteiro. A
+            // devolução parcial existe só pela recusa de carga, que usa a mesma fábrica.
+            var returnInvoice = SalesInvoiceReturnFactory.CreateFrom(
+                originalInvoice, userName, quantitiesByOriginItemKey: null);
+
             returnInvoice.Comments = $"Retorno do doc.saída {originalInvoice.InvoiceNumber}\n";
-            returnInvoice.SalesInvoiceOriginKey = originalInvoice.Key;
-            returnInvoice.Items.Clear();
-            
-            foreach (var item in originalInvoice.Items)
-            {
-                returnInvoice.AddItem(new SalesInvoiceItem
-                {
-                    ItemCode =  item.ItemCode,
-                    ItemName = item.ItemName,
-                    Quantity = item.Quantity,
-                    UnitPrice = item.UnitPrice,
-                    UnitOfMeasureCode =  item.UnitOfMeasureCode,
-                    SalesInvoiceItemOriginKey = item.Key,
-                    SalesContractKey = item.SalesContractKey,
-                });
-            }
-            
+
             await createService.ExecuteAsync(returnInvoice, userName, CommitMode.Deferred);
             
             originalInvoice.Comments += $"Doc.Saída retornado pelo Doc.Saída {returnInvoice.InvoiceNumber}\n";

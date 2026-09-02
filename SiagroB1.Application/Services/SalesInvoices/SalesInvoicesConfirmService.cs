@@ -22,7 +22,21 @@ public class SalesInvoicesConfirmService(
     ShipmentLoadsBalanceHookService loadHook,
     IStringLocalizer<Resource> resource)
 {
-    public async Task ExecuteAsync(Guid key, string userName)
+    /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
+    private const decimal Tolerance = 0.001m;
+
+    /// <param name="commitMode">
+    /// <c>Auto</c> abre e comita transação própria. <c>Deferred</c> compõe dentro da transação
+    /// de quem chama e NÃO comita nem faz rollback.
+    /// <para>
+    /// ⚠️ <c>Deferred</c> não é conveniência: <c>UnitOfWork.CommitAsync</c> comita e zera
+    /// <c>_transaction</c> INCONDICIONALMENTE. Chamado em <c>Auto</c> de dentro de uma
+    /// transação alheia, este serviço comitaria a transação DO CHAMADOR no meio da operação —
+    /// tudo o que viesse depois rodaria sem proteção e o commit final estouraria NRE.
+    /// É o que <c>ShipmentLoadsRefuseService</c> precisa evitar ao confirmar N devoluções.
+    /// </para>
+    /// </param>
+    public async Task ExecuteAsync(Guid key, string userName, CommitMode commitMode = CommitMode.Auto)
     {
         var invoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
@@ -37,7 +51,8 @@ public class SalesInvoicesConfirmService(
                 "Invoice is not pending.");
         }
 
-        await db.BeginTransactionAsync();
+        if (commitMode == CommitMode.Auto)
+            await db.BeginTransactionAsync();
 
         try
         {
@@ -116,11 +131,16 @@ public class SalesInvoicesConfirmService(
                 await db.SaveChangesAsync();
             }
 
-            await db.CommitAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.CommitAsync();
         }
         catch
         {
-            await db.RollbackAsync();
+            // Em Deferred o rollback é do dono da transação: chamá-lo aqui derrubaria trabalho
+            // dele que não tem nada a ver com esta nota.
+            if (commitMode == CommitMode.Auto)
+                await db.RollbackAsync();
+
             throw;
         }
     }
@@ -193,7 +213,18 @@ public class SalesInvoicesConfirmService(
         // propósito: reescrever o mesmo valor não tem efeito, e o estado se autocorrige.
         //
         // Antes do return abaixo: documento sem romaneio também tem que marcar a origem.
-        originInvoice.InvoiceStatus = InvoiceStatus.Returned;
+        //
+        // CONDICIONAL ao retorno TOTAL: numa devolução PARCIAL (recusa de carga) carimbar a
+        // origem como Returned a fecharia — SalesInvoicesReturnService também põe
+        // DeliveryStatus = Closed — e a SEGUNDA recusa do mesmo documento morreria em
+        // "Invoice closed.", sem saída pela tela. O caminho total avalia true aqui, então
+        // continua idêntico ao que era. O saldo não muda nos dois casos: a fórmula da carga
+        // conta Confirmed e Returned igual.
+        if (await IsFullyReturnedAsync(originInvoice))
+        {
+            originInvoice.InvoiceStatus = InvoiceStatus.Returned;
+        }
+
         originInvoice.UpdatedAt = DateTime.Now;
         originInvoice.UpdatedBy = userName;
 
@@ -226,6 +257,47 @@ public class SalesInvoicesConfirmService(
             transaction.UpdatedAt = DateTime.Now;
             transaction.UpdatedBy = userName;
         }
+    }
+
+    /// <summary>
+    /// A origem está inteiramente devolvida? Para CADA item de origem, a soma das devoluções
+    /// vivas (não canceladas) — incluindo a que está sendo confirmada agora — tem de alcançar a
+    /// quantidade faturada.
+    /// </summary>
+    /// <remarks>
+    /// Item de origem que não aparece em devolução nenhuma derruba o total na hora: uma carga
+    /// com dois produtos e só um recusado não pode fechar a nota inteira.
+    /// <para>
+    /// A devolução em confirmação já está gravada (nasce <c>Pending</c> pelo
+    /// <c>SalesInvoicesCreateService</c>) e o filtro é por <c>!= Cancelled</c>, então ela entra
+    /// na soma sem precisar ser somada à parte.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> IsFullyReturnedAsync(SalesInvoice originInvoice)
+    {
+        var originItems = await db.Context.SalesInvoicesItems
+            .AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == originInvoice.Key)
+            .Select(x => new { x.Key, x.Quantity })
+            .ToListAsync();
+
+        if (originItems.Count == 0)
+            return true;
+
+        foreach (var originItem in originItems)
+        {
+            var returned = await db.Context.SalesInvoicesItems
+                .AsNoTracking()
+                .Where(x => x.SalesInvoiceItemOriginKey == originItem.Key &&
+                            x.SalesInvoice!.InvoiceType == SalesInvoiceType.Return &&
+                            x.SalesInvoice.InvoiceStatus != InvoiceStatus.Cancelled)
+                .SumAsync(x => (decimal?)x.Quantity) ?? decimal.Zero;
+
+            if (returned < originItem.Quantity - Tolerance)
+                return false;
+        }
+
+        return true;
     }
 
     private void ValidateLineItemBalance(

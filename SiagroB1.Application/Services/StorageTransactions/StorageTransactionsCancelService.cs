@@ -32,6 +32,22 @@ public class StorageTransactionsCancelService(
                 "Cancele a carga na Montagem de Carga antes de  o romaneio.");
         }
 
+        // Devolução gerada pela RECUSA de uma carga. Ela tem ShipmentLoadKey NULO de propósito
+        // (senão infla o volume embarcado da carga), então escapava do guard acima — e
+        // cancelá-la por aqui derrubaria em silêncio o ReturnedToWarehouseQuantity da carga,
+        // reabrindo-a para faturamento com a mercadoria já creditada em outro armazém.
+        if (doc.RefusedFromShipmentLoadKey != null)
+        {
+            var refusedLoadCode = await db.Context.ShipmentLoads
+                .Where(x => x.Key == doc.RefusedFromShipmentLoadKey)
+                .Select(x => x.Code)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} é a devolução da recusa da carga {refusedLoadCode} e " +
+                "não pode ser cancelado por aqui.");
+        }
+
         if (doc.TransactionOrigin != transactionCode)
         {
             var msg =
