@@ -85,6 +85,10 @@ public class SalesInvoicesReturnOriginStateTests
             returnInvoice, contractKey: null, releaseKey: null, quantity: 100m,
             originItemKey: originItem.Key);
 
+        // O peso do cabeçalho de uma devolução é a soma das linhas — montá-la à mão sem ele
+        // produziria um documento que a confirmação recusa, e que nenhum caminho real cria.
+        SalesInvoicesReturnWeightService.Apply(returnInvoice);
+
         db.Context.SalesInvoices.AddRange(origin, returnInvoice);
         await db.SaveChangesAsync();
 

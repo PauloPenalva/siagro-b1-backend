@@ -87,6 +87,12 @@ public class SalesInvoicesCreateService(
                 item.Cfop = cfopByItem.GetValueOrDefault(item);
             }
 
+            // Numa DEVOLUÇÃO o peso do cabeçalho é a soma das linhas — inclusive na criada à
+            // mão pela tela, que não passa pelo SalesInvoiceReturnFactory. Sem isto ela
+            // nasceria com o peso que a tela mandou (ou zero) e a confirmação a recusaria, com
+            // o campo já travado e sem saída. Ver SalesInvoicesReturnWeightService.
+            SalesInvoicesReturnWeightService.Apply(salesInvoice);
+
             var salesTransactions = new List<Guid>();
 
             foreach (var salesTransaction in salesInvoice.SalesTransactions)

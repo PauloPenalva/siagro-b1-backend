@@ -14,9 +14,16 @@ public class SalesInvoicesItemsCreateService(
     {
         try
         {
-            salesInvoiceItem.ItemName = (await itemService.GetByIdAsync(salesInvoiceItem.ItemCode))?.ItemName; 
-            
+            salesInvoiceItem.ItemName = (await itemService.GetByIdAsync(salesInvoiceItem.ItemCode))?.ItemName;
+
             await db.Context.SalesInvoicesItems.AddAsync(salesInvoiceItem);
+            await db.SaveChangesAsync();
+
+            // Numa devolução o peso do cabeçalho é a soma das linhas. Depois do flush: a soma
+            // agrega no SERVIDOR e leria o estado sem esta linha.
+            await SalesInvoicesReturnWeightService.RecalculateAsync(
+                db.Context, salesInvoiceItem.SalesInvoiceKey);
+
             await db.SaveChangesAsync();
         }
         catch (Exception e)

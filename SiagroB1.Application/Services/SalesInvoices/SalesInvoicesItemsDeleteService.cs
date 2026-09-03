@@ -33,8 +33,16 @@ public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoic
             if (preDeleteAction != null)
                 await preDeleteAction(entity);
 
+            var salesInvoiceKey = entity.SalesInvoiceKey;
+
             db.Context.SalesInvoicesItems.Remove(entity);
-            
+
+            await db.SaveChangesAsync();
+
+            // Numa devolução o peso do cabeçalho é a soma das linhas. Depois do flush: a soma
+            // agrega no SERVIDOR e ainda contaria a linha removida.
+            await SalesInvoicesReturnWeightService.RecalculateAsync(db.Context, salesInvoiceKey);
+
             await db.SaveChangesAsync();
             await db.CommitAsync();
             return true;

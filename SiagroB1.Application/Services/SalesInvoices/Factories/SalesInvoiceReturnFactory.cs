@@ -71,18 +71,12 @@ public static class SalesInvoiceReturnFactory
         if (returnInvoice.Items.Count == 0)
             throw new ApplicationException("Informe a quantidade a devolver de ao menos um item.");
 
-        // Peso do CABEÇALHO proporcional à devolução: SalesInvoiceCopyFactory copia os pesos
-        // CHEIOS da origem, e numa devolução parcial isso registraria uma carreta inteira
-        // voltando quando voltou um terço. Só é reescrito no caminho parcial — no total os
-        // pesos da origem continuam valendo tal e qual.
-        if (quantitiesByOriginItemKey != null)
-        {
-            var returnedQuantity = returnInvoice.Items.Sum(i => i.Quantity);
-            var originQuantity = origin.Items.Sum(i => i.Quantity);
-
-            returnInvoice.GrossWeight = Apportion(origin.GrossWeight, returnedQuantity, originQuantity);
-            returnInvoice.NetWeight = Apportion(origin.NetWeight, returnedQuantity, originQuantity);
-        }
+        // Peso do CABEÇALHO derivado das linhas: SalesInvoiceCopyFactory copia os pesos CHEIOS
+        // da origem, e numa devolução parcial isso registraria uma carreta inteira voltando
+        // quando voltou um terço. Vale para o caminho total também — ali a soma das quantidades
+        // é o mesmo número, e derivar sempre é o que impede o cabeçalho de virar um valor
+        // independente da linha. Ver SalesInvoicesReturnWeightService.
+        SalesInvoicesReturnWeightService.Apply(returnInvoice);
 
         return returnInvoice;
     }
@@ -100,14 +94,4 @@ public static class SalesInvoiceReturnFactory
 
         return quantitiesByOriginItemKey.TryGetValue(key, out var quantity) ? quantity : decimal.Zero;
     }
-
-    /// <summary>
-    /// Rateia o peso da origem pela fração devolvida. Origem sem quantidade (não deveria
-    /// existir) devolve o peso cheio, para não gravar zero num campo que a natureza pode exigir
-    /// maior que zero.
-    /// </summary>
-    private static decimal Apportion(decimal originWeight, decimal returnedQuantity, decimal originQuantity) =>
-        originQuantity <= decimal.Zero
-            ? originWeight
-            : decimal.Round(originWeight * returnedQuantity / originQuantity, 3, MidpointRounding.ToEven);
 }

@@ -66,6 +66,15 @@ public class SalesInvoicesItemsUpdateService(
 
             await db.SaveChangesAsync();
 
+            // Numa devolução o peso do cabeçalho é a soma das linhas — quem devolve saldo ao
+            // contrato é a Quantity do item, e deixar os dois números seguirem caminhos
+            // separados foi o que fez uma devolução de 20 estornar 30. Depois do flush: a soma
+            // agrega no SERVIDOR e leria a quantidade anterior.
+            await SalesInvoicesReturnWeightService.RecalculateAsync(
+                db.Context, existingEntity.SalesInvoiceKey);
+
+            await db.SaveChangesAsync();
+
             // Entrega/quebra mudou → o fator efetivo do item mudou; recalcula os contratos
             // com alocação neste item no ledger (inclui destinos de realocação).
             if (deliveryChanged)

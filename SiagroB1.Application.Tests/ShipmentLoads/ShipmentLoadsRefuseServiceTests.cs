@@ -743,4 +743,60 @@ public class ShipmentLoadsRefuseServiceTests
 
         Assert.Contains("devolvida ao armazém", error.Message);
     }
+
+    // ─── O que a recusa devolve ao CONTRATO ───
+
+    /// <summary>
+    /// Recusar 15.000 de um documento de 40.000 devolve 15.000 ao contrato — e não os 40.000 da
+    /// nota inteira.
+    /// </summary>
+    [Fact]
+    public async Task A_partial_refusal_gives_back_only_the_refused_volume_to_the_contract()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        await BillingService().ExecuteAsync(invoice, "tester");
+
+        Assert.Equal(40_000m, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 15_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        Assert.Equal(25_000m, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+        Assert.Equal(25_000m, (await SalesContractsAllocationTestSupport.ReleaseAsync(_db, release.Key)).ShippedQuantity);
+    }
+
+    /// <summary>A recusa TOTAL devolve o documento inteiro, e nada além dele.</summary>
+    [Fact]
+    public async Task A_total_refusal_gives_the_whole_document_back_to_the_contract()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        await BillingService().ExecuteAsync(invoice, "tester");
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        Assert.Equal(decimal.Zero, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+    }
+
+    /// <summary>
+    /// Duas recusas parciais somam no contrato o que somaram na carga: a segunda não pode
+    /// recontar o volume que a primeira já devolveu.
+    /// </summary>
+    [Fact]
+    public async Task Sequential_partial_refusals_add_up_on_the_contract()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        await BillingService().ExecuteAsync(invoice, "tester");
+
+        await Service().ExecuteAsync(Request(load, invoice, 15_000m), "tester");
+        Assert.Equal(25_000m, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+
+        await Service().ExecuteAsync(Request(load, invoice, 10_000m), "tester");
+        Assert.Equal(15_000m, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+    }
 }

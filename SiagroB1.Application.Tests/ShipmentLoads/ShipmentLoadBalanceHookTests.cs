@@ -104,6 +104,10 @@ public class ShipmentLoadBalanceHookTests
             ret, _contract.Key, releaseKey: null, quantity: quantity,
             originItemKey: _originItemKey);
 
+        // O peso do cabeçalho de uma devolução é a soma das linhas — montá-la à mão sem ele
+        // produziria um documento que a confirmação recusa, e que nenhum caminho real cria.
+        SalesInvoicesReturnWeightService.Apply(ret);
+
         _db.Context.SalesInvoices.Add(ret);
         return ret;
     }

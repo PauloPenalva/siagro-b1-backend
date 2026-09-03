@@ -73,6 +73,12 @@ public class SalesInvoicesConfirmService(
                 "Invoice is not pending.");
         }
 
+        // Antes de abrir a transação: uma devolução cujo peso de cabeçalho discorda das linhas
+        // devolveria ao contrato a quantidade das LINHAS, calada, enquanto o operador lê o peso
+        // que digitou. O peso já nasce derivado e se mantém assim a cada edição de item — este
+        // guard cobre quem chega pela API crua e o documento legado.
+        SalesInvoicesReturnWeightService.EnsureHeaderWeightMatchesItems(invoice);
+
         if (commitMode == CommitMode.Auto)
             await db.BeginTransactionAsync();
 
