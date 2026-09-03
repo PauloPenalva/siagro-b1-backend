@@ -210,23 +210,18 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
     }
 
     /// <summary>
-    /// Não se estorna a devolução de uma recusa cuja mercadoria já foi descarregada num armazém.
+    /// Não se estorna a devolução de uma recusa cuja mercadoria do armazém já foi consumida por
+    /// outra operação depois da recusa.
     /// </summary>
     /// <remarks>
-    /// O descarregamento é um fato FÍSICO consumado — o grão está no armazém de destino, creditado
-    /// no saldo dele. Desfazê-lo pela tela de documentos deixa a carga com o mesmo volume contado
-    /// duas vezes: <c>Invoiced</c> volta a consumir e <c>ReturnedToWarehouse</c> continua de pé,
-    /// levando o saldo disponível a NEGATIVO. A carga então não pode ser faturada (guard de
-    /// faturamento), não pode ter a composição alterada (guard de composição) e não tem caminho de
-    /// volta — um estado sem saída pela tela.
-    /// <para>
-    /// A trava é pela existência de devolução ao armazém viva NA CARGA, e não por qual retorno
-    /// está sendo estornado: a entrada de armazém é uma por RECUSA (não por documento), então ela
-    /// não aponta um retorno específico que se pudesse desfazer isoladamente.
-    /// </para>
+    /// O armazém é saldo agregado (grão fungível, sem rastreio por lote): se parte do que foi
+    /// creditado por esta devolução já saiu de novo (outro embarque, por exemplo), debitar de
+    /// volta a quantidade cheia levaria o saldo do armazém a NEGATIVO. Por isso a correção só é
+    /// permitida quando o saldo atual ainda comporta a quantidade a devolver — ver a contraprova
+    /// em <see cref="Reversing_a_load_return_reclaims_the_warehouse_credit_when_the_balance_still_allows_it"/>.
     /// </remarks>
     [Fact]
-    public async Task Reversing_a_load_return_is_refused_when_the_goods_went_back_to_a_warehouse()
+    public async Task Reversing_a_load_return_is_refused_when_the_warehouse_balance_was_already_consumed()
     {
         var db = TestDb.CreateUnitOfWork();
         var load = NewLoad(db);
@@ -249,14 +244,150 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
             RefusedFromShipmentLoadKey = load.Key,
         });
 
+        // Consumo posterior: 20.000 do saldo desse armazém já saíram de novo depois da recusa.
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000900",
+            CardCode = "C0002",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 20_000m,
+            NetWeight = 20_000m,
+            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+        });
+
         await db.SaveChangesAsync();
 
         var error = await Assert.ThrowsAnyAsync<Exception>(
             () => Reverse(db).ExecuteAsync(returnInvoice.Key, "tester"));
 
         Assert.Contains("ARM99", error.Message);
+        Assert.Contains("saldo", error.Message, StringComparison.OrdinalIgnoreCase);
 
         // E nada foi aplicado pela metade: a devolução continua confirmada.
+        var untouched = await db.Context.SalesInvoices
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == returnInvoice.Key);
+
+        Assert.Equal(InvoiceStatus.Confirmed, untouched.InvoiceStatus);
+    }
+
+    /// <summary>
+    /// Contraprova: se o saldo do armazém ainda comporta a quantidade creditada por esta
+    /// devolução (nada mais a consumiu desde a recusa), a correção é permitida — a transação de
+    /// armazém é CANCELADA (nunca apagada, para manter o rastro), a devolução volta a Pendente e
+    /// o saldo da carga volta a ser consumido normalmente.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_load_return_reclaims_the_warehouse_credit_when_the_balance_still_allows_it()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+        load.InvoicedQuantity = 0m;
+        load.Status = ShipmentLoadStatus.Open;
+
+        var (_, returnInvoice) = await SeedLoadReturnAsync(db, load);
+
+        var warehouseEntry = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000778",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 40_000m,
+            NetWeight = 40_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+        };
+        db.Context.StorageTransactions.Add(warehouseEntry);
+
+        await db.SaveChangesAsync();
+
+        await Reverse(db).ExecuteAsync(returnInvoice.Key, "tester");
+
+        var reloadedEntry = await db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == warehouseEntry.Key);
+
+        Assert.Equal(StorageTransactionsStatus.Cancelled, reloadedEntry.TransactionStatus);
+        Assert.NotNull(reloadedEntry.CanceledAt);
+        Assert.Equal("tester", reloadedEntry.CanceledBy);
+
+        var reversed = await db.Context.SalesInvoices
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == returnInvoice.Key);
+
+        Assert.Equal(InvoiceStatus.Pending, reversed.InvoiceStatus);
+
+        var reloadedLoad = await db.Context.ShipmentLoads
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == load.Key);
+
+        Assert.Equal(0m, reloadedLoad.ReturnedToWarehouseQuantity);
+        Assert.Equal(40_000m, reloadedLoad.InvoicedQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, reloadedLoad.Status);
+    }
+
+    /// <summary>
+    /// Uma única recusa pode agrupar vários documentos de retorno numa única entrada de armazém
+    /// (<c>ShipmentLoadsRefuseService.ReturnToWarehouseAsync</c> soma todos de uma vez). Estornar
+    /// só UM deles não pode cancelar a entrada inteira e deixar o OUTRO documento, ainda
+    /// confirmado, sem lastro de armazém.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_load_return_is_refused_when_another_confirmed_return_shares_the_same_load()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+
+        var (_, returnInvoice) = await SeedLoadReturnAsync(db, load);
+
+        var otherOrigin = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Returned);
+        otherOrigin.ShipmentLoadKey = load.Key;
+        otherOrigin.InvoiceNumber = "000000601";
+        SalesContractsAllocationTestSupport.NewItem(
+            otherOrigin, contractKey: null, releaseKey: null, quantity: 10_000m);
+
+        var otherReturn = SalesContractsAllocationTestSupport.NewInvoice(
+            InvoiceStatus.Confirmed, SalesInvoiceType.Return, originKey: otherOrigin.Key);
+        otherReturn.ShipmentLoadKey = load.Key;
+        otherReturn.InvoiceNumber = "000000602";
+        SalesContractsAllocationTestSupport.NewItem(
+            otherReturn, contractKey: null, releaseKey: null, quantity: 10_000m);
+
+        db.Context.SalesInvoices.AddRange(otherOrigin, otherReturn);
+
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000778",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 50_000m,
+            NetWeight = 50_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+        });
+
+        await db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Reverse(db).ExecuteAsync(returnInvoice.Key, "tester"));
+
+        Assert.Contains("000000602", error.Message);
+
         var untouched = await db.Context.SalesInvoices
             .AsNoTracking()
             .SingleAsync(x => x.Key == returnInvoice.Key);

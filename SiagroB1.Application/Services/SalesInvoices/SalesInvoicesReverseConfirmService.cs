@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -59,7 +60,10 @@ public class SalesInvoicesReverseConfirmService(
 
                 if (shipmentLoadKey != null)
                 {
-                    await EnsureGoodsAreNotInAWarehouseAsync(shipmentLoadKey.Value);
+                    await ReclaimGoodsFromWarehouseAsync(
+                        shipmentLoadKey.Value,
+                        invoice,
+                        userName);
 
                     await ReverseLoadReturnAsync(
                         invoice,
@@ -262,34 +266,44 @@ public class SalesInvoicesReverseConfirmService(
     }
 
     /// <summary>
-    /// Recusa o estorno quando a mercadoria da carga já foi descarregada num armazém.
+    /// Desfaz o crédito de armazém de uma devolução nascida de recusa de carga, quando isso ainda
+    /// pode ser feito com segurança.
     /// </summary>
     /// <remarks>
-    /// O descarregamento é um fato FÍSICO consumado — o grão está no armazém de destino e
-    /// creditado no saldo dele. Desfazê-lo pela tela de documentos deixaria o mesmo volume
-    /// contado duas vezes na carga: <c>InvoicedQuantity</c> volta a consumir (a devolução em
-    /// Pendente deixa de abater) e <c>ReturnedToWarehouseQuantity</c> continua de pé, levando o
-    /// saldo disponível a NEGATIVO. Dali a carga não pode ser faturada nem ter a composição
-    /// alterada, e não existe caminho de volta pela tela.
+    /// O descarregamento é um fato FÍSICO consumado — o grão foi para o armazém de destino e está
+    /// creditado no saldo dele, que é agregado (fungível, sem rastreio por lote). Desfazer esse
+    /// crédito às cegas arriscaria saldo NEGATIVO se parte dele já tiver saído de novo por outra
+    /// operação depois da recusa. Por isso a correção só é aplicada quando o saldo ATUAL do
+    /// armazém ainda comporta debitar de volta a quantidade creditada — abaixo disso, a devolução
+    /// permanece bloqueada, com uma mensagem que nomeia o que falta em vez de uma parede
+    /// incondicional.
     /// <para>
-    /// A trava é pela existência de devolução ao armazém VIVA na carga, e não por qual retorno
-    /// está sendo estornado: a entrada de armazém é uma por RECUSA e não por documento
-    /// (<c>ShipmentLoadsRefuseService.ReturnToWarehouseAsync</c>), então ela não aponta um
-    /// retorno específico que se pudesse desfazer isoladamente.
+    /// A trava por saldo é POR ARMAZÉM/ITEM, não por esta transação isolada: se outra operação já
+    /// consumiu o crédito (ex.: um novo embarque saiu do mesmo armazém), o saldo agregado já não
+    /// comporta a devolução, ainda que a transação em si continue <c>Confirmed</c>.
     /// </para>
     /// <para>
-    /// É a assimetria deliberada com o fluxo LEGADO, onde a relação é 1 retorno → 1 entrada e o
-    /// estorno pode cancelar exatamente a sua (<c>CancelWarehouseReturnAsync</c>).
+    /// <b>Guard de recusa em lote:</b> uma única recusa pode agrupar vários documentos de retorno
+    /// numa única entrada de armazém (<c>ShipmentLoadsRefuseService.ReturnToWarehouseAsync</c>
+    /// soma todos de uma vez). Cancelar essa entrada por causa de UM documento derrubaria o
+    /// lastro dos OUTROS, que continuam confirmados — por isso a correção é recusada por inteiro
+    /// enquanto existir outro documento de retorno vivo da mesma carga.
+    /// </para>
+    /// <para>
+    /// Quando aplicada, a transação é marcada <c>Cancelled</c> (nunca apagada, para manter o
+    /// rastro) — nunca pelo <c>StorageTransactionsCancelService</c>, que RECUSA esta transação de
+    /// propósito (é o guard que impede o operador de derrubar o crédito pela tela de Romaneios).
+    /// Quem tem autoridade para desfazê-la é exatamente este caminho, no mesmo espírito de
+    /// <c>CancelWarehouseReturnAsync</c> para o fluxo legado.
     /// </para>
     /// </remarks>
-    private async Task EnsureGoodsAreNotInAWarehouseAsync(Guid shipmentLoadKey)
+    private async Task ReclaimGoodsFromWarehouseAsync(
+        Guid shipmentLoadKey, SalesInvoice returnInvoice, string userName)
     {
         var entry = await db.Context.StorageTransactions
-            .AsNoTracking()
             .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey &&
                         x.TransactionType == StorageTransactionType.SalesShipmentReturn &&
                         x.TransactionStatus != StorageTransactionsStatus.Cancelled)
-            .Select(x => new { x.Code, x.WarehouseCode })
             .FirstOrDefaultAsync();
 
         if (entry is null)
@@ -300,10 +314,44 @@ public class SalesInvoicesReverseConfirmService(
             .Select(x => x.Code)
             .FirstOrDefaultAsync();
 
-        throw new ApplicationException(
-            $"A mercadoria da carga {loadCode} foi devolvida ao armazém {entry.WarehouseCode} " +
-            $"pelo romaneio {entry.Code} e já está creditada no saldo dele. " +
-            "A devolução não pode ser estornada.");
+        var otherConfirmedReturn = await db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                        x.InvoiceType == SalesInvoiceType.Return &&
+                        x.InvoiceStatus == InvoiceStatus.Confirmed &&
+                        x.Key != returnInvoice.Key)
+            .Select(x => x.InvoiceNumber)
+            .FirstOrDefaultAsync();
+
+        if (otherConfirmedReturn != null)
+        {
+            throw new ApplicationException(
+                $"A devolução ao armazém da carga {loadCode} também sustenta o documento de " +
+                $"retorno {otherConfirmedReturn}, ainda confirmado. Estorne todos os documentos " +
+                "dessa recusa antes de desfazer o crédito de armazém.");
+        }
+
+        var warehouseBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
+            db.Context, entry.WarehouseCode, entry.ItemCode);
+
+        if (warehouseBalance < entry.NetWeight)
+        {
+            throw new ApplicationException(
+                $"A mercadoria da carga {loadCode} foi devolvida ao armazém {entry.WarehouseCode} " +
+                $"pelo romaneio {entry.Code} e já está creditada no saldo dele. Saldo do armazém " +
+                $"hoje ({warehouseBalance:N3}) menor que a quantidade a debitar de volta " +
+                $"({entry.NetWeight:N3}) — parte já foi consumida por outra operação. " +
+                "A devolução não pode ser estornada.");
+        }
+
+        entry.TransactionStatus = StorageTransactionsStatus.Cancelled;
+        entry.CanceledAt = DateTime.Now;
+        entry.CanceledBy = userName;
+        entry.UpdatedAt = DateTime.Now;
+        entry.UpdatedBy = userName;
+        entry.Comments =
+            $"{entry.Comments}Estorno da devolução {returnInvoice.InvoiceNumber} por " +
+            $"{userName} em {DateTime.Now:dd/MM/yyyy HH:mm}: crédito no armazém desfeito.";
     }
 
     /*
