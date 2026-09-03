@@ -211,6 +211,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(x => x.RefusalReturns)
             .HasForeignKey(x => x.RefusedFromShipmentLoadKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Mesma armadilha do par acima, agora com SALES_INVOICES: SalesInvoiceKey é o romaneio
+        // FATURADO na nota (o que ela consumiu) e GeneratedByReturnInvoiceKey é a devolução ao
+        // armazém gerada pelo retorno dela (o que voltou). Duas navegações para a mesma entidade
+        // deixam a convenção ambígua, e ela pode pendurar a segunda em SalesTransactions — o que
+        // faria a devolução contar como embarque da nota. As duas são declaradas à mão por isso.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.SalesInvoice)
+            .WithMany(x => x.SalesTransactions)
+            .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Sem coleção inversa de propósito: a nota não precisa navegar para a devolução (quem
+        // faz isso é a consulta por GeneratedByReturnInvoiceKey), e uma coleção a mais no
+        // SalesInvoice entraria no EDM do OData sem ninguém pedir.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.GeneratedByReturnInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.GeneratedByReturnInvoiceKey)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
     

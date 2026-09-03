@@ -36,7 +36,29 @@ public class SalesInvoicesConfirmService(
     /// É o que <c>ShipmentLoadsRefuseService</c> precisa evitar ao confirmar N devoluções.
     /// </para>
     /// </param>
-    public async Task ExecuteAsync(Guid key, string userName, CommitMode commitMode = CommitMode.Auto)
+    /// <param name="shipmentOutcomes">
+    /// Destino de cada romaneio da origem numa devolução do fluxo LEGADO: a chave do romaneio e o
+    /// <see cref="StorageTransactionsStatus"/> em que ele deve ficar. Só os romaneios listados são
+    /// tocados.
+    /// <para>
+    /// <c>null</c> mantém o comportamento histórico — TODOS os romaneios da origem viram
+    /// <c>Returned</c> —, e é o que preserva as devoluções criadas antes desta feature, que ficaram
+    /// pendentes e serão confirmadas pela tela.
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>Nenhum dos dois destinos do retorno deixa o romaneio em <c>Returned</c>.</b> Aquele
+    /// status significa "o embarque não aconteceu": o romaneio sai das consultas de saldo e o
+    /// armazém de ORIGEM é re-creditado sozinho. Nos dois destinos o grão saiu de lá — segue no
+    /// caminhão (<c>Confirmed</c>, disponível para refaturar) ou foi descarregado em outro armazém
+    /// (<c>Invoiced</c>, e o crédito vai para o romaneio de devolução). Deixá-lo <c>Returned</c>
+    /// no destino armazém creditaria o grão duas vezes.
+    /// </para>
+    /// </param>
+    public async Task ExecuteAsync(
+        Guid key,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto,
+        IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null)
     {
         var invoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
@@ -63,7 +85,8 @@ public class SalesInvoicesConfirmService(
                 await ProcessReturnInvoiceAsync(
                     invoice,
                     userName,
-                    affectedReleaseKeys);
+                    affectedReleaseKeys,
+                    shipmentOutcomes);
 
                 // Ledger: linhas negativas proporcionais à distribuição vigente dos itens
                 // de origem (respeita realocações). Devolve saldo às liberações onde o
@@ -180,7 +203,8 @@ public class SalesInvoicesConfirmService(
     private async Task ProcessReturnInvoiceAsync(
         SalesInvoice returnInvoice,
         string userName,
-        HashSet<Guid> affectedReleaseKeys)
+        HashSet<Guid> affectedReleaseKeys,
+        IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null)
     {
         foreach (var item in returnInvoice.Items)
         {
@@ -235,11 +259,35 @@ public class SalesInvoicesConfirmService(
 
         foreach (var transaction in originInvoice.SalesTransactions)
         {
+            // Com destinos informados, só os romaneios escolhidos são tocados: devolver meia
+            // nota não pode devolver a carreta inteira do vizinho. Sem eles, todos entram e
+            // viram Returned, como sempre foi.
+            if (shipmentOutcomes != null &&
+                !shipmentOutcomes.TryGetValue(transaction.Key, out _))
+            {
+                continue;
+            }
+
             if (transaction.SalesShipmentReleaseKey is { } releaseKey)
                 affectedReleaseKeys.Add(releaseKey);
 
-            transaction.TransactionStatus =
-                StorageTransactionsStatus.Returned;
+            var outcome = shipmentOutcomes is null
+                ? StorageTransactionsStatus.Returned
+                : shipmentOutcomes[transaction.Key];
+
+            transaction.TransactionStatus = outcome;
+
+            // "Segue viagem": o romaneio precisa voltar ao pool, e o que o mantém fora dele é a
+            // nota — ShipmentBillingTransactionGuardService recusa por SalesInvoiceKey != null,
+            // antes mesmo de olhar o status. Soltá-la é o que faz o romaneio reaparecer no
+            // faturamento e na Montagem de Carga.
+            if (outcome == StorageTransactionsStatus.Confirmed)
+            {
+                transaction.SalesInvoiceKey = null;
+                transaction.InvoiceNumber = null;
+                transaction.InvoiceSerie = null;
+                transaction.InvoicedAt = null;
+            }
 
             transaction.ReturnInvoiceKey =
                 returnInvoice.Key;
@@ -250,6 +298,9 @@ public class SalesInvoicesConfirmService(
             transaction.ReturnedBy =
                 userName;
 
+            // No destino ARMAZÉM o romaneio segue Invoiced para continuar debitando o armazém de
+            // origem, mas o faturamento dele foi desfeito como em qualquer devolução: o volume
+            // faturado é zero e a nota está devolvida.
             transaction.IsInvoiced = false;
 
             transaction.InvoiceQty = 0;

@@ -772,9 +772,26 @@ public static class ODataConfigurations
         salesInvoicesCancel.Parameter<Guid>("Key");
         salesInvoicesCancel.Returns<IActionResult>();
         
+        // Retorno de documento de saída LEGADO. A escolha do que volta é por ROMANEIO — cada um é
+        // uma carreta —, e Quantities é um array PARALELO a StorageTransactionKeys com quanto
+        // voltou de cada uma. Omitido, cada romaneio volta inteiro: é o contrato anterior, e o
+        // único que o destino "segue viagem" aceita.
+        // ⚠️ double, e não decimal: o UI5 serializa Edm.Decimal como string e o backend devolve
+        // um 400 que não nomeia o campo. Destination vai como STRING, e não como enum, pelo mesmo
+        // motivo da recusa de carga.
         var salesInvoicesReturn = modelBuilder.Action("SalesInvoicesReturn");
         salesInvoicesReturn.Parameter<Guid>("Key");
+        salesInvoicesReturn.CollectionParameter<Guid>("StorageTransactionKeys");
+        salesInvoicesReturn.CollectionParameter<double>("Quantities").Optional();
+        salesInvoicesReturn.Parameter<string>("Destination");
+        salesInvoicesReturn.Parameter<string>("DestinationWarehouseCode").Optional();
+        salesInvoicesReturn.Parameter<string>("Reason");
         salesInvoicesReturn.Returns<IActionResult>();
+
+        var salesInvoicesGetReturnableShipments =
+            modelBuilder.Function("SalesInvoicesGetReturnableShipments");
+        salesInvoicesGetReturnableShipments.Parameter<Guid>("Key");
+        salesInvoicesGetReturnableShipments.ReturnsCollection<SalesInvoiceReturnableShipmentDto>();
         
         // Prévia do CFOP para a tela; a gravação continua sendo do serviço de criação.
         var salesInvoicesResolveCfop = modelBuilder.Function("SalesInvoicesResolveCfop");

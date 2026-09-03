@@ -48,6 +48,22 @@ public class StorageTransactionsCancelService(
                 "não pode ser cancelado por aqui.");
         }
 
+        // Mesmo caso, no fluxo LEGADO: a devolução gerada pelo retorno de um documento de saída
+        // sem carga tem AS DUAS colunas acima nulas e escaparia dos dois guards. Cancelá-la por
+        // aqui derrubaria o crédito do armazém em silêncio, e o grão ficaria sem lugar nenhum —
+        // fora da nota, que está devolvida, e fora do estoque.
+        if (doc.GeneratedByReturnInvoiceKey != null)
+        {
+            var invoiceNumber = await db.Context.SalesInvoices
+                .Where(x => x.Key == doc.GeneratedByReturnInvoiceKey)
+                .Select(x => x.InvoiceNumber)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} é a devolução gerada pelo retorno {invoiceNumber} e " +
+                "não pode ser cancelado por aqui.");
+        }
+
         if (doc.TransactionOrigin != transactionCode)
         {
             var msg =

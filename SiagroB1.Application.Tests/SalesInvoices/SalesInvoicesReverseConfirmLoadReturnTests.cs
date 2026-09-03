@@ -208,4 +208,98 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
         Assert.Equal(40_000m, reloaded.InvoicedQuantity);
         Assert.Equal(ShipmentLoadStatus.Invoiced, reloaded.Status);
     }
+
+    /// <summary>
+    /// Não se estorna a devolução de uma recusa cuja mercadoria já foi descarregada num armazém.
+    /// </summary>
+    /// <remarks>
+    /// O descarregamento é um fato FÍSICO consumado — o grão está no armazém de destino, creditado
+    /// no saldo dele. Desfazê-lo pela tela de documentos deixa a carga com o mesmo volume contado
+    /// duas vezes: <c>Invoiced</c> volta a consumir e <c>ReturnedToWarehouse</c> continua de pé,
+    /// levando o saldo disponível a NEGATIVO. A carga então não pode ser faturada (guard de
+    /// faturamento), não pode ter a composição alterada (guard de composição) e não tem caminho de
+    /// volta — um estado sem saída pela tela.
+    /// <para>
+    /// A trava é pela existência de devolução ao armazém viva NA CARGA, e não por qual retorno
+    /// está sendo estornado: a entrada de armazém é uma por RECUSA (não por documento), então ela
+    /// não aponta um retorno específico que se pudesse desfazer isoladamente.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task Reversing_a_load_return_is_refused_when_the_goods_went_back_to_a_warehouse()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+
+        var (_, returnInvoice) = await SeedLoadReturnAsync(db, load);
+
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000778",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 40_000m,
+            NetWeight = 40_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+        });
+
+        await db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Reverse(db).ExecuteAsync(returnInvoice.Key, "tester"));
+
+        Assert.Contains("ARM99", error.Message);
+
+        // E nada foi aplicado pela metade: a devolução continua confirmada.
+        var untouched = await db.Context.SalesInvoices
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == returnInvoice.Key);
+
+        Assert.Equal(InvoiceStatus.Confirmed, untouched.InvoiceStatus);
+    }
+
+    /// <summary>
+    /// Contraprova: uma devolução ao armazém CANCELADA não trava mais nada — ela já foi desfeita,
+    /// e o grão não está mais creditado.
+    /// </summary>
+    [Fact]
+    public async Task A_cancelled_warehouse_return_does_not_block_the_reversal()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+
+        var (_, returnInvoice) = await SeedLoadReturnAsync(db, load);
+
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000781",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 40_000m,
+            NetWeight = 40_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Cancelled,
+            RefusedFromShipmentLoadKey = load.Key,
+        });
+
+        await db.SaveChangesAsync();
+
+        await Reverse(db).ExecuteAsync(returnInvoice.Key, "tester");
+
+        var reversed = await db.Context.SalesInvoices
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == returnInvoice.Key);
+
+        Assert.Equal(InvoiceStatus.Pending, reversed.InvoiceStatus);
+    }
 }

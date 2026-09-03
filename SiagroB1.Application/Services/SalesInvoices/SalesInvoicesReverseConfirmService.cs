@@ -59,6 +59,8 @@ public class SalesInvoicesReverseConfirmService(
 
                 if (shipmentLoadKey != null)
                 {
+                    await EnsureGoodsAreNotInAWarehouseAsync(shipmentLoadKey.Value);
+
                     await ReverseLoadReturnAsync(
                         invoice,
                         userName);
@@ -175,6 +177,17 @@ public class SalesInvoicesReverseConfirmService(
 
         foreach (var transaction in transactions)
         {
+            // ⚠️ Romaneio JÁ FATURADO em outra nota não volta. Depois de um retorno "segue
+            // viagem" ele fica solto e disponível — que é o objetivo do destino — e pode ter sido
+            // faturado noutro documento. O ReturnInvoiceKey da devolução antiga continua nele, e é
+            // por ele que a consulta acima o encontra: re-anexá-lo aqui deixaria o mesmo volume
+            // faturado em duas notas, que é exatamente o sequestro que o ramo legado já cometeu.
+            if (transaction.SalesInvoiceKey is { } currentInvoiceKey &&
+                currentInvoiceKey != originInvoice.Key)
+            {
+                continue;
+            }
+
             transaction.TransactionStatus =
                 StorageTransactionsStatus.Invoiced;
 
@@ -205,6 +218,8 @@ public class SalesInvoicesReverseConfirmService(
             }
         }
 
+        await CancelWarehouseReturnAsync(returnInvoice, userName);
+
         foreach (var item in returnInvoice.Items)
         {
             item.DeliveredQuantity = 0;
@@ -212,6 +227,83 @@ public class SalesInvoicesReverseConfirmService(
             item.DeliveryStatus =
                 SalesInvoiceDeliveryStatus.Open;
         }
+    }
+
+    /// <summary>
+    /// Cancela a devolução ao armazém que este retorno gerou, se houver.
+    /// </summary>
+    /// <remarks>
+    /// O crédito de estoque não pode ficar de pé sozinho: com o retorno de volta a Pendente, a
+    /// nota de origem volta a valer, e o grão estaria ao mesmo tempo vendido e no armazém.
+    /// <para>
+    /// A busca é por <c>GeneratedByReturnInvoiceKey</c>, que aponta ESTE documento de retorno —
+    /// e não a origem. Uma nota retornada em parcelas tem uma devolução por parcela, e pela
+    /// origem este estorno cancelaria todas.
+    /// </para>
+    /// <para>
+    /// Cancelado à mão, e não pelo <c>StorageTransactionsCancelService</c>: aquele serviço RECUSA
+    /// esta transação de propósito (é o guard que impede o operador de derrubar o crédito pela
+    /// tela de Romaneios). Quem tem autoridade para desfazê-la é exatamente este caminho.
+    /// </para>
+    /// </remarks>
+    private async Task CancelWarehouseReturnAsync(SalesInvoice returnInvoice, string userName)
+    {
+        var entries = await db.Context.StorageTransactions
+            .Where(x => x.GeneratedByReturnInvoiceKey == returnInvoice.Key &&
+                        x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            .ToListAsync();
+
+        foreach (var entry in entries)
+        {
+            entry.TransactionStatus = StorageTransactionsStatus.Cancelled;
+            entry.UpdatedAt = DateTime.Now;
+            entry.UpdatedBy = userName;
+        }
+    }
+
+    /// <summary>
+    /// Recusa o estorno quando a mercadoria da carga já foi descarregada num armazém.
+    /// </summary>
+    /// <remarks>
+    /// O descarregamento é um fato FÍSICO consumado — o grão está no armazém de destino e
+    /// creditado no saldo dele. Desfazê-lo pela tela de documentos deixaria o mesmo volume
+    /// contado duas vezes na carga: <c>InvoicedQuantity</c> volta a consumir (a devolução em
+    /// Pendente deixa de abater) e <c>ReturnedToWarehouseQuantity</c> continua de pé, levando o
+    /// saldo disponível a NEGATIVO. Dali a carga não pode ser faturada nem ter a composição
+    /// alterada, e não existe caminho de volta pela tela.
+    /// <para>
+    /// A trava é pela existência de devolução ao armazém VIVA na carga, e não por qual retorno
+    /// está sendo estornado: a entrada de armazém é uma por RECUSA e não por documento
+    /// (<c>ShipmentLoadsRefuseService.ReturnToWarehouseAsync</c>), então ela não aponta um
+    /// retorno específico que se pudesse desfazer isoladamente.
+    /// </para>
+    /// <para>
+    /// É a assimetria deliberada com o fluxo LEGADO, onde a relação é 1 retorno → 1 entrada e o
+    /// estorno pode cancelar exatamente a sua (<c>CancelWarehouseReturnAsync</c>).
+    /// </para>
+    /// </remarks>
+    private async Task EnsureGoodsAreNotInAWarehouseAsync(Guid shipmentLoadKey)
+    {
+        var entry = await db.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey &&
+                        x.TransactionType == StorageTransactionType.SalesShipmentReturn &&
+                        x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            .Select(x => new { x.Code, x.WarehouseCode })
+            .FirstOrDefaultAsync();
+
+        if (entry is null)
+            return;
+
+        var loadCode = await db.Context.ShipmentLoads
+            .Where(x => x.Key == shipmentLoadKey)
+            .Select(x => x.Code)
+            .FirstOrDefaultAsync();
+
+        throw new ApplicationException(
+            $"A mercadoria da carga {loadCode} foi devolvida ao armazém {entry.WarehouseCode} " +
+            $"pelo romaneio {entry.Code} e já está creditada no saldo dele. " +
+            "A devolução não pode ser estornada.");
     }
 
     /*

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;

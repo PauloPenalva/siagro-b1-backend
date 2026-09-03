@@ -112,6 +112,35 @@ public class StorageTransaction : DocumentEntity
     public Guid? RefusedFromShipmentLoadKey { get; set; }
     public virtual ShipmentLoad? RefusedFromShipmentLoad { get; set; }
 
+    /// <summary>
+    /// Documento de RETORNO que gerou esta devolução ao armazém. Preenchida só nas transações
+    /// <see cref="StorageTransactionType.SalesShipmentReturn"/> nascidas do retorno de um
+    /// documento de saída legado com destino "armazém".
+    /// </summary>
+    /// <remarks>
+    /// É o análogo legado de <see cref="RefusedFromShipmentLoadKey"/>, e existe pelo mesmo motivo:
+    /// dar ao romaneio de devolução um vínculo que os guards reconheçam.
+    /// <c>StorageTransactionsCancelService</c> e <c>StorageTransactionsReverseService</c> barram o
+    /// cancelamento pela presença de um desses dois vínculos — sem este, a devolução do fluxo
+    /// legado (que não tem carga, logo tem a outra coluna nula) escaparia dos dois, e cancelá-la
+    /// pela tela de Romaneios derrubaria o crédito do armazém em silêncio.
+    /// <para>
+    /// ⚠️ <b>Aponta o documento de RETORNO, e não a nota de ORIGEM.</b> Uma nota pode ser retornada
+    /// em várias parcelas, cada uma com sua devolução ao armazém: pela origem, o estorno de uma
+    /// delas não teria como saber qual entrada cancelar, e cancelaria a errada ou todas. O retorno
+    /// é único por operação, e chega-se à origem por <c>SalesInvoiceOriginKey</c>.
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>NÃO é <see cref="SalesInvoiceKey"/>.</b> Aquela significa "romaneio FATURADO nesta
+    /// nota" e é o que <c>ShipmentBillingTransactionGuardService</c> lê para recusar refaturamento;
+    /// gravá-la aqui faria a devolução parecer um embarque. Nem
+    /// <see cref="ReturnInvoiceKey"/>, que é o discriminador <c>isNewFlow</c> do estorno e faria
+    /// esta entrada ser carimbada como faturada.
+    /// </para>
+    /// </remarks>
+    public Guid? GeneratedByReturnInvoiceKey { get; set; }
+    public virtual SalesInvoice? GeneratedByReturnInvoice { get; set; }
+
     public TransactionCode? TransactionOrigin { get; set; } 
     
     public Guid? ShippingOrderKey { get; set; }

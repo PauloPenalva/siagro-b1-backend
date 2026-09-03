@@ -52,6 +52,21 @@ public class StorageTransactionsReverseService(
                 $"O romaneio {doc.Code} é a devolução da recusa da carga {refusedLoadCode} e " +
                 "não pode ser estornado por aqui.");
         }
+
+        // Mesmo caso, no fluxo LEGADO: a devolução do retorno de um documento de saída sem carga
+        // tem AS DUAS colunas acima nulas e escaparia dos dois guards. Quem desfaz esta entrada é
+        // o estorno da confirmação da própria devolução, que sabe o que mais precisa voltar.
+        if (doc.GeneratedByReturnInvoiceKey != null)
+        {
+            var invoiceNumber = await db.Context.SalesInvoices
+                .Where(x => x.Key == doc.GeneratedByReturnInvoiceKey)
+                .Select(x => x.InvoiceNumber)
+                .FirstOrDefaultAsync();
+
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} é a devolução gerada pelo retorno {invoiceNumber} e " +
+                "não pode ser estornado por aqui.");
+        }
         
         if (doc.TransactionOrigin == TransactionCode.StorageTransaction)
             transactionCode = TransactionCode.StorageTransaction;    

@@ -12,22 +12,6 @@ using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
-/// <summary>Destino FÍSICO da mercadoria recusada.</summary>
-public enum RefusalDestination
-{
-    /// <summary>
-    /// O caminhão segue para outro destino: a mercadoria continua na carga, que volta a ficar
-    /// disponível no Faturamento de Expedição — para o mesmo cliente ou para outro.
-    /// </summary>
-    Rebilling = 0,
-
-    /// <summary>
-    /// A mercadoria é descarregada num armazém, possivelmente diferente do de origem. Sai da
-    /// carga e passa a estar disponível para novo embarque naquele armazém.
-    /// </summary>
-    Warehouse = 1,
-}
-
 /// <summary>Um documento de saída a devolver, e quanto dele.</summary>
 public sealed record RefusalLine(Guid SalesInvoiceKey, decimal Quantity);
 

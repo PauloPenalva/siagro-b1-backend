@@ -38,6 +38,19 @@ public class ShippingTransactionsReverseService(
         {
             throw new ApplicationException("Sales transaction already invoiced.");
         }
+
+        // Romaneio já DEVOLVIDO pelo retorno de um documento de saída: aquele fluxo já desfez o
+        // embarque no eixo dele, e estornar por cima reverteria o mesmo volume duas vezes —
+        // cancelando a perna de COMPRA e devolvendo o saldo da liberação de novo.
+        // O guard de Invoiced acima não pega (o status é Returned) e o da CARGA logo abaixo
+        // também não (no fluxo legado ShipmentLoadKey é nulo). Até aqui a recusa existia só no
+        // controller do frontend, então a action chamada direto passava reto.
+        if (shipping.SalesStorageTransaction is { TransactionStatus: StorageTransactionsStatus.Returned })
+        {
+            throw new ApplicationException(
+                $"O romaneio {shipping.SalesStorageTransaction.Code} já foi devolvido e não pode " +
+                "ser estornado. Cancele ou exclua o documento de retorno para desfazer a devolução.");
+        }
         // Romaneio já montado em carga não volta por aqui: o estorno cancela o par e devolve os
         // saldos à origem, arrancando volume de baixo de uma carga possivelmente já faturada em
         // parte. Guard pela presença da CARGA e não pelo status: no faturamento parcial o

@@ -235,6 +235,39 @@ public class ShippingTransactionsReverseServiceTests
         Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
     }
 
+    /// <summary>
+    /// Romaneio já DEVOLVIDO não se estorna: a devolução do documento de saída já desfez o
+    /// embarque, e estornar por cima reverteria o mesmo volume duas vezes — cancelando a perna
+    /// de compra e devolvendo o saldo da liberação de novo.
+    /// </summary>
+    /// <remarks>
+    /// O guard de <c>Invoiced</c> não pega este caso (o status é <c>Returned</c>) e o da CARGA
+    /// também não (no fluxo legado <c>ShipmentLoadKey</c> é nulo). A recusa existia só no
+    /// controller do frontend, então a action chamada direto passava reto.
+    /// </remarks>
+    [Fact]
+    public async Task Execute_ComRomaneioJaDevolvido_Recusa()
+    {
+        var (contract, release) = await SeedAsync();
+        var purchase = NewPurchase(release.Key, 1000m);
+        var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
+
+        var sales = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        sales.TransactionStatus = StorageTransactionsStatus.Returned;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
+
+        Assert.Contains("devolvido", error.Message);
+
+        // O saldo da liberação não pode ser devolvido uma segunda vez.
+        var reloadedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
+    }
+
     [Fact]
     public async Task Execute_SemLiberacaoVinculada_NaoQuebra()
     {
