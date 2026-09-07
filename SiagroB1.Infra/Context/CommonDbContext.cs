@@ -18,5 +18,8 @@ namespace SiagroB1.Infra.Context
         public DbSet<UserProfile>  UserProfiles { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+        /// <summary>Largura e ordem das colunas que cada usuário ajustou nas tabelas da UI.</summary>
+        public DbSet<UserTableLayout> UserTableLayouts { get; set; }
+
     }
 }

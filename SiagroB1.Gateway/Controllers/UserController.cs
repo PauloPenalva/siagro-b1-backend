@@ -7,7 +7,10 @@ namespace SiagroB1.Gateway.Controllers;
 
 [ApiController]
 [Route("security/users")]
-public class UserController(UserService service, UserProfileService profileService) : ControllerBase
+public class UserController(
+    UserService service,
+    UserProfileService profileService,
+    UserTableLayoutService tableLayoutService) : ControllerBase
 {
     [AllowAnonymous]
     [HttpPost("createAdminUser")]
@@ -87,6 +90,42 @@ public class UserController(UserService service, UserProfileService profileServi
             request?.NewPassword ?? string.Empty);
 
         return result.Success ? Ok(new { Success = true, result.Message }) : BadRequest(new { message = result.Message });
+    }
+
+    /// <summary>
+    /// Layout das tabelas do usuário — largura e ordem das colunas (GAC-1163).
+    ///
+    /// Tudo de uma vez: o frontend carrega isto uma única vez no boot, junto do menu e da filial, e
+    /// a partir daí resolve cada tela pelo cache. Uma chamada por tabela deixaria a shell lenta.
+    /// </summary>
+    [Authorize]
+    [HttpGet("me/table-layouts")]
+    public async Task<IActionResult> GetMyTableLayouts()
+    {
+        var layouts = await tableLayoutService.GetAllAsync(CurrentUsername);
+
+        return Ok(new UserTableLayoutsResponse { Layouts = layouts });
+    }
+
+    [Authorize]
+    [HttpPut("me/table-layouts")]
+    public async Task<IActionResult> SaveMyTableLayout([FromBody] SaveTableLayoutRequest request)
+    {
+        var result = await tableLayoutService.SaveAsync(CurrentUsername, request);
+
+        return result.Success ? Ok(new { Success = true, result.Message }) : BadRequest(new { message = result.Message });
+    }
+
+    /// <summary>Restauração do padrão, acionada em "Meu Perfil". Apaga tudo do usuário.</summary>
+    [Authorize]
+    [HttpDelete("me/table-layouts")]
+    public async Task<IActionResult> ClearMyTableLayouts()
+    {
+        var (result, removed) = await tableLayoutService.ClearAllAsync(CurrentUsername);
+
+        return result.Success
+            ? Ok(new { Success = true, result.Message, Removed = removed })
+            : BadRequest(new { message = result.Message });
     }
 
     private string CurrentUsername => User.Identity?.Name ?? string.Empty;

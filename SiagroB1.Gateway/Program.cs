@@ -44,6 +44,7 @@ builder.Services.AddScoped<MenuService>();
 builder.Services.AddSingleton<PasswordPolicy>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<UserProfileService>();
+builder.Services.AddScoped<UserTableLayoutService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 // Modo de integração: no SAPB1 o cadastro de usuários é mantido no SAP (tabela OUSR) e o
