@@ -61,6 +61,19 @@ public class ShipmentRelesesPurchaseContractsResponseDto
     public bool IsOwnershipTransfer { get; set; }
 
     /// <summary>
+    /// Origem da liberação como valor, e não como flag: <c>0</c> compra, <c>1</c> transferência
+    /// de titularidade, <c>2</c> devolução ao armazém. A tela mostra isso numa coluna própria
+    /// para que o operador saiba que aquele saldo é mercadoria que VOLTOU — reembarcá-la é uma
+    /// decisão diferente de embarcar uma compra nova.
+    /// </summary>
+    /// <remarks>
+    /// <c>IsOwnershipTransfer</c> continua exposto por compatibilidade, mas não escala: com três
+    /// origens, um booleano não distingue as duas que não são compra.
+    /// </remarks>
+    [JsonPropertyName("Origin")]
+    public int Origin { get; set; }
+
+    /// <summary>
     /// Previsão de pagamento do contrato (<c>PURCHASE_CONTRACTS.StandardCashFlowDate</c>).
     /// É por ela que a lista é ordenada: o mais próximo de vencer embarca primeiro.
     /// </summary>

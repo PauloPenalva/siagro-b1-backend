@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -100,6 +100,7 @@ public class SalesInvoicesReturnServiceTests
             ConfirmService(),
             StorageCreate(),
             StorageConfirm(),
+            new ShipmentReleasesFromReturnService(_db.Context),
             Warehouses(),
             NullLogger<SalesInvoicesReturnService>.Instance);
 
@@ -734,5 +735,183 @@ public class SalesInvoicesReturnServiceTests
                 "tester"));
 
         Assert.Contains("saldo devolvível", error.Message);
+    }
+
+    // ---------- porta de saída: a liberação que devolve o grão à Expedição ----------
+
+    /// <summary>
+    /// Semeia o contrato de compra e a liberação ORIGINAL do romaneio, que é por onde o rastreio
+    /// chega ao contrato (cadeia curta: SalesShipment(7).ShipmentReleaseKey).
+    /// </summary>
+    private async Task<PurchaseContract> SeedOriginContractAsync(params StorageTransaction[] shipments)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC-ORIG",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "2026",
+            DeliveryLocationCode = OriginWarehouse,
+            BranchCode = "01",
+            Status = ContractStatus.Approved,
+            TotalVolume = 100_000m,
+        };
+        var originRelease = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            DeliveryLocationCode = OriginWarehouse,
+            ReleasedQuantity = 100_000m,
+            Status = ReleaseStatus.Actived,
+        };
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.ShipmentReleases.Add(originRelease);
+
+        foreach (var shipment in shipments)
+        {
+            var tracked = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == shipment.Key);
+            tracked.ShipmentReleaseKey = originRelease.Key;
+        }
+
+        await _db.SaveChangesAsync();
+        return contract;
+    }
+
+    [Fact]
+    public async Task A_warehouse_return_emits_an_active_release_in_the_destination_warehouse()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        var contract = await SeedOriginContractAsync(r1);
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(contract.Key, release.PurchaseContractKey);
+        Assert.Equal(DestinationWarehouse, release.DeliveryLocationCode);
+        Assert.Equal(20_000m, release.ReleasedQuantity);
+        Assert.Equal(0m, release.ShippedQuantity);
+        Assert.Equal(ReleaseStatus.Actived, release.Status);
+        Assert.Equal("tester", release.ApprovedBy);
+        Assert.Null(release.StorageAddressCode);
+    }
+
+    /// <summary>
+    /// A liberação aponta o ROMANEIO de devolução — a entrada é uma por operação, e é por ela
+    /// que o estorno acha o que desfazer.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_return_links_the_release_to_the_return_shipment()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        await SeedOriginContractAsync(r1);
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        var entry = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(entry.Key, release.GeneratedByStorageTransactionKey);
+
+        // ⚠️ E o romaneio NÃO aponta de volta: com a ShipmentReleaseKey preenchida ele cairia no
+        // subtraendo da fórmula e o saldo da liberação nasceria negativo.
+        Assert.Null(entry.ShipmentReleaseKey);
+    }
+
+    /// <summary>
+    /// A restrição pedida pelo usuário, ponta a ponta: a liberação nascida da devolução não
+    /// consome saldo do contrato de compra.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_return_release_does_not_consume_the_purchase_contract()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        var contract = await SeedOriginContractAsync(r1);
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        var reloaded = await _db.Context.PurchaseContracts
+            .AsNoTracking()
+            .Include(x => x.ShipmentReleases)
+            .SingleAsync(x => x.Key == contract.Key);
+
+        // 100.000 da liberação original; a de devolução (20.000) não entra.
+        Assert.Equal(100_000m, reloaded.TotalShipmentReleases);
+        Assert.Equal(0m, reloaded.TotalAvailableToRelease);
+    }
+
+    /// <summary>
+    /// Retorno PARCIAL: a liberação nasce com a quantidade devolvida, não com o romaneio inteiro.
+    /// </summary>
+    [Fact]
+    public async Task A_partial_warehouse_return_emits_a_release_for_the_returned_quantity_only()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        await SeedOriginContractAsync(r1);
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Warehouse, DestinationWarehouse,
+                quantities: [5_000m]),
+            "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(5_000m, release.ReleasedQuantity);
+    }
+
+    /// <summary>
+    /// Sem contrato rastreável a devolução continua funcionando — só não ganha liberação, e o
+    /// motivo fica no Comments para o operador. Degradar é melhor que travar uma operação
+    /// física já consumada.
+    /// </summary>
+    [Fact]
+    public async Task A_warehouse_return_without_a_traceable_contract_still_succeeds()
+    {
+        var (invoice, r1, _) = await SeedAsync(); // sem SeedOriginContractAsync
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Warehouse, DestinationWarehouse), "tester");
+
+        Assert.Empty(await _db.Context.ShipmentReleases.AsNoTracking().ToListAsync());
+
+        var entry = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed, entry.TransactionStatus);
+        Assert.Contains("sem contrato de compra rastreável", entry.Comments);
+        Assert.True(entry.Comments!.Length <= 500);
+    }
+
+    /// <summary>
+    /// O destino "segue viagem" não descarrega nada: não há entrada no armazém, logo não há
+    /// liberação a emitir.
+    /// </summary>
+    [Fact]
+    public async Task A_rebilling_return_emits_no_release()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        await SeedOriginContractAsync(r1);
+
+        await Service().ExecuteAsync(
+            Request(invoice, [r1.Key], RefusalDestination.Rebilling), "tester");
+
+        Assert.Empty(await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .Where(x => x.Origin == ReleaseOrigin.SalesReturn)
+            .ToListAsync());
     }
 }

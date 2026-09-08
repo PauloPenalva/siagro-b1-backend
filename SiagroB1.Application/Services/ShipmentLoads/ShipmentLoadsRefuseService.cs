@@ -1,7 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -60,6 +61,7 @@ public class ShipmentLoadsRefuseService(
     StorageTransactionsCreateService storageCreate,
     StorageTransactionsConfirmedService storageConfirm,
     ShipmentLoadsMovementLogService movementLog,
+    ShipmentReleasesFromReturnService returnReleases,
     IWarehouseService warehouseService,
     ILogger<ShipmentLoadsRefuseService> logger)
 {
@@ -223,6 +225,8 @@ public class ShipmentLoadsRefuseService(
         await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
             db.Context, load.Key, excludedInvoiceKeys: null);
 
+        await EmitReturnReleasesAsync(load, entry, warehouse, totalQuantity, userName);
+
         movementLog.Register(
             load.Key,
             ShipmentLoadMovementType.ReturnedToWarehouse,
@@ -240,6 +244,63 @@ public class ShipmentLoadsRefuseService(
                 WarehouseName: warehouse.Name,
                 Reason: reason,
                 StorageTransactionKey: entry.Key));
+    }
+
+    /// <summary>
+    /// Emite as liberações que devolvem a mercadoria recusada à Expedição de Grãos.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>O rateio é por PESO dos romaneios da carga, e não pelos documentos recusados.</b> A
+    /// escolha do operador é por documento (<see cref="RefusalLine"/>), mas a nota de carga nasce
+    /// com <c>SalesTransactions</c> vazia — o faturamento consome o saldo da carga por
+    /// QUANTIDADE, sem vincular romaneio a nota. Logo não existe dado que diga quais kg
+    /// devolvidos vieram de qual contrato, e a única fonte de contrato é
+    /// <c>load.Transactions</c>. O pro-rata é a atribuição menos arbitrária disponível, não um
+    /// cálculo exato — ver <c>DistributeByWeight</c>.
+    /// <para>
+    /// Falha aqui <b>não</b> pode derrubar a recusa: o caminhão já descarregou. Volume sem
+    /// contrato rastreável fica sem liberação e o motivo vai para o <c>Comments</c> da entrada.
+    /// </para>
+    /// </remarks>
+    private async Task EmitReturnReleasesAsync(
+        ShipmentLoad load,
+        StorageTransaction entry,
+        WarehouseTarget warehouse,
+        decimal totalQuantity,
+        string userName)
+    {
+        var shipments = await db.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == load.Key &&
+                        x.TransactionType == StorageTransactionType.SalesShipment &&
+                        x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            .ToListAsync();
+
+        if (shipments.Count == 0)
+            return;
+
+        var shares = ShipmentReleasesFromReturnService.DistributeByWeight(shipments, totalQuantity);
+
+        var build = await returnReleases.BuildAsync(
+            entry, shares, warehouse.Code, warehouse.Name, userName);
+
+        if (build.Releases.Count > 0)
+            db.Context.ShipmentReleases.AddRange(build.Releases);
+
+        if (build.Note is not null)
+            entry.Comments = AppendComment(entry.Comments, build.Note);
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Concatena respeitando o VARCHAR(500) da coluna — o texto base já é longo, e estourar aqui
+    /// derrubaria a recusa inteira num SaveChanges.
+    /// </summary>
+    private static string AppendComment(string? current, string addition)
+    {
+        var merged = string.IsNullOrWhiteSpace(current) ? addition : $"{current} {addition}";
+        return merged.Length <= 500 ? merged : merged[..500];
     }
 
     private static void Validate(ShipmentLoad load, RefusalRequest request)

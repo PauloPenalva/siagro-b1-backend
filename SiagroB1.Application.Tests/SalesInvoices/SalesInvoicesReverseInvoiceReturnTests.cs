@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -100,12 +100,14 @@ public class SalesInvoicesReverseInvoiceReturnTests
                 new ShipmentReleasesRecalculateShippedService(_db.Context),
                 new ShipmentReleaseMovementGuardService(_db.Context),
                 NullLogger<StorageTransactionsConfirmedService>.Instance),
+            new ShipmentReleasesFromReturnService(_db.Context),
             Warehouses(),
             NullLogger<SalesInvoicesReturnService>.Instance);
 
     private SalesInvoicesReverseConfirmService ReverseService() =>
         new(_db,
             new SalesContractsAllocationDeleteForInvoiceService(_db),
+            new ShipmentReleasesRecalculateShippedService(_db.Context),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
@@ -288,5 +290,140 @@ public class SalesInvoicesReverseInvoiceReturnTests
 
         Assert.Equal(InvoiceStatus.Returned, origin.InvoiceStatus);
         Assert.Equal(InvoiceStatus.Pending, reversed.InvoiceStatus);
+    }
+
+    // ---------- desfazer também desfaz a liberação que a devolução emitiu ----------
+
+    /// <summary>
+    /// Pendura o romaneio numa liberação de COMPRA para que a devolução consiga rastrear o
+    /// contrato e emitir a sua liberação — sem isso não há o que estornar.
+    /// </summary>
+    private async Task SeedPurchaseOriginAsync(StorageTransaction shipment)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC-ORIG",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "2026",
+            DeliveryLocationCode = "ARM01",
+            BranchCode = "01",
+            Status = ContractStatus.Approved,
+            TotalVolume = 1_000_000m,
+        };
+        var originRelease = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            DeliveryLocationCode = "ARM01",
+            ReleasedQuantity = 1_000_000m,
+            Status = ReleaseStatus.Actived,
+        };
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.ShipmentReleases.Add(originRelease);
+
+        var tracked = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == shipment.Key);
+        tracked.ShipmentReleaseKey = originRelease.Key;
+
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task<SalesInvoice> ReturnToWarehouseAsync(SalesInvoice invoice, StorageTransaction r1) =>
+        await ReturnService().ExecuteAsync(
+            new SalesInvoiceReturnRequest(
+                invoice.Key,
+                [new SalesInvoiceReturnShipment(r1.Key, null)],
+                RefusalDestination.Warehouse, DestinationWarehouse, "Recusa"),
+            "tester");
+
+    [Fact]
+    public async Task Reversing_a_warehouse_return_cancels_the_release_it_emitted()
+    {
+        var (invoice, r1) = await SeedAsync();
+        await SeedPurchaseOriginAsync(r1);
+
+        var returnInvoice = await ReturnToWarehouseAsync(invoice, r1);
+
+        await ReverseService().ExecuteAsync(returnInvoice.Key, "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(ReleaseStatus.Cancelled, release.Status);
+        Assert.Contains("Estorno da devolução ao armazém", release.CancellationReason);
+        Assert.Equal("tester", release.CanceledBy);
+    }
+
+    /// <summary>
+    /// Cancelar a liberação de devolução não pode CREDITAR o contrato: ela nunca o debitou.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_a_return_release_does_not_credit_the_purchase_contract()
+    {
+        var (invoice, r1) = await SeedAsync();
+        await SeedPurchaseOriginAsync(r1);
+
+        var returnInvoice = await ReturnToWarehouseAsync(invoice, r1);
+        await ReverseService().ExecuteAsync(returnInvoice.Key, "tester");
+
+        var contract = await _db.Context.PurchaseContracts
+            .AsNoTracking()
+            .Include(x => x.ShipmentReleases)
+            .SingleAsync();
+
+        Assert.Equal(1_000_000m, contract.TotalShipmentReleases); // só a liberação original
+        Assert.Equal(0m, contract.ShipmentReleases
+            .Single(x => x.Origin == ReleaseOrigin.SalesReturn).ReturnedToContractQuantity);
+    }
+
+    /// <summary>
+    /// ⚠️ O guard: se a mercadoria devolvida já saiu de novo, desfazer a devolução deixaria uma
+    /// liberação cancelada com embarque em cima e o armazém com saldo negativo. Recusa por
+    /// inteiro, sem deixar efeito no banco.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_warehouse_return_is_refused_when_the_goods_were_shipped_again()
+    {
+        var (invoice, r1) = await SeedAsync();
+        await SeedPurchaseOriginAsync(r1);
+
+        var returnInvoice = await ReturnToWarehouseAsync(invoice, r1);
+
+        var release = await _db.Context.ShipmentReleases
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        // Simula o reembarque: a perna de saída consome a liberação.
+        _db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "REEMB",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = DestinationWarehouse,
+            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            NetWeight = 5_000m,
+            ShipmentReleaseKey = release.Key,
+        });
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(returnInvoice.Key, "tester"));
+
+        Assert.Contains("já foi embarcada de novo", ex.Message);
+
+        // Nada gravado: nem a entrada cancelada, nem a liberação.
+        var entry = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, entry.TransactionStatus);
+
+        var reloaded = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(ReleaseStatus.Actived, reloaded.Status);
     }
 }

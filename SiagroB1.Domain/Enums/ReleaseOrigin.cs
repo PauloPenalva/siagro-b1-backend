@@ -17,4 +17,23 @@ public enum ReleaseOrigin
     /// <see cref="Entities.ShipmentRelease.StorageAddressCode"/>.
     /// </summary>
     OwnershipTransfer = 1,
+
+    /// <summary>
+    /// Emitida por uma devolução de mercadoria a um armazém — o retorno de um
+    /// documento de saída ou a recusa de uma carga, ambos com destino físico
+    /// "volta para armazém". O grão já está no armazém (creditado pelo romaneio
+    /// <see cref="StorageTransactionType.SalesShipmentReturn"/>) e esta liberação
+    /// é a porta de saída dele: sem ela a mercadoria devolvida não aparece na
+    /// Expedição de Grãos e fica presa.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Não consome o contrato de compra.</b> O volume desta liberação já foi
+    /// debitado do contrato quando a mercadoria saiu pela primeira vez; contá-lo de
+    /// novo duplicaria o liberado. Por isso
+    /// <see cref="Entities.ShipmentRelease.ConsumedQuantity"/> e
+    /// <see cref="Entities.ShipmentRelease.ReturnedToContractQuantity"/> valem zero
+    /// nesta origem — é a única em que o invariante
+    /// <c>Consumed + Returned = Released</c> não vale.
+    /// </remarks>
+    SalesReturn = 2,
 }

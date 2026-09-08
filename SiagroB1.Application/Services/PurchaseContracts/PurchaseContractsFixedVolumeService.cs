@@ -51,11 +51,20 @@ public class PurchaseContractsFixedVolumeService(AppDbContext context)
     /// isto é, o volume LIBERADO, não o romaneado. Uma liberação ativa de 60.000 kg com apenas
     /// 10.000 kg romaneados contaria 60.000 e bloquearia o fechamento por mercadoria que ainda
     /// não chegou. Consulta direta ao banco também evita a dependência de Include.
+    /// <para>
+    /// ⚠️ <b>Liberação de devolução (<see cref="ReleaseOrigin.SalesReturn"/>) fica de fora.</b>
+    /// Ela mede grão que VOLTOU e está sendo reembarcado — volume que o contrato já entregou uma
+    /// vez. Somá-lo aqui faria o encerramento exigir fixação de preço para mercadoria que o
+    /// contrato nunca comprou ("Volume entregue sem preço fixado"). Este é o único agregado por
+    /// contrato que lê <c>ShippedQuantity</c> cru, sem passar por <c>ConsumedQuantity</c>, e por
+    /// isso precisa do filtro à mão.
+    /// </para>
     /// </remarks>
     public async Task<decimal> DeliveredVolumeAsync(Guid contractKey)
     {
         var total = await context.ShipmentReleases
-            .Where(r => r.PurchaseContractKey == contractKey)
+            .Where(r => r.PurchaseContractKey == contractKey &&
+                        r.Origin != ReleaseOrigin.SalesReturn)
             .SumAsync(r => r.ShippedQuantity);
 
         return decimal.Round(total, 3, MidpointRounding.ToEven);

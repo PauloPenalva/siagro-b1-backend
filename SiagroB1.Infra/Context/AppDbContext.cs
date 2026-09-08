@@ -237,6 +237,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.GeneratedByReturnInvoiceKey)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // STORAGE_TRANSACTIONS e SHIPMENT_RELEASES se apontam em DUAS direções de significados
+        // opostos: StorageTransaction.ShipmentReleaseKey é "este romaneio CONSOME a liberação", e
+        // ShipmentRelease.GeneratedByStorageTransactionKey é "esta liberação NASCEU deste romaneio"
+        // (a devolução ao armazém). Mesma armadilha dos dois pares acima: sem as duas declaradas à
+        // mão, a convenção pode pendurar a segunda em ShipmentRelease.Transactions — e o romaneio
+        // de devolução passaria a contar como romaneio da liberação, fazendo o saldo dela nascer
+        // NEGATIVO (o tipo 12 entra subtraindo no eixo de venda de CalculateShippedAsync).
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.ShipmentRelease)
+            .WithMany(x => x.Transactions)
+            .HasForeignKey(x => x.ShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Sem coleção inversa de propósito, como no par de SALES_INVOICES acima: o romaneio não
+        // precisa navegar para a liberação que gerou, e uma coleção a mais entraria no EDM do
+        // OData sem ninguém pedir. Não é única — uma devolução com romaneios de contratos
+        // diferentes emite uma liberação por contrato.
+        modelBuilder.Entity<ShipmentRelease>()
+            .HasOne(x => x.GeneratedByStorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.GeneratedByStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
         // Duas navegações para contratos DIFERENTES, declaradas à mão porque a convenção
         // emparelha errado em silêncio. WithMany() SEM coleção inversa: uma coleção nova no
         // contrato entraria no EDM do OData sem ninguém pedir.

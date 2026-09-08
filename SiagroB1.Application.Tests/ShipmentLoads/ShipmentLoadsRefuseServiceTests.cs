@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -104,6 +104,7 @@ public class ShipmentLoadsRefuseServiceTests
             StorageCreate(warehouses),
             StorageConfirm(),
             new ShipmentLoadsMovementLogService(_db.Context),
+            new ShipmentReleasesFromReturnService(_db.Context),
             warehouses ?? Warehouses(),
             NullLogger<ShipmentLoadsRefuseService>.Instance);
 
@@ -798,5 +799,168 @@ public class ShipmentLoadsRefuseServiceTests
 
         await Service().ExecuteAsync(Request(load, invoice, 10_000m), "tester");
         Assert.Equal(15_000m, (await SalesContractsAllocationTestSupport.ContractAsync(_db, contract.Key)).AllocatedVolume);
+    }
+
+    // ---------- porta de saída: a liberação que devolve o grão à Expedição ----------
+
+    /// <summary>
+    /// Pendura o romaneio da carga numa liberação de COMPRA, que é por onde o rastreio chega ao
+    /// contrato que originou o grão (cadeia curta).
+    /// </summary>
+    private async Task<PurchaseContract> SeedPurchaseOriginAsync(params Guid[] shipmentKeys)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC-ORIG",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "2026",
+            DeliveryLocationCode = OriginWarehouse,
+            BranchCode = "01",
+            Status = ContractStatus.Approved,
+            TotalVolume = 1_000_000m,
+        };
+        var originRelease = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            DeliveryLocationCode = OriginWarehouse,
+            ReleasedQuantity = 1_000_000m,
+            Status = ReleaseStatus.Actived,
+        };
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.ShipmentReleases.Add(originRelease);
+
+        foreach (var key in shipmentKeys)
+        {
+            var tracked = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == key);
+            tracked.ShipmentReleaseKey = originRelease.Key;
+        }
+
+        await _db.SaveChangesAsync();
+        return contract;
+    }
+
+    private async Task<Guid> LoadShipmentKeyAsync(ShipmentLoad load) =>
+        await _db.Context.StorageTransactions
+            .Where(x => x.ShipmentLoadKey == load.Key &&
+                        x.TransactionType == StorageTransactionType.SalesShipment)
+            .Select(x => x.Key)
+            .SingleAsync();
+
+    [Fact]
+    public async Task A_refusal_to_a_warehouse_emits_an_active_release_for_the_returned_goods()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        var contract = await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(contract.Key, release.PurchaseContractKey);
+        Assert.Equal(DestinationWarehouse, release.DeliveryLocationCode);
+        Assert.Equal(40_000m, release.ReleasedQuantity);
+        Assert.Equal(ReleaseStatus.Actived, release.Status);
+        Assert.Null(release.StorageAddressCode);
+    }
+
+    [Fact]
+    public async Task A_refusal_release_is_linked_to_the_return_shipment_and_not_to_the_load()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        var entry = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        // Pela ENTRADA, não pela carga: uma carga pode ser recusada em parcelas, e desfazer uma
+        // delas pela carga derrubaria as liberações das outras.
+        Assert.Equal(entry.Key, release.GeneratedByStorageTransactionKey);
+        Assert.Null(entry.ShipmentReleaseKey);
+    }
+
+    [Fact]
+    public async Task A_partial_refusal_emits_a_release_for_the_refused_quantity_only()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 15_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.SalesReturn);
+
+        Assert.Equal(15_000m, release.ReleasedQuantity);
+    }
+
+    [Fact]
+    public async Task A_refusal_release_does_not_consume_the_purchase_contract()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        var contract = await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        var reloaded = await _db.Context.PurchaseContracts
+            .AsNoTracking()
+            .Include(x => x.ShipmentReleases)
+            .SingleAsync(x => x.Key == contract.Key);
+
+        Assert.Equal(1_000_000m, reloaded.TotalShipmentReleases); // só a liberação original
+    }
+
+    [Fact]
+    public async Task A_refusal_without_a_traceable_purchase_contract_still_succeeds()
+    {
+        var (load, invoice) = await BilledLoadAsync(); // sem SeedPurchaseOriginAsync
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Warehouse, DestinationWarehouse),
+            "tester");
+
+        Assert.Empty(await _db.Context.ShipmentReleases
+            .AsNoTracking().Where(x => x.Origin == ReleaseOrigin.SalesReturn).ToListAsync());
+
+        var entry = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.SalesShipmentReturn);
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed, entry.TransactionStatus);
+        Assert.Contains("sem contrato de compra rastreável", entry.Comments);
+        Assert.True(entry.Comments!.Length <= 500);
+    }
+
+    [Fact]
+    public async Task A_rebilling_refusal_emits_no_release()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        await SeedPurchaseOriginAsync(await LoadShipmentKeyAsync(load));
+
+        await Service().ExecuteAsync(
+            Request(load, invoice, 40_000m, RefusalDestination.Rebilling, warehouseCode: null),
+            "tester");
+
+        Assert.Empty(await _db.Context.ShipmentReleases
+            .AsNoTracking().Where(x => x.Origin == ReleaseOrigin.SalesReturn).ToListAsync());
     }
 }

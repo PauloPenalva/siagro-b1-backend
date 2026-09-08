@@ -1,7 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Tests.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
@@ -26,6 +27,7 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
     private static SalesInvoicesReverseConfirmService Reverse(UnitOfWork db) =>
         new(db,
             new SalesContractsAllocationDeleteForInvoiceService(db),
+            new ShipmentReleasesRecalculateShippedService(db.Context),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 

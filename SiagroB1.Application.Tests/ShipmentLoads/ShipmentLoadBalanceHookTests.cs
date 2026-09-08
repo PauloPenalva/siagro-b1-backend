@@ -1,10 +1,11 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Tests.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
@@ -45,6 +46,7 @@ public class ShipmentLoadBalanceHookTests
     private SalesInvoicesReverseConfirmService ReverseConfirm() =>
         new(_db,
             new SalesContractsAllocationDeleteForInvoiceService(_db),
+            new ShipmentReleasesRecalculateShippedService(_db.Context),
             Hook(),
             new FakeStringLocalizer<Resource>());
 

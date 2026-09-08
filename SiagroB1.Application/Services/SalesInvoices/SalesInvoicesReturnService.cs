@@ -1,8 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -77,6 +78,7 @@ public class SalesInvoicesReturnService(
     SalesInvoicesConfirmService confirmService,
     StorageTransactionsCreateService storageCreate,
     StorageTransactionsConfirmedService storageConfirm,
+    ShipmentReleasesFromReturnService returnReleases,
     IWarehouseService warehouseService,
     ILogger<SalesInvoicesReturnService> logger)
 {
@@ -193,8 +195,11 @@ public class SalesInvoicesReturnService(
     /// <list type="bullet">
     /// <item><c>ShipmentLoadKey</c> — é somada por <c>ShipmentLoadsRecalculateTotalService</c>
     /// como volume EMBARCADO; a devolução aumentaria o total de uma carga.</item>
-    /// <item><c>ShipmentReleaseKey</c> — <c>ShipmentReleasesRecalculateShippedService</c> conta o
-    /// tipo 12 no eixo das liberações de COMPRA; a devolução moveria um saldo alheio.</item>
+    /// <item><c>ShipmentReleaseKey</c> — ⚠️ <b>o motivo mudou</b>. Antes era "moveria um saldo
+    /// alheio"; agora esta devolução EMITE a própria liberação, e o tipo 12 entra SUBTRAINDO no
+    /// eixo de venda de <c>CalculateShippedAsync</c>. Com a chave, devolver 30.000 daria
+    /// <c>Shipped = −30.000</c> e <c>Available = 60.000</c> — a Expedição de Grãos ofereceria o
+    /// dobro do grão que voltou. A liberação aponta o romaneio, nunca o contrário.</item>
     /// <item><c>ReturnInvoiceKey</c> — é o discriminador <c>isNewFlow</c> de
     /// <c>SalesInvoicesReverseConfirmService</c>: com ela, um estorno carimbaria esta entrada
     /// como <c>Invoiced</c> e a anexaria à nota de origem.</item>
@@ -260,6 +265,36 @@ public class SalesInvoicesReturnService(
         await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+
+        // Porta de saída da mercadoria devolvida: sem liberação ela fica só como saldo físico
+        // do armazém, invisível na Expedição de Grãos. Aqui as quantidades por romaneio já são
+        // exatas (a tela escolhe romaneio e quantidade), então não há rateio.
+        var build = await returnReleases.BuildAsync(
+            entry,
+            shipments.Select(x => new ReturnedShipmentShare(x.Shipment, x.Quantity)).ToList(),
+            warehouse.Code,
+            warehouse.Name,
+            userName);
+
+        if (build.Releases.Count > 0)
+            db.Context.ShipmentReleases.AddRange(build.Releases);
+
+        // Volume sem contrato rastreável não impede a devolução — o caminhão já descarregou.
+        // O operador precisa saber que aquela parte ficou sem liberação.
+        if (build.Note is not null)
+            entry.Comments = AppendComment(entry.Comments, build.Note);
+
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Concatena respeitando o VARCHAR(500) da coluna — o texto base já é longo, e estourar aqui
+    /// derrubaria a devolução inteira num SaveChanges.
+    /// </summary>
+    private static string AppendComment(string? current, string addition)
+    {
+        var merged = string.IsNullOrWhiteSpace(current) ? addition : $"{current} {addition}";
+        return merged.Length <= 500 ? merged : merged[..500];
     }
 
     private static void Validate(SalesInvoice invoice, SalesInvoiceReturnRequest request)

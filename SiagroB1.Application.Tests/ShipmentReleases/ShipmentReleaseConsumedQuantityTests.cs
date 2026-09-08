@@ -9,7 +9,11 @@ namespace SiagroB1.Application.Tests.ShipmentReleases;
 /// </summary>
 public class ShipmentReleaseConsumedQuantityTests
 {
-    private static ShipmentRelease New(decimal released, decimal shipped, ReleaseStatus status) => new()
+    private static ShipmentRelease New(
+        decimal released,
+        decimal shipped,
+        ReleaseStatus status,
+        ReleaseOrigin origin = ReleaseOrigin.Standard) => new()
     {
         Key = Guid.NewGuid(),
         PurchaseContractKey = Guid.NewGuid(),
@@ -17,6 +21,7 @@ public class ShipmentReleaseConsumedQuantityTests
         ReleasedQuantity = released,
         ShippedQuantity = shipped,
         Status = status,
+        Origin = origin,
     };
 
     [Theory]
@@ -92,6 +97,43 @@ public class ShipmentReleaseConsumedQuantityTests
     {
         var sr = New(released: 1000m, shipped: 300m, status: ReleaseStatus.Cancelled);
         Assert.Equal(sr.ReleasedQuantity, sr.ConsumedQuantity + sr.ReturnedToContractQuantity);
+    }
+
+    // ---------- liberação nascida de devolução ao armazém ----------
+    // O volume já foi debitado do contrato quando a mercadoria saiu pela primeira
+    // vez. Esta liberação é só a porta de saída do grão que voltou, então não pode
+    // consumir o contrato de novo nem devolver volume a ele.
+
+    [Theory]
+    [InlineData(ReleaseStatus.Pending)]
+    [InlineData(ReleaseStatus.Actived)]
+    [InlineData(ReleaseStatus.Paused)]
+    [InlineData(ReleaseStatus.Completed)]
+    [InlineData(ReleaseStatus.Cancelled)]
+    public void ConsumedQuantity_SalesReturnOrigin_IsAlwaysZero(ReleaseStatus status)
+    {
+        var sr = New(released: 1000m, shipped: 300m, status: status, origin: ReleaseOrigin.SalesReturn);
+        Assert.Equal(0m, sr.ConsumedQuantity);
+    }
+
+    [Theory]
+    [InlineData(ReleaseStatus.Actived)]
+    [InlineData(ReleaseStatus.Cancelled)]
+    public void ReturnedToContract_SalesReturnOrigin_IsAlwaysZero(ReleaseStatus status)
+    {
+        // Cancelar uma liberação de devolução não pode CREDITAR o contrato: ela
+        // nunca o debitou. Sem esta regra o cancelamento devolveria 1.000 fantasmas.
+        var sr = New(released: 1000m, shipped: 300m, status: status, origin: ReleaseOrigin.SalesReturn);
+        Assert.Equal(0m, sr.ReturnedToContractQuantity);
+    }
+
+    [Fact]
+    public void AvailableQuantity_SalesReturnOrigin_StillFollowsShipped()
+    {
+        // O saldo a embarcar continua valendo: é ele que põe a liberação na
+        // Expedição de Grãos. Só o consumo do CONTRATO é que foi zerado.
+        var sr = New(released: 1000m, shipped: 300m, status: ReleaseStatus.Actived, origin: ReleaseOrigin.SalesReturn);
+        Assert.Equal(700m, sr.AvailableQuantity);
     }
 
     [Fact]

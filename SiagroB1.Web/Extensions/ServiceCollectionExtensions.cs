@@ -358,6 +358,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentReleasesCancelationService>();
         services.AddScoped<ShipmentReleasesCreateService>();
         services.AddScoped<ShipmentReleasesDeleteService>();
+        services.AddScoped<ShipmentReleasesFromReturnService>();
         services.AddScoped<ShipmentReleasesGetService>();
         services.AddScoped<ShipmentReleasesUpdateService>();
         services.AddScoped<ShipmentReleasesPauseService>();

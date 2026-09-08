@@ -126,6 +126,7 @@ public class ShipmentReleasesPurchaseContractsService(
                 State = supplier?.Address?.State,
                 RowId = b.RowId,
                 IsOwnershipTransfer = b.Origin == ReleaseOrigin.OwnershipTransfer,
+                Origin = (int)b.Origin,
                 StandardCashFlowDate = b.StandardCashFlowDate,
             };
         }).ToList();

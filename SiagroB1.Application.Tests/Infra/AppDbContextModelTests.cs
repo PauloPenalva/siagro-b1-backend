@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra.Context;
 
@@ -65,5 +65,44 @@ public class AppDbContextModelTests
 
         Assert.True(malformed.Count == 0,
             "Colunas com tipo malformado (parênteses desbalanceados):\n" + string.Join("\n", malformed));
+    }
+
+    [Fact]
+    public void ShipmentReleaseGeneratedByStorageTransaction_IsNotPairedWithTransactions()
+    {
+        // As duas relações entre SHIPMENT_RELEASES e STORAGE_TRANSACTIONS têm significados
+        // OPOSTOS: Transactions são os romaneios que CONSOMEM a liberação;
+        // GeneratedByStorageTransaction é o romaneio de devolução que a CRIOU.
+        // Se a convenção do EF parear a segunda com a coleção Transactions, o romaneio tipo 12
+        // passa a contar como romaneio da liberação — e como ele entra SUBTRAINDO no eixo de
+        // venda de CalculateShippedAsync, o saldo da liberação nasce NEGATIVO e a Expedição de
+        // Grãos oferece o dobro do grão que voltou. Falha silenciosa; este teste é a trava.
+        using var context = ModelOnlyContext();
+
+        var releaseType = context.Model.FindEntityType(typeof(ShipmentRelease))!;
+
+        var generatedBy = releaseType
+            .GetForeignKeys()
+            .Single(fk => fk.Properties.Any(p =>
+                p.Name == nameof(ShipmentRelease.GeneratedByStorageTransactionKey)));
+
+        Assert.Equal(typeof(StorageTransaction), generatedBy.PrincipalEntityType.ClrType);
+
+        // Sem coleção inversa: o romaneio não navega de volta para a liberação que gerou.
+        Assert.Null(generatedBy.PrincipalToDependent);
+        Assert.Equal(
+            nameof(ShipmentRelease.GeneratedByStorageTransaction),
+            generatedBy.DependentToPrincipal!.Name);
+
+        // E a coleção Transactions continua sendo alimentada pela OUTRA ponta.
+        var consuming = context.Model
+            .FindEntityType(typeof(StorageTransaction))!
+            .GetForeignKeys()
+            .Single(fk => fk.Properties.Any(p =>
+                p.Name == nameof(StorageTransaction.ShipmentReleaseKey)));
+
+        Assert.Equal(
+            nameof(ShipmentRelease.Transactions),
+            consuming.PrincipalToDependent!.Name);
     }
 }

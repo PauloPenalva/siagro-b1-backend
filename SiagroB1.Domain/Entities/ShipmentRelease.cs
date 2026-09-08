@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base;
@@ -36,10 +36,15 @@ public class ShipmentRelease : DocumentEntity
     public decimal ShippedQuantity { get; set; }
 
     /// <summary>
-    /// De onde a liberação nasceu. <see cref="ReleaseOrigin.OwnershipTransfer"/>
-    /// significa que o físico JÁ foi entregue — a liberação existe apenas para
-    /// que a mercadoria seja embarcada e faturada.
+    /// De onde a liberação nasceu. Em <see cref="ReleaseOrigin.OwnershipTransfer"/> e
+    /// <see cref="ReleaseOrigin.SalesReturn"/> o físico JÁ está em nosso poder — a liberação
+    /// existe apenas para que a mercadoria seja embarcada e faturada.
     /// </summary>
+    /// <remarks>
+    /// Não compare esta propriedade à mão: as três perguntas que o sistema faz sobre a origem
+    /// (embarca sem perna de compra? consome contrato? exige lote?) têm respostas DIFERENTES
+    /// para as mesmas origens. Use <see cref="ReleaseOriginRules"/>.
+    /// </remarks>
     public ReleaseOrigin Origin { get; set; } = ReleaseOrigin.Standard;
 
     /// <summary>
@@ -48,6 +53,39 @@ public class ShipmentRelease : DocumentEntity
     /// </summary>
     public Guid? OwnershipTransferKey { get; set; }
     public virtual OwnershipTransfer? OwnershipTransfer { get; set; }
+
+    /// <summary>
+    /// Romaneio de devolução (<see cref="StorageTransactionType.SalesShipmentReturn"/>) que
+    /// emitiu esta liberação. Preenchida apenas nas liberações
+    /// <see cref="ReleaseOrigin.SalesReturn"/>.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Aponta a ENTRADA no armazém, e não a nota de retorno nem a carga recusada.</b> A
+    /// entrada é <b>uma por operação de devolução</b>, enquanto nota e carga não são: uma carga
+    /// pode ser recusada em parcelas, e cancelar uma dessas recusas por
+    /// <c>RefusedFromShipmentLoadKey</c> derrubaria também as liberações das outras. Chega-se à
+    /// carga ou à nota num salto, pelas chaves que a própria entrada já carrega.
+    /// <para>
+    /// <b>Não é única:</b> uma devolução cujos romaneios venham de contratos de compra diferentes
+    /// emite uma liberação por contrato, todas apontando a mesma entrada.
+    /// </para>
+    /// <para>
+    /// Declarada à mão no <c>AppDbContext</c>: é a SEGUNDA relação entre estas duas entidades, e a
+    /// primeira (<see cref="Transactions"/>, "romaneios que CONSOMEM esta liberação") tem
+    /// significado oposto. Deixar a convenção parear sozinha faria o romaneio de devolução contar
+    /// como romaneio da liberação — e o saldo dela nasceria negativo.
+    /// </para>
+    /// </remarks>
+    public Guid? GeneratedByStorageTransactionKey { get; set; }
+    public virtual StorageTransaction? GeneratedByStorageTransaction { get; set; }
+
+    /// <summary>
+    /// Texto livre explicando de onde a liberação veio. Hoje só as liberações de devolução o
+    /// preenchem — sem ele o operador que abre a Expedição de Grãos não tem nenhuma pista de que
+    /// aquele saldo é mercadoria que voltou, nem de qual documento ou carga.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? Comments { get; set; }
 
     /// <summary>
     /// Lote de armazenagem próprio onde a mercadoria desta liberação já está
@@ -100,22 +138,43 @@ public class ShipmentRelease : DocumentEntity
     /// Se um romaneio de uma liberação já cancelada for posteriormente cancelado,
     /// os hooks de <c>ShipmentReleasesRecalculateShippedService</c> reduzem
     /// <see cref="ShippedQuantity"/> e o contrato recupera mais saldo automaticamente.
+    /// <para>
+    /// ⚠️ <b><see cref="ReleaseOrigin.SalesReturn"/> consome ZERO.</b> Aquela liberação
+    /// nasce de mercadoria que VOLTOU ao armazém, e o volume dela já foi debitado do
+    /// contrato quando a mercadoria saiu pela primeira vez — contá-lo aqui duplicaria o
+    /// liberado. É por este ponto único que os quatro computed de
+    /// <c>PurchaseContract</c> (<c>TotalShipmentReleases</c>, <c>TotalAvailableToRelease</c>
+    /// e os <c>...WithoutProvisioning</c>) a excluem de graça. O espelho em SQL de
+    /// <c>PurchaseContractsGetShipmentReleasesAvailableService</c> NÃO deriva daqui e
+    /// precisa ser mantido em sincronia à mão.
+    /// </para>
     /// </remarks>
     [NotMapped]
     public decimal ConsumedQuantity =>
-        Status == ReleaseStatus.Cancelled
-            ? decimal.Round(Math.Max(decimal.Zero, ShippedQuantity), 3, MidpointRounding.ToEven)
-            : ReleasedQuantity;
+        !ReleaseOriginRules.ConsumesPurchaseContract(Origin)
+            ? decimal.Zero
+            : Status == ReleaseStatus.Cancelled
+                ? decimal.Round(Math.Max(decimal.Zero, ShippedQuantity), 3, MidpointRounding.ToEven)
+                : ReleasedQuantity;
 
     /// <summary>
     /// Volume que o cancelamento devolveu ao contrato de origem — o saldo que estava
     /// liberado mas não chegou a ser romaneado. Zero enquanto a liberação não é
     /// cancelada, já que nesse caso ela consome o total liberado.
-    /// Vale sempre: <see cref="ConsumedQuantity"/> + este = <see cref="ReleasedQuantity"/>.
+    /// Vale <see cref="ConsumedQuantity"/> + este = <see cref="ReleasedQuantity"/> em toda
+    /// origem <b>exceto</b> <see cref="ReleaseOrigin.SalesReturn"/>, onde os dois são zero.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ <b><see cref="ReleaseOrigin.SalesReturn"/> devolve ZERO.</b> Cancelar uma liberação
+    /// de devolução não pode CREDITAR o contrato: ela nunca o debitou. Sem esta exceção o
+    /// cancelamento devolveria ao contrato um volume que nunca saiu dele — o espelho exato
+    /// do erro que a regra de <see cref="ConsumedQuantity"/> evita do outro lado.
+    /// </remarks>
     [NotMapped]
     public decimal ReturnedToContractQuantity =>
-        Status == ReleaseStatus.Cancelled
-            ? decimal.Round(Math.Max(decimal.Zero, ReleasedQuantity - ConsumedQuantity), 3, MidpointRounding.ToEven)
-            : decimal.Zero;
+        !ReleaseOriginRules.ConsumesPurchaseContract(Origin)
+            ? decimal.Zero
+            : Status == ReleaseStatus.Cancelled
+                ? decimal.Round(Math.Max(decimal.Zero, ReleasedQuantity - ConsumedQuantity), 3, MidpointRounding.ToEven)
+                : decimal.Zero;
 }

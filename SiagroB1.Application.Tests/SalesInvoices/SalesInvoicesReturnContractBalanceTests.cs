@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -103,6 +103,7 @@ public class SalesInvoicesReturnContractBalanceTests
             ConfirmService(),
             StorageCreate(),
             StorageConfirm(),
+            new ShipmentReleasesFromReturnService(_db.Context),
             Warehouses(),
             NullLogger<SalesInvoicesReturnService>.Instance);
 

@@ -36,9 +36,19 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
     /// <item><c>OwnershipTransfer</c> — a compra já foi registrada e alocada no confirm da
     /// transferência; a Expedição só dá a SAÍDA, então quem consome é
     /// <c>SalesShipment(7) − SalesShipmentReturn(12)</c>.</item>
+    /// <item><c>SalesReturn</c> — mesmo eixo da transferência, e pelo mesmo motivo: o grão já
+    /// está no armazém (creditado pelo romaneio tipo 12 da devolução) e a Expedição só dá a
+    /// saída no reembarque.</item>
     /// </list>
     /// A origem é parâmetro (e não uma leitura interna) para que o compilador aponte todo
     /// chamador ao mudar a regra — todos já têm a entidade carregada.
+    /// <para>
+    /// ⚠️ <b>Em <c>SalesReturn</c> isto só fecha porque o romaneio tipo 12 que ORIGINOU a
+    /// liberação nasce sem <c>ShipmentReleaseKey</c>.</b> Com a chave ele cairia no subtraendo
+    /// abaixo: 30.000 kg devolvidos dariam <c>Shipped = −30.000</c> e <c>Available = 60.000</c>,
+    /// e a Expedição de Grãos ofereceria o dobro do grão que voltou. Coberto por
+    /// <c>Recalc_SalesReturnRelease_WouldGoNegative_IfTheReturnEntryCarriedTheKey</c>.
+    /// </para>
     /// </summary>
     public async Task<decimal> CalculateShippedAsync(Guid shipmentReleaseKey, ReleaseOrigin origin)
     {
@@ -48,7 +58,7 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
             .Where(t => t.ShipmentReleaseKey == shipmentReleaseKey
                         && t.TransactionStatus != StorageTransactionsStatus.Cancelled);
 
-        if (origin == ReleaseOrigin.OwnershipTransfer)
+        if (ReleaseOriginRules.ShipsWithoutPurchaseLeg(origin))
         {
             return await query
                 .Where(t => t.TransactionType == StorageTransactionType.SalesShipment

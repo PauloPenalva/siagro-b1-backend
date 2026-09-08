@@ -1,4 +1,4 @@
-using SiagroB1.Domain.Entities;
+﻿using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Application.Tests.PurchaseContracts;
@@ -21,7 +21,11 @@ public class PurchaseContractShipmentReleaseConsumptionTests
         TotalVolume = totalVolume,
     };
 
-    private static ShipmentRelease NewRelease(decimal released, decimal shipped, ReleaseStatus status) => new()
+    private static ShipmentRelease NewRelease(
+        decimal released,
+        decimal shipped,
+        ReleaseStatus status,
+        ReleaseOrigin origin = ReleaseOrigin.Standard) => new()
     {
         Key = Guid.NewGuid(),
         PurchaseContractKey = Guid.NewGuid(),
@@ -29,6 +33,7 @@ public class PurchaseContractShipmentReleaseConsumptionTests
         ReleasedQuantity = released,
         ShippedQuantity = shipped,
         Status = status,
+        Origin = origin,
     };
 
     [Fact]
@@ -94,5 +99,44 @@ public class PurchaseContractShipmentReleaseConsumptionTests
         pc.ShipmentReleases.Add(NewRelease(1000m, 0m, ReleaseStatus.Cancelled));
 
         Assert.False(pc.HasShipmentReleases);
+    }
+
+    // ---------- liberação nascida de devolução ao armazém ----------
+
+    [Fact]
+    public void SalesReturnRelease_DoesNotConsumeContract()
+    {
+        // A restrição pedida: o grão devolvido reentra pela Expedição de Grãos, mas o
+        // contrato já foi debitado quando ele saiu. Somar de novo duplicaria o liberado.
+        var pc = NewContract(1000m);
+        pc.ShipmentReleases.Add(NewRelease(600m, 0m, ReleaseStatus.Actived));
+        pc.ShipmentReleases.Add(NewRelease(300m, 0m, ReleaseStatus.Actived, ReleaseOrigin.SalesReturn));
+
+        Assert.Equal(600m, pc.TotalShipmentReleases);
+        Assert.Equal(400m, pc.TotalAvailableToRelease);
+    }
+
+    [Fact]
+    public void SalesReturnRelease_DoesNotConsumeContract_WithoutProvisioning()
+    {
+        var pc = NewContract(1000m);
+        pc.ShipmentReleases.Add(NewRelease(600m, 0m, ReleaseStatus.Actived));
+        pc.ShipmentReleases.Add(NewRelease(300m, 0m, ReleaseStatus.Actived, ReleaseOrigin.SalesReturn));
+
+        Assert.Equal(600m, pc.TotalShipmentReleasesWithoutProvisioning);
+        Assert.Equal(400m, pc.TotalAvailableToReleaseWithoutProvisioning);
+    }
+
+    [Fact]
+    public void SalesReturnRelease_Cancelled_DoesNotCreditContract()
+    {
+        // Contraprova do outro lado: cancelar a liberação de devolução não pode
+        // devolver ao contrato um volume que ela nunca tirou dele.
+        var pc = NewContract(1000m);
+        pc.ShipmentReleases.Add(NewRelease(600m, 0m, ReleaseStatus.Actived));
+        pc.ShipmentReleases.Add(NewRelease(300m, 100m, ReleaseStatus.Cancelled, ReleaseOrigin.SalesReturn));
+
+        Assert.Equal(600m, pc.TotalShipmentReleases);
+        Assert.Equal(400m, pc.TotalAvailableToRelease);
     }
 }

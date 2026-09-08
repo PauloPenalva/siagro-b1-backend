@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -14,12 +14,22 @@ namespace SiagroB1.Application.Services.ShippingTransactions;
 /// Expedição de Grãos. Cria o par Purchase/SalesShipment: o Purchase baixa contrato e
 /// liberação de embarque, a cópia retipada dá saída no armazém.
 /// <para>
-/// <b>Exceção — liberação emitida por transferência de titularidade.</b> Ali a compra já
-/// aconteceu: o confirm da transferência criou o Purchase(8), alocou o contrato e creditou
-/// o armazém. Criar outro Purchase(8) aqui creditaria o armazém uma segunda vez por grão
-/// que está saindo, deixando saldo fantasma. Nesse caminho a Expedição cria <b>só</b> a
-/// perna de saída — que drena o lote, debita o armazém e consome a liberação — e não pede
-/// contrato de compra ao usuário.
+/// <b>Exceção — liberações cujo físico JÁ está em nosso poder</b>
+/// (<see cref="ReleaseOriginRules.ShipsWithoutPurchaseLeg"/>). Nelas a entrada no armazém já
+/// aconteceu antes:
+/// </para>
+/// <list type="bullet">
+/// <item><see cref="ReleaseOrigin.OwnershipTransfer"/> — o confirm da transferência criou o
+/// Purchase(8), alocou o contrato e creditou o armazém.</item>
+/// <item><see cref="ReleaseOrigin.SalesReturn"/> — a devolução criou o
+/// <see cref="StorageTransactionType.SalesShipmentReturn"/>, que creditou o armazém; o
+/// contrato já havia sido debitado quando a mercadoria saiu pela primeira vez.</item>
+/// </list>
+/// <para>
+/// Criar outro Purchase(8) aqui creditaria o armazém uma segunda vez por grão que está
+/// SAINDO — saldo fantasma — e alocaria o contrato de novo. Nesses caminhos a Expedição cria
+/// <b>só</b> a perna de saída, que debita o armazém (drenando o lote quando houver) e consome
+/// a liberação, e não pede contrato de compra ao usuário.
 /// </para>
 /// </summary>
 public class ShippingTransactionsCreateService(
@@ -36,11 +46,13 @@ public class ShippingTransactionsCreateService(
         var release = await ResolveReleaseAsync(purchase);
         var lot = await ResolveReleaseLotAsync(release, purchase);
 
-        // A transferência de titularidade já registrou a compra: alocou o contrato e
-        // creditou o armazém. Aqui só resta a saída. Ver o <summary> da classe.
-        var embarqueDeTransferencia = release?.Origin == ReleaseOrigin.OwnershipTransfer;
+        // Transferência de titularidade e devolução ao armazém já registraram a entrada do
+        // grão. Aqui só resta a saída. Ver o <summary> da classe.
+        // Romaneio SEM liberação (release == null) segue exigindo contrato, como sempre.
+        var embarqueSemPernaDeCompra =
+            release != null && ReleaseOriginRules.ShipsWithoutPurchaseLeg(release.Origin);
 
-        if (!embarqueDeTransferencia && !purchaseContractKey.HasValue)
+        if (!embarqueSemPernaDeCompra && !purchaseContractKey.HasValue)
             throw new ApplicationException("Contrato de compra é obrigatório para este embarque.");
 
         try
@@ -49,7 +61,7 @@ public class ShippingTransactionsCreateService(
 
             StorageTransaction salesCreated;
 
-            if (embarqueDeTransferencia)
+            if (embarqueSemPernaDeCompra)
             {
                 // Sem perna de compra não há original de onde copiar: a saída é montada
                 // direto do payload da tela, que já traz produto, peso, armazém e a
@@ -95,7 +107,7 @@ public class ShippingTransactionsCreateService(
 
             var shipping = new ShippingTransaction
             {
-                PurchaseStorageTransaction = embarqueDeTransferencia ? null : purchase,
+                PurchaseStorageTransaction = embarqueSemPernaDeCompra ? null : purchase,
                 SalesStorageTransaction = salesCreated,
             };
 
@@ -141,6 +153,15 @@ public class ShippingTransactionsCreateService(
     /// senão o Receipt(0) gravado pela transferência vira saldo fantasma permanente.
     /// Liberação comum devolve null e o fluxo segue em nível de armazém, como sempre.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ A exigência de lote é <see cref="ReleaseOriginRules.RequiresStorageAddress"/>, que NÃO
+    /// é o mesmo predicado do ramo de embarque acima. A liberação de
+    /// <see cref="ReleaseOrigin.SalesReturn"/> embarca sem perna de compra <b>e</b> sem lote: a
+    /// devolução é entrada em nível de ARMAZÉM e o romaneio tipo 12 nasce sem
+    /// <c>StorageAddressCode</c> (o saldo por endereço nem credita esse tipo). Generalizar este
+    /// guard para <c>!= Standard</c> faria todo reembarque de devolução estourar
+    /// "liberação de transferência sem lote".
+    /// </remarks>
     private async Task<StorageAddress?> ResolveReleaseLotAsync(
         ShipmentRelease? release, StorageTransaction purchase)
     {
@@ -151,7 +172,7 @@ public class ShippingTransactionsCreateService(
         {
             // Integridade: uma liberação de transferência sem lote não tem como ser
             // embarcada corretamente. Só acontece com linha editada à mão.
-            if (release.Origin == ReleaseOrigin.OwnershipTransfer)
+            if (ReleaseOriginRules.RequiresStorageAddress(release.Origin))
                 throw new ApplicationException(
                     "Liberação de transferência de propriedade sem lote de armazenagem vinculado.");
 

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -15,6 +16,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesReverseConfirmService(
     IUnitOfWork db,
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
+    ShipmentReleasesRecalculateShippedService recalcShipped,
     ShipmentLoadsBalanceHookService loadHook,
     IStringLocalizer<Resource> resource)
 {
@@ -259,9 +261,62 @@ public class SalesInvoicesReverseConfirmService(
 
         foreach (var entry in entries)
         {
+            // ANTES de cancelar: se a mercadoria devolvida já foi reembarcada, o estorno é
+            // recusado inteiro e nada é gravado.
+            await CancelReturnReleasesAsync(
+                entry, userName, $"retorno {returnInvoice.InvoiceNumber}");
+
             entry.TransactionStatus = StorageTransactionsStatus.Cancelled;
             entry.UpdatedAt = DateTime.Now;
             entry.UpdatedBy = userName;
+        }
+    }
+
+    /// <summary>
+    /// Desfaz as liberações de embarque que esta devolução emitiu, e RECUSA o estorno quando a
+    /// mercadoria devolvida já foi reembarcada.
+    /// </summary>
+    /// <remarks>
+    /// A liberação é a porta de saída do grão que voltou. Cancelar a devolução sem olhar para ela
+    /// deixaria uma liberação ativa apontando mercadoria que não está mais no armazém — e a
+    /// Expedição de Grãos ofereceria grão inexistente.
+    /// <para>
+    /// O volume vem de <c>CalculateShippedAsync</c>, e não da coluna persistida: o
+    /// <c>ShippedQuantity</c> é derivado e pode estar defasado se um hook não tiver rodado.
+    /// </para>
+    /// <para>
+    /// Cancela À MÃO, e não por <c>ShipmentReleasesCancelationService</c>: aquele recusa quando o
+    /// contrato está <c>Finished</c> e quando não há saldo a devolver — duas condições que não se
+    /// aplicam a uma liberação que não consome contrato nenhum. Mesmo espírito do cancelamento
+    /// direto da entrada de armazém, logo acima.
+    /// </para>
+    /// </remarks>
+    private async Task CancelReturnReleasesAsync(
+        StorageTransaction entry, string userName, string context)
+    {
+        var releases = await db.Context.ShipmentReleases
+            .Where(x => x.GeneratedByStorageTransactionKey == entry.Key &&
+                        x.Status != ReleaseStatus.Cancelled)
+            .ToListAsync();
+
+        foreach (var release in releases)
+        {
+            var shipped = await recalcShipped.CalculateShippedAsync(release.Key, release.Origin);
+
+            if (shipped > decimal.Zero)
+            {
+                throw new ApplicationException(
+                    $"A mercadoria devolvida pelo romaneio {entry.Code} já foi embarcada de novo " +
+                    $"({shipped:N3} de {release.ReleasedQuantity:N3}, pela liberação " +
+                    $"{release.DocNumber}). Estorne esse embarque antes de desfazer a devolução.");
+            }
+
+            release.Status = ReleaseStatus.Cancelled;
+            release.CancellationReason = $"Estorno da devolução ao armazém ({context}).";
+            release.CanceledAt = DateTime.Now;
+            release.CanceledBy = userName;
+            release.UpdatedAt = DateTime.Now;
+            release.UpdatedBy = userName;
         }
     }
 
@@ -308,6 +363,12 @@ public class SalesInvoicesReverseConfirmService(
 
         if (entry is null)
             return;
+
+        // Primeiro guard, ANTES do saldo de armazém: se a mercadoria já foi reembarcada, o saldo
+        // também estará curto e o operador receberia a mensagem genérica "parte já foi consumida
+        // por outra operação" em vez da acionável "estorne o embarque primeiro".
+        await CancelReturnReleasesAsync(
+            entry, userName, $"recusa da carga, retorno {returnInvoice.InvoiceNumber}");
 
         var loadCode = await db.Context.ShipmentLoads
             .Where(x => x.Key == shipmentLoadKey)
