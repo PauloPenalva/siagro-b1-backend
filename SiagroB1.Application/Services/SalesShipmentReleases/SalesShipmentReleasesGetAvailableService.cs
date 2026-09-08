@@ -1,11 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesShipmentReleases;
 
-public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
+public class SalesShipmentReleasesGetAvailableService(
+    IUnitOfWork db,
+    IBusinessPartnerService businessPartnerService,
+    ILogger<SalesShipmentReleasesGetAvailableService> logger)
 {
     /// <summary>
     /// Alimenta o dialog de faturamento (<c>/shipment-billing</c>): liberações de venda
@@ -86,4 +91,64 @@ public class SalesShipmentReleasesGetAvailableService(IUnitOfWork db)
                 SalesContractFreightUmCode = r.SalesContract.FreightUmCode,
             });
     }
+
+    /// <summary>
+    /// Mesma consulta de <see cref="Query"/>, com o "Nome Fantasia" resolvido pelo cadastro VIVO
+    /// do parceiro. É esta que o endpoint usa.
+    /// </summary>
+    /// <remarks>
+    /// O contrato guarda um snapshot de <c>CardFName</c> gravado na criação, e ele não serve para
+    /// esta coluna: até 27/03/2026 a entidade do SAP lia <c>OCRD.CardFName</c> (o "Nome
+    /// estrangeiro", vazio na maioria dos parceiros brasileiros) e não <c>OCRD.AliasName</c>, de
+    /// modo que todo contrato anterior ficou com o snapshot vazio — e cadastrar a fantasia no SAP
+    /// depois não corrigia contrato nenhum. Ler o parceiro resolve as duas metades.
+    /// <para>
+    /// O parceiro vem por <see cref="IBusinessPartnerService"/>, que já roteia SAPB1 x STANDALONE:
+    /// uma consulta em lote pelos CardCodes distintos da lista, nunca uma por linha. Quando o
+    /// parceiro não é alcançável (removido do SAP, ou base local vazia), a coluna cai para o
+    /// snapshot do contrato e, na falta dele, para a razão social — nunca fica vazia.
+    /// </para>
+    /// </remarks>
+    public async Task<List<SalesShipmentReleaseAvailableDto>> ExecuteAsync(
+        string itemCode, bool includeContractsWithoutBalance = false)
+    {
+        var rows = await Query(itemCode, includeContractsWithoutBalance).ToListAsync();
+
+        var cardCodes = rows
+            .Select(r => r.CardCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct()
+            .ToList()!;
+
+        // O cadastro é ACESSÓRIO aqui: a coluna é informativa e o SAP oscila. Se ele não
+        // responder, a lista continua saindo com o snapshot do contrato — o inverso (deixar a
+        // exceção subir, como faz ShipmentReleasesBalanceService) bloquearia o faturamento
+        // inteiro por causa de um nome de exibição.
+        Dictionary<string, SupplierInfo> partners;
+
+        try
+        {
+            partners = await businessPartnerService.LoadSuppliersAsync(cardCodes!);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Nome fantasia não resolvido para o ItemCode {ItemCode}: o cadastro de parceiros "
+                + "não respondeu. A lista segue com o dado gravado no contrato.", itemCode);
+
+            partners = [];
+        }
+
+        foreach (var row in rows)
+        {
+            partners.TryGetValue(row.CardCode ?? string.Empty, out var partner);
+
+            row.CardFName = FirstFilled(partner?.CardFName, row.CardFName, partner?.CardName, row.CardName);
+        }
+
+        return rows;
+    }
+
+    private static string? FirstFilled(params string?[] candidates) =>
+        candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
 }

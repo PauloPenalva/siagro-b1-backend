@@ -18,7 +18,8 @@ public sealed class FakeBusinessPartnerService(
     Dictionary<string, SupplierInfo>? suppliers = null,
     Dictionary<string, string>? states = null,
     Dictionary<string, List<AddressModel>>? addresses = null,
-    Dictionary<string, string>? taxIds = null) : IBusinessPartnerService
+    Dictionary<string, string>? taxIds = null,
+    bool failOnLoadSuppliers = false) : IBusinessPartnerService
 {
     /// <summary>CNPJ/CPF por CardCode — usado pela importação do XML, que resolve o emitente.</summary>
     private readonly Dictionary<string, string> _taxIds = taxIds ?? new();
@@ -77,8 +78,15 @@ public sealed class FakeBusinessPartnerService(
             TaxId = _taxIds.GetValueOrDefault(kv.Key),
         }).AsQueryable();
     public Task<bool> DeleteAsyncWithTransaction(string code, Func<BusinessPartnerModel, Task>? preDeleteAction = null) => throw new NotImplementedException();
+    /// <summary>
+    /// <paramref name="failOnLoadSuppliers"/> reproduz o cadastro fora do ar (SAP indisponível),
+    /// para exercitar quem precisa degradar em vez de derrubar a tela.
+    /// </summary>
     public Task<Dictionary<string, SupplierInfo>> LoadSuppliersAsync(IReadOnlyCollection<string> cardCodes) =>
-        Task.FromResult(_suppliers
-            .Where(kv => cardCodes.Contains(kv.Key))
-            .ToDictionary(kv => kv.Key, kv => kv.Value));
+        failOnLoadSuppliers
+            ? Task.FromException<Dictionary<string, SupplierInfo>>(
+                new InvalidOperationException("cadastro de parceiros indisponível"))
+            : Task.FromResult(_suppliers
+                .Where(kv => cardCodes.Contains(kv.Key))
+                .ToDictionary(kv => kv.Key, kv => kv.Value));
 }

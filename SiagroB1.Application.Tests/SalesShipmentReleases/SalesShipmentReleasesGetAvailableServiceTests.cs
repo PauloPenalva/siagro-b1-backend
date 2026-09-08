@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -10,7 +11,11 @@ public class SalesShipmentReleasesGetAvailableServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private SalesShipmentReleasesGetAvailableService Service() => new(_db);
+    // O parceiro não interessa a estes testes (cobrem o FILTRO da consulta); o enriquecimento
+    // do "Nome Fantasia" tem cobertura própria em SalesShipmentReleasesGetAvailableServiceFNameTests.
+    private SalesShipmentReleasesGetAvailableService Service() =>
+        new(_db, new FakeBusinessPartnerService(),
+            NullLogger<SalesShipmentReleasesGetAvailableService>.Instance);
 
     private async Task SeedAsync(
         string itemCode, ReleaseStatus status, decimal released, decimal shipped, decimal price = 50m,

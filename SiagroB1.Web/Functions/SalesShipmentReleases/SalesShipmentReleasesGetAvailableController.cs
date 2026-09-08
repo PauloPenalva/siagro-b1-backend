@@ -16,17 +16,18 @@ public class SalesShipmentReleasesGetAvailableController(
     /// </summary>
     [EnableQuery]
     [HttpGet("odata/SalesShipmentReleasesGetAvailable(ItemCode={itemCode})")]
-    public ActionResult<IEnumerable<SalesShipmentReleaseAvailableDto>> Get([FromRoute] string itemCode)
+    public async Task<ActionResult<IEnumerable<SalesShipmentReleaseAvailableDto>>> Get(
+        [FromRoute] string itemCode)
     {
-        return Ok(service.Query(itemCode));
+        return Ok(await service.ExecuteAsync(itemCode));
     }
 
     [EnableQuery]
     [HttpGet("odata/SalesShipmentReleasesGetAvailable(ItemCode={itemCode},IncludeContractsWithoutBalance={includeContractsWithoutBalance})")]
-    public ActionResult<IEnumerable<SalesShipmentReleaseAvailableDto>> Get(
+    public async Task<ActionResult<IEnumerable<SalesShipmentReleaseAvailableDto>>> Get(
         [FromRoute] string itemCode,
         [FromRoute] bool includeContractsWithoutBalance)
     {
-        return Ok(service.Query(itemCode, includeContractsWithoutBalance));
+        return Ok(await service.ExecuteAsync(itemCode, includeContractsWithoutBalance));
     }
 }
