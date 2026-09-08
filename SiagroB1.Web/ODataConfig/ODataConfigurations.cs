@@ -892,7 +892,90 @@ public static class ODataConfigurations
         var storageInvoiceOpen = modelBuilder.Action("StorageInvoiceOpen");
         storageInvoiceOpen.Parameter<Guid>("Key");
         storageInvoiceOpen.Returns<IActionResult>();
-        
+
+        // Cadastro de conta financeira (caixa/banco). Sem saldo aqui — a posição de caixa é
+        // derivada do ledger de baixas e só ganha tela na Fase 4.
+        modelBuilder.EntitySet<FinancialAccount>("FinancialAccounts");
+
+        modelBuilder.EntitySet<FinancialDocument>("FinancialDocuments");
+        modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
+        modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
+
+        // [NotMapped] some do EDM: sem estes quatro AddProperty, $select=OpenAmount devolve 400 e a
+        // tela não consegue mostrar o saldo.
+        foreach (var property in new[]
+                 {
+                     nameof(FinancialDocument.OpenAmount),
+                     nameof(FinancialDocument.IsBlockedForSettlement),
+                     nameof(FinancialDocument.IsOverdue),
+                     nameof(FinancialDocument.AvailableAdvanceAmount)
+                 })
+        {
+            modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(FinancialDocument))
+                .AddProperty(typeof(FinancialDocument).GetProperty(property));
+        }
+
+        // Baixa e estorno.
+        // ⚠️ Edm.Double, NUNCA Edm.Decimal: o UI5 v4 serializa decimal como STRING e o backend
+        // devolve 400 sem nomear o campo. Data e enum vão como string, pelo mesmo motivo.
+        var financialSettle = modelBuilder.Action("FinancialDocumentsSettle");
+        financialSettle.Parameter<Guid>("Key");
+        financialSettle.Parameter<string>("FinancialAccountCode");
+        financialSettle.Parameter<double>("Amount");
+        financialSettle.Parameter<string>("SettlementDate");
+        financialSettle.Parameter<double>("InterestAmount").Optional();
+        financialSettle.Parameter<double>("FineAmount").Optional();
+        financialSettle.Parameter<double>("DiscountAmount").Optional();
+        financialSettle.Parameter<string>("DocumentReference").Optional();
+        financialSettle.Parameter<string>("Notes").Optional();
+        financialSettle.Returns<IActionResult>();
+
+        var financialReverse = modelBuilder.Action("FinancialDocumentsReverseSettlement");
+        financialReverse.Parameter<Guid>("SettlementKey");
+        financialReverse.Parameter<string>("Reason");
+        financialReverse.Returns<IActionResult>();
+
+        var financialCancel = modelBuilder.Action("FinancialDocumentsCancel");
+        financialCancel.Parameter<Guid>("Key");
+        financialCancel.Parameter<string>("Reason");
+        financialCancel.Returns<IActionResult>();
+
+        var financialRecalc = modelBuilder.Action("FinancialDocumentsRecalculateBalance");
+        financialRecalc.Parameter<Guid>("Key");
+        financialRecalc.Returns<FinancialDocumentRecalcResultDto>();
+
+        // Adiantamento a contrato: o único documento LIQUIDÁVEL da Fase 1.
+        var financialAdvance = modelBuilder.Action("FinancialAdvancesCreate");
+        financialAdvance.Parameter<string>("ContractType");   // "Purchase" | "Sales" — string, nunca enum
+        financialAdvance.Parameter<Guid>("ContractKey");
+        financialAdvance.Parameter<double>("Amount");
+        financialAdvance.Parameter<string>("DueDate");
+        financialAdvance.Parameter<string>("Comments").Optional();
+        financialAdvance.Returns<IActionResult>();
+
+        // Correção de vencimento: único campo mutável do documento financeiro na Fase 1.
+        var financialSetDueDate = modelBuilder.Action("FinancialDocumentsSetDueDate");
+        financialSetDueDate.Parameter<Guid>("Key");
+        financialSetDueDate.Parameter<string>("DueDate");
+        financialSetDueDate.Returns<IActionResult>();
+
+        var financialTotals = modelBuilder.Function("FinancialDocumentsGetTotals");
+        financialTotals.Parameter<string>("Direction");
+        financialTotals.Parameter<string>("BranchCode").Optional();
+        financialTotals.Returns<FinancialDocumentTotalsDto>();
+
+        var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
+        financialByContract.Parameter<string>("ContractType");
+        financialByContract.Parameter<Guid>("ContractKey");
+        financialByContract.ReturnsCollection<FinancialDocumentByContractDto>();
+
+        var financialBacklog = modelBuilder.Action("FinancialDocumentsGenerateBacklog");
+        financialBacklog.Parameter<string>("BranchCode").Optional();
+        financialBacklog.Parameter<string>("FromDate");
+        financialBacklog.Parameter<string>("ToDate");
+        financialBacklog.Parameter<bool>("DryRun");
+        financialBacklog.Returns<FinancialDocumentBacklogResultDto>();
+
         modelBuilder
             .Action("PurchaseContractsTotals")
             .Returns<PurchaseContractTotalsResponseDto>()

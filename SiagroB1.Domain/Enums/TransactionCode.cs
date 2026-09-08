@@ -13,4 +13,5 @@ public enum TransactionCode
     OwnershipTransfer = 9,
     StorageInvoice = 10,
     ShipmentLoad = 11,
+    FinancialDocument = 12,
 }

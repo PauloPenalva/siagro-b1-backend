@@ -3,6 +3,7 @@ using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -482,7 +483,25 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IStorageInvoiceCloseService,StorageInvoiceCloseService>();
         services.AddScoped<IStorageInvoiceOpenService,StorageInvoiceOpenService>();
         services.AddScoped<StorageInvoicesGetService>();
-        
+
+        // financials
+        services.AddScoped<FinancialAccountsCreateService>();
+        services.AddScoped<FinancialAccountsUpdateService>();
+        services.AddScoped<FinancialAccountsGetService>();
+        services.AddScoped<FinancialAccountsDeleteService>();
+        services.AddScoped<FinancialDocumentsGetService>();
+        services.AddScoped<FinancialDocumentsRecalculateBalanceService>();
+        services.AddScoped<FinancialDocumentsGenerateService>();
+        services.AddScoped<FinancialDocumentsCancelService>();
+        services.AddScoped<FinancialDocumentChangeLogService>();
+        services.AddScoped<FinancialDocumentsSettleService>();
+        services.AddScoped<FinancialDocumentsReverseSettlementService>();
+        services.AddScoped<FinancialAdvancesCreateService>();
+        services.AddScoped<FinancialDocumentsGetTotalsService>();
+        services.AddScoped<FinancialDocumentsSetDueDateService>();
+        services.AddScoped<FinancialDocumentsGetByContractService>();
+        services.AddScoped<FinancialDocumentsGenerateBacklogService>();
+
         return services;
     }
 }

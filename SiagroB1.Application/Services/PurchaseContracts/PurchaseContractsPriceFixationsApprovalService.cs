@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -11,7 +12,8 @@ public class PurchaseContractsPriceFixationsApprovalService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
     PurchaseContractsChangeLogService changeLog,
-    ContractNotificationOutboxService notificationOutbox)
+    ContractNotificationOutboxService notificationOutbox,
+    FinancialDocumentsGenerateService financialDocuments)
 {
     public async Task ExecuteAsync(Guid fixationKey, string? comments, string approvedBy)
     {
@@ -32,13 +34,19 @@ public class PurchaseContractsPriceFixationsApprovalService(
                 "Contrato precisa estar aprovado para movimentar fixações. " +
                 "Reabra o contrato antes de aprovar a fixação.");
 
+        fixation.Status = PriceFixationStatus.Confirmed;
+
+        // ANTES de abrir a transação: o gerador busca o número em DOC_NUMBERS por Dapper, numa
+        // conexão que NÃO participa da transação do EF; feito lá dentro, o UPDLOCK ficaria
+        // preso e serializaria a criação de documento no sistema inteiro.
+        await financialDocuments.EnqueueForPurchaseFixationAsync(contract, fixation, approvedBy);
+
         await using var transaction = await context.Database.BeginTransactionAsync();
 
         var previous = ContractChangeLogFields.DescribePriceFixation(
-            fixation.FixationVolume, fixation.FixationPrice, fixation.Status,
+            fixation.FixationVolume, fixation.FixationPrice, PriceFixationStatus.InApproval,
             contract.UnitOfMeasureCode);
 
-        fixation.Status = PriceFixationStatus.Confirmed;
         fixation.ApprovedBy = approvedBy;
         fixation.ApprovedAt = DateTime.Now;
         fixation.ApprovalComments = comments;

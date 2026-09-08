@@ -92,6 +92,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<NotificationOutboxMessage> NotificationOutboxMessages { get; set; }
     public DbSet<NotificationDeliveryLog> NotificationDeliveryLogs { get; set; }
 
+    public DbSet<FinancialAccount> FinancialAccounts { get; set; }
+    public DbSet<FinancialDocument> FinancialDocuments { get; set; }
+    public DbSet<FinancialSettlement> FinancialSettlements { get; set; }
+    public DbSet<FinancialDocumentChangeLog> FinancialDocumentChangeLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction
@@ -231,6 +236,35 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(x => x.GeneratedByReturnInvoiceKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Duas navegações para contratos DIFERENTES, declaradas à mão porque a convenção
+        // emparelha errado em silêncio. WithMany() SEM coleção inversa: uma coleção nova no
+        // contrato entraria no EDM do OData sem ninguém pedir.
+        modelBuilder.Entity<FinancialDocument>()
+            .HasOne(x => x.PurchaseContract).WithMany()
+            .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<FinancialDocument>()
+            .HasOne(x => x.SalesContract).WithMany()
+            .HasForeignKey(x => x.SalesContractKey).OnDelete(DeleteBehavior.NoAction);
+
+        // A TRAVA DE IDEMPOTÊNCIA. Dois cliques em "Aprovar" gerariam dois provisórios
+        // idênticos, e ninguém perceberia até o mês fechar com o dobro. Filtrado por
+        // Provisional porque dois ADIANTAMENTOS no mesmo contrato são legítimos, e por
+        // <> Canceled porque cancelar precisa LIBERAR a origem para a reabertura regenerar —
+        // mesmo desenho do índice de PurchaseInvoice.ChaveNFe.
+        modelBuilder.Entity<FinancialDocument>()
+            .HasIndex(x => new { x.OriginType, x.OriginKey }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
+            .IsUnique()
+            .HasFilter($"[Nature] = {(int)FinancialDocumentNature.Provisional} " +
+                       $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
+                       "AND [OriginKey] IS NOT NULL");
+
+        // Impede estornar a mesma baixa duas vezes.
+        modelBuilder.Entity<FinancialSettlement>()
+            .HasIndex(x => x.ReversedSettlementKey)
+            .IsUnique()
+            .HasFilter("[ReversedSettlementKey] IS NOT NULL");
     }
 }
     

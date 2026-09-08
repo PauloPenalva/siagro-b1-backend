@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -13,7 +14,12 @@ public class PriceFixationsCancelServiceTests
 
     private PurchaseContractsPriceFixationsCancelService Service() =>
         new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
-            new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context));
+            new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context),
+            FinancialDocumentTestServices.Cancel(_db.Context));
+
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }));
 
     private async Task<(PurchaseContract Contract, PurchaseContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.Confirmed,
@@ -40,6 +46,9 @@ public class PriceFixationsCancelServiceTests
             PurchaseContractKey = contract.Key,
             FixationVolume = 40_000m,
             FixationPrice = 2.5m,
+            // Contrato a fixar exige o vencimento financeiro NA fixação — o gerador de
+            // título provisório (Task 6) recusa sem ele, e o teste de reaprovação passa por ele.
+            FinancialDueDate = new DateTime(2026, 12, 31),
             Status = status,
         };
 
@@ -148,7 +157,8 @@ public class PriceFixationsCancelServiceTests
 
         await new PurchaseContractsPriceFixationsApprovalService(
                 _db.Context, new PurchaseContractsFixedVolumeService(_db.Context),
-                new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context))
+                new PurchaseContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context),
+                FinancialDocuments())
             .ExecuteAsync(fixation.Key, "reaprovado", "diretoria");
 
         var afterReapproval = await _db.Context.PurchaseContracts

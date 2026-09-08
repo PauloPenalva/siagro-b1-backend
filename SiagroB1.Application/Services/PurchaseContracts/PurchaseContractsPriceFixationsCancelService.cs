@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -24,7 +25,8 @@ public class PurchaseContractsPriceFixationsCancelService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
     PurchaseContractsChangeLogService changeLog,
-    ContractNotificationOutboxService notificationOutbox)
+    ContractNotificationOutboxService notificationOutbox,
+    FinancialDocumentsCancelService financialDocuments)
 {
     public async Task ExecuteAsync(Guid fixationKey, string canceledBy)
     {
@@ -79,6 +81,16 @@ public class PurchaseContractsPriceFixationsCancelService(
         // InApproval — o evento tem de dizer o que de fato aconteceu com ela.
         notificationOutbox.RegisterPriceFixation(
             contract, fixation, NotificationEventType.PriceFixationReversed, canceledBy);
+
+        // O estorno devolve a fixação para InApproval; o compromisso financeiro que ela criou
+        // deixa de existir. Reaprovar depois gera um documento NOVO, com o valor novo —
+        // funciona porque cancelamos (Status = Canceled) em vez de apagar, e o índice único
+        // filtrado ignora cancelados.
+        await financialDocuments.EnqueueCancelByOriginAsync(
+            FinancialDocumentOrigin.PurchaseContractPriceFixation,
+            fixation.Key,
+            "Fixação de preço estornada",
+            canceledBy);
 
         // Salva o status ANTES de recalcular: RecalculateAsync consulta o banco e não
         // enxerga mudanças apenas rastreadas em memória.

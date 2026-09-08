@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
@@ -8,7 +9,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 
 public class SalesContractsCancelService(
     IUnitOfWork db,
-    ContractNotificationOutboxService notificationOutbox)
+    ContractNotificationOutboxService notificationOutbox,
+    FinancialDocumentsCancelService financialDocuments)
 {
     public async Task ExecuteAsync(Guid key, string? comments, string userName)
     {
@@ -31,6 +33,12 @@ public class SalesContractsCancelService(
         contract.CanceledBy = userName;
 
         notificationOutbox.Register(contract, NotificationEventType.Canceled, userName);
+
+        await financialDocuments.EnqueueCancelByContractAsync(
+            purchaseContractKey: null,
+            salesContractKey: contract.Key,
+            reason: "Contrato cancelado",
+            userName: userName);
 
         await db.SaveChangesAsync();
     }

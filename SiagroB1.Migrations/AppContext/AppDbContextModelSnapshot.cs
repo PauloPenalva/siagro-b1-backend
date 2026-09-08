@@ -203,6 +203,292 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("DOC_NUMBERS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccount", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("BankAccountNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("BankBranch")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("BankCode")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("Currency")
+                        .HasColumnType("INT DEFAULT 1");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("BranchCode");
+
+                    b.ToTable("FINANCIAL_ACCOUNTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Currency")
+                        .HasColumnType("INT DEFAULT 1");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DocumentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Nature")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("NetAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("OriginDocNumber")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid?>("OriginKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("OriginType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentTermsText")
+                        .HasColumnType("VARCHAR(1000)");
+
+                    b.Property<Guid?>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("SalesContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("SettledAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode");
+
+                    b.HasIndex("CardCode");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
+
+                    b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("PurchaseContractKey");
+
+                    b.HasIndex("SalesContractKey");
+
+                    b.HasIndex("Direction", "Status", "DueDate");
+
+                    b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
+                        .IsUnique()
+                        .HasFilter("[Nature] = 0 AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
+
+                    b.ToTable("FINANCIAL_DOCUMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocumentChangeLog", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<Guid?>("FinancialDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("FinancialDocumentKey");
+
+                    b.ToTable("FINANCIAL_DOCUMENT_CHANGE_LOGS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialSettlement", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("DocumentReference")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("FinancialAccountCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<Guid>("FinancialDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("FineAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("InterestAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ReversedSettlementKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime>("SettlementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("FinancialAccountCode");
+
+                    b.HasIndex("FinancialDocumentKey");
+
+                    b.HasIndex("ReversedSettlementKey")
+                        .IsUnique()
+                        .HasFilter("[ReversedSettlementKey] IS NOT NULL");
+
+                    b.HasIndex("SettlementDate");
+
+                    b.ToTable("FINANCIAL_SETTLEMENTS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
                     b.Property<string>("Code")
@@ -4074,6 +4360,75 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccount", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                        .WithMany()
+                        .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
+                        .WithMany()
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.SalesContract", "SalesContract")
+                        .WithMany()
+                        .HasForeignKey("SalesContractKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("DocNumber");
+
+                    b.Navigation("PurchaseContract");
+
+                    b.Navigation("SalesContract");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocumentChangeLog", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialDocument", "FinancialDocument")
+                        .WithMany("ChangeLogs")
+                        .HasForeignKey("FinancialDocumentKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("FinancialDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialSettlement", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialAccount", "FinancialAccount")
+                        .WithMany()
+                        .HasForeignKey("FinancialAccountCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialDocument", "FinancialDocument")
+                        .WithMany("Settlements")
+                        .HasForeignKey("FinancialDocumentKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("FinancialAccount");
+
+                    b.Navigation("FinancialDocument");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.NotificationOutboxMessage", "OutboxMessage")
@@ -5007,6 +5362,13 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>
                 {
                     b.Navigation("Addresses");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
+                {
+                    b.Navigation("ChangeLogs");
+
+                    b.Navigation("Settlements");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroup", b =>

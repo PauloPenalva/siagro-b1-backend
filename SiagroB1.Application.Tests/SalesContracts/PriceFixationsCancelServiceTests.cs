@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -13,7 +14,12 @@ public class PriceFixationsCancelServiceTests
 
     private SalesContractsPriceFixationsCancelService Service() =>
         new(_db.Context, new SalesContractsFixedVolumeService(_db.Context),
-            new SalesContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context));
+            new SalesContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context),
+            FinancialDocumentTestServices.Cancel(_db.Context));
+
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE TESTE" }));
 
     private async Task<(SalesContract Contract, SalesContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.Confirmed,
@@ -39,6 +45,9 @@ public class PriceFixationsCancelServiceTests
             SalesContractKey = contract.Key,
             FixationVolume = 40_000m,
             FixationPrice = 2.5m,
+            // Contrato a fixar exige o vencimento financeiro NA fixação — o gerador de
+            // título provisório (Task 6) recusa sem ele, e o teste de reaprovação passa por ele.
+            FinancialDueDate = new DateTime(2026, 12, 31),
             Status = status,
         };
 
@@ -137,7 +146,8 @@ public class PriceFixationsCancelServiceTests
 
         await new SalesContractsPriceFixationsApprovalService(
                 _db.Context, new SalesContractsFixedVolumeService(_db.Context),
-                new SalesContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context))
+                new SalesContractsChangeLogService(_db.Context), TestNotificationOutbox.For(_db.Context),
+                FinancialDocuments())
             .ExecuteAsync(fixation.Key, "reaprovado", "diretoria");
 
         var afterReapproval = await _db.Context.SalesContracts

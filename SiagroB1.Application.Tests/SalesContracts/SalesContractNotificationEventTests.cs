@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -40,6 +41,10 @@ public class SalesContractNotificationEventTests
     private NotificationOutboxMessage SingleOutboxMessage() =>
         Assert.Single(_db.Context.NotificationOutboxMessages);
 
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE TESTE" }));
+
     [Fact]
     public async Task SendApproval_RegistersSentForApproval()
     {
@@ -56,7 +61,7 @@ public class SalesContractNotificationEventTests
     {
         var contract = Seed(ContractStatus.InApproval);
 
-        await new SalesContractsApprovalService(_db.Context, TestNotificationOutbox.For(_db.Context))
+        await new SalesContractsApprovalService(_db.Context, TestNotificationOutbox.For(_db.Context), FinancialDocuments())
             .ExecuteAsync(contract.Key, "ok", "paulo");
 
         var message = SingleOutboxMessage();
@@ -82,7 +87,7 @@ public class SalesContractNotificationEventTests
     {
         var contract = Seed(ContractStatus.Finished);
 
-        await new SalesContractsReopenService(_db.Context, TestNotificationOutbox.For(_db.Context))
+        await new SalesContractsReopenService(_db.Context, TestNotificationOutbox.For(_db.Context), FinancialDocuments())
             .ExecuteAsync(contract.Key, "paulo");
 
         Assert.Equal(NotificationEventType.Reopened, SingleOutboxMessage().EventType);

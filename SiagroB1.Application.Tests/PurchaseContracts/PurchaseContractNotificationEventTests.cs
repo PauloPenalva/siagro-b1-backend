@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
@@ -30,6 +31,10 @@ public class PurchaseContractNotificationEventTests
         return new ContractNotificationOutboxService(
             _db.Context, new ContractNotificationPayloadBuilder(configuration));
     }
+
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }));
 
     private PurchaseContract Seed(ContractStatus status)
     {
@@ -72,7 +77,7 @@ public class PurchaseContractNotificationEventTests
     {
         var contract = Seed(ContractStatus.InApproval);
 
-        await new PurchaseContractsApprovalService(_db.Context, Outbox())
+        await new PurchaseContractsApprovalService(_db.Context, Outbox(), FinancialDocuments())
             .ExecuteAsync(contract.Key, "ok", "paulo");
 
         var message = SingleOutboxMessage();
@@ -98,7 +103,7 @@ public class PurchaseContractNotificationEventTests
     {
         var contract = Seed(ContractStatus.Finished);
 
-        await new PurchaseContractsReopenService(_db.Context, Outbox())
+        await new PurchaseContractsReopenService(_db.Context, Outbox(), FinancialDocuments())
             .ExecuteAsync(contract.Key, "paulo");
 
         Assert.Equal(NotificationEventType.Reopened, SingleOutboxMessage().EventType);

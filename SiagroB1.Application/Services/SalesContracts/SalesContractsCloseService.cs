@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
@@ -10,7 +11,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 public class SalesContractsCloseService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
-    ContractNotificationOutboxService notificationOutbox)
+    ContractNotificationOutboxService notificationOutbox,
+    FinancialDocumentsCancelService financialDocuments)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -28,6 +30,15 @@ public class SalesContractsCloseService(
         contract.UpdatedBy = userName;
 
         notificationOutbox.Register(contract, NotificationEventType.Closed, userName);
+
+        // Encerrar significa que não haverá mais entrega — e o provisório significa "saldo a
+        // faturar". O que sobra nunca será faturado; deixá-lo aberto empilharia na tela um
+        // "a faturar" permanente que envenena o total.
+        await financialDocuments.EnqueueCancelByContractAsync(
+            purchaseContractKey: null,
+            salesContractKey: contract.Key,
+            reason: "Contrato encerrado",
+            userName: userName);
 
         await context.SaveChangesAsync();
     }

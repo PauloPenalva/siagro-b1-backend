@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -15,6 +16,10 @@ public class PriceFixationsApprovalServiceTests
     private SalesContractsFixedVolumeService FixedVolume() => new(_db.Context);
 
     private SalesContractsChangeLogService ChangeLog() => new(_db.Context);
+
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE TESTE" }));
 
     private async Task<(SalesContract Contract, SalesContractPriceFixation Fixation)> SeedAsync(
         PriceFixationStatus status = PriceFixationStatus.InApproval,
@@ -40,6 +45,9 @@ public class PriceFixationsApprovalServiceTests
             SalesContractKey = contract.Key,
             FixationVolume = 30_000m,
             FixationPrice = 2.5m,
+            // Contrato a fixar exige o vencimento financeiro NA fixação — o gerador de
+            // título provisório (Task 6) recusa sem ele.
+            FinancialDueDate = new DateTime(2026, 12, 31),
             Status = status,
         };
 
@@ -61,7 +69,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (_, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
             .ExecuteAsync(fixation.Key, "aprovado em reunião", "diretoria");
 
         var reloaded = await ReloadFixationAsync(fixation.Key);
@@ -76,7 +84,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         Assert.Equal(30_000m, (await ReloadContractAsync(contract.Key)).FixedVolume);
@@ -87,7 +95,7 @@ public class PriceFixationsApprovalServiceTests
     {
         var (contract, fixation) = await SeedAsync();
 
-        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+        await new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
             .ExecuteAsync(fixation.Key, null, "diretoria");
 
         var reloaded = await _db.Context.SalesContracts
@@ -104,7 +112,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(status: PriceFixationStatus.Confirmed);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -114,7 +122,7 @@ public class PriceFixationsApprovalServiceTests
         var (_, fixation) = await SeedAsync(contractStatus: ContractStatus.Finished);
 
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
                 .ExecuteAsync(fixation.Key, null, "diretoria"));
     }
 
@@ -122,7 +130,7 @@ public class PriceFixationsApprovalServiceTests
     public async Task Approve_UnknownFixation_ThrowsNotFound()
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context))
+            new SalesContractsPriceFixationsApprovalService(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments())
                 .ExecuteAsync(Guid.NewGuid(), null, "diretoria"));
     }
 

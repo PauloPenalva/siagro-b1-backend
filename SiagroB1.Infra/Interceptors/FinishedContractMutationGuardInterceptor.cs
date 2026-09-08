@@ -61,6 +61,11 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
     {
         var keys = new HashSet<Guid>();
 
+        // ⚠️ NÃO acrescente FinancialDocument a este switch, por mais que pareça "seguir o
+        // padrão". O encerramento do contrato cancela o provisório no MESMO SaveChanges em que
+        // grava Finished; incluído aqui, o próprio encerramento passaria a lançar
+        // "Contrato encerrado: não é possível alterar dados vinculados ao contrato.", sem saída
+        // pela tela — e qualquer baixa de documento de contrato encerrado também.
         foreach (var entry in context.ChangeTracker.Entries())
         {
             if (entry.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted))

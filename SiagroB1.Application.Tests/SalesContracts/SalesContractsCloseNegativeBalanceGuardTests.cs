@@ -19,7 +19,7 @@ public class SalesContractsCloseNegativeBalanceGuardTests
 
     private SalesContractsCloseService CloseService() =>
         new(_db.Context, new SalesContractsFixedVolumeService(_db.Context),
-            TestNotificationOutbox.For(_db.Context));
+            TestNotificationOutbox.For(_db.Context), FinancialDocumentTestServices.Cancel(_db.Context));
 
     private static SalesContract NewContract(decimal totalVolume, decimal allocatedVolume) => new()
     {

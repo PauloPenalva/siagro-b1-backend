@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -27,13 +28,18 @@ public class SalesContractsPriceFixationChangeLogTests
         NullLogger<SalesContractsPriceFixationCreateService>.Instance);
 
     private SalesContractsPriceFixationsApprovalService ApprovalService() =>
-        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
+        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context), FinancialDocuments());
+
+    private FinancialDocumentsGenerateService FinancialDocuments() => new(
+        _db.Context, new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE TESTE" }));
 
     private SalesContractsPriceFixationsRejectService RejectService() =>
         new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
 
     private SalesContractsPriceFixationsCancelService CancelService() =>
-        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context));
+        new(_db.Context, FixedVolume(), ChangeLog(), TestNotificationOutbox.For(_db.Context),
+            FinancialDocumentTestServices.Cancel(_db.Context));
 
     private SalesContractsPriceFixationDeleteService DeleteService() => new(
         _db.Context, FixedVolume(), ChangeLog(),
@@ -59,7 +65,14 @@ public class SalesContractsPriceFixationChangeLogTests
     {
         return await CreateService().ExecuteAsync(
             contract.Key,
-            new SalesContractPriceFixation { FixationVolume = volume, FixationPrice = price },
+            new SalesContractPriceFixation
+            {
+                FixationVolume = volume,
+                FixationPrice = price,
+                // Contrato a fixar exige o vencimento financeiro NA fixação — o gerador de
+                // título provisório (Task 6) recusa sem ele quando a fixação é aprovada.
+                FinancialDueDate = new DateTime(2026, 12, 31),
+            },
             "joao");
     }
 
