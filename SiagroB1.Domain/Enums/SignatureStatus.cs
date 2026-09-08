@@ -1,4 +1,4 @@
-namespace SiagroB1.Domain.Enums;
+﻿namespace SiagroB1.Domain.Enums;
 
 /// <summary>
 /// Situação da assinatura do contrato (compra ou venda). É um fato DOCUMENTAL, paralelo e
@@ -12,4 +12,10 @@ public enum SignatureStatus
 {
     AwaitingSignature = 0,
     Signed = 1,
+
+    /// <summary>
+    /// Não há documento a assinar. É diferente de nulo: nulo é "ninguém informou ainda",
+    /// isto aqui é uma afirmação de quem olhou o contrato.
+    /// </summary>
+    NoContract = 2,
 }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -124,5 +124,25 @@ public class PurchaseContractSignatureStatusTests
         await Service().ExecuteAsync(contract.Key, SignatureStatus.Signed, "joao");
 
         Assert.Empty(await LogsAsync(contract.Key));
+    }
+
+    /// <summary>
+    /// "Sem Contrato" é um terceiro fato documental, e não a ausência de informação: o contrato
+    /// existe no sistema, mas não há documento a assinar. Por isso é valor do enum, e não o nulo
+    /// — e por isso aparece no log com texto próprio.
+    /// </summary>
+    [Fact]
+    public async Task Execute_WithNoContract_PersistsAndLogsPtBrLabel()
+    {
+        var contract = await SeedAsync(ContractStatus.Approved, SignatureStatus.AwaitingSignature);
+
+        await Service().ExecuteAsync(contract.Key, SignatureStatus.NoContract, "joao");
+
+        var reloaded = await _db.Context.PurchaseContracts.FirstAsync(c => c.Key == contract.Key);
+        Assert.Equal(SignatureStatus.NoContract, reloaded.SignatureStatus);
+
+        var log = Assert.Single(await LogsAsync(contract.Key));
+        Assert.Equal("Aguardando Assinatura", log.OldValue);
+        Assert.Equal("Sem Contrato", log.NewValue);
     }
 }

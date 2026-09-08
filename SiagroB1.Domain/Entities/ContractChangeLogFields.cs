@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
@@ -34,7 +34,7 @@ public static class ContractChangeLogFields
     /// <summary>Situação da entrega da linha: Aberto / Encerrado.</summary>
     public const string DeliveryStatus = "DeliveryStatus";
 
-    /// <summary>Situação da assinatura do contrato: Aguardando Assinatura / Assinado.</summary>
+    /// <summary>Situação da assinatura do contrato: Aguardando Assinatura / Assinado / Sem Contrato.</summary>
     public const string SignatureStatus = "SignatureStatus";
 
     /// <summary>
@@ -46,6 +46,7 @@ public static class ContractChangeLogFields
     {
         Enums.SignatureStatus.AwaitingSignature => "Aguardando Assinatura",
         Enums.SignatureStatus.Signed => "Assinado",
+        Enums.SignatureStatus.NoContract => "Sem Contrato",
         null => null,
         _ => status.ToString(),
     };
