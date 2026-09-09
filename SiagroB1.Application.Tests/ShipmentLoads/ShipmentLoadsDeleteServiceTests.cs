@@ -59,6 +59,46 @@ public class ShipmentLoadsDeleteServiceTests
         Assert.Empty(_db.Context.ShipmentLoadMovements);
     }
 
+    /// <summary>
+    /// Regressão: a feature de comentários e log de alterações acrescentou duas tabelas filhas
+    /// (<see cref="ShipmentLoadComment"/>, <see cref="ShipmentLoadChangeLog"/>) e o serviço só
+    /// removia <see cref="ShipmentLoadMovement"/> antes do pai.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <c>TestDb</c> usa <c>UseInMemoryDatabase</c>, que NÃO impõe FK — este teste não
+    /// reproduz o erro 547 que o SQL Server real dá quando o filho fica órfão. Ele garante
+    /// apenas que as linhas filhas são de fato removidas junto com a carga, o que é o
+    /// comportamento correto e o que impede alguém de remover o <c>RemoveRange</c> de volta no
+    /// futuro sem que nenhum teste acuse.
+    /// </remarks>
+    [Fact]
+    public async Task Deletes_a_planned_load_with_a_comment_and_a_change_log_row()
+    {
+        var load = Load();
+        _db.Context.ShipmentLoadsComments.Add(new ShipmentLoadComment
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            CommentText = "Carga criada por engano.",
+            CommentedBy = "joao",
+        });
+        _db.Context.ShipmentLoadsChangeLogs.Add(new ShipmentLoadChangeLog
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            Field = ShipmentLoadChangeLogFields.Comment,
+            NewValue = "Carga criada por engano.",
+            ChangedBy = "joao",
+        });
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key);
+
+        Assert.Empty(_db.Context.ShipmentLoads);
+        Assert.Empty(_db.Context.ShipmentLoadsComments);
+        Assert.Empty(_db.Context.ShipmentLoadsChangeLogs);
+    }
+
     [Theory]
     [InlineData(ShipmentLoadStatus.Open)]
     [InlineData(ShipmentLoadStatus.PartiallyInvoiced)]

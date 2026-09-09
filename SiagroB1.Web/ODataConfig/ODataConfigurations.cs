@@ -189,6 +189,8 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoad))
             .AddProperty(typeof(ShipmentLoad).GetProperty(nameof(ShipmentLoad.IsFullyInvoiced)));
         modelBuilder.EntitySet<ShipmentLoadMovement>("ShipmentLoadMovements");
+        modelBuilder.EntitySet<ShipmentLoadComment>("ShipmentLoadsComments");
+        modelBuilder.EntitySet<ShipmentLoadChangeLog>("ShipmentLoadsChangeLogs");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
@@ -581,6 +583,20 @@ public static class ODataConfigurations
         shipmentLoadsCancel.Parameter<Guid>("Key");
         shipmentLoadsCancel.Parameter<string>("CancellationReason");
         shipmentLoadsCancel.Returns<IActionResult>();
+
+        var shipmentLoadsCommentCreate = modelBuilder.Action("ShipmentLoadsCommentCreate");
+        shipmentLoadsCommentCreate.Parameter<Guid>("LoadKey");
+        shipmentLoadsCommentCreate.Parameter<string>("Text");
+        shipmentLoadsCommentCreate.Returns<IActionResult>();
+
+        var shipmentLoadsCommentUpdate = modelBuilder.Action("ShipmentLoadsCommentUpdate");
+        shipmentLoadsCommentUpdate.Parameter<Guid>("Key");
+        shipmentLoadsCommentUpdate.Parameter<string>("Text");
+        shipmentLoadsCommentUpdate.Returns<IActionResult>();
+
+        var shipmentLoadsCommentDelete = modelBuilder.Action("ShipmentLoadsCommentDelete");
+        shipmentLoadsCommentDelete.Parameter<Guid>("Key");
+        shipmentLoadsCommentDelete.Returns<IActionResult>();
 
         var shipmentLoadsRecalculateInvoiced = modelBuilder.Action("ShipmentLoadsRecalculateInvoiced");
         shipmentLoadsRecalculateInvoiced.Parameter<Guid>("Key");

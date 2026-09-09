@@ -28,7 +28,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </remarks>
 public class ShipmentLoadsUpdateService(
     IUnitOfWork db,
-    ShipmentLoadsMovementLogService movementLog)
+    ShipmentLoadsMovementLogService movementLog,
+    ShipmentLoadsChangeLogService changeLog)
 {
     public async Task<ShipmentLoad> ExecuteAsync(ShipmentLoad input, string userName)
     {
@@ -88,8 +89,11 @@ public class ShipmentLoadsUpdateService(
                     ShipmentLoadMovementType.Updated,
                     decimal.Zero,
                     load.AvailableQuantity,
-                    "Dados da carga alterados: " + string.Join("; ", changes) + ".",
+                    DescribeNarrative(changes),
                     userName);
+
+                foreach (var change in changes)
+                    changeLog.Register(load.Key, change.Field, change.Old, change.New, userName);
             }
 
             await db.SaveChangesAsync();
@@ -163,37 +167,71 @@ public class ShipmentLoadsUpdateService(
     }
 
     /// <summary>
+    /// Uma alteração de campo, na forma que serve às DUAS saídas: a linha do log (código, de,
+    /// para) e a frase da narrativa da Movimentação (rótulo, de, para).
+    /// </summary>
+    private readonly record struct FieldChange(
+        string Field, string Label, string? Old, string? New);
+
+    /// <summary>
     /// Descreve o que mudou ANTES de a entidade rastreada ser sobrescrita — depois da atribuição
     /// não haveria mais com o que comparar.
     /// </summary>
-    private static List<string> DescribeChanges(ShipmentLoad load, ShipmentLoad input)
+    /// <remarks>
+    /// Uma única lista alimenta o log campo a campo e a descrição concatenada da Movimentação.
+    /// Duas fontes divergiriam com o tempo.
+    /// </remarks>
+    private static List<FieldChange> DescribeChanges(ShipmentLoad load, ShipmentLoad input)
     {
-        var changes = new List<string>();
+        var changes = new List<FieldChange>();
 
-        void Compare(string label, string? before, string? after)
+        void Compare(string field, string label, string? before, string? after)
         {
             if ((before ?? string.Empty) != (after ?? string.Empty))
-                changes.Add($"{label}: '{before}' para '{after}'");
+                changes.Add(new FieldChange(field, label, before, after));
         }
 
-        Compare("Veículo", load.TruckCode, input.TruckCode);
-        Compare("Motorista", load.TruckDriverName, input.TruckDriverName);
-        Compare("Transportadora", load.CarrierName, input.CarrierName);
-        Compare("Cliente", load.CardName, input.CardName);
-        Compare("Armazém", load.WarehouseCode, input.WarehouseCode);
-        Compare("Produto", load.ItemCode, input.ItemCode);
-        Compare("Filial", load.BranchCode, input.BranchCode);
-        Compare("Observações", load.Comments, input.Comments);
+        Compare(ShipmentLoadChangeLogFields.TruckCode, "Veículo", load.TruckCode, input.TruckCode);
+        Compare(ShipmentLoadChangeLogFields.TruckDriver, "Motorista",
+            load.TruckDriverName, input.TruckDriverName);
+        Compare(ShipmentLoadChangeLogFields.Carrier, "Transportadora",
+            load.CarrierName, input.CarrierName);
+        Compare(ShipmentLoadChangeLogFields.CardCode, "Cliente", load.CardName, input.CardName);
+        Compare(ShipmentLoadChangeLogFields.Warehouse, "Armazém",
+            load.WarehouseCode, input.WarehouseCode);
+        Compare(ShipmentLoadChangeLogFields.Item, "Produto", load.ItemCode, input.ItemCode);
+        Compare(ShipmentLoadChangeLogFields.UnitOfMeasure, "Unidade",
+            load.UnitOfMeasureCode, input.UnitOfMeasureCode);
+        Compare(ShipmentLoadChangeLogFields.Branch, "Filial", load.BranchCode, input.BranchCode);
+        Compare(ShipmentLoadChangeLogFields.Comments, "Observações", load.Comments, input.Comments);
 
         if (load.LoadDate.Date != input.LoadDate.Date)
-            changes.Add($"Data: '{load.LoadDate:dd/MM/yyyy}' para '{input.LoadDate:dd/MM/yyyy}'");
+            changes.Add(new FieldChange(
+                ShipmentLoadChangeLogFields.LoadDate, "Data",
+                ShipmentLoadChangeLogFields.DescribeDate(load.LoadDate),
+                ShipmentLoadChangeLogFields.DescribeDate(input.LoadDate)));
 
         if (load.HasExcess != input.HasExcess)
-            changes.Add($"Excesso: '{(load.HasExcess ? "Sim" : "Não")}' para '{(input.HasExcess ? "Sim" : "Não")}'");
+            changes.Add(new FieldChange(
+                ShipmentLoadChangeLogFields.HasExcess, "Excesso",
+                ShipmentLoadChangeLogFields.DescribeBoolean(load.HasExcess),
+                ShipmentLoadChangeLogFields.DescribeBoolean(input.HasExcess)));
 
         if (load.FreightPrice != input.FreightPrice)
-            changes.Add($"Valor do frete: '{load.FreightPrice:N2}' para '{input.FreightPrice:N2}'");
+            changes.Add(new FieldChange(
+                ShipmentLoadChangeLogFields.FreightPrice, "Valor do frete",
+                ShipmentLoadChangeLogFields.DescribeFreightPrice(load.FreightPrice),
+                ShipmentLoadChangeLogFields.DescribeFreightPrice(input.FreightPrice)));
 
         return changes;
     }
+
+    /// <summary>
+    /// A frase da narrativa, no formato que a Movimentação sempre teve. Preservada byte a byte:
+    /// há teste de regressão sobre este texto.
+    /// </summary>
+    private static string DescribeNarrative(IEnumerable<FieldChange> changes) =>
+        "Dados da carga alterados: "
+        + string.Join("; ", changes.Select(c => $"{c.Label}: '{c.Old}' para '{c.New}'"))
+        + ".";
 }

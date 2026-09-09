@@ -63,6 +63,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OwnershipTransfer> OwnershipTransfers { get; set; }
     public DbSet<ShipmentLoad> ShipmentLoads { get; set; }
     public DbSet<ShipmentLoadMovement> ShipmentLoadMovements { get; set; }
+    public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
+    public DbSet<ShipmentLoadChangeLog> ShipmentLoadsChangeLogs { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     

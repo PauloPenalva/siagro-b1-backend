@@ -56,13 +56,24 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
 
+        var comments = await db.Context.ShipmentLoadsComments
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
+        var changeLogs = await db.Context.ShipmentLoadsChangeLogs
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
         try
         {
             await db.BeginTransactionAsync();
 
-            // Os movimentos têm FK real para a carga e todas as FKs deste projeto são
-            // NoAction: sem remover os filhos primeiro, o delete do pai quebra.
+            // Movimentos, comentários e linhas do log de alterações têm FK real para a carga e
+            // todas as FKs deste projeto são NoAction: sem remover os filhos primeiro, o delete
+            // do pai quebra.
             db.Context.ShipmentLoadMovements.RemoveRange(movements);
+            db.Context.ShipmentLoadsComments.RemoveRange(comments);
+            db.Context.ShipmentLoadsChangeLogs.RemoveRange(changeLogs);
             db.Context.ShipmentLoads.Remove(load);
 
             await db.SaveChangesAsync();

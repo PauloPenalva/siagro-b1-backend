@@ -181,4 +181,32 @@ public class ShipmentLoadModelTests
 
         Assert.Equal(10.000m, load.AvailableQuantity);
     }
+
+    [Fact]
+    public void Comments_and_change_logs_are_mapped_to_their_own_tables()
+    {
+        using var context = ModelOnlyContext();
+
+        var comments = context.Model.FindEntityType(typeof(ShipmentLoadComment));
+        var changeLogs = context.Model.FindEntityType(typeof(ShipmentLoadChangeLog));
+
+        Assert.NotNull(comments);
+        Assert.NotNull(changeLogs);
+        Assert.Equal("SHIPMENT_LOADS_COMMENTS", comments!.GetTableName());
+        Assert.Equal("SHIPMENT_LOADS_CHANGE_LOGS", changeLogs!.GetTableName());
+    }
+
+    [Fact]
+    public void ShipmentLoad_exposes_both_collections_under_names_that_do_not_clash_with_the_scalar()
+    {
+        using var context = ModelOnlyContext();
+
+        var load = context.Model.FindEntityType(typeof(ShipmentLoad))!;
+        var navigations = load.GetNavigations().Select(n => n.Name).ToArray();
+
+        // CommentEntries, e nao Comments: o escalar Comments e a "Observacoes" do cabecalho.
+        Assert.Contains(nameof(ShipmentLoad.CommentEntries), navigations);
+        Assert.Contains(nameof(ShipmentLoad.ChangeLogs), navigations);
+        Assert.NotNull(load.FindProperty(nameof(ShipmentLoad.Comments)));
+    }
 }

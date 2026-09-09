@@ -18,7 +18,8 @@ public class ShipmentLoadsCancelServiceTests
     private ShipmentLoadsCancelService Service() => new(
         _db,
         new ShipmentLoadsCompositionGuardService(_db.Context),
-        new ShipmentLoadsMovementLogService(_db.Context));
+        new ShipmentLoadsMovementLogService(_db.Context),
+        new ShipmentLoadsChangeLogService(_db.Context));
 
     private ShipmentLoad Load(ShipmentLoadStatus status = ShipmentLoadStatus.Open)
     {
@@ -259,5 +260,25 @@ public class ShipmentLoadsCancelServiceTests
 
         await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(load.Key, "Erro de montagem", "tester"));
+    }
+
+    [Fact]
+    public async Task Cancelling_logs_the_status_and_the_reason()
+    {
+        var load = Load();
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, "  cliente desistiu  ", "joao");
+
+        var logs = _db.Context.ShipmentLoadsChangeLogs
+            .Where(l => l.ShipmentLoadKey == load.Key).ToList();
+
+        var status = logs.Single(l => l.Field == ShipmentLoadChangeLogFields.Status);
+        Assert.Equal("Carregada", status.OldValue);
+        Assert.Equal("Cancelada", status.NewValue);
+
+        var reason = logs.Single(l => l.Field == ShipmentLoadChangeLogFields.CancellationReason);
+        Assert.Null(reason.OldValue);
+        Assert.Equal("cliente desistiu", reason.NewValue);
     }
 }

@@ -16,7 +16,9 @@ public class ShipmentLoadsUpdateServiceTests
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private ShipmentLoadsUpdateService Service() => new(
-        _db, new ShipmentLoadsMovementLogService(_db.Context));
+        _db,
+        new ShipmentLoadsMovementLogService(_db.Context),
+        new ShipmentLoadsChangeLogService(_db.Context));
 
     private ShipmentLoad Load(ShipmentLoadStatus status = ShipmentLoadStatus.Planned)
     {

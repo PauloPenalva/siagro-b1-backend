@@ -187,4 +187,35 @@ public class ShipmentLoadEdmModelTests
 
         Assert.True(function.ReturnType.IsCollection());
     }
+
+    [Fact]
+    public void Comments_and_change_logs_are_exposed_as_entity_sets()
+    {
+        var container = Model().EntityContainer;
+
+        Assert.NotNull(container.FindEntitySet("ShipmentLoadsComments"));
+        Assert.NotNull(container.FindEntitySet("ShipmentLoadsChangeLogs"));
+    }
+
+    [Theory]
+    [InlineData("ShipmentLoadsCommentCreate")]
+    [InlineData("ShipmentLoadsCommentUpdate")]
+    [InlineData("ShipmentLoadsCommentDelete")]
+    public void Comment_actions_are_declared(string actionName)
+    {
+        Assert.Single(Model().SchemaElements.OfType<IEdmAction>().Where(a => a.Name == actionName));
+    }
+
+    [Fact]
+    public void The_create_action_takes_the_load_key_and_the_text()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsCommentCreate");
+
+        var parameters = action.Parameters.Select(p => p.Name).ToArray();
+
+        // LoadKey, e nao Key: Key e a chave do COMENTARIO nas outras duas.
+        Assert.Contains("LoadKey", parameters);
+        Assert.Contains("Text", parameters);
+    }
 }

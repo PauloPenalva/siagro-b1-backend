@@ -23,7 +23,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadsCancelService(
     IUnitOfWork db,
     ShipmentLoadsCompositionGuardService compositionGuard,
-    ShipmentLoadsMovementLogService movementLog)
+    ShipmentLoadsMovementLogService movementLog,
+    ShipmentLoadsChangeLogService changeLog)
 {
     public async Task ExecuteAsync(Guid key, string cancellationReason, string userName)
     {
@@ -47,6 +48,8 @@ public class ShipmentLoadsCancelService(
         {
             await db.BeginTransactionAsync();
 
+            var previousStatus = load.Status;
+
             load.Status = ShipmentLoadStatus.Cancelled;
             load.InvoicedQuantity = decimal.Zero;
             load.CancellationReason = cancellationReason.Trim();
@@ -54,6 +57,20 @@ public class ShipmentLoadsCancelService(
             load.CanceledBy = userName;
             load.UpdatedAt = DateTime.Now;
             load.UpdatedBy = userName;
+
+            changeLog.Register(
+                load.Key,
+                ShipmentLoadChangeLogFields.Status,
+                ShipmentLoadChangeLogFields.DescribeStatus(previousStatus),
+                ShipmentLoadChangeLogFields.DescribeStatus(ShipmentLoadStatus.Cancelled),
+                userName);
+
+            changeLog.Register(
+                load.Key,
+                ShipmentLoadChangeLogFields.CancellationReason,
+                null,
+                load.CancellationReason,
+                userName);
 
             foreach (var shipment in shipments)
             {

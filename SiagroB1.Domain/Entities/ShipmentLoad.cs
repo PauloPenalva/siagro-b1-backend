@@ -157,6 +157,18 @@ public class ShipmentLoad : DocumentEntity
     public virtual ICollection<ShipmentLoadMovement> Movements { get; } = [];
 
     /// <summary>
+    /// Anotações da carga. Chama-se <c>CommentEntries</c>, e não <c>Comments</c>, porque
+    /// <see cref="Comments"/> já é a "Observações" escalar do cabeçalho.
+    /// </summary>
+    public virtual ICollection<ShipmentLoadComment> CommentEntries { get; } = [];
+
+    /// <summary>
+    /// Log campo a campo do que o usuário digitou. Complementa <see cref="Movements"/>, que
+    /// narra o que aconteceu com o saldo.
+    /// </summary>
+    public virtual ICollection<ShipmentLoadChangeLog> ChangeLogs { get; } = [];
+
+    /// <summary>
     /// Devoluções em armazém geradas pela RECUSA desta carga. Coleção separada de
     /// <see cref="Transactions"/> de propósito: aquela é o que foi EMBARCADO na carga, esta é o
     /// que voltou dela. Ver <c>StorageTransaction.RefusedFromShipmentLoadKey</c>.
