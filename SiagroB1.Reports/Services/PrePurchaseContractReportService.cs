@@ -1,4 +1,4 @@
-using FastReport;
+﻿using FastReport;
 using FastReport.Export.PdfSimple;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
@@ -131,6 +131,7 @@ public class PrePurchaseContractReportService(
             {
                 FreightTerms.Cif => "CIF",
                 FreightTerms.Fob => "FOB",
+                FreightTerms.Ter => "TER",
                 _ => "SEM FRETE"
             },
             FreightCostStandard = contract.FreightCostStandard,

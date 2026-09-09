@@ -8,4 +8,7 @@ public static class FinancialDocumentChangeLogFields
 {
     public const string DueDate = "DueDate";
     public const string Comments = "Comments";
+
+    /// <summary>Revínculo do adiantamento: os valores gravados são os CÓDIGOS dos contratos.</summary>
+    public const string Contract = "Contract";
 }

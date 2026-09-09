@@ -50,4 +50,32 @@ public class FinancialEdmModelTests
 
         Assert.Equal("Edm.Double", type.FullName());
     }
+
+    [Fact]
+    public void The_advance_refund_action_declares_its_parameters()
+    {
+        var model = BuildModel();
+
+        var action = model.SchemaElements.OfType<IEdmAction>()
+            .Single(x => x.Name == "FinancialAdvancesRefund");
+
+        Assert.Contains(action.Parameters, p => p.Name == "DocumentKey");
+        Assert.Contains(action.Parameters, p => p.Name == "FinancialAccountCode");
+        Assert.Contains(action.Parameters, p => p.Name == "RefundDate");
+        Assert.Contains(action.Parameters, p => p.Name == "DocumentReference");
+        Assert.Contains(action.Parameters, p => p.Name == "Reason");
+    }
+
+    [Fact]
+    public void The_advance_relink_action_declares_its_parameters()
+    {
+        var model = BuildModel();
+
+        var action = model.SchemaElements.OfType<IEdmAction>()
+            .Single(x => x.Name == "FinancialAdvancesRelinkContract");
+
+        Assert.Contains(action.Parameters, p => p.Name == "DocumentKey");
+        Assert.Contains(action.Parameters, p => p.Name == "ContractType");
+        Assert.Contains(action.Parameters, p => p.Name == "ContractKey");
+    }
 }

@@ -953,6 +953,24 @@ public static class ODataConfigurations
         financialAdvance.Parameter<string>("Comments").Optional();
         financialAdvance.Returns<IActionResult>();
 
+        // As três saídas de um adiantamento pago cujo contrato alguém quer cancelar: estornar a
+        // baixa (FinancialDocumentsReverseSettlement, acima), devolver e revincular.
+        // Nenhuma das duas recebe DINHEIRO como parâmetro: o valor devolvido é sempre o saldo
+        // baixado, lido no servidor.
+        var financialAdvanceRefund = modelBuilder.Action("FinancialAdvancesRefund");
+        financialAdvanceRefund.Parameter<Guid>("DocumentKey");
+        financialAdvanceRefund.Parameter<string>("FinancialAccountCode");
+        financialAdvanceRefund.Parameter<string>("RefundDate");
+        financialAdvanceRefund.Parameter<string>("DocumentReference").Optional();
+        financialAdvanceRefund.Parameter<string>("Reason");
+        financialAdvanceRefund.Returns<IActionResult>();
+
+        var financialAdvanceRelink = modelBuilder.Action("FinancialAdvancesRelinkContract");
+        financialAdvanceRelink.Parameter<Guid>("DocumentKey");
+        financialAdvanceRelink.Parameter<string>("ContractType");   // "Purchase" | "Sales"
+        financialAdvanceRelink.Parameter<Guid>("ContractKey");
+        financialAdvanceRelink.Returns<IActionResult>();
+
         // Correção de vencimento: único campo mutável do documento financeiro na Fase 1.
         var financialSetDueDate = modelBuilder.Action("FinancialDocumentsSetDueDate");
         financialSetDueDate.Parameter<Guid>("Key");

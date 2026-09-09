@@ -255,7 +255,9 @@ public class FinancialDocumentUndoHooksTests
         await using (var act = NewContext(dbName))
         {
             var db = new UnitOfWork(act);
-            await new PurchaseContractsCancelService(db, TestNotificationOutbox.For(act), FinancialDocumentTestServices.Cancel(act))
+            await new PurchaseContractsCancelService(db, TestNotificationOutbox.For(act),
+                    FinancialDocumentTestServices.Cancel(act),
+                    FinancialDocumentTestServices.CancellationGuard(act))
                 .ExecuteAsync(contractKey, "washout", "tester");
         }
 
@@ -308,12 +310,61 @@ public class FinancialDocumentUndoHooksTests
     }
 
     /// <summary>
-    /// Questão de dinheiro, não de detalhe: o adiantamento pode já ter sido pago. Cancelar o
-    /// contrato NÃO pode apagar essa obrigação junto — só os provisórios (Nature = Provisional)
-    /// são alcançados.
+    /// Fixa a fronteira que o design PROÍBE cruzar: ENCERRAR contrato NUNCA cancela adiantamento
+    /// — pago ou não —, só CANCELAMENTO faz isso (e só quando desbloqueado pelo guard). Hoje
+    /// nenhum outro teste falharia se alguém passasse <c>includeUnpaidAdvances: true</c> para
+    /// <see cref="PurchaseContractsCloseService"/>; este teste passa a acusar.
     /// </summary>
     [Fact]
-    public async Task CancelingAContract_DoesNotTouchAnAdvanceLinkedToIt()
+    public async Task ClosingAContract_DoesNotCancelAnUnpaidAdvance()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var contractKey = Guid.NewGuid();
+        var advanceKey = Guid.NewGuid();
+
+        await using (var seed = NewContext(dbName))
+        {
+            var contract = NewContract();
+            contract.Key = contractKey;
+            seed.PurchaseContracts.Add(contract);
+
+            var advance = NewProvisional(contractKey, Guid.NewGuid());
+            advance.Key = advanceKey;
+            advance.Nature = FinancialDocumentNature.Advance;
+            advance.SettledAmount = 0m;
+            seed.FinancialDocuments.Add(advance);
+
+            await seed.SaveChangesAsync();
+        }
+
+        await using (var act = NewContext(dbName))
+        {
+            await new PurchaseContractsCloseService(
+                    act,
+                    new PurchaseContractsFixedVolumeService(act),
+                    TestNotificationOutbox.For(act),
+                    FinancialDocumentTestServices.Cancel(act))
+                .ExecuteAsync(contractKey, "tester");
+        }
+
+        await using var assert = NewContext(dbName);
+
+        Assert.Equal(ContractStatus.Finished, (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
+
+        var advanceAfter = await assert.FinancialDocuments.SingleAsync(x => x.Key == advanceKey);
+        Assert.Equal(FinancialDocumentStatus.Open, advanceAfter.Status);
+        Assert.Null(advanceAfter.CancellationReason);
+    }
+
+    /// <summary>
+    /// A regra ANTIGA (o adiantamento pago sobrevivia ao cancelamento) foi revogada em
+    /// 08/09/2026: o adiantamento pago agora BARRA o cancelamento, e a saída é estornar,
+    /// devolver ou revincular. O caso completo, com as três saídas, está em
+    /// <see cref="FinancialDocumentsContractCancellationGuardServiceTests"/> — aqui fica só a
+    /// âncora de que o gancho não cancela um adiantamento pago por baixo do guard.
+    /// </summary>
+    [Fact]
+    public async Task CancelingAContract_IsBlockedByAPaidAdvanceAndLeavesItUntouched()
     {
         var dbName = Guid.NewGuid().ToString();
         var contractKey = Guid.NewGuid();
@@ -337,13 +388,17 @@ public class FinancialDocumentUndoHooksTests
         await using (var act = NewContext(dbName))
         {
             var db = new UnitOfWork(act);
-            await new PurchaseContractsCancelService(db, TestNotificationOutbox.For(act), FinancialDocumentTestServices.Cancel(act))
-                .ExecuteAsync(contractKey, "washout", "tester");
+            await Assert.ThrowsAsync<ApplicationException>(
+                () => new PurchaseContractsCancelService(db, TestNotificationOutbox.For(act),
+                        FinancialDocumentTestServices.Cancel(act),
+                        FinancialDocumentTestServices.CancellationGuard(act))
+                    .ExecuteAsync(contractKey, "washout", "tester"));
         }
 
         await using var assert = NewContext(dbName);
 
-        Assert.Equal(ContractStatus.Canceled, (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
+        Assert.Equal(ContractStatus.Approved,
+            (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
 
         var advance = await assert.FinancialDocuments.SingleAsync(x => x.Key == advanceKey);
         Assert.Equal(FinancialDocumentStatus.Open, advance.Status);
@@ -442,7 +497,9 @@ public class FinancialDocumentUndoHooksTests
         await using (var act = NewContext(dbName))
         {
             var db = new UnitOfWork(act);
-            await new SalesContractsCancelService(db, TestNotificationOutbox.For(act), FinancialDocumentTestServices.Cancel(act))
+            await new SalesContractsCancelService(db, TestNotificationOutbox.For(act),
+                    FinancialDocumentTestServices.Cancel(act),
+                    FinancialDocumentTestServices.CancellationGuard(act))
                 .ExecuteAsync(contractKey, "washout", "tester");
         }
 

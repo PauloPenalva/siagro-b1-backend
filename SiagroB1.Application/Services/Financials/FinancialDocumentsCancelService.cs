@@ -53,15 +53,27 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
     }
 
     /// <summary>
-    /// Enqueue-only: cancela TODOS os provisórios abertos de um contrato. Adiantamento não é
-    /// tocado — Nature é filtrado por Provisional — porque o dinheiro do adiantamento pode já
-    /// ter saído.
+    /// Enqueue-only: cancela TODOS os provisórios abertos de um contrato, e — quando
+    /// <paramref name="includeUnpaidAdvances"/> é true — também os adiantamentos SEM baixa.
+    ///
+    /// Adiantamento não pago é só uma promessa e morre junto com o contrato. Adiantamento PAGO
+    /// nunca é alcançado aqui: ele é barrado antes, por
+    /// <see cref="FinancialDocumentsContractCancellationGuardService"/>, que exige estorno,
+    /// devolução ou revínculo.
+    ///
+    /// Só os dois serviços de CANCELAMENTO passam true. Os de ENCERRAMENTO chamam este mesmo
+    /// método e ficam com o padrão false: contrato encerrado foi cumprido, e ali o adiantamento
+    /// é matéria da amortização da Fase 2.
     /// </summary>
     public async Task EnqueueCancelByContractAsync(
-        Guid? purchaseContractKey, Guid? salesContractKey, string reason, string userName)
+        Guid? purchaseContractKey, Guid? salesContractKey, string reason, string userName,
+        bool includeUnpaidAdvances = false)
     {
         var documents = await Context.FinancialDocuments
-            .Where(x => x.Nature == FinancialDocumentNature.Provisional &&
+            .Where(x => (x.Nature == FinancialDocumentNature.Provisional ||
+                         (includeUnpaidAdvances &&
+                          x.Nature == FinancialDocumentNature.Advance &&
+                          x.SettledAmount == 0m)) &&
                         x.Status != FinancialDocumentStatus.Canceled &&
                         ((purchaseContractKey != null && x.PurchaseContractKey == purchaseContractKey) ||
                          (salesContractKey != null && x.SalesContractKey == salesContractKey)))

@@ -19,6 +19,9 @@ public static class FinancialDocumentTestServices
     public static FinancialDocumentsCancelService Cancel(AppDbContext context) =>
         new(new UnitOfWork(context));
 
+    public static FinancialDocumentsContractCancellationGuardService CancellationGuard(
+        AppDbContext context) => new(new UnitOfWork(context));
+
     public static FinancialDocumentsGenerateService Generate(AppDbContext context) => new(
         context, new FakeDocNumberSequenceService(),
         new FakeBusinessPartnerService(new Dictionary<string, string>

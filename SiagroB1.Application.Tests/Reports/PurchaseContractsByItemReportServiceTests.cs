@@ -1,4 +1,4 @@
-using SiagroB1.Application.Tests.Support;
+﻿using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -131,6 +131,7 @@ public class PurchaseContractsByItemReportServiceTests
     [Theory]
     [InlineData(FreightTerms.Cif, 45, "CIF - 45,00")]
     [InlineData(FreightTerms.Fob, 45, "FOB - 45,00")]
+    [InlineData(FreightTerms.Ter, 45, "TER - 45,00")]
     [InlineData(FreightTerms.None, 45, "Sem frete")]
     public async Task BuildRows_FormatsFreight(FreightTerms terms, decimal cost, string expected)
     {

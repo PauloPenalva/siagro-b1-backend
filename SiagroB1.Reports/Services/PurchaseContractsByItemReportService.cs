@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -162,6 +162,7 @@ public class PurchaseContractsByItemReportService(
     {
         FreightTerms.Cif => $"CIF - {cost.ToString("N2", Culture)}",
         FreightTerms.Fob => $"FOB - {cost.ToString("N2", Culture)}",
+        FreightTerms.Ter => $"TER - {cost.ToString("N2", Culture)}",
         _ => "Sem frete",
     };
 

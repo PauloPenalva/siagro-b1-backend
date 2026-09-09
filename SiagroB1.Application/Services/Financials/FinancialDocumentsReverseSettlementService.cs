@@ -27,6 +27,26 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
         if (settlement.Origin == FinancialSettlementOrigin.Reversal)
             throw new ApplicationException("Não é possível estornar um estorno.");
 
+        // A devolução é o registro de que o dinheiro voltou por fora — não é uma baixa errada,
+        // então não há o que "desfazer" nela.
+        if (settlement.Origin == FinancialSettlementOrigin.AdvanceRefund)
+            throw new ApplicationException(
+                "Não é possível estornar uma devolução: ela é o registro de que o dinheiro voltou.");
+
+        var document = await db.Context.FinancialDocuments
+                           .FirstOrDefaultAsync(x => x.Key == settlement.FinancialDocumentKey)
+                       ?? throw new NotFoundException("Documento financeiro não encontrado.");
+
+        // A devolução de adiantamento é o primeiro caminho do sistema que produz um documento
+        // Canceled com um ledger de baixas ainda vivo (a baixa original + a linha negativa da
+        // devolução). Sem este guard, estornar a baixa original reabriria o saldo enquanto o
+        // Status continua Canceled — e nem o recálculo (que não mexe em documento cancelado) nem
+        // o guard de cancelamento de contrato (que já filtra Status != Canceled) percebem. É o
+        // buraco que esta feature existe para fechar reabrindo sozinho, então NÃO apagar por
+        // parecer redundante com o guard de Origin acima.
+        if (document.Status == FinancialDocumentStatus.Canceled)
+            throw new ApplicationException("Não é possível estornar a baixa de um título cancelado.");
+
         if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == settlementKey))
             throw new ApplicationException("Esta baixa já foi estornada.");
 
