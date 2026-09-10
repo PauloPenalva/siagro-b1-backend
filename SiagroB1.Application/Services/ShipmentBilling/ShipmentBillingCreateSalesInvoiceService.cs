@@ -60,7 +60,7 @@ public class ShipmentBillingCreateSalesInvoiceService(
         {
             // Saldo FÍSICO da carga, decidido sobre o recalculado. Antes de qualquer escrita:
             // uma tentativa recusada não pode deixar efeito no banco.
-            await loadGuard.EnsureCanBillAsync(loadKey.Value, quantity);
+            await loadGuard.EnsureCanBillAsync(loadKey.Value, quantity, salesInvoice.TruckingCompanyCode);
         }
         else
         {

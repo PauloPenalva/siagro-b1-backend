@@ -105,6 +105,14 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceTaxes)));
+        // Contrato de venda do documento, derivado das linhas (ver SalesInvoice). Sem estas
+        // linhas as propriedades não entram no EDM e o $select da tela da carga devolve 400.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.SalesContractCode)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.SalesContractComplement)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.SalesContractFreightCostStandard)));
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));

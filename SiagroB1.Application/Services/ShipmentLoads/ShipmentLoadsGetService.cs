@@ -31,6 +31,34 @@ public class ShipmentLoadsGetService(IUnitOfWork db, ILogger<ShipmentLoadsGetSer
         return db.Context.ShipmentLoads.AsNoTracking();
     }
 
+
+    /// <summary>
+    /// Romaneios montados nesta carga. Raiz de <c>DbSet</c> (e não <c>SelectMany</c> sobre a
+    /// coleção do pai) para que o <c>$expand</c> gerado pelo UI5 — motorista, liberação e
+    /// contrato de compra do romaneio — incida sobre uma consulta de entidade.
+    /// </summary>
+    public IQueryable<StorageTransaction> QueryTransactions(Guid shipmentLoadKey)
+    {
+        return db.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey);
+    }
+
+    /// <summary>
+    /// Documentos de saída desta carga, com as linhas e o contrato de venda de cada linha:
+    /// é esse <c>Include</c> que alimenta <c>SalesContractCode</c>/<c>SalesContractComplement</c>/
+    /// <c>SalesContractFreightCostStandard</c>, que são derivadas e voltam nulas sem ele.
+    /// <c>SalesContractKey</c> é anulável, então o Include é LEFT JOIN e não descarta linha.
+    /// </summary>
+    public IQueryable<SalesInvoice> QueryInvoices(Guid shipmentLoadKey)
+    {
+        return db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey)
+            .Include(x => x.Items)
+            .ThenInclude(i => i.SalesContract);
+    }
+
     public IQueryable<ShipmentLoadMovement> QueryMovements()
     {
         return db.Context.ShipmentLoadMovements.AsNoTracking();

@@ -31,6 +31,7 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 public class ShipmentLoadsRefuseServiceTests
 {
     private const string CardCode = "C0001";
+    private const string Carrier = "F004702";
     private const string OriginWarehouse = "ARM01";
     private const string DestinationWarehouse = "ARM99";
 
@@ -136,6 +137,9 @@ public class ShipmentLoadsRefuseServiceTests
             ItemName = "SOJA EM GRAOS",
             UnitOfMeasureCode = "KG",
             TruckCode = "ABC1D23",
+            // O guard de faturamento exige transportadora na carga e igual à do documento.
+            CarrierCardCode = Carrier,
+            CarrierName = "TRANSPORTES YOKOTOBI LTDA",
             WarehouseCode = OriginWarehouse,
             TotalQuantity = 40_000m,
             Status = ShipmentLoadStatus.Open,
@@ -181,6 +185,7 @@ public class ShipmentLoadsRefuseServiceTests
             CardCode = CardCode,
             BranchCode = "01",
             ShipmentLoadKey = load.Key,
+            TruckingCompanyCode = Carrier,
             DeliveryCardCode = deliveryCardCode,
             InvoiceStatus = InvoiceStatus.Pending,
             InvoiceType = SalesInvoiceType.Normal,

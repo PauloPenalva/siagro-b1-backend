@@ -122,6 +122,58 @@ public class SalesInvoice : DocumentEntity
     [NotMapped]
     public decimal TotalInvoiceTaxes => Items.Sum(i => i.TotalTaxes);
     
+
+    /// <summary>
+    /// Contrato(s) de venda das linhas do documento. Derivado, sem coluna persistida — depende
+    /// de <see cref="Items"/> (e do contrato de cada linha) estar carregado: só as consultas
+    /// que fazem o <c>Include</c> devolvem valor, como já acontece com
+    /// <see cref="TotalInvoiceItems"/>. Nota de carga tem uma única linha e portanto um único
+    /// contrato; a junção existe para os documentos avulsos, que podem ter mais de um.
+    /// </summary>
+    [NotMapped]
+    public string? SalesContractCode => JoinDistinct(DistinctContracts().Select(c => c.Code));
+
+    /// <summary>
+    /// Complemento do(s) contrato(s) de venda das linhas. Mesmo padrão de
+    /// <see cref="SalesContractCode"/>.
+    /// </summary>
+    [NotMapped]
+    public string? SalesContractComplement => JoinDistinct(DistinctContracts().Select(c => c.Complement));
+
+    /// <summary>
+    /// Frete standard do contrato de venda do documento. Só tem significado quando o documento
+    /// aponta para UM contrato — com contratos diferentes nas linhas não existe um valor único
+    /// e a propriedade devolve <c>null</c> em vez de escolher um deles.
+    /// </summary>
+    [NotMapped]
+    public decimal? SalesContractFreightCostStandard
+    {
+        get
+        {
+            var contracts = DistinctContracts();
+            return contracts.Count == 1 ? contracts[0].FreightCostStandard : null;
+        }
+    }
+
+    /// <summary>Contratos de venda distintos referenciados pelas linhas, na ordem das linhas.</summary>
+    private List<SalesContract> DistinctContracts() =>
+        Items.Select(i => i.SalesContract)
+            .Where(c => c != null)
+            .Select(c => c!)
+            .DistinctBy(c => c.Key)
+            .ToList();
+
+    private static string? JoinDistinct(IEnumerable<string?> values)
+    {
+        var distinct = values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return distinct.Count == 0 ? null : string.Join(" / ", distinct);
+    }
+
     public void AddItem(SalesInvoiceItem item)
     {
         item.SalesInvoice = this;

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.ShipmentLoads;
@@ -35,12 +35,13 @@ public class ShipmentLoadsController(ShipmentLoadsGetService getService) : OData
     // pela URL do pai.
     [HttpGet("odata/ShipmentLoads({key:guid})/Transactions")]
     [HttpGet("odata/ShipmentLoads/{key:guid}/Transactions")]
-    [EnableQuery]
+    // MaxExpansionDepth explícito: o grid do detalhe binda o contrato de compra do romaneio
+    // (ShipmentRelease/PurchaseContract/Code) e o UI5 gera um $expand aninhado, que bate no
+    // limite padrão de 2 níveis.
+    [EnableQuery(MaxExpansionDepth = 3)]
     public ActionResult<IEnumerable<StorageTransaction>> GetTransactions([FromRoute] Guid key)
     {
-        return Ok(getService.QueryAll()
-            .Where(x => x.Key == key)
-            .SelectMany(x => x.Transactions));
+        return Ok(getService.QueryTransactions(key));
     }
 
     [HttpGet("odata/ShipmentLoads({key:guid})/Invoices")]
@@ -48,9 +49,7 @@ public class ShipmentLoadsController(ShipmentLoadsGetService getService) : OData
     [EnableQuery]
     public ActionResult<IEnumerable<SalesInvoice>> GetInvoices([FromRoute] Guid key)
     {
-        return Ok(getService.QueryAll()
-            .Where(x => x.Key == key)
-            .SelectMany(x => x.Invoices));
+        return Ok(getService.QueryInvoices(key));
     }
 
     [HttpGet("odata/ShipmentLoads({key:guid})/Movements")]

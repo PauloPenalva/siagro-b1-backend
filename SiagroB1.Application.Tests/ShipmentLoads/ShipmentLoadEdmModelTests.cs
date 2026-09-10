@@ -1,4 +1,4 @@
-using Microsoft.OData.Edm;
+﻿using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Web.ODataConfig;
@@ -43,6 +43,19 @@ public class ShipmentLoadEdmModelTests
 
         Assert.Contains(nameof(ShipmentLoad.AvailableQuantity), properties);
         Assert.Contains(nameof(ShipmentLoad.IsFullyInvoiced), properties);
+    }
+
+    /// <summary>
+    /// GAC-1170 — o grid "Documentos de Saída" do detalhe da carga binda estas três derivadas.
+    /// </summary>
+    [Fact]
+    public void SalesInvoices_exposes_the_derived_sales_contract_columns()
+    {
+        var properties = EntityType(nameof(SalesInvoice)).Properties().Select(p => p.Name).ToArray();
+
+        Assert.Contains(nameof(SalesInvoice.SalesContractCode), properties);
+        Assert.Contains(nameof(SalesInvoice.SalesContractComplement), properties);
+        Assert.Contains(nameof(SalesInvoice.SalesContractFreightCostStandard), properties);
     }
 
     [Theory]

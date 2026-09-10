@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesContracts;
@@ -22,6 +22,7 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 public class ShipmentLoadBillingServiceTests
 {
     private const string CardCode = "C0001";
+    private const string Carrier = "F004702";
 
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
@@ -68,6 +69,9 @@ public class ShipmentLoadBillingServiceTests
             ItemName = "SOJA EM GRAOS",
             UnitOfMeasureCode = "KG",
             TruckCode = "ABC1D23",
+            // O guard de faturamento exige transportadora na carga e igual à do documento.
+            CarrierCardCode = Carrier,
+            CarrierName = "TRANSPORTES YOKOTOBI LTDA",
             TotalQuantity = 90_000m,
             Status = ShipmentLoadStatus.Open,
         };
@@ -111,6 +115,7 @@ public class ShipmentLoadBillingServiceTests
             CardCode = CardCode,
             BranchCode = "01",
             ShipmentLoadKey = load.Key,
+            TruckingCompanyCode = Carrier,
             InvoiceStatus = InvoiceStatus.Pending,
             InvoiceType = SalesInvoiceType.Normal,
         };

@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.ShipmentLoads;
+﻿using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -17,10 +17,14 @@ public class ShipmentLoadsBillingGuardServiceTests
 
     private ShipmentLoadsBillingGuardService Guard() => new(_db.Context);
 
+    /// <summary>Transportadora padrão das fixtures — o guard exige que a carga tenha uma.</summary>
+    private const string Carrier = "F004702";
+
     private ShipmentLoad Load(
         decimal total = 90_000,
         decimal persistedInvoiced = 0,
-        ShipmentLoadStatus status = ShipmentLoadStatus.Open)
+        ShipmentLoadStatus status = ShipmentLoadStatus.Open,
+        string? carrier = Carrier)
     {
         var load = new ShipmentLoad
         {
@@ -31,6 +35,8 @@ public class ShipmentLoadsBillingGuardServiceTests
             TotalQuantity = total,
             InvoicedQuantity = persistedInvoiced,
             Status = status,
+            CarrierCardCode = carrier,
+            CarrierName = carrier == null ? null : "COMERCIO DE CEREAIS YOKOTOBI LTDA",
         };
         _db.Context.ShipmentLoads.Add(load);
         return load;
@@ -66,7 +72,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         Invoice(load, 40_000);
         await _db.Context.SaveChangesAsync();
 
-        await Guard().EnsureCanBillAsync(load.Key, 50_000);
+        await Guard().EnsureCanBillAsync(load.Key, 50_000, Carrier);
     }
 
     [Fact]
@@ -77,7 +83,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Guard().EnsureCanBillAsync(load.Key, 50_001));
+            () => Guard().EnsureCanBillAsync(load.Key, 50_001, Carrier));
 
         Assert.Contains("CG000007", error.Message);
     }
@@ -91,7 +97,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         await _db.Context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<ApplicationException>(
-            () => Guard().EnsureCanBillAsync(load.Key, quantity));
+            () => Guard().EnsureCanBillAsync(load.Key, quantity, Carrier));
     }
 
     [Fact]
@@ -101,14 +107,14 @@ public class ShipmentLoadsBillingGuardServiceTests
         await _db.Context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<ApplicationException>(
-            () => Guard().EnsureCanBillAsync(load.Key, 1_000));
+            () => Guard().EnsureCanBillAsync(load.Key, 1_000, Carrier));
     }
 
     [Fact]
     public async Task Refuses_a_load_that_does_not_exist()
     {
         await Assert.ThrowsAsync<ApplicationException>(
-            () => Guard().EnsureCanBillAsync(Guid.NewGuid(), 1_000));
+            () => Guard().EnsureCanBillAsync(Guid.NewGuid(), 1_000, Carrier));
     }
 
     [Fact]
@@ -120,7 +126,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         var load = Load(persistedInvoiced: 90_000);
         await _db.Context.SaveChangesAsync();
 
-        await Guard().EnsureCanBillAsync(load.Key, 90_000);
+        await Guard().EnsureCanBillAsync(load.Key, 90_000, Carrier);
     }
 
     [Fact]
@@ -130,7 +136,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         Invoice(load, 90_000, InvoiceStatus.Cancelled);
         await _db.Context.SaveChangesAsync();
 
-        await Guard().EnsureCanBillAsync(load.Key, 90_000);
+        await Guard().EnsureCanBillAsync(load.Key, 90_000, Carrier);
     }
 
     [Fact]
@@ -142,7 +148,7 @@ public class ShipmentLoadsBillingGuardServiceTests
         Invoice(load, 40_000);
         await _db.Context.SaveChangesAsync();
 
-        await Guard().EnsureCanBillAsync(load.Key, 50_000.001m);
+        await Guard().EnsureCanBillAsync(load.Key, 50_000.001m, Carrier);
     }
 
     /// <summary>
@@ -160,10 +166,70 @@ public class ShipmentLoadsBillingGuardServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Guard().EnsureCanBillAsync(load.Key, 10_000m));
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000m, Carrier));
 
         Assert.Contains("CG000007", error.Message);
         Assert.Contains("planejada", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("romaneio", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// GAC-1170 — a transportadora do documento de saída tem de ser a mesma da carga. São
+    /// campos de nomes diferentes (<c>CarrierCardCode</c> × <c>TruckingCompanyCode</c>) e nada
+    /// no fluxo os copia um para o outro, então a igualdade só existe se alguém a exigir.
+    /// </summary>
+    [Fact]
+    public async Task Refuses_an_invoice_with_a_different_carrier()
+    {
+        var load = Load();
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000m, "F009999"));
+
+        Assert.Contains("CG000007", error.Message);
+        Assert.Contains("transportadora", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("F009999", error.Message);
+        Assert.Contains(Carrier, error.Message);
+    }
+
+    [Fact]
+    public async Task Refuses_a_load_without_a_carrier()
+    {
+        var load = Load(carrier: null);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000m, Carrier));
+
+        Assert.Contains("CG000007", error.Message);
+        Assert.Contains("sem transportadora", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("f004702")]
+    [InlineData(" F004702 ")]
+    public async Task Accepts_the_same_carrier_regardless_of_case_and_padding(string informed)
+    {
+        var load = Load();
+        await _db.Context.SaveChangesAsync();
+
+        await Guard().EnsureCanBillAsync(load.Key, 10_000m, informed);
+    }
+
+    /// <summary>
+    /// A transportadora é checada DEPOIS das guardas de situação: numa carga cancelada o
+    /// usuário precisa ler que ela está cancelada, não que a transportadora divergiu.
+    /// </summary>
+    [Fact]
+    public async Task Status_wins_over_the_carrier_check()
+    {
+        var load = Load(status: ShipmentLoadStatus.Cancelled);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000m, "F009999"));
+
+        Assert.Contains("cancelada", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

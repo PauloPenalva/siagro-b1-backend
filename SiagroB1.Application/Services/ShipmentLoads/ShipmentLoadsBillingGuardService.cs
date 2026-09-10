@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -34,7 +34,16 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
     /// </summary>
     private const decimal Tolerance = 0.001m;
 
-    public async Task EnsureCanBillAsync(Guid shipmentLoadKey, decimal quantity)
+    /// <summary>
+    /// Recusa o faturamento da carga por saldo físico, por situação e pela transportadora.
+    /// </summary>
+    /// <param name="truckingCompanyCode">
+    /// Transportadora informada no documento de saída. Tem de ser a mesma da carga
+    /// (<c>CarrierCardCode</c>): são campos com nomes diferentes para o mesmo conceito e nada
+    /// no fluxo os copia um para o outro.
+    /// </param>
+    public async Task EnsureCanBillAsync(
+        Guid shipmentLoadKey, decimal quantity, string? truckingCompanyCode)
     {
         if (quantity <= decimal.Zero)
             throw new ApplicationException("Informe uma quantidade a faturar maior que zero.");
@@ -66,6 +75,22 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
             throw new ApplicationException(
                 $"A carga {load.Code} foi recusada e sua mercadoria devolvida ao armazém. " +
                 "Não há mais o que faturar nela.");
+
+        // Transportadora: a da carga manda. A tela de faturamento já nasce com ela e travada,
+        // mas a regra vive aqui porque o endpoint aceita chamada de fora da tela.
+        if (string.IsNullOrWhiteSpace(load.CarrierCardCode))
+            throw new ApplicationException(
+                $"A carga {load.Code} está sem transportadora informada. Informe a " +
+                "transportadora da carga antes de faturá-la.");
+
+        if (!string.Equals(
+                load.CarrierCardCode.Trim(),
+                (truckingCompanyCode ?? string.Empty).Trim(),
+                StringComparison.OrdinalIgnoreCase))
+            throw new ApplicationException(
+                $"A transportadora do documento de saída ({truckingCompanyCode}) é diferente da " +
+                $"transportadora da carga {load.Code} (({load.CarrierCardCode}) {load.CarrierName}). " +
+                "Ajuste antes de faturar.");
 
         var invoiced = await ShipmentLoadsRecalculateInvoicedService.CalculateInvoicedAsync(
             context, shipmentLoadKey, excludedInvoiceKeys: null);
