@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Notifications;
@@ -42,10 +43,13 @@ public class NotificationGroupsController(
     /// Edição parcial do cabeçalho do grupo. Mesmo motivo de
     /// <see cref="NotificationGroupMembersController.Patch"/>: o <c>Put</c> da base marca todas
     /// as colunas como modificadas e um PATCH parcial acaba gravando campos em branco.
+    ///
+    /// <c>override</c> pelo mesmo motivo do <see cref="Get"/>: um método de mesma assinatura
+    /// apenas esconderia o herdado e o roteamento continuaria chamando o da base.
     /// </summary>
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch(
-        [FromRoute] Guid key, [FromBody] Delta<NotificationGroup> patch)
+    public override async Task<IActionResult> Patch(
+        [FromODataUri] Guid key, [FromBody] Delta<NotificationGroup> patch)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
