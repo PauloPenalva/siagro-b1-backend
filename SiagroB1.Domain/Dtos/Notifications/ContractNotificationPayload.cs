@@ -28,8 +28,21 @@ public class ContractNotificationPayload
     public string? ItemCode { get; set; }
     public string? ItemName { get; set; }
 
+    /// <summary>Volume físico do contrato, cru — a conversão comercial é só de exibição.</summary>
     public decimal TotalVolume { get; set; }
     public string? UnitOfMeasureCode { get; set; }
+
+    /// <summary>
+    /// UM comercial do produto (<c>ITEM_COMPLEMENTS</c>), a mesma que o diálogo de faturamento
+    /// exibe. Vem junto com <see cref="CommercialFactor"/> ou nenhum dos dois vem.
+    /// </summary>
+    public string? CommercialUnitOfMeasureCode { get; set; }
+
+    /// <summary>
+    /// KG por unidade comercial (ex.: 60 para saca). Só é preenchido quando o contrato está em
+    /// KG, que é a base do fator: volume comercial = KG / fator, preço comercial = preço × fator.
+    /// </summary>
+    public decimal? CommercialFactor { get; set; }
 
     /// <summary>
     /// Preço unitário: <c>StandardPrice</c> na compra, <c>Price</c> na venda. Vem zerado em
@@ -45,6 +58,9 @@ public class ContractNotificationPayload
     public string? HarvestSeasonCode { get; set; }
     public string? DeliveryLocationName { get; set; }
     public string? BranchCode { get; set; }
+
+    /// <summary>Nome curto da filial (cai para o nome completo). Nulo em payload antigo — a mensagem usa o código.</summary>
+    public string? BranchName { get; set; }
 
     /// <summary>Situação do contrato já em pt-BR — a mensagem não traduz nada.</summary>
     public string? StatusLabel { get; set; }
@@ -81,4 +97,11 @@ public class ContractNotificationFieldChange
 
     public string? OldValue { get; set; }
     public string? NewValue { get; set; }
+
+    /// <summary>
+    /// Valor cru dos campos decimais. É o que deixa a mensagem converter volume e preço para a
+    /// unidade comercial sem reparsear a string pt-BR. Nulo nos demais tipos e em payload antigo.
+    /// </summary>
+    public decimal? OldNumber { get; set; }
+    public decimal? NewNumber { get; set; }
 }

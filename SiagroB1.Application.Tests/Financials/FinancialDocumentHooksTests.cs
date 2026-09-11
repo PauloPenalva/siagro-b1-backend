@@ -43,7 +43,7 @@ public class FinancialDocumentHooksTests
             .Build();
 
         return new ContractNotificationOutboxService(
-            context, new ContractNotificationPayloadBuilder(configuration));
+            context, new ContractNotificationPayloadBuilder(context, configuration));
     }
 
     private static FinancialDocumentsGenerateService FinancialDocuments(AppDbContext context) => new(

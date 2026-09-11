@@ -50,6 +50,8 @@ public static class ContractHeaderDiffBuilder
                 Label = NotificationEventLabels.Field(documentType, name),
                 OldValue = oldValue,
                 NewValue = newValue,
+                OldNumber = property.OriginalValue as decimal?,
+                NewNumber = property.CurrentValue as decimal?,
             });
         }
 

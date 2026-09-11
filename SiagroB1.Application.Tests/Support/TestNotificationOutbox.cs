@@ -21,6 +21,6 @@ public static class TestNotificationOutbox
             .Build();
 
         return new ContractNotificationOutboxService(
-            context, new ContractNotificationPayloadBuilder(configuration));
+            context, new ContractNotificationPayloadBuilder(context, configuration));
     }
 }

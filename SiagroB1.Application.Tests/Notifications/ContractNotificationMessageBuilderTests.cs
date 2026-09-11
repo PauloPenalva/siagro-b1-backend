@@ -145,4 +145,168 @@ public class ContractNotificationMessageBuilderTests
         Assert.Contains("CONTRATO DE VENDA", message);
         Assert.Contains("Cliente:", message);
     }
+
+    /// <summary>
+    /// Mesmo cadastro que o diálogo de faturamento usa (ITEM_COMPLEMENTS): o fator é "KG por
+    /// unidade comercial". O KG fica entre parênteses porque é a verdade física do contrato.
+    /// </summary>
+    private static ContractNotificationPayload CommercialPayload(
+        NotificationEventType eventType = NotificationEventType.Created)
+    {
+        var payload = Payload(eventType);
+        payload.CommercialUnitOfMeasureCode = "SC";
+        payload.CommercialFactor = 60m;
+        return payload;
+    }
+
+    [Fact]
+    public void Build_WithCommercialUnit_ShowsVolumeInCommercialUnitAndKg()
+    {
+        var message = ContractNotificationMessageBuilder.Build(CommercialPayload());
+
+        Assert.Contains("Volume: 8.333,333 SC (500.000,000 KG)", message);
+    }
+
+    [Fact]
+    public void Build_WithCommercialUnit_ShowsPricePerCommercialUnit()
+    {
+        var message = ContractNotificationMessageBuilder.Build(CommercialPayload());
+
+        Assert.Contains("Preço: R$ 150,00 / SC", message);
+    }
+
+    /// <summary>
+    /// Produto sem complemento (ou payload gravado antes desta mudança): segue em KG, como era.
+    /// </summary>
+    [Fact]
+    public void Build_WithoutCommercialUnit_KeepsKg()
+    {
+        var message = ContractNotificationMessageBuilder.Build(Payload());
+
+        Assert.Contains("Volume: 500.000,000 KG", message);
+        Assert.Contains("Preço: R$ 2,50", message);
+        Assert.DoesNotContain(" / ", message);
+    }
+
+    [Fact]
+    public void Build_PriceFixationWithCommercialUnit_ConvertsFixationVolumeAndPrice()
+    {
+        var payload = CommercialPayload(NotificationEventType.PriceFixationApproved);
+        payload.FixationVolume = 100_000m;
+        payload.FixationPrice = 2.75m;
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Volume: 1.666,667 SC (100.000,000 KG)", message);
+        Assert.Contains("Preço: R$ 165,00 / SC", message);
+    }
+
+    [Fact]
+    public void Build_HeaderUpdatedWithCommercialUnit_ConvertsVolumeAndPriceChanges()
+    {
+        var payload = CommercialPayload(NotificationEventType.HeaderUpdated);
+        payload.FieldChanges =
+        [
+            new()
+            {
+                Field = "TotalVolume", Label = "Volume total",
+                OldValue = "400.000,000", NewValue = "500.000,000",
+                OldNumber = 400_000m, NewNumber = 500_000m,
+            },
+            new()
+            {
+                Field = "StandardPrice", Label = "Preço",
+                OldValue = "2,40", NewValue = "2,50",
+                OldNumber = 2.40m, NewNumber = 2.50m,
+            },
+        ];
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Volume total: 6.666,667 SC (400.000,000 KG) → 8.333,333 SC (500.000,000 KG)", message);
+        Assert.Contains("Preço: 144,00 / SC → 150,00 / SC", message);
+    }
+
+    /// <summary>
+    /// O frete tem unidade própria (FreightUmCode); converter pelo fator do produto daria um
+    /// número sem sentido.
+    /// </summary>
+    [Fact]
+    public void Build_HeaderUpdatedWithCommercialUnit_DoesNotConvertFreightCost()
+    {
+        var payload = CommercialPayload(NotificationEventType.HeaderUpdated);
+        payload.FieldChanges =
+        [
+            new()
+            {
+                Field = "FreightCostStandard", Label = "Custo do frete",
+                OldValue = "10,00", NewValue = "12,00",
+                OldNumber = 10m, NewNumber = 12m,
+            },
+        ];
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Custo do frete: 10,00 → 12,00", message);
+    }
+
+    /// <summary>
+    /// Alteração gravada na outbox antes desta mudança não tem os números crus: cai para o texto.
+    /// </summary>
+    [Fact]
+    public void Build_HeaderUpdatedWithoutRawNumbers_FallsBackToFormattedText()
+    {
+        var payload = CommercialPayload(NotificationEventType.HeaderUpdated);
+        payload.FieldChanges =
+        [
+            new() { Field = "TotalVolume", Label = "Volume total", OldValue = "400.000,000", NewValue = "500.000,000" },
+        ];
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Volume total: 400.000,000 → 500.000,000", message);
+    }
+
+    [Fact]
+    public void Build_ShowsBranchNameInsteadOfCode()
+    {
+        var payload = Payload();
+        payload.BranchName = "Filial Pilar";
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Filial: Filial Pilar", message);
+        Assert.DoesNotContain("Filial: 01", message);
+    }
+
+    [Fact]
+    public void Build_WithoutBranchName_FallsBackToBranchCode()
+    {
+        var message = ContractNotificationMessageBuilder.Build(Payload());
+
+        Assert.Contains("Filial: 01", message);
+    }
+
+    /// <summary>
+    /// O WhatsApp só transforma em link um endereço com nome de domínio. Com IP (caso real da
+    /// produção Yokotobi) ele destaca só "192.168.1.144", sem porta nem caminho — um link que não
+    /// leva a lugar nenhum é pior do que nenhum.
+    /// </summary>
+    [Theory]
+    [InlineData("http://192.168.1.144:55000/#/purchase-contracts/abc/detail")]
+    [InlineData("http://localhost:5246/#/purchase-contracts/abc/detail")]
+    [InlineData("http://[::1]:5246/#/purchase-contracts/abc/detail")]
+    [InlineData("http://[2001:db8::1]/#/purchase-contracts/abc/detail")]
+    [InlineData("http://servidor:5246/#/purchase-contracts/abc/detail")]
+    [InlineData("siagro.exemplo.com.br/#/purchase-contracts/abc/detail")]
+    public void Build_LinkThatWhatsAppCannotMakeClickable_IsOmitted(string detailUrl)
+    {
+        var payload = Payload();
+        payload.DetailUrl = detailUrl;
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.DoesNotContain("purchase-contracts", message);
+        Assert.Equal(message.TrimEnd(), message);
+    }
 }

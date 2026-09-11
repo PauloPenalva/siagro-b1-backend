@@ -144,6 +144,28 @@ public class ContractHeaderDiffBuilderTests
         Assert.Equal(2, changes.Count);
     }
 
+    /// <summary>
+    /// O número cru é o que permite à mensagem converter volume e preço para a unidade comercial
+    /// sem reparsear a string pt-BR.
+    /// </summary>
+    [Fact]
+    public void Build_DecimalChanged_CarriesRawNumbers()
+    {
+        var change = Assert.Single(DiffAfter(c => c.TotalVolume = 500_000m));
+
+        Assert.Equal(400_000m, change.OldNumber);
+        Assert.Equal(500_000m, change.NewNumber);
+    }
+
+    [Fact]
+    public void Build_NonDecimalChanged_LeavesRawNumbersNull()
+    {
+        var change = Assert.Single(DiffAfter(c => c.CardName = "OUTRO FORNECEDOR"));
+
+        Assert.Null(change.OldNumber);
+        Assert.Null(change.NewNumber);
+    }
+
     [Fact]
     public void Build_ValueBecameEmpty_RendersDashInsteadOfBlank()
     {

@@ -29,7 +29,7 @@ public class PurchaseContractNotificationEventTests
             .Build();
 
         return new ContractNotificationOutboxService(
-            _db.Context, new ContractNotificationPayloadBuilder(configuration));
+            _db.Context, new ContractNotificationPayloadBuilder(_db.Context, configuration));
     }
 
     private FinancialDocumentsGenerateService FinancialDocuments() => new(

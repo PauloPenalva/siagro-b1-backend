@@ -25,7 +25,7 @@ public class ContractNotificationOutboxServiceTests
             .Build();
 
         return new ContractNotificationOutboxService(
-            _db.Context, new ContractNotificationPayloadBuilder(configuration));
+            _db.Context, new ContractNotificationPayloadBuilder(_db.Context, configuration));
     }
 
     private static PurchaseContract NewPurchaseContract() => new()
@@ -175,5 +175,128 @@ public class ContractNotificationOutboxServiceTests
         Assert.Equal(100_000m, payload.FixationVolume);
         Assert.Equal(2.75m, payload.FixationPrice);
         Assert.Equal("Confirmada", payload.FixationStatusLabel);
+    }
+
+    private void AddBranch(string code, string branchName, string? shortName)
+    {
+        _db.Context.Branchs.Add(new Branch { Code = code, BranchName = branchName, ShortName = shortName });
+        _db.Context.SaveChanges();
+    }
+
+    private void AddItemComplement(string itemCode, string? commercialUnit, decimal? factor)
+    {
+        _db.Context.ItemComplements.Add(new ItemComplement
+        {
+            ItemCode = itemCode,
+            CommercialUnitOfMeasureCode = commercialUnit,
+            CommercialFactor = factor,
+        });
+        _db.Context.SaveChanges();
+    }
+
+    private async Task<ContractNotificationPayload> RegisterAndReadPayload(
+        PurchaseContract contract,
+        NotificationEventType eventType = NotificationEventType.Created,
+        IReadOnlyList<ContractNotificationFieldChange>? changes = null)
+    {
+        CreateService().Register(contract, eventType, "paulo", changes);
+        await _db.SaveChangesAsync();
+
+        return PayloadOf(_db.Context.NotificationOutboxMessages.Single());
+    }
+
+    /// <summary>
+    /// O nome curto é o que as listas de contrato já exibem. A navegação Branch nem sempre vem
+    /// carregada no serviço de mutação, então o snapshot busca pela chave.
+    /// </summary>
+    [Fact]
+    public async Task Register_SnapshotsBranchShortName()
+    {
+        AddBranch("03", "YOKOTOBI - PILAR LTDA", "Filial Pilar");
+        var contract = NewPurchaseContract();
+        contract.BranchCode = "03";
+
+        var payload = await RegisterAndReadPayload(contract);
+
+        Assert.Equal("03", payload.BranchCode);
+        Assert.Equal("Filial Pilar", payload.BranchName);
+    }
+
+    [Fact]
+    public async Task Register_BranchWithoutShortName_FallsBackToBranchName()
+    {
+        AddBranch("03", "YOKOTOBI - PILAR LTDA", "");
+        var contract = NewPurchaseContract();
+        contract.BranchCode = "03";
+
+        var payload = await RegisterAndReadPayload(contract);
+
+        Assert.Equal("YOKOTOBI - PILAR LTDA", payload.BranchName);
+    }
+
+    [Fact]
+    public async Task Register_UnknownBranch_LeavesBranchNameEmpty()
+    {
+        var contract = NewPurchaseContract();
+        contract.BranchCode = "99";
+
+        var payload = await RegisterAndReadPayload(contract);
+
+        Assert.Null(payload.BranchName);
+    }
+
+    [Fact]
+    public async Task Register_ItemWithCommercialUnit_SnapshotsUnitAndFactor()
+    {
+        AddItemComplement("SOJA", "SC", 60m);
+
+        var payload = await RegisterAndReadPayload(NewPurchaseContract());
+
+        Assert.Equal("SC", payload.CommercialUnitOfMeasureCode);
+        Assert.Equal(60m, payload.CommercialFactor);
+        // O snapshot guarda o valor cru em KG; a conversão é só de exibição.
+        Assert.Equal(500_000m, payload.TotalVolume);
+        Assert.Equal(2.50m, payload.Price);
+    }
+
+    /// <summary>
+    /// UM e fator andam juntos (mesma regra do faturamento), e o fator é "KG por unidade
+    /// comercial": aplicá-lo a um contrato que não está em KG daria um número errado.
+    /// </summary>
+    [Theory]
+    [InlineData("TON", "SC", 60.0)]
+    [InlineData("KG", "SC", 0.0)]
+    [InlineData("KG", "SC", null)]
+    [InlineData("KG", null, 60.0)]
+    [InlineData("KG", "KG", 1.0)]
+    public async Task Register_CommercialUnitNotApplicable_LeavesUnitAndFactorEmpty(
+        string contractUnit, string? commercialUnit, double? factor)
+    {
+        AddItemComplement("SOJA", commercialUnit, factor.HasValue ? (decimal)factor.Value : null);
+        var contract = NewPurchaseContract();
+        contract.UnitOfMeasureCode = contractUnit;
+
+        var payload = await RegisterAndReadPayload(contract);
+
+        Assert.Null(payload.CommercialUnitOfMeasureCode);
+        Assert.Null(payload.CommercialFactor);
+    }
+
+    [Fact]
+    public async Task Register_HeaderUpdated_TranslatesBranchCodeChangeToNames()
+    {
+        AddBranch("01", "YOKOTOBI MATRIZ LTDA", "Matriz");
+        AddBranch("03", "YOKOTOBI - PILAR LTDA", "Filial Pilar");
+        List<ContractNotificationFieldChange> changes =
+        [
+            new() { Field = "BranchCode", Label = "Filial", OldValue = "01", NewValue = "03" },
+        ];
+
+        var payload = await RegisterAndReadPayload(
+            NewPurchaseContract(), NotificationEventType.HeaderUpdated, changes);
+
+        var change = Assert.Single(payload.FieldChanges);
+        Assert.Equal("Matriz", change.OldValue);
+        Assert.Equal("Filial Pilar", change.NewValue);
     }
 }
