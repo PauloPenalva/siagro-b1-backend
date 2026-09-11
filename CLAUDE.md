@@ -28,7 +28,7 @@ To run locally, three apps need to be started (each has its own `launchSettings.
 
 `SiagroB1.Client` is a standalone Worker Service (weighbridge/truck-scale TCP reader) with no project references to anything else — run/deploy it independently of the other three.
 
-`SiagroB1.Migrations` is a class library, not runnable — it only holds generated EF Core migration files for two DbContexts. EF migrations are applied by running `SiagroB1.Web` with the `db-migration` launch profile (`ASPNETCORE_ENVIRONMENT=Migration`), not via a separate `dotnet ef` CLI workflow — check `Program.cs` for the `Environment == "Migration"` branch before changing migration behavior.
+`SiagroB1.Migrations` is a class library, not runnable — it only holds generated EF Core migration files for two DbContexts. EF migrations are applied manually with `dotnet ef database update --context <Context>`, using `SiagroB1.Web` as the startup project; the `db-migration` launch profile only sets `ASPNETCORE_ENVIRONMENT=Migration` (there is no migration branch in `Program.cs`, and no `appsettings.Migration.json`, so it falls back to `appsettings.json`). Nothing applies migrations at runtime — instead `SiagroB1.Web` **refuses to start** while any `AppDbContext`/`CommonDbContext` migration is pending (`SiagroB1.Web/Startup/PendingMigrationsGuard.cs`; emergency bypass: `Migrations:AllowPendingOnStartup=true`). The check runs after `builder.Build()`, which `dotnet ef` never passes, so it does not block the tooling itself.
 
 `appsettings.json` in `SiagroB1.Web` and `SiagroB1.Gateway` contain plaintext SQL Server credentials committed to source control — be careful not to widen exposure when editing these files, and don't copy real credentials into examples/docs.
 

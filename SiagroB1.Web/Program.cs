@@ -25,6 +25,7 @@ using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
 using SiagroB1.Web.ODataConfig;
 using SiagroB1.Web.Sockets.TruckScale;
+using SiagroB1.Web.Startup;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -165,6 +166,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Antes de qualquer job ou requisição: com migration pendente o Web se recusa a subir. O `dotnet ef`
+// encerra o host dentro do Build(), então isto não trava o próprio `database update`.
+await PendingMigrationsGuard.EnsureNoPendingMigrationsAsync(app);
 
 app.UseRequestLocalization(localizationOptions);
 
