@@ -1,3 +1,4 @@
+using System.Globalization;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Dtos.Notifications;
 using SiagroB1.Domain.Enums;
@@ -52,7 +53,7 @@ public class ContractNotificationMessageBuilderTests
 
         Assert.Contains("AGRO XPTO LTDA", message);
         Assert.Contains("SOJA EM GRAOS", message);
-        Assert.Contains("500.000,000 KG", message);
+        Assert.Contains("500.000 KG", message);
         Assert.Contains("2,50", message);
         Assert.Contains("01/08/2026", message);
         Assert.Contains("31/08/2026", message);
@@ -131,7 +132,7 @@ public class ContractNotificationMessageBuilderTests
         var message = ContractNotificationMessageBuilder.Build(payload);
 
         Assert.Contains("Fixação de preço aprovada".ToUpperInvariant(), message);
-        Assert.Contains("100.000,000", message);
+        Assert.Contains("Volume: 100.000 KG", message);
         Assert.Contains("2,75", message);
         Assert.Contains("Confirmada", message);
     }
@@ -164,7 +165,7 @@ public class ContractNotificationMessageBuilderTests
     {
         var message = ContractNotificationMessageBuilder.Build(CommercialPayload());
 
-        Assert.Contains("Volume: 8.333,333 SC (500.000,000 KG)", message);
+        Assert.Contains("Volume: 8.333,33 SC (500.000 KG)", message);
     }
 
     [Fact]
@@ -183,7 +184,7 @@ public class ContractNotificationMessageBuilderTests
     {
         var message = ContractNotificationMessageBuilder.Build(Payload());
 
-        Assert.Contains("Volume: 500.000,000 KG", message);
+        Assert.Contains("Volume: 500.000 KG", message);
         Assert.Contains("Preço: R$ 2,50", message);
         Assert.DoesNotContain(" / ", message);
     }
@@ -197,7 +198,7 @@ public class ContractNotificationMessageBuilderTests
 
         var message = ContractNotificationMessageBuilder.Build(payload);
 
-        Assert.Contains("Volume: 1.666,667 SC (100.000,000 KG)", message);
+        Assert.Contains("Volume: 1.666,67 SC (100.000 KG)", message);
         Assert.Contains("Preço: R$ 165,00 / SC", message);
     }
 
@@ -223,8 +224,63 @@ public class ContractNotificationMessageBuilderTests
 
         var message = ContractNotificationMessageBuilder.Build(payload);
 
-        Assert.Contains("Volume total: 6.666,667 SC (400.000,000 KG) → 8.333,333 SC (500.000,000 KG)", message);
+        Assert.Contains("Volume total: 6.666,67 SC (400.000 KG) → 8.333,33 SC (500.000 KG)", message);
         Assert.Contains("Preço: 144,00 / SC → 150,00 / SC", message);
+    }
+
+    /// <summary>
+    /// GAC-1087: casas decimais só quando existem, no máximo duas — "1.000,000 SC" vira
+    /// "1.000 SC" e "1.234,600 SC" vira "1.234,6 SC". Vale para a unidade comercial e para o KG.
+    /// </summary>
+    [Theory]
+    [InlineData(60_000, "Volume: 1.000 SC (60.000 KG)")]
+    [InlineData(74_076, "Volume: 1.234,6 SC (74.076 KG)")]
+    [InlineData(500_000, "Volume: 8.333,33 SC (500.000 KG)")]
+    public void Build_WithCommercialUnit_PrintsDecimalsOnlyWhenPresent(int totalVolume, string expected)
+    {
+        var payload = CommercialPayload();
+        payload.TotalVolume = totalVolume;
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains(expected, message);
+    }
+
+    [Theory]
+    [InlineData("1234.567", "Volume: 1.234,57 KG")]
+    [InlineData("1234.600", "Volume: 1.234,6 KG")]
+    [InlineData("1234.000", "Volume: 1.234 KG")]
+    public void Build_WithoutCommercialUnit_PrintsAtMostTwoDecimalsInKg(string totalVolume, string expected)
+    {
+        var payload = Payload();
+        payload.TotalVolume = decimal.Parse(totalVolume, CultureInfo.InvariantCulture);
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains(expected, message);
+    }
+
+    /// <summary>
+    /// Sem unidade comercial a alteração de volume também sai sem zeros à direita: com o número
+    /// cru no payload, não depende do texto em 3 casas que o diff grava.
+    /// </summary>
+    [Fact]
+    public void Build_HeaderUpdatedWithoutCommercialUnit_PrintsVolumeChangesWithoutTrailingZeros()
+    {
+        var payload = Payload(NotificationEventType.HeaderUpdated);
+        payload.FieldChanges =
+        [
+            new()
+            {
+                Field = "TotalVolume", Label = "Volume total",
+                OldValue = "400.000,000", NewValue = "500.000,000",
+                OldNumber = 400_000m, NewNumber = 500_000m,
+            },
+        ];
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Volume total: 400.000 KG → 500.000 KG", message);
     }
 
     /// <summary>
@@ -308,5 +364,89 @@ public class ContractNotificationMessageBuilderTests
 
         Assert.DoesNotContain("purchase-contracts", message);
         Assert.Equal(message.TrimEnd(), message);
+    }
+
+    /// <summary>
+    /// GAC-1087: emissão, previsão de pagamento e condição de pagamento entram no bloco de dados,
+    /// na ordem do formulário — emissão logo abaixo do parceiro, pagamento logo abaixo do preço.
+    /// </summary>
+    private static ContractNotificationPayload PaymentPayload()
+    {
+        var payload = Payload();
+        payload.CreationDate = new DateTime(2026, 7, 20);
+        payload.PaymentForecastDate = new DateTime(2026, 9, 15);
+        payload.PaymentTerms = "30 dias após a entrega";
+        return payload;
+    }
+
+    private static List<string> Lines(string message) =>
+        message.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+
+    [Fact]
+    public void Build_ShowsIssueDateRightAfterPartner()
+    {
+        var lines = Lines(ContractNotificationMessageBuilder.Build(PaymentPayload()));
+
+        var partnerIndex = lines.IndexOf("Fornecedor: F0001 - AGRO XPTO LTDA");
+        Assert.True(partnerIndex >= 0);
+        Assert.Equal("Emissão: 20/07/2026", lines[partnerIndex + 1]);
+        Assert.StartsWith("Produto:", lines[partnerIndex + 2]);
+    }
+
+    [Fact]
+    public void Build_ShowsPaymentForecastAndTermsRightAfterPrice()
+    {
+        var lines = Lines(ContractNotificationMessageBuilder.Build(PaymentPayload()));
+
+        var priceIndex = lines.IndexOf("Preço: R$ 2,50");
+        Assert.True(priceIndex >= 0);
+        Assert.Equal("Prev. Pagto.: 15/09/2026", lines[priceIndex + 1]);
+        Assert.Equal("Cond. Pagamento: 30 dias após a entrega", lines[priceIndex + 2]);
+    }
+
+    /// <summary>
+    /// Payload gravado antes desta mudança, ou contrato sem os campos: a linha some, não sai "-".
+    /// </summary>
+    [Fact]
+    public void Build_WithoutPaymentFields_OmitsTheirLines()
+    {
+        var message = ContractNotificationMessageBuilder.Build(Payload());
+
+        Assert.DoesNotContain("Emissão", message);
+        Assert.DoesNotContain("Prev. Pagto.", message);
+        Assert.DoesNotContain("Cond. Pagamento", message);
+    }
+
+    /// <summary>
+    /// A condição de pagamento vem de um TextArea: espaço e quebra de linha sobrando nas pontas
+    /// deixariam uma linha em branco dentro do bloco de dados.
+    /// </summary>
+    [Fact]
+    public void Build_PaymentTerms_IsTrimmedAndBlankIsOmitted()
+    {
+        var payload = PaymentPayload();
+        payload.PaymentTerms = "  À vista\n  ";
+        Assert.Contains("Cond. Pagamento: À vista", Lines(ContractNotificationMessageBuilder.Build(payload)));
+
+        payload.PaymentTerms = "   ";
+        Assert.DoesNotContain("Cond. Pagamento", ContractNotificationMessageBuilder.Build(payload));
+    }
+
+    /// <summary>Na alteração o bloco de dados dá lugar à lista — as linhas novas não podem vazar.</summary>
+    [Fact]
+    public void Build_HeaderUpdated_DoesNotRepeatPaymentFields()
+    {
+        var payload = PaymentPayload();
+        payload.EventType = NotificationEventType.HeaderUpdated;
+        payload.FieldChanges =
+        [
+            new() { Field = "PaymentTerms", Label = "Condição de pagamento", OldValue = "À vista", NewValue = "30 dias" },
+        ];
+
+        var message = ContractNotificationMessageBuilder.Build(payload);
+
+        Assert.Contains("Condição de pagamento: À vista → 30 dias", message);
+        Assert.DoesNotContain("Emissão", message);
+        Assert.DoesNotContain("Cond. Pagamento:", message);
     }
 }

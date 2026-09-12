@@ -96,7 +96,8 @@ public static class NotificationEventLabels
         "StandardPrice" => "Preço",
         "Price" => "Preço",
         "StandardCurrency" => "Moeda",
-        "StandardCashFlowDate" => "Data de fluxo de caixa",
+        // GAC-1087: mesmo nome da tela e da linha do bloco de dados.
+        "StandardCashFlowDate" => "Prev. Pagto.",
         "UnitOfMeasureCode" => "Unidade de medida",
         "HarvestSeasonCode" => "Safra",
         "DeliveryStartDate" => "Início da entrega",

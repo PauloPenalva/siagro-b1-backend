@@ -85,6 +85,9 @@ public static class ContractNotificationMessageBuilder
     /// Volume e preço do contrato saem na unidade comercial, como no resto da mensagem. O custo de
     /// frete fica de fora: tem unidade própria (<c>FreightUmCode</c>). Sem o número cru (payload
     /// gravado antes desta mudança) usa o texto já formatado.
+    ///
+    /// O volume é reformatado mesmo sem unidade comercial: o texto do diff vem em 3 casas, e a
+    /// mensagem segue a regra de <see cref="Quantity"/>.
     /// </summary>
     private static string? ChangeValue(
         ContractNotificationPayload payload,
@@ -92,20 +95,28 @@ public static class ContractNotificationMessageBuilder
         decimal? number,
         string? text)
     {
-        if (number is not { } value || !HasCommercialUnit(payload))
+        if (number is not { } value)
             return text;
 
         return change.Field switch
         {
             "TotalVolume" or "Volume" => Volume(payload, value),
-            "StandardPrice" or "Price" =>
+            "StandardPrice" or "Price" when HasCommercialUnit(payload) =>
                 $"{(value * payload.CommercialFactor!.Value).ToString("N2", PtBr)} / {payload.CommercialUnitOfMeasureCode}",
             _ => text,
         };
     }
 
+    /// <summary>
+    /// Mesma ordem do formulário do contrato: emissão logo abaixo do parceiro, previsão e
+    /// condição de pagamento logo abaixo do preço. Linha ausente quando o campo está vazio —
+    /// vale para o payload gravado antes de GAC-1087, que não traz nenhum dos três.
+    /// </summary>
     private static void AppendContractBlock(StringBuilder message, ContractNotificationPayload payload)
     {
+        if (payload.CreationDate.HasValue)
+            message.AppendLine($"Emissão: {Date(payload.CreationDate)}");
+
         message.AppendLine($"Produto: {CodeAndName(payload.ItemCode, payload.ItemName)}");
         message.AppendLine($"Volume: {Volume(payload, payload.TotalVolume)}");
 
@@ -113,6 +124,13 @@ public static class ContractNotificationMessageBuilder
         // que não existe.
         if (payload.Price > 0)
             message.AppendLine($"Preço: {Price(payload, payload.Price)}");
+
+        if (payload.PaymentForecastDate.HasValue)
+            message.AppendLine($"Prev. Pagto.: {Date(payload.PaymentForecastDate)}");
+
+        // Texto livre de um TextArea: as pontas aparadas para não abrir linha em branco no bloco.
+        if (!string.IsNullOrWhiteSpace(payload.PaymentTerms))
+            message.AppendLine($"Cond. Pagamento: {payload.PaymentTerms.Trim()}");
 
         if (payload.DeliveryStartDate.HasValue || payload.DeliveryEndDate.HasValue)
             message.AppendLine($"Entrega: {Date(payload.DeliveryStartDate)} a {Date(payload.DeliveryEndDate)}");
@@ -168,7 +186,7 @@ public static class ContractNotificationMessageBuilder
             return physical;
 
         var commercial = volume / payload.CommercialFactor!.Value;
-        return $"{commercial.ToString("N3", PtBr)} {payload.CommercialUnitOfMeasureCode} ({physical})";
+        return $"{Quantity(commercial)} {payload.CommercialUnitOfMeasureCode} ({physical})";
     }
 
     /// <summary>Preço comercial = preço por KG × fator — a mesma conta do faturamento.</summary>
@@ -178,7 +196,13 @@ public static class ContractNotificationMessageBuilder
             : Money(price, payload.CurrencyCode);
 
     private static string PhysicalVolume(decimal volume, string? unitOfMeasureCode) =>
-        $"{volume.ToString("N3", PtBr)} {unitOfMeasureCode}".TrimEnd();
+        $"{Quantity(volume)} {unitOfMeasureCode}".TrimEnd();
+
+    /// <summary>
+    /// GAC-1087: casas decimais só quando existem, no máximo duas — 1.000,000 sai "1.000" e
+    /// 1.234,600 sai "1.234,6". Vale para a unidade comercial e para a fiscal.
+    /// </summary>
+    private static string Quantity(decimal value) => value.ToString("#,##0.##", PtBr);
 
     /// <summary>
     /// O WhatsApp só transforma em link um endereço com nome de domínio. Com IP — caso da

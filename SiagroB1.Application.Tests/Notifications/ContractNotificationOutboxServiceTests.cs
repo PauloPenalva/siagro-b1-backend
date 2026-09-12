@@ -299,4 +299,48 @@ public class ContractNotificationOutboxServiceTests
         Assert.Equal("Matriz", change.OldValue);
         Assert.Equal("Filial Pilar", change.NewValue);
     }
+
+    /// <summary>
+    /// GAC-1087: emissão, previsão de pagamento e condição de pagamento vão no snapshot — dos
+    /// dois tipos de contrato, sem leitura extra de banco.
+    /// </summary>
+    [Fact]
+    public async Task Register_PurchaseContract_SnapshotsIssueAndPaymentFields()
+    {
+        var contract = NewPurchaseContract();
+        contract.CreationDate = new DateTime(2026, 7, 20);
+        contract.StandardCashFlowDate = new DateTime(2026, 9, 15);
+        contract.PaymentTerms = "30 dias após a entrega";
+
+        var payload = await RegisterAndReadPayload(contract);
+
+        Assert.Equal(new DateTime(2026, 7, 20), payload.CreationDate);
+        Assert.Equal(new DateTime(2026, 9, 15), payload.PaymentForecastDate);
+        Assert.Equal("30 dias após a entrega", payload.PaymentTerms);
+    }
+
+    [Fact]
+    public async Task Register_SalesContract_SnapshotsIssueAndPaymentFields()
+    {
+        var contract = new SalesContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "SC-000777",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "24/25",
+            CreationDate = new DateTime(2026, 7, 20),
+            StandardCashFlowDate = new DateTime(2026, 9, 15),
+            PaymentTerms = "À vista",
+        };
+
+        CreateService().Register(contract, NotificationEventType.Created, "paulo");
+        await _db.SaveChangesAsync();
+
+        var payload = PayloadOf(_db.Context.NotificationOutboxMessages.Single());
+        Assert.Equal(new DateTime(2026, 7, 20), payload.CreationDate);
+        Assert.Equal(new DateTime(2026, 9, 15), payload.PaymentForecastDate);
+        Assert.Equal("À vista", payload.PaymentTerms);
+    }
 }

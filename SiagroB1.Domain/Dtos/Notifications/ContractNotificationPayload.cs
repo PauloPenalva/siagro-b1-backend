@@ -52,6 +52,15 @@ public class ContractNotificationPayload
 
     public string? CurrencyCode { get; set; }
 
+    /// <summary>Data de emissão do contrato (<c>CreationDate</c>). Nulo em payload antigo — a linha é omitida.</summary>
+    public DateTime? CreationDate { get; set; }
+
+    /// <summary>Previsão de pagamento (<c>StandardCashFlowDate</c>, "Prev. Pagto." na tela).</summary>
+    public DateTime? PaymentForecastDate { get; set; }
+
+    /// <summary>Condição de pagamento, texto livre do cadastro ("Cond.Pagamento" na tela).</summary>
+    public string? PaymentTerms { get; set; }
+
     public DateTime? DeliveryStartDate { get; set; }
     public DateTime? DeliveryEndDate { get; set; }
 

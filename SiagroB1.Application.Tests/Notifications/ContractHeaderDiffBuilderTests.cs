@@ -174,4 +174,17 @@ public class ContractHeaderDiffBuilderTests
         Assert.Equal("AGRO XPTO LTDA", change.OldValue);
         Assert.Equal("—", change.NewValue);
     }
+
+    /// <summary>
+    /// GAC-1087: o mesmo campo sai como "Prev. Pagto." no bloco de dados e na tela — na lista de
+    /// alterações não pode ter outro nome.
+    /// </summary>
+    [Fact]
+    public void Build_PaymentForecastChanged_UsesScreenLabel()
+    {
+        var change = Assert.Single(DiffAfter(c => c.StandardCashFlowDate = new DateTime(2026, 9, 15)));
+
+        Assert.Equal("Prev. Pagto.", change.Label);
+        Assert.Equal("15/09/2026", change.NewValue);
+    }
 }
