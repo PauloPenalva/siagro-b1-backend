@@ -140,6 +140,126 @@ public class FinancialDocumentsGenerateBacklogServiceTests
     /// Este teste prova que o laço espelho para SalesContract existe e é somado no MESMO
     /// contador: sem ele, a omissão passaria despercebida com todos os outros testes verdes.
     /// </summary>
+    /// <summary>
+    /// Preço fixo; fixação Confirmed cobrindo <paramref name="totalVolume"/> @ 100; um washout
+    /// Approved de <paramref name="washedFixedVolume"/> fixado apontando para ela.
+    /// </summary>
+    private async Task<(PurchaseContract Contract, PurchaseContractPriceFixation Fixation)> SeedApprovedFixedContractWithWashoutAsync(
+        decimal washedFixedVolume, decimal totalVolume = 1_000m)
+    {
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "PC0002",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            BranchCode = "01",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "24/25",
+            DeliveryLocationCode = "01",
+            CreationDate = DateTime.Today,
+            TotalVolume = totalVolume,
+            StandardPrice = 100m,
+            StandardCashFlowDate = DateTime.Today,
+            StandardCurrency = CurrencyType.Brl,
+            Type = ContractType.Fixed,
+            Status = ContractStatus.Approved
+        };
+
+        var fixation = new PurchaseContractPriceFixation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            FixationVolume = totalVolume,
+            FixationPrice = contract.StandardPrice,
+            FinancialDueDate = DateTime.Today,
+            Status = PriceFixationStatus.Confirmed,
+        };
+
+        var washout = new PurchaseContractWashout
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            PriceFixationKey = fixation.Key,
+            Sequence = 1,
+            FixedVolume = washedFixedVolume,
+            ContractPrice = contract.StandardPrice,
+            MarketPrice = contract.StandardPrice + 1m,
+            Amount = 1m,
+            DueDate = DateTime.Today,
+            Reason = "teste",
+            Status = PurchaseContractWashoutStatus.Approved,
+        };
+
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.PurchaseContractsPriceFixations.Add(fixation);
+        _db.Context.PurchaseContractsWashouts.Add(washout);
+        await _db.Context.SaveChangesAsync();
+        return (contract, fixation);
+    }
+
+    /// <summary>
+    /// F3 (revisão final): a fixação toda lavada tem <c>alreadyGenerated == false</c> (o
+    /// provisório foi cancelado a zero), então sem o corte por washout o laço contava
+    /// <c>Generated++</c> mesmo o gerador não escrevendo nada — no dry run ela ficava "pendente"
+    /// para sempre.
+    /// </summary>
+    [Fact]
+    public async Task A_fully_washed_out_fixation_is_skipped_in_dry_run_and_not_counted_as_generated()
+    {
+        await SeedApprovedFixedContractWithWashoutAsync(washedFixedVolume: 1_000m);
+
+        var result = await Service().ExecuteAsync(
+            null, DateTime.Today.AddYears(-1), DateTime.Today.AddDays(1), dryRun: true, "tester");
+
+        Assert.Equal(1, result.SkippedFullyWashedOut);
+        Assert.Equal(0, result.Generated);
+        Assert.Empty(_db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task A_fully_washed_out_fixation_is_skipped_in_a_real_run_and_not_counted_as_generated()
+    {
+        await SeedApprovedFixedContractWithWashoutAsync(washedFixedVolume: 1_000m);
+
+        var result = await Service().ExecuteAsync(
+            null, DateTime.Today.AddYears(-1), DateTime.Today.AddDays(1), dryRun: false, "tester");
+
+        Assert.Equal(1, result.SkippedFullyWashedOut);
+        Assert.Equal(0, result.Generated);
+        Assert.Empty(_db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task A_partially_washed_out_fixation_generates_the_discounted_amount()
+    {
+        await SeedApprovedFixedContractWithWashoutAsync(washedFixedVolume: 400m);
+
+        var result = await Service().ExecuteAsync(
+            null, DateTime.Today.AddYears(-1), DateTime.Today.AddDays(1), dryRun: false, "tester");
+
+        Assert.Equal(1, result.Generated);
+        Assert.Equal(0, result.SkippedFullyWashedOut);
+        // (1.000 − 400) × 100
+        Assert.Equal(60_000m, _db.Context.FinancialDocuments.Single().NetAmount);
+    }
+
+    [Fact]
+    public async Task Running_the_backlog_twice_does_not_duplicate_a_partially_washed_out_fixation()
+    {
+        await SeedApprovedFixedContractWithWashoutAsync(washedFixedVolume: 400m);
+        var service = Service();
+        var from = DateTime.Today.AddYears(-1);
+        var to = DateTime.Today.AddDays(1);
+
+        await service.ExecuteAsync(null, from, to, dryRun: false, "tester");
+        var second = await service.ExecuteAsync(null, from, to, dryRun: false, "tester");
+
+        Assert.Equal(0, second.Generated);
+        Assert.Equal(1, second.SkippedAlreadyGenerated);
+        Assert.Single(_db.Context.FinancialDocuments);
+    }
+
     [Fact]
     public async Task A_dry_run_counts_eligible_fixations_from_both_purchase_and_sales_contracts()
     {

@@ -24,6 +24,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
     public DbSet<PurchaseContractPriceFixation> PurchaseContractsPriceFixations { get; set; }
+    public DbSet<PurchaseContractWashout> PurchaseContractsWashouts { get; set; }
     public DbSet<PurchaseContractTax> PurchaseContractsTaxes { get; set; }
     public DbSet<PurchaseContractBroker> PurchaseContractsBrokers { get; set; }
     public DbSet<PurchaseContractQualityParameter> PurchaseContractsQualityParameters { get; set; }
@@ -61,6 +62,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageEntryTransaction> StorageEntryTransactions { get; set; }
     public DbSet<DocNumber> DocNumbers { get; set; }
     public DbSet<OwnershipTransfer> OwnershipTransfers { get; set; }
+    public DbSet<WarehouseReconciliation> WarehouseReconciliations { get; set; }
+    public DbSet<WarehouseReconciliationReason> WarehouseReconciliationReasons { get; set; }
+    public DbSet<WarehouseReconciliationAttachment> WarehouseReconciliationAttachments { get; set; }
     public DbSet<ShipmentLoad> ShipmentLoads { get; set; }
     public DbSet<ShipmentLoadMovement> ShipmentLoadMovements { get; set; }
     public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
@@ -273,6 +277,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.SalesContract).WithMany()
             .HasForeignKey(x => x.SalesContractKey).OnDelete(DeleteBehavior.NoAction);
 
+        // Washout: Restrict para o contrato e para a fixação — nenhum dos dois pode sumir debaixo
+        // de um washout (o estorno de fixação e a retirada da aprovação já recusam antes). NoAction
+        // para o título, no mesmo padrão das FKs de FinancialDocument.
+        modelBuilder.Entity<PurchaseContractWashout>()
+            .HasOne(x => x.PurchaseContract).WithMany(x => x.Washouts)
+            .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseContractWashout>()
+            .HasOne(x => x.PriceFixation).WithMany()
+            .HasForeignKey(x => x.PriceFixationKey).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseContractWashout>()
+            .HasOne(x => x.FinancialDocument).WithMany()
+            .HasForeignKey(x => x.FinancialDocumentKey).OnDelete(DeleteBehavior.NoAction);
+
         // A TRAVA DE IDEMPOTÊNCIA. Dois cliques em "Aprovar" gerariam dois provisórios
         // idênticos, e ninguém perceberia até o mês fechar com o dobro. Filtrado por
         // Provisional porque dois ADIANTAMENTOS no mesmo contrato são legítimos, e por
@@ -290,6 +309,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => x.ReversedSettlementKey)
             .IsUnique()
             .HasFilter("[ReversedSettlementKey] IS NOT NULL");
+
+        // Conferência de Saldo de Armazém: no máximo UMA em aberto (Rascunho/Em aprovação) por
+        // armazém+produto. O serviço já recusa; o índice é a trava contra caminho novo.
+        modelBuilder.Entity<WarehouseReconciliation>()
+            .HasIndex(x => new { x.WarehouseCode, x.ItemCode }, "IX_WAREHOUSE_RECONCILIATIONS_OpenPerWarehouseItem")
+            .IsUnique()
+            .HasFilter($"[Status] IN ({(int)WarehouseReconciliationStatus.Draft}, " +
+                       $"{(int)WarehouseReconciliationStatus.InApproval})");
+
+        // Motivo em uso não se apaga (o serviço desativa); Restrict impede também no banco.
+        modelBuilder.Entity<WarehouseReconciliation>()
+            .HasOne(x => x.Reason)
+            .WithMany()
+            .HasForeignKey(x => x.ReasonKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WarehouseReconciliation>()
+            .HasMany(x => x.Attachments)
+            .WithOne(x => x.WarehouseReconciliation)
+            .HasForeignKey(x => x.WarehouseReconciliationKey)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WarehouseReconciliationReason>()
+            .HasIndex(x => x.Code)
+            .IsUnique();
     }
 }
     

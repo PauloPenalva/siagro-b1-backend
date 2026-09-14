@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -31,9 +32,23 @@ public class FinancialDocumentsGenerateService(
     DocNumberSequenceService docNumberSequence,
     IBusinessPartnerService businessPartnerService)
 {
-    public Task EnqueueForPurchaseFixationAsync(
-        PurchaseContract contract, PurchaseContractPriceFixation fixation, string userName) =>
-        EnqueueAsync(
+    /// <param name="remainingVolume">
+    /// Volume a faturar já calculado pelo chamador. Só o ajuste do washout passa este valor: ele
+    /// roda ANTES do SaveChanges que grava o washout aprovado, e a soma pelo banco ainda não o
+    /// enxergaria. Nulo = FixationVolume menos os washouts APROVADOS da fixação, lidos do banco —
+    /// é o que impede a reabertura do contrato e o backlog de ressuscitarem o valor cheio.
+    /// </param>
+    public async Task EnqueueForPurchaseFixationAsync(
+        PurchaseContract contract, PurchaseContractPriceFixation fixation, string userName,
+        decimal? remainingVolume = null)
+    {
+        var volume = remainingVolume ?? fixation.FixationVolume -
+            await PurchaseContractsWashedOutVolumeService.ApprovedFixedVolumeAsync(context, fixation.Key);
+
+        // Fixação inteiramente lavada: não há o que faturar.
+        if (volume <= 0) return;
+
+        await EnqueueAsync(
             direction: FinancialDirection.Payable,
             originType: FinancialDocumentOrigin.PurchaseContractPriceFixation,
             originKey: fixation.Key,
@@ -42,7 +57,7 @@ public class FinancialDocumentsGenerateService(
             branchCode: contract.BranchCode,
             currency: contract.StandardCurrency ?? CurrencyType.Brl,
             contractType: contract.Type,
-            volume: fixation.FixationVolume,
+            volume: volume,
             price: fixation.FixationPrice,
             fixationDueDate: fixation.FinancialDueDate,
             contractCashFlowDate: contract.StandardCashFlowDate,
@@ -50,6 +65,7 @@ public class FinancialDocumentsGenerateService(
             purchaseContractKey: contract.Key,
             salesContractKey: null,
             userName: userName);
+    }
 
     public Task EnqueueForSalesFixationAsync(
         SalesContract contract, SalesContractPriceFixation fixation, string userName) =>

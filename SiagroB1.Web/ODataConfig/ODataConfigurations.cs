@@ -35,6 +35,7 @@ public static class ODataConfigurations
 
         modelBuilder.EntitySet<PurchaseContractChangeLog>("PurchaseContractsChangeLogs");
         modelBuilder.EntitySet<PurchaseContractComment>("PurchaseContractsComments");
+        modelBuilder.EntitySet<PurchaseContractWashout>("PurchaseContractsWashouts");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
@@ -200,6 +201,9 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadComment>("ShipmentLoadsComments");
         modelBuilder.EntitySet<ShipmentLoadChangeLog>("ShipmentLoadsChangeLogs");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
+        modelBuilder.EntitySet<WarehouseReconciliation>("WarehouseReconciliations");
+        modelBuilder.EntitySet<WarehouseReconciliationReason>("WarehouseReconciliationReasons");
+        modelBuilder.EntitySet<WarehouseReconciliationAttachment>("WarehouseReconciliationAttachments");
         modelBuilder.EntitySet<StorageInvoice>("StorageInvoices");
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
         modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
@@ -464,6 +468,28 @@ public static class ODataConfigurations
         var priceFixationCancel = modelBuilder.Action("PurchaseContractsPriceFixationCancel");
         priceFixationCancel.Parameter<Guid>("Key");
         priceFixationCancel.Returns<IActionResult>();
+
+        // Washout do contrato de compra. A criação recebe a entidade inteira, como a fixação; nas
+        // demais, Key é a chave do WASHOUT, não a do contrato.
+        var washoutCreate = modelBuilder.Action("PurchaseContractsWashoutCreate");
+        washoutCreate.Parameter<Guid>("PurchaseContractKey");
+        washoutCreate.EntityParameter<PurchaseContractWashout>("Washout");
+        washoutCreate.Returns<IActionResult>();
+
+        var washoutApproval = modelBuilder.Action("PurchaseContractsWashoutApproval");
+        washoutApproval.Parameter<Guid>("Key");
+        washoutApproval.Parameter<string>("Comments").Nullable = true;
+        washoutApproval.Returns<IActionResult>();
+
+        var washoutReject = modelBuilder.Action("PurchaseContractsWashoutReject");
+        washoutReject.Parameter<Guid>("Key");
+        washoutReject.Parameter<string>("Comments").Nullable = true;
+        washoutReject.Returns<IActionResult>();
+
+        var washoutReverse = modelBuilder.Action("PurchaseContractsWashoutReverse");
+        washoutReverse.Parameter<Guid>("Key");
+        washoutReverse.Parameter<string>("Reason").Nullable = true;
+        washoutReverse.Returns<IActionResult>();
 
         var purchaseContractsReopen = modelBuilder.Action("PurchaseContractsReopen");
         purchaseContractsReopen.Parameter<Guid>("Key");
@@ -893,6 +919,52 @@ public static class ODataConfigurations
         ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("ItemCode");
         ownershipTransfersListStorageAddressesBalanceByProduct.Parameter<string>("IgnoreCode");
         ownershipTransfersListStorageAddressesBalanceByProduct.Returns<IActionResult>();
+
+        // Conferência de Saldo de Armazém (GAC-1164)
+        var warehouseReconciliationsSendApproval = modelBuilder.Action("WarehouseReconciliationsSendApproval");
+        warehouseReconciliationsSendApproval.Parameter<Guid>("Key");
+        warehouseReconciliationsSendApproval.Returns<IActionResult>();
+
+        var warehouseReconciliationsWithdrawApproval = modelBuilder.Action("WarehouseReconciliationsWithdrawApproval");
+        warehouseReconciliationsWithdrawApproval.Parameter<Guid>("Key");
+        warehouseReconciliationsWithdrawApproval.Returns<IActionResult>();
+
+        var warehouseReconciliationsApproval = modelBuilder.Action("WarehouseReconciliationsApproval");
+        warehouseReconciliationsApproval.Parameter<Guid>("Key");
+        warehouseReconciliationsApproval.Parameter<string>("Comments");
+        warehouseReconciliationsApproval.Returns<IActionResult>();
+
+        var warehouseReconciliationsReject = modelBuilder.Action("WarehouseReconciliationsReject");
+        warehouseReconciliationsReject.Parameter<Guid>("Key");
+        warehouseReconciliationsReject.Parameter<string>("Comments");
+        warehouseReconciliationsReject.Returns<IActionResult>();
+
+        var warehouseReconciliationsCancel = modelBuilder.Action("WarehouseReconciliationsCancel");
+        warehouseReconciliationsCancel.Parameter<Guid>("Key");
+        warehouseReconciliationsCancel.Parameter<string>("Reason");
+        warehouseReconciliationsCancel.Returns<IActionResult>();
+
+        var warehouseReconciliationsAttachmentUpload = modelBuilder.Action("WarehouseReconciliationsAttachmentUpload");
+        warehouseReconciliationsAttachmentUpload.Parameter<Guid>("ReconciliationKey");
+        warehouseReconciliationsAttachmentUpload.Parameter<string>("Description");
+        warehouseReconciliationsAttachmentUpload.Parameter<string>("File");
+        warehouseReconciliationsAttachmentUpload.Parameter<string>("FileName");
+        warehouseReconciliationsAttachmentUpload.Parameter<string>("ContentType");
+        warehouseReconciliationsAttachmentUpload.Returns<IActionResult>();
+
+        var warehouseReconciliationsGetBalancePreview = modelBuilder.Function("WarehouseReconciliationsGetBalancePreview");
+        warehouseReconciliationsGetBalancePreview.Parameter<string>("WarehouseCode");
+        warehouseReconciliationsGetBalancePreview.Parameter<string>("ItemCode");
+        warehouseReconciliationsGetBalancePreview.Parameter<string>("ReferenceDate");
+        warehouseReconciliationsGetBalancePreview.Returns<IActionResult>();
+
+        var warehouseReconciliationsAttachmentsList = modelBuilder.Function("WarehouseReconciliationsAttachmentsList");
+        warehouseReconciliationsAttachmentsList.Parameter<Guid>("ReconciliationKey");
+        warehouseReconciliationsAttachmentsList.Returns<IActionResult>();
+
+        var warehouseReconciliationsAttachmentsDownload = modelBuilder.Function("WarehouseReconciliationsAttachmentsDownload");
+        warehouseReconciliationsAttachmentsDownload.Parameter<Guid>("Key");
+        warehouseReconciliationsAttachmentsDownload.Returns<IActionResult>();
 
         var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
         storageInvoiceClosing.Parameter<Guid>("DocNumberKey");

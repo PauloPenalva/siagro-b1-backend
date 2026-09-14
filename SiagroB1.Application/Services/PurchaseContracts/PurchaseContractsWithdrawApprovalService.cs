@@ -26,7 +26,12 @@ public class PurchaseContractsWithdrawApprovalService(
         
         if (contract.HasShipmentReleases)
             throw new BusinessException(resource["PURCHASE_CONTRACT_HAS_SHIPMENT_RELEASES"]);
-        
+
+        // Em rascunho o contrato pode ser excluído, e a FK Restrict do washout (de QUALQUER status)
+        // barraria a exclusão com erro 547.
+        if (await db.Context.PurchaseContractsWashouts.AnyAsync(w => w.PurchaseContractKey == contract.Key))
+            throw new BusinessException(resource["PURCHASE_CONTRACT_HAS_WASHOUTS"]);
+
         contract.Status = ContractStatus.Draft;
         contract.UpdatedBy = userName;
         contract.UpdatedAt = DateTime.Now;

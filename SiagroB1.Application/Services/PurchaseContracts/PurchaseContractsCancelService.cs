@@ -28,6 +28,17 @@ public class PurchaseContractsCancelService(
             throw new ApplicationException("Contrato possui movimentos. Não é possivel cancelar, considere fazer washout.");
         }
 
+        // F6 (revisão final): washout InApproval reserva volume mas ainda pode ser rejeitado —
+        // cancelar o contrato com ele pendente o deixaria órfão, sem contrato ativo pra decidir.
+        var pendingWashoutCount = await db.Context.PurchaseContractsWashouts
+            .CountAsync(w => w.PurchaseContractKey == contract.Key
+                             && w.Status == PurchaseContractWashoutStatus.InApproval);
+
+        if (pendingWashoutCount > 0)
+            throw new ApplicationException(
+                $"Contrato possui {pendingWashoutCount} washout(s) pendente(s) de aprovação. " +
+                "Aprove ou rejeite antes de cancelar.");
+
         // Dinheiro tem o mesmo peso que grão: adiantamento pago barra o cancelamento. ANTES de
         // qualquer atribuição, para a operação inteira falhar sem efeito colateral.
         await cancellationGuard.EnsureCanCancelAsync(

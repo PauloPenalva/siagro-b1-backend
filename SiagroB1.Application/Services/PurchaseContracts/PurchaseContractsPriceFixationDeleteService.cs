@@ -33,6 +33,17 @@ public class PurchaseContractsPriceFixationDeleteService(
                     $"Fixação {fixation.Status} não pode ser excluída. " +
                     "Para desfazer, estorne a fixação — o histórico é preservado.");
 
+            // A FK washout → fixação é Restrict para washout de QUALQUER status (mesmo rejeitado
+            // ou estornado). O InMemory dos testes não vê essa violação, então o SQL 547 só
+            // aparece em banco real — a trava tem de vir daqui.
+            var hasWashout = await context.PurchaseContractsWashouts
+                .AnyAsync(w => w.PriceFixationKey == fixation.Key);
+
+            if (hasWashout)
+                throw new ApplicationException(
+                    "Fixação possui washout registrado (mesmo rejeitado ou estornado) e não pode ser excluída. " +
+                    "Rejeite a fixação em vez de excluí-la.");
+
             var contract = fixation.PurchaseContract;
 
             context.PurchaseContractsPriceFixations.Remove(fixation);

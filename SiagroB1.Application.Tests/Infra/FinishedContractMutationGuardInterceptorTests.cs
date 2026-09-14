@@ -94,4 +94,24 @@ public class FinishedContractMutationGuardInterceptorTests
 
         await Assert.ThrowsAsync<DefaultException>(() => ctx.SaveChangesAsync());
     }
+
+    [Fact]
+    public async Task AddingWashoutToFinishedContract_Throws()
+    {
+        await using var ctx = NewContext();
+        var pc = NewContract(ContractStatus.Finished);
+        ctx.PurchaseContracts.Add(pc);
+        await ctx.SaveChangesAsync();
+
+        ctx.PurchaseContractsWashouts.Add(new PurchaseContractWashout
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = pc.Key,
+            Sequence = 1,
+            UnfixedVolume = 10m,
+            Reason = "falta",
+        });
+
+        await Assert.ThrowsAsync<DefaultException>(() => ctx.SaveChangesAsync());
+    }
 }

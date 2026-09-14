@@ -33,6 +33,10 @@ public static class NotificationEventLabels
         NotificationEventType.PriceFixationApproved => "Fixação de preço aprovada",
         NotificationEventType.PriceFixationRejected => "Fixação de preço rejeitada",
         NotificationEventType.PriceFixationReversed => "Fixação de preço estornada",
+        NotificationEventType.WashoutCreated => "Washout incluído",
+        NotificationEventType.WashoutApproved => "Washout aprovado",
+        NotificationEventType.WashoutRejected => "Washout rejeitado",
+        NotificationEventType.WashoutReversed => "Washout estornado",
         _ => eventType.ToString(),
     };
 

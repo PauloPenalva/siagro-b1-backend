@@ -48,7 +48,7 @@ public class ShippingTransactionsCreateServiceTests
             guard,
             NullLogger<StorageTransactionsConfirmedService>.Instance);
 
-        var storageCopy = new StorageTransactionsCopyService(_db, docNumbers, storageCreate);
+        var storageCopy = new StorageTransactionsCopyService(_db, docNumbers, storageCreate, new FakeStringLocalizer<Resource>());
 
         var allocationCreate = new PurchaseContractsAllocationCreateService(
             _db,

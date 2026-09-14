@@ -1347,6 +1347,12 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<decimal>("WashedOutUnfixedVolume")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<decimal>("WashedOutVolume")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
@@ -1661,6 +1667,104 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("TaxCode");
 
                     b.ToTable("PURCHASE_CONTRACTS_TAXES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractWashout", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("ApprovalComments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("ContractPrice")
+                        .HasColumnType("DECIMAL(18,8) DEFAULT 0");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("FinancialDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("FixedVolume")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<decimal>("MarketPrice")
+                        .HasColumnType("DECIMAL(18,8) DEFAULT 0");
+
+                    b.Property<decimal>("PenaltyAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<Guid?>("PriceFixationKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("ReversalReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnfixedVolume")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("FinancialDocumentKey");
+
+                    b.HasIndex("PriceFixationKey");
+
+                    b.HasIndex("PurchaseContractKey", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("PURCHASE_CONTRACTS_WASHOUTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoice", b =>
@@ -4263,6 +4367,224 @@ namespace SiagroB1.Migrations.Migrations
                     b.ToTable("WAREHOUSE_COMPLEMENTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliation", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovalComments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("CardCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("Difference")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<Guid>("ReasonKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReferenceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ReportedBalance")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SentBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("SystemBalance")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("WarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode");
+
+                    b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("ReasonKey");
+
+                    b.HasIndex(new[] { "WarehouseCode", "ItemCode" }, "IX_WAREHOUSE_RECONCILIATIONS_OpenPerWarehouseItem")
+                        .IsUnique()
+                        .HasFilter("[Status] IN (0, 1)");
+
+                    b.ToTable("WAREHOUSE_RECONCILIATIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliationAttachment", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<byte[]>("FileData")
+                        .IsRequired()
+                        .HasColumnType("VARBINARY(MAX)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<Guid>("WarehouseReconciliationKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("WarehouseReconciliationKey");
+
+                    b.ToTable("WAREHOUSE_RECONCILIATION_ATTACHMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliationReason", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("WAREHOUSE_RECONCILIATION_REASONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
                 {
                     b.Property<Guid>("Key")
@@ -4759,6 +5081,31 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("PurchaseContract");
 
                     b.Navigation("Tax");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractWashout", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialDocument", "FinancialDocument")
+                        .WithMany()
+                        .HasForeignKey("FinancialDocumentKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", "PriceFixation")
+                        .WithMany()
+                        .HasForeignKey("PriceFixationKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
+                        .WithMany("Washouts")
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FinancialDocument");
+
+                    b.Navigation("PriceFixation");
+
+                    b.Navigation("PurchaseContract");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoice", b =>
@@ -5412,6 +5759,42 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("TruckScale");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliation", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
+                        .WithMany()
+                        .HasForeignKey("DocNumberKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.WarehouseReconciliationReason", "Reason")
+                        .WithMany()
+                        .HasForeignKey("ReasonKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("DocNumber");
+
+                    b.Navigation("Reason");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliationAttachment", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.WarehouseReconciliation", "WarehouseReconciliation")
+                        .WithMany("Attachments")
+                        .HasForeignKey("WarehouseReconciliationKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("WarehouseReconciliation");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -5506,6 +5889,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("ShipmentReleases");
 
                     b.Navigation("Taxes");
+
+                    b.Navigation("Washouts");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoice", b =>
@@ -5585,6 +5970,11 @@ namespace SiagroB1.Migrations.Migrations
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.Navigation("QualityInspections");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliation", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WeighingTicket", b =>

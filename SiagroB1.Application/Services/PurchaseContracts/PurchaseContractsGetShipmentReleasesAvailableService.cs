@@ -16,13 +16,14 @@ public class PurchaseContractsGetShipmentReleasesAvailableService(
     /// (EF não traduz a propriedade [NotMapped] <c>ShipmentRelease.ConsumedQuantity</c>).
     /// Mantenha as duas em sincronia: liberação cancelada consome apenas o romaneado, e
     /// liberação de devolução (<see cref="ReleaseOrigin.SalesReturn"/>) não consome nada.
+    /// Desconta o volume lavado (WashedOutVolume), como a propriedade.
     /// </summary>
     public IQueryable<PurchaseContract> Query()
     {
         return db.Context.PurchaseContracts
             .Include(x => x.ShipmentReleases)
             .Where(p => p.Status == ContractStatus.Approved &&
-                        (p.TotalVolume - p.ShipmentReleases
+                        (p.TotalVolume - p.WashedOutVolume - p.ShipmentReleases
                              .Sum(x => x.Origin == ReleaseOrigin.SalesReturn
                                  ? 0
                                  : x.Status == ReleaseStatus.Cancelled

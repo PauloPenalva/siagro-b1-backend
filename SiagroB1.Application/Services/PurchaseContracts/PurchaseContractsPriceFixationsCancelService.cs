@@ -48,6 +48,16 @@ public class PurchaseContractsPriceFixationsCancelService(
                 "Contrato precisa estar aprovado para movimentar fixações. " +
                 "Reabra o contrato antes de estornar a fixação.");
 
+        // Voltar a fixação para InApproval deixaria o washout sem preço de referência e com o
+        // provisório já reduzido.
+        var hasActiveWashout = await context.PurchaseContractsWashouts.AnyAsync(w =>
+            w.PriceFixationKey == fixation.Key &&
+            (w.Status == PurchaseContractWashoutStatus.InApproval || w.Status == PurchaseContractWashoutStatus.Approved));
+
+        if (hasActiveWashout)
+            throw new ApplicationException(
+                "Fixação possui washout registrado. Rejeite ou estorne o washout antes de estornar a fixação.");
+
         await using var transaction = await context.Database.BeginTransactionAsync();
 
         var previous = ContractChangeLogFields.DescribePriceFixation(

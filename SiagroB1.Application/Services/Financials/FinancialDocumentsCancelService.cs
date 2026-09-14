@@ -27,6 +27,14 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} já está cancelado.");
 
+        // F4 (revisão final): cancelar o título de washout por aqui deixaria o washout Approved
+        // reduzindo saldo e provisório sem título nenhum por trás — e um Estorno depois passaria
+        // em silêncio, porque EnqueueCancelByKeyAsync trata documento já cancelado como no-op.
+        if (document.OriginType == FinancialDocumentOrigin.PurchaseContractWashout)
+            throw new ApplicationException(
+                "Título gerado por washout não pode ser cancelado aqui. " +
+                $"Estorne o washout no contrato de compra {document.OriginDocNumber}.");
+
         if (document.SettledAmount != 0m)
             throw new ApplicationException(
                 $"O documento {document.Code} possui baixas. Estorne-as antes de cancelar.");
@@ -83,7 +91,26 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
             Cancel(document, reason, userName);
     }
 
-    private static void Cancel(Domain.Entities.FinancialDocument document, string reason, string userName)
+    /// <summary>
+    /// Enqueue-only: cancela UM documento pela chave — hoje, o título a receber do washout
+    /// estornado. Recusa documento com baixa: o dinheiro já entrou, e cancelar o título apagaria
+    /// o rastro dele. Documento já cancelado passa em silêncio (idempotente).
+    /// </summary>
+    public async Task EnqueueCancelByKeyAsync(Guid key, string reason, string userName)
+    {
+        var document = await Context.FinancialDocuments.FirstOrDefaultAsync(x => x.Key == key)
+                       ?? throw new NotFoundException("Documento financeiro não encontrado.");
+
+        if (document.Status == FinancialDocumentStatus.Canceled) return;
+
+        if (document.SettledAmount != 0m)
+            throw new ApplicationException(
+                $"O documento {document.Code} possui baixas. Estorne a baixa antes.");
+
+        Cancel(document, reason, userName);
+    }
+
+    internal static void Cancel(Domain.Entities.FinancialDocument document, string reason, string userName)
     {
         document.Status = FinancialDocumentStatus.Canceled;
         document.CancellationReason = reason;

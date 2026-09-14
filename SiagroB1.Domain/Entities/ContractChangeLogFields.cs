@@ -18,6 +18,9 @@ public static class ContractChangeLogFields
     public const string Attachment = "Attachment";
     public const string PriceFixation = "PriceFixation";
 
+    /// <summary>Ciclo de vida do washout do contrato de compra.</summary>
+    public const string Washout = "Washout";
+
     /// <summary>
     /// Comentário do contrato ou do documento de saída (coleção <c>CommentEntries</c>). Singular de
     /// propósito: o código legado <c>Comments</c> é a OBSERVAÇÃO do cabeçalho, que já tem linhas
@@ -89,6 +92,30 @@ public static class ContractChangeLogFields
             "{0:N3}{1} @ {2:N2} — {3}",
             volume, unit, price, DescribeStatus(status));
     }
+
+    /// <summary>
+    /// Como o washout aparece no log. Código, volumes e valor vão em TODAS as linhas, pelo mesmo
+    /// motivo da fixação: um contrato pode ter vários washouts.
+    /// </summary>
+    public static string DescribeWashout(PurchaseContractWashout washout, string? unitOfMeasureCode = null)
+    {
+        var unit = string.IsNullOrWhiteSpace(unitOfMeasureCode) ? "" : $" {unitOfMeasureCode}";
+
+        return string.Format(
+            PtBr,
+            "WO-{0}: {1:N3}{2} fixado + {3:N3}{2} não fixado, R$ {4:N2} — {5}",
+            washout.Sequence, washout.FixedVolume, unit, washout.UnfixedVolume, washout.Amount,
+            DescribeWashoutStatus(washout.Status));
+    }
+
+    private static string DescribeWashoutStatus(PurchaseContractWashoutStatus status) => status switch
+    {
+        PurchaseContractWashoutStatus.InApproval => "Em aprovação",
+        PurchaseContractWashoutStatus.Approved => "Aprovado",
+        PurchaseContractWashoutStatus.Rejected => "Rejeitado",
+        PurchaseContractWashoutStatus.Reversed => "Estornado",
+        _ => status.ToString(),
+    };
 
     /// <summary>
     /// Situação da fixação em pt-BR. Fica aqui, e não num formatter do frontend, porque é

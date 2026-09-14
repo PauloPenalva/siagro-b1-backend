@@ -30,4 +30,7 @@ public class PurchaseContractTotalsResponseDto
     
     [JsonPropertyName("AvaiableVolume")]
     public decimal AvaiableVolume { get; set; }
+
+    [JsonPropertyName("WashedOutVolume")]
+    public decimal WashedOutVolume { get; set; }
 }

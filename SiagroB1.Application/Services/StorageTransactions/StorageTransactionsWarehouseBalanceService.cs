@@ -30,13 +30,23 @@ namespace SiagroB1.Application.Services.StorageTransactions;
 /// por <c>SalesInvoicesReverseConfirmService</c>, que precisa da mesma fórmula para decidir se
 /// uma devolução ao armazém ainda pode ser desfeita com segurança.
 /// </para>
+/// <para>
+/// <c>WarehouseLoss(13)</c> e <c>WarehouseGain(14)</c> são o efeito da Conferência de Saldo de
+/// Armazém (GAC-1164): quebra ou sobra informada pelo armazém de terceiros sobre grão da empresa.
+/// Não têm contrato nem lote — só este saldo os enxerga.
+/// </para>
 /// </remarks>
 public static class StorageTransactionsWarehouseBalanceService
 {
+    /// <param name="upToDate">
+    /// Quando informado, soma só o que foi lançado até o FIM desse dia (<c>TransactionDate</c>
+    /// anterior ao início do dia seguinte). Romaneio sem data conta sempre — é legado, e deixá-lo
+    /// de fora faria o saldo "até hoje" divergir do saldo atual.
+    /// </param>
     public static async Task<decimal> CalculateAsync(
-        AppDbContext context, string warehouseCode, string itemCode)
+        AppDbContext context, string warehouseCode, string itemCode, DateTime? upToDate = null)
     {
-        var total = await context.StorageTransactions
+        var query = context.StorageTransactions
             .AsNoTracking()
             .Where(x => (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
                          x.TransactionStatus == StorageTransactionsStatus.Invoiced) &&
@@ -45,9 +55,20 @@ public static class StorageTransactionsWarehouseBalanceService
                         (x.TransactionType == StorageTransactionType.Purchase ||
                          x.TransactionType == StorageTransactionType.PurchaseReturn ||
                          x.TransactionType == StorageTransactionType.SalesShipment ||
-                         x.TransactionType == StorageTransactionType.SalesShipmentReturn))
+                         x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                         x.TransactionType == StorageTransactionType.WarehouseLoss ||
+                         x.TransactionType == StorageTransactionType.WarehouseGain));
+
+        if (upToDate.HasValue)
+        {
+            var limit = upToDate.Value.Date.AddDays(1);
+            query = query.Where(x => x.TransactionDate == null || x.TransactionDate < limit);
+        }
+
+        var total = await query
             .SumAsync(x => (x.TransactionType == StorageTransactionType.Purchase ||
-                            x.TransactionType == StorageTransactionType.SalesShipmentReturn)
+                            x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                            x.TransactionType == StorageTransactionType.WarehouseGain)
                 ? x.NetWeight
                 : -x.NetWeight);
 

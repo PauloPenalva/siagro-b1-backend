@@ -30,6 +30,7 @@ public class PurchaseContractsTotalsService(AppDbContext context)
             TotalStandard = ctr.TotalStandard,
             TotalVolume = ctr.TotalVolume,
             AvaiableVolume = ctr.AvaiableVolume,
+            WashedOutVolume = ctr.WashedOutVolume,
         };
     }
 }

@@ -66,6 +66,13 @@ public class StorageTransactionsConfirmedService(
             case StorageTransactionType.SalesShipmentReturn:
                 await ExecuteSalesShipmentReturnTransactionAsync(st, userName, commitMode);
                 break;
+            // Perda/Sobra de armazém nascem Confirmadas pela aprovação da Conferência de Saldo.
+            // Sem este case caíam no default, que trata como COMPRA: aplicava descontos e
+            // tornava o volume alocável a contrato.
+            case StorageTransactionType.WarehouseLoss:
+            case StorageTransactionType.WarehouseGain:
+                throw new ApplicationException(
+                    resource["WAREHOUSE_RECONCILIATION_TRANSACTION_NOT_CONFIRMABLE"].Value);
             default:
                 await ExecutePurchaseTransactionAsync(st, userName, commitMode);
                 break;

@@ -2,6 +2,7 @@
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
+using SiagroB1.Reports.Helpers;
 using SiagroB1.Reports.Interfaces;
 
 namespace SiagroB1.Reports.Services;
@@ -66,12 +67,18 @@ public class StorageStatementReportService(IUnitOfWork db) : IStorageStatementRe
                 currentGroup = groupKey;
             }
 
+            // Sobra de armazém (14) entra como entrada e Perda de armazém (13) como saída —
+            // mesma convenção do StorageStatementReportHelper. Os demais tipos ficam como
+            // estavam de propósito: PurchaseReturn/SalesShipmentReturn/complementos não somam
+            // aqui hoje, e trocar para GetSignedQuantity mudaria essa contagem.
             var entrada = (t.TransactionType == StorageTransactionType.Receipt ||
-                           t.TransactionType == StorageTransactionType.Purchase)
+                           t.TransactionType == StorageTransactionType.Purchase ||
+                           t.TransactionType == StorageTransactionType.WarehouseGain)
                 ? t.NetWeight : 0;
 
             var saida = (t.TransactionType == StorageTransactionType.Shipment ||
-                         t.TransactionType == StorageTransactionType.SalesShipment)
+                         t.TransactionType == StorageTransactionType.SalesShipment ||
+                         t.TransactionType == StorageTransactionType.WarehouseLoss)
                 ? t.NetWeight : 0;
 
             runningBalance += entrada - saida;
@@ -91,7 +98,7 @@ public class StorageStatementReportService(IUnitOfWork db) : IStorageStatementRe
                 TransactionDate = t.TransactionDate,
                 TransactionTime = t.TransactionTime,
                 Code = t.Code,
-                TransactionTypeName = t.TransactionType.ToString(),
+                TransactionTypeName = StorageStatementReportHelper.GetTransactionTypeName(t.TransactionType),
                 TransactionStatusName = t.TransactionStatus.ToString(),
                 CardCode = t.CardCode,
                 CardName = t.CardName,

@@ -19,6 +19,8 @@ public static class StorageStatementReportHelper
         StorageTransactionType.PurchaseQtyComplement => "Compra - Compl. Qtde",
         StorageTransactionType.PurchasePriceComplement => "Compra - Compl. Valor",
         StorageTransactionType.SalesShipmentReturn => "Venda - Devolução",
+        StorageTransactionType.WarehouseLoss => "Perda Armazém",
+        StorageTransactionType.WarehouseGain => "Sobra Armazém",
         _ => "Outros"
     };
 
@@ -38,6 +40,7 @@ public static class StorageStatementReportHelper
         StorageTransactionType.PurchaseQtyComplement => true,
         StorageTransactionType.PurchasePriceComplement => true,
         StorageTransactionType.SalesShipmentReturn => true,
+        StorageTransactionType.WarehouseGain => true,
         _ => false
     };
 
@@ -46,6 +49,7 @@ public static class StorageStatementReportHelper
         StorageTransactionType.Shipment => true,
         StorageTransactionType.SalesShipment => true,
         StorageTransactionType.PurchaseReturn => true,
+        StorageTransactionType.WarehouseLoss => true,
         _ => false
     };
 

@@ -130,7 +130,9 @@ public class PurchaseContract : DocumentEntity
     /// comentários.
     /// </summary>
     public ICollection<PurchaseContractChangeLog> ChangeLogs { get; set; } = [];
-    
+
+    public ICollection<PurchaseContractWashout> Washouts { get; set; } = [];
+
     public TechnologyType? TechnologyType { get; set; }
 
     public FunruralType? FunruralType { get; set; } = Enums.FunruralType.Bruto;
@@ -147,6 +149,20 @@ public class PurchaseContract : DocumentEntity
     /// </summary>
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal FixedVolume { get; set; }
+
+    /// <summary>
+    /// Volume lavado (persistido, derivado): Σ (FixedVolume + UnfixedVolume) dos washouts InApproval
+    /// + Approved. Recalculado exclusivamente por PurchaseContractsWashedOutVolumeService.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal WashedOutVolume { get; set; }
+
+    /// <summary>
+    /// Parte NÃO FIXADA de <see cref="WashedOutVolume"/>: volume de contrato a fixar que o produtor
+    /// desistiu de entregar e que, por isso, não pode mais ser fixado. Mesmo recálculo.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal WashedOutUnfixedVolume { get; set; }
 
     /// <summary>
     /// Token de concorrência otimista (SQL Server rowversion). Protege
@@ -166,7 +182,7 @@ public class PurchaseContract : DocumentEntity
         decimal.Round(TotalVolume * StandardPrice, 2, MidpointRounding.ToEven);
     
     [NotMapped]
-    public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume;
+    public decimal AvailableVolumeToPricing => TotalVolume - FixedVolume - WashedOutUnfixedVolume;
     
     /// <remarks>
     /// Conta APENAS fixações confirmadas. Uma fixação em aprovação reserva volume
@@ -199,8 +215,8 @@ public class PurchaseContract : DocumentEntity
         2, MidpointRounding.ToEven);
     
     [NotMapped]
-    public decimal TotalAvailableToRelease => 
-        decimal.Round(TotalVolume - TotalShipmentReleases, 2, MidpointRounding.ToEven);
+    public decimal TotalAvailableToRelease =>
+        decimal.Round(TotalVolume - TotalShipmentReleases - WashedOutVolume, 2, MidpointRounding.ToEven);
     
     [NotMapped]
     public decimal TotalShipmentReleasesWithoutProvisioning =>
@@ -213,8 +229,8 @@ public class PurchaseContract : DocumentEntity
             2, MidpointRounding.ToEven);
     
     [NotMapped]
-    public decimal TotalAvailableToReleaseWithoutProvisioning => 
-        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
+    public decimal TotalAvailableToReleaseWithoutProvisioning =>
+        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning - WashedOutVolume, 2, MidpointRounding.ToEven);
     
     /// <remarks>
     /// Uma liberação cancelada COM movimentação continua bloqueando (houve movimento físico).
@@ -227,8 +243,9 @@ public class PurchaseContract : DocumentEntity
     /// Saldo alocável do contrato, derivado de <see cref="AllocatedVolume"/>
     /// (persistido, recalculado nos serviços de alocação). Não depende de
     /// nenhuma navegação em runtime — funciona sob $select do OData.
+    /// Desconta o volume lavado (<see cref="WashedOutVolume"/>).
     /// </summary>
     [NotMapped]
     public decimal AvaiableVolume =>
-        decimal.Round(TotalVolume - AllocatedVolume, 2, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - AllocatedVolume - WashedOutVolume, 2, MidpointRounding.ToEven);
 }

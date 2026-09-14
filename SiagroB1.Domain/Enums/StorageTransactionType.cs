@@ -15,4 +15,6 @@ public enum StorageTransactionType
     PurchaseQtyComplement = 10,   // Compra - Complemento de Quantidade
     PurchasePriceComplement = 11, // Compra - Complemento de Valor
     SalesShipmentReturn = 12,     // Venda - Devolução de Venda/Recusa
+    WarehouseLoss = 13,           // Perda de armazém - gerada pela Conferência de Saldo de Armazém
+    WarehouseGain = 14,           // Sobra de armazém - gerada pela Conferência de Saldo de Armazém
 }

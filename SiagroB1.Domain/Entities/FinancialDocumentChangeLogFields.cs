@@ -11,4 +11,7 @@ public static class FinancialDocumentChangeLogFields
 
     /// <summary>Revínculo do adiantamento: os valores gravados são os CÓDIGOS dos contratos.</summary>
     public const string Contract = "Contract";
+
+    /// <summary>Valor do provisório ajustado no lugar pelo washout (valores formatados N2 pt-BR).</summary>
+    public const string NetAmount = "NetAmount";
 }

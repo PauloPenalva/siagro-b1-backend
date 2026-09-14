@@ -9,4 +9,7 @@ public class FinancialDocumentBacklogResultDto
     [JsonPropertyName("Generated")] public int Generated { get; set; }
     [JsonPropertyName("SkippedAlreadyGenerated")] public int SkippedAlreadyGenerated { get; set; }
     [JsonPropertyName("SkippedWithoutDueDate")] public int SkippedWithoutDueDate { get; set; }
+
+    /// <summary>Fixações de compra totalmente lavadas por washout aprovado: nada a gerar.</summary>
+    [JsonPropertyName("SkippedFullyWashedOut")] public int SkippedFullyWashedOut { get; set; }
 }

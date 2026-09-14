@@ -36,4 +36,10 @@ public enum NotificationEventType
     /// <see cref="PriceFixationStatus.InApproval"/>, não para cancelada.
     /// </summary>
     PriceFixationReversed = 13,
+
+    // Faixa 20+: washout do contrato de compra.
+    WashoutCreated = 20,
+    WashoutApproved = 21,
+    WashoutRejected = 22,
+    WashoutReversed = 23,
 }

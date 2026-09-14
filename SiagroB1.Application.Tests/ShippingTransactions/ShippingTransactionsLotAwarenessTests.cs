@@ -50,7 +50,7 @@ public class ShippingTransactionsLotAwarenessTests
             _db,
             storageCreate,
             storageConfirmed,
-            new StorageTransactionsCopyService(_db, docNumbers, storageCreate),
+            new StorageTransactionsCopyService(_db, docNumbers, storageCreate, new FakeStringLocalizer<Resource>()),
             new PurchaseContractsAllocationCreateService(
                 _db,
                 new StorageTransactionsGetService(

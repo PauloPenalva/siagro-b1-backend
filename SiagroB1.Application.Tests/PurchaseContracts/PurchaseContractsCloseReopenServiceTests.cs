@@ -280,4 +280,54 @@ public class PurchaseContractsCloseReopenServiceTests
         await Assert.ThrowsAsync<NotFoundException>(() =>
             ReopenService().ExecuteAsync(pc.Key, "tester"));
     }
+
+    /// <summary>
+    /// F3 (revisão final): §8 do spec pedia este caminho e não existia. Reabrir chama o MESMO
+    /// gerador que a aprovação/backlog usam — ele já desconta os washouts Approved da fixação
+    /// lendo o banco, então o teste só prova que o caminho existe e não devolve o valor cheio.
+    /// </summary>
+    [Fact]
+    public async Task Reopen_FinishedFixContract_GeneratesTheProvisionalDiscountedByTheApprovedWashout()
+    {
+        var contract = NewContract(ContractStatus.Finished);
+        contract.Type = ContractType.Fixed;
+        contract.FixedVolume = 100_000m;
+        contract.WashedOutVolume = 40_000m;
+        contract.StandardCurrency = CurrencyType.Brl;
+
+        var fixation = new PurchaseContractPriceFixation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            FixationVolume = 100_000m,
+            FixationPrice = 2.5m,
+            FinancialDueDate = new DateTime(2026, 12, 31),
+            Status = PriceFixationStatus.Confirmed,
+        };
+
+        var washout = new PurchaseContractWashout
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            PriceFixationKey = fixation.Key,
+            Sequence = 1,
+            FixedVolume = 40_000m,
+            ContractPrice = 2.5m,
+            MarketPrice = 2.75m,
+            Amount = 10_000m,
+            DueDate = new DateTime(2026, 10, 31),
+            Reason = "Produtor sem produto",
+            Status = PurchaseContractWashoutStatus.Approved,
+        };
+
+        _db.Context.PurchaseContracts.Add(contract);
+        _db.Context.PurchaseContractsPriceFixations.Add(fixation);
+        _db.Context.PurchaseContractsWashouts.Add(washout);
+        await _db.Context.SaveChangesAsync();
+
+        await ReopenService().ExecuteAsync(contract.Key, "tester");
+
+        // (100.000 − 40.000) × 2,50
+        Assert.Equal(150_000m, _db.Context.FinancialDocuments.Single().NetAmount);
+    }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -63,6 +64,15 @@ public class FinancialDocumentsGenerateBacklogService(
                     x.Status != FinancialDocumentStatus.Canceled);
 
                 if (alreadyGenerated) { result.SkippedAlreadyGenerated++; continue; }
+
+                // F3 (revisão final): fixação totalmente lavada por washout Approved tem
+                // alreadyGenerated == false (o provisório foi cancelado a zero), então sem este
+                // corte ela seguia como "Generated" mesmo o gerador não escrevendo nada — e, no
+                // dry run, ficava "pendente" para sempre.
+                var remaining = fixation.FixationVolume -
+                    await PurchaseContractsWashedOutVolumeService.ApprovedFixedVolumeAsync(db.Context, fixation.Key);
+
+                if (remaining <= 0) { result.SkippedFullyWashedOut++; continue; }
 
                 if ((fixation.FinancialDueDate ?? contract.StandardCashFlowDate) is null)
                 {

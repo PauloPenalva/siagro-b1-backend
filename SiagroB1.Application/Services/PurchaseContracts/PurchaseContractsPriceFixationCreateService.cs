@@ -45,7 +45,8 @@ public class PurchaseContractsPriceFixationCreateService(
 
             await fixedVolumeService.RecalculateAsync(contract);
 
-            if (contract.FixedVolume + associationEntity.FixationVolume > contract.TotalVolume)
+            // Volume não fixado lavado por washout não pode mais ser fixado.
+            if (contract.FixedVolume + contract.WashedOutUnfixedVolume + associationEntity.FixationVolume > contract.TotalVolume)
                 throw new ApplicationException(
                     $"Volume excede o saldo disponível para fixação. " +
                     $"Disponível: {contract.AvailableVolumeToPricing:N3}, " +

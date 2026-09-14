@@ -34,6 +34,7 @@ using SiagroB1.Security.Shared;
 using SiagroB1.Application.Services.Users;
 using SiagroB1.Application.Services.UserTruckScales;
 using SiagroB1.Application.Services.UsersProfiles;
+using SiagroB1.Application.Services.WarehouseReconciliations;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Application.Interfaces;
 using SiagroB1.Commons.Scales;
@@ -223,6 +224,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsPriceFixationDeleteService>();
         services.AddScoped<PurchaseContractsPriceFixationsGetService>();
         services.AddScoped<PurchaseContractsPriceFixationsUpdateService>();
+        services.AddScoped<PurchaseContractsWashedOutVolumeService>();
+        services.AddScoped<PurchaseContractsWashoutCreateService>();
+        services.AddScoped<PurchaseContractsWashoutApprovalService>();
+        services.AddScoped<PurchaseContractsWashoutRejectService>();
+        services.AddScoped<PurchaseContractsWashoutReverseService>();
+        services.AddScoped<PurchaseContractsWashoutsGetService>();
         services.AddScoped<PurchaseContractsQualityParametersCreateService>();
         services.AddScoped<PurchaseContractsQualityParametersDeleteService>();
         services.AddScoped<PurchaseContractsQualityParametersGetService>();
@@ -484,6 +491,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersValidateContractService>();
         services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
 
+        // warehouse reconciliations (GAC-1164)
+        services.AddScoped<WarehouseReconciliationsGuardService>();
+        services.AddScoped<WarehouseReconciliationsDescriptionService>();
+        services.AddScoped<WarehouseReconciliationsGetService>();
+        services.AddScoped<WarehouseReconciliationsCreateService>();
+        services.AddScoped<WarehouseReconciliationsUpdateService>();
+        services.AddScoped<WarehouseReconciliationsGetBalancePreviewService>();
+        services.AddScoped<WarehouseReconciliationsSendApprovalService>();
+        services.AddScoped<WarehouseReconciliationsWithdrawApprovalService>();
+        services.AddScoped<WarehouseReconciliationsRejectService>();
+        services.AddScoped<WarehouseReconciliationsApprovalService>();
+        services.AddScoped<WarehouseReconciliationsCancelService>();
+        services.AddScoped<WarehouseReconciliationReasonsGetService>();
+        services.AddScoped<WarehouseReconciliationReasonsCreateService>();
+        services.AddScoped<WarehouseReconciliationReasonsUpdateService>();
+        services.AddScoped<WarehouseReconciliationReasonsDeleteService>();
+        services.AddScoped<WarehouseReconciliationAttachmentsCreateService>();
+        services.AddScoped<WarehouseReconciliationAttachmentsGetService>();
+        services.AddScoped<WarehouseReconciliationAttachmentsDeleteService>();
+
         //storage invoices
         services.AddScoped<IStorageInvoiceClosingService,StorageInvoiceClosingService>();
         services.AddScoped<IStorageInvoiceCancellationService,StorageInvoiceCancellationService>();
@@ -501,6 +528,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsGenerateService>();
         services.AddScoped<FinancialDocumentsCancelService>();
         services.AddScoped<FinancialDocumentChangeLogService>();
+        services.AddScoped<FinancialDocumentsAdjustProvisionalService>();
+        services.AddScoped<FinancialDocumentsGenerateWashoutReceivableService>();
         services.AddScoped<FinancialDocumentsSettleService>();
         services.AddScoped<FinancialDocumentsReverseSettlementService>();
         services.AddScoped<FinancialAdvancesCreateService>();

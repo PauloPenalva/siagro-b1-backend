@@ -186,6 +186,9 @@
     <data name="PURCHASE_CONTRACT_HAS_SHIPMENT_RELEASES" xml:space="preserve">
         <value>Contrato de Compra possui movimentação, não é possivel remover da aprovação.</value>
     </data>
+    <data name="PURCHASE_CONTRACT_HAS_WASHOUTS" xml:space="preserve">
+        <value>Contrato de Compra possui washout registrado, não é possivel remover da aprovação.</value>
+    </data>
     <data name="PURCHASE_CONTRACT_NOT_IN_APPROVAL_STATUS" xml:space="preserve">
         <value>Contrato de Compra não esta em aprovação ou aprovado.</value>
     </data>
@@ -218,5 +221,74 @@
     </data>
     <data name="STORAGE_TRANSACTION_NOT_FOUND" xml:space="preserve">
         <value>Romaneio não encontrado.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_TRANSACTION_NOT_CONFIRMABLE" xml:space="preserve">
+        <value>Romaneio de perda/sobra de armazém é gerado pela Conferência de Saldo de Armazém e não pode ser confirmado por aqui.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REASON_NOT_FOUND" xml:space="preserve">
+        <value>Motivo de conferência não encontrado.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REASON_REQUIRED_FIELDS" xml:space="preserve">
+        <value>Informe o código e a descrição do motivo.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REASON_CODE_DUPLICATE" xml:space="preserve">
+        <value>Já existe um motivo com este código.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REASON_IN_USE" xml:space="preserve">
+        <value>Motivo em uso por conferências de saldo. Desative-o em vez de excluir.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_NOT_FOUND" xml:space="preserve">
+        <value>Conferência de saldo de armazém não encontrada.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REQUIRED_FIELDS" xml:space="preserve">
+        <value>Informe filial, armazém, produto, unidade de medida e motivo.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_OWN_WAREHOUSE" xml:space="preserve">
+        <value>A conferência de saldo só pode ser feita para armazém de terceiros.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_NEGATIVE_REPORTED_BALANCE" xml:space="preserve">
+        <value>O saldo informado pelo armazém não pode ser negativo.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_FUTURE_DATE" xml:space="preserve">
+        <value>A data de referência não pode ser futura.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_REASON_INACTIVE" xml:space="preserve">
+        <value>Motivo inexistente ou inativo.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_DATE_BEFORE_LAST_APPROVED" xml:space="preserve">
+        <value>A data de referência é anterior à da última conferência aprovada deste armazém e produto.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_ALREADY_OPEN" xml:space="preserve">
+        <value>Já existe uma conferência em rascunho ou em aprovação para este armazém e produto.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_NOT_DRAFT" xml:space="preserve">
+        <value>Somente conferências em rascunho podem ser alteradas ou enviadas para aprovação.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_NOT_IN_APPROVAL" xml:space="preserve">
+        <value>Somente conferências em aprovação podem ser aprovadas, rejeitadas ou retiradas da aprovação.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_ZERO_DIFFERENCE" xml:space="preserve">
+        <value>Não há diferença entre o saldo informado pelo armazém e o saldo do sistema na data de referência.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_LOSS_EXCEEDS_BALANCE" xml:space="preserve">
+        <value>A perda apurada é maior que o saldo atual do armazém para o produto.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_CANCELLATION_REASON_REQUIRED" xml:space="preserve">
+        <value>Informe o motivo do cancelamento.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_CANNOT_CANCEL" xml:space="preserve">
+        <value>Somente conferências em rascunho ou aprovadas podem ser canceladas.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_NOT_LATEST" xml:space="preserve">
+        <value>Somente a última conferência aprovada deste armazém e produto pode ser cancelada.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_GAIN_CANCEL_NEGATIVE" xml:space="preserve">
+        <value>Cancelar esta sobra deixaria o saldo do armazém negativo.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_TRANSACTION_NOT_COPYABLE" xml:space="preserve">
+        <value>Romaneio de perda/sobra de armazém é gerado pela Conferência de Saldo de Armazém e não pode ser copiado.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_ATTACHMENTS_LOCKED" xml:space="preserve">
+        <value>Anexos só podem ser incluídos ou removidos enquanto a conferência está em rascunho ou em aprovação.</value>
     </data>
 </root>

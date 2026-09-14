@@ -9,7 +9,7 @@ namespace SiagroB1.Infra.Interceptors;
 /// <summary>
 /// Impede alterar (add/update/delete) sub-entidades vinculadas a um contrato de
 /// compra encerrado (<see cref="ContractStatus.Finished"/>): corretores, impostos,
-/// parâmetros de qualidade e fixações de preço. Cobre todos os caminhos de
+/// parâmetros de qualidade, fixações de preço e washouts. Cobre todos os caminhos de
 /// mutação (controllers OData diretos e serviços) num único ponto.
 /// </summary>
 public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
@@ -79,6 +79,7 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
                 PurchaseContractTax t => t.PurchaseContractKey,
                 PurchaseContractQualityParameter q => q.PurchaseContractKey,
                 PurchaseContractPriceFixation f => f.PurchaseContractKey,
+                PurchaseContractWashout w => w.PurchaseContractKey,
                 _ => null
             };
 
