@@ -121,6 +121,7 @@ public class AuthService(
 
                 var loggedUser = ToUserInfo(user);
                 loggedUser.Permissions = await GetPermissionsAsync(user.Id);
+                loggedUser.Roles = await GetRolesAsync(user.Id);
 
                 return new LoginResponse()
                 {
@@ -234,9 +235,24 @@ public class AuthService(
                 .FirstOrDefaultAsync();
 
             if (info != null)
+            {
                 info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id));
+                info.Roles = await GetRolesAsync(Guid.Parse(info.Id));
+            }
 
             return info;
+        }
+
+        /// <summary>Papéis efetivos: usuário -> perfis -> papéis.</summary>
+        private async Task<List<string>> GetRolesAsync(Guid userId)
+        {
+            var query =
+                from up in db.UserProfiles
+                join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
+                where up.UserId == userId
+                select pr.RoleCode;
+
+            return await query.Distinct().ToListAsync();
         }
 
         /// <summary>Permissões efetivas: usuário -> perfis -> papéis -> permissões.</summary>

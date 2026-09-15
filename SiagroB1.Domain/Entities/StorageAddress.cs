@@ -75,6 +75,18 @@ public class StorageAddress : MasterEntity
                     (x.TransactionStatus is StorageTransactionsStatus.Confirmed or StorageTransactionsStatus.Invoiced))
         .Sum(x => x.NetWeight);
 
-    public decimal Balance => decimal.Round(
-        TotalReceipt - (TotalShipment + TotalQualityLoss), MidpointRounding.ToEven);
+    private decimal? _balance;
+
+    /// <summary>
+    /// Saldo do lote. Quem lista lotes não carrega os romaneios: projeta a soma já feita no banco e
+    /// grava aqui (ver <c>StorageAddressesGetService.QueryAll</c>). Sem valor projetado, soma os
+    /// <see cref="Transactions"/> carregados, como fazem as leituras de um lote só.
+    /// </summary>
+    [NotMapped]
+    public decimal Balance
+    {
+        get => decimal.Round(
+            _balance ?? TotalReceipt - (TotalShipment + TotalQualityLoss), MidpointRounding.ToEven);
+        set => _balance = value;
+    }
 }

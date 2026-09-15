@@ -20,4 +20,7 @@ public class UserInfo
     /// recusada; quem decide de fato continua sendo o servidor.
     /// </summary>
     public List<string> Permissions { get; set; } = [];
+
+    /// <summary>Papéis atribuídos pelos perfis. Mesma finalidade das permissões: só orienta a tela.</summary>
+    public List<string> Roles { get; set; } = [];
 }

@@ -147,11 +147,11 @@
     <data name="STORAGE_ADDRESS_NOT_FOUND" xml:space="preserve">
         <value>Lote de armazenamento não encontrado.</value>
     </data>
-    <data name="STORAGE_INVOICE_ALREADY_EXISTS" xml:space="preserve">
-        <value>Fatura de serviços de armazenagem já existe.</value>
+    <data name="STORAGE_INVOICE_CLOSING_IN_PROGRESS" xml:space="preserve">
+        <value>Já existe um fechamento de fatura em andamento para este lote. Tente novamente em instantes.</value>
     </data>
     <data name="NO_ITEMS_TO_INVOICE" xml:space="preserve">
-        <value>Não há itens para serem faturados.</value>
+        <value>Não há registros pendentes para faturamento no período informado.</value>
     </data>
     <data name="STORAGE_INVOICE_DOC_NUMBER_KEY_NOT_INFORMED" xml:space="preserve">
         <value>Sequencia numerica para faturamento de serviços não informada.</value>

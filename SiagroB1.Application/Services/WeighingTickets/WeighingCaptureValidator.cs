@@ -25,9 +25,13 @@ public class WeighingCaptureValidator(
         int weigh,
         Guid? captureId,
         WeighingScalePurpose purpose,
-        string truckCode)
+        string truckCode,
+        string? selectedScaleCode = null)
     {
-        var canType = await permissions.HasAsync(username, PermissionCodes.WeighingManualEntry);
+        // O papel ADMIN atribuído pelo perfil também digita: é quem corrige a pesagem quando a
+        // balança falha. O HasAsync só cobre o flag legado USERS.IsAdmin.
+        var canType = await permissions.HasAsync(username, PermissionCodes.WeighingManualEntry)
+            || await permissions.HasRoleAsync(username, Domain.Constants.Roles.Admin);
 
         string? scaleCode = null;
         var captured = false;
@@ -51,19 +55,40 @@ public class WeighingCaptureValidator(
                 "O peso deve ser capturado da balança. Este usuário não pode digitar o peso.");
         }
 
-        scaleCode ??= await GetConfiguredScaleCodeAsync(username, purpose);
+        // Peso capturado: vale a balança da captura. Digitado: a que o usuário escolheu na tela.
+        scaleCode ??= await GetConfiguredScaleCodeAsync(username, purpose, selectedScaleCode);
 
         await ValidateTareAsync(scaleCode, truckCode, weigh);
 
         return new WeighingWeightOrigin(scaleCode, captured);
     }
 
-    private async Task<string?> GetConfiguredScaleCodeAsync(string username, WeighingScalePurpose purpose) =>
-        await db.Context.UserTruckScales
+    /// <summary>
+    /// A balança escolhida precisa ser uma das configuradas para o usuário na etapa - senão bastaria
+    /// informar uma balança sem validação de tara para escapar dela. Sem escolha (chamada antiga ou
+    /// usuário com uma balança só), vale a primeira pelo código, para o resultado ser estável.
+    /// </summary>
+    private async Task<string?> GetConfiguredScaleCodeAsync(
+        string username,
+        WeighingScalePurpose purpose,
+        string? selectedScaleCode)
+    {
+        var configured = db.Context.UserTruckScales
             .AsNoTracking()
-            .Where(x => x.Username == username && x.Purpose == purpose)
-            .Select(x => x.TruckScaleCode)
-            .FirstOrDefaultAsync();
+            .Where(x => x.Username == username && x.Purpose == purpose);
+
+        if (string.IsNullOrWhiteSpace(selectedScaleCode))
+            return await configured
+                .OrderBy(x => x.TruckScaleCode)
+                .Select(x => x.TruckScaleCode)
+                .FirstOrDefaultAsync();
+
+        if (!await configured.AnyAsync(x => x.TruckScaleCode == selectedScaleCode))
+            throw new ApplicationException(
+                $"A balança {selectedScaleCode} não está configurada para este usuário nesta etapa da pesagem.");
+
+        return selectedScaleCode;
+    }
 
     /// <summary>
     /// Vale para as duas pesagens: nenhum peso lido pode ser menor que a tara cadastrada menos a

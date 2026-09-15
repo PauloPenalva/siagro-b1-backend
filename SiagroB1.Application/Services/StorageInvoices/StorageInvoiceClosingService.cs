@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+using System.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
@@ -26,7 +28,7 @@ public class StorageInvoiceClosingService(
     {
         if (request.DocNumberKey == Guid.Empty)
             throw new ApplicationException(resource["STORAGE_INVOICE_DOC_NUMBER_KEY_NOT_INFORMED"]);
-        
+
         var periodStart = request.PeriodStart.Date;
         var periodEnd = request.PeriodEnd.Date;
 
@@ -37,217 +39,212 @@ public class StorageInvoiceClosingService(
             .FirstOrDefaultAsync(x => x.Code == request.StorageAddressCode, ct)
             ?? throw new NotFoundException(resource["STORAGE_ADDRESS_NOT_FOUND"]);
 
-        var alreadyExists =await db.Context.StorageInvoices
-            .AnyAsync(x =>
-                x.StorageAddressCode == request.StorageAddressCode &&
-                x.Status != StorageInvoiceStatus.Cancelled &&
-                x.PeriodStart <= periodEnd &&
-                x.PeriodEnd >= periodStart, ct);
-
-        if (alreadyExists)
-            throw new BusinessException(resource["STORAGE_INVOICE_ALREADY_EXISTS"]);
-
-        var transactions = await db.Context.StorageTransactions
-            .Where(x =>
-                x.StorageAddressCode == request.StorageAddressCode &&
-                x.TransactionDate >= periodStart &&
-                x.TransactionDate <= periodEnd &&
-                (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
-                 x.TransactionStatus == StorageTransactionsStatus.Invoiced) &&
-                !x.IsInvoiced &&
-                (
-                    x.ReceiptServicePrice > 0 ||
-                    x.ShipmentPrice > 0 ||
-                    x.CleaningServicePrice > 0 ||
-                    x.DryingServicePrice > 0 ||
-                    x.FreightPrice > 0
-                ))
-            .ToListAsync(ct);
-
-        var charges = await db.Context.StorageCharges
-            .Where(x =>
-                x.StorageAddressCode == request.StorageAddressCode &&
-                x.PeriodEnd >= periodStart &&
-                x.PeriodEnd <= periodEnd &&
-                !x.IsInvoiced &&
-                (
-                    x.ChargeType == StorageChargeType.Storage ||
-                    x.ChargeType == StorageChargeType.Fumigation ||
-                    (request.IncludeUnpricedItems && x.ChargeType == StorageChargeType.TechnicalLoss)
-                ))
-            .ToListAsync(ct);
-
-        var items = new List<StorageInvoiceItem>();
-
-        foreach (var tx in transactions)
-        {
-            if (tx.ReceiptServicePrice > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.ReceiptService,
-                    Description = $"Recepção - {tx.Code ?? tx.Key.ToString()}",
-                    ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.GrossWeight,
-                    UnitPriceOrRate = Math.Round(tx.ReceiptServicePrice / tx.GrossWeight, 8) ,
-                    TotalAmount = tx.ReceiptServicePrice,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageTransaction),
-                    SourceKey = tx.Key,
-                    SourceCode = tx.Code
-                });
-            }
-
-            if (tx.ShipmentPrice > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.ShipmentService,
-                    Description = $"Expedição - {tx.Code ?? tx.Key.ToString()}",
-                    ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.NetWeight,
-                    UnitPriceOrRate = tx.NetWeight == 0 ? 0 : Math.Round(tx.ShipmentPrice / tx.NetWeight, 8),
-                    TotalAmount = tx.ShipmentPrice,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageTransaction),
-                    SourceKey = tx.Key,
-                    SourceCode = tx.Code
-                });
-            }
-
-            if (tx.CleaningServicePrice > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.CleaningService,
-                    Description = $"Pré-limpeza - {tx.Code ?? tx.Key.ToString()}",
-                    ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.GrossWeight,
-                    UnitPriceOrRate = (tx.CleaningDiscount > 0)
-                        ? Math.Round(tx.CleaningServicePrice / tx.GrossWeight, 8)
-                        : 0,
-                    TotalAmount = tx.CleaningServicePrice,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageTransaction),
-                    SourceKey = tx.Key,
-                    SourceCode = tx.Code
-                });
-            }
-
-            if (tx.DryingServicePrice > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.DryingService,
-                    Description = $"Secagem - {tx.Code ?? tx.Key.ToString()}",
-                    ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.GrossWeight,
-                    UnitPriceOrRate = (tx.DryingDiscount > 0)
-                        ? Math.Round(tx.DryingServicePrice / tx.GrossWeight, 8)
-                        : 0,
-                    TotalAmount = tx.DryingServicePrice,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageTransaction),
-                    SourceKey = tx.Key,
-                    SourceCode = tx.Code
-                });
-            }
-            
-            if (tx.FreightPrice > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.DryingService,
-                    Description = $"Frete/Remoção - {tx.Code ?? tx.Key.ToString()}",
-                    ReferenceDate = tx.TransactionDate!.Value.Date,
-                    Quantity = tx.GrossWeight,
-                    UnitPriceOrRate = 0,
-                    TotalAmount = tx.FreightPrice,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageTransaction),
-                    SourceKey = tx.Key,
-                    SourceCode = tx.Code
-                });
-            }
-        }
-
-        foreach (var charge in charges)
-        {
-            if (charge.ChargeType == StorageChargeType.Storage && charge.TotalAmount > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.StorageService,
-                    Description = $"Armazenagem {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
-                    ReferenceDate = charge.PeriodEnd.Date,
-                    Quantity = charge.TonDays,
-                    UnitPriceOrRate = charge.UnitPriceOrRate,
-                    TotalAmount = charge.TotalAmount,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageCharge),
-                    SourceKey = charge.Key,
-                    SourceCode = null
-                });
-            }
-
-            if (charge.ChargeType == StorageChargeType.Fumigation && charge.TotalAmount > 0)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.FumigationService,
-                    Description = $"Expurgo {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
-                    ReferenceDate = charge.PeriodEnd.Date,
-                    Quantity = charge.BaseQuantity,
-                    UnitPriceOrRate = charge.UnitPriceOrRate,
-                    TotalAmount = charge.TotalAmount,
-                    TotalQuantityLoss = 0,
-                    SourceType = nameof(StorageCharge),
-                    SourceKey = charge.Key
-                });
-            }
-
-            if (charge.ChargeType == StorageChargeType.TechnicalLoss && charge.TotalQuantityLoss > 0 && request.IncludeUnpricedItems)
-            {
-                items.Add(new StorageInvoiceItem
-                {
-                    ItemType = StorageInvoiceItemType.TechnicalLoss,
-                    Description = $"Quebra técnica {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
-                    ReferenceDate = charge.PeriodEnd.Date,
-                    Quantity = charge.BaseQuantity,
-                    UnitPriceOrRate = charge.UnitPriceOrRate,
-                    TotalAmount = charge.TotalAmount,
-                    TotalQuantityLoss = charge.TotalQuantityLoss,
-                    SourceType = nameof(StorageCharge),
-                    SourceKey = charge.Key
-                });
-            }
-        }
-
-        if (!items.Any())
-            throw new BusinessException(resource["NO_ITEMS_TO_INVOICE"]);
-
-        var invoice = new StorageInvoice
-        {
-            DocNumberKey = request.DocNumberKey,
-            Code = await numberSequenceService.GetDocNumber((Guid) request.DocNumberKey),
-            BranchCode = address.BranchCode,
-            StorageAddressCode = address.Code,
-            CardCode = address.CardCode,
-            CardName = address.CardName,
-            PeriodStart = periodStart,
-            PeriodEnd = periodEnd,
-            ClosingDate = DateTime.Now.Date,
-            Status = StorageInvoiceStatus.Open,
-            TotalAmount = Math.Round(items.Sum(x => x.TotalAmount), 2, MidpointRounding.AwayFromZero),
-            TotalQuantityLoss = items.Sum(x => x.TotalQuantityLoss),
-            Notes = request.Notes,
-            Items = items
-        };
-
+        // Uma fatura ativa no mesmo período não impede o fechamento: a nova fatura leva só o que
+        // ainda está pendente (IsInvoiced = false). É o flag de cada registro, e não o período,
+        // que garante que nada é cobrado duas vezes.
         await db.BeginTransactionAsync();
 
         try
         {
+            await AcquireStorageAddressLockAsync(address.Code!, ct);
+
+            var transactions = await db.Context.StorageTransactions
+                .Where(x =>
+                    x.StorageAddressCode == request.StorageAddressCode &&
+                    x.TransactionDate >= periodStart &&
+                    x.TransactionDate <= periodEnd &&
+                    (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
+                     x.TransactionStatus == StorageTransactionsStatus.Invoiced) &&
+                    !x.IsInvoiced &&
+                    (
+                        x.ReceiptServicePrice > 0 ||
+                        x.ShipmentPrice > 0 ||
+                        x.CleaningServicePrice > 0 ||
+                        x.DryingServicePrice > 0 ||
+                        x.FreightPrice > 0
+                    ))
+                .ToListAsync(ct);
+
+            var charges = await db.Context.StorageCharges
+                .Where(x =>
+                    x.StorageAddressCode == request.StorageAddressCode &&
+                    x.PeriodEnd >= periodStart &&
+                    x.PeriodEnd <= periodEnd &&
+                    !x.IsInvoiced &&
+                    (
+                        x.ChargeType == StorageChargeType.Storage ||
+                        x.ChargeType == StorageChargeType.Fumigation ||
+                        (request.IncludeUnpricedItems && x.ChargeType == StorageChargeType.TechnicalLoss)
+                    ))
+                .ToListAsync(ct);
+
+            var items = new List<StorageInvoiceItem>();
+
+            foreach (var tx in transactions)
+            {
+                if (tx.ReceiptServicePrice > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.ReceiptService,
+                        Description = $"Recepção - {tx.Code ?? tx.Key.ToString()}",
+                        ReferenceDate = tx.TransactionDate!.Value.Date,
+                        Quantity = tx.GrossWeight,
+                        UnitPriceOrRate = Math.Round(tx.ReceiptServicePrice / tx.GrossWeight, 8) ,
+                        TotalAmount = tx.ReceiptServicePrice,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageTransaction),
+                        SourceKey = tx.Key,
+                        SourceCode = tx.Code
+                    });
+                }
+
+                if (tx.ShipmentPrice > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.ShipmentService,
+                        Description = $"Expedição - {tx.Code ?? tx.Key.ToString()}",
+                        ReferenceDate = tx.TransactionDate!.Value.Date,
+                        Quantity = tx.NetWeight,
+                        UnitPriceOrRate = tx.NetWeight == 0 ? 0 : Math.Round(tx.ShipmentPrice / tx.NetWeight, 8),
+                        TotalAmount = tx.ShipmentPrice,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageTransaction),
+                        SourceKey = tx.Key,
+                        SourceCode = tx.Code
+                    });
+                }
+
+                if (tx.CleaningServicePrice > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.CleaningService,
+                        Description = $"Pré-limpeza - {tx.Code ?? tx.Key.ToString()}",
+                        ReferenceDate = tx.TransactionDate!.Value.Date,
+                        Quantity = tx.GrossWeight,
+                        UnitPriceOrRate = (tx.CleaningDiscount > 0)
+                            ? Math.Round(tx.CleaningServicePrice / tx.GrossWeight, 8)
+                            : 0,
+                        TotalAmount = tx.CleaningServicePrice,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageTransaction),
+                        SourceKey = tx.Key,
+                        SourceCode = tx.Code
+                    });
+                }
+
+                if (tx.DryingServicePrice > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.DryingService,
+                        Description = $"Secagem - {tx.Code ?? tx.Key.ToString()}",
+                        ReferenceDate = tx.TransactionDate!.Value.Date,
+                        Quantity = tx.GrossWeight,
+                        UnitPriceOrRate = (tx.DryingDiscount > 0)
+                            ? Math.Round(tx.DryingServicePrice / tx.GrossWeight, 8)
+                            : 0,
+                        TotalAmount = tx.DryingServicePrice,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageTransaction),
+                        SourceKey = tx.Key,
+                        SourceCode = tx.Code
+                    });
+                }
+
+                if (tx.FreightPrice > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.DryingService,
+                        Description = $"Frete/Remoção - {tx.Code ?? tx.Key.ToString()}",
+                        ReferenceDate = tx.TransactionDate!.Value.Date,
+                        Quantity = tx.GrossWeight,
+                        UnitPriceOrRate = 0,
+                        TotalAmount = tx.FreightPrice,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageTransaction),
+                        SourceKey = tx.Key,
+                        SourceCode = tx.Code
+                    });
+                }
+            }
+
+            foreach (var charge in charges)
+            {
+                if (charge.ChargeType == StorageChargeType.Storage && charge.TotalAmount > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.StorageService,
+                        Description = $"Armazenagem {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
+                        ReferenceDate = charge.PeriodEnd.Date,
+                        Quantity = charge.TonDays,
+                        UnitPriceOrRate = charge.UnitPriceOrRate,
+                        TotalAmount = charge.TotalAmount,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageCharge),
+                        SourceKey = charge.Key,
+                        SourceCode = null
+                    });
+                }
+
+                if (charge.ChargeType == StorageChargeType.Fumigation && charge.TotalAmount > 0)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.FumigationService,
+                        Description = $"Expurgo {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
+                        ReferenceDate = charge.PeriodEnd.Date,
+                        Quantity = charge.BaseQuantity,
+                        UnitPriceOrRate = charge.UnitPriceOrRate,
+                        TotalAmount = charge.TotalAmount,
+                        TotalQuantityLoss = 0,
+                        SourceType = nameof(StorageCharge),
+                        SourceKey = charge.Key
+                    });
+                }
+
+                if (charge.ChargeType == StorageChargeType.TechnicalLoss && charge.TotalQuantityLoss > 0 && request.IncludeUnpricedItems)
+                {
+                    items.Add(new StorageInvoiceItem
+                    {
+                        ItemType = StorageInvoiceItemType.TechnicalLoss,
+                        Description = $"Quebra técnica {charge.PeriodStart:dd/MM/yyyy} a {charge.PeriodEnd:dd/MM/yyyy}",
+                        ReferenceDate = charge.PeriodEnd.Date,
+                        Quantity = charge.BaseQuantity,
+                        UnitPriceOrRate = charge.UnitPriceOrRate,
+                        TotalAmount = charge.TotalAmount,
+                        TotalQuantityLoss = charge.TotalQuantityLoss,
+                        SourceType = nameof(StorageCharge),
+                        SourceKey = charge.Key
+                    });
+                }
+            }
+
+            if (!items.Any())
+                throw new BusinessException(resource["NO_ITEMS_TO_INVOICE"]);
+
+            var invoice = new StorageInvoice
+            {
+                DocNumberKey = request.DocNumberKey,
+                Code = await numberSequenceService.GetDocNumber((Guid) request.DocNumberKey),
+                BranchCode = address.BranchCode,
+                StorageAddressCode = address.Code,
+                CardCode = address.CardCode,
+                CardName = address.CardName,
+                PeriodStart = periodStart,
+                PeriodEnd = periodEnd,
+                ClosingDate = DateTime.Now.Date,
+                Status = StorageInvoiceStatus.Open,
+                TotalAmount = Math.Round(items.Sum(x => x.TotalAmount), 2, MidpointRounding.AwayFromZero),
+                TotalQuantityLoss = items.Sum(x => x.TotalQuantityLoss),
+                Notes = request.Notes,
+                Items = items
+            };
+
             db.Context.StorageInvoices.Add(invoice);
 
             foreach (var item in items)
@@ -291,5 +288,28 @@ public class StorageInvoiceClosingService(
             await db.RollbackAsync();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Serializa os fechamentos de um mesmo lote. Sem a trava de período, dois fechamentos
+    /// simultâneos leriam as mesmas pendências e as colocariam em duas faturas. O lock pertence
+    /// à transação e é liberado no commit/rollback; o segundo fechamento espera e, ao ler, já
+    /// não encontra o que o primeiro faturou. O provider InMemory dos testes não executa SQL.
+    /// </summary>
+    private async Task AcquireStorageAddressLockAsync(string storageAddressCode, CancellationToken ct)
+    {
+        if (!db.Context.Database.IsRelational())
+            return;
+
+        var result = new SqlParameter("@result", SqlDbType.Int) { Direction = ParameterDirection.Output };
+
+        await db.Context.Database.ExecuteSqlRawAsync(
+            "EXEC @result = sp_getapplock @Resource = @resource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 30000",
+            [new SqlParameter("@resource", $"StorageInvoiceClosing:{storageAddressCode}"), result],
+            ct);
+
+        // 0/1 = concedido; negativo = timeout, deadlock ou erro.
+        if ((int)result.Value < 0)
+            throw new BusinessException(resource["STORAGE_INVOICE_CLOSING_IN_PROGRESS"]);
     }
 }

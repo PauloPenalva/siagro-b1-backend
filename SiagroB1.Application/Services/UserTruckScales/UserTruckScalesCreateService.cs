@@ -11,11 +11,13 @@ public class UserTruckScalesCreateService(IUnitOfWork db)
     {
         // Mensagem de negócio antes de o índice único estourar como erro de banco.
         var duplicated = await db.Context.UserTruckScales
-            .AnyAsync(x => x.Username == entity.Username && x.Purpose == entity.Purpose);
+            .AnyAsync(x => x.Username == entity.Username
+                && x.TruckScaleCode == entity.TruckScaleCode
+                && x.Purpose == entity.Purpose);
 
         if (duplicated)
             throw new DefaultException(
-                "Este usuário já possui uma balança configurada para esta finalidade.");
+                "Esta balança já está configurada para este usuário nesta finalidade.");
 
         await db.Context.UserTruckScales.AddAsync(entity);
         await db.SaveChangesAsync();

@@ -112,9 +112,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
         
+        // Cobre a soma do saldo por lote (StorageAddressesGetService.QueryAll). Sem estas colunas o
+        // plano varria STORAGE_TRANSACTIONS inteira e, sem READ_COMMITTED_SNAPSHOT, um romaneio
+        // travado de outro lote segurava a lista de lotes até o timeout; cobrindo a soma, vira
+        // Index Seek só nos lotes da página.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasIndex(x => x.StorageAddressCode)
+            .IncludeProperties(x => new { x.TransactionType, x.TransactionStatus, x.NetWeight });
+
+        // Não é único: fechar de novo um período já faturado gera outra fatura com os registros
+        // que ficaram pendentes (StorageInvoiceClosingService).
         modelBuilder.Entity<StorageInvoice>()
             .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
-            .IsUnique()
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
 
         // Invariante "uma transferência de titularidade, uma liberação de embarque",

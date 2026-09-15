@@ -885,6 +885,7 @@ public static class ODataConfigurations
         weighingTicketsFirstWeighing.Parameter<int>("Value");
         weighingTicketsFirstWeighing.Parameter<string>("Comments");
         weighingTicketsFirstWeighing.Parameter<string>("CaptureId");
+        weighingTicketsFirstWeighing.Parameter<string>("ScaleCode");
         weighingTicketsFirstWeighing.Returns<IActionResult>();
         
         var weighingTicketsSecondWeighing = modelBuilder.Action("WeighingTicketsSecondWeighing");
@@ -892,6 +893,7 @@ public static class ODataConfigurations
         weighingTicketsSecondWeighing.Parameter<int>("Value");
         weighingTicketsSecondWeighing.Parameter<string>("Comments");
         weighingTicketsSecondWeighing.Parameter<string>("CaptureId");
+        weighingTicketsSecondWeighing.Parameter<string>("ScaleCode");
         weighingTicketsSecondWeighing.Returns<IActionResult>();
 
         var weighingTicketsCompleted = modelBuilder.Action("WeighingTicketsCompleted");

@@ -144,7 +144,7 @@
     <data name="STORAGE_ADDRESS_NOT_FOUND" xml:space="preserve">
         <value />
     </data>
-    <data name="STORAGE_INVOICE_ALREADY_EXISTS" xml:space="preserve">
+    <data name="STORAGE_INVOICE_CLOSING_IN_PROGRESS" xml:space="preserve">
         <value />
     </data>
     <data name="NO_ITEMS_TO_INVOICE" xml:space="preserve">

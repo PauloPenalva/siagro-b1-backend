@@ -15,11 +15,14 @@ public class UserTruckScalesUpdateService(IUnitOfWork db)
         // A entidade já vem rastreada do GetByIdAsync com o Delta aplicado; aqui só se checa a
         // duplicidade contra as OUTRAS linhas antes de gravar.
         var duplicated = await db.Context.UserTruckScales
-            .AnyAsync(x => x.Id != key && x.Username == entity.Username && x.Purpose == entity.Purpose);
+            .AnyAsync(x => x.Id != key
+                && x.Username == entity.Username
+                && x.TruckScaleCode == entity.TruckScaleCode
+                && x.Purpose == entity.Purpose);
 
         if (duplicated)
             throw new DefaultException(
-                "Este usuário já possui uma balança configurada para esta finalidade.");
+                "Esta balança já está configurada para este usuário nesta finalidade.");
 
         await db.SaveChangesAsync();
 

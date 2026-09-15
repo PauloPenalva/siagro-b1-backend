@@ -166,6 +166,7 @@ public class AuthController(
                                 // única fonte de identidade depois do boot, e o login só acontece
                                 // uma vez por sessão.
                                 Permissions = userInfo.Permissions,
+                                Roles = userInfo.Roles,
                                 // Mesma razão das permissões: a tela que pede senha precisa
                                 // mostrar a regra vigente, e a política é configurável.
                                 PasswordRequirements = passwordPolicy.Description,
@@ -203,6 +204,7 @@ public class AuthController(
             Theme = userInfoFromDb?.Theme,
             HasPhoto = userInfoFromDb?.HasPhoto ?? false,
             Permissions = userInfoFromDb?.Permissions ?? [],
+            Roles = userInfoFromDb?.Roles ?? [],
             PasswordRequirements = passwordPolicy.Description,
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],

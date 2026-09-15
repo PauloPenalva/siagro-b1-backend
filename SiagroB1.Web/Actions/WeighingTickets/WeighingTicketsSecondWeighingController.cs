@@ -36,9 +36,14 @@ public class WeighingTicketsSecondWeighingController(
                 captureId = parsed;
             }
 
+            // Balança escolhida na tela; só pesa quando o peso é digitado.
+            var scaleCode = parameters.TryGetValue("ScaleCode", out var scaleObj)
+                ? scaleObj?.ToString()
+                : null;
+
             var userName = User.Identity?.Name ?? "Unknown";
 
-            await service.ExecuteAsync(key, value, comments, userName, captureId);
+            await service.ExecuteAsync(key, value, comments, userName, captureId, scaleCode);
             return Ok();
         }
         catch (Exception e)

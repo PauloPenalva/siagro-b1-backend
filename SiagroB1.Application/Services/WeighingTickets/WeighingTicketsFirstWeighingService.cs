@@ -7,7 +7,8 @@ namespace SiagroB1.Application.Services.WeighingTickets;
 
 public class WeighingTicketsFirstWeighingService(IUnitOfWork db, WeighingCaptureValidator validator)
 {
-    public async Task ExecuteAsync(Guid key, int weigh, string? comments, string username, Guid? captureId)
+    public async Task ExecuteAsync(Guid key, int weigh, string? comments, string username, Guid? captureId,
+        string? scaleCode = null)
     {
         if (weigh <= 0)
             throw new ApplicationException("Quantidade deve ser maior que zero.");
@@ -18,7 +19,7 @@ public class WeighingTicketsFirstWeighingService(IUnitOfWork db, WeighingCapture
                      throw new NotFoundException("Weighing ticket not found.");
 
         var origin = await validator.ResolveAsync(
-            username, weigh, captureId, WeighingScalePurpose.Opening, ticket.TruckCode);
+            username, weigh, captureId, WeighingScalePurpose.Opening, ticket.TruckCode, scaleCode);
 
         ticket.Status = WeighingTicketStatus.Processing;
         ticket.FirstWeighValue = weigh;

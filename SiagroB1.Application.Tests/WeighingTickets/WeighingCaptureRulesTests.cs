@@ -2,6 +2,7 @@ using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.WeighingTickets;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Scales;
+using SiagroB1.Domain.Constants;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -10,7 +11,7 @@ namespace SiagroB1.Application.Tests.WeighingTickets;
 
 public class WeighingCaptureRulesTests
 {
-    private sealed class FakePermissions(bool canType) : IUserPermissions
+    private sealed class FakePermissions(bool canType, bool isAdminRole = false) : IUserPermissions
     {
         public Task<bool> HasAsync(string username, string permissionCode) => Task.FromResult(canType);
 
@@ -23,7 +24,8 @@ public class WeighingCaptureRulesTests
             return Task.FromResult(granted);
         }
 
-        public Task<bool> HasRoleAsync(string username, string roleCode) => Task.FromResult(false);
+        public Task<bool> HasRoleAsync(string username, string roleCode) =>
+            Task.FromResult(isAdminRole && roleCode == Roles.Admin);
     }
 
     private static readonly DateTime Now = DateTime.Now;
@@ -74,8 +76,22 @@ public class WeighingCaptureRulesTests
     }
 
     private static WeighingTicketsFirstWeighingService Service(
-        IUnitOfWork db, CaptureStore captures, bool canType) =>
-        new(db, new WeighingCaptureValidator(db, new FakePermissions(canType), captures));
+        IUnitOfWork db, CaptureStore captures, bool canType, bool isAdminRole = false) =>
+        new(db, new WeighingCaptureValidator(db, new FakePermissions(canType, isAdminRole), captures));
+
+    [Fact]
+    public async Task With_the_ADMIN_role_a_typed_weight_is_accepted_without_the_permission()
+    {
+        var (db, ticket) = await SeedAsync();
+
+        await Service(db, new CaptureStore(TimeSpan.FromMinutes(10)), canType: false, isAdminRole: true)
+            .ExecuteAsync(ticket.Key, 32000, null, "joao", captureId: null);
+
+        var saved = db.Context.WeighingTickets.Single();
+
+        Assert.Equal(32000, saved.FirstWeighValue);
+        Assert.False(saved.FirstWeighCaptured);
+    }
 
     [Fact]
     public async Task Without_the_permission_a_capture_is_required()
@@ -184,6 +200,73 @@ public class WeighingCaptureRulesTests
                 .ExecuteAsync(ticket.Key, 32000, null, "joao", captureId: null));
 
         Assert.Contains("tara", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Segunda balança na mesma etapa, SEM validação de tara - é o que distingue nos testes por
+    /// qual das duas a tara foi validada.
+    /// </summary>
+    private static async Task AddSecondOpeningScaleAsync(IUnitOfWork db, string code)
+    {
+        db.Context.TruckScales.Add(new TruckScale
+        {
+            Code = code,
+            Name = "Balança 2",
+            Localization = "Pátio",
+            IpAddress = "192.168.1.202",
+            Port = 4000,
+            ValidateTare = false
+        });
+
+        db.Context.UserTruckScales.Add(new UserTruckScale
+        {
+            Username = "joao",
+            TruckScaleCode = code,
+            Purpose = WeighingScalePurpose.Opening
+        });
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task A_typed_weight_records_the_scale_the_user_selected()
+    {
+        // Sem tara: pela TS01 seria recusado, pela TS02 (sem validação) passa.
+        var (db, ticket) = await SeedAsync(tareWeight: null);
+        await AddSecondOpeningScaleAsync(db, "TS02");
+
+        await Service(db, new CaptureStore(TimeSpan.FromMinutes(10)), canType: true)
+            .ExecuteAsync(ticket.Key, 32000, null, "joao", captureId: null, scaleCode: "TS02");
+
+        var saved = db.Context.WeighingTickets.Single();
+
+        Assert.Equal(32000, saved.FirstWeighValue);
+        Assert.Equal("TS02", saved.FirstWeighScaleCode);
+    }
+
+    [Fact]
+    public async Task A_typed_weight_on_a_scale_not_configured_for_the_user_is_refused()
+    {
+        var (db, ticket) = await SeedAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service(db, new CaptureStore(TimeSpan.FromMinutes(10)), canType: true)
+                .ExecuteAsync(ticket.Key, 32000, null, "joao", captureId: null, scaleCode: "TS99"));
+
+        Assert.Contains("balança", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Without_a_selected_scale_a_typed_weight_uses_the_first_scale_by_code()
+    {
+        // TS00 entra depois da TS01, mas vem antes pelo código.
+        var (db, ticket) = await SeedAsync();
+        await AddSecondOpeningScaleAsync(db, "TS00");
+
+        await Service(db, new CaptureStore(TimeSpan.FromMinutes(10)), canType: true)
+            .ExecuteAsync(ticket.Key, 32000, null, "joao", captureId: null);
+
+        Assert.Equal("TS00", db.Context.WeighingTickets.Single().FirstWeighScaleCode);
     }
 
     [Fact]

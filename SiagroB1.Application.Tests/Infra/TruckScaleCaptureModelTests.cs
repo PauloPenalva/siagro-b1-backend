@@ -17,7 +17,7 @@ public class TruckScaleCaptureModelTests
             .Options);
 
     [Fact]
-    public void UserTruckScales_maps_to_its_table_with_a_unique_index_per_purpose()
+    public void UserTruckScales_maps_to_its_table_with_a_unique_index_per_scale_and_purpose()
     {
         using var context = CreateContext();
 
@@ -25,10 +25,11 @@ public class TruckScaleCaptureModelTests
 
         Assert.Equal("USER_TRUCK_SCALES", entity.GetTableName());
 
+        // Um usuário pode operar várias balanças na mesma etapa; só não repete balança + etapa.
         var unique = entity.GetIndexes().Single(i => i.IsUnique);
 
         Assert.Equal(
-            ["Username", "Purpose"],
+            ["Username", "TruckScaleCode", "Purpose"],
             unique.Properties.Select(p => p.Name).ToArray());
     }
 

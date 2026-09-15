@@ -7,14 +7,15 @@ namespace SiagroB1.Domain.Entities;
 
 /// <summary>
 /// Balança que um usuário opera em cada etapa da pesagem. Onde há uma balança só, a mesma é
-/// informada nas duas finalidades.
+/// informada nas duas finalidades. Um usuário pode operar várias balanças na mesma etapa (a tela de
+/// pesagem oferece a escolha); só não se repete balança + finalidade.
 ///
 /// Sem FK para USERS de propósito: aquela tabela vive no banco COMMON e esta no banco da empresa.
 /// A chave é o Username, que é o que a API tem em mãos (User.Identity.Name) e o mesmo padrão de
 /// WEIGHING_TICKETS.FirstWeighUsername.
 /// </summary>
 [Table("USER_TRUCK_SCALES")]
-[Index(nameof(Username), nameof(Purpose), IsUnique = true)]
+[Index(nameof(Username), nameof(TruckScaleCode), nameof(Purpose), IsUnique = true)]
 public class UserTruckScale
 {
     [Key]
