@@ -49,11 +49,12 @@ public class ShipmentLoadsUpdateServiceTests
         string? branchCode = "01",
         string? truckCode = "ABC1D23",
         string? driverName = "JOAO",
-        decimal? freightPrice = 1_000m) => new()
+        decimal? freightPrice = 1_000m,
+        DateTime? loadDate = null) => new()
     {
         Key = key,
         BranchCode = branchCode,
-        LoadDate = new DateTime(2026, 8, 28),
+        LoadDate = loadDate ?? new DateTime(2026, 8, 28),
         ItemCode = itemCode,
         ItemName = "SOJA EM GRAOS",
         UnitOfMeasureCode = unitOfMeasureCode,
@@ -85,22 +86,95 @@ public class ShipmentLoadsUpdateServiceTests
         return transaction;
     }
 
-    [Theory]
-    [InlineData(ShipmentLoadStatus.Planned)]
-    [InlineData(ShipmentLoadStatus.Open)]
-    public async Task Everything_is_editable_before_billing(ShipmentLoadStatus status)
+    [Fact]
+    public async Task Everything_is_editable_while_planned()
     {
-        var load = Load(status);
+        var load = Load(ShipmentLoadStatus.Planned);
         await _db.Context.SaveChangesAsync();
 
         await Service().ExecuteAsync(
-            Input(load.Key, itemCode: "MILHO", unitOfMeasureCode: "TON", branchCode: "02"),
+            Input(load.Key, itemCode: "MILHO", unitOfMeasureCode: "TON", branchCode: "02",
+                truckCode: "XYZ9W87", loadDate: new DateTime(2026, 9, 1)),
             "tester");
 
         var saved = await _db.Context.ShipmentLoads.SingleAsync();
         Assert.Equal("MILHO", saved.ItemCode);
         Assert.Equal("TON", saved.UnitOfMeasureCode);
         Assert.Equal("02", saved.BranchCode);
+        Assert.Equal("XYZ9W87", saved.TruckCode);
+        Assert.Equal(new DateTime(2026, 9, 1), saved.LoadDate);
+    }
+
+    /// <summary>
+    /// GAC-1180: placa, data e produto são decisões do PLANEJAMENTO. Depois que a carga sai de
+    /// Planejada eles travam — inclusive na Devolvida, que já passou pelo faturamento.
+    /// </summary>
+    [Theory]
+    [InlineData(ShipmentLoadStatus.Open, "Carregada")]
+    [InlineData(ShipmentLoadStatus.PartiallyInvoiced, "Faturada Parcial")]
+    [InlineData(ShipmentLoadStatus.Invoiced, "Faturada")]
+    [InlineData(ShipmentLoadStatus.Returned, "Devolvida")]
+    public async Task Refuses_to_change_the_truck_outside_planning(
+        ShipmentLoadStatus status, string statusLabel)
+    {
+        var load = Load(status);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Input(load.Key, truckCode: "XYZ9W87"), "tester"));
+
+        Assert.Contains("placa", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(statusLabel, error.Message);
+    }
+
+    [Theory]
+    [InlineData(ShipmentLoadStatus.Open, "Carregada")]
+    [InlineData(ShipmentLoadStatus.PartiallyInvoiced, "Faturada Parcial")]
+    [InlineData(ShipmentLoadStatus.Invoiced, "Faturada")]
+    [InlineData(ShipmentLoadStatus.Returned, "Devolvida")]
+    public async Task Refuses_to_change_the_load_date_outside_planning(
+        ShipmentLoadStatus status, string statusLabel)
+    {
+        var load = Load(status);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(
+                Input(load.Key, loadDate: new DateTime(2026, 9, 1)), "tester"));
+
+        Assert.Contains("data", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(statusLabel, error.Message);
+    }
+
+    /// <summary>
+    /// A tela manda só o dia; a hora gravada não conta como alteração de data.
+    /// </summary>
+    [Fact]
+    public async Task Same_day_with_another_time_is_not_a_date_change()
+    {
+        var load = Load(ShipmentLoadStatus.Open);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(
+            Input(load.Key, loadDate: new DateTime(2026, 8, 28, 14, 30, 0)), "tester");
+
+        Assert.Equal(new DateTime(2026, 8, 28), (await _db.Context.ShipmentLoads.SingleAsync()).LoadDate);
+    }
+
+    [Theory]
+    [InlineData(ShipmentLoadStatus.Open, "Carregada")]
+    [InlineData(ShipmentLoadStatus.Returned, "Devolvida")]
+    public async Task Refuses_to_change_the_item_outside_planning(
+        ShipmentLoadStatus status, string statusLabel)
+    {
+        var load = Load(status);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Input(load.Key, itemCode: "MILHO"), "tester"));
+
+        Assert.Contains("produto", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(statusLabel, error.Message);
     }
 
     /// <summary>
@@ -162,7 +236,7 @@ public class ShipmentLoadsUpdateServiceTests
     [Fact]
     public async Task Refuses_to_change_the_truck_when_a_shipment_disagrees()
     {
-        var load = Load(ShipmentLoadStatus.Open);
+        var load = Load(ShipmentLoadStatus.Planned);
         Shipment(load.Key, "R1", "ABC1D23");
         await _db.Context.SaveChangesAsync();
 

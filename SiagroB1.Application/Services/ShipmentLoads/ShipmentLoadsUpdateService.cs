@@ -10,20 +10,23 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// Edição dos dados cadastrais da carga informados pela Logística.
 /// </summary>
 /// <remarks>
-/// A regra de imutabilidade acompanha o que já saiu em documento fiscal, e não o status por si:
+/// Duas travas se sobrepõem:
 /// <list type="bullet">
-/// <item><c>Planned</c> e <c>Open</c> — tudo editável.</item>
-/// <item><c>PartiallyInvoiced</c> e <c>Invoiced</c> — produto, unidade e filial TRAVADOS, porque
-/// já viraram linha de nota; motorista, transportadora, frete, excesso, cliente, armazém e
-/// observações seguem editáveis, que é o caso real de "o motorista trocou depois de
-/// carregar".</item>
-/// <item><c>Cancelled</c> — documento morto, nada editável.</item>
+/// <item><b>Planejamento (GAC-1180)</b> — placa, data e produto só mudam enquanto a carga é
+/// <c>Planned</c>. São as decisões da Logística que os romaneios vinculados passam a refletir;
+/// fora de Planejada travam, inclusive na <c>Returned</c>, que já passou pelo faturamento.</item>
+/// <item><b>Fiscal</b> — em <c>PartiallyInvoiced</c> e <c>Invoiced</c> unidade e filial também
+/// travam, porque já viraram linha de nota.</item>
 /// </list>
+/// Motorista, transportadora, frete, excesso, cliente, armazém e observações seguem editáveis em
+/// qualquer status vivo — o caso real de "o motorista trocou depois de carregar". A trava da
+/// transportadora depois do carregamento vive só na tela (GAC-1170). <c>Cancelled</c> é documento
+/// morto: nada editável.
 /// <para>
-/// <b>A placa é caso à parte.</b> Ela é a chave de homogeneidade da vinculação, então trocá-la
-/// numa carga que já tem romaneios deixaria a carga inconsistente com a própria composição —
-/// romaneios de uma placa dentro de uma carga de outra. A recusa nomeia o romaneio conflitante,
-/// e o caminho é desvincular antes.
+/// <b>A placa ainda é conferida contra os romaneios.</b> Ela é a chave de homogeneidade da
+/// vinculação, então trocá-la com romaneio de outra placa vinculado deixaria a carga
+/// inconsistente com a própria composição. A recusa nomeia o romaneio conflitante, e o caminho é
+/// desvincular antes.
 /// </para>
 /// </remarks>
 public class ShipmentLoadsUpdateService(
@@ -43,6 +46,11 @@ public class ShipmentLoadsUpdateService(
 
         Validate(input);
 
+        var planningFieldsLocked = load.Status != ShipmentLoadStatus.Planned;
+
+        if (planningFieldsLocked)
+            EnsurePlanningFieldsUnchanged(load, input);
+
         var fiscalFieldsLocked = load.Status is ShipmentLoadStatus.PartiallyInvoiced
             or ShipmentLoadStatus.Invoiced;
 
@@ -53,8 +61,16 @@ public class ShipmentLoadsUpdateService(
 
         var changes = DescribeChanges(load, input);
 
-        load.LoadDate = input.LoadDate;
-        load.TruckCode = input.TruckCode;
+        // Travados, os três já foram conferidos como iguais — mas a data só no DIA: a tela manda
+        // "yyyy-MM-dd" e sobrescrever mudaria a hora gravada sem ninguém ter pedido.
+        if (!planningFieldsLocked)
+        {
+            load.LoadDate = input.LoadDate;
+            load.TruckCode = input.TruckCode;
+            load.ItemCode = input.ItemCode;
+            load.ItemName = input.ItemName;
+        }
+
         load.TruckDriverCode = input.TruckDriverCode;
         load.TruckDriverName = input.TruckDriverName;
         load.CarrierCardCode = input.CarrierCardCode;
@@ -70,8 +86,6 @@ public class ShipmentLoadsUpdateService(
         if (!fiscalFieldsLocked)
         {
             load.BranchCode = input.BranchCode;
-            load.ItemCode = input.ItemCode;
-            load.ItemName = input.ItemName;
             load.UnitOfMeasureCode = input.UnitOfMeasureCode;
         }
 
@@ -128,6 +142,27 @@ public class ShipmentLoadsUpdateService(
 
         if (input.FreightPrice is < 0)
             throw new ApplicationException("O valor do frete não pode ser negativo.");
+    }
+
+    /// <summary>
+    /// GAC-1180: fora de Planejada, placa, data e produto não mudam. Roda ANTES da trava fiscal
+    /// para que a mensagem nomeie o status real da carga.
+    /// </summary>
+    private static void EnsurePlanningFieldsUnchanged(ShipmentLoad load, ShipmentLoad input)
+    {
+        var status = ShipmentLoadChangeLogFields.DescribeStatus(load.Status);
+
+        if (input.TruckCode != load.TruckCode)
+            throw new ApplicationException(
+                $"A carga {load.Code} está {status} e a placa não pode mais ser alterada.");
+
+        if (input.LoadDate.Date != load.LoadDate.Date)
+            throw new ApplicationException(
+                $"A carga {load.Code} está {status} e a data não pode mais ser alterada.");
+
+        if (input.ItemCode != load.ItemCode)
+            throw new ApplicationException(
+                $"A carga {load.Code} está {status} e o produto não pode mais ser alterado.");
     }
 
     private static void EnsureFiscalFieldsUnchanged(ShipmentLoad load, ShipmentLoad input)
