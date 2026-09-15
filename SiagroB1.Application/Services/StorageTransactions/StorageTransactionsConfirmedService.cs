@@ -291,10 +291,11 @@ public class StorageTransactionsConfirmedService(
                 if (parameter.ExcessDiscountRate is not > 0)
                     continue;
 
+                // Cada ponto acima da tolerância desconta "Desconto %" do peso bruto.
                 var realValue = value - parameter.MaxLimitRate;
                 if (realValue > 0)
                 {
-                    cleaningDiscount += (grossWeight / 100) * realValue ?? 0;
+                    cleaningDiscount += (grossWeight / 100) * realValue * parameter.ExcessDiscountRate ?? 0;
                 }
             }
             
@@ -344,7 +345,7 @@ public class StorageTransactionsConfirmedService(
                 var realValue = value - parameter.MaxLimitRate;
                 if (realValue > 0)
                 {
-                    qualityDiscount += (grossWeight / 100) * realValue ?? 0;
+                    qualityDiscount += (grossWeight / 100) * realValue * parameter.ExcessDiscountRate ?? 0;
                 }
             }
         }

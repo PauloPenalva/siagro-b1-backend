@@ -110,13 +110,13 @@ public class StorageTransactionsQualityDiscountTests
     }
 
     /// <summary>
-    /// Com % de quebra positiva o cálculo segue como antes: 3% inspecionado contra 1% de
-    /// tolerância desconta 2% do bruto.
+    /// O "Desconto %" é o fator aplicado a cada ponto acima da tolerância. Com fator 1, 3%
+    /// inspecionado contra 1% de tolerância desconta 2% do bruto.
     /// </summary>
     [Theory]
     [InlineData(QualityAttribType.Quality)]
     [InlineData(QualityAttribType.Cleaning)]
-    public async Task Attribute_with_discount_rate_keeps_discounting_the_excess(QualityAttribType attribType)
+    public async Task Discount_rate_of_one_discounts_the_excess_one_to_one(QualityAttribType attribType)
     {
         var transaction = await SeedAsync(attribType, 1m, 1m, 3m);
 
@@ -124,5 +124,22 @@ public class StorageTransactionsQualityDiscountTests
 
         Assert.Equal(200m, transaction.CleaningDiscount + transaction.OthersDicount);
         Assert.Equal(9_800m, transaction.NetWeight);
+    }
+
+    /// <summary>
+    /// Caso da Yokotobi: impureza configurada com 2% de desconto e 0,7% informado no romaneio
+    /// tem de descontar 1,4% do bruto. Antes o fator era ignorado e descontava só os 0,7%.
+    /// </summary>
+    [Theory]
+    [InlineData(QualityAttribType.Cleaning)]
+    [InlineData(QualityAttribType.Quality)]
+    public async Task Discount_rate_multiplies_the_excess(QualityAttribType attribType)
+    {
+        var transaction = await SeedAsync(attribType, 0m, 2m, 0.7m);
+
+        await Service().ExecuteAsync(transaction, "tester");
+
+        Assert.Equal(140m, transaction.CleaningDiscount + transaction.OthersDicount);
+        Assert.Equal(9_860m, transaction.NetWeight);
     }
 }
