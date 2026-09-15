@@ -287,10 +287,14 @@ public class StorageTransactionsConfirmedService(
             
             foreach (var parameter in qualityParameters)
             {
+                // % de quebra zerada = atributo apenas informativo, não gera desconto.
+                if (parameter.ExcessDiscountRate is not > 0)
+                    continue;
+
                 var realValue = value - parameter.MaxLimitRate;
                 if (realValue > 0)
                 {
-                    cleaningDiscount += (grossWeight / 100) * realValue ?? 0;    
+                    cleaningDiscount += (grossWeight / 100) * realValue ?? 0;
                 }
             }
             
@@ -333,6 +337,10 @@ public class StorageTransactionsConfirmedService(
             
             foreach (var parameter in qualityParameters)
             {
+                // % de quebra zerada = atributo apenas informativo (ex.: PH e FN do trigo).
+                if (parameter.ExcessDiscountRate is not > 0)
+                    continue;
+
                 var realValue = value - parameter.MaxLimitRate;
                 if (realValue > 0)
                 {
