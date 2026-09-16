@@ -863,6 +863,7 @@ public static class ODataConfigurations
         salesInvoicesSetDocumentNumber.Parameter<string>("DocumentNumber");
         salesInvoicesSetDocumentNumber.Parameter<string>("DocumentSeries");
         salesInvoicesSetDocumentNumber.Parameter<string>("ChaveNFe");
+        salesInvoicesSetDocumentNumber.Parameter<bool>("WithoutTaxDocument");
         salesInvoicesSetDocumentNumber.Returns<IActionResult>();
 
         var salesInvoicesCommentCreate = modelBuilder.Action("SalesInvoicesCommentCreate");

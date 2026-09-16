@@ -40,6 +40,12 @@ public static class ContractChangeLogFields
     /// <summary>Situação da assinatura do contrato: Aguardando Assinatura / Assinado / Sem Contrato.</summary>
     public const string SignatureStatus = "SignatureStatus";
 
+    /// <summary>Documento de saída marcado/desmarcado como operação sem nota fiscal (GAC-1174).</summary>
+    public const string WithoutTaxDocument = "WithoutTaxDocument";
+
+    /// <summary>Flag booleano como aparece no log: "Sim"/"Não".</summary>
+    public static string DescribeYesNo(bool value) => value ? "Sim" : "Não";
+
     /// <summary>
     /// Situação da assinatura em pt-BR. Fica aqui, e não num formatter do frontend, pelo mesmo
     /// motivo de <see cref="DescribeDeliveryStatus"/>: OldValue/NewValue são texto livre.

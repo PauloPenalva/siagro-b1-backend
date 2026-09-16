@@ -22,7 +22,8 @@ public class SalesInvoicesSetDocumentNumberController(
             if (!parameters.TryGetValue("Key", out var keyObj) ||
                 !parameters.TryGetValue("DocumentNumber", out var documentNumberObj) ||
                 !parameters.TryGetValue("DocumentSeries", out var documentSeriesObj) ||
-                !parameters.TryGetValue("ChaveNFe",  out var chaveNFeObj)
+                !parameters.TryGetValue("ChaveNFe",  out var chaveNFeObj) ||
+                !parameters.TryGetValue("WithoutTaxDocument", out var withoutTaxDocumentObj)
                 )
             {
                 return BadRequest("Missing required parameters");
@@ -35,8 +36,9 @@ public class SalesInvoicesSetDocumentNumberController(
             var documentNumber = documentNumberObj?.ToString();
             var documentSeries = documentSeriesObj?.ToString();
             var chaveNFe = chaveNFeObj?.ToString();
-            
-            await service.ExecuteAsync(key, documentNumber, documentSeries, chaveNFe, userName);
+            var withoutTaxDocument = withoutTaxDocumentObj is true;
+
+            await service.ExecuteAsync(key, documentNumber, documentSeries, chaveNFe, userName, withoutTaxDocument);
             
             return Ok();
         }

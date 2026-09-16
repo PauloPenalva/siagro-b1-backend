@@ -15,7 +15,7 @@ public class SalesInvoicesSetDocumentNumberServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private SalesInvoicesSetDocumentNumberService Service() => new(_db);
+    private SalesInvoicesSetDocumentNumberService Service() => new(_db, new SalesInvoicesChangeLogService(_db.Context));
 
     private async Task<SalesInvoice> SeedInvoiceAsync(
         string invoiceNumber = "000000001",
@@ -23,7 +23,8 @@ public class SalesInvoicesSetDocumentNumberServiceTests
         InvoiceStatus status = InvoiceStatus.Confirmed,
         string? taxDocumentNumber = null,
         string? taxDocumentSeries = null,
-        string? chaveNFe = null)
+        string? chaveNFe = null,
+        bool withoutTaxDocument = false)
     {
         var invoice = new SalesInvoice
         {
@@ -36,6 +37,7 @@ public class SalesInvoicesSetDocumentNumberServiceTests
             TaxDocumentNumber = taxDocumentNumber,
             TaxDocumentSeries = taxDocumentSeries,
             ChaveNFe = chaveNFe,
+            WithoutTaxDocument = withoutTaxDocument,
         };
         _db.Context.SalesInvoices.Add(invoice);
         await _db.Context.SaveChangesAsync();
@@ -181,5 +183,91 @@ public class SalesInvoicesSetDocumentNumberServiceTests
         Assert.Equal("123456", invoice.TaxDocumentNumber);
         Assert.Equal("1", invoice.TaxDocumentSeries);
         Assert.Equal(Chave, invoice.ChaveNFe);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // GAC-1174: operação sem nota fiscal
+    // -----------------------------------------------------------------------------------------
+
+    private List<SalesInvoiceChangeLog> LogsOf(Guid invoiceKey) =>
+        _db.Context.SalesInvoicesChangeLogs.Where(l => l.SalesInvoiceKey == invoiceKey).ToList();
+
+    /// <summary>
+    /// Marcar como sem nota fiscal e ter nota fiscal se excluem: o flag vence e apaga número,
+    /// série e chave, mesmo que cheguem preenchidos.
+    /// </summary>
+    [Fact]
+    public async Task MarkingWithoutTaxDocument_SetsFlagAndClearsTaxDocumentData()
+    {
+        var invoice = await SeedInvoiceAsync(
+            taxDocumentNumber: "123456", taxDocumentSeries: "1", chaveNFe: Chave);
+
+        await Service().ExecuteAsync(invoice.Key, "123456", "1", Chave, "joao", withoutTaxDocument: true);
+
+        Assert.True(invoice.WithoutTaxDocument);
+        Assert.Null(invoice.TaxDocumentNumber);
+        Assert.Null(invoice.TaxDocumentSeries);
+        Assert.Null(invoice.ChaveNFe);
+    }
+
+    /// <summary>
+    /// Como os dados fiscais são descartados, a trava de duplicidade não pode barrar a marcação
+    /// por um número que nem vai ser gravado.
+    /// </summary>
+    [Fact]
+    public async Task MarkingWithoutTaxDocument_IgnoresDuplicateGuard()
+    {
+        await SeedInvoiceAsync("000000001", taxDocumentNumber: "123456", taxDocumentSeries: "1", chaveNFe: Chave);
+        var target = await SeedInvoiceAsync("000000002");
+
+        await Service().ExecuteAsync(target.Key, "123456", "1", Chave, "joao", withoutTaxDocument: true);
+
+        Assert.True(target.WithoutTaxDocument);
+    }
+
+    [Fact]
+    public async Task InformingTaxDocument_ClearsWithoutTaxDocumentFlag()
+    {
+        var invoice = await SeedInvoiceAsync(withoutTaxDocument: true);
+
+        await Service().ExecuteAsync(invoice.Key, "123456", "1", Chave, "joao");
+
+        Assert.False(invoice.WithoutTaxDocument);
+        Assert.Equal("123456", invoice.TaxDocumentNumber);
+    }
+
+    [Fact]
+    public async Task ChangingWithoutTaxDocumentFlag_IsLogged()
+    {
+        var invoice = await SeedInvoiceAsync();
+
+        await Service().ExecuteAsync(invoice.Key, null, null, null, "joao", withoutTaxDocument: true);
+        await Service().ExecuteAsync(invoice.Key, null, null, null, "maria", withoutTaxDocument: false);
+
+        var logs = LogsOf(invoice.Key).OrderBy(l => l.ChangedAt).ThenBy(l => l.ChangedBy).ToList();
+        Assert.Equal(2, logs.Count);
+
+        var marked = logs.Single(l => l.ChangedBy == "joao");
+        Assert.Equal(ContractChangeLogFields.WithoutTaxDocument, marked.Field);
+        Assert.Equal("Não", marked.OldValue);
+        Assert.Equal("Sim", marked.NewValue);
+
+        var unmarked = logs.Single(l => l.ChangedBy == "maria");
+        Assert.Equal("Sim", unmarked.OldValue);
+        Assert.Equal("Não", unmarked.NewValue);
+    }
+
+    /// <summary>
+    /// Informar ou corrigir a NF sem mexer no flag não é mudança de "sem nota fiscal" — o log
+    /// continua sem linha, como antes desta feature.
+    /// </summary>
+    [Fact]
+    public async Task InformingTaxDocumentWithoutChangingFlag_DoesNotLog()
+    {
+        var invoice = await SeedInvoiceAsync();
+
+        await Service().ExecuteAsync(invoice.Key, "123456", "1", Chave, "joao");
+
+        Assert.Empty(LogsOf(invoice.Key));
     }
 }

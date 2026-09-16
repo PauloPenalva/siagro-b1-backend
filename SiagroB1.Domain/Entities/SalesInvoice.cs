@@ -68,7 +68,14 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     [Column(TypeName = "VARCHAR(44)")]
     public string? ChaveNFe { get; set; }
-    
+
+    /// <summary>
+    /// Operação sem nota fiscal (GAC-1174): o usuário conferiu o documento e confirmou que ele
+    /// não terá NF. Exclui número, série e chave — marcar apaga os três — e tira o documento do
+    /// filtro "Sem Nota Fiscal", que deve listar só o que ainda falta informar.
+    /// </summary>
+    public bool WithoutTaxDocument { get; set; }
+
     /// <summary>
     /// Informações do Contribuinte
     /// </summary>

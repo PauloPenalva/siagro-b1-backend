@@ -6,13 +6,19 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
-public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db)
+public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db, SalesInvoicesChangeLogService changeLog)
 {
     /// <summary>
     /// Número, série e chave chegam anuláveis: os três são parâmetros OData opcionais, e a
     /// chave de acesso é de preenchimento opcional no diálogo.
+    ///
+    /// <paramref name="withoutTaxDocument"/> marca a operação sem nota fiscal (GAC-1174). As duas
+    /// situações se excluem, e o flag vence: número, série e chave são gravados nulos mesmo que
+    /// cheguem preenchidos — e por isso também não passam pela trava de duplicidade.
     /// </summary>
-    public async Task ExecuteAsync(Guid key, string? documentNumber, string? documentSeries, string? ChaveNFe, string username)
+    public async Task ExecuteAsync(
+        Guid key, string? documentNumber, string? documentSeries, string? ChaveNFe, string username,
+        bool withoutTaxDocument = false)
     {
         var invoice = await db.Context.SalesInvoices
             .FirstOrDefaultAsync(x => x.Key == key)
@@ -20,9 +26,9 @@ public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db)
 
         // Branco vira null: a chave de acesso é opcional, e gravar "" faria todo documento
         // seguinte sem chave colidir com o anterior.
-        var number = Normalize(documentNumber);
-        var series = Normalize(documentSeries);
-        var chave = Normalize(ChaveNFe);
+        var number = withoutTaxDocument ? null : Normalize(documentNumber);
+        var series = withoutTaxDocument ? null : Normalize(documentSeries);
+        var chave = withoutTaxDocument ? null : Normalize(ChaveNFe);
 
         var taxDocumentConflict = await FindTaxDocumentConflictAsync(number, series, invoice);
         if (taxDocumentConflict is not null)
@@ -36,6 +42,19 @@ public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db)
 
         try
         {
+            // Só a mudança do flag vai para o log: número/série/chave nunca foram logados, e
+            // reconfirmar a NF sem mexer no flag não pode gerar linha.
+            if (invoice.WithoutTaxDocument != withoutTaxDocument)
+            {
+                changeLog.Register(
+                    invoice.Key,
+                    ContractChangeLogFields.WithoutTaxDocument,
+                    ContractChangeLogFields.DescribeYesNo(invoice.WithoutTaxDocument),
+                    ContractChangeLogFields.DescribeYesNo(withoutTaxDocument),
+                    username);
+            }
+
+            invoice.WithoutTaxDocument = withoutTaxDocument;
             invoice.TaxDocumentNumber = number;
             invoice.TaxDocumentSeries = series;
             invoice.ChaveNFe = chave;
