@@ -51,6 +51,20 @@ public class ShippingTransactionsReverseService(
                 $"O romaneio {shipping.SalesStorageTransaction.Code} já foi devolvido e não pode " +
                 "ser estornado. Cancele ou exclua o documento de retorno para desfazer a devolução.");
         }
+        // Expedição ORIGINAL substituída por uma troca de liberação (GAC-1177): o vínculo com a
+        // carga já foi desfeito (ShipmentLoadKey nulo, então o guard de carga logo abaixo não a
+        // pega), e ela precisa continuar rastreável até a troca que a substituiu. Só
+        // ReplacedByShippingReleaseChangeKey bloqueia aqui — a Expedição NOVA (que carrega
+        // ShippingReleaseChangeKey, mas nunca ReplacedBy) continua estornável por este mesmo
+        // caminho depois de desvinculada da carga, e os romaneios de estorno 12/9 não passam
+        // por SHIPPING_TRANSACTIONS.
+        if (shipping.SalesStorageTransaction is { ReplacedByShippingReleaseChangeKey: not null })
+        {
+            throw new ApplicationException(
+                $"O romaneio {shipping.SalesStorageTransaction.Code} faz parte de uma troca de " +
+                "liberação e não pode ser estornado por aqui.");
+        }
+
         // Romaneio já montado em carga não volta por aqui: o estorno cancela o par e devolve os
         // saldos à origem, arrancando volume de baixo de uma carga possivelmente já faturada em
         // parte. Guard pela presença da CARGA e não pelo status: no faturamento parcial o

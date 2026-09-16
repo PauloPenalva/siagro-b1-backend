@@ -66,13 +66,15 @@ public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddresses
                 UoM = a.UoM,
                 ProcessingCostCode = a.ProcessingCostCode,
                 ProcessingCost = a.ProcessingCost,
+                // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
                 Balance = a.Transactions
                     .Where(t =>
                         t.TransactionStatus == StorageTransactionsStatus.Confirmed ||
                         t.TransactionStatus == StorageTransactionsStatus.Invoiced)
                     .Sum(t =>
                         t.TransactionType == StorageTransactionType.Receipt ||
-                        t.TransactionType == StorageTransactionType.ShipmentReleased
+                        t.TransactionType == StorageTransactionType.ShipmentReleased ||
+                        t.TransactionType == StorageTransactionType.SalesShipmentReturn
                             ? t.NetWeight
                             : t.TransactionType == StorageTransactionType.Shipment ||
                               t.TransactionType == StorageTransactionType.SalesShipment ||

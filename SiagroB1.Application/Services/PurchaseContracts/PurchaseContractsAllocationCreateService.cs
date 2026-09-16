@@ -195,6 +195,71 @@ public class PurchaseContractsAllocationCreateService(
             _ => volume
         };
 
+        await ApplyAllocationAsync(purchaseContractKey, purchaseContract, storageTransaction, volume, userName, commitMode);
+    }
+
+    /// <summary>
+    /// Estorno de troca de liberação (GAC-1177): aloca volume NEGATIVO ao romaneio 9
+    /// (<see cref="StorageTransactionType.PurchaseReturn"/>) que representa a devolução física
+    /// no contrato de ORIGEM. Ao contrário de <see cref="ExecuteAsync(Guid,StorageTransaction,decimal,string,CommitMode)"/>,
+    /// este método DEVOLVE saldo em vez de consumi-lo, então nenhum dos dois guards que existem
+    /// para impedir estourar saldo se aplica aqui:
+    /// <list type="bullet">
+    /// <item>contrato <see cref="ContractStatus.Finished"/> não bloqueia — devolver saldo a um
+    /// contrato encerrado é seguro, é consumi-lo que não é (mesmo espírito de
+    /// <c>PurchaseContractsCloseService</c>, que permite fechar com saldo negativo);</item>
+    /// <item>o teto de <see cref="PurchaseContract.AvaiableVolume"/> do contrato não se aplica —
+    /// devolver saldo não pode "estourar" saldo disponível, só aumentá-lo.</item>
+    /// </list>
+    /// O único teto que resta é o do PRÓPRIO romaneio de devolução: não dá para estornar mais do
+    /// que ele ainda tem disponível para alocar (<see cref="StorageTransaction.AvaiableVolumeToAllocate"/>).
+    /// </summary>
+    public async Task ExecuteReversalAsync(
+        Guid purchaseContractKey,
+        StorageTransaction purchaseReturn,
+        decimal volume,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto)
+    {
+        if (purchaseReturn.TransactionType != StorageTransactionType.PurchaseReturn)
+        {
+            throw new ApplicationException("Only purchase return transactions are supported.");
+        }
+
+        if (purchaseReturn.TransactionStatus == StorageTransactionsStatus.Pending)
+        {
+            throw new ApplicationException("The storage transaction is pending.");
+        }
+
+        if (volume <= 0)
+        {
+            throw new ApplicationException("Invalid purchase contract allocation volume.");
+        }
+
+        if (volume > purchaseReturn.AvaiableVolumeToAllocate)
+        {
+            throw new ApplicationException(
+                "The reported volume is greater than the available balance on the delivery note.");
+        }
+
+        var purchaseContract = await LoadContractAsync(purchaseContractKey);
+
+        await ApplyAllocationAsync(purchaseContractKey, purchaseContract, purchaseReturn, -volume, userName, commitMode);
+    }
+
+    /// <summary>
+    /// Trecho comum aos dois fluxos (alocação normal e estorno): grava a alocação, deriva o
+    /// saldo alocável do romaneio a partir da soma persistida e atualiza o volume alocado do
+    /// contrato a partir da soma COM sinal das alocações dele.
+    /// </summary>
+    private async Task ApplyAllocationAsync(
+        Guid purchaseContractKey,
+        PurchaseContract? purchaseContract,
+        StorageTransaction storageTransaction,
+        decimal volume,
+        string userName,
+        CommitMode commitMode)
+    {
         try
         {
             var alloc = new PurchaseContractAllocation

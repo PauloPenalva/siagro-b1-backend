@@ -488,6 +488,11 @@ public class SalesInvoicesReverseConfirmService(
                     // mesmo produto) é largo o bastante para sequestrar um romaneio de outra
                     // carga, possivelmente já faturada.
                     x.ShipmentLoadKey == null &&
+                    // Nem romaneio nascido de/substituído por uma troca de liberação
+                    // (GAC-1177): mesmo critério largo, mesmo risco de sequestro — quem controla
+                    // esses romaneios é o fluxo da troca.
+                    x.ReplacedByShippingReleaseChangeKey == null &&
+                    x.ShippingReleaseChangeKey == null &&
                     x.TransactionStatus ==
                         StorageTransactionsStatus.Confirmed &&
                     x.CardCode ==

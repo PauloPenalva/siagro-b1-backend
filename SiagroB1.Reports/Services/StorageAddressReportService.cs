@@ -109,10 +109,12 @@ public class StorageAddressReportService(
             UoM = x.UoM,
             ProcessingCostCode = x.ProcessingCostCode,
 
+            // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
             TotalReceipt = x.Transactions
                 .Where(t =>
                     (t.TransactionType == StorageTransactionType.Receipt ||
-                     t.TransactionType == StorageTransactionType.ShipmentReleased) &&
+                     t.TransactionType == StorageTransactionType.ShipmentReleased ||
+                     t.TransactionType == StorageTransactionType.SalesShipmentReturn) &&
                     (t.TransactionStatus == StorageTransactionsStatus.Confirmed ||
                      t.TransactionStatus == StorageTransactionsStatus.Invoiced))
                 .Sum(t => (decimal?)t.NetWeight) ?? 0m,
@@ -132,11 +134,13 @@ public class StorageAddressReportService(
                      t.TransactionStatus == StorageTransactionsStatus.Invoiced))
                 .Sum(t => (decimal?)t.NetWeight) ?? 0m,
 
+            // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
             Balance =
                 ((x.Transactions
                     .Where(t =>
                         (t.TransactionType == StorageTransactionType.Receipt ||
-                         t.TransactionType == StorageTransactionType.ShipmentReleased) &&
+                         t.TransactionType == StorageTransactionType.ShipmentReleased ||
+                         t.TransactionType == StorageTransactionType.SalesShipmentReturn) &&
                         (t.TransactionStatus == StorageTransactionsStatus.Confirmed ||
                          t.TransactionStatus == StorageTransactionsStatus.Invoiced))
                     .Sum(t => (decimal?)t.NetWeight) ?? 0m)

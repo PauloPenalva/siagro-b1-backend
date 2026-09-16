@@ -174,6 +174,49 @@ public class SalesInvoicesReturnOriginStateTests
     }
 
     /// <summary>
+    /// A consulta de "órfãos" do fluxo LEGADO casa por cliente+produto e sequestraria um
+    /// romaneio nascido de uma troca de liberação (GAC-1177) que por acaso combine — as duas
+    /// colunas novas (<see cref="StorageTransaction.ShippingReleaseChangeKey"/> e
+    /// <see cref="StorageTransaction.ReplacedByShippingReleaseChangeKey"/>) o excluem, no mesmo
+    /// espírito que já excluía romaneio montado em carga.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_legacy_return_does_not_hijack_a_shipment_from_a_release_change()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var (_, returnInvoice) = await SeedAsync(db, returnStatus: InvoiceStatus.Confirmed);
+
+        var fromReleaseChange = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000999",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM01",
+            GrossWeight = 100m,
+            NetWeight = 100m,
+            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            SalesInvoiceKey = null,
+            ShipmentLoadKey = null,
+            ShippingReleaseChangeKey = Guid.NewGuid(),
+        };
+        db.Context.StorageTransactions.Add(fromReleaseChange);
+        await db.SaveChangesAsync();
+
+        await Reverse(db).ExecuteAsync(returnInvoice.Key, "tester");
+
+        var untouched = await db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == fromReleaseChange.Key);
+
+        Assert.Null(untouched.SalesInvoiceKey);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, untouched.TransactionStatus);
+        Assert.False(untouched.IsInvoiced);
+    }
+
+    /// <summary>
     /// Cancelar o retorno faz o documento deixar de valer: a origem volta a "Confirmada" e a
     /// entrega reabre, senão ela recusaria um novo retorno com "Invoice closed.".
     /// </summary>

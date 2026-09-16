@@ -166,4 +166,82 @@ public class PurchaseContractsAllocationCreateServiceTests
 
         Assert.Equal(0, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
     }
+
+    private static StorageTransaction NewPurchaseReturn(
+        decimal netWeight, decimal available, StorageTransactionsStatus status = StorageTransactionsStatus.Confirmed) => new()
+    {
+        Key = Guid.NewGuid(),
+        Code = "ST-009",
+        CardCode = "F0001",
+        ItemCode = "SOJA",
+        UnitOfMeasureCode = "KG",
+        WarehouseCode = "01",
+        TransactionType = StorageTransactionType.PurchaseReturn,
+        TransactionStatus = status,
+        NetWeight = netWeight,
+        AvaiableVolumeToAllocate = available,
+    };
+
+    /// <summary>
+    /// ExecuteReversalAsync é o estorno da troca de liberação (GAC-1177): mesmo com o contrato
+    /// Finished e SEM saldo disponível, o estorno é permitido porque ele DEVOLVE saldo (volume
+    /// negativo), em vez de consumi-lo — o inverso do que <see cref="ExecuteAsync"/> guarda.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteReversalAsync_AllocatesNegative_OnFinishedContractWithNoBalance()
+    {
+        var purchaseReturn = NewPurchaseReturn(netWeight: 1000m, available: 1000m);
+        var pc = NewContract(totalVolume: 5000m);
+        pc.Status = ContractStatus.Finished;
+        pc.AllocatedVolume = 5000m; // saldo disponível zerado
+        _db.Context.StorageTransactions.Add(purchaseReturn);
+        _db.Context.PurchaseContracts.Add(pc);
+        await _db.Context.SaveChangesAsync();
+
+        await CreateService().ExecuteReversalAsync(pc.Key, purchaseReturn, 300m, "tester");
+
+        var allocation = Assert.Single(
+            await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(-300m, allocation.Volume);
+    }
+
+    [Fact]
+    public async Task ExecuteReversalAsync_RefusesTransactionTypeOtherThanPurchaseReturn()
+    {
+        var purchase = NewPurchase(netWeight: 1000m, available: 1000m);
+        var pc = NewContract(totalVolume: 5000m);
+        _db.Context.StorageTransactions.Add(purchase);
+        _db.Context.PurchaseContracts.Add(pc);
+        await _db.Context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ApplicationException>(() =>
+            CreateService().ExecuteReversalAsync(pc.Key, purchase, 300m, "tester"));
+
+        Assert.Equal(0, await _db.Context.PurchaseContractsAllocations.AsNoTracking().CountAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteReversalAsync_DecreasesContractAllocatedVolume()
+    {
+        var purchaseReturn = NewPurchaseReturn(netWeight: 1000m, available: 1000m);
+        var pc = NewContract(totalVolume: 5000m);
+        var existingPurchase = NewPurchase(netWeight: 2000m, available: 0m);
+        _db.Context.StorageTransactions.Add(purchaseReturn);
+        _db.Context.StorageTransactions.Add(existingPurchase);
+        _db.Context.PurchaseContracts.Add(pc);
+        // Alocação já existente no contrato, gravada direto (como o Purchase já confirmado).
+        _db.Context.PurchaseContractsAllocations.Add(new PurchaseContractAllocation
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = pc.Key,
+            StorageTransactionKey = existingPurchase.Key,
+            Volume = 2000m,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        await CreateService().ExecuteReversalAsync(pc.Key, purchaseReturn, 300m, "tester");
+
+        var contract = await ReloadContractAsync(pc.Key);
+        Assert.Equal(1700m, contract.AllocatedVolume); // 2000 - 300
+    }
 }

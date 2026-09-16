@@ -147,6 +147,40 @@ public class ShipmentLoadsDeleteServiceTests
         Assert.Single(_db.Context.ShipmentLoads);
     }
 
+    /// <summary>
+    /// GAC-1177 v2: a troca de liberação grava um <see cref="ShippingReleaseChange"/> para a
+    /// carga mas não mexe em <see cref="StorageTransaction.ShipmentLoadKey"/>/
+    /// <see cref="SalesInvoice.ShipmentLoadKey"/> das pernas envolvidas — então nem
+    /// <see cref="Refuses_to_delete_a_planned_load_that_still_has_a_shipment"/> nem
+    /// <see cref="Refuses_to_delete_a_planned_load_that_has_an_invoice"/> cobrem esse caso.
+    /// Excluir apagaria o rastro da troca sem devolver nada — o caminho certo é cancelar a carga.
+    /// </summary>
+    [Fact]
+    public async Task Refuses_to_delete_a_planned_load_that_had_a_release_change()
+    {
+        var load = Load();
+        _db.Context.ShippingReleaseChanges.Add(new ShippingReleaseChange
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            OperationGroupKey = Guid.NewGuid(),
+            OriginalSalesStorageTransactionKey = Guid.NewGuid(),
+            ReturnSalesStorageTransactionKey = Guid.NewGuid(),
+            NewSalesStorageTransactionKey = Guid.NewGuid(),
+            OriginalQuantity = 1000m,
+            NewQuantity = 1000m,
+            Reason = "teste",
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key));
+
+        Assert.Contains("troca de liberação", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(_db.Context.ShipmentLoads);
+        Assert.Single(_db.Context.ShippingReleaseChanges);
+    }
+
     [Fact]
     public async Task Refuses_to_delete_a_planned_load_that_has_an_invoice()
     {

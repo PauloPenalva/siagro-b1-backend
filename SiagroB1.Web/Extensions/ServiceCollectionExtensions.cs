@@ -353,7 +353,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentBillingCreateSalesInvoiceService>();
         services.AddScoped<ShipmentBillingTransactionGuardService>();
         services.AddScoped<ShippingTransactionsReverseService>();
-        
+        services.AddScoped<ShippingTransactionsChangeReleaseService>();
+        services.AddScoped<ShippingReleaseChangeReconciliationGuard>();
+
         // shipment releases
         services.AddScoped<ShipmentReleasesRecalculateShippedService>();
         services.AddScoped<ShipmentReleasesRecalculateBalanceService>();

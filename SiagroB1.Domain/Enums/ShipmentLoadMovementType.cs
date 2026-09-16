@@ -24,5 +24,6 @@ public enum ShipmentLoadMovementType
     TransactionsDetached = 10, // Romaneio(s) desvinculado(s) — reduz o volume da carga
     Updated = 11,              // Dados cadastrais da carga alterados
     Refused = 12,              // Recusa registrada — narrativa com cliente, local de entrega e motivo
-    ReturnedToWarehouse = 13   // Mercadoria devolvida a armazém — retira o saldo da carga
+    ReturnedToWarehouse = 13,  // Mercadoria devolvida a armazém — retira o saldo da carga
+    ReleaseChanged = 14        // Troca de liberação (GAC-1177): estorno na origem + Expedição nova; pode ajustar o total da carga pela regra da quantidade
 }

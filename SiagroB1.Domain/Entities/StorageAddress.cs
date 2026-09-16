@@ -55,10 +55,12 @@ public class StorageAddress : MasterEntity
     public string? ProcessingCostCode { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }
     
+    // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
     public decimal TotalReceipt => Transactions
-        .Where(x => (x.TransactionType is StorageTransactionType.Receipt or 
-            StorageTransactionType.ShipmentReleased) && 
-                    (x.TransactionStatus is StorageTransactionsStatus.Confirmed or 
+        .Where(x => (x.TransactionType is StorageTransactionType.Receipt or
+            StorageTransactionType.ShipmentReleased or
+            StorageTransactionType.SalesShipmentReturn) &&
+                    (x.TransactionStatus is StorageTransactionsStatus.Confirmed or
                     StorageTransactionsStatus.Invoiced))
         .Sum(x => x.NetWeight);
     

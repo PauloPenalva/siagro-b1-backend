@@ -10,11 +10,12 @@ public class StorageAddressesGetBalanceService(
 {
     public decimal GetBalance(string storageAddressCode)
     {
+        // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
         var sql = """
-                  SELECT 
+                  SELECT
                       COALESCE(SUM(
                           CASE
-                              WHEN (ST.TransactionType IN (0, 6))
+                              WHEN (ST.TransactionType IN (0, 6, 12))
                                    AND (ST.TransactionStatus IN (1, 3))
                               THEN ST.NetWeight
                               ELSE 0

@@ -231,6 +231,25 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         Assert.Contains("CG000042", error.Message);
     }
 
+    /// <summary>
+    /// Expedição ORIGINAL substituída por uma troca de liberação (GAC-1177) não pode ser
+    /// vinculada a uma carga de novo por aqui — quem controla esse romaneio é o fluxo da troca.
+    /// </summary>
+    [Fact]
+    public async Task Refuses_a_shipment_replaced_by_a_release_change()
+    {
+        var load = Load();
+        var a = Shipment("R1");
+        a.ReplacedByShippingReleaseChangeKey = Guid.NewGuid();
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("R1", error.Message);
+        Assert.Contains("troca de liberação", error.Message);
+    }
+
     [Fact]
     public async Task Refuses_a_shipment_that_is_not_confirmed()
     {

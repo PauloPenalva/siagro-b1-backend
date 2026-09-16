@@ -14,10 +14,11 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// Uma carga que nunca teve romaneio nem nota não tem história que valha preservar, e
 /// transformá-la num cancelamento só polui a lista.
 /// <para>
-/// A permissão é deliberadamente ESTREITA e as três condições são verificadas separadamente, não
-/// deduzidas uma da outra: status <c>Planned</c>, nenhum romaneio vinculado e nenhuma nota — nem
-/// mesmo cancelada. Em qualquer outro caso a resposta é cancelar a carga, e
-/// <see cref="ShipmentLoadsCancelService"/> continua sendo o caminho.
+/// A permissão é deliberadamente ESTREITA e as quatro condições são verificadas separadamente,
+/// não deduzidas uma da outra: status <c>Planned</c>, nenhum romaneio vinculado, nenhuma nota —
+/// nem mesmo cancelada — e nenhuma troca de liberação (GAC-1177 v2; ver
+/// <see cref="Domain.Entities.ShippingReleaseChange"/>). Em qualquer outro caso a resposta é
+/// cancelar a carga, e <see cref="ShipmentLoadsCancelService"/> continua sendo o caminho.
 /// </para>
 /// <para>
 /// ⚠️ <b>O número consumido da sequência NÃO volta.</b> <c>DocNumberSequenceService</c> não tem
@@ -51,6 +52,17 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
         if (hasInvoices)
             throw new ApplicationException(
                 $"A carga {load.Code} possui documentos de saída e não pode ser excluída.");
+
+        // GAC-1177 v2: a troca de liberação não deixa rastro em ShipmentLoadKey de
+        // StorageTransaction/SalesInvoice — só no próprio documento ShippingReleaseChange. Sem
+        // este guard, excluir apagaria o histórico da troca (e, com FK real, quebraria o delete
+        // como InvalidOperationException em vez do ApplicationException esperado aqui).
+        var hasReleaseChange = await db.Context.ShippingReleaseChanges
+            .AnyAsync(x => x.ShipmentLoadKey == key);
+
+        if (hasReleaseChange)
+            throw new ApplicationException(
+                $"A carga {load.Code} teve troca de liberação e não pode ser excluída. Cancele a carga.");
 
         var movements = await db.Context.ShipmentLoadMovements
             .Where(x => x.ShipmentLoadKey == key)

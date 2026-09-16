@@ -288,6 +288,58 @@ public class ShippingTransactionsReverseServiceTests
     }
 
     /// <summary>
+    /// Expedição ORIGINAL substituída por uma troca de liberação (GAC-1177) não se estorna por
+    /// aqui: o vínculo com a carga já foi desfeito (<c>ShipmentLoadKey</c> nulo), então o guard
+    /// de carga não a pega, e ela precisa continuar rastreável até a troca que a substituiu.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ComExpedicaoSubstituidaPorTrocaDeLiberacao_Recusa()
+    {
+        var (contract, release) = await SeedAsync();
+        var purchase = NewPurchase(release.Key, 1000m);
+        var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
+
+        var sales = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        sales.ShipmentLoadKey = null;
+        sales.ReplacedByShippingReleaseChangeKey = Guid.NewGuid();
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
+
+        Assert.Contains("troca de liberação", error.Message);
+
+        var reloadedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
+    }
+
+    /// <summary>
+    /// A Expedição NOVA de uma troca de liberação continua estornável pelo caminho normal depois
+    /// de desvinculada da carga: só <c>ReplacedByShippingReleaseChangeKey</c> bloqueia, nunca
+    /// <c>ShippingReleaseChangeKey</c> sozinho.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ComExpedicaoNovaDeTrocaDeLiberacao_NaoRecusa()
+    {
+        var (contract, release) = await SeedAsync();
+        var purchase = NewPurchase(release.Key, 1000m);
+        var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
+
+        var sales = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        sales.ShippingReleaseChangeKey = Guid.NewGuid();
+        await _db.Context.SaveChangesAsync();
+
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+
+        var reloadedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(0m, reloadedRelease.ShippedQuantity);
+    }
+
+    /// <summary>
     /// Embarque de liberação de transferência: sem perna de compra, o estorno tem de
     /// devolver o saldo lendo a liberação pela perna de SAÍDA. Lendo pela de compra (que
     /// não existe) o saldo ficaria preso — falha silenciosa, sem exceção nenhuma.

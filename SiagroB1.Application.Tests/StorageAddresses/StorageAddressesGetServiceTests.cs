@@ -116,6 +116,8 @@ public class StorageAddressesGetServiceTests
         Movement(StorageTransactionType.SalesShipment, StorageTransactionsStatus.Invoiced, 100m);
         Movement(StorageTransactionType.TechnicalLoss, StorageTransactionsStatus.Confirmed, 50m);
         Movement(StorageTransactionType.Receipt, StorageTransactionsStatus.Confirmed, 0.4m);
+        // 12 com lote = estorno de troca de liberação (GAC-1177): credita como um recebimento.
+        Movement(StorageTransactionType.SalesShipmentReturn, StorageTransactionsStatus.Confirmed, 200m);
 
         // Ficam de fora: status que não conta e tipo que não mexe no lote
         Movement(StorageTransactionType.Receipt, StorageTransactionsStatus.Pending, 999m);
@@ -130,7 +132,7 @@ public class StorageAddressesGetServiceTests
         var rows = await service.QueryAll().OrderBy(x => x.Code).ToListAsync();
 
         Assert.Equal(2, rows.Count);
-        Assert.Equal(1050m, rows[0].Balance); // 1000 + 500 - 300 - 100 - 50 + 0,4, arredondado
+        Assert.Equal(1250m, rows[0].Balance); // 1000 + 500 - 300 - 100 - 50 + 0,4 + 200, arredondado
         Assert.Equal(0m, rows[1].Balance);
 
         var scalarProperties = db.Context.Model.FindEntityType(typeof(StorageAddress))!

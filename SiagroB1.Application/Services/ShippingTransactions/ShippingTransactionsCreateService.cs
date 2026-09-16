@@ -44,7 +44,8 @@ public class ShippingTransactionsCreateService(
     public async Task<ShippingTransaction> ExecuteAsync(Guid? purchaseContractKey, StorageTransaction purchase, string userName)
     {
         var release = await ResolveReleaseAsync(purchase);
-        var lot = await ResolveReleaseLotAsync(release, purchase);
+        var lot = await ShipmentReleaseLotRules.ResolveAsync(
+            unitOfWork.Context, balanceReader, release, purchase.ItemCode, purchase.WarehouseCode, purchase.GrossWeight);
 
         // Transferência de titularidade e devolução ao armazém já registraram a entrada do
         // grão. Aqui só resta a saída. Ver o <summary> da classe.
@@ -144,62 +145,5 @@ public class ShippingTransactionsCreateService(
         return await unitOfWork.Context.ShipmentReleases
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Key == purchase.ShipmentReleaseKey.Value);
-    }
-
-    /// <summary>
-    /// Lote de onde a mercadoria vai sair, quando a liberação aponta para um.
-    /// Só as liberações emitidas por transferência de titularidade têm lote: nelas o
-    /// grão já está fisicamente depositado, e a saída precisa drenar aquele lote —
-    /// senão o Receipt(0) gravado pela transferência vira saldo fantasma permanente.
-    /// Liberação comum devolve null e o fluxo segue em nível de armazém, como sempre.
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ A exigência de lote é <see cref="ReleaseOriginRules.RequiresStorageAddress"/>, que NÃO
-    /// é o mesmo predicado do ramo de embarque acima. A liberação de
-    /// <see cref="ReleaseOrigin.SalesReturn"/> embarca sem perna de compra <b>e</b> sem lote: a
-    /// devolução é entrada em nível de ARMAZÉM e o romaneio tipo 12 nasce sem
-    /// <c>StorageAddressCode</c> (o saldo por endereço nem credita esse tipo). Generalizar este
-    /// guard para <c>!= Standard</c> faria todo reembarque de devolução estourar
-    /// "liberação de transferência sem lote".
-    /// </remarks>
-    private async Task<StorageAddress?> ResolveReleaseLotAsync(
-        ShipmentRelease? release, StorageTransaction purchase)
-    {
-        if (release == null)
-            return null;
-
-        if (string.IsNullOrEmpty(release.StorageAddressCode))
-        {
-            // Integridade: uma liberação de transferência sem lote não tem como ser
-            // embarcada corretamente. Só acontece com linha editada à mão.
-            if (ReleaseOriginRules.RequiresStorageAddress(release.Origin))
-                throw new ApplicationException(
-                    "Liberação de transferência de propriedade sem lote de armazenagem vinculado.");
-
-            return null;
-        }
-
-        var lot = await unitOfWork.Context.StorageAddresses
-                      .AsNoTracking()
-                      .FirstOrDefaultAsync(x => x.Code == release.StorageAddressCode)
-                  ?? throw new ApplicationException(
-                      $"Lote de armazenagem {release.StorageAddressCode} não encontrado.");
-
-        if (!string.Equals(lot.ItemCode, purchase.ItemCode, StringComparison.OrdinalIgnoreCase))
-            throw new ApplicationException(
-                $"O produto do lote ({lot.ItemCode}) é diferente do produto do embarque ({purchase.ItemCode}).");
-
-        if (balanceReader.GetBalance(lot.Code!) < purchase.GrossWeight)
-            throw new ApplicationException(
-                $"Saldo insuficiente no lote {lot.Code}: o produto desta liberação já foi movimentado.");
-
-        // O armazém vem do payload da tela e é ele que o saldo de armazém usa. Divergindo
-        // do armazém do lote, a saída debitaria um armazém e a entrada gravada pela
-        // transferência ficaria presa no outro — dois saldos errados de uma vez.
-        if (!string.Equals(lot.WarehouseCode, purchase.WarehouseCode, StringComparison.OrdinalIgnoreCase))
-            throw new ApplicationException(
-                $"O armazém do embarque ({purchase.WarehouseCode}) é diferente do armazém do lote {lot.Code} ({lot.WarehouseCode}).");
-
-        return lot;
     }
 }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -33,15 +34,45 @@ public class ShipmentLoadsGetService(IUnitOfWork db, ILogger<ShipmentLoadsGetSer
 
 
     /// <summary>
-    /// Romaneios montados nesta carga. Raiz de <c>DbSet</c> (e não <c>SelectMany</c> sobre a
-    /// coleção do pai) para que o <c>$expand</c> gerado pelo UI5 — motorista, liberação e
-    /// contrato de compra do romaneio — incida sobre uma consulta de entidade.
+    /// Romaneios do grid da carga: a Expedição vigente (<see cref="StorageTransaction.ShipmentLoadKey"/>
+    /// ainda aponta a carga) e, depois de uma troca de liberação (GAC-1177 v2), a original que ela
+    /// substituiu e o estorno (12) que ela gerou — ambos sem <c>ShipmentLoadKey</c>, alcançados só
+    /// pelo <see cref="ShippingReleaseChange"/> cujo <c>ShipmentLoadKey</c> é esta carga. Restrito a
+    /// <see cref="StorageTransactionType.SalesShipment"/>/<see cref="StorageTransactionType.SalesShipmentReturn"/>
+    /// (7/12): a perna de compra da troca (8/9) não aparece nesta tela.
     /// </summary>
+    /// <remarks>
+    /// Raiz de <c>DbSet</c> (e não <c>SelectMany</c> sobre a coleção do pai) para que o
+    /// <c>$expand</c> gerado pelo UI5 — motorista, liberação e contrato de compra do romaneio —
+    /// incida sobre uma consulta de entidade. O subquery sobre <c>ShippingReleaseChanges</c>
+    /// permanece traduzível pelo EF (vira <c>IN</c>/<c>EXISTS</c> no SQL Server).
+    /// <para>
+    /// ⚠️ O ramo por <c>ShippingReleaseChangeKey</c> só pode casar
+    /// <see cref="StorageTransactionType.SalesShipmentReturn"/> (o estorno 12). A Expedição NOVA
+    /// (tipo 7) que a troca criou também carrega <c>ShippingReleaseChangeKey</c>, mas quando ela
+    /// solta da carga (cancelamento/desvínculo) seu <c>ShipmentLoadKey</c> volta a <c>null</c> e
+    /// ela deixa de pertencer a esta carga — sem a restrição de tipo aqui, ela reapareceria no
+    /// grid da carga ORIGINAL mesmo já estando livre para ser vinculada a outra (ver
+    /// <c>Attach.controller.ts</c> no frontend).
+    /// </para>
+    /// </remarks>
     public IQueryable<StorageTransaction> QueryTransactions(Guid shipmentLoadKey)
     {
+        var changeKeysForLoad = db.Context.ShippingReleaseChanges
+            .Where(c => c.ShipmentLoadKey == shipmentLoadKey)
+            .Select(c => c.Key);
+
         return db.Context.StorageTransactions
             .AsNoTracking()
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey);
+            .Where(x =>
+                (x.TransactionType == StorageTransactionType.SalesShipment ||
+                 x.TransactionType == StorageTransactionType.SalesShipmentReturn) &&
+                (x.ShipmentLoadKey == shipmentLoadKey ||
+                 (x.ReplacedByShippingReleaseChangeKey != null &&
+                  changeKeysForLoad.Contains(x.ReplacedByShippingReleaseChangeKey.Value)) ||
+                 (x.TransactionType == StorageTransactionType.SalesShipmentReturn &&
+                  x.ShippingReleaseChangeKey != null &&
+                  changeKeysForLoad.Contains(x.ShippingReleaseChangeKey.Value))));
     }
 
     /// <summary>

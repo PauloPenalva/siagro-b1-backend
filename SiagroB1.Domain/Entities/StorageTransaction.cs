@@ -141,7 +141,36 @@ public class StorageTransaction : DocumentEntity
     public Guid? GeneratedByReturnInvoiceKey { get; set; }
     public virtual SalesInvoice? GeneratedByReturnInvoice { get; set; }
 
-    public TransactionCode? TransactionOrigin { get; set; } 
+    /// <summary>
+    /// Documento de troca de liberação (GAC-1177) que tirou ESTE romaneio da carga. Preenchida
+    /// só na Expedição ORIGINAL (a 7, e a 8 quando houver) no momento em que ela é substituída:
+    /// junto com esta chave, <see cref="ShipmentLoadKey"/> é zerada, mas o status permanece o
+    /// que era — a troca não estorna a nota que já a consumiu.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Coluna própria, e NÃO <see cref="ShippingReleaseChangeKey"/>.</b> Esta aqui aponta a
+    /// troca que EXPULSOU o romaneio da carga; aquela aponta a troca que GEROU o romaneio (o
+    /// estorno 12/9 ou a Expedição nova 7/8). São vínculos opostos: reusar a mesma coluna faria
+    /// um romaneio nascido de uma troca, quando substituído por outra, apontar só a última —
+    /// perdendo o rastro da primeira. Sem navigation property de propósito: com seis pontas de
+    /// <see cref="ShippingReleaseChange"/> apontando para <c>STORAGE_TRANSACTIONS</c>, uma
+    /// coleção aqui não teria como a convenção do EF escolher com qual delas parear, e entraria
+    /// no EDM do OData sem que ninguém peça. FK real com <c>NoAction</c>, como todo o projeto.
+    /// </remarks>
+    public Guid? ReplacedByShippingReleaseChangeKey { get; set; }
+
+    /// <summary>
+    /// Documento de troca de liberação (GAC-1177) que GEROU este romaneio: o estorno na origem
+    /// (tipo 12, e o 9 quando a origem é Standard) ou a Expedição nova no destino (tipo 7, e o 8
+    /// quando o destino consome contrato).
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>NÃO é <see cref="ReplacedByShippingReleaseChangeKey"/></b> — ver o comentário lá.
+    /// Sem navigation property, pelo mesmo motivo.
+    /// </remarks>
+    public Guid? ShippingReleaseChangeKey { get; set; }
+
+    public TransactionCode? TransactionOrigin { get; set; }
     
     public Guid? ShippingOrderKey { get; set; }
     

@@ -12,7 +12,7 @@ public class ShipmentReleasesPurchaseContractsService(
     IBusinessPartnerService businessPartnerService,
     ILogger<ShipmentReleasesPurchaseContractsService> logger)
 {
-    public async Task<ICollection<ShipmentRelesesPurchaseContractsResponseDto>> ExecuteAsync(string itemCode, string warehouseCode)
+    public async Task<ICollection<ShipmentRelesesPurchaseContractsResponseDto>> ExecuteAsync(string itemCode, string? warehouseCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(itemCode);
 
@@ -43,13 +43,17 @@ public class ShipmentReleasesPurchaseContractsService(
         return await businessPartnerService.LoadSuppliersAsync(cardCodes);
     }
 
-    private async Task<List<ShipmentReleasesPurchaseContractsProjection>> LoadShipmentReleasesAsync(string itemCode, string warehouseCode)
+    private async Task<List<ShipmentReleasesPurchaseContractsProjection>> LoadShipmentReleasesAsync(string itemCode, string? warehouseCode)
     {
+        // Troca de liberação (GAC-1177 v2): o destino pode ser em QUALQUER armazém, então a
+        // tela chama esta function sem WarehouseCode — nulo/vazio não filtra por armazém.
+        var hasWarehouseFilter = !string.IsNullOrWhiteSpace(warehouseCode);
+
         return await db.Context.ShipmentReleases
             .AsNoTracking()
             .Where(sr =>
                 sr.PurchaseContract.ItemCode == itemCode &&
-                sr.DeliveryLocationCode == warehouseCode &&
+                (!hasWarehouseFilter || sr.DeliveryLocationCode == warehouseCode) &&
                 sr.Status == ReleaseStatus.Actived &&
                 // Mesma regra da lista de armazéns: contrato sem saldo a embarcar fica fora.
                 sr.ReleasedQuantity - sr.ShippedQuantity > 0)

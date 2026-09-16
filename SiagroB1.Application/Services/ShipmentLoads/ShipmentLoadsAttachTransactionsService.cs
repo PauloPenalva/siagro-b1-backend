@@ -141,6 +141,13 @@ public class ShipmentLoadsAttachTransactionsService(
             throw new ApplicationException(
                 $"O romaneio {notConfirmed.Code} não está confirmado e não pode entrar em uma carga.");
 
+        // Expedição ORIGINAL substituída por uma troca de liberação (GAC-1177): quem controla
+        // esse romaneio dali em diante é o fluxo da troca, não a Montagem de Carga.
+        var replaced = shipments.FirstOrDefault(x => x.ReplacedByShippingReleaseChangeKey != null);
+        if (replaced != null)
+            throw new ApplicationException(
+                $"O romaneio {replaced.Code} faz parte de uma troca de liberação e não pode ser vinculado a uma carga.");
+
         var alreadyLoaded = shipments.FirstOrDefault(x => x.ShipmentLoadKey != null);
         if (alreadyLoaded == null)
             return;

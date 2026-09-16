@@ -53,6 +53,16 @@ public class StorageTransactionsReverseService(
                 "não pode ser estornado por aqui.");
         }
 
+        // Romaneio nascido de ou substituído por uma troca de liberação (GAC-1177): o estorno
+        // 12/9, a Expedição nova 7/8, e a Expedição ORIGINAL substituída (que já saiu da carga).
+        // Estorná-lo por aqui destruiria o rastro da troca — quem desfaz esses romaneios é o
+        // fluxo dela, nunca o caminho avulso de Romaneios.
+        if (doc.ShippingReleaseChangeKey != null || doc.ReplacedByShippingReleaseChangeKey != null)
+        {
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} faz parte de uma troca de liberação e não pode ser estornado por aqui.");
+        }
+
         // Mesmo caso, no fluxo LEGADO: a devolução do retorno de um documento de saída sem carga
         // tem AS DUAS colunas acima nulas e escaparia dos dois guards. Quem desfaz esta entrada é
         // o estorno da confirmação da própria devolução, que sabe o que mais precisa voltar.

@@ -296,9 +296,11 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
             DeliveryLocationCode = warehouseCode,
             DeliveryLocationName = warehouseName,
 
-            // Devolução é entrada em nível de ARMAZÉM: o romaneio tipo 12 nasce sem lote e o
-            // saldo por endereço nem o credita. Sem lote a drenar, o embarque roda em nível de
-            // armazém — ver ResolveReleaseLotAsync em ShippingTransactionsCreateService.
+            // Devolução ao armazém nasce sem lote: é entrada em nível de ARMAZÉM, e este
+            // romaneio tipo 12 específico não credita saldo de lote algum — não é a regra geral
+            // de todo tipo 12: o estorno da troca de liberação (GAC-1177) grava um 12 COM lote,
+            // que credita o saldo do lote de origem. Sem lote a drenar aqui, o embarque roda em
+            // nível de armazém — ver ShipmentReleaseLotRules.ResolveAsync.
             StorageAddressCode = null,
 
             Status = ReleaseStatus.Actived,

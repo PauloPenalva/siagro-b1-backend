@@ -150,7 +150,7 @@ public class ShippingTransactionsSalesReturnReleaseTests
     /// ⚠️ Trava da linha do guard de lote. O romaneio tipo 12 nasce sem
     /// <c>StorageAddressCode</c> (a devolução é entrada em nível de ARMAZÉM), então a liberação
     /// também não tem lote. Se alguém generalizar o guard de
-    /// <c>ResolveReleaseLotAsync</c> para "toda origem != Standard", todo reembarque de
+    /// <c>ShipmentReleaseLotRules.ResolveAsync</c> para "toda origem != Standard", todo reembarque de
     /// devolução passa a estourar "liberação de transferência sem lote".
     /// </summary>
     [Fact]

@@ -530,7 +530,8 @@ public static class ODataConfigurations
         
         var shipmentReleasesPurchaseContracts = modelBuilder.Function("ShipmentReleasesGetPurchaseContracts");
         shipmentReleasesPurchaseContracts.Parameter<string>("ItemCode");
-        shipmentReleasesPurchaseContracts.Parameter<string>("WarehouseCode");
+        // Opcional: a troca de liberação (GAC-1177 v2) pesquisa o destino em QUALQUER armazém.
+        shipmentReleasesPurchaseContracts.Parameter<string>("WarehouseCode").Optional();
         shipmentReleasesPurchaseContracts.Returns<ICollection<ShipmentRelesesPurchaseContractsResponseDto>>();
 
         var shipmentReleasesRecalculateBalance = modelBuilder.Action("ShipmentReleasesRecalculateBalance");
@@ -817,6 +818,12 @@ public static class ODataConfigurations
         var shippingTransactionsReverse = modelBuilder.Action("ShippingTransactionsReverse");
         shippingTransactionsReverse.Parameter<Guid>("Key");
         shippingTransactionsReverse.Returns<IActionResult>();
+
+        var shippingTransactionsChangeRelease = modelBuilder.Action("ShippingTransactionsChangeRelease");
+        shippingTransactionsChangeRelease.CollectionParameter<Guid>("SalesStorageTransactionKeys");
+        shippingTransactionsChangeRelease.CollectionParameter<Guid>("TargetShipmentReleaseKeys");
+        shippingTransactionsChangeRelease.Parameter<string>("Reason");
+        shippingTransactionsChangeRelease.Returns<IActionResult>();
 
         var salesInvoicesCancel = modelBuilder.Action("SalesInvoicesCancel");
         salesInvoicesCancel.Parameter<Guid>("Key");

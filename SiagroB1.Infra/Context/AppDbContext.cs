@@ -103,6 +103,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialSettlement> FinancialSettlements { get; set; }
     public DbSet<FinancialDocumentChangeLog> FinancialDocumentChangeLogs { get; set; }
 
+    public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Configurar todas as relações para NoAction
@@ -343,6 +345,70 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<WarehouseReconciliationReason>()
             .HasIndex(x => x.Code)
             .IsUnique();
+
+        // GAC-1177: documento da troca de liberação (estorno na origem + Expedição nova no
+        // destino). Nove FKs escalares, nenhuma com navigation property nem coleção inversa —
+        // ver o <remarks> de ShippingReleaseChange e de StorageTransaction.ReplacedBy…/…Key.
+        // HasOne<TPrincipal>() sem seletor de navegação é o jeito de configurar a relação sem
+        // exigir uma propriedade de navegação na entidade dependente.
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<ShipmentLoad>().WithMany()
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.OriginalSalesStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.OriginalPurchaseStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.ReturnSalesStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.ReturnPurchaseStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.NewSalesStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.NewPurchaseStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<ShipmentRelease>().WithMany()
+            .HasForeignKey(x => x.SourceShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShippingReleaseChange>()
+            .HasOne<ShipmentRelease>().WithMany()
+            .HasForeignKey(x => x.TargetShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // StorageTransaction aponta o documento da troca nas duas direções: ReplacedBy… é o
+        // romaneio que SAIU da carga por ter sido trocado; ShippingReleaseChangeKey é o
+        // romaneio (estorno ou novo) que a troca GEROU. Sem navegação nas duas, pelo mesmo
+        // motivo do bloco acima.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne<ShippingReleaseChange>().WithMany()
+            .HasForeignKey(x => x.ReplacedByShippingReleaseChangeKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne<ShippingReleaseChange>().WithMany()
+            .HasForeignKey(x => x.ShippingReleaseChangeKey)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
     
