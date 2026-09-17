@@ -1,0 +1,28 @@
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  tipo(escopo): descrição em pt-BR, imperativo, minúscula, sem ponto final
+#
+#  Por que a mudança foi necessária e qual regra de negócio ela implementa.
+#  O diff já mostra o QUÊ — o corpo existe para o PORQUÊ.
+#
+#  Atenção: a armadilha que vai te morder daqui a 6 meses, se houver.
+#
+#  Refs: GAC-0000         <- o chamado, quando houver
+#  DB: NomeDaMigration    <- SEMPRE que o commit contiver migration
+# ──────────────────────────────────────────────────────────────────────────
+#  tipos     feat      nova funcionalidade
+#            fix       correção de bug
+#            refactor  mudança interna, sem efeito visível
+#            perf      performance
+#            chore     build, config, dependências
+#            docs      documentação
+#            test      testes
+#
+#  escopos   purchase-contract   sales-contract   shipment   storage
+#            invoice   financial   weighing   partner   master-data
+#            security   reports   sap   platform
+# ──────────────────────────────────────────────────────────────────────────
+#  Só o assunto é obrigatório. Alvo de 72 caracteres no assunto.
+#  Linhas iniciadas por # são removidas.
+# ──────────────────────────────────────────────────────────────────────────

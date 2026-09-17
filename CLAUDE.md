@@ -59,3 +59,42 @@ Client (standalone, no project references)
 **DB**: SQL Server only (`Microsoft.EntityFrameworkCore.SqlServer`). Migrations use `QuerySplittingBehavior.SplitQuery`. Localization: pt-BR default, en-US supported, resource files in `SiagroB1.Commons/Resources`.
 
 **No messaging/queue infrastructure** — async/background work goes through Hangfire (recurring jobs) or the raw WebSocket channel for the truck scale, not a broker.
+
+## Commit messages
+
+Enforced by `.githooks/commit-msg` (wired via `core.hooksPath`; `.gitmessage` is the editor
+template). The hook rejects only degenerate subjects — it does not validate body or footer.
+
+```
+tipo(escopo): descrição em pt-BR, imperativo, minúscula, sem ponto final
+
+Por que a mudança foi necessária e qual regra de negócio ela implementa.
+O diff já mostra o QUÊ — o corpo existe para o PORQUÊ.
+
+Atenção: a armadilha que vai morder daqui a 6 meses, se houver.
+
+Refs: GAC-1177
+DB: AddShipmentLoadReleaseSwap
+```
+
+- **Types** (closed): `feat` `fix` `refactor` `perf` `chore` `docs` `test`
+- **Scopes** (closed): `purchase-contract` `sales-contract` `shipment` `storage` `invoice`
+  `financial` `weighing` `partner` `master-data` `security` `reports` `sap` `platform`
+- **Language**: type and scope in English (they mirror the code); subject and body in **pt-BR**.
+- Only the subject is mandatory. Target 72 characters.
+- `Refs: GAC-####` whenever the change traces to a ticket.
+- **`DB:` trailer is mandatory whenever the commit contains a migration** — it makes
+  `git log --grep '^DB:'` answer "which migrations shipped when", which is how production
+  migration drift gets diagnosed here.
+
+**When Claude did the work, Claude drafts the full message** at the end of the task, without
+being asked, then commits it once the user has reviewed the change — see Version control in
+`SiagroB1/CLAUDE.md`. Never push.
+
+**After a fresh clone**, the hook file is present but inert — `core.hooksPath` lives in
+`.git/config`, which is not versioned. Re-arm it with:
+
+```bash
+git config --local core.hooksPath .githooks
+git config --local commit.template .gitmessage
+```

@@ -1,0 +1,76 @@
+#!/bin/sh
+#
+# commit-msg — barra mensagens de commit degeneradas no SiagroB1.
+#
+# Valida SOMENTE o assunto (primeira linha). Corpo e rodapé ficam a seu
+# critério — o objetivo é tornar impossível repetir os 201 commits com a
+# mensagem "commit", não te travar no meio do fluxo.
+#
+# Escape consciente: git commit --no-verify
+#
+
+msg_file="$1"
+
+# Assunto = primeira linha não-comentada e não-vazia
+subject=$(grep -v '^#' "$msg_file" | grep -v '^[[:space:]]*$' | head -1)
+
+# O que o git gera sozinho, ou o que é temporário, passa direto
+case "$subject" in
+	Merge\ *|Revert\ *|fixup!\ *|squash!\ *|amend!\ *)
+		exit 0
+		;;
+esac
+
+TYPES='feat|fix|refactor|perf|chore|docs|test'
+SCOPES='purchase-contract|sales-contract|shipment|storage|invoice|financial|weighing|partner|master-data|security|reports|sap|platform'
+
+fail() {
+	echo ""                                                                    >&2
+	echo "  ┌─────────────────────────────────────────────────────────────┐"   >&2
+	echo "  │  COMMIT REJEITADO                                           │"   >&2
+	echo "  └─────────────────────────────────────────────────────────────┘"   >&2
+	echo ""                                                                    >&2
+	echo "  $1"                                                                >&2
+	echo ""                                                                    >&2
+	echo "  Assunto recebido: \"$subject\""                                    >&2
+	echo ""                                                                    >&2
+	echo "  Formato:  tipo(escopo): descrição em pt-BR, imperativo"            >&2
+	echo ""                                                                    >&2
+	echo "  tipos    feat  fix  refactor  perf  chore  docs  test"             >&2
+	echo ""                                                                    >&2
+	echo "  escopos  purchase-contract  sales-contract  shipment  storage"     >&2
+	echo "           invoice  financial  weighing  partner  master-data"       >&2
+	echo "           security  reports  sap  platform"                         >&2
+	echo ""                                                                    >&2
+	echo "  Exemplo:"                                                          >&2
+	echo "    feat(shipment): troca de liberação da Expedição na carga"        >&2
+	echo ""                                                                    >&2
+	echo "  Escape consciente: git commit --no-verify"                         >&2
+	echo ""                                                                    >&2
+	exit 1
+}
+
+if [ -z "$subject" ]; then
+	fail "Mensagem vazia."
+fi
+
+# Prefixo tipo: ou tipo(escopo): é obrigatório
+if ! printf '%s' "$subject" | grep -qE "^($TYPES)(\([a-z-]+\))?: .+"; then
+	fail "Falta o prefixo de tipo — a mensagem precisa começar com 'tipo:' ou 'tipo(escopo):'."
+fi
+
+# Se veio escopo, ele precisa estar na lista fechada
+scope=$(printf '%s' "$subject" | sed -nE "s/^($TYPES)\(([a-z-]+)\):.*/\2/p")
+if [ -n "$scope" ]; then
+	if ! printf '%s' "$scope" | grep -qE "^($SCOPES)$"; then
+		fail "Escopo \"$scope\" não está na lista fechada."
+	fi
+fi
+
+# Comprimento mínimo — mata "commit", "fix: x" e companhia
+len=$(printf '%s' "$subject" | wc -c | tr -d ' ')
+if [ "$len" -lt 15 ]; then
+	fail "Assunto curto demais ($len caracteres, mínimo 15). Descreva a mudança."
+fi
+
+exit 0
