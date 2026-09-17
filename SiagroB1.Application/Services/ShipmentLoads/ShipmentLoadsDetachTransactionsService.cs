@@ -44,6 +44,11 @@ public class ShipmentLoadsDetachTransactionsService(
                        .FirstOrDefaultAsync(x => x.Key == shipmentLoadKey) ??
                    throw new NotFoundException($"Shipment load not found key {shipmentLoadKey}");
 
+        // GAC-1175: a conclusão da carga de remoção é a afirmação de que a remoção terminou.
+        if (load.Status == ShipmentLoadStatus.Completed)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi concluída. Reabra-a antes de alterar a composição.");
+
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException(
                 $"A carga {load.Code} está cancelada — seus romaneios já foram devolvidos.");
@@ -75,7 +80,12 @@ public class ShipmentLoadsDetachTransactionsService(
             {
                 shipment.ShipmentLoadKey = null;
 
-                if (shipment.TransactionStatus is not (StorageTransactionsStatus.Cancelled
+                // A carga de REMOÇÃO nunca projetou status no romaneio (ver
+                // ShipmentLoadsRecalculateInvoicedService), então não há o que desfazer aqui — e
+                // reescrever o Recebimento para Confirmed apagaria um Invoiced vindo de outro
+                // fluxo, alheio à carga.
+                if (load.LoadType != ShipmentLoadType.Removal &&
+                    shipment.TransactionStatus is not (StorageTransactionsStatus.Cancelled
                     or StorageTransactionsStatus.Returned))
                 {
                     shipment.TransactionStatus = StorageTransactionsStatus.Confirmed;

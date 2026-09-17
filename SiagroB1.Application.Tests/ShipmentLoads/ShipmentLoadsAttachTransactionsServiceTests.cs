@@ -309,4 +309,88 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         Assert.Contains("CG000001", error.Message);
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }
+    /// <summary>
+    /// GAC-1175: cada natureza de carga aceita um tipo de romaneio, e só ele. A carga Normal
+    /// move mercadoria para FORA (embarque de venda); a de Remoção traz para DENTRO
+    /// (recebimento).
+    /// </summary>
+    [Fact]
+    public async Task Attaching_a_shipment_to_a_removal_load_is_refused()
+    {
+        var load = Load();
+        load.LoadType = ShipmentLoadType.Removal;
+        var a = Shipment("R1");
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("recebimento", ex.Message);
+        Assert.Contains("R1", ex.Message);
+    }
+
+    [Fact]
+    public async Task Attaching_a_receipt_to_a_normal_load_is_refused()
+    {
+        var load = Load();
+        var a = Shipment("R1", type: StorageTransactionType.Receipt);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("embarque", ex.Message);
+    }
+
+    [Fact]
+    public async Task Attaching_receipts_to_a_removal_load_fills_it_and_opens_it()
+    {
+        var load = Load();
+        load.LoadType = ShipmentLoadType.Removal;
+        var a = Shipment("R1", 30_000, type: StorageTransactionType.Receipt);
+        var b = Shipment("R2", 20_000, type: StorageTransactionType.Receipt);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, [a.Key, b.Key], "tester");
+
+        var saved = await _db.Context.ShipmentLoads.SingleAsync();
+        Assert.Equal(50_000m, saved.TotalQuantity);
+        Assert.Equal(ShipmentLoadStatus.Open, saved.Status);
+        // A remoção não fatura: o saldo não pode nascer como "a faturar".
+        Assert.Equal(decimal.Zero, saved.InvoicedQuantity);
+    }
+
+    /// <summary>
+    /// O Recebimento só entra CONFIRMADO, como a expedição — a regra de elegibilidade é a mesma
+    /// nos dois tipos de carga, e só o tipo do romaneio muda.
+    /// </summary>
+    [Fact]
+    public async Task Attaching_a_pending_receipt_is_refused()
+    {
+        var load = Load();
+        load.LoadType = ShipmentLoadType.Removal;
+        var a = Shipment("R1", type: StorageTransactionType.Receipt,
+            status: StorageTransactionsStatus.Pending);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("não está confirmado", ex.Message);
+    }
+
+    [Fact]
+    public async Task Attaching_to_a_completed_removal_load_is_refused()
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        load.LoadType = ShipmentLoadType.Removal;
+        var a = Shipment("R1", type: StorageTransactionType.Receipt);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+
+        Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 }

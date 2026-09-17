@@ -299,4 +299,45 @@ public class ShipmentLoadsDetachTransactionsServiceTests
 
         Assert.Contains("romaneio", error.Message, StringComparison.OrdinalIgnoreCase);
     }
+    /// <summary>
+    /// GAC-1175: desvincular o recebimento de uma carga de remoção devolve a FK, mas NÃO
+    /// reescreve o <c>TransactionStatus</c> — a carga de remoção nunca o projetou, e sobrescrevê-lo
+    /// apagaria um estado que veio do fluxo de armazenagem.
+    /// </summary>
+    [Fact]
+    public async Task Detaching_a_receipt_keeps_its_transaction_status()
+    {
+        var load = ShipmentLoadsRemovalTestData.RemovalLoad(
+            _db, ShipmentLoadStatus.Open, totalQuantity: 30_000);
+        var receipt = ShipmentLoadsRemovalTestData.Receipt(
+            _db, "E1", 30_000, shipmentLoadKey: load.Key,
+            status: StorageTransactionsStatus.Invoiced);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, [receipt.Key], "tester");
+
+        var saved = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == receipt.Key);
+        Assert.Null(saved.ShipmentLoadKey);
+        Assert.Equal(StorageTransactionsStatus.Invoiced, saved.TransactionStatus);
+
+        var savedLoad = await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key);
+        Assert.Equal(decimal.Zero, savedLoad.TotalQuantity);
+        Assert.Equal(ShipmentLoadStatus.Planned, savedLoad.Status);
+    }
+
+    [Fact]
+    public async Task Detaching_from_a_completed_load_is_refused()
+    {
+        var load = ShipmentLoadsRemovalTestData.RemovalLoad(
+            _db, ShipmentLoadStatus.Completed, totalQuantity: 30_000);
+        var receipt = ShipmentLoadsRemovalTestData.Receipt(
+            _db, "E1", 30_000, shipmentLoadKey: load.Key);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [receipt.Key], "tester"));
+
+        Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 }

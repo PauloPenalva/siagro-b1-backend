@@ -58,6 +58,13 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException($"A carga {load.Code} está cancelada e não pode ser faturada.");
 
+        // GAC-1175: a carga de REMOÇÃO existe para dar documento ao frete de retirada e não tem
+        // documento de saída nenhum. Recusada por TIPO e logo no começo: ela não tem
+        // transportadora obrigatória, e o ramo abaixo daria a mensagem errada.
+        if (load.LoadType == ShipmentLoadType.Removal)
+            throw new ApplicationException(
+                $"A carga {load.Code} é do tipo Remoção e não é faturada.");
+
         // Recusa por STATUS, não pela comparação de saldo abaixo. A carga planejada tem volume
         // zero e cairia lá de qualquer jeito, mas com a mensagem errada ("quantidade maior que
         // o saldo... Total da carga: 0,000"), que manda o usuário procurar um problema de

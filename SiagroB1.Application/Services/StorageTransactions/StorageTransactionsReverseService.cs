@@ -35,7 +35,7 @@ public class StorageTransactionsReverseService(
 
             throw new ApplicationException(
                 $"O romaneio {doc.Code} está montado na carga {loadCode}. " +
-                "Cancele a carga na Montagem de Carga antes de  o romaneio.");
+                "Cancele a carga na Montagem de Carga antes de estornar o romaneio.");
         }
 
         // Mesma proteção do cancelamento: a devolução gerada pela recusa tem ShipmentLoadKey

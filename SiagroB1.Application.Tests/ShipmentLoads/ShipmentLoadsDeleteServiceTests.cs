@@ -202,4 +202,23 @@ public class ShipmentLoadsDeleteServiceTests
         Assert.Contains("documento", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Single(_db.Context.ShipmentLoads);
     }
+    /// <summary>
+    /// GAC-1175: o recebimento vinculado usa a MESMA FK da expedição, então o guard de
+    /// romaneios já o cobre — este caso existe para provar que cobre mesmo.
+    /// </summary>
+    [Fact]
+    public async Task Refuses_to_delete_a_removal_load_with_receipts()
+    {
+        var load = Load();
+        load.LoadType = ShipmentLoadType.Removal;
+        ShipmentLoadsRemovalTestData.Receipt(_db, "E1", shipmentLoadKey: load.Key);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key));
+
+        Assert.Contains("romaneios vinculados", ex.Message);
+        Assert.Equal(1, await _db.Context.ShipmentLoads.CountAsync());
+    }
+
 }

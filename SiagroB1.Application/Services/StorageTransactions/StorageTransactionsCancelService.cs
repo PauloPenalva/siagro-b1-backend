@@ -29,7 +29,7 @@ public class StorageTransactionsCancelService(
 
             throw new ApplicationException(
                 $"O romaneio {doc.Code} está montado na carga {loadCode}. " +
-                "Cancele a carga na Montagem de Carga antes de  o romaneio.");
+                "Cancele a carga na Montagem de Carga antes de cancelar o romaneio.");
         }
 
         // Devolução gerada pela RECUSA de uma carga. Ela tem ShipmentLoadKey NULO de propósito

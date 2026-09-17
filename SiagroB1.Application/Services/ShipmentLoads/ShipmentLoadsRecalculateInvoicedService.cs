@@ -65,6 +65,16 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
         if (load == null || load.Status == ShipmentLoadStatus.Cancelled)
             return;
 
+        // Carga de REMOÇÃO (GAC-1175) não fatura: não há nota para somar, e o ciclo dela é
+        // Planned → Open → Completed. Sai antes da projeção de status nos romaneios porque os
+        // romaneios dela pertencem à ENTRADA, não à carga — carimbá-los como Invoiced faria a
+        // entrada parecer faturada e bloquearia o estorno dela.
+        if (load.LoadType == ShipmentLoadType.Removal)
+        {
+            ResolveRemoval(load);
+            return;
+        }
+
         var invoiced = await CalculateInvoicedAsync(context, shipmentLoadKey, excludedInvoiceKeys);
 
         // O terceiro termo é gravado AQUI, e não por um serviço próprio: o status depende dele,
@@ -103,6 +113,29 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
             shipment.TransactionStatus = shipmentStatus;
             shipment.UpdatedAt = DateTime.Now;
         }
+    }
+
+    /// <summary>
+    /// Situação da carga de remoção: só volume, sem saldo.
+    /// </summary>
+    /// <remarks>
+    /// <c>Completed</c> é terminal e MANUAL — o recálculo não o reescreve, pelo mesmo motivo de
+    /// <c>Cancelled</c>: vincular ou desvincular já são recusados nesse estado, e qualquer outra
+    /// chamada ao recálculo (o botão "Recalcular Saldo", por exemplo) reabriria a carga em
+    /// silêncio. Quem desfaz a conclusão é <c>ShipmentLoadsReopenService</c>.
+    /// </remarks>
+    private static void ResolveRemoval(ShipmentLoad load)
+    {
+        load.InvoicedQuantity = decimal.Zero;
+        load.ReturnedToWarehouseQuantity = decimal.Zero;
+        load.UpdatedAt = DateTime.Now;
+
+        if (load.Status == ShipmentLoadStatus.Completed)
+            return;
+
+        load.Status = load.TotalQuantity <= Tolerance
+            ? ShipmentLoadStatus.Planned
+            : ShipmentLoadStatus.Open;
     }
 
     /// <summary>

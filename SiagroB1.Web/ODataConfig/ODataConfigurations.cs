@@ -559,6 +559,10 @@ public static class ODataConfigurations
         // a Logística grava o que sabe no momento.
         var shipmentLoadsCreate = modelBuilder.Action("ShipmentLoadsCreate");
         shipmentLoadsCreate.Parameter<string>("BranchCode");
+        // GAC-1175: Normal ou Removal, como STRING — enum em parâmetro de action segue a mesma
+        // regra de ShipmentLoadsRefuse.Destination. Só existe aqui: o tipo é imutável depois da
+        // criação, então ShipmentLoadsUpdate não o recebe.
+        shipmentLoadsCreate.Parameter<string>("LoadType").Optional();
         shipmentLoadsCreate.Parameter<DateTime>("LoadDate").Optional();
         shipmentLoadsCreate.Parameter<string>("TruckCode");
         shipmentLoadsCreate.Parameter<string>("TruckDriverCode").Optional();
@@ -609,6 +613,14 @@ public static class ODataConfigurations
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");
         shipmentLoadsDetach.Returns<IActionResult>();
+
+        var shipmentLoadsComplete = modelBuilder.Action("ShipmentLoadsComplete");
+        shipmentLoadsComplete.Parameter<Guid>("Key");
+        shipmentLoadsComplete.Returns<IActionResult>();
+
+        var shipmentLoadsReopen = modelBuilder.Action("ShipmentLoadsReopen");
+        shipmentLoadsReopen.Parameter<Guid>("Key");
+        shipmentLoadsReopen.Returns<IActionResult>();
 
         var shipmentLoadsDelete = modelBuilder.Action("ShipmentLoadsDelete");
         shipmentLoadsDelete.Parameter<Guid>("Key");

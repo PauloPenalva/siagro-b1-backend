@@ -281,4 +281,39 @@ public class ShipmentLoadsCancelServiceTests
         Assert.Null(reason.OldValue);
         Assert.Equal("cliente desistiu", reason.NewValue);
     }
+    /// <summary>
+    /// GAC-1175: cancelar a carga de remoção solta os recebimentos, como solta as expedições
+    /// no tipo Normal — senão eles ficariam presos a uma carga morta, sem caminho de volta. O
+    /// <c>TransactionStatus</c> deles NÃO é reescrito: a carga de remoção nunca o projetou.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_a_removal_load_releases_its_receipts_without_touching_their_status()
+    {
+        var load = Load();
+        load.LoadType = ShipmentLoadType.Removal;
+        var receipt = ShipmentLoadsRemovalTestData.Receipt(
+            _db, "E1", shipmentLoadKey: load.Key,
+            status: StorageTransactionsStatus.Invoiced);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key, "Caminhão quebrou", "tester");
+
+        var saved = await _db.Context.StorageTransactions.SingleAsync(x => x.Key == receipt.Key);
+        Assert.Null(saved.ShipmentLoadKey);
+        Assert.Equal(StorageTransactionsStatus.Invoiced, saved.TransactionStatus);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_completed_removal_load_is_refused()
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        load.LoadType = ShipmentLoadType.Removal;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, "Engano", "tester"));
+
+        Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 }

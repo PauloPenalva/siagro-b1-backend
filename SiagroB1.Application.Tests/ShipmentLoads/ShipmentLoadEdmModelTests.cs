@@ -1,4 +1,4 @@
-﻿using Microsoft.OData.Edm;
+using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Web.ODataConfig;
@@ -231,4 +231,42 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains("LoadKey", parameters);
         Assert.Contains("Text", parameters);
     }
+    /// <summary>GAC-1175 — as quatro operações da carga de remoção.</summary>
+    [Theory]
+    [InlineData("ShipmentLoadsComplete")]
+    [InlineData("ShipmentLoadsReopen")]
+    public void Removal_load_actions_are_declared(string actionName)
+    {
+        Assert.Single(Model().SchemaElements.OfType<IEdmAction>().Where(a => a.Name == actionName));
+    }
+
+    /// <summary>
+    /// O tipo da carga é escolhido na criação e imutável: sai no Create e NÃO no Update.
+    /// Como todo enum em parâmetro de action neste projeto, viaja como string.
+    /// </summary>
+    [Fact]
+    public void LoadType_is_a_string_parameter_of_create_only()
+    {
+        var actions = Model().SchemaElements.OfType<IEdmAction>().ToArray();
+
+        var create = actions.Single(a => a.Name == "ShipmentLoadsCreate");
+        var update = actions.Single(a => a.Name == "ShipmentLoadsUpdate");
+
+        var loadType = create.Parameters.Single(p => p.Name == "LoadType");
+        Assert.Equal("Edm.String", loadType.Type.FullName());
+
+        Assert.DoesNotContain(update.Parameters, p => p.Name == "LoadType");
+    }
+
+    /// <summary>
+    /// GAC-1175: a lista e o filtro de tipo leem <c>LoadType</c> do EDM.
+    /// </summary>
+    [Fact]
+    public void ShipmentLoads_exposes_the_load_type()
+    {
+        var properties = EntityType(nameof(ShipmentLoad)).Properties().Select(p => p.Name).ToArray();
+
+        Assert.Contains(nameof(ShipmentLoad.LoadType), properties);
+    }
+
 }

@@ -1,4 +1,4 @@
-﻿using SiagroB1.Application.Jobs;
+using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
@@ -399,6 +399,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsDeleteService>();
         services.AddScoped<ShipmentLoadsAttachTransactionsService>();
         services.AddScoped<ShipmentLoadsDetachTransactionsService>();
+        // GAC-1175 — carga de remoção
+        services.AddScoped<ShipmentLoadsCompleteService>();
+        services.AddScoped<ShipmentLoadsReopenService>();
         services.AddScoped<ShipmentLoadsRefuseService>();
         services.AddScoped<ShipmentLoadsRefusableDocumentsService>();
         services.AddScoped<ShipmentLoadsCompositionGuardService>();

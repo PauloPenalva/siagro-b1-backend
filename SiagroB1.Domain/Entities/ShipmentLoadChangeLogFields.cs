@@ -61,6 +61,7 @@ public static class ShipmentLoadChangeLogFields
         ShipmentLoadStatus.Invoiced => "Faturada",
         ShipmentLoadStatus.Cancelled => "Cancelada",
         ShipmentLoadStatus.Returned => "Devolvida",
+        ShipmentLoadStatus.Completed => "Concluída",
         _ => status.ToString(),
     };
 }

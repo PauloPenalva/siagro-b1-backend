@@ -207,4 +207,45 @@ public class StorageEntryTransactionsCancelServiceTests
 
         Assert.Contains("cancelad", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+    /// <summary>
+    /// GAC-1175: o Recebimento do par pode estar vinculado a uma carga de REMOÇÃO — é ela que
+    /// pagou o frete para trazer a mercadoria. Estornar a entrada cancelaria esse romaneio e
+    /// derrubaria o volume da carga por baixo.
+    /// </summary>
+    /// <remarks>
+    /// Não há guard próprio aqui: o vínculo usa a mesma FK da expedição, então o guard de
+    /// <c>StorageTransactionsCancelService</c> já barra — este teste é o que prova que o
+    /// caminho da entrada passa por lá.
+    /// </remarks>
+    [Fact]
+    public async Task Refuses_to_cancel_an_entry_whose_receipt_is_in_a_shipment_load()
+    {
+        var entry = await SeedAsync();
+
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000042",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            LoadType = ShipmentLoadType.Removal,
+            Status = ShipmentLoadStatus.Open,
+        };
+
+        _db.Context.ShipmentLoads.Add(load);
+
+        var receipt = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == entry.ReceiptStorageTransactionKey);
+        receipt.ShipmentLoadKey = load.Key;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => CreateService(10_000m).ExecuteAsync(entry.Key, "tester"));
+
+        Assert.Contains("CG000042", ex.Message);
+
+        var saved = await _db.Context.StorageEntryTransactions.SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageEntryTransactionStatus.Confirmed, saved.Status);
+    }
+
 }

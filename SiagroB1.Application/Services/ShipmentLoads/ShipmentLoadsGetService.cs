@@ -58,6 +58,22 @@ public class ShipmentLoadsGetService(IUnitOfWork db, ILogger<ShipmentLoadsGetSer
     /// </remarks>
     public IQueryable<StorageTransaction> QueryTransactions(Guid shipmentLoadKey)
     {
+        // GAC-1175: a carga de REMOÇÃO vincula Recebimentos e não conhece troca de liberação
+        // nem devolução — o grid dela é a FK pura. O tipo da carga é lido do banco (e não
+        // recebido por parâmetro) para o controller e o grid continuarem com uma única rota.
+        var loadType = db.Context.ShipmentLoads
+            .Where(x => x.Key == shipmentLoadKey)
+            .Select(x => x.LoadType)
+            .FirstOrDefault();
+
+        if (loadType == ShipmentLoadType.Removal)
+        {
+            return db.Context.StorageTransactions
+                .AsNoTracking()
+                .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                            x.TransactionType == StorageTransactionType.Receipt);
+        }
+
         var changeKeysForLoad = db.Context.ShippingReleaseChanges
             .Where(c => c.ShipmentLoadKey == shipmentLoadKey)
             .Select(c => c.Key);

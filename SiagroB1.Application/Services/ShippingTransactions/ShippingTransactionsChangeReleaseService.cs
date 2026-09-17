@@ -194,9 +194,15 @@ public class ShippingTransactionsChangeReleaseService(
 
         var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == sales.ShipmentLoadKey);
 
-        if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned)
+        // Completed entra na lista por defesa: só carga de REMOÇÃO chega nele, e ela não tem
+        // romaneio de embarque — mas um estado terminal novo que escapasse daqui permitiria
+        // mexer na composição de uma carga já encerrada.
+        if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
+            or ShipmentLoadStatus.Completed)
+        {
             throw new ApplicationException(
-                $"A carga {load.Code} está cancelada ou devolvida: a liberação dos romaneios não pode ser trocada.");
+                $"A carga {load.Code} está encerrada: a liberação dos romaneios não pode ser trocada.");
+        }
 
         if (sales.ShipmentReleaseKey is null)
             throw new ApplicationException($"O romaneio {sales.Code} não tem liberação de embarque.");

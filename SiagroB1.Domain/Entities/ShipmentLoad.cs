@@ -37,6 +37,12 @@ public class ShipmentLoad : DocumentEntity
 
     public DateTime LoadDate { get; set; } = DateTime.Now.Date;
 
+    /// <summary>
+    /// Natureza da carga (GAC-1175): expedição ou remoção. Escolhido na criação e imutável —
+    /// <c>ShipmentLoadsUpdateService</c> não o recebe.
+    /// </summary>
+    public ShipmentLoadType LoadType { get; set; } = ShipmentLoadType.Normal;
+
     public ShipmentLoadStatus Status { get; set; } = ShipmentLoadStatus.Planned;
 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]

@@ -25,5 +25,9 @@ public enum ShipmentLoadMovementType
     Updated = 11,              // Dados cadastrais da carga alterados
     Refused = 12,              // Recusa registrada — narrativa com cliente, local de entrega e motivo
     ReturnedToWarehouse = 13,  // Mercadoria devolvida a armazém — retira o saldo da carga
-    ReleaseChanged = 14        // Troca de liberação (GAC-1177): estorno na origem + Expedição nova; pode ajustar o total da carga pela regra da quantidade
+    ReleaseChanged = 14,       // Troca de liberação (GAC-1177): estorno na origem + Expedição nova; pode ajustar o total da carga pela regra da quantidade
+    Completed = 15,            // Carga de remoção concluída à mão (GAC-1175)
+    Reopened = 16,             // Conclusão desfeita — a carga de remoção volta a aceitar entradas
+    StorageEntriesAttached = 17,  // Entrada(s) em armazenagem vinculada(s) — aumenta o volume da carga de remoção
+    StorageEntriesDetached = 18   // Entrada(s) em armazenagem desvinculada(s) — reduz o volume da carga de remoção
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
@@ -56,6 +57,7 @@ public class ShipmentLoadsCreateController(
                 HasExcess = Flag(parameters, "HasExcess"),
                 FreightPrice = Money(parameters, "FreightPrice"),
                 Comments = Text(parameters, "Comments"),
+                LoadType = LoadTypeOf(parameters),
             };
 
             var userName = User.Identity?.Name ?? "Unknown";
@@ -88,6 +90,23 @@ public class ShipmentLoadsCreateController(
         var text = value?.ToString();
 
         return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+    }
+
+    /// <summary>
+    /// GAC-1175: o tipo viaja como string, e ausente significa <c>Normal</c> — é o que mantém
+    /// compatível qualquer chamada anterior à feature. Texto desconhecido é recusado em vez de
+    /// virar Normal em silêncio: o tipo decide a regra inteira da carga.
+    /// </summary>
+    private static ShipmentLoadType LoadTypeOf(ODataActionParameters parameters)
+    {
+        var text = Text(parameters, "LoadType");
+
+        if (text == null)
+            return ShipmentLoadType.Normal;
+
+        return Enum.TryParse<ShipmentLoadType>(text, ignoreCase: true, out var loadType)
+            ? loadType
+            : throw new ApplicationException($"Tipo de carga inválido: {text}.");
     }
 
     internal static bool Flag(ODataActionParameters parameters, string name) =>

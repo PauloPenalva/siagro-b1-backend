@@ -1,4 +1,4 @@
-﻿using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -232,4 +232,21 @@ public class ShipmentLoadsBillingGuardServiceTests
 
         Assert.Contains("cancelada", error.Message, StringComparison.OrdinalIgnoreCase);
     }
+    /// <summary>
+    /// GAC-1175: a carga de remoção não tem documento de saída. O guard recusa por TIPO, antes
+    /// da checagem de transportadora — ela nem sequer tem transportadora obrigatória.
+    /// </summary>
+    [Fact]
+    public async Task A_removal_load_cannot_be_billed()
+    {
+        var load = Load(carrier: null);
+        load.LoadType = ShipmentLoadType.Removal;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000, Carrier));
+
+        Assert.Contains("remoção", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 }

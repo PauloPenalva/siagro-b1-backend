@@ -38,6 +38,12 @@ public class ShipmentLoadsCancelService(
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException("Carga já cancelada.");
 
+        // GAC-1175: a conclusão da carga de remoção é a afirmação de que a remoção terminou.
+        // Cancelar por cima dela apagaria esse fecho sem que o usuário o desfizesse.
+        if (load.Status == ShipmentLoadStatus.Completed)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi concluída. Reabra-a antes de cancelá-la.");
+
         await compositionGuard.EnsureCanChangeCompositionAsync(load);
 
         var shipments = await db.Context.StorageTransactions
@@ -76,7 +82,9 @@ public class ShipmentLoadsCancelService(
             {
                 shipment.ShipmentLoadKey = null;
 
-                if (shipment.TransactionStatus is not (StorageTransactionsStatus.Cancelled
+                // Só a carga de expedição projetou status no romaneio (GAC-1175).
+                if (load.LoadType != ShipmentLoadType.Removal &&
+                    shipment.TransactionStatus is not (StorageTransactionsStatus.Cancelled
                     or StorageTransactionsStatus.Returned))
                 {
                     shipment.TransactionStatus = StorageTransactionsStatus.Confirmed;
@@ -86,13 +94,16 @@ public class ShipmentLoadsCancelService(
                 shipment.UpdatedBy = userName;
             }
 
+            var released = load.LoadType == ShipmentLoadType.Removal
+                ? $"{shipments.Count} romaneio(s) de recebimento liberado(s)."
+                : $"{shipments.Count} romaneio(s) devolvido(s) à Montagem de Carga.";
+
             movementLog.Register(
                 load.Key,
                 ShipmentLoadMovementType.Cancelled,
                 decimal.Zero,
                 decimal.Zero,
-                $"Carga cancelada. Motivo: {load.CancellationReason}. " +
-                $"{shipments.Count} romaneio(s) devolvido(s) à Montagem de Carga.",
+                $"Carga cancelada. Motivo: {load.CancellationReason}. " + released,
                 userName);
 
             await db.SaveChangesAsync();

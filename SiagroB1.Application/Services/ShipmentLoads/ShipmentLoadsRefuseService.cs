@@ -312,6 +312,12 @@ public class ShipmentLoadsRefuseService(
             throw new ApplicationException(
                 $"A carga {load.Code} ainda está apenas planejada — não há faturamento a recusar.");
 
+        // GAC-1175: a recusa devolve mercadoria de um documento de SAÍDA, e a carga de remoção
+        // não emite nenhum. O caminho de desfazer dela é desvincular a entrada.
+        if (load.LoadType == ShipmentLoadType.Removal)
+            throw new ApplicationException(
+                $"A carga {load.Code} é do tipo Remoção e não possui documentos de saída a recusar.");
+
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new ApplicationException("Informe o motivo da recusa.");
 

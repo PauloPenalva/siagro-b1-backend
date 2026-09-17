@@ -49,7 +49,7 @@ public class ShipmentLoadsAttachTransactionsService(
         if (shipments.Count != distinctKeys.Count)
             throw new ApplicationException("Romaneio de embarque não encontrado.");
 
-        await ValidateEligibilityAsync(shipments);
+        await ValidateEligibilityAsync(load, shipments);
         ValidateHomogeneity(load, shipments);
 
         var attachedQuantity = decimal.Round(
@@ -117,24 +117,49 @@ public class ShipmentLoadsAttachTransactionsService(
         {
             ShipmentLoadStatus.Cancelled => "está cancelada",
             ShipmentLoadStatus.PartiallyInvoiced => "já foi faturada parcialmente",
+            ShipmentLoadStatus.Completed =>
+                "já foi concluída — reabra-a antes de alterar a composição",
             _ => "já foi faturada",
         };
 
         throw new ApplicationException(
             $"A carga {load.Code} {reason} e não aceita novos romaneios. " +
-            "Cancele os documentos de saída antes de alterar a composição da carga.");
+            (load.LoadType == ShipmentLoadType.Removal
+                ? string.Empty
+                : "Cancele os documentos de saída antes de alterar a composição da carga."));
     }
+
+    /// <summary>
+    /// Tipo de romaneio que cada natureza de carga aceita (GAC-1175).
+    /// </summary>
+    /// <remarks>
+    /// A carga Normal transporta mercadoria para FORA (embarque de venda); a de Remoção traz
+    /// mercadoria para DENTRO de um armazém, e o documento disso é o Recebimento. São os dois
+    /// únicos tipos que podem carregar <c>ShipmentLoadKey</c>.
+    /// </remarks>
+    public static StorageTransactionType ExpectedTransactionType(ShipmentLoadType loadType) =>
+        loadType == ShipmentLoadType.Removal
+            ? StorageTransactionType.Receipt
+            : StorageTransactionType.SalesShipment;
 
     /// <summary>
     /// Recusa nomeando o <c>Code</c> do romaneio — sem isso o usuário recebe uma negativa que
     /// não diz em qual das linhas selecionadas está o problema.
     /// </summary>
-    private async Task ValidateEligibilityAsync(List<StorageTransaction> shipments)
+    private async Task ValidateEligibilityAsync(ShipmentLoad load, List<StorageTransaction> shipments)
     {
-        var invalidType = shipments.FirstOrDefault(x => x.TransactionType != StorageTransactionType.SalesShipment);
+        var expectedType = ExpectedTransactionType(load.LoadType);
+
+        var invalidType = shipments.FirstOrDefault(x => x.TransactionType != expectedType);
         if (invalidType != null)
+        {
+            var expected = load.LoadType == ShipmentLoadType.Removal
+                ? "um romaneio de recebimento"
+                : "um romaneio de embarque";
+
             throw new ApplicationException(
-                $"O documento {invalidType.Code} não é um romaneio de embarque e não pode entrar em uma carga.");
+                $"O documento {invalidType.Code} não é {expected} e não pode entrar na carga {load.Code}.");
+        }
 
         var notConfirmed = shipments.FirstOrDefault(x => x.TransactionStatus != StorageTransactionsStatus.Confirmed);
         if (notConfirmed != null)

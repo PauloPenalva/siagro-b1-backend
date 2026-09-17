@@ -40,17 +40,25 @@ public static class ShipmentLoadsRecalculateTotalService
         if (load == null)
             return;
 
-        // Filtro de TIPO além da FK: o total é o volume EMBARCADO, e só romaneio de embarque
-        // conta. Hoje é redundante — ShipmentLoadsAttachTransactionsService só aceita
-        // SalesShipment —, mas é a garantia de que qualquer transação de outro tipo que venha
-        // a apontar a carga (uma devolução, por exemplo) não infle o total em silêncio.
+        load.TotalQuantity = await SumAsync(context, load);
+        load.UpdatedAt = DateTime.Now;
+    }
+
+    /// <remarks>
+    /// Filtro de TIPO além da FK: o total é o volume que a carga MOVEU, e só o romaneio próprio
+    /// da natureza dela conta — embarque na Normal, recebimento na Remoção (GAC-1175). A
+    /// vinculação já recusa qualquer outro tipo, mas o filtro é a garantia de que uma transação
+    /// que venha a apontar a carga por outro caminho (uma devolução, por exemplo) não infle o
+    /// total em silêncio.
+    /// </remarks>
+    private static async Task<decimal> SumAsync(AppDbContext context, ShipmentLoad load)
+    {
+        var expectedType = ShipmentLoadsAttachTransactionsService.ExpectedTransactionType(load.LoadType);
+
         var shipments = await context.StorageTransactions
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
-                        x.TransactionType == StorageTransactionType.SalesShipment)
+            .Where(x => x.ShipmentLoadKey == load.Key && x.TransactionType == expectedType)
             .ToListAsync();
 
-        load.TotalQuantity = decimal.Round(
-            shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven);
-        load.UpdatedAt = DateTime.Now;
+        return decimal.Round(shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven);
     }
 }

@@ -19,5 +19,6 @@ public enum ShipmentLoadStatus
     Invoiced = 2,           // Totalmente faturada
     Cancelled = 3,
     Planned = 4,            // Criada pela Logística, ainda sem romaneio vinculado
-    Returned = 5            // Mercadoria recusada e devolvida a armazém — encerrada, sem saldo
+    Returned = 5,           // Mercadoria recusada e devolvida a armazém — encerrada, sem saldo
+    Completed = 6           // Carga de REMOÇÃO encerrada à mão — não existe para carga Normal
 }
