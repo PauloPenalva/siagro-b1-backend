@@ -28,6 +28,7 @@ public class WarehouseReconciliationEdmModelTests
     [InlineData("WarehouseReconciliationsApproval", "Key,Comments")]
     [InlineData("WarehouseReconciliationsReject", "Key,Comments")]
     [InlineData("WarehouseReconciliationsCancel", "Key,Reason")]
+    [InlineData("WarehouseReconciliationsDistributeLoss", "Key,ShipmentReleaseKeys,Quantities")]
     [InlineData("WarehouseReconciliationsAttachmentUpload", "ReconciliationKey,Description,File,FileName,ContentType")]
     public void The_actions_declare_their_parameters(string action, string parameters)
     {
@@ -41,6 +42,7 @@ public class WarehouseReconciliationEdmModelTests
     [InlineData("WarehouseReconciliationsGetBalancePreview", "WarehouseCode,ItemCode,ReferenceDate")]
     [InlineData("WarehouseReconciliationsAttachmentsList", "ReconciliationKey")]
     [InlineData("WarehouseReconciliationsAttachmentsDownload", "Key")]
+    [InlineData("WarehouseReconciliationsListReleases", "Key")]
     public void The_functions_declare_their_parameters(string function, string parameters)
     {
         var edmFunction = BuildModel().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == function);

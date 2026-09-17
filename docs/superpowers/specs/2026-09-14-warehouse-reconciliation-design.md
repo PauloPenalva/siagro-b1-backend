@@ -4,6 +4,8 @@
 - **Chamado:** GAC-1164, "Processo de conferência de saldos de armazém (saldo de estoque em posse de
   terceiros físico x sistema)"
 - **Status:** aprovado pelo usuário
+- **Revisão 17/09/2026:** a Perda passa a consumir as **liberações** e a Sobra sai de cena. A §9
+  prevalece sobre as §§2 a 7 onde elas divergirem.
 
 ## 1. Contexto
 
@@ -296,3 +298,190 @@ A function `WarehouseReconciliationsGetBalancePreview(WarehouseCode, ItemCode, R
   `FinancialSettlementOrigin.Netting`).
 - **Nota:** hoje a mensagem do cancelamento de contrato já sugere "considere fazer washout"
   (`PurchaseContractsCancelService.cs:28`).
+
+## 9. Revisão 17/09/2026 — a Perda consome as liberações
+
+### 9.1 O problema encontrado em teste
+
+**Homologação** (CS000001, armazém F023998, produto P012755):
+
+- a conferência gravou `SystemBalance = 0`;
+- o armazém informou 175.000 kg, e a conferência gerou uma Sobra de 175.000;
+- as liberações ativas somavam, no mesmo momento, **196.430 kg** a embarcar.
+
+A causa é que, na liberação `Standard`, a Expedição registra a Compra(8) **só ao embarcar**, junto
+com a Saída(7). Por isso o saldo por romaneios da §3.2 fica em zero enquanto o grão está parado no
+armazém. O saldo real do armazém de terceiros é **liberado − embarcado**.
+
+**Desenvolvimento** (F024813, P026031):
+
+- a conferência calculou 28.600 kg, porque o grão veio de uma devolução de venda (tipo 12);
+- a Expedição continuou oferecendo 29.400 kg, porque a Perda não consome liberação.
+
+Exemplo do usuário: dois contratos de 20.000 kg e uma quebra técnica de 1.000 kg. O extrato diz
+39.000 kg, mas os contratos continuam somando 40.000. Sobram 1.000 kg numa liberação que nunca serão
+embarcados.
+
+Não é washout. A quebra técnica vem da demora da **Yokotobi** em retirar o grão.
+
+### 9.2 Decisões (usuário, 17/09/2026)
+
+| Tema | Decisão |
+|---|---|
+| Quem absorve a perda | A Yokotobi. O contrato do produtor conta como **entregue** e o produtor recebe pelo volume cheio. |
+| Distribuição entre liberações | O **usuário escolhe** na conferência quanto cai em cada liberação. |
+| Sobra | **Sai.** A conferência aceita só diferença negativa; sobra não acontece na prática. |
+
+### 9.3 Saldo do sistema
+
+`SystemBalance` passa a ser o saldo a embarcar das liberações do armazém+produto, apurado na
+`ReferenceDate`. O saldo por romaneios da §3.2 deixa de ser usado aqui.
+
+- **Liberações consideradas:** `DeliveryLocationCode = WarehouseCode`, produto do contrato
+  (`PurchaseContract.ItemCode`, como em `ShipmentReleasesBalanceService`), com status `Actived` ou
+  `Paused`, e também `Completed` quando o saldo na data for > 0. Pausada entra porque o grão existe
+  fisicamente. `Pending` e `Cancelled` ficam de fora.
+- **Cálculo na data:**
+  - parte do `ReleasedQuantity − ShippedQuantity` de hoje;
+  - soma de volta o que foi romaneado contra essas liberações com `TransactionDate` posterior ao fim
+    da `ReferenceDate`, pelos mesmos tipos e sinais de
+    `ShipmentReleasesRecalculateShippedService.CalculateShippedAsync` conforme a origem, sem os
+    cancelados;
+  - exclui as liberações com `ReleaseDate` posterior à data.
+- **Liberação `Completed`:** `ShipmentReleasesCloseService` finaliza sem zerar o Released − Shipped
+  que sobrou — aquele saldo já foi dado por encerrado e não conta mais. Contribui SÓ com o que foi
+  romaneado contra ela depois da data (`balanceAtDate = consumedAfter`); o saldo de hoje sai 0. Não
+  recebe perda (§9.4).
+
+Com a data de hoje, o número é igual ao da `/shipping-transaction` somado ao das liberações pausadas.
+
+### 9.4 Distribuição — `WarehouseReconciliationRelease`
+
+Tabela filha nova `WAREHOUSE_RECONCILIATION_RELEASES`:
+
+| Campo | Observação |
+|---|---|
+| `Key` | PK |
+| `WarehouseReconciliationKey` | FK para a conferência, `Cascade` |
+| `ShipmentReleaseKey` | FK para a liberação, `Restrict` |
+| `Quantity` | DECIMAL(18,3), > 0 |
+| `PurchaseStorageTransactionKey` | Compra(8) gerada; nula na origem sem perna de compra |
+| `LossStorageTransactionKey` | Perda(13) gerada |
+
+Único por `(WarehouseReconciliationKey, ShipmentReleaseKey)`. A coleção é gravada com a conferência
+(edição em Draft).
+
+**Regras** (conferidas no envio e novamente na aprovação, antes da transação):
+
+- `Difference < 0`; zero ou positiva é recusada;
+- `Σ Quantity = |Difference|`, com a folga de arredondamento do módulo;
+- cada liberação pertence ao armazém+produto, está **`Actived`** e tem saldo de **hoje** ≥ `Quantity`
+  (a pausada aparece na grade, mas não aceita perda, porque `ShipmentReleaseMovementGuardService`
+  recusa movimento nela);
+- o contrato de compra da liberação `Standard` não está `Finished`, com mensagem própria antes de
+  `PurchaseContractsAllocationCreateService`;
+- com uma única liberação elegível, a tela preenche a linha sozinha.
+
+### 9.5 Aprovação — romaneios gerados por linha
+
+Todos já **Confirmados**, com `TransactionDate = ReferenceDate`, origem
+`TransactionCode.WarehouseReconciliation` e `ShipmentReleaseKey` da linha.
+
+- **Liberação `Standard`:** o mesmo par de `ShippingTransactionsCreateService`, com a Perda no lugar da
+  Saída:
+  1. **Compra(8)** de `Quantity`, confirmada e alocada no contrato via
+     `PurchaseContractsAllocationCreateService`. Consome a liberação e dá o contrato por entregue.
+  2. **Perda(13)** copiada da Compra, sem lote, que dá a saída no armazém.
+- **`OwnershipTransfer` / `SalesReturn`** (`ReleaseOriginRules.ShipsWithoutPurchaseLeg`): o grão já
+  entrou antes, então gera só a **Perda(13)**.
+- **Recálculo:** o recálculo do embarcado de cada liberação roda **depois do commit**, como em
+  `ShippingTransactionsCreateService`.
+- **`WarehouseReconciliation.StorageTransactionKey`:** passa a ser anulável e não é preenchida em
+  conferência nova; as chaves vivem nas linhas.
+
+A regra 4 da aprovação na §4.3 (Perda limitada ao saldo por romaneios) **sai**; o limite passa a ser o
+saldo das liberações.
+
+### 9.6 Mudanças nos pontos que a §3.2 deixava de fora
+
+- **`ShipmentReleasesRecalculateShippedService`:**
+  - `AffectsShippedQuantity` inclui `WarehouseLoss`;
+  - no ramo sem perna de compra, `CalculateShippedAsync` soma `SalesShipment + WarehouseLoss −
+    SalesShipmentReturn`.
+  - No ramo `Standard` nada muda, porque quem consome é a Compra(8).
+- **`ShipmentReleaseMovementGuardService`:** passa a cobrir `WarehouseLoss`.
+- **`StorageTransactionsWarehouseBalanceService`:** a fórmula continua igual. Na liberação `Standard`,
+  a Compra + Perda se anulam, como a Compra + Saída da Expedição.
+- **`allowedTypes` da alocação:** não muda, porque a perna alocada é a Compra(8).
+
+### 9.7 Cancelamento de conferência aprovada
+
+Continua valendo só para a **última** Aprovada do armazém+produto. Para cada linha, numa única
+transação:
+
+- cancela a Perda(13);
+- se houver Compra(8), apaga a alocação do contrato e cancela a Compra, na mesma sequência de
+  `ShippingTransactionsReverseService`.
+
+Depois do commit, recalcula o embarcado de cada liberação tocada. A exigência "Sobra que negativaria o
+saldo" sai.
+
+**Legado:** conferência Aprovada **sem** linhas (anterior a esta revisão) cancela como antes, pelo
+`StorageTransactionKey`.
+
+### 9.8 Prévia do saldo
+
+`WarehouseReconciliationBalancePreviewDto` ganha `Releases`, com uma linha por liberação considerada:
+
+- `ShipmentReleaseKey`, código da liberação e status;
+- contrato de compra (código) e produtor (`CardCode`/`CardName`);
+- `BalanceAtReferenceDate`, `CurrentBalance` e `CanReceiveLoss` (`Actived` e com saldo hoje).
+
+### 9.9 Frontend
+
+- **Formulário:** a grade "Distribuição da perda" fica abaixo do saldo do sistema.
+  - Colunas: contrato, produtor, liberação, saldo na data, saldo hoje e Quantidade da perda
+    (editável só se `CanReceiveLoss`).
+  - Rodapé: "Distribuído X de Y".
+  - Enviar para aprovação fica bloqueado enquanto não fechar.
+- **Detalhe e aprovação:** a mesma grade, só leitura, com os códigos dos romaneios gerados.
+- **Diferença positiva:** a tela avisa que a conferência aceita apenas perda.
+- **Expedição:** não muda.
+- **Rótulo "Sobra Armazém":** continua nos formatters para exibir o histórico.
+
+### 9.10 Testes
+
+- **Saldo na data:**
+  - romaneio posterior à data volta a somar;
+  - liberação emitida depois da data fica de fora;
+  - pausada entra;
+  - `Completed` depois da data entra.
+- **Aprovação `Standard`:**
+  - gera Compra + Perda;
+  - consome a liberação;
+  - aloca o contrato;
+  - o saldo por romaneios não muda.
+- **Aprovação sem perna de compra:** gera só a Perda e consome a liberação (recálculo com o tipo 13).
+- **Distribuição:** 600 + 400 em duas liberações consome cada uma na medida certa.
+- **Recusas:**
+  - soma diferente da diferença;
+  - linha acima do saldo;
+  - liberação pausada;
+  - diferença positiva;
+  - contrato encerrado;
+  - saldo alterado entre o envio e a aprovação.
+- **Cancelamento:**
+  - devolve o saldo das liberações;
+  - remove a alocação;
+  - deixa os romaneios cancelados;
+  - conferência legada sem linhas cancela pelo `StorageTransactionKey`.
+- **Testes de Sobra existentes:** viram testes de recusa.
+- **Navegador:** cenário do usuário, a partir da home. Dois contratos de 20.000 kg, perda de 1.000 kg
+  distribuída, e a Expedição mostra 39.000 kg.
+
+### 9.11 Dados existentes
+
+- **Localhost:** CS000001 e CS000002 (F024813/P026031) são Perdas aprovadas sem linha. Antes da
+  verificação, cancelar pela tela; a regra de legado da §9.7 cobre isso.
+- **Homologação:** CS000001 já está cancelada.
+- **Produção:** antes do deploy, verificar se alguma conferência foi aprovada lá.

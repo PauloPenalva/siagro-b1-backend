@@ -291,4 +291,22 @@
     <data name="WAREHOUSE_RECONCILIATION_ATTACHMENTS_LOCKED" xml:space="preserve">
         <value>Anexos só podem ser incluídos ou removidos enquanto a conferência está em rascunho ou em aprovação.</value>
     </data>
+    <data name="WAREHOUSE_RECONCILIATION_ONLY_LOSS" xml:space="preserve">
+        <value>A conferência de saldo aceita apenas perda: o saldo informado precisa ser menor que o saldo do sistema.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_DISTRIBUTION_MISMATCH" xml:space="preserve">
+        <value>A soma da distribuição da perda entre as liberações precisa ser igual à diferença apurada.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_DISTRIBUTION_INVALID" xml:space="preserve">
+        <value>Distribuição inválida: cada liberação pode aparecer uma vez e com quantidade maior que zero.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_RELEASE_NOT_ELIGIBLE" xml:space="preserve">
+        <value>Uma das liberações da distribuição não pertence a este armazém e produto ou não está liberada (pausada, finalizada ou cancelada).</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_RELEASE_INSUFFICIENT_BALANCE" xml:space="preserve">
+        <value>A quantidade distribuída para uma liberação é maior que o saldo a embarcar dela hoje.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED" xml:space="preserve">
+        <value>O contrato de compra de uma das liberações está encerrado e não pode receber a perda.</value>
+    </data>
 </root>

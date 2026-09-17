@@ -24,7 +24,10 @@ public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentRelea
         {
             throw new ApplicationException("Shipment Release not pending.");
         }
-        
+
+        if (await db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.ShipmentReleaseKey == key))
+            throw new ApplicationException("Liberação usada em conferência de saldo de armazém: não pode ser excluída.");
+
         db.Context.ShipmentReleases.Remove(entity);
         await db.SaveChangesAsync();
         return true;

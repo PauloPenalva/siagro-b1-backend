@@ -494,6 +494,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<OwnershipTransfersListStorageAddressesBalanceByProductService>();
 
         // warehouse reconciliations (GAC-1164)
+        services.AddScoped<WarehouseReconciliationReleaseBalanceService>();
         services.AddScoped<WarehouseReconciliationsGuardService>();
         services.AddScoped<WarehouseReconciliationsDescriptionService>();
         services.AddScoped<WarehouseReconciliationsGetService>();
@@ -501,6 +502,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WarehouseReconciliationsUpdateService>();
         services.AddScoped<WarehouseReconciliationsGetBalancePreviewService>();
         services.AddScoped<WarehouseReconciliationsSendApprovalService>();
+        services.AddScoped<WarehouseReconciliationsDistributeLossService>();
         services.AddScoped<WarehouseReconciliationsWithdrawApprovalService>();
         services.AddScoped<WarehouseReconciliationsRejectService>();
         services.AddScoped<WarehouseReconciliationsApprovalService>();
@@ -512,6 +514,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<WarehouseReconciliationAttachmentsCreateService>();
         services.AddScoped<WarehouseReconciliationAttachmentsGetService>();
         services.AddScoped<WarehouseReconciliationAttachmentsDeleteService>();
+        services.AddScoped<WarehouseReconciliationsListReleasesService>();
 
         //storage invoices
         services.AddScoped<IStorageInvoiceClosingService,StorageInvoiceClosingService>();

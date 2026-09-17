@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.WarehouseReconciliations;
@@ -10,6 +11,8 @@ internal sealed partial class WarehouseReconciliationsTestContext
     public WarehouseReconciliationsCancelService Cancel() =>
         new(Db,
             new StorageTransactionsCancelService(Db, new ShipmentReleasesRecalculateShippedService(Db.Context)),
+            new PurchaseContractsAllocationDeleteService(Db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
+            new ShipmentReleasesRecalculateShippedService(Db.Context),
             Resource,
             NullLogger<WarehouseReconciliationsCancelService>.Instance);
 }

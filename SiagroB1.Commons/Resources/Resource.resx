@@ -288,4 +288,22 @@
     <data name="WAREHOUSE_RECONCILIATION_ATTACHMENTS_LOCKED" xml:space="preserve">
         <value>Attachments can only be added or removed while the reconciliation is in draft or in approval.</value>
     </data>
+    <data name="WAREHOUSE_RECONCILIATION_ONLY_LOSS" xml:space="preserve">
+        <value>The reconciliation only accepts a loss: the reported balance must be lower than the system balance.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_DISTRIBUTION_MISMATCH" xml:space="preserve">
+        <value>The loss distributed across releases must equal the difference.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_DISTRIBUTION_INVALID" xml:space="preserve">
+        <value>Invalid distribution: each release may appear once, with a quantity greater than zero.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_RELEASE_NOT_ELIGIBLE" xml:space="preserve">
+        <value>A distributed release does not belong to this warehouse and item or is not active.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_RELEASE_INSUFFICIENT_BALANCE" xml:space="preserve">
+        <value>The quantity distributed to a release exceeds its current balance.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED" xml:space="preserve">
+        <value>The purchase contract of a distributed release is finished and cannot receive the loss.</value>
+    </data>
 </root>

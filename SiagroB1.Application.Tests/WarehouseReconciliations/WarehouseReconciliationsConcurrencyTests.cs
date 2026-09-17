@@ -41,7 +41,8 @@ public class WarehouseReconciliationsConcurrencyTests
             db,
             new FakeDocNumberSequenceService(),
             Descriptions(),
-            new WarehouseReconciliationsGuardService(db, new WarehouseComplementService(db), resource),
+            new WarehouseReconciliationsGuardService(
+                db, new WarehouseComplementService(db), new WarehouseReconciliationReleaseBalanceService(db), resource),
             resource);
 
         var r = WarehouseReconciliationsTestContext.NewReconciliation(reason.Key, 10m);
@@ -73,7 +74,8 @@ public class WarehouseReconciliationsConcurrencyTests
         var update = new WarehouseReconciliationsUpdateService(
             db,
             Descriptions(),
-            new WarehouseReconciliationsGuardService(db, new WarehouseComplementService(db), resource),
+            new WarehouseReconciliationsGuardService(
+                db, new WarehouseComplementService(db), new WarehouseReconciliationReleaseBalanceService(db), resource),
             resource);
 
         var input = WarehouseReconciliationsTestContext.NewReconciliation(reason.Key, 60m);

@@ -10,7 +10,7 @@ namespace SiagroB1.Application.Tests.WarehouseReconciliations;
 internal sealed partial class WarehouseReconciliationsTestContext
 {
     public WarehouseReconciliationsGuardService Guard() =>
-        new(Db, new WarehouseComplementService(Db), Resource);
+        new(Db, new WarehouseComplementService(Db), ReleaseBalance(), Resource);
 
     public WarehouseReconciliationsDescriptionService Descriptions() =>
         new(new FakeItemService(new() { [Item] = "SOJA EM GRAOS" }),
@@ -24,7 +24,7 @@ internal sealed partial class WarehouseReconciliationsTestContext
         new(Db, Descriptions(), Guard(), Resource);
 
     public WarehouseReconciliationsGetBalancePreviewService Preview() =>
-        new(Db, new WarehouseComplementService(Db), Guard());
+        new(Db, new WarehouseComplementService(Db), ReleaseBalance(), Guard());
 
     public async Task<WarehouseReconciliation> CreateDraftAsync(decimal reportedBalance, DateTime? referenceDate = null)
     {

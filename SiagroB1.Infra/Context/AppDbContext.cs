@@ -65,6 +65,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WarehouseReconciliation> WarehouseReconciliations { get; set; }
     public DbSet<WarehouseReconciliationReason> WarehouseReconciliationReasons { get; set; }
     public DbSet<WarehouseReconciliationAttachment> WarehouseReconciliationAttachments { get; set; }
+    public DbSet<WarehouseReconciliationRelease> WarehouseReconciliationReleases { get; set; }
     public DbSet<ShipmentLoad> ShipmentLoads { get; set; }
     public DbSet<ShipmentLoadMovement> ShipmentLoadMovements { get; set; }
     public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
@@ -341,6 +342,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithOne(x => x.WarehouseReconciliation)
             .HasForeignKey(x => x.WarehouseReconciliationKey)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Distribuição da perda (GAC-1164 §9). Uma linha por liberação; apagar a conferência leva as
+        // linhas, mas a liberação não pode sumir debaixo de uma distribuição (Restrict).
+        modelBuilder.Entity<WarehouseReconciliation>()
+            .HasMany(x => x.Releases)
+            .WithOne(x => x.WarehouseReconciliation)
+            .HasForeignKey(x => x.WarehouseReconciliationKey)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<WarehouseReconciliationRelease>()
+            .HasOne(x => x.ShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<WarehouseReconciliationRelease>()
+            .HasIndex(x => new { x.WarehouseReconciliationKey, x.ShipmentReleaseKey })
+            .IsUnique();
 
         modelBuilder.Entity<WarehouseReconciliationReason>()
             .HasIndex(x => x.Code)

@@ -6,4 +6,5 @@ public class WarehouseReconciliationBalancePreviewDto
     public bool IsOwnWarehouse { get; set; }
     public DateTime? LastApprovedReferenceDate { get; set; }
     public bool HasOpenReconciliation { get; set; }
+    public List<WarehouseReconciliationReleaseBalanceDto> Releases { get; set; } = [];
 }

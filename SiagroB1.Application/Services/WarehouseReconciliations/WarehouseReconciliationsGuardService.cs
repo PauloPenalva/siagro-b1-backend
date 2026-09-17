@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
-using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -17,6 +16,7 @@ namespace SiagroB1.Application.Services.WarehouseReconciliations;
 public class WarehouseReconciliationsGuardService(
     IUnitOfWork db,
     IWarehouseComplementService complements,
+    WarehouseReconciliationReleaseBalanceService releaseBalances,
     IStringLocalizer<Resource> resource)
 {
     public async Task EnsureCanPersistAsync(WarehouseReconciliation r)
@@ -55,11 +55,14 @@ public class WarehouseReconciliationsGuardService(
             throw Fail("WAREHOUSE_RECONCILIATION_ALREADY_OPEN");
     }
 
-    /// <summary>Recalcula o saldo do sistema até a data de referência e a diferença.</summary>
+    /// <summary>
+    /// Recalcula o saldo do sistema na data de referência — o saldo a embarcar das liberações
+    /// (spec §9.3), não mais o saldo por romaneios — e a diferença.
+    /// </summary>
     public async Task RefreshSnapshotAsync(WarehouseReconciliation r)
     {
-        r.SystemBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
-            db.Context, r.WarehouseCode, r.ItemCode, r.ReferenceDate);
+        var rows = await releaseBalances.ListAsync(r.WarehouseCode, r.ItemCode, r.ReferenceDate);
+        r.SystemBalance = rows.Sum(x => x.BalanceAtReferenceDate);
         r.Difference = r.ReportedBalance - r.SystemBalance;
     }
 
@@ -81,6 +84,55 @@ public class WarehouseReconciliationsGuardService(
                            x.Key != ignoreKey &&
                            (x.Status == WarehouseReconciliationStatus.Draft ||
                             x.Status == WarehouseReconciliationStatus.InApproval));
+
+    private const decimal Tolerance = 0.001m;
+
+    /// <summary>
+    /// Regras da distribuição da perda (spec §9.4), sobre o snapshot JÁ recalculado. Devolve as linhas
+    /// rastreadas para a aprovação gravar as chaves dos romaneios nelas.
+    /// </summary>
+    public async Task<List<WarehouseReconciliationRelease>> EnsureLossDistributionAsync(WarehouseReconciliation r)
+    {
+        if (r.Difference >= decimal.Zero)
+            throw Fail("WAREHOUSE_RECONCILIATION_ONLY_LOSS");
+
+        var lines = await db.Context.WarehouseReconciliationReleases
+            .Where(x => x.WarehouseReconciliationKey == r.Key)
+            .ToListAsync();
+
+        if (Math.Abs(lines.Sum(x => x.Quantity) - Math.Abs(r.Difference)) > Tolerance)
+            throw Fail("WAREHOUSE_RECONCILIATION_DISTRIBUTION_MISMATCH");
+
+        var keys = lines.Select(x => x.ShipmentReleaseKey).ToList();
+        var releases = await db.Context.ShipmentReleases
+            .AsNoTracking()
+            .Where(x => keys.Contains(x.Key))
+            .Select(x => new
+            {
+                x.Key, x.Status, x.Origin, x.DeliveryLocationCode, x.ReleasedQuantity, x.ShippedQuantity,
+                x.PurchaseContract!.ItemCode, ContractStatus = x.PurchaseContract.Status,
+            })
+            .ToDictionaryAsync(x => x.Key);
+
+        foreach (var line in lines)
+        {
+            if (!releases.TryGetValue(line.ShipmentReleaseKey, out var release) ||
+                release.DeliveryLocationCode != r.WarehouseCode ||
+                release.ItemCode != r.ItemCode ||
+                release.Status != ReleaseStatus.Actived)
+                throw Fail("WAREHOUSE_RECONCILIATION_RELEASE_NOT_ELIGIBLE");
+
+            if (line.Quantity - (release.ReleasedQuantity - release.ShippedQuantity) > Tolerance)
+                throw Fail("WAREHOUSE_RECONCILIATION_RELEASE_INSUFFICIENT_BALANCE");
+
+            // Só a Standard aloca contrato (perna de compra); as outras origens não tocam o contrato.
+            if (!ReleaseOriginRules.ShipsWithoutPurchaseLeg(release.Origin) &&
+                release.ContractStatus == ContractStatus.Finished)
+                throw Fail("WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED");
+        }
+
+        return lines;
+    }
 
     private ApplicationException Fail(string key) => new(resource[key].Value);
 }

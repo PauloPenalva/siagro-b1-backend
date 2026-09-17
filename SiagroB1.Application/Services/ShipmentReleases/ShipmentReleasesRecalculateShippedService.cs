@@ -21,7 +21,33 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
         type is StorageTransactionType.Purchase
             or StorageTransactionType.PurchaseReturn
             or StorageTransactionType.SalesShipment
-            or StorageTransactionType.SalesShipmentReturn;
+            or StorageTransactionType.SalesShipmentReturn
+            or StorageTransactionType.WarehouseLoss;
+
+    /// <summary>
+    /// Sinal com que um romaneio consome (+1), devolve (−1) ou não mexe (0) no saldo da liberação,
+    /// conforme a origem. Espelho em memória das listas de <see cref="CalculateShippedAsync"/>, que
+    /// precisam ficar inline para o EF traduzir — mudou uma, mude a outra (há teste de paridade).
+    /// <para>
+    /// <c>WarehouseLoss(13)</c> (GAC-1164 §9) consome só a liberação SEM perna de compra. Na
+    /// Standard a Conferência gera o par Compra(8) + Perda(13), e quem consome é a Compra — contar
+    /// a Perda também dobraria o volume, como a Saída(7) dobraria na Expedição.
+    /// </para>
+    /// </summary>
+    public static decimal ShippedSign(ReleaseOrigin origin, StorageTransactionType type) =>
+        ReleaseOriginRules.ShipsWithoutPurchaseLeg(origin)
+            ? type switch
+            {
+                StorageTransactionType.SalesShipment or StorageTransactionType.WarehouseLoss => 1m,
+                StorageTransactionType.SalesShipmentReturn => -1m,
+                _ => 0m,
+            }
+            : type switch
+            {
+                StorageTransactionType.Purchase => 1m,
+                StorageTransactionType.PurchaseReturn => -1m,
+                _ => 0m,
+            };
 
     /// <summary>
     /// Calcula o volume romaneado SEM persistir nada, para quem precisa decidir
@@ -39,6 +65,9 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
     /// <item><c>SalesReturn</c> — mesmo eixo da transferência, e pelo mesmo motivo: o grão já
     /// está no armazém (creditado pelo romaneio tipo 12 da devolução) e a Expedição só dá a
     /// saída no reembarque.</item>
+    /// <item><c>WarehouseLoss(13)</c> (GAC-1164 §9) consome nos dois ramos SEM perna de compra
+    /// (junto com a saída), pelo mesmo sinal de <see cref="ShippedSign"/> — a Standard não conta
+    /// a Perda porque quem consome lá é a Compra do par gerado pela Conferência.</item>
     /// </list>
     /// A origem é parâmetro (e não uma leitura interna) para que o compilador aponte todo
     /// chamador ao mudar a regra — todos já têm a entidade carregada.
@@ -62,10 +91,11 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
         {
             return await query
                 .Where(t => t.TransactionType == StorageTransactionType.SalesShipment
+                            || t.TransactionType == StorageTransactionType.WarehouseLoss
                             || t.TransactionType == StorageTransactionType.SalesShipmentReturn)
-                .SumAsync(t => t.TransactionType == StorageTransactionType.SalesShipment
-                    ? t.NetWeight
-                    : -t.NetWeight);
+                .SumAsync(t => t.TransactionType == StorageTransactionType.SalesShipmentReturn
+                    ? -t.NetWeight
+                    : t.NetWeight);
         }
 
         return await query

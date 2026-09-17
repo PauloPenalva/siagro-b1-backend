@@ -954,6 +954,14 @@ public static class ODataConfigurations
         warehouseReconciliationsCancel.Parameter<string>("Reason");
         warehouseReconciliationsCancel.Returns<IActionResult>();
 
+        // Distribuição da perda entre liberações (GAC-1164 §9). Duas coleções paralelas, mesmo padrão
+        // PROVADO de ShipmentLoadsRefuse (Guid + double).
+        var warehouseReconciliationsDistributeLoss = modelBuilder.Action("WarehouseReconciliationsDistributeLoss");
+        warehouseReconciliationsDistributeLoss.Parameter<Guid>("Key");
+        warehouseReconciliationsDistributeLoss.CollectionParameter<Guid>("ShipmentReleaseKeys");
+        warehouseReconciliationsDistributeLoss.CollectionParameter<double>("Quantities");
+        warehouseReconciliationsDistributeLoss.Returns<IActionResult>();
+
         var warehouseReconciliationsAttachmentUpload = modelBuilder.Action("WarehouseReconciliationsAttachmentUpload");
         warehouseReconciliationsAttachmentUpload.Parameter<Guid>("ReconciliationKey");
         warehouseReconciliationsAttachmentUpload.Parameter<string>("Description");
@@ -975,6 +983,11 @@ public static class ODataConfigurations
         var warehouseReconciliationsAttachmentsDownload = modelBuilder.Function("WarehouseReconciliationsAttachmentsDownload");
         warehouseReconciliationsAttachmentsDownload.Parameter<Guid>("Key");
         warehouseReconciliationsAttachmentsDownload.Returns<IActionResult>();
+
+        // Linhas gravadas da distribuição da perda, para as telas de detalhe e aprovação (GAC-1164 §9.9).
+        var warehouseReconciliationsListReleases = modelBuilder.Function("WarehouseReconciliationsListReleases");
+        warehouseReconciliationsListReleases.Parameter<Guid>("Key");
+        warehouseReconciliationsListReleases.Returns<IActionResult>();
 
         var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
         storageInvoiceClosing.Parameter<Guid>("DocNumberKey");

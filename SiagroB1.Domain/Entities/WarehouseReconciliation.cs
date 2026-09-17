@@ -11,9 +11,10 @@ namespace SiagroB1.Domain.Entities;
 /// <see cref="StorageTransactionType.WarehouseLoss"/> ou <see cref="StorageTransactionType.WarehouseGain"/>.
 /// </summary>
 /// <remarks>
-/// Nunca toca contrato: a quebra de estoque próprio não é do produtor. <see cref="SystemBalance"/>
-/// e <see cref="Difference"/> são SNAPSHOT recalculado no envio e na aprovação, sobre o saldo de
-/// armazém até <see cref="ReferenceDate"/>.
+/// Desde a revisão de 17/09/2026 (spec §9) o saldo do sistema é o saldo a embarcar das liberações e
+/// a perda é distribuída em <see cref="Releases"/>: a aprovação consome cada liberação (Compra+Perda
+/// na Standard, só Perda sem perna de compra). <see cref="StorageTransactionKey"/> só é preenchido em
+/// conferência anterior à revisão.
 /// </remarks>
 [Table("WAREHOUSE_RECONCILIATIONS")]
 public class WarehouseReconciliation : DocumentEntity
@@ -77,11 +78,14 @@ public class WarehouseReconciliation : DocumentEntity
     [Column(TypeName = "VARCHAR(500)")]
     public string? CancellationReason { get; set; }
 
-    /// <summary>Romaneio de Perda/Sobra gerado na aprovação.</summary>
+    /// <summary>Romaneio de Perda/Sobra das conferências anteriores à revisão de 17/09/2026. Nas
+    /// novas, as chaves ficam em <see cref="Releases"/>.</summary>
     public Guid? StorageTransactionKey { get; set; }
 
     [Timestamp]
     public byte[]? RowVersion { get; set; }
 
     public virtual ICollection<WarehouseReconciliationAttachment> Attachments { get; set; } = [];
+
+    public virtual ICollection<WarehouseReconciliationRelease> Releases { get; set; } = [];
 }

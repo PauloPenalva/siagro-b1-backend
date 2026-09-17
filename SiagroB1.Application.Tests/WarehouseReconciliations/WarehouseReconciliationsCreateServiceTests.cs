@@ -7,13 +7,13 @@ public class WarehouseReconciliationsCreateServiceTests
     private readonly WarehouseReconciliationsTestContext _ctx = new();
     private static readonly DateTime Today = DateTime.Today;
 
-    private Task SeedPurchaseAsync(decimal quantity, DateTime date) =>
-        _ctx.SeedStockAsync(StorageTransactionType.Purchase, quantity, date);
+    private Task SeedReleaseAsync(decimal quantity, DateTime date) =>
+        _ctx.SeedReleaseAsync(quantity, date);
 
     [Fact]
     public async Task Create_stores_a_draft_with_snapshot_code_names_and_the_warehouse_as_partner()
     {
-        await SeedPurchaseAsync(1_000m, Today.AddDays(-30));
+        await SeedReleaseAsync(1_000m, Today.AddDays(-30));
 
         var r = await _ctx.CreateDraftAsync(950m, Today.AddHours(15));
 
@@ -31,10 +31,11 @@ public class WarehouseReconciliationsCreateServiceTests
     }
 
     [Fact]
-    public async Task Snapshot_ignores_transactions_after_the_reference_date()
+    public async Task Snapshot_is_the_release_balance_at_the_reference_date()
     {
-        await SeedPurchaseAsync(1_000m, Today.AddDays(-30));
-        await SeedPurchaseAsync(500m, Today.AddDays(-1));
+        var release = await _ctx.SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        await _ctx.SeedReleaseMovementAsync(release, StorageTransactionType.Purchase, 300m, Today.AddDays(-1));
+        await _ctx.SeedReleaseAsync(500m, Today.AddDays(-1));
 
         var r = await _ctx.CreateDraftAsync(900m, Today.AddDays(-10));
 
@@ -140,7 +141,7 @@ public class WarehouseReconciliationsCreateServiceTests
     [Fact]
     public async Task Update_recomputes_the_difference()
     {
-        await SeedPurchaseAsync(1_000m, Today.AddDays(-30));
+        await SeedReleaseAsync(1_000m, Today.AddDays(-30));
         var r = await _ctx.CreateDraftAsync(950m);
         var input = WarehouseReconciliationsTestContext.NewReconciliation(r.ReasonKey, 1_100m);
 
@@ -166,7 +167,7 @@ public class WarehouseReconciliationsCreateServiceTests
     [Fact]
     public async Task Preview_reports_balance_ownership_open_and_last_approved()
     {
-        await SeedPurchaseAsync(1_000m, Today.AddDays(-30));
+        await SeedReleaseAsync(1_000m, Today.AddDays(-30));
         await _ctx.SeedWithStatusAsync(WarehouseReconciliationStatus.Approved, Today.AddDays(-20));
         await _ctx.SeedWithStatusAsync(WarehouseReconciliationStatus.Draft, Today.AddDays(-10));
 
@@ -177,6 +178,7 @@ public class WarehouseReconciliationsCreateServiceTests
         Assert.False(preview.IsOwnWarehouse);
         Assert.True(preview.HasOpenReconciliation);
         Assert.Equal(Today.AddDays(-20), preview.LastApprovedReferenceDate);
+        Assert.Single(preview.Releases);
     }
 
     [Fact]
