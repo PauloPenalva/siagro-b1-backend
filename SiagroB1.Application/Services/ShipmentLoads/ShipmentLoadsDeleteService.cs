@@ -97,8 +97,17 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
 
             // GAC-1171: ticket de descarga e anexo também têm FK NoAction para a carga — de
             // propósito, para que cancelar/excluir a nota não leve embora a evidência física que
-            // libera o pagamento do frete. Ordem obrigatória: a descarga referencia o anexo, então
-            // o anexo sai depois. O inverso dispara erro 547 e o InMemory dos testes não acusa.
+            // libera o pagamento do frete.
+            //
+            // A ordem TEXTUAL destas duas linhas é indiferente: quem garante que o anexo saia
+            // depois da descarga que o referencia é o sort topológico do grafo de FK que o EF faz
+            // dentro do SaveChanges, não a sequência em que RemoveRange foi chamado.
+            //
+            // E, hoje, o RemoveRange(discharges) é ramo MORTO: o guard acima recusa qualquer carga
+            // que tenha documento de saída, inclusive cancelado, e toda descarga exige uma nota
+            // desta carga (ShipmentLoadDischargesCreateService). Uma carga que chega até aqui
+            // nunca tem descarga. Fica como defesa em profundidade, para o dia em que aquele
+            // guard afrouxar — só o RemoveRange(attachments) é caminho vivo.
             db.Context.ShipmentLoadsDischarges.RemoveRange(discharges);
             db.Context.ShipmentLoadsAttachments.RemoveRange(attachments);
 

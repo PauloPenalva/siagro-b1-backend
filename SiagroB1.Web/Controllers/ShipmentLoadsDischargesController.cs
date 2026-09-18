@@ -20,6 +20,10 @@ public class ShipmentLoadsDischargesController(
 {
     [HttpGet("odata/ShipmentLoads({key:guid})/Discharges")]
     [HttpGet("odata/ShipmentLoads/{key:guid}/Discharges")]
+    // Sem MaxExpansionDepth: o grid binda o contrato de venda da linha da nota
+    // (SalesInvoiceItem/SalesContract/Code), que é $expand de DOIS níveis e cabe no limite padrão
+    // — medido contra o servidor: depth 2 responde 200 e depth 3 devolve 400 "$expand path which
+    // is too deep". Só o GetTransactions de ShipmentLoadsController precisa de 3.
     [EnableQuery]
     public ActionResult<IEnumerable<ShipmentLoadDischarge>> Get([FromRoute] Guid key)
     {
