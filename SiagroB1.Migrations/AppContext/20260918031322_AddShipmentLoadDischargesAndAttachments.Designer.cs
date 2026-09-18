@@ -12,8 +12,8 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260918030258_AddTicketDeliveredQuantity")]
-    partial class AddTicketDeliveredQuantity
+    [Migration("20260918031322_AddShipmentLoadDischargesAndAttachments")]
+    partial class AddShipmentLoadDischargesAndAttachments
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

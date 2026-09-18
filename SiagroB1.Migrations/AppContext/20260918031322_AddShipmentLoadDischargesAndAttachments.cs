@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SiagroB1.Migrations.AppContext
 {
     /// <inheritdoc />
-    public partial class AddShipmentLoadAttachments : Migration
+    public partial class AddShipmentLoadDischargesAndAttachments : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
