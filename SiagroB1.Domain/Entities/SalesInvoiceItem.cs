@@ -50,7 +50,23 @@ public class SalesInvoiceItem
     
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal QuantityLoss { get; set; }
-    
+
+    /// <summary>
+    /// Peso descarregado segundo os TICKETS (GAC-1171): soma de
+    /// <c>ShipmentLoadDischarge.DischargedQuantity</c> dos tickets que apontam para esta linha.
+    /// Persistido-derivado, escritor único <c>ShipmentLoadDischargesRecalculateService</c>.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Vive ao lado de <see cref="DeliveredQuantity"/> e NÃO se confunde com ele: este é o
+    /// ticket do transportador, aquele é o relatório da trading digitado pelo conferente. Nenhum
+    /// dos dois manda no outro — é justamente a divergência entre eles que o chamado quer expor,
+    /// porque o ticket pode ter sido adulterado e o relatório pode ter vindo errado.
+    /// NÃO participa de nenhum fator efetivo: saldo de contrato e de liberação continuam lendo só
+    /// <see cref="DeliveredQuantity"/> e <see cref="QuantityLoss"/> de item encerrado.
+    /// </remarks>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal TicketDeliveredQuantity { get; set; }
+
     /// <summary>
     /// Diferença entre o entregue e o faturado (DeliveredQuantity − Quantity). Negativa quando
     /// chegou menos do que foi faturado, que é o caso comum de quebra. Entrega ainda não

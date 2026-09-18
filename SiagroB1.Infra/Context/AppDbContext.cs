@@ -70,6 +70,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadMovement> ShipmentLoadMovements { get; set; }
     public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
     public DbSet<ShipmentLoadChangeLog> ShipmentLoadsChangeLogs { get; set; }
+    public DbSet<ShipmentLoadDischarge> ShipmentLoadsDischarges { get; set; }
+    public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
     
@@ -253,6 +255,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.GeneratedByReturnInvoice)
             .WithMany()
             .HasForeignKey(x => x.GeneratedByReturnInvoiceKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // As quatro FKs do ticket de descarga são NoAction. A carga apaga as filhas à mão
+        // (ShipmentLoadsDeleteService); e cascade a partir da NOTA faria cancelar/excluir nota
+        // levar embora, em silêncio, a evidência física que libera o pagamento do frete.
+        modelBuilder.Entity<ShipmentLoadDischarge>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.Discharges)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadDischarge>()
+            .HasOne(x => x.SalesInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadDischarge>()
+            .HasOne(x => x.SalesInvoiceItem)
+            .WithMany()
+            .HasForeignKey(x => x.SalesInvoiceItemKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadDischarge>()
+            .HasOne(x => x.Attachment)
+            .WithMany()
+            .HasForeignKey(x => x.AttachmentKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadAttachment>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.Attachments)
+            .HasForeignKey(x => x.ShipmentLoadKey)
             .OnDelete(DeleteBehavior.NoAction);
 
         // STORAGE_TRANSACTIONS e SHIPMENT_RELEASES se apontam em DUAS direções de significados
