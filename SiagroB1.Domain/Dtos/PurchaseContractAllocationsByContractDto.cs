@@ -45,6 +45,19 @@ public class PurchaseContractAllocationsByContractDto
     
     [JsonPropertyName("NotaFiscalVenda")]
     public string? NotaFiscalVenda { get; set; }
+
+    /// <summary>
+    /// De onde veio a entrega: <c>Standard</c> (romaneio normal) ou <c>WarehouseLoss</c> (Compra gerada
+    /// pela aprovação da Conferência de Saldo de Armazém, GAC-1164). O tipo continua Compra.
+    /// </summary>
+    [JsonPropertyName("Origin")]
+    public string? Origin { get; set; }
+
+    [JsonPropertyName("WarehouseReconciliationCode")]
+    public string? WarehouseReconciliationCode { get; set; }
+
+    [JsonPropertyName("ReasonDescription")]
+    public string? ReasonDescription { get; set; }
     
     
 }

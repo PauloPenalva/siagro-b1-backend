@@ -31,7 +31,13 @@ public class PurchaseContractsGetAllocationsByContractService(
             ST.WarehouseCode AS  WarehouseCode,
             ST.TruckCode AS TruckCode,
             ST.CardCode AS SupplierCode,
-            INV.TaxDocumentNumber AS NotaFiscalVenda
+            INV.TaxDocumentNumber AS NotaFiscalVenda,
+            CASE
+                WHEN WRR.[Key] IS NOT NULL THEN 'WarehouseLoss'
+                ELSE 'Standard'
+            END AS Origin,
+            WR.Code AS WarehouseReconciliationCode,
+            WRRS.Description AS ReasonDescription
         FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
         LEFT JOIN STORAGE_TRANSACTIONS ST
                ON ST.[Key] = PA.StorageTransactionKey
@@ -45,6 +51,14 @@ public class PurchaseContractsGetAllocationsByContractService(
                ON B.Code = ST.BranchCode
         LEFT JOIN SALES_INVOICES INV
                ON INV.[Key] = SALES.SalesInvoiceKey
+        -- Compra(8) gerada pela aprovação da Conferência de Saldo de Armazém (GAC-1164): a perda é
+        -- custo da empresa e consome a liberação, mas o romaneio continua sendo Compra no contrato.
+        LEFT JOIN WAREHOUSE_RECONCILIATION_RELEASES WRR
+               ON WRR.PurchaseStorageTransactionKey = ST.[Key]
+        LEFT JOIN WAREHOUSE_RECONCILIATIONS WR
+               ON WR.[Key] = WRR.WarehouseReconciliationKey
+        LEFT JOIN WAREHOUSE_RECONCILIATION_REASONS WRRS
+               ON WRRS.[Key] = WR.ReasonKey
         WHERE PA.PurchaseContractKey = @purchaseContractKey
         """;
     
@@ -76,7 +90,10 @@ public class PurchaseContractsGetAllocationsByContractService(
                 TruckCode = allocation.TruckCode,
                 SupplierCode = allocation.SupplierCode,
                 SupplierName = supplierName,
-                NotaFiscalVenda = allocation.NotaFiscalVenda
+                NotaFiscalVenda = allocation.NotaFiscalVenda,
+                Origin = allocation.Origin,
+                WarehouseReconciliationCode = allocation.WarehouseReconciliationCode,
+                ReasonDescription = allocation.ReasonDescription
             });
         }
 
