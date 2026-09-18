@@ -41,6 +41,15 @@ public class ShipmentLoadsDischargeCreateController(
             parameters.TryGetValue("FileName", out var fileNameObj);
             parameters.TryGetValue("ContentType", out var contentTypeObj);
 
+            // Payload validado ANTES de gravar o anexo: o anexo tem SaveChanges próprio, então
+            // recusar o ticket depois dele deixaria um arquivo sem ticket na aba de anexos à toa.
+            if (!ShipmentLoadActionParameters.TryParseDate(dateObj, out var parsedDate))
+                return BadRequest(ShipmentLoadActionParameters.InvalidDateMessage);
+
+            // Só aqui a ausência cai no dia de hoje: registrar sem informar data significa "hoje".
+            // Na alteração isso seria destrutivo — ver ShipmentLoadsDischargeUpdateController.
+            var dischargeDate = parsedDate ?? DateTime.Now.Date;
+
             var loadKey = (Guid) loadKeyObj;
             var userName = User.Identity?.Name ?? "Unknown";
 
@@ -50,13 +59,16 @@ public class ShipmentLoadsDischargeCreateController(
 
             if (fileObj is string base64 && base64.Length > 0)
             {
+                if (!ShipmentLoadActionParameters.TryDecodeFile(base64, out var fileData))
+                    return BadRequest(ShipmentLoadActionParameters.UnreadableFileMessage);
+
                 var saved = await attachments.SaveAsync(loadKey, new ShipmentLoadAttachment
                 {
                     AttachmentType = ShipmentLoadAttachmentType.DischargeTicket,
                     Description = $"Ticket de descarga {ticketObj as string ?? string.Empty}".Trim(),
                     FileName = fileNameObj?.ToString() ?? "ticket",
                     ContentType = contentTypeObj?.ToString() ?? "application/octet-stream",
-                    FileData = DecodeFile(base64),
+                    FileData = fileData,
                     CreatedAt = DateTime.Now,
                     CreatedBy = userName,
                 });
@@ -69,7 +81,7 @@ public class ShipmentLoadsDischargeCreateController(
                 (Guid) invoiceKeyObj,
                 (Guid) itemKeyObj,
                 ticketObj as string,
-                ParseDate(dateObj),
+                dischargeDate,
                 Convert.ToDecimal(quantityObj ?? 0d, CultureInfo.InvariantCulture),
                 commentsObj as string,
                 attachmentKey,
@@ -88,30 +100,4 @@ public class ShipmentLoadsDischargeCreateController(
             return StatusCode(500, e.Message);
         }
     }
-
-    /// <summary>
-    /// O arquivo do ticket viaja em base64. Conteúdo corrompido é erro do payload, não falha do
-    /// servidor — e a mensagem crua de <c>FormatException</c> vem em inglês.
-    /// </summary>
-    private static byte[] DecodeFile(string base64)
-    {
-        try
-        {
-            return Convert.FromBase64String(base64);
-        }
-        catch (FormatException)
-        {
-            throw new DefaultException("Não foi possível ler o arquivo do ticket anexado.");
-        }
-    }
-
-    /// <summary>
-    /// A data viaja como string "yyyy-MM-dd". Parâmetro string do EDM é anulável, então o nulo
-    /// cai no dia de hoje em vez de estourar.
-    /// </summary>
-    private static DateTime ParseDate(object? value) =>
-        value is string text && DateTime.TryParse(
-            text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
-            ? parsed.Date
-            : DateTime.Now.Date;
 }

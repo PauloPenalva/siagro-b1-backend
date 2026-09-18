@@ -32,10 +32,20 @@ public class ShipmentLoadsDischargeUpdateController(
             parameters.TryGetValue("Quantity", out var quantityObj);
             parameters.TryGetValue("Comments", out var commentsObj);
 
+            if (!ShipmentLoadActionParameters.TryParseDate(dateObj, out var parsedDate))
+                return BadRequest(ShipmentLoadActionParameters.InvalidDateMessage);
+
+            // ⚠️ Na alteração a data é OBRIGATÓRIA, ao contrário do registro.
+            // ShipmentLoadDischargesUpdateService grava DischargeDate sem condição e não há guard
+            // de data nas regras: cair no dia de hoje carimbaria HOJE por cima da data já
+            // registrada, sem erro e sem log — o usuário só descobriria conferindo o ticket.
+            if (parsedDate is null)
+                return BadRequest(ShipmentLoadActionParameters.MissingDateMessage);
+
             await service.ExecuteAsync(
                 (Guid) keyObj,
                 ticketObj as string,
-                ParseDate(dateObj),
+                parsedDate.Value,
                 Convert.ToDecimal(quantityObj ?? 0d, CultureInfo.InvariantCulture),
                 commentsObj as string,
                 User.Identity?.Name ?? "Unknown");
@@ -53,14 +63,4 @@ public class ShipmentLoadsDischargeUpdateController(
             return StatusCode(500, e.Message);
         }
     }
-
-    /// <summary>
-    /// A data viaja como string "yyyy-MM-dd". Parâmetro string do EDM é anulável, então o nulo
-    /// cai no dia de hoje em vez de estourar.
-    /// </summary>
-    private static DateTime ParseDate(object? value) =>
-        value is string text && DateTime.TryParse(
-            text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
-            ? parsed.Date
-            : DateTime.Now.Date;
 }

@@ -92,6 +92,48 @@ public class ShipmentLoadDischargeEdmModelTests
     }
 
     /// <summary>
+    /// ⚠️ O <c>ODataParameterReader</c> RECUSA o payload que não traga todo parâmetro não-opcional
+    /// da assinatura. O caminho feliz da tela é registrar o ticket SEM arquivo, então um
+    /// <c>.Optional()</c> esquecido em File/FileName/ContentType derruba o caminho principal com
+    /// um 400 que não nomeia o campo.
+    /// </summary>
+    [Theory]
+    [InlineData("TicketNumber")]
+    [InlineData("Comments")]
+    [InlineData("File")]
+    [InlineData("FileName")]
+    [InlineData("ContentType")]
+    public void The_create_action_lets_the_optional_parameters_be_omitted(string name)
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsDischargeCreate");
+
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(action.Parameters.Single(p => p.Name == name));
+    }
+
+    /// <summary>
+    /// Espelho do anterior no Update — com a diferença que importa: a DATA é obrigatória aqui.
+    /// O serviço grava <c>DischargeDate</c> sem condição, então deixá-la faltar carimbaria a data
+    /// de hoje por cima da data já registrada, sem erro e sem log.
+    /// </summary>
+    [Fact]
+    public void The_update_action_requires_the_date_and_lets_the_text_be_omitted()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsDischargeUpdate");
+
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "TicketNumber"));
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "Comments"));
+
+        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "DischargeDate"));
+        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "Quantity"));
+    }
+
+    /// <summary>
     /// O tipo do anexo viaja como string, como todo enum em parâmetro de action neste EDM.
     /// </summary>
     [Fact]
@@ -111,5 +153,19 @@ public class ShipmentLoadDischargeEdmModelTests
         Assert.Equal(
             "Edm.String",
             action.Parameters.Single(p => p.Name == "AttachmentType").Type.Definition.FullTypeName());
+
+        // O controller tem default para os três — o que só serve para alguma coisa se o payload
+        // puder omiti-los. Description e File seguem obrigatórios porque o controller os exige.
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "AttachmentType"));
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "FileName"));
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "ContentType"));
+
+        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "Description"));
+        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
+            action.Parameters.Single(p => p.Name == "File"));
     }
 }

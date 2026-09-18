@@ -681,23 +681,31 @@ public static class ODataConfigurations
         shipmentLoadsDischargeCreate.Parameter<Guid>("LoadKey");
         shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceKey");
         shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceItemKey");
-        shipmentLoadsDischargeCreate.Parameter<string>("TicketNumber");
         shipmentLoadsDischargeCreate.Parameter<string>("DischargeDate");
         shipmentLoadsDischargeCreate.Parameter<double>("Quantity");
-        shipmentLoadsDischargeCreate.Parameter<string>("Comments");
-        shipmentLoadsDischargeCreate.Parameter<string>("File");
-        shipmentLoadsDischargeCreate.Parameter<string>("FileName");
-        shipmentLoadsDischargeCreate.Parameter<string>("ContentType");
+        // ⚠️ .Optional() não é decoração: o ODataParameterReader RECUSA o payload que não traga
+        // todo parâmetro não-opcional da assinatura. O caminho feliz da tela é registrar o ticket
+        // SEM arquivo, então File/FileName/ContentType precisam poder faltar. TicketNumber e
+        // Comments também: quem cobra o ticket é ShipmentLoadDischargeRules, com mensagem de
+        // negócio em pt-BR — melhor que um 400 do reader que não nomeia o campo.
+        // Precedente no próprio arquivo: shipmentLoadsRefuse.Parameter("DestinationWarehouseCode").
+        shipmentLoadsDischargeCreate.Parameter<string>("TicketNumber").Optional();
+        shipmentLoadsDischargeCreate.Parameter<string>("Comments").Optional();
+        shipmentLoadsDischargeCreate.Parameter<string>("File").Optional();
+        shipmentLoadsDischargeCreate.Parameter<string>("FileName").Optional();
+        shipmentLoadsDischargeCreate.Parameter<string>("ContentType").Optional();
         shipmentLoadsDischargeCreate.Returns<IActionResult>();
 
         // Nota e item não entram: apontar o ticket para outra linha é excluir e registrar de novo,
         // senão a soma da linha antiga fica órfã.
         var shipmentLoadsDischargeUpdate = modelBuilder.Action("ShipmentLoadsDischargeUpdate");
         shipmentLoadsDischargeUpdate.Parameter<Guid>("Key");
-        shipmentLoadsDischargeUpdate.Parameter<string>("TicketNumber");
+        // DischargeDate segue OBRIGATÓRIA aqui: o serviço a grava sem condição, então deixá-la
+        // faltar carimbaria hoje por cima da data já registrada.
         shipmentLoadsDischargeUpdate.Parameter<string>("DischargeDate");
         shipmentLoadsDischargeUpdate.Parameter<double>("Quantity");
-        shipmentLoadsDischargeUpdate.Parameter<string>("Comments");
+        shipmentLoadsDischargeUpdate.Parameter<string>("TicketNumber").Optional();
+        shipmentLoadsDischargeUpdate.Parameter<string>("Comments").Optional();
         shipmentLoadsDischargeUpdate.Returns<IActionResult>();
 
         var shipmentLoadsDischargeDelete = modelBuilder.Action("ShipmentLoadsDischargeDelete");
@@ -707,11 +715,14 @@ public static class ODataConfigurations
         // AttachmentType como STRING e não enum, como todo enum em parâmetro de action neste EDM.
         var shipmentLoadsAttachmentUpload = modelBuilder.Action("ShipmentLoadsAttachmentUpload");
         shipmentLoadsAttachmentUpload.Parameter<Guid>("LoadKey");
-        shipmentLoadsAttachmentUpload.Parameter<string>("AttachmentType");
+        // Description e File seguem obrigatórios porque o controller os exige explicitamente.
+        // Os outros três têm default no controller — default que só serve para alguma coisa se o
+        // payload puder omiti-los ("Outro" / "anexo" / "application/octet-stream").
         shipmentLoadsAttachmentUpload.Parameter<string>("Description");
         shipmentLoadsAttachmentUpload.Parameter<string>("File");
-        shipmentLoadsAttachmentUpload.Parameter<string>("FileName");
-        shipmentLoadsAttachmentUpload.Parameter<string>("ContentType");
+        shipmentLoadsAttachmentUpload.Parameter<string>("AttachmentType").Optional();
+        shipmentLoadsAttachmentUpload.Parameter<string>("FileName").Optional();
+        shipmentLoadsAttachmentUpload.Parameter<string>("ContentType").Optional();
         shipmentLoadsAttachmentUpload.Returns<IActionResult>();
 
         var shipmentLoadsAttachmentDelete = modelBuilder.Action("ShipmentLoadsAttachmentDelete");

@@ -17,6 +17,9 @@ public class ShipmentLoadsAttachmentUploadController(
     [HttpPost("odata/ShipmentLoadsAttachmentUpload")]
     public async Task<ActionResult> Upload([FromBody] ODataActionParameters parameters)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         // ⚠️ parameters chega NULO quando nenhum parâmetro do EDM é enviado, e o TryGetValue de um
         // parâmetro anulável devolve true com valor nulo — daí as duas checagens.
         if (parameters is null ||
@@ -28,6 +31,9 @@ public class ShipmentLoadsAttachmentUploadController(
         parameters.TryGetValue("AttachmentType", out var typeObj);
         parameters.TryGetValue("FileName", out var fileNameObj);
         parameters.TryGetValue("ContentType", out var contentTypeObj);
+
+        if (!ShipmentLoadActionParameters.TryDecodeFile(fileObj.ToString()!, out var fileData))
+            return BadRequest(ShipmentLoadActionParameters.UnreadableFileMessage);
 
         try
         {
@@ -42,20 +48,25 @@ public class ShipmentLoadsAttachmentUploadController(
                 Description = descriptionObj.ToString()!,
                 FileName = fileNameObj?.ToString() ?? "anexo",
                 ContentType = contentTypeObj?.ToString() ?? "application/octet-stream",
-                FileData = Convert.FromBase64String(fileObj.ToString()!),
+                FileData = fileData,
                 CreatedAt = DateTime.Now,
                 CreatedBy = User.Identity?.Name ?? "unknown",
             });
 
             return Ok();
         }
-        catch (NotFoundException e)
-        {
-            return NotFound(e.Message);
-        }
         catch (Exception e)
         {
-            return BadRequest(e.Message);
+            // Mesma triagem dos controllers irmãos. Devolver TODA exceção como 400 fazia
+            // DbUpdateException e timeout de SQL chegarem ao usuário como texto cru em inglês,
+            // indistinguíveis de erro de preenchimento dele.
+            if (e is NotFoundException or KeyNotFoundException)
+                return NotFound(e.Message);
+
+            if (e is DefaultException or BusinessException or ApplicationException)
+                return BadRequest(e.Message);
+
+            return StatusCode(500, e.Message);
         }
     }
 }
