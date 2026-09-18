@@ -140,6 +140,14 @@ public class ShipmentLoad : DocumentEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal ReturnedToWarehouseQuantity { get; set; }
 
+    /// <summary>
+    /// Persistido-derivado: soma do peso dos tickets de descarga da carga (GAC-1171). Escritor
+    /// único: <c>ShipmentLoadDischargesRecalculateService</c>. Existe para o cabeçalho confrontar
+    /// descarregado × embarcado; NÃO entra em saldo, faturamento nem status.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal DischargedQuantity { get; set; }
+
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
 
@@ -173,6 +181,12 @@ public class ShipmentLoad : DocumentEntity
     /// narra o que aconteceu com o saldo.
     /// </summary>
     public virtual ICollection<ShipmentLoadChangeLog> ChangeLogs { get; } = [];
+
+    /// <summary>Tickets de descarga da carga (GAC-1171).</summary>
+    public virtual ICollection<ShipmentLoadDischarge> Discharges { get; } = [];
+
+    /// <summary>Documentos anexados à carga (GAC-1171).</summary>
+    public virtual ICollection<ShipmentLoadAttachment> Attachments { get; } = [];
 
     /// <summary>
     /// Devoluções em armazém geradas pela RECUSA desta carga. Coleção separada de

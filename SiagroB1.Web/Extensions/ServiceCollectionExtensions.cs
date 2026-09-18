@@ -411,6 +411,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsCommentUpdateService>();
         services.AddScoped<ShipmentLoadsCommentDeleteService>();
         services.AddScoped<ShipmentLoadsCommentsGetService>();
+        services.AddScoped<ShipmentLoadDischargesRecalculateService>();
+        services.AddScoped<ShipmentLoadDischargesCreateService>();
+        services.AddScoped<ShipmentLoadDischargesUpdateService>();
+        services.AddScoped<ShipmentLoadDischargesDeleteService>();
+        services.AddScoped<ShipmentLoadDischargesGetService>();
+        services.AddScoped<ShipmentLoadAttachmentsCreateService>();
+        services.AddScoped<ShipmentLoadAttachmentsGetService>();
+        services.AddScoped<ShipmentLoadAttachmentsDeleteService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();
