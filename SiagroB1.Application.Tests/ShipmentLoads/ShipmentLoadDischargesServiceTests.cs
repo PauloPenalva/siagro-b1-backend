@@ -100,19 +100,140 @@ public class ShipmentLoadDischargesServiceTests
         Assert.Contains("T-1", log.NewValue);
     }
 
-    [Fact]
-    public async Task Create_leaves_the_delivery_reconciliation_untouched()
+    /// <summary>As três operações que o ticket conhece, para a Theory da regra central.</summary>
+    public enum DischargeOperation
+    {
+        Create,
+        Update,
+        Delete,
+    }
+
+    /// <summary>
+    /// ⚠️ O TESTE QUE GUARDA A REGRA CENTRAL do GAC-1171, e a razão de ser deste arquivo.
+    ///
+    /// Registrar, alterar ou excluir um ticket de descarga NÃO pode mexer na conferência de
+    /// entrega (<c>DeliveredQuantity</c>, <c>QuantityLoss</c>, <c>DeliveryStatus</c>) nem no saldo
+    /// do contrato de venda ou da liberação de entrega — com a entrega ABERTA ou ENCERRADA.
+    ///
+    /// O ticket é o peso da balança do destino, segundo um documento que pode ter sido adulterado
+    /// pelo transportador. Deixá-lo mover saldo transformaria esse número no padrão da
+    /// conferência. Quem move saldo continua sendo um único ato: o encerramento da conferência.
+    ///
+    /// Vale para as seis combinações porque a entrega encerrada é justamente o caso em que o
+    /// contrato JÁ consumiu o líquido — um recálculo disparado por engano aqui reescreveria um
+    /// saldo que ninguém pediu para mexer.
+    /// </summary>
+    [Theory]
+    [InlineData(DischargeOperation.Create, SalesInvoiceDeliveryStatus.Open)]
+    [InlineData(DischargeOperation.Create, SalesInvoiceDeliveryStatus.Closed)]
+    [InlineData(DischargeOperation.Update, SalesInvoiceDeliveryStatus.Open)]
+    [InlineData(DischargeOperation.Update, SalesInvoiceDeliveryStatus.Closed)]
+    [InlineData(DischargeOperation.Delete, SalesInvoiceDeliveryStatus.Open)]
+    [InlineData(DischargeOperation.Delete, SalesInvoiceDeliveryStatus.Closed)]
+    public async Task Ticket_leaves_the_reconciliation_and_the_balances_untouched(
+        DischargeOperation operation, SalesInvoiceDeliveryStatus deliveryStatus)
     {
         await SeedAsync();
+        var (contract, release) = await SeedContractAndReleaseAsync();
+
         _item.DeliveredQuantity = 38000m;
-        _item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        _item.QuantityLoss = 250m;
+        _item.DeliveryStatus = deliveryStatus;
         await _db.Context.SaveChangesAsync();
 
-        await CreateAsync();
+        // Update e Delete precisam de um ticket já gravado. O snapshot é tirado DEPOIS dele, para
+        // que a operação sob teste seja a única coisa que aconteceu entre o "antes" e o "depois".
+        var discharge = operation == DischargeOperation.Create ? null : await CreateAsync();
 
-        Assert.Equal(38000m, _item.DeliveredQuantity);
-        Assert.Equal(SalesInvoiceDeliveryStatus.Closed, _item.DeliveryStatus);
-        Assert.Equal(39500m, _item.TicketDeliveredQuantity);
+        var deliveredBefore = _item.DeliveredQuantity;
+        var lossBefore = _item.QuantityLoss;
+        var deliveryStatusBefore = _item.DeliveryStatus;
+        var allocatedBefore = contract.AllocatedVolume;
+        var availableBefore = contract.AvaiableVolume;
+        var totalReleasesBefore = contract.TotalShipmentReleases;
+        var shippedBefore = release.ShippedQuantity;
+        var releaseAvailableBefore = release.AvailableQuantity;
+
+        var expectedTicketSum = operation switch
+        {
+            DischargeOperation.Create => 39500m,
+            DischargeOperation.Update => 40100m,
+            _ => 0m,
+        };
+
+        switch (operation)
+        {
+            case DischargeOperation.Create:
+                await CreateAsync();
+                break;
+            case DischargeOperation.Update:
+                await UpdateService().ExecuteAsync(
+                    discharge!.Key!.Value, "T-1A", new DateTime(2026, 9, 18), 40100m, "corrigido",
+                    "paulo");
+                break;
+            default:
+                await DeleteService().ExecuteAsync(discharge!.Key!.Value, "paulo");
+                break;
+        }
+
+        // A operação realmente rodou: a soma do ticket — e SÓ ela — se moveu.
+        Assert.Equal(expectedTicketSum, _item.TicketDeliveredQuantity);
+        Assert.Equal(expectedTicketSum, _load.DischargedQuantity);
+
+        // Conferência de entrega intacta.
+        Assert.Equal(deliveredBefore, _item.DeliveredQuantity);
+        Assert.Equal(lossBefore, _item.QuantityLoss);
+        Assert.Equal(deliveryStatusBefore, _item.DeliveryStatus);
+
+        // Saldo do contrato intacto (AllocatedVolume é o persistido; AvaiableVolume deriva dele).
+        Assert.Equal(allocatedBefore, contract.AllocatedVolume);
+        Assert.Equal(availableBefore, contract.AvaiableVolume);
+        Assert.Equal(totalReleasesBefore, contract.TotalShipmentReleases);
+
+        // Saldo da liberação de entrega intacto.
+        Assert.Equal(shippedBefore, release.ShippedQuantity);
+        Assert.Equal(releaseAvailableBefore, release.AvailableQuantity);
+    }
+
+    /// <summary>
+    /// Contrato de venda aprovado com uma liberação de entrega já parcialmente embarcada, ligado à
+    /// linha da nota. É contra estes números que a regra central afirma "nada se moveu".
+    /// </summary>
+    private async Task<(SalesContract Contract, SalesShipmentRelease Release)>
+        SeedContractAndReleaseAsync()
+    {
+        var contract = new SalesContract
+        {
+            Key = Guid.NewGuid(),
+            Code = "SC-1171",
+            CardCode = "C001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            HarvestSeasonCode = "24/25",
+            TotalVolume = 100000m,
+            AllocatedVolume = 40000m,
+            Status = ContractStatus.Approved,
+        };
+
+        var release = new SalesShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            SalesContractKey = contract.Key,
+            DeliveryLocationCode = "01",
+            ReleasedQuantity = 60000m,
+            ShippedQuantity = 40000m,
+            Status = ReleaseStatus.Actived,
+        };
+
+        contract.SalesShipmentReleases.Add(release);
+        _db.Context.SalesContracts.Add(contract);
+
+        _item.SalesContractKey = contract.Key;
+        _item.SalesShipmentReleaseKey = release.Key;
+
+        await _db.Context.SaveChangesAsync();
+
+        return (contract, release);
     }
 
     [Fact]
