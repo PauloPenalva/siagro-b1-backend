@@ -200,6 +200,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadMovement>("ShipmentLoadMovements");
         modelBuilder.EntitySet<ShipmentLoadComment>("ShipmentLoadsComments");
         modelBuilder.EntitySet<ShipmentLoadChangeLog>("ShipmentLoadsChangeLogs");
+        modelBuilder.EntitySet<ShipmentLoadDischarge>("ShipmentLoadsDischarges");
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<WarehouseReconciliation>("WarehouseReconciliations");
         modelBuilder.EntitySet<WarehouseReconciliationReason>("WarehouseReconciliationReasons");
@@ -670,6 +671,60 @@ public static class ODataConfigurations
         shipmentLoadsRefuse.Parameter<string>("DestinationWarehouseCode").Optional();
         shipmentLoadsRefuse.Parameter<string>("Reason");
         shipmentLoadsRefuse.Returns<IActionResult>();
+
+        // Tickets de descarga e anexos da carga (GAC-1171).
+        //
+        // ⚠️ DischargeDate como string e Quantity como double de propósito: Edm.Date e
+        // Edm.Decimal em parâmetro de action já devolveram 400 sem nomear o campo neste projeto.
+        // double tem precedente PROVADO em ShipmentLoadsRefuse.
+        var shipmentLoadsDischargeCreate = modelBuilder.Action("ShipmentLoadsDischargeCreate");
+        shipmentLoadsDischargeCreate.Parameter<Guid>("LoadKey");
+        shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceKey");
+        shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceItemKey");
+        shipmentLoadsDischargeCreate.Parameter<string>("TicketNumber");
+        shipmentLoadsDischargeCreate.Parameter<string>("DischargeDate");
+        shipmentLoadsDischargeCreate.Parameter<double>("Quantity");
+        shipmentLoadsDischargeCreate.Parameter<string>("Comments");
+        shipmentLoadsDischargeCreate.Parameter<string>("File");
+        shipmentLoadsDischargeCreate.Parameter<string>("FileName");
+        shipmentLoadsDischargeCreate.Parameter<string>("ContentType");
+        shipmentLoadsDischargeCreate.Returns<IActionResult>();
+
+        // Nota e item não entram: apontar o ticket para outra linha é excluir e registrar de novo,
+        // senão a soma da linha antiga fica órfã.
+        var shipmentLoadsDischargeUpdate = modelBuilder.Action("ShipmentLoadsDischargeUpdate");
+        shipmentLoadsDischargeUpdate.Parameter<Guid>("Key");
+        shipmentLoadsDischargeUpdate.Parameter<string>("TicketNumber");
+        shipmentLoadsDischargeUpdate.Parameter<string>("DischargeDate");
+        shipmentLoadsDischargeUpdate.Parameter<double>("Quantity");
+        shipmentLoadsDischargeUpdate.Parameter<string>("Comments");
+        shipmentLoadsDischargeUpdate.Returns<IActionResult>();
+
+        var shipmentLoadsDischargeDelete = modelBuilder.Action("ShipmentLoadsDischargeDelete");
+        shipmentLoadsDischargeDelete.Parameter<Guid>("Key");
+        shipmentLoadsDischargeDelete.Returns<IActionResult>();
+
+        // AttachmentType como STRING e não enum, como todo enum em parâmetro de action neste EDM.
+        var shipmentLoadsAttachmentUpload = modelBuilder.Action("ShipmentLoadsAttachmentUpload");
+        shipmentLoadsAttachmentUpload.Parameter<Guid>("LoadKey");
+        shipmentLoadsAttachmentUpload.Parameter<string>("AttachmentType");
+        shipmentLoadsAttachmentUpload.Parameter<string>("Description");
+        shipmentLoadsAttachmentUpload.Parameter<string>("File");
+        shipmentLoadsAttachmentUpload.Parameter<string>("FileName");
+        shipmentLoadsAttachmentUpload.Parameter<string>("ContentType");
+        shipmentLoadsAttachmentUpload.Returns<IActionResult>();
+
+        var shipmentLoadsAttachmentDelete = modelBuilder.Action("ShipmentLoadsAttachmentDelete");
+        shipmentLoadsAttachmentDelete.Parameter<Guid>("Key");
+        shipmentLoadsAttachmentDelete.Returns<IActionResult>();
+
+        var shipmentLoadsAttachmentsList = modelBuilder.Function("ShipmentLoadsAttachmentsList");
+        shipmentLoadsAttachmentsList.Parameter<Guid>("LoadKey");
+        shipmentLoadsAttachmentsList.Returns<IActionResult>();
+
+        var shipmentLoadsAttachmentsDownload = modelBuilder.Function("ShipmentLoadsAttachmentsDownload");
+        shipmentLoadsAttachmentsDownload.Parameter<Guid>("Key");
+        shipmentLoadsAttachmentsDownload.Returns<IActionResult>();
 
         var shipmentLoadsGetRefusableDocuments = modelBuilder.Function("ShipmentLoadsGetRefusableDocuments");
         shipmentLoadsGetRefusableDocuments.Parameter<Guid>("Key");
