@@ -59,19 +59,27 @@ public class ShipmentLoadDischargesRecalculateService(AppDbContext context)
     /// tabela inteira funcionaria hoje e degradaria em silêncio conforme os tickets acumulam.
     /// O predicado repete o mesmo filtro para as entidades do rastreador, que o SQL não alcança.
     /// </remarks>
+    /// <remarks>
+    /// ⚠️ <c>trackedKeys</c> precisa incluir as entidades <c>Deleted</c> — é o que faz a linha
+    /// ainda física no banco (lida por <paramref name="persistedQuery"/>) ser descartada da soma
+    /// quando o chamador removeu o ticket e recalculou ANTES do <c>SaveChanges</c> que efetiva a
+    /// exclusão. Só a lista somada (<c>tracked</c>) exclui <c>Deleted</c> — a chave, não.
+    /// </remarks>
     private async Task<decimal> SumAsync(
         IQueryable<Domain.Entities.ShipmentLoadDischarge> persistedQuery,
         Func<Domain.Entities.ShipmentLoadDischarge, bool> predicate)
     {
         var persisted = await persistedQuery.AsNoTracking().ToListAsync();
 
-        var tracked = context.ChangeTracker
+        var allTracked = context.ChangeTracker
             .Entries<Domain.Entities.ShipmentLoadDischarge>()
-            .Where(e => e.State != EntityState.Deleted)
-            .Select(e => e.Entity)
             .ToList();
 
-        var trackedKeys = tracked.Select(x => x.Key).ToHashSet();
+        var trackedKeys = allTracked.Select(e => e.Entity.Key).ToHashSet();
+
+        var tracked = allTracked
+            .Where(e => e.State != EntityState.Deleted)
+            .Select(e => e.Entity);
 
         return persisted
             .Where(x => !trackedKeys.Contains(x.Key))

@@ -54,9 +54,9 @@ public class ShipmentLoadDischargesRecalculateServiceTests
         return (load, invoice, item);
     }
 
-    private void AddTicket(ShipmentLoad load, SalesInvoice invoice, SalesInvoiceItem item, decimal weight)
+    private ShipmentLoadDischarge AddTicket(ShipmentLoad load, SalesInvoice invoice, SalesInvoiceItem item, decimal weight)
     {
-        _db.Context.ShipmentLoadsDischarges.Add(new ShipmentLoadDischarge
+        var discharge = new ShipmentLoadDischarge
         {
             Key = Guid.NewGuid(),
             ShipmentLoadKey = load.Key,
@@ -65,7 +65,9 @@ public class ShipmentLoadDischargesRecalculateServiceTests
             TicketNumber = "T1",
             DischargeDate = DateTime.Now.Date,
             DischargedQuantity = weight,
-        });
+        };
+        _db.Context.ShipmentLoadsDischarges.Add(discharge);
+        return discharge;
     }
 
     [Fact]
@@ -126,6 +128,24 @@ public class ShipmentLoadDischargesRecalculateServiceTests
         Assert.Equal(0m, load.DischargedQuantity);
         // O conferido continua de pé: excluir ticket não apaga a conferência.
         Assert.Equal(38000m, item.DeliveredQuantity);
+    }
+
+    [Fact]
+    public async Task Discounts_a_removed_ticket_before_the_delete_is_saved()
+    {
+        // Mesmo padrão que a inclusão já promove (ticket e recálculo no mesmo SaveChanges),
+        // só que do lado da exclusão: o Remove ainda não foi salvo quando o recálculo roda.
+        var (load, invoice, item) = await SeedAsync();
+        AddTicket(load, invoice, item, 25000m);
+        var toRemove = AddTicket(load, invoice, item, 14500m);
+        await _db.Context.SaveChangesAsync();
+
+        _db.Context.ShipmentLoadsDischarges.Remove(toRemove);
+
+        await Service().RecalculateAsync(load.Key, [item.Key!.Value]);
+
+        Assert.Equal(25000m, item.TicketDeliveredQuantity);
+        Assert.Equal(25000m, load.DischargedQuantity);
     }
 
     [Fact]
