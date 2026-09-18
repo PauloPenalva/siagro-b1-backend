@@ -35,6 +35,13 @@ public static class ShipmentLoadChangeLogFields
     public const string Status = "Status";
     public const string CancellationReason = "CancellationReason";
 
+    /// <summary>
+    /// Ticket de descarga da carga (coleção <c>Discharges</c>, GAC-1171). Inclusão, alteração e
+    /// exclusão passam por aqui: é dado DIGITADO, e o log da carga é o lugar dele. A Movimentação
+    /// não recebe nada, porque o saldo da carga não muda.
+    /// </summary>
+    public const string Discharge = "Discharge";
+
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>
@@ -64,4 +71,11 @@ public static class ShipmentLoadChangeLogFields
         ShipmentLoadStatus.Completed => "Concluída",
         _ => status.ToString(),
     };
+
+    /// <summary>
+    /// Ticket como ele aparece no log: número e peso juntos, porque o log é texto livre e uma
+    /// linha só com o peso não diria de qual ticket ele é.
+    /// </summary>
+    public static string DescribeDischarge(string ticketNumber, decimal quantity) =>
+        $"{ticketNumber} — {quantity.ToString("N3", PtBr)}";
 }
