@@ -638,24 +638,40 @@ public class ShipmentLoadDischargesRecalculateService(AppDbContext context)
             // Chave desconhecida não é erro: a exclusão em lote pode citar item já removido.
             if (item is null) continue;
 
-            item.TicketDeliveredQuantity = await SumAsync(x => x.SalesInvoiceItemKey == itemKey);
+            item.TicketDeliveredQuantity = await SumByItemAsync(itemKey);
         }
 
         var load = await context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == shipmentLoadKey);
 
         if (load is not null)
-            load.DischargedQuantity = await SumAsync(x => x.ShipmentLoadKey == shipmentLoadKey);
+            load.DischargedQuantity = await SumByLoadAsync(shipmentLoadKey);
     }
 
+    private Task<decimal> SumByItemAsync(Guid itemKey) =>
+        SumAsync(
+            context.ShipmentLoadsDischarges.Where(x => x.SalesInvoiceItemKey == itemKey),
+            x => x.SalesInvoiceItemKey == itemKey);
+
+    private Task<decimal> SumByLoadAsync(Guid loadKey) =>
+        SumAsync(
+            context.ShipmentLoadsDischarges.Where(x => x.ShipmentLoadKey == loadKey),
+            x => x.ShipmentLoadKey == loadKey);
+
     /// <summary>
-    /// Soma sobre o rastreador, e não com <c>SumAsync</c>: no provider InMemory dos testes e no
-    /// meio de uma transação, a agregação no servidor não vê a entidade recém-adicionada e ainda
-    /// não gravada — foi o que fez a diferença de entrega ser calculada com o valor anterior.
+    /// Soma o que está no banco MAIS o que está no rastreador, em vez de usar <c>SumAsync</c> do
+    /// EF: a agregação no servidor não vê a entidade recém-adicionada e ainda não gravada, e foi
+    /// exatamente isso que já fez a diferença de entrega ser calculada com o valor anterior.
     /// </summary>
+    /// <remarks>
+    /// A consulta entra FILTRADA por chave (<paramref name="persistedQuery"/>): somar em memória a
+    /// tabela inteira funcionaria hoje e degradaria em silêncio conforme os tickets acumulam.
+    /// O predicado repete o mesmo filtro para as entidades do rastreador, que o SQL não alcança.
+    /// </remarks>
     private async Task<decimal> SumAsync(
+        IQueryable<Domain.Entities.ShipmentLoadDischarge> persistedQuery,
         Func<Domain.Entities.ShipmentLoadDischarge, bool> predicate)
     {
-        var persisted = await context.ShipmentLoadsDischarges.AsNoTracking().ToListAsync();
+        var persisted = await persistedQuery.AsNoTracking().ToListAsync();
 
         var tracked = context.ChangeTracker
             .Entries<Domain.Entities.ShipmentLoadDischarge>()
@@ -663,10 +679,10 @@ public class ShipmentLoadDischargesRecalculateService(AppDbContext context)
             .Select(e => e.Entity)
             .ToList();
 
-        var keys = tracked.Select(x => x.Key).ToHashSet();
+        var trackedKeys = tracked.Select(x => x.Key).ToHashSet();
 
         return persisted
-            .Where(x => !keys.Contains(x.Key))
+            .Where(x => !trackedKeys.Contains(x.Key))
             .Concat(tracked)
             .Where(predicate)
             .Sum(x => x.DischargedQuantity);
@@ -1720,8 +1736,8 @@ Refs: GAC-1171"
 Create `SiagroB1.Application.Tests/ShipmentLoads/ShipmentLoadDischargeEdmModelTests.cs`, no molde de `ShipmentLoadEdmModelTests`:
 
 ```csharp
-using Microsoft.AspNetCore.OData.Query;
 using Microsoft.OData.Edm;
+using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Web.ODataConfig;
 
@@ -1733,13 +1749,22 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 /// </summary>
 public class ShipmentLoadDischargeEdmModelTests
 {
-    private static IEdmModel Model() => ODataConfigurations.GetEdmModel();
+    // Mesmo helper de ShipmentLoadEdmModelTests: o EDM real, montado pelo
+    // ConfigureODataEntities que o Program usa.
+    private static IEdmModel Model()
+    {
+        var builder = new ODataConventionModelBuilder();
+        builder.ConfigureODataEntities();
+
+        return builder.GetEdmModel();
+    }
 
     [Theory]
     [InlineData("ShipmentLoadsDischargeCreate")]
     [InlineData("ShipmentLoadsDischargeUpdate")]
     [InlineData("ShipmentLoadsDischargeDelete")]
     [InlineData("ShipmentLoadsAttachmentUpload")]
+    [InlineData("ShipmentLoadsAttachmentDelete")]
     public void Declares_the_write_actions(string name)
     {
         Assert.NotEmpty(Model().SchemaElements.OfType<IEdmAction>().Where(a => a.Name == name));
@@ -1840,6 +1865,10 @@ Junto das actions da carga (região da linha 648):
         shipmentLoadsAttachmentUpload.Parameter<string>("FileName");
         shipmentLoadsAttachmentUpload.Parameter<string>("ContentType");
         shipmentLoadsAttachmentUpload.Returns<IActionResult>();
+
+        var shipmentLoadsAttachmentDelete = modelBuilder.Action("ShipmentLoadsAttachmentDelete");
+        shipmentLoadsAttachmentDelete.Parameter<Guid>("Key");
+        shipmentLoadsAttachmentDelete.Returns<IActionResult>();
 
         var shipmentLoadsAttachmentsList = modelBuilder.Function("ShipmentLoadsAttachmentsList");
         shipmentLoadsAttachmentsList.Parameter<Guid>("LoadKey");
@@ -2152,6 +2181,50 @@ public class ShipmentLoadsAttachmentUploadController(
 }
 ```
 
+Create `SiagroB1.Web/Actions/ShipmentLoads/ShipmentLoadsAttachmentDeleteController.cs`:
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Formatter;
+using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Domain.Exceptions;
+
+namespace SiagroB1.Web.Actions.ShipmentLoads;
+
+public class ShipmentLoadsAttachmentDeleteController(
+    ShipmentLoadAttachmentsDeleteService service) : ODataController
+{
+    [HttpPost("odata/ShipmentLoadsAttachmentDelete")]
+    public async Task<IActionResult> Post(ODataActionParameters parameters)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            if (parameters is null ||
+                !parameters.TryGetValue("Key", out var keyObj) || keyObj is null)
+                return BadRequest("Anexo não informado.");
+
+            await service.ExecuteAsync((Guid) keyObj, User.Identity?.Name ?? "Unknown");
+
+            return Ok();
+        }
+        catch (Exception e)
+        {
+            if (e is NotFoundException or KeyNotFoundException)
+                return NotFound(e.Message);
+
+            if (e is DefaultException or BusinessException or ApplicationException)
+                return BadRequest(e.Message);
+
+            return StatusCode(500, e.Message);
+        }
+    }
+}
+```
+
 Create `SiagroB1.Web/Functions/ShipmentLoads/ShipmentLoadsAttachmentsListController.cs`:
 
 ```csharp
@@ -2368,7 +2441,7 @@ Create `webapp/view/shipmentLoads/fragments/ShipmentLoadDischarges.fragment.xml`
 		selectionBehavior="Row"
 		class="sapUiSizeCondensed"
 		visibleRowCount="6"
-		rows="{ path: 'Discharges', parameters: { '$$ownRequest': true, '$expand': 'SalesInvoice($select=Key,DocumentNumber),SalesInvoiceItem($select=Key,ItemCode,ItemName)' } }">
+		rows="{ path: 'Discharges', parameters: { '$$ownRequest': true, '$expand': 'SalesInvoice($select=Key,InvoiceNumber),SalesInvoiceItem($select=Key,ItemCode,ItemName)' } }">
 		<t:extension>
 			<OverflowToolbar>
 				<Title text="Descargas"/>
@@ -2403,7 +2476,7 @@ Create `webapp/view/shipmentLoads/fragments/ShipmentLoadDischarges.fragment.xml`
 				</t:template>
 			</t:Column>
 			<t:Column label="Documento de Saída" width="11rem">
-				<t:template><Text text="{SalesInvoice/DocumentNumber}" wrapping="false"/></t:template>
+				<t:template><Text text="{SalesInvoice/InvoiceNumber}" wrapping="false"/></t:template>
 			</t:Column>
 			<t:Column label="Produto" width="18rem">
 				<t:template><Text text="({SalesInvoiceItem/ItemCode}) {SalesInvoiceItem/ItemName}" wrapping="false"/></t:template>
@@ -2436,7 +2509,7 @@ Create `webapp/view/shipmentLoads/fragments/ShipmentLoadDischarges.fragment.xml`
 </core:FragmentDefinition>
 ```
 
-⚠️ Confirme em `$metadata` o nome da propriedade do número da nota em `SalesInvoice` antes de codar (`DocumentNumber` é o esperado; se for outro, ajuste o `$expand` e a coluna). Coluna sem `$select`/`$expand` correspondente vem vazia sem erro.
+O número da nota é `SalesInvoice.InvoiceNumber` — conferido no código, não é `DocumentNumber` nem `TaxDocumentNumber` (esse é o da NF-e). Coluna sem `$select`/`$expand` correspondente vem vazia sem erro.
 
 - [ ] **Step 2: Criar o fragmento do diálogo**
 
@@ -2662,7 +2735,7 @@ export abstract class BaseController extends CommonController {
       undefined,
       undefined,
       undefined,
-      { $select: "Key,DocumentNumber,InvoiceStatus", $expand: "Items($select=Key,ItemCode,ItemName,Quantity)" }
+      { $select: "Key,InvoiceNumber,InvoiceStatus", $expand: "Items($select=Key,ItemCode,ItemName,Quantity)" }
     );
 
     const contexts = await binding.requestContexts(0, 200);
@@ -2673,14 +2746,14 @@ export abstract class BaseController extends CommonController {
     contexts.forEach(context => {
       const invoice = context.getObject() as {
         Key: string;
-        DocumentNumber?: string;
+        InvoiceNumber?: string;
         InvoiceStatus?: string;
         Items?: { Key: string; ItemCode?: string; ItemName?: string; Quantity?: number }[];
       };
 
       if (invoice.InvoiceStatus === "Cancelled") return;
 
-      invoices.push({ Key: invoice.Key, Text: invoice.DocumentNumber ?? "(sem número)" });
+      invoices.push({ Key: invoice.Key, Text: invoice.InvoiceNumber ?? "(sem número)" });
 
       (invoice.Items ?? []).forEach(item => {
         items.push({
@@ -3254,7 +3327,7 @@ Modify `webapp/controller/shipmentLoads/BaseController.ts`, adicionando à class
 
 Adicione `import ServerRoutes from "siagrob1/model/ServerRoutes";` no topo, conferindo antes a forma exata do export em `ServerRoutes.ts` (default ou nomeado).
 
-⚠️ `onRemoveAttachment` chama `ShipmentLoadsAttachmentDelete`, que **não foi criada na Task 5**. Antes deste step, crie no backend, exatamente no molde de `ShipmentLoadsDischargeDeleteController`: a action no EDM (`Parameter<Guid>("Key")`) e `SiagroB1.Web/Actions/ShipmentLoads/ShipmentLoadsAttachmentDeleteController.cs` chamando `ShipmentLoadAttachmentsDeleteService.ExecuteAsync`. Commite essa parte no repo do backend, separada, com `Refs: GAC-1171`.
+`onRemoveAttachment` chama `ShipmentLoadsAttachmentDelete`, criada na Task 5 — esta task não toca no backend. Se a action não existir, pare: a Task 5 não foi concluída.
 
 - [ ] **Step 6: Carregar os anexos ao abrir a página**
 
@@ -3434,4 +3507,4 @@ Refs: GAC-1171"
 
 **Consistência de tipos:** `TicketDeliveredQuantity` (item) e `DischargedQuantity` (carga e ticket) usados com o mesmo nome em todas as tasks; `RecalculateAsync(Guid, IEnumerable<Guid>)` com a mesma assinatura nas Tasks 2, 3 e 6; `loadAttachmentBase64`/`currentLoadKey` declarados na Task 7 e consumidos na Task 8 com a mesma forma; `formatDecimal3` definido na Task 7 e reusado na Task 9.
 
-**Pontos que o executor precisa confirmar no código antes de codar** (estão marcados nos steps, e existem porque o plano não deve inventar assinatura): nome da propriedade do número da nota em `SalesInvoice`; assinatura de `ODataConfigurations.GetEdmModel()`; assinaturas de `DialogHelper.confirmDialog` e `setBusy`; forma do export de `ServerRoutes`; existência de um helper de 3 decimais em `formatter.ts`; onde o `$select` dos itens da Conferência é declarado.
+**Pontos que o executor precisa confirmar no código antes de codar** (estão marcados nos steps, e existem porque o plano não deve inventar assinatura): assinaturas de `DialogHelper.confirmDialog` e `setBusy`; forma do export de `ServerRoutes`; existência de um helper de 3 decimais em `formatter.ts`; onde o `$select` dos itens da Conferência é declarado.
