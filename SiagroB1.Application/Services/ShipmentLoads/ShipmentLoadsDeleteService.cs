@@ -76,6 +76,14 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
 
+        var discharges = await db.Context.ShipmentLoadsDischarges
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
+        var attachments = await db.Context.ShipmentLoadsAttachments
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
         try
         {
             await db.BeginTransactionAsync();
@@ -86,6 +94,14 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             db.Context.ShipmentLoadMovements.RemoveRange(movements);
             db.Context.ShipmentLoadsComments.RemoveRange(comments);
             db.Context.ShipmentLoadsChangeLogs.RemoveRange(changeLogs);
+
+            // GAC-1171: ticket de descarga e anexo também têm FK NoAction para a carga — de
+            // propósito, para que cancelar/excluir a nota não leve embora a evidência física que
+            // libera o pagamento do frete. Ordem obrigatória: a descarga referencia o anexo, então
+            // o anexo sai depois. O inverso dispara erro 547 e o InMemory dos testes não acusa.
+            db.Context.ShipmentLoadsDischarges.RemoveRange(discharges);
+            db.Context.ShipmentLoadsAttachments.RemoveRange(attachments);
+
             db.Context.ShipmentLoads.Remove(load);
 
             await db.SaveChangesAsync();

@@ -99,6 +99,50 @@ public class ShipmentLoadsDeleteServiceTests
         Assert.Empty(_db.Context.ShipmentLoadsChangeLogs);
     }
 
+    /// <summary>
+    /// GAC-1171: ticket de descarga e anexo são tabelas filhas novas, com FK <c>NoAction</c> para
+    /// a carga (de propósito, para que cancelar/excluir a nota não leve a evidência física que
+    /// libera o pagamento do frete). O delete da carga precisa removê-las explicitamente.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ O InMemory NÃO reproduz o erro 547: este teste garante a INTENÇÃO (as filhas somem
+    /// junto com a carga), e a prova real é excluir uma carga com ticket e anexo no banco SQL
+    /// Server, na verificação.
+    /// </remarks>
+    [Fact]
+    public async Task Deletes_a_planned_load_with_a_discharge_ticket_and_an_attachment()
+    {
+        var load = Load();
+
+        var attachment = new ShipmentLoadAttachment
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            AttachmentType = ShipmentLoadAttachmentType.DischargeTicket,
+            Description = "Ticket",
+            FileName = "t.pdf",
+            ContentType = "application/pdf",
+            FileData = [1],
+            CreatedAt = DateTime.Now,
+        };
+        _db.Context.ShipmentLoadsAttachments.Add(attachment);
+        _db.Context.ShipmentLoadsDischarges.Add(new ShipmentLoadDischarge
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            TicketNumber = "T-1",
+            DischargedQuantity = 100m,
+            AttachmentKey = attachment.Key,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync(load.Key);
+
+        Assert.Empty(_db.Context.ShipmentLoadsDischarges);
+        Assert.Empty(_db.Context.ShipmentLoadsAttachments);
+        Assert.Empty(_db.Context.ShipmentLoads);
+    }
+
     [Theory]
     [InlineData(ShipmentLoadStatus.Open)]
     [InlineData(ShipmentLoadStatus.PartiallyInvoiced)]
