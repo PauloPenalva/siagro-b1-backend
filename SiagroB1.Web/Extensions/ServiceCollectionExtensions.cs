@@ -317,6 +317,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesItemsGetService>();
         services.AddScoped<SalesInvoicesItemsUpdateService>();
         services.AddScoped<PurchaseDischargeTransactionsSyncService>();
+        services.AddScoped<PurchaseDischargesListService>();
         services.AddScoped<SalesInvoicesUpdateService>();
         services.AddScoped<SalesInvoicesReturnableShipmentsService>();
         services.AddScoped<SalesInvoicesReturnService>();

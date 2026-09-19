@@ -1067,6 +1067,12 @@ public static class ODataConfigurations
         warehouseReconciliationsListReleases.Parameter<Guid>("Key");
         warehouseReconciliationsListReleases.Returns<IActionResult>();
 
+        // Romaneios de quebra/sobra de descarga (16/17) no período — tela "Ajustes de Descarga" (troca nota).
+        var purchaseDischargesList = modelBuilder.Function("PurchaseDischargesList");
+        purchaseDischargesList.Parameter<string>("DateFrom");
+        purchaseDischargesList.Parameter<string>("DateTo");
+        purchaseDischargesList.Returns<IActionResult>();
+
         var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
         storageInvoiceClosing.Parameter<Guid>("DocNumberKey");
         storageInvoiceClosing.Parameter<string>("StorageAddressCode");
