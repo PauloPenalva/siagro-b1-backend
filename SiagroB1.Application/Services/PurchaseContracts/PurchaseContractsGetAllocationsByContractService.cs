@@ -46,7 +46,7 @@ public class PurchaseContractsGetAllocationsByContractService(
             END AS Origin,
             WR.Code AS WarehouseReconciliationCode,
             WRRS.Description AS ReasonDescription,
-            DINV.TaxDocumentNumber AS DischargeInvoiceNumber,
+            COALESCE(DINV.TaxDocumentNumber, DINV.InvoiceNumber) AS DischargeInvoiceNumber,
             DLOAD.Code AS DischargeLoadCode
         FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
         LEFT JOIN STORAGE_TRANSACTIONS ST
