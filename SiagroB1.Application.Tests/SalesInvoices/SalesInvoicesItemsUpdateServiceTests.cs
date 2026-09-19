@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -26,6 +31,16 @@ public class SalesInvoicesItemsUpdateServiceTests
             ["SOJA"] = "SOJA EM GRAOS",
             ["MILHO"] = "MILHO EM GRAOS",
         }),
+        new PurchaseDischargeTransactionsSyncService(
+            _db,
+            new StorageTransactionsCreateService(_db, new FakeDocNumberSequenceService(),
+                new FakeBusinessPartnerService(new()), new FakeItemService(new()), new FakeWarehouseService(new()),
+                new ShipmentReleasesRecalculateShippedService(_db.Context),
+                new ShipmentReleaseMovementGuardService(_db.Context),
+                NullLogger<StorageTransactionsCreateService>.Instance),
+            new PurchaseContractsAllocationCreateService(_db,
+                new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance)),
+            new PurchaseContractsAllocationDeleteService(_db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance)),
         new TestLogger<SalesInvoicesUpdateService>());
 
     private static SalesContract NewContract(decimal totalVolume, decimal allocatedVolume) => new()

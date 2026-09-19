@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
@@ -12,8 +13,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesItemsUpdateService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     IItemService itemService,
+    PurchaseDischargeTransactionsSyncService dischargeSync,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -47,6 +49,17 @@ public class SalesInvoicesItemsUpdateService(
                 throw new DefaultException(
                     "Não é possível encerrar a entrega com peso líquido zerado ou negativo. " +
                     "Informe a quantidade entregue e o desconto antes de encerrar.");
+
+            // Troca nota: as travas do contrato de compra (encerrado, sobra acima do saldo) rodam
+            // AQUI, antes de qualquer gravação — recusar depois deixaria a conferência encerrada
+            // sem o acerto do fornecedor.
+            var dischargePlan = deliveryChanged
+                ? await dischargeSync.PrepareAsync(
+                    key, entity.DeliveryStatus, entity.Quantity, entity.DeliveredQuantity, entity.QuantityLoss)
+                : null;
+
+            // Daqui em diante tudo é uma coisa só: conferência, recálculos da venda e acerto da compra.
+            await db.BeginTransactionAsync();
 
             // Log e carimbo ANTES do SaveChanges, mas montados a partir do OriginalValues:
             // depois do SetValues o "de" já teria sido sobrescrito. Nada disso chega ao banco
@@ -89,12 +102,23 @@ public class SalesInvoicesItemsUpdateService(
                 await SalesShipmentReleasesRecalculateShippedService.RecalculateForItemsAsync(
                     db.Context, [key]);
                 await db.SaveChangesAsync();
+
+                if (dischargePlan is { IsEmpty: false })
+                    await dischargeSync.ApplyAsync(dischargePlan, userName);
             }
+
+            await db.CommitAsync();
         }
         catch (DbUpdateConcurrencyException)
         {
+            await db.RollbackAsync();
             logger.Log(LogLevel.Error, "Failed to update entity.");
             throw new DefaultException("Error updating entity due to concurrency issues.");
+        }
+        catch
+        {
+            await db.RollbackAsync();
+            throw;
         }
 
         return entity;

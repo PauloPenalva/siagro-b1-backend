@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
+using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -67,7 +71,18 @@ public class SalesInvoicesReturnWeightTests
     }
 
     private SalesInvoicesItemsUpdateService ItemsUpdateService() =>
-        new(_db, Items(), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(_db, Items(),
+            new PurchaseDischargeTransactionsSyncService(
+                _db,
+                new StorageTransactionsCreateService(_db, new FakeDocNumberSequenceService(),
+                    new FakeBusinessPartnerService(new()), new FakeItemService(new()), new FakeWarehouseService(new()),
+                    new ShipmentReleasesRecalculateShippedService(_db.Context),
+                    new ShipmentReleaseMovementGuardService(_db.Context),
+                    NullLogger<StorageTransactionsCreateService>.Instance),
+                new PurchaseContractsAllocationCreateService(_db,
+                    new StorageTransactionsGetService(_db, NullLogger<StorageTransactionsGetService>.Instance)),
+                new PurchaseContractsAllocationDeleteService(_db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance)),
+            NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private SalesInvoicesItemsCreateService ItemsCreateService() =>
         new(_db, Items(), NullLogger<SalesInvoicesItemsCreateService>.Instance);
