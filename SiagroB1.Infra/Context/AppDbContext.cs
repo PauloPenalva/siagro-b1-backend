@@ -463,6 +463,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne<ShippingReleaseChange>().WithMany()
             .HasForeignKey(x => x.ShippingReleaseChangeKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Troca nota: o romaneio de quebra/sobra de descarga aponta o item conferido e a Expedição
+        // acertada. Sem navegação (não entra no EDM) e NoAction, como todo o projeto — excluir nota,
+        // item ou Expedição com romaneio ativo é barrado por PurchaseDischargeGuards.
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne<SalesInvoiceItem>().WithMany()
+            .HasForeignKey(x => x.DischargeSalesInvoiceItemKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne<ShippingTransaction>().WithMany()
+            .HasForeignKey(x => x.DischargeShippingTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
     

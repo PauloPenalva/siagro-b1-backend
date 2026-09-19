@@ -4089,6 +4089,12 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<Guid?>("DischargeSalesInvoiceItemKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DischargeShippingTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -4244,6 +4250,10 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
+
+                    b.HasIndex("DischargeSalesInvoiceItemKey");
+
+                    b.HasIndex("DischargeShippingTransactionKey");
 
                     b.HasIndex("DocNumberKey");
 
@@ -5985,6 +5995,16 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()
                         .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("DischargeSalesInvoiceItemKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.ShippingTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("DischargeShippingTransactionKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
