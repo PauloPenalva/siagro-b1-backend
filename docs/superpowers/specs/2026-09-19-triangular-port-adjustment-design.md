@@ -135,6 +135,8 @@ A alocação dos tipos 16/17 é um método próprio, `PurchaseContractsAllocatio
 | Contrato de compra CIF afetado está `Finished` (encerrar, reencerrar ou estornar) | recusa: "O contrato de compra {Code} está encerrado; reabra-o para conferir esta entrega." |
 | Sobra maior que o saldo do contrato de compra | recusa: "A sobra de descarga ({volume}) excede o saldo do contrato de compra {Code}." |
 | Excluir item/nota, **cancelar a nota** ou **estornar a Expedição** com romaneio 16/17 ativo | recusa: "…tem quebra/sobra de descarga lançada no contrato de compra. Reabra a conferência de entregas antes." (FK NoAction daria 547 → 500 mudo, e o acerto ficaria órfão) |
+| **Trocar a liberação da Expedição** (GAC-1177, inclusive carga faturada) com romaneio 16/17 ativo | mesma recusa acima (Expedição); a troca move contrato/fornecedor/armazém e deixaria o acerto do 16/17 preso no contrato de ORIGEM |
+| **Estornar manualmente a alocação** de um romaneio 16/17 pela tela do contrato (`PurchaseContractsAllocationDeleteService.ExecuteWithTransactionAsync`) | recusa: "Esta alocação é de quebra/sobra de descarga da troca nota. Reabra a Conferência de Entregas para desfazê-la." (o cascade interno da sync, `ExecuteAsync`, não passa por este guard) |
 
 As recusas saem como `BadRequestODataResult` (mensagem de negócio visível no UI5, não
 "Communication error").

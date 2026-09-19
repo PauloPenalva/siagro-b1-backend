@@ -58,6 +58,8 @@ public class PurchaseDischargeTransactionsSyncService(
 
         var active = await ctx.StorageTransactions.AsNoTracking()
             .Where(x => x.DischargeSalesInvoiceItemKey == salesInvoiceItemKey &&
+                        (x.TransactionType == StorageTransactionType.PurchaseDischargeLoss ||
+                         x.TransactionType == StorageTransactionType.PurchaseDischargeGain) &&
                         x.TransactionStatus != StorageTransactionsStatus.Cancelled)
             .Select(x => x.Key)
             .ToListAsync();

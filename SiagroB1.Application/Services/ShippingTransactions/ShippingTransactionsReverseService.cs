@@ -40,7 +40,7 @@ public class ShippingTransactionsReverseService(
         // Primeiro guard de propósito: os de baixo (faturado, carga) respondem com uma mensagem
         // que não diz o que desfazer.
         if (await PurchaseDischargeGuards.HasActiveForShippingAsync(db.Context, shipping.Key))
-            throw new DefaultException(PurchaseDischargeGuards.ShippingMessage);
+            throw new ApplicationException(PurchaseDischargeGuards.ShippingMessage);
 
         if (shipping.SalesStorageTransaction is { TransactionStatus: StorageTransactionsStatus.Invoiced })
         {

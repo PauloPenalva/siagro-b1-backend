@@ -9,6 +9,8 @@ using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Tests.Support;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
@@ -105,6 +107,10 @@ public class PurchaseDischargeGuardsTests
     {
         await SeedClosedAsync();
         var shipping = await _ctx.Db.Context.ShippingTransactions.AsNoTracking().SingleAsync();
+        var salesBefore = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        var purchaseBefore = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == shipping.PurchaseStorageTransactionKey);
 
         var service = new ShippingTransactionsReverseService(
             _ctx.Db,
@@ -113,9 +119,74 @@ public class PurchaseDischargeGuardsTests
             new ShipmentReleasesRecalculateShippedService(_ctx.Db.Context),
             NullLogger<ShippingTransactionsReverseService>.Instance);
 
-        // O estorno recebe a chave da SAÍDA(7), não a de SHIPPING_TRANSACTIONS.
-        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+        // O estorno recebe a chave da SAÍDA(7), não a de SHIPPING_TRANSACTIONS. A mensagem de
+        // negócio precisa virar 4xx (ApplicationException) — o controller não mapeia
+        // DefaultException para um resultado de erro.
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
             service.ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
         Assert.Equal(PurchaseDischargeGuards.ShippingMessage, ex.Message);
+
+        // Nada mudou: a Expedição continua viva e os status da perna 8/7 intactos.
+        Assert.True(await _ctx.Db.Context.ShippingTransactions.AnyAsync(x => x.Key == shipping.Key));
+        var salesAfter = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        var purchaseAfter = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == shipping.PurchaseStorageTransactionKey);
+        Assert.Equal(salesBefore.TransactionStatus, salesAfter.TransactionStatus);
+        Assert.Equal(purchaseBefore.TransactionStatus, purchaseAfter.TransactionStatus);
+    }
+
+    [Fact]
+    public async Task ChangeRelease_BuildPlan_IsRefused_WhenShippingHasActiveDischarge()
+    {
+        await SeedClosedAsync();
+        var shipping = await _ctx.Db.Context.ShippingTransactions.AsNoTracking().SingleAsync();
+
+        var service = new ShippingTransactionsChangeReleaseService(
+            _ctx.Db,
+            _ctx.StorageCreate(),
+            new StorageTransactionsConfirmedService(
+                _ctx.Db,
+                new FakeStringLocalizer<Resource>(),
+                new ShipmentReleasesRecalculateShippedService(_ctx.Db.Context),
+                new ShipmentReleaseMovementGuardService(_ctx.Db.Context),
+                NullLogger<StorageTransactionsConfirmedService>.Instance),
+            new PurchaseContractsAllocationCreateService(
+                _ctx.Db, new StorageTransactionsGetService(_ctx.Db, NullLogger<StorageTransactionsGetService>.Instance)),
+            new ShipmentReleasesRecalculateShippedService(_ctx.Db.Context),
+            new ShipmentLoadsMovementLogService(_ctx.Db.Context),
+            new ShippingReleaseChangeReconciliationGuard(_ctx.Db.Context),
+            new FakeStorageAddressBalanceReader(100_000m));
+
+        // GAC-1177 permite trocar a liberação de uma Expedição já numa carga faturada — mas com
+        // um 16/17 ativo o acerto do fornecedor ficaria órfão no contrato antigo.
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(
+            [new ShippingReleaseChangeItem(shipping.SalesStorageTransactionKey, Guid.NewGuid())],
+            "motivo", "tester"));
+
+        Assert.Equal(PurchaseDischargeGuards.ShippingMessage, ex.Message);
+        Assert.Empty(await _ctx.Db.Context.ShippingReleaseChanges.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ManualAllocationDelete_OfActiveDischarge_IsRefused()
+    {
+        await SeedClosedAsync();
+        var discharge = Assert.Single(await _ctx.DischargesAsync());
+        var alloc = await _ctx.Db.Context.PurchaseContractsAllocations.AsNoTracking()
+            .SingleAsync(x => x.StorageTransactionKey == discharge.Key);
+
+        var service = new PurchaseContractsAllocationDeleteService(
+            _ctx.Db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance);
+
+        // Estorno manual (tela do contrato): soltar a alocação do 16/17 por aqui deixaria o
+        // romaneio ativo, sem alocação — quem desfaz é reabrir a Conferência de Entregas.
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            service.ExecuteWithTransactionAsync(alloc.Key, "tester"));
+
+        Assert.Equal(
+            "Esta alocação é de quebra/sobra de descarga da troca nota. Reabra a Conferência de Entregas para desfazê-la.",
+            ex.Message);
+        Assert.True(await _ctx.Db.Context.PurchaseContractsAllocations.AnyAsync(x => x.Key == alloc.Key));
     }
 }
