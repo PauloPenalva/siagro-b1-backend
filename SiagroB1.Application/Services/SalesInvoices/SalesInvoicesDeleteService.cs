@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -30,6 +31,11 @@ public class SalesInvoicesDeleteService(
                 throw new DefaultException(
                     "Este documento de saída tem ticket de descarga registrado na carga. " +
                     "Exclua o registro de descarga antes.");
+
+            // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir
+            // deste item — o acerto do fornecedor ficaria órfão se a nota sumisse debaixo dele.
+            if (await PurchaseDischargeGuards.HasActiveForInvoiceAsync(db.Context, entity.Key))
+                throw new DefaultException(PurchaseDischargeGuards.InvoiceMessage);
 
             await db.Context.Entry(entity).Collection(e => e.Items).LoadAsync();
 

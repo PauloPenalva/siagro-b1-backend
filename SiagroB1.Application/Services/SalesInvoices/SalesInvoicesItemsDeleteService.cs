@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -45,6 +46,11 @@ public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoic
                 throw new DefaultException(
                     "Este item tem ticket de descarga registrado na carga. " +
                     "Exclua o registro de descarga antes.");
+
+            // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir
+            // deste item — o acerto do fornecedor ficaria órfão se a linha sumisse debaixo dele.
+            if (await PurchaseDischargeGuards.HasActiveForItemAsync(db.Context, key))
+                throw new DefaultException(PurchaseDischargeGuards.ItemMessage);
 
             db.Context.SalesInvoicesItems.Remove(entity);
 

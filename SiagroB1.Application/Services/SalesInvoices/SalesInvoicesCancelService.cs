@@ -1,10 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
 
@@ -32,7 +34,12 @@ public class SalesInvoicesCancelService(
         
         if (HasReturn(existingInvoice))
             throw  new ApplicationException("Documento de saída possui retorno.");
-        
+
+        // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir de um
+        // item desta nota — o acerto do fornecedor ficaria órfão se a nota fosse cancelada.
+        if (await PurchaseDischargeGuards.HasActiveForInvoiceAsync(db.Context, existingInvoice.Key))
+            throw new DefaultException(PurchaseDischargeGuards.InvoiceMessage);
+
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
             .ToList() ?? [];
         
