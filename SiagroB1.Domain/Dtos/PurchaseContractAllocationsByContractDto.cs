@@ -47,8 +47,10 @@ public class PurchaseContractAllocationsByContractDto
     public string? NotaFiscalVenda { get; set; }
 
     /// <summary>
-    /// De onde veio a entrega: <c>Standard</c> (romaneio normal) ou <c>WarehouseLoss</c> (Compra gerada
-    /// pela aprovação da Conferência de Saldo de Armazém, GAC-1164). O tipo continua Compra.
+    /// De onde veio a entrega: <c>Standard</c> (romaneio normal), <c>WarehouseLoss</c> (Compra gerada
+    /// pela aprovação da Conferência de Saldo de Armazém, GAC-1164), <c>DischargeLoss</c>/
+    /// <c>DischargeGain</c> (quebra/sobra de descarga gerada pela Conferência de Entregas, troca
+    /// nota). O tipo continua Compra/Dev.Compra/Quebra Descarga/Sobra Descarga conforme o caso.
     /// </summary>
     [JsonPropertyName("Origin")]
     public string? Origin { get; set; }
@@ -58,6 +60,12 @@ public class PurchaseContractAllocationsByContractDto
 
     [JsonPropertyName("ReasonDescription")]
     public string? ReasonDescription { get; set; }
-    
-    
+
+    /// <summary>Troca nota: número fiscal da nota de venda cuja conferência gerou o romaneio 16/17.</summary>
+    [JsonPropertyName("DischargeInvoiceNumber")]
+    public string? DischargeInvoiceNumber { get; set; }
+
+    /// <summary>Troca nota: código da carga faturada por essa nota.</summary>
+    [JsonPropertyName("DischargeLoadCode")]
+    public string? DischargeLoadCode { get; set; }
 }

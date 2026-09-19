@@ -21,23 +21,33 @@ public class PurchaseContractsGetAllocationsByContractService(
             CASE
         		 WHEN ST.TransactionType = 8 THEN 'Compra'
         		 WHEN ST.TransactionType = 9 THEN 'Dev.Compra'
+        		 WHEN ST.TransactionType = 16 THEN 'Quebra Descarga'
+        		 WHEN ST.TransactionType = 17 THEN 'Sobra Descarga'
         	END AS StorageTransactionTypeName,
         	PC.Code AS ContractNumber,
         	CASE
-                WHEN ST.TransactionType = 8 THEN PA.Volume 
-                WHEN ST.TransactionType = 9 THEN PA.Volume * -1     
-            END AS Volume, 
+                WHEN ST.TransactionType = 8 THEN PA.Volume
+                WHEN ST.TransactionType = 9 THEN PA.Volume * -1
+                -- Troca nota: a alocação da quebra já é negativa; exibida positiva com o tipo dizendo
+                -- o sentido, como a Dev.Compra.
+                WHEN ST.TransactionType = 16 THEN PA.Volume * -1
+                WHEN ST.TransactionType = 17 THEN PA.Volume
+            END AS Volume,
             ST.UnitOfMeasureCode AS  UnitOfMeasureCode,
             ST.WarehouseCode AS  WarehouseCode,
             ST.TruckCode AS TruckCode,
             ST.CardCode AS SupplierCode,
             INV.TaxDocumentNumber AS NotaFiscalVenda,
             CASE
+                WHEN ST.TransactionType = 16 THEN 'DischargeLoss'
+                WHEN ST.TransactionType = 17 THEN 'DischargeGain'
                 WHEN WRR.[Key] IS NOT NULL THEN 'WarehouseLoss'
                 ELSE 'Standard'
             END AS Origin,
             WR.Code AS WarehouseReconciliationCode,
-            WRRS.Description AS ReasonDescription
+            WRRS.Description AS ReasonDescription,
+            DINV.TaxDocumentNumber AS DischargeInvoiceNumber,
+            DLOAD.Code AS DischargeLoadCode
         FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
         LEFT JOIN STORAGE_TRANSACTIONS ST
                ON ST.[Key] = PA.StorageTransactionKey
@@ -59,6 +69,13 @@ public class PurchaseContractsGetAllocationsByContractService(
                ON WR.[Key] = WRR.WarehouseReconciliationKey
         LEFT JOIN WAREHOUSE_RECONCILIATION_REASONS WRRS
                ON WRRS.[Key] = WR.ReasonKey
+        -- Troca nota (romaneios 16/17): a nota de venda conferida e a carga que ela faturou.
+        LEFT JOIN SALES_INVOICES_ITEMS DITEM
+               ON DITEM.[Key] = ST.DischargeSalesInvoiceItemKey
+        LEFT JOIN SALES_INVOICES DINV
+               ON DINV.[Key] = DITEM.SalesInvoiceKey
+        LEFT JOIN SHIPMENT_LOADS DLOAD
+               ON DLOAD.[Key] = DINV.ShipmentLoadKey
         WHERE PA.PurchaseContractKey = @purchaseContractKey
         """;
     
@@ -93,7 +110,9 @@ public class PurchaseContractsGetAllocationsByContractService(
                 NotaFiscalVenda = allocation.NotaFiscalVenda,
                 Origin = allocation.Origin,
                 WarehouseReconciliationCode = allocation.WarehouseReconciliationCode,
-                ReasonDescription = allocation.ReasonDescription
+                ReasonDescription = allocation.ReasonDescription,
+                DischargeInvoiceNumber = allocation.DischargeInvoiceNumber,
+                DischargeLoadCode = allocation.DischargeLoadCode
             });
         }
 

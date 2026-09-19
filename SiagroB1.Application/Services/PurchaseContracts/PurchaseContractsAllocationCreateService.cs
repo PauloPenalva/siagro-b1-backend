@@ -248,6 +248,50 @@ public class PurchaseContractsAllocationCreateService(
     }
 
     /// <summary>
+    /// Troca nota: aloca o romaneio de quebra (<see cref="StorageTransactionType.PurchaseDischargeLoss"/>,
+    /// volume NEGATIVO — devolve saldo ao contrato) ou de sobra
+    /// (<see cref="StorageTransactionType.PurchaseDischargeGain"/>, volume positivo) gerado pela
+    /// Conferência de Entregas. <paramref name="volume"/> chega sempre positivo.
+    /// </summary>
+    /// <remarks>
+    /// Contrato encerrado recusa os DOIS sentidos (decisão do usuário, 19/09/2026: a conferência é
+    /// recusada até o contrato ser reaberto) — ao contrário de <see cref="ExecuteReversalAsync"/>.
+    /// O teto do saldo do contrato só vale para a sobra; a quebra devolve saldo.
+    /// </remarks>
+    public async Task ExecuteDischargeAsync(
+        Guid purchaseContractKey,
+        StorageTransaction discharge,
+        decimal volume,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto)
+    {
+        if (discharge.TransactionType is not (StorageTransactionType.PurchaseDischargeLoss
+                                           or StorageTransactionType.PurchaseDischargeGain))
+            throw new ApplicationException("Only purchase discharge transactions are supported.");
+
+        if (volume <= 0)
+            throw new ApplicationException("Invalid purchase contract allocation volume.");
+
+        if (volume > discharge.AvaiableVolumeToAllocate)
+            throw new ApplicationException(
+                "The reported volume is greater than the available balance on the delivery note.");
+
+        var purchaseContract = await LoadContractAsync(purchaseContractKey);
+
+        if (purchaseContract?.Status == ContractStatus.Finished)
+            throw new ApplicationException("Contrato encerrado: não é possível alocar.");
+
+        var isGain = discharge.TransactionType == StorageTransactionType.PurchaseDischargeGain;
+
+        if (isGain && volume > purchaseContract?.AvaiableVolume)
+            throw new ApplicationException(
+                "The reported volume is greater than the available balance on the purchase contract.");
+
+        await ApplyAllocationAsync(
+            purchaseContractKey, purchaseContract, discharge, isGain ? volume : -volume, userName, commitMode);
+    }
+
+    /// <summary>
     /// Trecho comum aos dois fluxos (alocação normal e estorno): grava a alocação, deriva o
     /// saldo alocável do romaneio a partir da soma persistida e atualiza o volume alocado do
     /// contrato a partir da soma COM sinal das alocações dele.
