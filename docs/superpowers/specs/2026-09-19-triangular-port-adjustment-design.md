@@ -1,5 +1,5 @@
 ---
-status: desenho aprovado 19/09/2026 (revisão: romaneio no lugar de NF) — planos escritos, implementação pendente
+status: backend implementado 19/09/2026 — frontend pendente
 ---
 
 # Design — Troca nota: romaneios de quebra/sobra de descarga no contrato de compra CIF
