@@ -133,6 +133,9 @@ public class PurchaseContract : DocumentEntity
 
     public ICollection<PurchaseContractWashout> Washouts { get; set; } = [];
 
+    /// <summary>Minutas do contrato (documentação, como anexos — fora do guard de contrato encerrado).</summary>
+    public ICollection<ContractDraft> Drafts { get; set; } = [];
+
     public TechnologyType? TechnologyType { get; set; }
 
     public FunruralType? FunruralType { get; set; } = Enums.FunruralType.Bruto;

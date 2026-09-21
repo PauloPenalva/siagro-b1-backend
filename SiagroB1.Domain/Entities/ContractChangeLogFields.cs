@@ -43,6 +43,12 @@ public static class ContractChangeLogFields
     /// <summary>Documento de saída marcado/desmarcado como operação sem nota fiscal (GAC-1174).</summary>
     public const string WithoutTaxDocument = "WithoutTaxDocument";
 
+    /// <summary>Ciclo da minuta: "Minuta N criada / enviada para assinatura / assinada / cancelada".</summary>
+    public const string Draft = "Draft";
+
+    /// <summary>Como a minuta aparece no log. Sequência sempre, porque um contrato tem várias.</summary>
+    public static string DescribeDraft(int sequence, string what) => $"Minuta {sequence} {what}";
+
     /// <summary>Flag booleano como aparece no log: "Sim"/"Não".</summary>
     public static string DescribeYesNo(bool value) => value ? "Sim" : "Não";
 
