@@ -305,6 +305,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.EntryStorageTransactionKey)
             .OnDelete(DeleteBehavior.NoAction);
 
+        // GAC-1181: um romaneio de entrada pertence a no máximo UM transbordo. A unicidade vinha
+        // por convenção do EF (par de navegações singulares) e é declarada aqui para não sumir em
+        // silêncio se as navegações mudarem.
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasIndex(x => x.EntryStorageTransactionKey)
+            .IsUnique()
+            .HasFilter("[EntryStorageTransactionKey] IS NOT NULL");
+
         modelBuilder.Entity<StorageTransaction>()
             .HasOne(x => x.ShipmentLoadTransshipment)
             .WithMany()
