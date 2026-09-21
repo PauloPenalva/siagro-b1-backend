@@ -113,6 +113,18 @@ public class StorageTransaction : DocumentEntity
     public virtual ShipmentLoad? RefusedFromShipmentLoad { get; set; }
 
     /// <summary>
+    /// Transbordo (GAC-1181) a que este romaneio pertence: a ENTRADA no armazém intermediário ou
+    /// uma SAÍDA dele para o cliente.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>O romaneio de ENTRADA não carrega <see cref="ShipmentLoadKey"/>.</b> O cancelamento da
+    /// carga zera aquela chave em todos os romaneios dela, e a entrada ficaria órfã. A carga chega
+    /// até ele por esta coluna. As SAÍDAS carregam as duas: elas são volume faturável da carga.
+    /// </remarks>
+    public Guid? ShipmentLoadTransshipmentKey { get; set; }
+    public virtual ShipmentLoadTransshipment? ShipmentLoadTransshipment { get; set; }
+
+    /// <summary>
     /// Documento de RETORNO que gerou esta devolução ao armazém. Preenchida só nas transações
     /// <see cref="StorageTransactionType.SalesShipmentReturn"/> nascidas do retorno de um
     /// documento de saída legado com destino "armazém".

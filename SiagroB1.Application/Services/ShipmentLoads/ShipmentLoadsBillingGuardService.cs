@@ -105,7 +105,10 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         var returned = await ShipmentLoadsRecalculateReturnedService
             .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
 
-        var available = ShipmentLoad.CalculateAvailableQuantity(load.TotalQuantity, invoiced, returned);
+        // TODO GAC-1181 (Task 3): substituir por decimal.Zero pelo quarto termo recalculado
+        // (transbordado) assim que ShipmentLoadsRecalculateInvoicedService passar a mantê-lo.
+        var available = ShipmentLoad.CalculateAvailableQuantity(
+            load.TotalQuantity, invoiced, returned, decimal.Zero);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(

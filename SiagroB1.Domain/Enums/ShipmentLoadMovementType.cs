@@ -29,5 +29,8 @@ public enum ShipmentLoadMovementType
     Completed = 15,            // Carga de remoção concluída à mão (GAC-1175)
     Reopened = 16,             // Conclusão desfeita — a carga de remoção volta a aceitar entradas
     StorageEntriesAttached = 17,  // Entrada(s) em armazenagem vinculada(s) — aumenta o volume da carga de remoção
-    StorageEntriesDetached = 18   // Entrada(s) em armazenagem desvinculada(s) — reduz o volume da carga de remoção
+    StorageEntriesDetached = 18,  // Entrada(s) em armazenagem desvinculada(s) — reduz o volume da carga de remoção
+    TransshipmentStarted = 19,   // Transbordo iniciado — o saldo sai da carga para o armazém
+    TransshipmentEntered = 20,   // Entrada no transbordo registrada — romaneio e liberações criados
+    TransshipmentReversed = 21   // Transbordo estornado — o saldo volta para a carga
 }
