@@ -35,6 +35,10 @@ namespace SiagroB1.Application.Services.StorageTransactions;
 /// Armazém (GAC-1164): quebra ou sobra informada pelo armazém de terceiros sobre grão da empresa.
 /// Não têm contrato nem lote — só este saldo os enxerga.
 /// </para>
+/// <para>
+/// <c>TransshipmentReceipt(15)</c> (GAC-1181) é a entrada do transbordo no armazém intermediário:
+/// credita como a devolução (12), também sem contrato e sem lote.
+/// </para>
 /// </remarks>
 public static class StorageTransactionsWarehouseBalanceService
 {
@@ -56,6 +60,7 @@ public static class StorageTransactionsWarehouseBalanceService
                          x.TransactionType == StorageTransactionType.PurchaseReturn ||
                          x.TransactionType == StorageTransactionType.SalesShipment ||
                          x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                         x.TransactionType == StorageTransactionType.TransshipmentReceipt ||   // GAC-1181
                          x.TransactionType == StorageTransactionType.WarehouseLoss ||
                          x.TransactionType == StorageTransactionType.WarehouseGain));
 
@@ -65,9 +70,12 @@ public static class StorageTransactionsWarehouseBalanceService
             query = query.Where(x => x.TransactionDate == null || x.TransactionDate < limit);
         }
 
+        // GAC-1181: a entrada do transbordo credita o armazém intermediário, como a devolução.
+        // Ela NÃO entra em nenhum saldo por LOTE — é entrada em nível de armazém.
         var total = await query
             .SumAsync(x => (x.TransactionType == StorageTransactionType.Purchase ||
                             x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                            x.TransactionType == StorageTransactionType.TransshipmentReceipt ||
                             x.TransactionType == StorageTransactionType.WarehouseGain)
                 ? x.NetWeight
                 : -x.NetWeight);
