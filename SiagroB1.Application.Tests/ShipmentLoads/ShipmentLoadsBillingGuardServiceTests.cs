@@ -249,4 +249,23 @@ public class ShipmentLoadsBillingGuardServiceTests
         Assert.Contains("remoção", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// GAC-1181: a carga em transbordo tem saldo zero por definição — a mercadoria está no
+    /// armazém intermediário. Recusada por STATUS, e não pela comparação de saldo, pelo mesmo
+    /// motivo do ramo <c>Planned</c>: a mensagem de quantidade mandaria o usuário procurar um
+    /// problema que não existe.
+    /// </summary>
+    [Fact]
+    public async Task A_load_in_transshipment_cannot_be_billed()
+    {
+        var load = Load(status: ShipmentLoadStatus.InTransshipment);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Guard().EnsureCanBillAsync(load.Key, 10_000, Carrier));
+
+        Assert.Contains("CG000007", error.Message);
+        Assert.Contains("transbordo", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
 }
