@@ -2,6 +2,9 @@ using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
+using SiagroB1.Application.Services.CompanySignatories;
+using SiagroB1.Application.Services.BusinessPartnerSignatories;
+using SiagroB1.Application.Services.ContractTemplates;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.MenuItem;
@@ -302,6 +305,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsCommentUpdateService>();
         services.AddScoped<SalesContractsCommentDeleteService>();
         services.AddScoped<SalesContractsCommentsGetService>();
+
+        // contract templates & signatories (minutas — fase 1)
+        services.AddScoped<ContractTemplateService>();
+        services.AddScoped<CompanySignatoryService>();
+        services.AddScoped<BusinessPartnerSignatoryService>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();

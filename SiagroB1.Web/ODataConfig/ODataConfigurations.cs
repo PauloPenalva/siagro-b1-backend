@@ -87,6 +87,16 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContractComment>("SalesContractsComments");
 
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
+
+        // Minutas — fase 1 (spec 2026-09-21)
+        modelBuilder.EntitySet<ContractTemplate>("ContractTemplates");
+        modelBuilder.EntitySet<CompanySignatory>("CompanySignatories");
+        modelBuilder.EntitySet<BusinessPartnerSignatory>("BusinessPartnerSignatories");
+
+        var contractTemplatesListPlaceholders = modelBuilder.Function("ContractTemplatesListPlaceholders");
+        contractTemplatesListPlaceholders.Parameter<string>("ContractType");
+        contractTemplatesListPlaceholders.ReturnsCollection<ContractDraftPlaceholderDto>();
+
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
