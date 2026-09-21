@@ -121,10 +121,12 @@ pode ser origem de uma carga e transbordo de outra.
 devolve, que é exatamente o comportamento desejado para a saída do transbordo.
 
 **Uma liberação por CONTRATO**, com o peso de entrada rateado por peso entre os contratos das
-saídas da origem — reaproveitando `ShipmentReleasesFromReturnService.DistributeByWeight` e o
-rastreio de contrato (cadeia curta pela `ShipmentReleaseKey`, cadeia longa por
-`SHIPPING_TRANSACTIONS`). Volume sem contrato rastreável **não derruba** o registro: fica sem
-liberação e o motivo vai para o `Comments` do 15, como já acontece na recusa.
+saídas da origem. Isso **não** ganha serviço próprio: `ShipmentReleasesFromReturnService` passa a
+receber a origem como parâmetro obrigatório. O rastreio do contrato (cadeia curta pela
+`ShipmentReleaseKey`, cadeia longa por `SHIPPING_TRANSACTIONS`), o rateio por peso e o tratamento
+do volume órfão são idênticos, e duplicá-los criaria duas fontes da mesma regra. Volume sem
+contrato rastreável **não derruba** o registro: fica sem liberação e o motivo vai para o
+`Comments` do 15, como já acontece na recusa.
 
 ### 5. Saldo e ciclo de vida
 
@@ -207,7 +209,9 @@ avisa.
 
 **Serviços novos:** `ShipmentLoadsTransshipmentStartService`, `...RegisterEntryService`,
 `...ReverseService`, `ShipmentLoadsTransshipmentsGetService`, `ShipmentLoadTransshipmentRules`
-(guards compartilhados) e `ShipmentReleasesFromTransshipmentService`.
+(guards compartilhados) e `ShipmentLoadsRecalculateTransshippedService` (só a fórmula do quarto
+termo). As liberações saem de `ShipmentReleasesFromReturnService`, que passa a receber a origem
+como parâmetro.
 
 **Serviços alterados:**
 
