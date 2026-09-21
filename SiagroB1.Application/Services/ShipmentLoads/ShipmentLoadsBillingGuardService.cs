@@ -83,6 +83,14 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
                 $"A carga {load.Code} foi recusada e sua mercadoria devolvida ao armazém. " +
                 "Não há mais o que faturar nela.");
 
+        // GAC-1181: a mercadoria está no armazém intermediário e o saldo é zero. Recusar por
+        // STATUS, e não pela comparação de saldo, pelo mesmo motivo do ramo Planned: a mensagem
+        // de quantidade mandaria o usuário procurar um problema que não existe.
+        if (load.Status == ShipmentLoadStatus.InTransshipment)
+            throw new ApplicationException(
+                $"A carga {load.Code} está em transbordo. Registre a entrada e vincule a Expedição " +
+                "de saída do armazém de transbordo antes de faturá-la.");
+
         // Transportadora: a da carga manda. A tela de faturamento já nasce com ela e travada,
         // mas a regra vive aqui porque o endpoint aceita chamada de fora da tela.
         if (string.IsNullOrWhiteSpace(load.CarrierCardCode))
@@ -105,10 +113,11 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         var returned = await ShipmentLoadsRecalculateReturnedService
             .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
 
-        // TODO GAC-1181 (Task 3): substituir `decimal.Zero` pelo quarto termo recalculado
-        // (transbordado) assim que ShipmentLoadsRecalculateInvoicedService passar a mantê-lo.
+        var transshipped = await ShipmentLoadsRecalculateTransshippedService
+            .CalculateTransshippedAsync(context, shipmentLoadKey);
+
         var available = ShipmentLoad.CalculateAvailableQuantity(
-            load.TotalQuantity, invoiced, returned, decimal.Zero);
+            load.TotalQuantity, invoiced, returned, transshipped);
 
         if (quantity > available + Tolerance)
             throw new ApplicationException(

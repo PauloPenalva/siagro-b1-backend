@@ -21,7 +21,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: decimal.Zero, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.PartiallyInvoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 90_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: 90_000m, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 90_000m, invoicedQuantity: 90_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Open,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 0.002m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -75,7 +75,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Planned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 0.0005m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     // ─── Terceiro termo: mercadoria recusada e devolvida a um armazém ───
@@ -91,7 +91,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 90_000m));
+                totalQuantity: 90_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 90_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -104,7 +104,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 15_000m));
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Invoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero));
+                totalQuantity: 40_000m, invoicedQuantity: 40_000m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.PartiallyInvoiced,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 15_000m));
+                totalQuantity: 40_000m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 15_000m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 
     /// <summary>
@@ -142,6 +142,6 @@ public class ShipmentLoadResolveStatusTests
         Assert.Equal(
             ShipmentLoadStatus.Returned,
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
-                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m));
+                totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
 }
