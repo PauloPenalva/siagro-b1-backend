@@ -28,7 +28,6 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadsTransshipmentStartService(
     IUnitOfWork db,
     IWarehouseService warehouseService,
-    IWarehouseComplementService warehouseComplementService,
     ShipmentLoadsMovementLogService movementLog)
 {
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
@@ -46,8 +45,6 @@ public class ShipmentLoadsTransshipmentStartService(
         // no banco.
         ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(load);
         ShipmentLoadTransshipmentRules.EnsureWarehouseInformed(warehouseCode);
-        await ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync(
-            warehouseComplementService, warehouseCode.Trim());
 
         var warehouse = await warehouseService.GetByIdAsync(warehouseCode.Trim())
                         ?? throw new ApplicationException($"Armazém {warehouseCode} não encontrado.");

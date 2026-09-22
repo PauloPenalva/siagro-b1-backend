@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
@@ -17,8 +16,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// certa depende de QUANDO ela é feita, não de uma resposta única para toda a feature.</b>
 /// <list type="bullet">
 /// <item>
-/// <b>Ao CRIAR um transbordo</b> — <see cref="EnsureWarehouseAcceptsTransshipmentAsync"/> e o
-/// ramo <c>isOwn</c> de <c>ShipmentLoadsTransshipmentRegisterEntryService</c> — a pergunta é
+/// <b>Ao CRIAR um transbordo</b> — o ramo <c>isOwn</c> de
+/// <c>ShipmentLoadsTransshipmentRegisterEntryService</c> — a pergunta é
 /// "este armazém é próprio AGORA?". Aqui <c>WarehouseComplement.IsOwn</c> lido ao vivo é a
 /// resposta certa: não existe ainda nenhuma estrutura persistida para consultar, e é exatamente o
 /// cadastro atual do armazém que decide que romaneio a entrada vai exigir.
@@ -41,6 +40,12 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// duas decisões DIFERENTES (criação vs. linha existente), não a mesma pergunta resolvida duas
 /// vezes; o Round 1 desta task reverteu essa troca. Não "padronize" isto de volta para
 /// <c>IsOwn</c> em todo lugar sem reler este parágrafo primeiro.
+/// </para>
+/// <para>
+/// A fase 1 barrava transbordo em armazém próprio na entrada (<c>EnsureWarehouseAcceptsTransshipmentAsync</c>,
+/// removido) porque a mercadoria ficava sem porta de saída; a fase 2 fechou o fluxo inteiro
+/// (natureza do lote, crédito na entrada, vínculo da saída, fechamento, estorno e isolamento do
+/// lote) e a trava saiu.
 /// </para>
 /// </remarks>
 public static class ShipmentLoadTransshipmentRules
@@ -67,36 +72,6 @@ public static class ShipmentLoadTransshipmentRules
     {
         if (string.IsNullOrWhiteSpace(warehouseCode))
             throw new ApplicationException("Informe o armazém do transbordo.");
-    }
-
-    /// <summary>
-    /// GAC-1181: transbordo em armazém próprio ainda não tem porta de saída pela TELA — o guard
-    /// aqui é sobre a UI, não sobre o crédito de saldo. A entrada já credita o ARMAZÉM desde a
-    /// Task 3 (fase 2): <c>ShipmentLoadsTransshipmentRegisterEntryService</c>, ramo
-    /// <c>isOwn</c>, exige um <c>Receipt</c> pesado num lote de natureza
-    /// <see cref="StorageAddressNature.Transshipment"/>
-    /// (<see cref="EnsureReceiptIsFromTransshipmentLotAsync"/>) e cria o
-    /// <c>TransshipmentReceipt (15)</c> que credita o armazém. O que falta é o resto do
-    /// fluxo (Tasks 4-7 de
-    /// <c>docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md</c>): cadastrar
-    /// a natureza do lote pela tela e vincular a saída — sem essas duas telas, o operador consegue
-    /// abrir um transbordo próprio pela API mas não tem como fechá-lo.
-    /// <para>
-    /// Barrado aqui, na ENTRADA do fluxo (<c>ShipmentLoadsTransshipmentStartService</c> e o ramo
-    /// Transbordo de <c>ShipmentLoadsRefuseService</c>): remover este guard antes das telas
-    /// existirem deixa o operador preso do mesmo jeito que na fase 1, só que mais tarde no fluxo.
-    /// Sai só depois delas — não é uma trava de dado incompleto, é sequenciamento de entrega.
-    /// </para>
-    /// </summary>
-    public static async Task EnsureWarehouseAcceptsTransshipmentAsync(
-        IWarehouseComplementService complements, string warehouseCode)
-    {
-        var complement = await complements.GetAsync(warehouseCode);
-
-        if (complement?.IsOwn == true)
-            throw new ApplicationException(
-                "Transbordo em armazém próprio ainda não está disponível nesta versão. " +
-                "Escolha um armazém de terceiro.");
     }
 
     /// <summary>

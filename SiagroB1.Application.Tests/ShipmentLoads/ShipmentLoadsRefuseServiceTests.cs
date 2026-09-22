@@ -109,7 +109,6 @@ public class ShipmentLoadsRefuseServiceTests
             new ShipmentLoadsMovementLogService(_db.Context),
             new ShipmentReleasesFromReturnService(_db.Context),
             warehouses ?? Warehouses(),
-            new WarehouseComplementService(_db),
             NullLogger<ShipmentLoadsRefuseService>.Instance);
 
     internal ShipmentBillingCreateSalesInvoiceService BillingService()
