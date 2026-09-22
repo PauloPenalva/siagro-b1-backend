@@ -172,6 +172,58 @@ public static class ShipmentLoadTransshipmentRules
     }
 
     /// <summary>
+    /// Vincular a saída do lote (Task 4, fase 2) exige a entrada já registrada — sem ela não
+    /// existe lote de onde a mercadoria teria saído. Espelho de
+    /// <see cref="EnsureEntryNotAlreadyRegistered"/>, com a checagem invertida.
+    /// </summary>
+    public static void EnsureEntryIsRegistered(ShipmentLoadTransshipment transshipment)
+    {
+        if (transshipment.EntryStorageTransactionKey == null)
+            throw new ApplicationException(
+                $"A entrada do transbordo {transshipment.Sequence} ainda não foi registrada.");
+    }
+
+    /// <summary>
+    /// Um transbordo só vincula uma saída de lote uma vez —
+    /// <see cref="ShipmentLoadTransshipment.LotExitStorageTransactionKey"/> preenchido é o
+    /// carimbo de "já vinculada".
+    /// </summary>
+    public static void EnsureLotExitNotAlreadyAttached(ShipmentLoadTransshipment transshipment)
+    {
+        if (transshipment.LotExitStorageTransactionKey != null)
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} já tem uma saída de lote vinculada.");
+    }
+
+    /// <summary>
+    /// Fase 2 do GAC-1181, Task 4: o <c>Shipment (1)</c> que a office vincula precisa ser a saída
+    /// REAL do MESMO lote que recebeu a entrada — confirmado, do mesmo lote, e ainda sem vínculo
+    /// com outra carga ou outro transbordo. Mesmo molde de
+    /// <see cref="EnsureOwnWarehouseReceiptIsUsable"/>.
+    /// </summary>
+    public static void EnsureLotExitIsUsable(
+        StorageTransaction lotExit, ShipmentLoadTransshipment transshipment, StorageTransaction entryReceipt)
+    {
+        if (lotExit.TransactionType != StorageTransactionType.Shipment)
+            throw new ApplicationException(
+                "O romaneio informado não é uma saída de armazenagem.");
+
+        if (lotExit.TransactionStatus != StorageTransactionsStatus.Confirmed)
+            throw new ApplicationException("O romaneio informado não está confirmado.");
+
+        if (!string.Equals(lotExit.StorageAddressCode, entryReceipt.StorageAddressCode, StringComparison.OrdinalIgnoreCase))
+            throw new ApplicationException(
+                $"O romaneio informado é de outro lote — o transbordo {transshipment.Sequence} " +
+                "recebeu a entrada no lote do romaneio de Entrada em Armazenagem vinculado.");
+
+        // Sem os dois nulos, o romaneio já pertence a outra carga ou já fechou outro transbordo —
+        // vinculá-lo aqui roubaria a saída de quem já a usa.
+        if (lotExit.ShipmentLoadKey != null || lotExit.ShipmentLoadTransshipmentKey != null)
+            throw new ApplicationException(
+                "O romaneio informado já está vinculado a uma carga ou a outro transbordo.");
+    }
+
+    /// <summary>
     /// Fase 2 do GAC-1181: só o <c>Receipt</c> pesado num lote de natureza
     /// <see cref="StorageAddressNature.Transshipment"/> pode registrar a entrada em armazém
     /// próprio — é essa marca (carimbada no cadastro do lote, preservada pela pesagem) que separa

@@ -313,6 +313,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter("[EntryStorageTransactionKey] IS NOT NULL");
 
+        // GAC-1181 fase 2 (Task 4): mesmo molde da entrada, para a saída do LOTE em armazém
+        // próprio — NoAction pelo mesmo motivo (ShipmentLoadsDeleteService remove os filhos à
+        // mão), e único porque um romaneio de saída fecha no máximo UM transbordo.
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasOne(x => x.LotExitStorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.LotExitStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasIndex(x => x.LotExitStorageTransactionKey)
+            .IsUnique()
+            .HasFilter("[LotExitStorageTransactionKey] IS NOT NULL");
+
         modelBuilder.Entity<StorageTransaction>()
             .HasOne(x => x.ShipmentLoadTransshipment)
             .WithMany()

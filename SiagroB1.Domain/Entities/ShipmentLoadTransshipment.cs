@@ -26,6 +26,7 @@ namespace SiagroB1.Domain.Entities;
 [Table("SHIPMENT_LOAD_TRANSSHIPMENTS")]
 [Index(nameof(ShipmentLoadKey))]
 [Index(nameof(EntryStorageTransactionKey))]
+[Index(nameof(LotExitStorageTransactionKey))]
 public class ShipmentLoadTransshipment
 {
     [Key]
@@ -61,6 +62,22 @@ public class ShipmentLoadTransshipment
     /// </summary>
     public Guid? EntryStorageTransactionKey { get; set; }
     public virtual StorageTransaction? EntryStorageTransaction { get; set; }
+
+    /// <summary>
+    /// Romaneio <see cref="StorageTransactionType.Shipment"/> (1) que o armazém pesou ao recarregar
+    /// o grão de volta para o cliente, em armazém PRÓPRIO — a saída do LOTE. Vinculá-lo (GAC-1181
+    /// fase 2, Task 4) é o que EMITE a liberação, pela quantidade REAL carregada. Nulo enquanto a
+    /// saída não foi vinculada.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Vinculá-lo não conclui o transbordo.</b> Quem fecha de verdade — e libera o
+    /// faturamento — é a Expedição de venda (<see cref="StorageTransactionType.SalesShipment"/>, o
+    /// 7) vinculada depois pelo caminho de sempre (<c>ShipmentLoadsAttachTransactionsService</c>):
+    /// <c>ShipmentLoadsRecalculateTransshippedService.HasOpenTransshipmentAsync</c> só enxerga o
+    /// tipo 7.
+    /// </remarks>
+    public Guid? LotExitStorageTransactionKey { get; set; }
+    public virtual StorageTransaction? LotExitStorageTransaction { get; set; }
 
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }

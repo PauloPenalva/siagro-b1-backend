@@ -32,5 +32,6 @@ public enum ShipmentLoadMovementType
     StorageEntriesDetached = 18,  // Entrada(s) em armazenagem desvinculada(s) — reduz o volume da carga de remoção
     TransshipmentStarted = 19,   // Transbordo iniciado — o saldo sai da carga para o armazém
     TransshipmentEntered = 20,   // Entrada no transbordo registrada — romaneio e liberações criados
-    TransshipmentReversed = 21   // Transbordo estornado — o saldo volta para a carga
+    TransshipmentReversed = 21,  // Transbordo estornado — o saldo volta para a carga
+    TransshipmentLotExitAttached = 22 // Saída do lote vinculada (fase 2) — emite a liberação, não fecha o transbordo
 }
