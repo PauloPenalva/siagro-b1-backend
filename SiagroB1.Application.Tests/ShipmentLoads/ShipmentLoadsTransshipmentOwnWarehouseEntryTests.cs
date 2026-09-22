@@ -128,6 +128,52 @@ public class ShipmentLoadsTransshipmentOwnWarehouseEntryTests
         return (load, transshipment, origin);
     }
 
+    /// <summary>
+    /// Mesmo estado de <see cref="SeedStartedTransshipmentAsync"/>, mas SEM o romaneio de saída da
+    /// origem — a carga em transbordo sem nenhum <c>SalesShipment</c> apontando pra ela. Usado só
+    /// pelo teste da recusa de origem ausente: o crédito do armazém precisa desse romaneio para
+    /// tirar o <c>CardCode</c>, e sem ele o registro tem de recusar por regra de negócio, não
+    /// estourar uma exceção técnica.
+    /// </summary>
+    private async Task<(ShipmentLoad Load, ShipmentLoadTransshipment Transshipment)>
+        SeedStartedTransshipmentWithoutOriginAsync(decimal outgoing = 30_000m)
+    {
+        _db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = TransshipmentWarehouse,
+            IsOwn = true,
+        });
+
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000002",
+            BranchCode = "01",
+            ItemCode = "SOJA",
+            ItemName = "SOJA EM GRAOS",
+            UnitOfMeasureCode = "KG",
+            TruckCode = "ABC1D23",
+            WarehouseCode = OriginWarehouse,
+            Status = ShipmentLoadStatus.InTransshipment,
+            TotalQuantity = outgoing,
+        };
+
+        var transshipment = new ShipmentLoadTransshipment
+        {
+            ShipmentLoadKey = load.Key,
+            Sequence = 1,
+            WarehouseCode = TransshipmentWarehouse,
+            WarehouseName = "ARMAZEM PROPRIO",
+            OutgoingQuantity = outgoing,
+        };
+
+        _db.Context.ShipmentLoads.Add(load);
+        _db.Context.ShipmentLoadsTransshipments.Add(transshipment);
+        await _db.SaveChangesAsync();
+
+        return (load, transshipment);
+    }
+
     private PurchaseContract NewContract(string code = "PC-001", string itemCode = "SOJA")
     {
         var contract = new PurchaseContract
@@ -315,5 +361,26 @@ public class ShipmentLoadsTransshipmentOwnWarehouseEntryTests
             .AsNoTracking()
             .Where(x => x.Origin == ReleaseOrigin.Transshipment)
             .ToListAsync());
+    }
+
+    /// <summary>
+    /// Round 1 da revisão: o guard "carga sem romaneio de saída de origem" foi estendido do ramo
+    /// de terceiro para os dois ramos (o crédito do armazém também tira o <c>CardCode</c> da
+    /// origem), e ficou sem teste próprio. Sem o guard cobrindo <c>isOwn</c>, este cenário
+    /// estourava <c>ArgumentOutOfRangeException</c> em <c>originShipments[0].CardCode</c> — uma
+    /// exceção técnica, não a recusa de negócio.
+    /// </summary>
+    [Fact]
+    public async Task RegisterEntry_OwnWarehouse_RefusesWhenLoadHasNoOriginShipment()
+    {
+        var (load, transshipment) = await SeedStartedTransshipmentWithoutOriginAsync(outgoing: 30_000);
+        await SeedLotAsync(TransshipmentLotCode, StorageAddressNature.Transshipment);
+        var receipt = await SeedReceiptAsync(load, TransshipmentLotCode, 29_800m);
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(
+                transshipment.Key!.Value, decimal.Zero, DateTime.Today, receipt.Key, "tester"));
+
+        Assert.Contains("não tem romaneio de saída de origem", error.Message);
     }
 }

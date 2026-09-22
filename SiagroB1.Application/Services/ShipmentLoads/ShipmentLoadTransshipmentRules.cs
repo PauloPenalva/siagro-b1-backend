@@ -40,20 +40,22 @@ public static class ShipmentLoadTransshipmentRules
     }
 
     /// <summary>
-    /// Fase 1 do GAC-1181: transbordo em armazém próprio ainda não tem porta de saída. O ramo que
-    /// já existe (<see cref="EnsureOwnWarehouseReceiptIsUsable"/>, usado por
-    /// <c>ShipmentLoadsTransshipmentRegisterEntryService</c>) só VINCULA um <c>Receipt</c> já
-    /// lançado pela Entrada em Armazenagem — não credita o saldo do ARMAZÉM (só o do lote) e não
-    /// emite nenhuma liberação, então a mercadoria fica sem porta de saída: o operador só
-    /// embarcaria consumindo uma liberação de outro negócio, corrompendo o saldo dele. Verificado
-    /// com dado real. A fase 2 (lote de natureza "Transbordo", entrada e saída pela pesagem) está
-    /// desenhada em <c>docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md</c>,
-    /// não implementada.
+    /// GAC-1181: transbordo em armazém próprio ainda não tem porta de saída pela TELA — o guard
+    /// aqui é sobre a UI, não sobre o crédito de saldo. A entrada já credita o ARMAZÉM desde a
+    /// Task 3 (fase 2): <c>ShipmentLoadsTransshipmentRegisterEntryService</c>, ramo
+    /// <c>isOwn</c>, exige um <c>Receipt</c> pesado num lote de natureza
+    /// <see cref="StorageAddressNature.Transshipment"/>
+    /// (<see cref="EnsureReceiptIsFromTransshipmentLotAsync"/>) e cria o
+    /// <c>TransshipmentReceipt (15)</c> que credita o armazém. O que falta é o resto do
+    /// fluxo (Tasks 4-7 de
+    /// <c>docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md</c>): cadastrar
+    /// a natureza do lote pela tela e vincular a saída — sem essas duas telas, o operador consegue
+    /// abrir um transbordo próprio pela API mas não tem como fechá-lo.
     /// <para>
     /// Barrado aqui, na ENTRADA do fluxo (<c>ShipmentLoadsTransshipmentStartService</c> e o ramo
-    /// Transbordo de <c>ShipmentLoadsRefuseService</c>), e não removendo o ramo de
-    /// <c>RegisterEntryService</c>: ele é o alicerce da fase 2 e continua exercitado por teste
-    /// direto.
+    /// Transbordo de <c>ShipmentLoadsRefuseService</c>): remover este guard antes das telas
+    /// existirem deixa o operador preso do mesmo jeito que na fase 1, só que mais tarde no fluxo.
+    /// Sai só depois delas — não é uma trava de dado incompleto, é sequenciamento de entrega.
     /// </para>
     /// </summary>
     public static async Task EnsureWarehouseAcceptsTransshipmentAsync(
