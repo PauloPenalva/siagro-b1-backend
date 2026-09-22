@@ -342,6 +342,12 @@ public class ShipmentLoadsTransshipmentRegisterEntryServiceTests
     }
 
     // ---------- armazém próprio ----------
+    //
+    // GAC-1181 fase 2 (Task 3): o cenário completo do armazém próprio — recusa fora do lote de
+    // transbordo, o crédito do armazém pelo 15, a armadilha das chaves proibidas — está em
+    // ShipmentLoadsTransshipmentOwnWarehouseEntryTests. O teste abaixo foi atualizado (era o
+    // alicerce da fase 1, que só vinculava o Receipt sem exigir lote nem creditar o armazém) só
+    // para continuar provando, aqui também, que o Receipt em si é vinculado corretamente.
 
     [Fact]
     public async Task RegisterEntry_OwnWarehouse_LinksTheExistingReceipt()
@@ -354,6 +360,18 @@ public class ShipmentLoadsTransshipmentRegisterEntryServiceTests
             IsOwn = true,
         });
 
+        const string lotCode = "L-TRANSSHIP-01";
+        _db.Context.StorageAddresses.Add(new StorageAddress
+        {
+            Code = lotCode,
+            Description = "Lote de transbordo",
+            CardCode = "F0001",
+            ItemCode = load.ItemCode,
+            WarehouseCode = TransshipmentWarehouse,
+            UoM = load.UnitOfMeasureCode,
+            Nature = StorageAddressNature.Transshipment,
+        });
+
         var receipt = new StorageTransaction
         {
             Key = Guid.NewGuid(),
@@ -363,6 +381,7 @@ public class ShipmentLoadsTransshipmentRegisterEntryServiceTests
             UnitOfMeasureCode = load.UnitOfMeasureCode,
             WarehouseCode = TransshipmentWarehouse,
             BranchCode = load.BranchCode,
+            StorageAddressCode = lotCode,
             GrossWeight = 29_800m,
             NetWeight = 29_800m,
             TransactionType = StorageTransactionType.Receipt,
@@ -383,9 +402,10 @@ public class ShipmentLoadsTransshipmentRegisterEntryServiceTests
 
         Assert.Equal(transshipment.Key, linked.ShipmentLoadTransshipmentKey);
 
-        // Não nasce romaneio novo nem liberação: o grão entrou no LOTE pela Entrada em
-        // Armazenagem, não pela Expedição de Grãos.
-        Assert.Empty(await _db.Context.StorageTransactions
+        // Nasce o crédito do armazém (o 15) — ver ShipmentLoadsTransshipmentOwnWarehouseEntryTests
+        // para as asserções detalhadas dele. Continua sem liberação: o grão entrou no LOTE pela
+        // Entrada em Armazenagem, não pela Expedição de Grãos.
+        Assert.Single(await _db.Context.StorageTransactions
             .AsNoTracking()
             .Where(x => x.TransactionType == StorageTransactionType.TransshipmentReceipt)
             .ToListAsync());

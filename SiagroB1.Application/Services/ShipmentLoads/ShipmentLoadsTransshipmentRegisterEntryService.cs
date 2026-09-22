@@ -84,18 +84,13 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
         StorageTransaction? existingReceipt = null;
         decimal quantity;
 
-        // Fase 1 do GAC-1181 (decisão do usuário, 22/09): este ramo é hoje INALCANÇÁVEL pelo
-        // fluxo — ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync recusa
-        // armazém próprio nos dois pontos de entrada (ShipmentLoadsTransshipmentStartService e o
-        // destino Transbordo de ShipmentLoadsRefuseService), então nenhum transbordo com
-        // WarehouseCode próprio chega a existir para esta chamada ler `isOwn = true` aqui. O motivo
-        // do bloqueio: vincular o Receipt não credita o saldo do ARMAZÉM (só o do lote) e não emite
-        // liberação nenhuma — a mercadoria ficaria sem porta de saída, e o operador só embarcaria
-        // consumindo uma liberação de OUTRO negócio, corrompendo o saldo dele (verificado com dado
-        // real). Mantido — e continua exercitado pelo teste direto
-        // `RegisterEntry_OwnWarehouse_LinksTheExistingReceipt`, que chama este serviço sem passar
-        // pelas travas de entrada — porque é o alicerce da fase 2 (lote de natureza "Transbordo",
-        // desenhada em docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md).
+        // Fase 2 do GAC-1181: armazém próprio tem DUAS dimensões de saldo, alimentadas por
+        // romaneios diferentes — o LOTE (creditado pelo Receipt que a pesagem já lançou) e o
+        // ARMAZÉM (que só este registro credita, pelo TransshipmentReceipt criado logo abaixo).
+        // Por isso o Receipt só serve de entrada quando pesado num lote de natureza Transshipment
+        // — é essa marca que distingue o transbordo de uma Entrada em Armazenagem comum, cujo
+        // Receipt credita só o lote e deixaria o armazém sem o crédito simétrico que a Expedição
+        // do passo 6 vai debitar.
         if (isOwn)
         {
             if (receiptStorageTransactionKey is not { } receiptKey)
@@ -109,6 +104,9 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
 
             ShipmentLoadTransshipmentRules.EnsureOwnWarehouseReceiptIsUsable(
                 existingReceipt, load, transshipment);
+
+            await ShipmentLoadTransshipmentRules.EnsureReceiptIsFromTransshipmentLotAsync(
+                db.Context, existingReceipt);
 
             quantity = existingReceipt.GrossWeight;
         }
@@ -134,7 +132,9 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
             .OrderBy(x => x.RowId)
             .ToListAsync();
 
-        if (!isOwn && originShipments.Count == 0)
+        // Armazém próprio também precisa da origem: é dela que o crédito do armazém (abaixo) tira
+        // o CardCode, já que o romaneio 15 não é documento de ninguém em particular.
+        if (originShipments.Count == 0)
             throw new ApplicationException(
                 $"A carga {load.Code} não tem romaneio de saída de origem.");
 
@@ -146,10 +146,16 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
 
             if (isOwn)
             {
-                // Não nasce romaneio novo: o grão já entrou no lote pela Entrada em Armazenagem
-                // lançada na tela de sempre — aqui só se registra o papel dela no transbordo.
+                // O Receipt não é um romaneio novo: o grão já entrou no LOTE pela Entrada em
+                // Armazenagem lançada na tela de sempre — aqui só se registra o papel dela no
+                // transbordo. O que nasce aqui é o crédito do ARMAZÉM (o 15), simétrico ao débito
+                // que a Expedição do passo 6 vai lançar.
                 existingReceipt!.ShipmentLoadTransshipmentKey = transshipment.Key;
                 entry = existingReceipt;
+
+                await CreateOwnWarehouseCreditReceiptAsync(
+                    load, transshipment, warehouse, existingReceipt, originShipments, entryDate,
+                    userName);
             }
             else
             {
@@ -249,6 +255,62 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
             NetWeight = quantity,
             ShipmentLoadTransshipmentKey = transshipment.Key,
             Comments = ShipmentLoadTransshipmentRules.Truncate(comments),
+        };
+
+        await storageCreate.ExecuteAsync(
+            entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred);
+
+        await db.SaveChangesAsync();
+
+        await storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred);
+
+        await db.SaveChangesAsync();
+
+        return entry;
+    }
+
+    /// <summary>
+    /// Monta e confirma o romaneio 15 que credita o ARMAZÉM em armazém próprio — o crédito
+    /// simétrico ao débito que a Expedição de Grãos (passo 6) vai lançar quando embarcar de volta.
+    /// Mesmo molde do 15 de terceiro (<see cref="CreateThirdPartyReceiptAsync"/>), mas sem
+    /// <see cref="StorageTransaction.StorageAddressCode"/>: o crédito é do armazém, não do lote —
+    /// com lote ele creditaria o lote uma segunda vez, além do crédito que a pesagem já fez ao
+    /// gerar o <c>Receipt</c>.
+    /// </summary>
+    private async Task<StorageTransaction> CreateOwnWarehouseCreditReceiptAsync(
+        ShipmentLoad load,
+        ShipmentLoadTransshipment transshipment,
+        WarehouseModel warehouse,
+        StorageTransaction receipt,
+        IReadOnlyList<StorageTransaction> originShipments,
+        DateTime entryDate,
+        string userName)
+    {
+        // A coluna é NOT NULL e o 15 não é documento de ninguém em particular — usa o CardCode de
+        // quem já está na carga, o primeiro romaneio de saída da origem (mesma leitura do ramo de
+        // terceiro).
+        var cardCode = originShipments[0].CardCode;
+
+        var comments = ShipmentLoadTransshipmentRules.Truncate(
+            $"Crédito do armazém do transbordo {transshipment.Sequence} da carga {load.Code}. " +
+            $"Entrada em Armazenagem vinculada: {receipt.Code}.");
+
+        var entry = new StorageTransaction
+        {
+            TransactionType = StorageTransactionType.TransshipmentReceipt,
+            TransactionStatus = StorageTransactionsStatus.Pending,
+            TransactionDate = entryDate.Date,
+            BranchCode = load.BranchCode,
+            ItemCode = load.ItemCode,
+            UnitOfMeasureCode = load.UnitOfMeasureCode,
+            WarehouseCode = warehouse.Code ?? transshipment.WarehouseCode,
+            CardCode = cardCode,
+            TruckCode = load.TruckCode,
+            TruckDriverCode = load.TruckDriverCode,
+            GrossWeight = receipt.GrossWeight,
+            NetWeight = receipt.GrossWeight,
+            ShipmentLoadTransshipmentKey = transshipment.Key,
+            Comments = comments,
         };
 
         await storageCreate.ExecuteAsync(

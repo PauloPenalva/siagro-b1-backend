@@ -170,6 +170,29 @@ public static class ShipmentLoadTransshipmentRules
     }
 
     /// <summary>
+    /// Fase 2 do GAC-1181: só o <c>Receipt</c> pesado num lote de natureza
+    /// <see cref="StorageAddressNature.Transshipment"/> pode registrar a entrada em armazém
+    /// próprio — é essa marca (carimbada no cadastro do lote, preservada pela pesagem) que separa
+    /// o transbordo de uma Entrada em Armazenagem comum. Sem lote nenhum ou lote
+    /// <see cref="StorageAddressNature.Regular"/> caem na mesma recusa.
+    /// </summary>
+    public static async Task EnsureReceiptIsFromTransshipmentLotAsync(
+        AppDbContext context, StorageTransaction receipt)
+    {
+        var nature = string.IsNullOrWhiteSpace(receipt.StorageAddressCode)
+            ? (StorageAddressNature?)null
+            : await context.StorageAddresses
+                .Where(x => x.Code == receipt.StorageAddressCode)
+                .Select(x => (StorageAddressNature?)x.Nature)
+                .FirstOrDefaultAsync();
+
+        if (nature != StorageAddressNature.Transshipment)
+            throw new ApplicationException(
+                "A entrada do transbordo em armazém próprio precisa ser pesada num lote de " +
+                "natureza Transbordo. Pese o romaneio no lote correto e tente novamente.");
+    }
+
+    /// <summary>
     /// Corta respeitando o VARCHAR(500) das colunas de comentário/motivo do módulo. Único lugar
     /// que faz isso — registrar entrada (Task 5) e estornar (Task 6) chamavam a mesma regra cada
     /// um com sua cópia privada.
