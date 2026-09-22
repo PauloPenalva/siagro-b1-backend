@@ -85,6 +85,17 @@ public class ShipmentLoadsRefuseService(
         // efeito no banco, nem meia devolução criada.
         Validate(load, request);
 
+        if (request.Destination == RefusalDestination.Transshipment)
+        {
+            // GAC-1181: a MESMA invariante que ShipmentLoadsTransshipmentStartService usa para
+            // abrir um transbordo (Task 4) — reaproveitada aqui, e não reimplementada, porque
+            // HasOpenTransshipmentAsync só enxerga o ÚLTIMO por Sequence: um segundo transbordo
+            // aberto tornaria o mais antigo invisível para o saldo/situação da carga, em
+            // silêncio. Alcançável por aqui pela recusa PARCIAL repetida.
+            ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(load);
+            await ShipmentLoadTransshipmentRules.EnsureIsLastAsync(db.Context, load);
+        }
+
         var warehouse = await ResolveWarehouseAsync(request);
         var lines = await ResolveLinesAsync(load, request);
 
@@ -121,7 +132,7 @@ public class ShipmentLoadsRefuseService(
             }
             else if (request.Destination == RefusalDestination.Transshipment)
             {
-                await OpenTransshipmentAsync(load, warehouse!, totalQuantity, userName);
+                await OpenTransshipmentAsync(load, warehouse!, lines, totalQuantity, userName);
             }
 
             load.UpdatedAt = DateTime.Now;
@@ -270,11 +281,26 @@ public class ShipmentLoadsRefuseService(
     /// duplicado aqui. <c>OutgoingQuantity</c> é o total RECUSADO nesta chamada (não o saldo
     /// disponível inteiro da carga, ao contrário do início "planejado"): uma recusa parcial só
     /// transborda a parte recusada, o resto segue com o rótulo que já tinha.
+    /// <para>
+    /// <b>A trava de "não empilha transbordo aberto"
+    /// (<see cref="ShipmentLoadTransshipmentRules.EnsureIsLastAsync"/>) já rodou em
+    /// <see cref="ExecuteAsync"/>, antes de qualquer devolução</b> — alcançável por aqui pela
+    /// recusa PARCIAL repetida: recusar 10 t para Transbordo duas vezes seguidas, sem registrar a
+    /// entrada nem vincular a saída do primeiro, abriria um segundo transbordo que
+    /// <c>HasOpenTransshipmentAsync</c> não enxergaria (ele só olha o ÚLTIMO por
+    /// <c>Sequence</c>), deixando o primeiro aberto para sempre, em silêncio.
+    /// </para>
     /// </remarks>
     private async Task OpenTransshipmentAsync(
-        ShipmentLoad load, WarehouseTarget warehouse, decimal totalQuantity, string userName)
+        ShipmentLoad load,
+        WarehouseTarget warehouse,
+        IReadOnlyList<ResolvedLine> lines,
+        decimal totalQuantity,
+        string userName)
     {
         var sequence = await ShipmentLoadTransshipmentRules.NextSequenceAsync(db.Context, load.Key);
+
+        var invoiceNumbers = string.Join(", ", lines.Select(l => l.Invoice.InvoiceNumber));
 
         var transshipment = new ShipmentLoadTransshipment
         {
@@ -285,6 +311,12 @@ public class ShipmentLoadsRefuseService(
             WarehouseName = warehouse.Name,
             TransshipmentDate = DateTime.Today,
             OutgoingQuantity = totalQuantity,
+            // Narrativa própria do transbordo (não só a do movimento): nomeia o(s) documento(s)
+            // recusado(s), mesmo espírito do Comments que a recusa já escreve no romaneio do
+            // destino Warehouse (ver ReturnToWarehouseAsync).
+            Comments = ShipmentLoadTransshipmentRules.Truncate(
+                $"Transbordo aberto pela recusa da carga {load.Code}. Documento(s) " +
+                $"recusado(s): {invoiceNumbers}."),
             CreatedBy = userName,
             UpdatedBy = userName,
         };

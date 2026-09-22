@@ -62,13 +62,20 @@ public static class ShipmentLoadTransshipmentRules
     /// resolve o status. Se dois pudessem ficar abertos ao mesmo tempo, o mais antigo sumiria da
     /// checagem e o saldo da carga ficaria errado em silêncio. Esta trava é o que impede o
     /// segundo de nascer.
+    /// <para>
+    /// Chamada tanto por quem INICIA um transbordo (Task 4,
+    /// <c>ShipmentLoadsTransshipmentStartService</c>) quanto pela recusa com destino Transbordo
+    /// (Task 8, <c>ShipmentLoadsRefuseService</c>) — é a MESMA invariante nos dois casos: um
+    /// transbordo aberto de qualquer origem bloqueia o próximo, e a recusa PARCIAL repetida é
+    /// justamente como esse segundo nasceria sem esta trava.
+    /// </para>
     /// </remarks>
     public static async Task EnsureIsLastAsync(AppDbContext context, ShipmentLoad load)
     {
         if (await ShipmentLoadsRecalculateTransshippedService.HasOpenTransshipmentAsync(context, load.Key))
             throw new ApplicationException(
                 $"A carga {load.Code} já tem um transbordo em aberto. Registre a entrada dele " +
-                "antes de iniciar outro.");
+                "ou vincule a saída antes de abrir outro transbordo.");
     }
 
     /// <summary>

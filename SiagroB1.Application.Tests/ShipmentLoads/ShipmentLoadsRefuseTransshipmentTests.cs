@@ -98,6 +98,12 @@ public class ShipmentLoadsRefuseTransshipmentTests
         Assert.Equal("ARMAZEM RETAGUARDA", started.WarehouseName);
         Assert.Contains(TransshipmentWarehouse, started.Description);
         Assert.Contains("recusada", started.Description, StringComparison.OrdinalIgnoreCase);
+
+        // O transbordo carrega uma narrativa própria (decisão do revisor), nomeando o(s)
+        // documento(s) recusado(s) — não fica null.
+        Assert.NotNull(transshipment.Comments);
+        Assert.Contains("recusa", transshipment.Comments, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(invoice.InvoiceNumber, transshipment.Comments);
     }
 
     /// <summary>
@@ -197,6 +203,78 @@ public class ShipmentLoadsRefuseTransshipmentTests
 
         Assert.Contains("armazém de destino", error.Message);
         Assert.Empty(await _fixture._db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+    }
+
+    // ─── Trava: não empilha transbordo sobre transbordo aberto (mesma regra da Task 4) ───
+
+    /// <summary>
+    /// Alcançável pela recusa PARCIAL: fatura 30 t, recusa 10 t para Transbordo (abre o
+    /// transbordo 1, sem entrada nem saída), sobram 20 t vivas na nota original, recusa mais
+    /// 10 t para Transbordo de novo. Sem a trava, nasceria um segundo transbordo aberto — e
+    /// <c>HasOpenTransshipmentAsync</c> só enxerga o ÚLTIMO por <c>Sequence</c>, deixando o
+    /// primeiro invisível para o saldo/situação da carga para sempre.
+    /// </summary>
+    [Fact]
+    public async Task Refuse_ToTransshipment_RefusesWhenTheLastTransshipmentIsOpen()
+    {
+        var (load, invoice) = await _fixture.BilledLoadAsync(30_000m);
+
+        await _fixture.Service().ExecuteAsync(
+            ShipmentLoadsRefuseServiceTests.Request(
+                load, invoice, 10_000m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+            "tester");
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => _fixture.Service().ExecuteAsync(
+                ShipmentLoadsRefuseServiceTests.Request(
+                    load, invoice, 10_000m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+                "tester"));
+
+        Assert.Contains("em aberto", error.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Nenhum efeito da segunda tentativa: só o transbordo 1 existe, e o saldo continua
+        // exatamente o que a PRIMEIRA recusa deixou — a validação rodou antes de qualquer escrita.
+        Assert.Single(await _fixture._db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+
+        var afterSecondAttempt = await _fixture.LoadAsync(load.Key);
+        Assert.Equal(20_000m, afterSecondAttempt.InvoicedQuantity);
+        Assert.Equal(10_000m, afterSecondAttempt.TransshippedQuantity);
+
+        Assert.Single(await _fixture._db.Context.SalesInvoices
+            .AsNoTracking().Where(x => x.InvoiceType == SalesInvoiceType.Return).ToListAsync());
+    }
+
+    /// <summary>
+    /// O contraponto do teste anterior: a trava nova não pode barrar mais do que devia. Uma
+    /// ÚNICA recusa parcial para Transbordo abre um transbordo do tamanho recusado, e o resto do
+    /// documento de saída original continua CONFIRMADO e com entrega aberta — vivo na carga.
+    /// </summary>
+    [Fact]
+    public async Task Refuse_ToTransshipment_PartialRefusalOpensOneTransshipmentAndLeavesTheRestInvoiced()
+    {
+        var (load, invoice) = await _fixture.BilledLoadAsync(30_000m);
+
+        await _fixture.Service().ExecuteAsync(
+            ShipmentLoadsRefuseServiceTests.Request(
+                load, invoice, 10_000m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+            "tester");
+
+        var afterPartialRefusal = await _fixture.LoadAsync(load.Key);
+        Assert.Equal(20_000m, afterPartialRefusal.InvoicedQuantity);
+        Assert.Equal(10_000m, afterPartialRefusal.TransshippedQuantity);
+        Assert.Equal(decimal.Zero, afterPartialRefusal.ReturnedToWarehouseQuantity);
+        Assert.Equal(decimal.Zero, afterPartialRefusal.AvailableQuantity);
+        Assert.Equal(ShipmentLoadStatus.InTransshipment, afterPartialRefusal.Status);
+
+        var origin = await _fixture._db.Context.SalesInvoices
+            .AsNoTracking().SingleAsync(x => x.Key == invoice.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, origin.InvoiceStatus);
+        Assert.Equal(SalesInvoiceDeliveryStatus.Open, origin.DeliveryStatus);
+
+        var transshipments = await _fixture._db.Context.ShipmentLoadsTransshipments
+            .AsNoTracking().ToListAsync();
+        Assert.Single(transshipments);
+        Assert.Equal(10_000m, transshipments[0].OutgoingQuantity);
     }
 
     // ─── O cenário do cliente, ponta a ponta ───
