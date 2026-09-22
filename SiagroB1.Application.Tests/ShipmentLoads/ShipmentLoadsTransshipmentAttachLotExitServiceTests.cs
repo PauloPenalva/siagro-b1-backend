@@ -197,7 +197,11 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
     /// do LOTE que a office vai vincular.
     /// </summary>
     private async Task<StorageTransaction> SeedLotExitAsync(
-        ShipmentLoad load, string lotCode, decimal grossWeight, string code = "S0001")
+        ShipmentLoad load,
+        string lotCode,
+        decimal grossWeight,
+        string code = "S0001",
+        StorageTransactionType type = StorageTransactionType.Shipment)
     {
         var lotExit = new StorageTransaction
         {
@@ -211,7 +215,7 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
             StorageAddressCode = lotCode,
             GrossWeight = grossWeight,
             NetWeight = grossWeight,
-            TransactionType = StorageTransactionType.Shipment,
+            TransactionType = type,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
         };
         _db.Context.StorageTransactions.Add(lotExit);
@@ -275,6 +279,25 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
             () => Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester"));
 
         Assert.Contains("outro lote", error.Message);
+    }
+
+    /// <summary>
+    /// Cobertura da checagem de <c>TransactionType</c> acrescentada a
+    /// <see cref="ShipmentLoadTransshipmentRules.EnsureLotExitIsUsable"/> além das três que o
+    /// brief pedia: confirmado, no lote certo, sem vínculo anterior — mas de um tipo que não é
+    /// <see cref="StorageTransactionType.Shipment"/> (aqui, um <c>Receipt</c>).
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_RefusesWhenTheStorageTransactionIsNotAShipment()
+    {
+        var (load, transshipment, _, _) = await SeedRegisteredTransshipmentAsync();
+        var wrongType = await SeedLotExitAsync(
+            load, TransshipmentLotCode, 49_000m, "S0001", StorageTransactionType.Receipt);
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, wrongType.Key, "tester"));
+
+        Assert.Contains("não é uma saída de armazenagem", error.Message);
     }
 
     [Fact]
@@ -434,6 +457,13 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
     /// Entraram 50.000 no lote (Receipt da Task 3); saíram 49.000 (este Shipment); sobram 1.000 —
     /// a sobra fica no LOTE, não na liberação (que carrega os 49.000 reais).
     /// </summary>
+    /// <remarks>
+    /// O saldo é lido por <see cref="StorageAddress.Balance"/> — a mesma fórmula que o sistema usa
+    /// (<c>TotalReceipt - (TotalShipment + TotalQualityLoss)</c>), carregando o lote com seus
+    /// <see cref="StorageAddress.Transactions"/>. Reimplementar a soma em LINQ no teste provaria só
+    /// a aritmética do teste: se a fórmula de saldo do produto regredisse, uma cópia dela aqui
+    /// continuaria verde.
+    /// </remarks>
     [Fact]
     public async Task AttachLotExit_LeftoverStaysInTheLot()
     {
@@ -444,22 +474,11 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
 
         await Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester");
 
-        var credits = await _db.Context.StorageTransactions
+        var lot = await _db.Context.StorageAddresses
             .AsNoTracking()
-            .Where(x => x.StorageAddressCode == TransshipmentLotCode &&
-                        x.TransactionType == StorageTransactionType.Receipt &&
-                        (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
-                         x.TransactionStatus == StorageTransactionsStatus.Invoiced))
-            .SumAsync(x => (decimal?)x.NetWeight) ?? decimal.Zero;
+            .Include(x => x.Transactions)
+            .SingleAsync(x => x.Code == TransshipmentLotCode);
 
-        var debits = await _db.Context.StorageTransactions
-            .AsNoTracking()
-            .Where(x => x.StorageAddressCode == TransshipmentLotCode &&
-                        x.TransactionType == StorageTransactionType.Shipment &&
-                        (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
-                         x.TransactionStatus == StorageTransactionsStatus.Invoiced))
-            .SumAsync(x => (decimal?)x.NetWeight) ?? decimal.Zero;
-
-        Assert.Equal(1_000m, credits - debits);
+        Assert.Equal(1_000m, lot.Balance);
     }
 }
