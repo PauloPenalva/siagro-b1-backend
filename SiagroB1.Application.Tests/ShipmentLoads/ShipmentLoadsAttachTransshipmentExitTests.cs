@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -25,10 +24,8 @@ public class ShipmentLoadsAttachTransshipmentExitTests
 {
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    // Nenhum WarehouseComplement é cadastrado nestes cenários: sem linha, IsOwn é falso por
-    // padrão, preservando o comportamento de hoje (fase 1, armazém de terceiro) sem mudança.
     private ShipmentLoadsAttachTransactionsService AttachService() => new(
-        _db, new WarehouseComplementService(_db), new ShipmentLoadsMovementLogService(_db.Context));
+        _db, new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoadsDetachTransactionsService DetachService() => new(
         _db,

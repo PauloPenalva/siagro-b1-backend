@@ -43,9 +43,7 @@ public class ShipmentLoadsRefuseTransshipmentTests
         new ShipmentLoadsMovementLogService(_fixture._db.Context));
 
     private ShipmentLoadsAttachTransactionsService AttachService() => new(
-        _fixture._db,
-        new WarehouseComplementService(_fixture._db),
-        new ShipmentLoadsMovementLogService(_fixture._db.Context));
+        _fixture._db, new ShipmentLoadsMovementLogService(_fixture._db.Context));
 
     private Task<ShipmentLoadTransshipment> TransshipmentAsync(Guid loadKey) =>
         _fixture._db.Context.ShipmentLoadsTransshipments

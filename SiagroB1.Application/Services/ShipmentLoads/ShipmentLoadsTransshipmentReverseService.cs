@@ -55,6 +55,14 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// que <c>GeneratedByStorageTransactionKey</c> parte.
 /// </para>
 /// <para>
+/// ⚠️ <b>Este serviço distingue próprio/terceiro pelo TIPO do romaneio de entrada
+/// (<c>entry.TransactionType</c>), de propósito — NÃO por <c>WarehouseComplement.IsOwn</c> lido ao
+/// vivo.</b> Um transbordo aqui é sempre uma linha JÁ EXISTENTE, e a regra completa (por que
+/// criação e linha existente pedem discriminadores diferentes) está documentada uma única vez em
+/// <see cref="ShipmentLoadTransshipmentRules"/> — leia lá antes de "padronizar" isto para
+/// <c>IsOwn</c> de novo.
+/// </para>
+/// <para>
 /// ⚠️ <b>Transbordo de origem <see cref="TransshipmentOrigin.Refusal"/>: o estorno NÃO desfaz as
 /// devoluções das notas</b> que levaram a carga ao transbordo. Elas são documento fiscal com ciclo
 /// próprio (retorno de nota, conferência de devolução); o estorno aqui só devolve o saldo à carga

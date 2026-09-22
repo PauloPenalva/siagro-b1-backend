@@ -198,6 +198,10 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
 
         await Service().ExecuteAsync(transshipment.Key!.Value, "armazem errado", "tester");
 
+        // Limpa o tracker e relê do banco: a asserção precisa provar o que ficou GRAVADO, não o
+        // que o serviço deixou em memória neste mesmo DbContext.
+        _db.Context.ChangeTracker.Clear();
+
         var savedCredit = await _db.Context.StorageTransactions
             .AsNoTracking().SingleAsync(x => x.Key == warehouseCredit.Key);
         Assert.Equal(StorageTransactionsStatus.Cancelled, savedCredit.TransactionStatus);
@@ -220,6 +224,10 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
         var (_, transshipment, receipt, _, lotExit, _) = await SeedFullOwnWarehouseStateAsync();
 
         await Service().ExecuteAsync(transshipment.Key!.Value, null, "tester");
+
+        // Limpa o tracker e relê do banco: prova o ESTADO PERSISTIDO do desvínculo, não o que o
+        // change tracker deste DbContext ainda guarda em memória depois do serviço rodar.
+        _db.Context.ChangeTracker.Clear();
 
         var savedReceipt = await _db.Context.StorageTransactions
             .AsNoTracking().SingleAsync(x => x.Key == receipt.Key);
@@ -247,6 +255,9 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
             outgoing: 50_000m, entryQuantity: 50_000m, lotExitQuantity: 49_000m);
 
         await Service().ExecuteAsync(transshipment.Key!.Value, null, "tester");
+
+        // Limpa o tracker e relê do banco pelo mesmo motivo dos outros testes desta classe.
+        _db.Context.ChangeTracker.Clear();
 
         var lot = await _db.Context.StorageAddresses
             .AsNoTracking()

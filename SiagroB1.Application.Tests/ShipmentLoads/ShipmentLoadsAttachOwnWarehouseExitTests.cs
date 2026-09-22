@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -24,12 +23,14 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 /// estar vinculada, porque é ela que emite a liberação que esta Expedição consumiria — sem ela, a
 /// Expedição só poderia estar consumindo liberação de outro negócio.
 /// <para>
-/// Round 1: o discriminador armazém próprio/terceiro passou a ser <c>WarehouseComplement.IsOwn</c>
-/// — o mesmo já usado por <see cref="ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync"/>
-/// e por <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/> — em vez de inferido pelo
-/// TIPO do romaneio de entrada. O terceiro teste é a rede dessa decisão: prova que um armazém SEM
-/// complemento cadastrado (== não é próprio) segue fechando o transbordo mesmo sem a saída do lote,
-/// que é o comportamento da fase 1 já em produção.
+/// Round 1 da revisão da Task 6: cogitou-se trocar o discriminador armazém próprio/terceiro para
+/// <c>WarehouseComplement.IsOwn</c> (o mesmo já usado por
+/// <see cref="ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync"/> e por
+/// <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/>), mas a decisão final foi MANTER o
+/// discriminador estrutural (o TIPO do romaneio de entrada) — ver a regra completa em
+/// <see cref="ShipmentLoadTransshipmentRules"/>. O terceiro teste continua valendo como rede dessa
+/// checagem: prova que uma entrada <c>TransshipmentReceipt</c> REAL (armazém de terceiro) segue
+/// fechando o transbordo mesmo sem a saída do lote, que é o comportamento da fase 1 já em produção.
 /// </para>
 /// </remarks>
 public class ShipmentLoadsAttachOwnWarehouseExitTests
@@ -40,15 +41,7 @@ public class ShipmentLoadsAttachOwnWarehouseExitTests
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private ShipmentLoadsAttachTransactionsService AttachService() => new(
-        _db, new WarehouseComplementService(_db), new ShipmentLoadsMovementLogService(_db.Context));
-
-    /// <summary>Marca <see cref="TransshipmentWarehouse"/> como PRÓPRIO — o discriminador da regra nova.</summary>
-    private void SeedOwnWarehouseComplement() =>
-        _db.Context.WarehouseComplements.Add(new WarehouseComplement
-        {
-            WarehouseCode = TransshipmentWarehouse,
-            IsOwn = true,
-        });
+        _db, new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(decimal totalQuantity = 30_000m)
     {
@@ -95,11 +88,9 @@ public class ShipmentLoadsAttachOwnWarehouseExitTests
     }
 
     /// <summary>
-    /// Entrada do transbordo em armazém PRÓPRIO (Task 3): o <c>Receipt (0)</c> da pesagem — o
-    /// romaneio já lançado pela tela de Entrada em Armazenagem, só vinculado ao transbordo. Quem
-    /// distingue o armazém próprio do de terceiro para a regra desta task é
-    /// <c>WarehouseComplement.IsOwn</c> (<see cref="SeedOwnWarehouseComplement"/>), não o TIPO
-    /// deste romaneio.
+    /// Entrada do transbordo em armazém PRÓPRIO (Task 3): o <c>Receipt (0)</c> da pesagem — é este
+    /// TIPO que distingue o armazém próprio do de terceiro (cujo <c>EntryStorageTransaction</c> é
+    /// o <c>TransshipmentReceipt</c>, o 15).
     /// </summary>
     private StorageTransaction OwnWarehouseEntryReceipt(decimal grossWeight = 30_000m)
     {
@@ -196,7 +187,6 @@ public class ShipmentLoadsAttachOwnWarehouseExitTests
     [Fact]
     public async Task Attach_OwnWarehouseExit_ClosesTheTransshipmentAndMakesTheLoadBillable()
     {
-        SeedOwnWarehouseComplement();
         var load = Load();
         OriginShipment(load);
         var entry = OwnWarehouseEntryReceipt();
@@ -235,7 +225,6 @@ public class ShipmentLoadsAttachOwnWarehouseExitTests
     [Fact]
     public async Task Attach_OwnWarehouseExit_RefusedBeforeTheLotExitIsAttached()
     {
-        SeedOwnWarehouseComplement();
         var load = Load();
         OriginShipment(load);
         var entry = OwnWarehouseEntryReceipt();
@@ -252,15 +241,14 @@ public class ShipmentLoadsAttachOwnWarehouseExitTests
     }
 
     /// <summary>
-    /// Rede do discriminador (Round 1): um armazém de TERCEIRO — sem <c>WarehouseComplement</c>
-    /// cadastrado, logo <c>IsOwn</c> falso por padrão — continua fechando o transbordo mesmo com
-    /// <c>LotExitStorageTransactionKey</c> nulo, porque nesse armazém a liberação já nasceu na
-    /// entrada (Task 3, fase 1). A entrada aqui é um <c>TransshipmentReceipt (15)</c> REAL — uma
-    /// linha de verdade na tabela, não a chave fantasma que os testes de
-    /// <see cref="ShipmentLoadsAttachTransshipmentExitTests"/> usam — para que a branch
-    /// "terceiro" do discriminador tenha uma prova de verdade e não fique refém de uma projeção
-    /// nula por falta de linha. Sem este teste, tornar a regra incondicional (ou trocar o
-    /// discriminador por algo que erre para <c>true</c> na ausência de complemento) travaria para
+    /// Rede do discriminador estrutural (mantido no Round 1 da revisão da Task 6 — ver
+    /// <see cref="ShipmentLoadTransshipmentRules"/>): um armazém de TERCEIRO — cuja
+    /// <c>EntryStorageTransaction</c> é um <c>TransshipmentReceipt (15)</c> REAL, linha de verdade
+    /// na tabela, não a chave fantasma que os testes de
+    /// <see cref="ShipmentLoadsAttachTransshipmentExitTests"/> usam — continua fechando o
+    /// transbordo mesmo com <c>LotExitStorageTransactionKey</c> nulo, porque nesse armazém a
+    /// liberação já nasceu na entrada (Task 3, fase 1). Sem este teste, tornar a regra
+    /// incondicional (aplicá-la também quando a entrada não é um <c>Receipt</c>) travaria para
     /// sempre o fechamento de transbordo em armazém de terceiro — a fase 1, já em produção.
     /// </summary>
     [Fact]

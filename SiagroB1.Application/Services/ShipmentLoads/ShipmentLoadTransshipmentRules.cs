@@ -12,6 +12,36 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <remarks>
 /// Lançam <see cref="ApplicationException"/> com mensagem de negócio e são chamadas ANTES de abrir
 /// transação — o catch dos serviços embrulharia a mensagem.
+/// <para>
+/// <b>Regra do discriminador armazém próprio/terceiro (Round 1 da revisão da Task 6): a pergunta
+/// certa depende de QUANDO ela é feita, não de uma resposta única para toda a feature.</b>
+/// <list type="bullet">
+/// <item>
+/// <b>Ao CRIAR um transbordo</b> — <see cref="EnsureWarehouseAcceptsTransshipmentAsync"/> e o
+/// ramo <c>isOwn</c> de <c>ShipmentLoadsTransshipmentRegisterEntryService</c> — a pergunta é
+/// "este armazém é próprio AGORA?". Aqui <c>WarehouseComplement.IsOwn</c> lido ao vivo é a
+/// resposta certa: não existe ainda nenhuma estrutura persistida para consultar, e é exatamente o
+/// cadastro atual do armazém que decide que romaneio a entrada vai exigir.
+/// </item>
+/// <item>
+/// <b>Ao decidir sobre um transbordo que JÁ EXISTE</b> — o estorno
+/// (<c>ShipmentLoadsTransshipmentReverseService</c>) e o fechamento
+/// (<c>ShipmentLoadsAttachTransactionsService.ValidateTransshipmentRoleAsync</c>) — a pergunta é
+/// "como esta LINHA foi construída?". Aqui a resposta certa é a estrutura já persistida (o TIPO do
+/// romaneio em <see cref="ShipmentLoadTransshipment.EntryStorageTransactionKey"/>: <c>Receipt</c>
+/// é próprio, <c>TransshipmentReceipt</c> é terceiro), não <c>WarehouseComplement.IsOwn</c> lido
+/// de novo. <c>WarehouseComplementService.SetAsync</c> não trava contra transbordo em aberto — o
+/// cadastro pode mudar depois que a linha foi construída, e reconsultar <c>IsOwn</c> ao vivo
+/// classificaria uma linha ANTIGA pela configuração NOVA, reabrindo por outra porta o mesmo bug
+/// que esta task existe para fechar (liberação e romaneio buscados pela chave errada).
+/// </item>
+/// </list>
+/// A Task 5 chegou a trocar o discriminador de <c>ValidateTransshipmentRoleAsync</c> para
+/// <c>IsOwn</c> por medo de dois discriminadores da mesma decisão saírem de sincronia — mas são
+/// duas decisões DIFERENTES (criação vs. linha existente), não a mesma pergunta resolvida duas
+/// vezes; o Round 1 desta task reverteu essa troca. Não "padronize" isto de volta para
+/// <c>IsOwn</c> em todo lugar sem reler este parágrafo primeiro.
+/// </para>
 /// </remarks>
 public static class ShipmentLoadTransshipmentRules
 {

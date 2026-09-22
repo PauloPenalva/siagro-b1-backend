@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -22,7 +21,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private ShipmentLoadsAttachTransactionsService Service() => new(
-        _db, new WarehouseComplementService(_db), new ShipmentLoadsMovementLogService(_db.Context));
+        _db, new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(ShipmentLoadStatus status = ShipmentLoadStatus.Planned)
     {
