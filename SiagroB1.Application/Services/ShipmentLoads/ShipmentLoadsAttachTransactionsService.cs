@@ -255,6 +255,26 @@ public class ShipmentLoadsAttachTransactionsService(
             throw new ApplicationException(
                 $"A entrada do transbordo {transshipment.Sequence} ainda não foi registrada.");
 
+        // GAC-1181 fase 2: em armazém PRÓPRIO a entrada é o Receipt da pesagem (Task 3) e a
+        // liberação só nasce quando a saída do LOTE é vinculada depois
+        // (ShipmentLoadsTransshipmentAttachLotExitService, Task 4) — sem isso, esta Expedição só
+        // poderia estar consumindo liberação de outro negócio, o buraco que esta fase existe para
+        // fechar. Em armazém de terceiro a entrada já É o TransshipmentReceipt (15), que emite a
+        // liberação sozinho na Task 3, então esta checagem não se aplica — e é por isso que ela é
+        // condicionada ao TIPO do romaneio de entrada, não aplicada incondicionalmente.
+        var entryTransactionType = await db.Context.StorageTransactions
+            .Where(x => x.Key == transshipment.EntryStorageTransactionKey)
+            .Select(x => (StorageTransactionType?)x.TransactionType)
+            .FirstOrDefaultAsync();
+
+        if (entryTransactionType == StorageTransactionType.Receipt &&
+            transshipment.LotExitStorageTransactionKey == null)
+        {
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} ainda não tem a saída do lote vinculada. " +
+                "Vincule a saída do lote antes de vincular esta Expedição.");
+        }
+
         var notShipment = shipments.FirstOrDefault(x => x.TransactionType != StorageTransactionType.SalesShipment);
         if (notShipment != null)
             throw new ApplicationException(
