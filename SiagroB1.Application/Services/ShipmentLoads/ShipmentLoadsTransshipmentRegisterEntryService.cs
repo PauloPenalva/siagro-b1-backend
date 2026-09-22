@@ -108,7 +108,11 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
             await ShipmentLoadTransshipmentRules.EnsureReceiptIsFromTransshipmentLotAsync(
                 db.Context, existingReceipt);
 
-            quantity = existingReceipt.GrossWeight;
+            // NetWeight, não GrossWeight: é essa a grandeza que a confirmação do Receipt (0)
+            // creditou no LOTE (CalculateNetWeight, descontando secagem/limpeza pela tabela de
+            // custos). Usar o bruto aqui deixaria o crédito do armazém (abaixo) e o log desta
+            // entrada maiores do que o lote realmente recebeu.
+            quantity = existingReceipt.NetWeight;
         }
         else
         {
@@ -277,6 +281,14 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
     /// com lote ele creditaria o lote uma segunda vez, além do crédito que a pesagem já fez ao
     /// gerar o <c>Receipt</c>.
     /// </summary>
+    /// <remarks>
+    /// O crédito usa <see cref="StorageTransaction.NetWeight"/> do <paramref name="receipt"/>, não
+    /// <see cref="StorageTransaction.GrossWeight"/> — é o líquido que
+    /// <c>StorageTransactionsConfirmedService.ExecuteReceiptTransactionAsync</c> creditou no LOTE
+    /// (bruto menos secagem/limpeza/outros da tabela de custos). Creditar o armazém pelo bruto
+    /// deixa a sobra na dimensão errada sempre que a entrada tiver desconto de qualidade: o lote
+    /// fecha raso e o armazém carrega quilos que não existem.
+    /// </remarks>
     private async Task<StorageTransaction> CreateOwnWarehouseCreditReceiptAsync(
         ShipmentLoad load,
         ShipmentLoadTransshipment transshipment,
@@ -307,8 +319,8 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
             CardCode = cardCode,
             TruckCode = load.TruckCode,
             TruckDriverCode = load.TruckDriverCode,
-            GrossWeight = receipt.GrossWeight,
-            NetWeight = receipt.GrossWeight,
+            GrossWeight = receipt.NetWeight,
+            NetWeight = receipt.NetWeight,
             ShipmentLoadTransshipmentKey = transshipment.Key,
             Comments = comments,
         };

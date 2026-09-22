@@ -232,7 +232,7 @@ public class ShipmentLoadsTransshipmentOwnWarehouseEntryTests
     /// informado — exatamente como <c>WeighingTicketsCompletedService</c> o deixa (Task 2).
     /// </summary>
     private async Task<StorageTransaction> SeedReceiptAsync(
-        ShipmentLoad load, string lotCode, decimal grossWeight)
+        ShipmentLoad load, string lotCode, decimal grossWeight, decimal? netWeight = null)
     {
         var receipt = new StorageTransaction
         {
@@ -245,7 +245,7 @@ public class ShipmentLoadsTransshipmentOwnWarehouseEntryTests
             BranchCode = load.BranchCode,
             StorageAddressCode = lotCode,
             GrossWeight = grossWeight,
-            NetWeight = grossWeight,
+            NetWeight = netWeight ?? grossWeight,
             TransactionType = StorageTransactionType.Receipt,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
         };
@@ -370,6 +370,35 @@ public class ShipmentLoadsTransshipmentOwnWarehouseEntryTests
     /// estourava <c>ArgumentOutOfRangeException</c> em <c>originShipments[0].CardCode</c> — uma
     /// exceção técnica, não a recusa de negócio.
     /// </summary>
+    /// <summary>
+    /// DEFEITO 3 da revisão final da fase 2 (achado por execução): a pesagem credita o LOTE pelo
+    /// <c>NetWeight</c> do <c>Receipt</c> — bruto menos secagem/limpeza da tabela de custos
+    /// (<c>StorageTransactionsConfirmedService.ExecuteReceiptTransactionAsync</c>). Antes desta
+    /// correção o crédito do ARMAZÉM (o 15) usava <c>GrossWeight</c>: com uma entrada de 50.000
+    /// brutos e 1.000 de desconto (49.000 líquidos), o lote fechava com 49.000 mas o armazém
+    /// creditava 50.000 — 1.000 kg fantasmas. Nenhum outro teste desta suíte tem
+    /// <c>NetWeight != GrossWeight</c>, então nenhum outro cobre este caminho.
+    /// </summary>
+    [Fact]
+    public async Task RegisterEntry_OwnWarehouse_CreditsTheWarehouseByNetWeightWhenTheReceiptHasAQualityDiscount()
+    {
+        var (load, transshipment, _) = await SeedStartedTransshipmentAsync(outgoing: 50_000);
+        await SeedLotAsync(TransshipmentLotCode, StorageAddressNature.Transshipment);
+        var receipt = await SeedReceiptAsync(
+            load, TransshipmentLotCode, grossWeight: 50_000m, netWeight: 49_000m);
+
+        var result = await Service().ExecuteAsync(
+            transshipment.Key!.Value, decimal.Zero, DateTime.Today, receipt.Key, "tester");
+
+        var credit = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.TransshipmentReceipt);
+
+        Assert.Equal(49_000m, credit.GrossWeight);
+        Assert.Equal(49_000m, credit.NetWeight);
+        Assert.Equal(49_000m, result.EntryQuantity);
+    }
+
     [Fact]
     public async Task RegisterEntry_OwnWarehouse_RefusesWhenLoadHasNoOriginShipment()
     {
