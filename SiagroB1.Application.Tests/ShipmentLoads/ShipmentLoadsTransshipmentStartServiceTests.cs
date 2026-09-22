@@ -213,5 +213,8 @@ public class ShipmentLoadsTransshipmentStartServiceTests
         // Assinada: sai volume da carga, então é negativa.
         Assert.Equal(-30_000m, movement.Quantity);
         Assert.Contains(Warehouse, movement.Description);
+        // Saldo correto por construção (o recálculo muta a mesma instância rastreada), mas nada
+        // o verificava — travaria se o recálculo algum dia passasse a usar AsNoTracking.
+        Assert.Equal(decimal.Zero, movement.BalanceAfter);
     }
 }

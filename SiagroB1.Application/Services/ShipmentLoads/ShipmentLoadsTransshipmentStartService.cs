@@ -59,11 +59,15 @@ public class ShipmentLoadsTransshipmentStartService(
         var available = ShipmentLoad.CalculateAvailableQuantity(
             load.TotalQuantity, invoiced, returned, transshipped);
 
+        // ANTES do guard de saldo: como todo transbordo consome o saldo INTEIRO, o caso mais
+        // comum de recusa é tentar iniciar outro sem ter registrado a entrada/saída do anterior —
+        // e nesse caso o saldo já está zerado pelo transbordo aberto. Checar o saldo primeiro
+        // devolveria "sem saldo disponível", escondendo a causa real.
+        await ShipmentLoadTransshipmentRules.EnsureIsLastAsync(db.Context, load);
+
         if (available <= ShipmentLoadTransshipmentRules.Tolerance)
             throw new ApplicationException(
                 $"A carga {load.Code} não tem saldo disponível para transbordo.");
-
-        await ShipmentLoadTransshipmentRules.EnsureIsLastAsync(db.Context, load);
 
         var sequence = await ShipmentLoadTransshipmentRules.NextSequenceAsync(db.Context, loadKey);
 
