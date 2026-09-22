@@ -301,7 +301,10 @@ public class ShipmentLoadsTransshipmentReverseServiceTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(transshipment.Key!.Value, null, "tester"));
 
-        Assert.Contains("saída vinculada", error.Message);
+        // D11 da revisão final da fase 2: a mensagem antiga ("já tem saída vinculada") ficou
+        // ambígua depois que a fase 2 criou uma SEGUNDA saída (a do lote) que não fecha o
+        // transbordo — só a Expedição de venda (o SalesShipment, 7) fecha.
+        Assert.Contains("Expedição de venda vinculada", error.Message);
     }
 
     [Fact]

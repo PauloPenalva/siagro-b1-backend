@@ -281,12 +281,16 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct());
 
-        // A narrativa nomeia a origem certa (GAC-1181): a mesma liberação nasce tanto de uma
-        // devolução ao armazém quanto da entrada de um transbordo, e o operador que a lê depois
-        // precisa saber qual das duas foi.
-        var originText = origin == ReleaseOrigin.Transshipment
-            ? "pela entrada do transbordo"
-            : "pela devolução ao armazém";
+        // A narrativa nomeia a origem certa (GAC-1181): a mesma liberação nasce de uma devolução
+        // ao armazém, da entrada de um transbordo em armazém de terceiro (o TransshipmentReceipt,
+        // o 15) OU da saída do lote de um transbordo em armazém PRÓPRIO (o Shipment, o 1) — e o
+        // operador que a lê depois precisa saber qual das três foi. O discriminador entre as duas
+        // últimas é o TIPO de `entry`, não uma suposição: só o Shipment é saída de lote.
+        var originText = origin != ReleaseOrigin.Transshipment
+            ? "pela devolução ao armazém"
+            : entry.TransactionType == StorageTransactionType.Shipment
+                ? "pela saída do lote do transbordo"
+                : "pela entrada do transbordo";
 
         var comments =
             $"Liberação gerada {originText} (romaneio {entry.Code}). " +

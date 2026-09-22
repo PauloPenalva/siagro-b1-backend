@@ -199,8 +199,12 @@ public class ShipmentLoadsTransshipmentStartServiceTests
     }
 
     /// <summary>
-    /// Regressão: um armazém com complemento cadastrado mas <c>IsOwn = false</c> continua liberado
-    /// — a trava lê o flag, não a mera existência do registro de complemento.
+    /// A trava que este teste media (fase 1: barrava armazém próprio na entrada do transbordo por
+    /// não ter porta de saída) foi REMOVIDA na fase 2 — a fase inteira existe para abrir essa
+    /// porta. Este cenário (armazém com complemento cadastrado e <c>IsOwn = false</c>) passa hoje
+    /// porque NÃO HÁ MAIS barreira nenhuma aqui, não porque uma trava discrimina corretamente o
+    /// flag. Mantido como rede de regressão da remoção: se a trava for reintroduzida por engano,
+    /// quem quebra é este teste.
     /// </summary>
     [Fact]
     public async Task Start_AllowsThirdPartyWarehouseWithComplementRegistered()

@@ -24,9 +24,9 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 /// Expedição só poderia estar consumindo liberação de outro negócio.
 /// <para>
 /// Round 1 da revisão da Task 6: cogitou-se trocar o discriminador armazém próprio/terceiro para
-/// <c>WarehouseComplement.IsOwn</c> (o mesmo já usado por
-/// <see cref="ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync"/> e por
-/// <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/>), mas a decisão final foi MANTER o
+/// <c>WarehouseComplement.IsOwn</c> (o mesmo já usado por <c>EnsureWarehouseAcceptsTransshipmentAsync</c>,
+/// removido na fase 2, e por <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/>), mas a
+/// decisão final foi MANTER o
 /// discriminador estrutural (o TIPO do romaneio de entrada) — ver a regra completa em
 /// <see cref="ShipmentLoadTransshipmentRules"/>. O terceiro teste continua valendo como rede dessa
 /// checagem: prova que uma entrada <c>TransshipmentReceipt</c> REAL (armazém de terceiro) segue

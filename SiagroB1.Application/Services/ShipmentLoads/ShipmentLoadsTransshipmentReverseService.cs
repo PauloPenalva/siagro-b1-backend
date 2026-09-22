@@ -151,8 +151,8 @@ public class ShipmentLoadsTransshipmentReverseService(
 
         if (!isOpen)
             throw new ApplicationException(
-                $"O transbordo {transshipment.Sequence} já tem saída vinculada e não pode ser " +
-                "estornado.");
+                $"O transbordo {transshipment.Sequence} já tem a Expedição de venda vinculada e " +
+                "não pode ser estornado.");
 
         try
         {
