@@ -324,113 +324,118 @@ armazém próprio vindo de recusa.
    (só 0 − 1 − 4). Não é deste chamado, mas foi anotado no levantamento.
 4. **Concorrência** continua protegida só pelo `[Timestamp] RowVersion` da carga.
 
+
 ## Fase 2 — transbordo em armazém próprio (desenho aprovado, não implementado)
 
-Decisão do usuário, 22/09/2026. A fase 1 (Task 13 do plano) barrou a ENTRADA no fluxo de armazém
-próprio pela `ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync`, porque o
-ramo que já existe (`ShipmentLoadsTransshipmentRegisterEntryService`, `isOwn == true`) só
-**vincula** um `Receipt` já lançado pela Entrada em Armazenagem de sempre — não credita o saldo do
-armazém nem emite liberação nenhuma, deixando a mercadoria sem porta de saída: o operador só
-conseguiria embarcá-la consumindo uma liberação de OUTRO negócio, corrompendo o saldo dele
-(verificado com dado real). Este desenho resolve isso pela dimensão certa — o LOTE, não o armazém.
-Registrado aqui para não se perder; nada abaixo foi implementado.
+Decisões do usuário em 22/09/2026, depois que a fase 1 foi verificada no navegador e o ramo de
+armazém próprio se mostrou incompleto: ele apenas **vinculava** um `Receipt` já lançado, sem
+creditar o armazém e sem emitir liberação, deixando a mercadoria **sem porta de saída** — o
+operador só a embarcaria consumindo liberação de outro negócio. A fase 1 barrou a entrada nesse
+fluxo (`ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync`); esta fase o
+substitui inteiro.
 
-### 1. O lote ganha uma natureza — campo novo, não valor novo em `OwnershipType` nem em `Status`
+### 1. Por que o desenho é diferente do armazém de terceiro
 
-`StorageAddress.OwnershipType` (`StorageOwnershipType`: `OwnedInOurCustody` /
-`OwnedInThirdPartyCustody` / `ThirdParty`) responde **de quem é a mercadoria**.
-`StorageAddressStatus` (`Open`/`Closed`) responde **o ciclo de vida do lote**. Nenhum dos dois
-responde **para que serve o lote** — e é essa a pergunta que "Transbordo" precisa responder.
+Em armazém próprio existem **duas dimensões de saldo**, alimentadas por romaneios diferentes:
 
-Decisão: **campo novo** (`StorageAddressNature`, enum: `Regular = 0`, `Transshipment = 1`, default
-`Regular`), não um valor a mais em nenhum dos dois enums existentes.
+| Dimensão | Credita | Debita |
+|---|---|---|
+| **Lote** (`StorageAddress`) | `Receipt (0)` | `Shipment (1)`, `SalesShipment (7)` |
+| **Armazém** | `Purchase (8)`, `TransshipmentReceipt (15)` | `SalesShipment (7)` |
 
-- Enfiar "Transbordo" em `OwnershipType` misturaria dois eixos ortogonais: um lote de transbordo
-  em armazém próprio continua tendo um dono de mercadoria (provavelmente `OwnedInOurCustody`, mas
-  isso é incidental — não é o que define "é transbordo"). Qualquer leitor de saldo que hoje faz
-  `switch`/`if` sobre `OwnershipType` ganharia um caso que não tem nada a ver com propriedade, e o
-  dia em que existir "transbordo de terceiro" (fora de escopo aqui, mas não impossível) o valor já
-  estaria consumido pelo significado errado.
-- Enfiar em `Status` multiplicaria estados sem necessidade (`Open`, `Closed`,
-  `TransshipmentOpen`, `TransshipmentClosed`...) — natureza e ciclo de vida são perguntas
-  independentes, e um lote de transbordo abre e fecha exatamente como um lote comum.
-- Campo próprio é o padrão já em uso no módulo para eixos ortogonais a status/propriedade:
-  `TransactionCode`/`TransactionOrigin`, `ReleaseOrigin`, `TransshipmentOrigin` são todos campos
-  específicos, nunca valores emprestados de um enum com outro propósito. `Regular = 0` preserva o
-  comportamento de todo lote existente sem precisar de backfill.
-- Trava de criação: um `StorageAddress` só nasce com `Nature = Transshipment` quando o armazém tem
-  `WarehouseComplement.IsOwn == true` (o inverso exato da trava da fase 1), e a combinação não
-  muda depois de criada.
+É por isso que a Entrada em Armazenagem cria um **par** (8 credita o armazém, 0 credita o lote). O
+transbordo em armazém próprio segue o mesmo princípio, com o 15 no lugar do 8 — aqui não há
+contrato a debitar, porque ele já foi debitado na saída da origem.
 
-### 2. Entrada: pela pesagem, e só um lote de transbordo pode recebê-la
+### 2. O fluxo, com os dois papéis que o executam
 
-O ticket de pesagem gera o `Receipt (0)` de sempre, mas o lote de destino precisa ter
-`Nature = Transshipment`, e esse `Receipt` só pode ser vinculado como entrada de um transbordo
-**aberto daquela carga** — nunca um `Receipt` avulso escolhido depois, como o ramo atual (fase 1)
-faz. A amarração nasce na pesagem, não é costurada depois.
+O desenho reflete a organização do cliente: **o armazém movimenta o físico; o escritório emite os
+documentos.** São dois momentos distintos, e o sistema não deve fundi-los.
 
-### 3. Saída: também pela pesagem, com o peso real carregado — a sobra fica NO LOTE
+| # | Onde | Quem | O que acontece | Efeito |
+|---|---|---|---|---|
+| 1 | Cadastro de lotes | escritório | cria o lote com natureza **Transbordo** | — |
+| 2 | Pesagem | armazém | ticket de entrada, gerando `Receipt (0)` no lote de transbordo | **+ lote** |
+| 3 | Carga, Registrar Entrada | escritório | vincula esse `Receipt` ao transbordo e cria o `TransshipmentReceipt (15)` | **+ armazém** |
+| 4 | Pesagem | armazém | ticket de saída, gerando `Shipment (1)` do mesmo lote, com o **peso real carregado** | **− lote** |
+| 5 | Carga, Vincular saída do lote | escritório | vincula o `Shipment (1)` ao transbordo e **emite a liberação** pela quantidade real | — |
+| 6 | Expedição de Grãos | escritório | cria a Expedição a partir dessa liberação, gerando `SalesShipment (7)` | **− armazém** |
+| 7 | Carga, Vincular Romaneios | escritório | vincula a Expedição no papel do transbordo | conclui o transbordo; **carga faturável** |
 
-O caminhão é pesado de novo na saída, gerando `Shipment (1)` do MESMO lote de transbordo. A
-diferença entre o que entrou e o que saiu **fica como saldo do lote**, não como saldo de
-liberação: no exemplo do usuário, entram 50.000, carregam 49.000, e os 1.000 restantes continuam
-no lote — ninguém devolve, fatura ou libera esse resíduo automaticamente. Contraste direto com o
-armazém de terceiro (fase 1), onde a sobra vira saldo de uma liberação
-(`ReleaseOrigin.Transshipment`) que não consome o contrato.
+As duas dimensões fecham em zero, e a **sobra fica no lote** (no exemplo do usuário: entram
+50.000, carregam 49.000, sobram 1.000 no lote).
 
-### 4. A liberação só nasce quando a saída é vinculada à carga
+**Por que a liberação nasce no passo 5, e não na entrada:** o peso que sai só é conhecido no
+carregamento. Emiti-la na entrada, pelos 50.000, faria a sobra existir duas vezes — como saldo de
+liberação e como saldo de lote. Aqui ela nasce pelos 49.000 reais, e o resíduo tem um lugar só.
 
-Ao contrário do armazém de terceiro — onde `RegisterEntryService` já emite a liberação na
-ENTRADA —, em armazém próprio nada libera até a saída ser vinculada à carga pela página de
-Vincular Romaneios. É esse vínculo, do `Shipment (1)` de saída do lote de transbordo, que:
+**Por que o passo 6 não é automático** (decisão explícita do usuário): quem carrega é o armazém,
+quem documenta é o escritório, e o escritório recebe a informação do embarque depois. A Expedição
+de Grãos é o caminho que o escritório já usa para todo embarque, e é ela que alimenta faturamento,
+CT-e e o resto.
 
-1. emite a liberação, pela quantidade REAL carregada (não a que entrou no lote);
-2. conclui o transbordo;
-3. deixa a carga disponível para faturamento.
+### 3. O lote ganha uma natureza — campo novo, não valor novo em enum existente
 
-### 5. Sem romaneio 15, sem crédito de armazém — as duas pontas vivem no LOTE
+`StorageAddressNature` (`Regular = 0`, `Transshipment = 1`), campo próprio em `StorageAddress`.
 
-Em armazém próprio a fase 2 **não** cria `TransshipmentReceipt (15)` e **não** credita o saldo do
-ARMAZÉM. Entrada e saída vivem inteiramente na dimensão do LOTE (`Receipt`/`Shipment` do próprio
-`StorageAddress` de natureza Transbordo), nunca na do armazém. Creditar o armazém na entrada sem
-um débito simétrico na saída deixaria **crédito fantasma** — a mesma classe de defeito que o
-"Desenho 2" da transferência de titularidade corrigiu (`+Q` fantasma em armazém próprio) — e é a
-razão de fundo, não só o sintoma, por trás da trava da fase 1: o ramo antigo vinculava o `Receipt`
-sem nunca debitar nada na saída, e um crédito de armazém ali teria sido exatamente esse fantasma.
+- `OwnershipType` responde **de quem é a mercadoria**; `Status`, **o ciclo de vida do lote**.
+  Nenhum dos dois responde **para que serve** — e é essa a pergunta que "Transbordo" responde.
+- Emprestar um valor de `OwnershipType` misturaria eixos ortogonais: um lote de transbordo tem
+  dono de mercadoria como qualquer outro, e todo leitor que hoje decide por propriedade ganharia
+  um caso que não é sobre propriedade.
+- `Regular = 0` preserva todo lote existente sem backfill.
 
-### 6. Consequência a implementar: o volume da carga precisa aceitar `Shipment (1)`
+**Criação (decisão do usuário): manual, na tela de lotes.** A natureza é escolhida no cadastro, só
+é oferecida quando o armazém tem `WarehouseComplement.IsOwn == true`, e **não muda depois** — é o
+inverso exato da trava da fase 1.
 
-Hoje `ShipmentLoadsRecalculateTotalService` soma só `SalesShipment (7)` para o `TotalQuantity` da
-carga. A saída do transbordo em armazém de TERCEIRO também é `SalesShipment (7)` (o reembarque no
-armazém parceiro), mas a saída do transbordo em armazém PRÓPRIO é `Shipment (1)` — o tipo que sai
-de um lote, não de uma expedição de vendas. Isso exige, na implementação:
+### 4. Travas que o lote de transbordo obriga
 
-- `ShipmentLoadsRecalculateTotalService` somar também `Shipment (1)` quando ele carrega
-  `ShipmentLoadTransshipmentKey` (nunca `Shipment (1)` solto — preservando o comportamento de todo
-  lote comum não ligado a carga nenhuma);
-- a validação de papel do vínculo (`ShipmentLoadsAttachTransactionsService.ExpectedTransactionType`)
-  aceitar `Shipment (1)` como saída válida de um transbordo cujo armazém é próprio, ao lado de
-  `SalesShipment (7)` para os demais papéis.
-
-### 7. Lote de transbordo é invisível para a Expedição de Grãos comum e para os jobs de armazenagem
-
-Dois isolamentos, pelo mesmo motivo raiz — é mercadoria em trânsito, não armazenagem contratada:
-
-- **Fora da Expedição de Grãos comum** (`StorageAddressesListOpenedByItemService` e qualquer outra
-  consulta que ofereça lotes para expedir livremente): um lote `Nature = Transshipment` não pode
-  aparecer como opção solta. Se aparecesse, alguém embarcaria o grão por fora do fluxo de Vincular
-  Romaneios da carga, e a carga ficaria esperando para sempre uma saída que já aconteceu.
+- **Só o `Receipt` de um lote de transbordo** pode ser vinculado como entrada (passo 3), e só a um
+  transbordo **aberto daquela carga**. O ramo da fase 1, que aceitava qualquer `Receipt` confirmado
+  do armazém, é substituído por esta regra.
+- **Só o `Shipment (1)` do MESMO lote** pode ser vinculado como saída do lote (passo 5).
+- **Lote de transbordo é invisível para a Expedição de Grãos comum** e para qualquer consulta que
+  ofereça lote livre para expedir (`StorageAddressesListOpenedByItemService` e irmãs). Se
+  aparecesse, alguém embarcaria o grão por fora e a carga ficaria esperando uma saída que já
+  aconteceu.
 - **Fora dos jobs de cobrança de armazenagem e de quebra técnica**
-  (`StorageAddressesStorageChargeCalculatorService`, `StorageAddressesTechnicalLossCalculatorService`)
-  — mercadoria de passagem não é armazenagem contratada por terceiro nem estoque sujeito a quebra
-  técnica cobrável. Os demais leitores de saldo por lote listados em "Arquivos" da fase 1
-  (`StorageAddressesGetBalanceService`, `StorageAddressesDailyBalanceBuilderService`,
-  `SiagroB1.Reports/Services/StorageAddressReportService`) precisam ser revistos um a um quando a
-  fase 2 for desenhada em detalhe — alguns podem precisar ENXERGAR o lote de transbordo (ele tem
-  saldo real), só não oferecê-lo como origem de expedição solta nem de cobrança.
+  (`StorageAddressesStorageChargeCalculatorService`, `StorageAddressesTechnicalLossCalculatorService`):
+  é mercadoria em trânsito, não armazenagem contratada.
+- Os demais leitores de saldo por lote (`StorageAddressesGetBalanceService`,
+  `StorageAddressesDailyBalanceBuilderService`, `StorageAddressReportService`) **continuam
+  enxergando** o lote — ele tem saldo real; o que muda é só não oferecê-lo como origem livre nem
+  cobrá-lo.
 
-### Fora de escopo desta fase 2 (não decidido nesta conversa)
+### 5. A liberação do passo 5
 
-Transbordo de terceiro num lote (`Nature = Transshipment` com `OwnershipType != OwnedInOurCustody`),
-múltiplos ciclos de entrada/saída no mesmo lote antes de fechar o transbordo, e o destino do saldo
-residual do lote (os 1.000 do exemplo) quando a carga é cancelada ou o transbordo é estornado.
+Origem `ReleaseOrigin.Transshipment`, **sem lote** (o lote já foi debitado pelo `Shipment (1)`;
+carregá-la com lote faria a Expedição drenar o lote uma segunda vez), quantidade igual ao peso real
+carregado, **não consome contrato** (já debitado na origem), uma por contrato rastreado a partir
+das saídas da origem — o mesmo rastreio e rateio de `ShipmentReleasesFromReturnService`, com
+`GeneratedByStorageTransactionKey` apontando o `Shipment (1)` que a originou.
+
+### 6. Situações do transbordo
+
+Ganha um estado intermediário em relação à fase 1: **Aguardando entrada, Aguardando saída,
+Aguardando expedição, Concluído**. O `HasOpenTransshipmentAsync` continua correto sem mudança: ele
+procura `SalesShipment` vinculado ao transbordo, então a carga permanece `InTransshipment` entre os
+passos 5 e 7, que é o comportamento desejado.
+
+**O volume da carga não muda de regra:** continua contando só `SalesShipment (7)`. O `Shipment (1)`
+do lote é movimento físico de armazém, não volume faturável — o que torna desnecessária a mudança
+em `ShipmentLoadsRecalculateTotalService` que a versão anterior deste desenho previa.
+
+### 7. Estorno e cancelamento
+
+- Estornar o transbordo depois do passo 5 e antes do 7 cancela a liberação (que ainda não tem
+  consumo), desvincula o `Shipment (1)` e cancela o `15`.
+- **A sobra do lote fica no lote** (decisão do usuário), que **mantém a natureza Transbordo** e
+  segue invisível para a Expedição comum. Ela só sai vinculada a outra carga, num transbordo novo.
+- O `Shipment (1)` e o `Receipt (0)` do lote **não são cancelados** pelo estorno: são movimento
+  físico pesado na balança, com ciclo próprio.
+
+### Fora de escopo desta fase 2
+
+Transbordo de terceiro num lote (`Nature = Transshipment` fora de armazém próprio) e múltiplos
+ciclos de entrada e saída no mesmo lote antes de fechar o transbordo.
