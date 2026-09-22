@@ -423,6 +423,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsTransshipmentStartService>();
         services.AddScoped<ShipmentLoadsTransshipmentRegisterEntryService>();
         services.AddScoped<ShipmentLoadsTransshipmentReverseService>();
+        services.AddScoped<ShipmentLoadsTransshipmentsGetService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();
