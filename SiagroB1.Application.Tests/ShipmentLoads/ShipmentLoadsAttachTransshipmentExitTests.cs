@@ -223,6 +223,29 @@ public class ShipmentLoadsAttachTransshipmentExitTests
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync(x => x.Key == exit.Key)).ShipmentLoadKey);
     }
 
+    /// <summary>
+    /// Revisão da Task 7: dois transbordos da MESMA carga podem compartilhar o armazém (um
+    /// encerrado, outro reaberto depois). O antigo <c>FirstOrDefault</c> citava só o primeiro da
+    /// lista — podendo nomear o transbordo ERRADO. Ambíguo, a mensagem agora lista os dois em vez
+    /// de arriscar um palpite.
+    /// </summary>
+    [Fact]
+    public async Task Attach_WithoutTransshipmentKey_NamesAllCandidatesWhenTheWarehouseIsAmbiguous()
+    {
+        var load = Load(ShipmentLoadStatus.InTransshipment);
+        Transshipment(load, sequence: 1, warehouseCode: "ARM99", entryStorageTransactionKey: Guid.NewGuid());
+        Transshipment(load, sequence: 2, warehouseCode: "ARM99", entryStorageTransactionKey: Guid.NewGuid());
+        var exit = Shipment("R2", warehouseCode: "ARM99");
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => AttachService().ExecuteAsync(load.Key, [exit.Key], null, "tester"));
+
+        Assert.Contains("R2", error.Message);
+        Assert.Contains("1, 2", error.Message);
+        Assert.Null((await _db.Context.StorageTransactions.SingleAsync(x => x.Key == exit.Key)).ShipmentLoadKey);
+    }
+
     // ─────────────────────────────── Detach ───────────────────────────────
 
     /// <summary>
@@ -265,8 +288,12 @@ public class ShipmentLoadsAttachTransshipmentExitTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => DetachService().ExecuteAsync(load.Key, [origin.Key], "tester"));
 
-        Assert.Contains("R1", error.Message);
-        Assert.Contains("transbordo", error.Message, StringComparison.OrdinalIgnoreCase);
+        // Revisão da Task 7: mensagem reescrita para nomear o romaneio e a carga com clareza,
+        // em vez das três frases curtas encadeadas de antes.
+        Assert.Equal(
+            "O romaneio R1 é a saída de origem da carga CG000001, que tem transbordo. As " +
+            "liberações do transbordo dependem dele — estorne o transbordo antes de desvinculá-lo.",
+            error.Message);
         Assert.Equal(
             load.Key,
             (await _db.Context.StorageTransactions.SingleAsync(x => x.Key == origin.Key)).ShipmentLoadKey);

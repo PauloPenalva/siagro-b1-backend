@@ -153,8 +153,8 @@ public class ShipmentLoadsDetachTransactionsService(
 
         if (hasTransshipment)
             throw new ApplicationException(
-                $"O romaneio {originShipment.Code} é saída de origem da carga {load.Code}, que " +
-                "tem transbordo. As liberações do transbordo derivam deste romaneio. Estorne o " +
-                "transbordo antes.");
+                $"O romaneio {originShipment.Code} é a saída de origem da carga {load.Code}, que " +
+                "tem transbordo. As liberações do transbordo dependem dele — estorne o transbordo " +
+                "antes de desvinculá-lo.");
     }
 }

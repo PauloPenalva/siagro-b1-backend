@@ -276,6 +276,13 @@ public class ShipmentLoadsAttachTransactionsService(
     /// COM ENTRADA REGISTRADA: ele é a saída daquele transbordo disfarçada de vinculação comum, e
     /// entrar por aqui deixaria a carga sem o carimbo que fecha o transbordo.
     /// </summary>
+    /// <remarks>
+    /// Revisão da Task 7: dois transbordos da MESMA carga podem compartilhar o
+    /// <c>WarehouseCode</c> (um encerrado, outro reaberto depois no mesmo armazém parceiro). Um
+    /// <c>FirstOrDefault</c> citaria só o primeiro da lista, arriscando nomear o transbordo
+    /// ERRADO na mensagem. Ambíguo, a mensagem lista TODOS os candidatos daquele armazém em vez
+    /// de adivinhar; só nomeia um número quando ele é o único.
+    /// </remarks>
     private async Task<ShipmentLoadTransshipment?> EnsureNoneIsATransshipmentWarehouseAsync(
         ShipmentLoad load, List<StorageTransaction> shipments)
     {
@@ -288,13 +295,25 @@ public class ShipmentLoadsAttachTransactionsService(
 
         foreach (var shipment in shipments)
         {
-            var match = registered.FirstOrDefault(x =>
-                string.Equals(x.WarehouseCode, shipment.WarehouseCode, StringComparison.OrdinalIgnoreCase));
+            var matches = registered
+                .Where(x => string.Equals(
+                    x.WarehouseCode, shipment.WarehouseCode, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Sequence)
+                .ToList();
 
-            if (match != null)
+            if (matches.Count == 0)
+                continue;
+
+            if (matches.Count == 1)
                 throw new ApplicationException(
-                    $"O romaneio {shipment.Code} é do armazém do transbordo {match.Sequence} desta " +
-                    $"carga. Vincule-o como saída do transbordo {match.Sequence}.");
+                    $"O romaneio {shipment.Code} é do armazém do transbordo {matches[0].Sequence} " +
+                    $"desta carga. Vincule-o como saída do transbordo {matches[0].Sequence}.");
+
+            var sequences = string.Join(", ", matches.Select(x => x.Sequence));
+
+            throw new ApplicationException(
+                $"O romaneio {shipment.Code} é do armazém de mais de um transbordo desta carga " +
+                $"({sequences}). Vincule-o pela tela de transbordo, informando o transbordo certo.");
         }
 
         return null;
