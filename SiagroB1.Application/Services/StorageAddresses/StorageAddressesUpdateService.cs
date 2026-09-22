@@ -25,7 +25,20 @@ public class StorageAddressesUpdateService(
         {
             throw new ApplicationException("This record was created by another transaction. It cannot be updated.");
         }
-        
+
+        // Natureza é escolhida na criação e imutável (GAC-1181 fase 2). ⚠️ No fluxo OData (PATCH),
+        // `existingAddress` e `entity` chegam sendo a MESMA instância rastreada, já com o valor
+        // novo aplicado por Delta.Patch — comparar existingAddress.Nature com entity.Nature nunca
+        // acusaria a mudança. Só OriginalValues ainda guarda o valor persistido no banco.
+        var originalNature = context.Entry(existingAddress)
+            .OriginalValues.GetValue<StorageAddressNature>(nameof(StorageAddress.Nature));
+
+        if (entity.Nature != originalNature)
+        {
+            throw new ApplicationException(
+                $"A natureza do lote {code} não pode ser alterada após a criação.");
+        }
+
         try
         {
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;

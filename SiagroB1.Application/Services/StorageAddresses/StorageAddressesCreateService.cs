@@ -9,15 +9,31 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.StorageAddresses;
 
 public class StorageAddressesCreateService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     DocNumberSequenceService numberSequenceService,
     IBusinessPartnerService  businessPartnerService,
     IItemService itemService,
     IWarehouseService warehouseService,
+    IWarehouseComplementService warehouseComplementService,
     ILogger<StorageAddressesCreateService> logger)
 {
     public async Task<StorageAddress> ExecuteAsync(StorageAddress entity, string userName)
     {
+        // Natureza Transbordo só existe em armazém próprio (GAC-1181 fase 2): sem porta de saída
+        // documentada, o lote ficaria com mercadoria que nenhum fluxo de terceiro sabe liberar.
+        // Validação antes de qualquer escrita: este serviço não abre transação.
+        if (entity.Nature == StorageAddressNature.Transshipment)
+        {
+            var complement = await warehouseComplementService.GetAsync(entity.WarehouseCode);
+
+            if (complement?.IsOwn != true)
+            {
+                throw new ApplicationException(
+                    $"O armazém {entity.WarehouseCode} não é armazém próprio. " +
+                    "Lote de natureza Transbordo só pode ser criado em armazém próprio.");
+            }
+        }
+
         entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageAddress);
         
         try

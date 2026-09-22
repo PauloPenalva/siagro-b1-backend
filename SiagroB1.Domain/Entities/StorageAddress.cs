@@ -18,7 +18,13 @@ public class StorageAddress : MasterEntity
     /// compra na transferência de titularidade.
     /// </summary>
     public StorageOwnershipType OwnershipType { get; set; } = StorageOwnershipType.ThirdParty;
-    
+
+    /// <summary>
+    /// Natureza do lote (GAC-1181 fase 2). Escolhida na criação e imutável: trocar a natureza
+    /// de um lote com saldo mudaria o significado de movimentos já gravados.
+    /// </summary>
+    public StorageAddressNature Nature { get; set; } = StorageAddressNature.Regular;
+
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Description { get; set; }
 
