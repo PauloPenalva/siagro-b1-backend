@@ -905,7 +905,7 @@ Comportamento, em ordem:
 1. Carrega o transbordo + a carga; `EnsureLoadAcceptsTransshipment`; recusa se `EntryStorageTransactionKey != null` ("A entrada do transbordo N já foi registrada. Estorne-o para corrigir.").
 2. Resolve o armazém por `IWarehouseService` e o complemento por `IWarehouseComplementService`.
 3. **Armazém próprio (`IsOwn`)**: exige `receiptStorageTransactionKey`; valida que é `Receipt`, `Confirmed`, do mesmo armazém, produto, filial e unidade da carga, sem `ShipmentLoadKey` e sem `ShipmentLoadTransshipmentKey`; grava `ShipmentLoadTransshipmentKey` nele; `EntryQuantity = GrossWeight` dele; **não cria liberação** (o grão entrou no lote pela Entrada em Armazenagem).
-4. **Armazém de terceiro**: exige peso > 0 e `<= OutgoingQuantity + Tolerance`; monta o romaneio 15 com `BranchCode/ItemCode/UnitOfMeasureCode/TruckCode/TruckDriverCode` da carga, `WarehouseCode` do transbordo, `CardCode` do **primeiro romaneio de saída da origem** da carga (a coluna é `NOT NULL`; com clientes/fornecedores distintos, todos ficam listados no `Comments`), `GrossWeight` informado, `TareWeight` opcional, `Comments` narrando carga e transbordo. Cria com `storageCreate.ExecuteAsync(entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred)`, `SaveChangesAsync`, confirma com `storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred)`, `SaveChangesAsync`.
+4. **Armazém de terceiro**: exige peso > 0 e `<= OutgoingQuantity + Tolerance`; monta o romaneio 15 com `BranchCode/ItemCode/UnitOfMeasureCode/TruckCode/TruckDriverCode` da carga, `WarehouseCode` do transbordo, `CardCode` do **primeiro romaneio de saída da origem** da carga (a coluna é `NOT NULL`; com clientes/fornecedores distintos, todos ficam listados no `Comments`), `GrossWeight` informado (peso único da entrada; **não existe tara em `StorageTransaction`** — ver a decisão registrada no ledger da Task 5), `Comments` narrando carga e transbordo. Cria com `storageCreate.ExecuteAsync(entry, userName, TransactionCode.ShipmentLoad, CommitMode.Deferred)`, `SaveChangesAsync`, confirma com `storageConfirm.ExecuteAsync(entry, userName, CommitMode.Deferred)`, `SaveChangesAsync`.
 5. Emite as liberações: `DistributeByWeight(origemExits, entryQuantity)` → `returnReleases.BuildAsync(entry, shares, warehouse.Code, warehouse.Name, userName, ReleaseOrigin.Transshipment)` → `AddRange` + `Comments` do volume órfão. **Falha aqui não derruba o registro** — o caminhão já descarregou.
 6. Grava `EntryQuantity`, `EntryStorageTransactionKey`, `UpdatedAt/By`; `SaveChangesAsync`; `RecalculateInvoicedService.RecalculateAsync`; `movementLog.Register(..., TransshipmentEntered, 0, load.AvailableQuantity, "Entrada do transbordo N registrada no armazém (X): 29.800,000. Quebra: 200,000. Romaneio 00001234.", userName)`; `SaveChangesAsync`; commit.
 
@@ -1056,7 +1056,7 @@ Em `StorageTransactionsCancelService` e `StorageTransactionsReverseService`, jun
 - Create: `SiagroB1.Application/Services/ShipmentLoads/ShipmentLoadsTransshipmentsGetService.cs`
 - Test: `SiagroB1.Application.Tests/ShipmentLoads/ShipmentLoadTransshipmentEdmModelTests.cs`
 
-- [ ] **Step 1: Escrever o teste de EDM que falha** — no molde de `ShipmentLoadDischargeEdmModelTests`: monta o EDM real (`new ODataConventionModelBuilder().ConfigureODataEntities().GetEdmModel()`) e assere: entity set `ShipmentLoadsTransshipments`; as três actions; `GrossWeight`/`TareWeight` como `Edm.Double`; `TransshipmentDate` como `Edm.String`; `TareWeight`, `Comments` e `ReceiptStorageTransactionKey` como `IEdmOptionalParameter`; `ShipmentLoad` expondo `TransshippedQuantity` e `AvailableQuantity`.
+- [ ] **Step 1: Escrever o teste de EDM que falha** — no molde de `ShipmentLoadDischargeEdmModelTests`: monta o EDM real (`new ODataConventionModelBuilder().ConfigureODataEntities().GetEdmModel()`) e assere: entity set `ShipmentLoadsTransshipments`; as três actions; `GrossWeight` como `Edm.Double`; `TransshipmentDate` como `Edm.String`; `GrossWeight`, `Comments` e `ReceiptStorageTransactionKey` como `IEdmOptionalParameter`; `ShipmentLoad` expondo `TransshippedQuantity` e `AvailableQuantity`.
 
 - [ ] **Step 2: Rodar e ver falhar.**
 
@@ -1078,7 +1078,6 @@ Em `StorageTransactionsCancelService` e `StorageTransactionsReverseService`, jun
         transshipmentEntry.Parameter<Guid>("Key");
         transshipmentEntry.Parameter<string>("EntryDate");
         transshipmentEntry.Parameter<double>("GrossWeight").Optional();
-        transshipmentEntry.Parameter<double>("TareWeight").Optional();
         transshipmentEntry.Parameter<Guid?>("ReceiptStorageTransactionKey").Optional();
 
         var transshipmentReverse = modelBuilder.Action("ShipmentLoadsTransshipmentReverse");
@@ -1115,7 +1114,7 @@ E o parâmetro novo da vinculação: `ShipmentLoadsAttachTransactions` ganha `Pa
 
 - [ ] **Step 1: Fragmento da tabela** — `t:Table id="loadTransshipmentsTable"`, `rows="{ path: 'Transshipments', parameters: { '$$ownRequest': true, '$select': 'Key,Sequence,Origin,WarehouseCode,WarehouseName,TransshipmentDate,OutgoingQuantity,EntryQuantity,ShrinkageQuantity,EntryStorageTransactionKey,Comments' }, sorter: { path: 'Sequence' } }"`. Colunas: Seq., Origem (`formatTransshipmentOrigin`), Armazém, Data, Saída, Entrada, Quebra, Situação (`formatTransshipmentStatus`: "Aguardando entrada" / "Aguardando saída" / "Concluído"). Toolbar com **Iniciar Transbordo**, **Registrar Entrada** e **Estornar**, com `visible` espelhando as regras do servidor.
 
-- [ ] **Step 2: Fragmento do diálogo** — buffer JSON `viewModel>/transshipmentDialog/...` (nunca two-way no contexto OData), `DatePicker` com `valueFormat="yyyy-MM-dd"`, Inputs de peso com `sap.ui.model.type.Float` (3 casas, pt-BR), value help de armazém escrito **à mão** no model do diálogo, e, quando o armazém é próprio, um `Select` do `Receipt` da Entrada em Armazenagem.
+- [ ] **Step 2: Fragmento do diálogo** — buffer JSON `viewModel>/transshipmentDialog/...` (nunca two-way no contexto OData), `DatePicker` com `valueFormat="yyyy-MM-dd"`, um **único** Input de peso de entrada com `sap.ui.model.type.Float` (3 casas, pt-BR), value help de armazém escrito **à mão** no model do diálogo, e, quando o armazém é próprio, um `Select` do `Receipt` da Entrada em Armazenagem.
 
 - [ ] **Step 3: Handlers no `BaseController.ts`** — `onStartTransshipment`, `onRegisterTransshipmentEntry`, `onReverseTransshipment`, `refreshTransshipments`. Padrão: `Fragment.load({ id: this.getView().getId(), controller: this })` com `addDependent` dentro do `if`; trava `_transshipmentInFlight` avaliada **antes do primeiro await**; `bindContext("/Action(...)")` + `setParameter` + `await invoke()`; fechar o diálogo **depois** do resolve; `refresh` do contexto do elemento + tabelas.
 
