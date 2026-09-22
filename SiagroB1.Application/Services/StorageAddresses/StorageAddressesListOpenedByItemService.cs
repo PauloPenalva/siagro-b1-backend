@@ -14,7 +14,12 @@ public class StorageAddressesListOpenedByItemService(IUnitOfWork db)
             .Include(a => a.Transactions)
             .Where(a =>
                 a.ItemCode == itemCode &&
-                a.Status == StorageAddressStatus.Open)
+                a.Status == StorageAddressStatus.Open &&
+                // Lote de transbordo guarda mercadoria em trânsito, não disponível para
+                // expedir por fora: se aparecesse aqui, alguém embarcaria o grão por fora e a
+                // carga do transbordo ficaria esperando uma saída que já aconteceu (GAC-1181
+                // fase 2).
+                a.Nature == StorageAddressNature.Regular)
             .Select(a => new StorageAddressBalanceDto
             { 
                 Code = a.Code,
