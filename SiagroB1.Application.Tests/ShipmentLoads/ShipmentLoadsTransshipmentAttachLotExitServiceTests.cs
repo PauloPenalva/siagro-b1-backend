@@ -328,6 +328,37 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
         Assert.Contains("já tem uma saída de lote vinculada", error.Message);
     }
 
+    // ---------- vínculo ----------
+
+    /// <summary>
+    /// A escrita central deste serviço: <c>lotExit.ShipmentLoadTransshipmentKey</c> GRAVADO
+    /// apontando o transbordo — não só <c>transshipment.LotExitStorageTransactionKey</c>, o lado
+    /// que <see cref="AttachLotExit_RefusesWhenAnExitIsAlreadyAttached"/> já cobre (de lado, ao
+    /// decidir a recusa da segunda tentativa por ele). É a chave NO ROMANEIO, e não a chave no
+    /// transbordo, que <c>ShipmentLoadsTransshipmentReverseService</c> (Task 6) usa para achar e
+    /// desvincular a saída do lote no estorno — sem teste direto aqui, uma regressão nessa
+    /// atribuição só apareceria mais tarde, no estorno.
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_PersistsTheLinkOnTheLotExitTransaction()
+    {
+        var (load, transshipment, _, _) = await SeedRegisteredTransshipmentAsync();
+        var lotExit = await SeedLotExitAsync(load, TransshipmentLotCode, 49_000m);
+
+        await Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester");
+
+        // Limpa o tracker e relê do banco: a asserção precisa provar o que ficou GRAVADO, não o
+        // que o serviço deixou em memória neste mesmo DbContext — mesmo precedente de
+        // ShipmentLoadsTransshipmentReverseOwnWarehouseTests (GAC-1181, Task 6, Round 1).
+        _db.Context.ChangeTracker.Clear();
+
+        var savedLotExit = await _db.Context.StorageTransactions
+            .AsNoTracking()
+            .SingleAsync(x => x.Key == lotExit.Key);
+
+        Assert.Equal(transshipment.Key, savedLotExit.ShipmentLoadTransshipmentKey);
+    }
+
     // ---------- liberação ----------
 
     [Fact]
