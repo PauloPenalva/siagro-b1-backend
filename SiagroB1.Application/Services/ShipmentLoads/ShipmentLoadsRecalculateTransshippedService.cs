@@ -43,9 +43,23 @@ public static class ShipmentLoadsRecalculateTransshippedService
         if (last?.Key is not { } transshipmentKey)
             return false;
 
-        return !await context.StorageTransactions.AnyAsync(x =>
+        return !await IsClosedAsync(context, transshipmentKey);
+    }
+
+    /// <summary>
+    /// Este transbordo ESPECÍFICO já tem a Expedição de venda (<see cref="StorageTransactionType
+    /// .SalesShipment"/>, o 7) vinculada — quem fecha de verdade o transbordo, ao contrário da
+    /// saída do lote (GAC-1181 fase 2, Task 4), que não conclui nada.
+    /// </summary>
+    /// <remarks>
+    /// Parametrizado pela CHAVE do transbordo, não pelo "último da carga" como
+    /// <see cref="HasOpenTransshipmentAsync"/> — usado por quem decide sobre uma linha específica
+    /// já achada por chave (<c>ShipmentLoadsTransshipmentAttachLotExitService</c>), onde presumir
+    /// que ela é a última da carga reabriria um transbordo ANTIGO já concluído.
+    /// </remarks>
+    public static Task<bool> IsClosedAsync(AppDbContext context, Guid transshipmentKey) =>
+        context.StorageTransactions.AnyAsync(x =>
             x.ShipmentLoadTransshipmentKey == transshipmentKey &&
             x.TransactionType == StorageTransactionType.SalesShipment &&
             x.TransactionStatus != StorageTransactionsStatus.Cancelled);
-    }
 }

@@ -201,7 +201,8 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
         string lotCode,
         decimal grossWeight,
         string code = "S0001",
-        StorageTransactionType type = StorageTransactionType.Shipment)
+        StorageTransactionType type = StorageTransactionType.Shipment,
+        decimal? netWeight = null)
     {
         var lotExit = new StorageTransaction
         {
@@ -214,7 +215,7 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
             BranchCode = load.BranchCode,
             StorageAddressCode = lotCode,
             GrossWeight = grossWeight,
-            NetWeight = grossWeight,
+            NetWeight = netWeight ?? grossWeight,
             TransactionType = type,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
         };
@@ -511,5 +512,232 @@ public class ShipmentLoadsTransshipmentAttachLotExitServiceTests
             .SingleAsync(x => x.Code == TransshipmentLotCode);
 
         Assert.Equal(1_000m, lot.Balance);
+    }
+
+    // ---------- revisão final da fase 2 ----------
+
+    /// <summary>
+    /// DEFEITO 1 (alto) da revisão final, guarda 1/3: o discriminador precisa ser ESTRUTURAL — o
+    /// TIPO do romaneio de entrada persistido, não <c>IsOwn</c> ao vivo (regra temporal do
+    /// <c>&lt;remarks&gt;</c> de <see cref="ShipmentLoadTransshipmentRules"/>). Em armazém de
+    /// TERCEIRO a entrada é o próprio <c>TransshipmentReceipt</c> (o 15), sem lote — a revisão
+    /// provou por execução que, sem esta recusa, um <c>Shipment (1)</c> confirmado e sem lote
+    /// (a tela de Romaneios permite criar um assim: "Lote de Armazenagem" não é obrigatório para
+    /// Saída) passava pela checagem de "mesmo lote" (dois <c>null</c> via <c>string.Equals</c>) e
+    /// emitia uma SEGUNDA liberação de origem Transbordo sobre a mesma mercadoria (50.000 e
+    /// 49.000 liberáveis para 50.000 kg reais).
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_RefusesForThirdPartyWarehouseTransshipment()
+    {
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000009",
+            BranchCode = "01",
+            ItemCode = "SOJA",
+            ItemName = "SOJA EM GRAOS",
+            UnitOfMeasureCode = "KG",
+            TruckCode = "ABC1D23",
+            WarehouseCode = OriginWarehouse,
+            Status = ShipmentLoadStatus.InTransshipment,
+            TotalQuantity = 50_000m,
+        };
+
+        var origin = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "R0001",
+            CardCode = CardCode,
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = OriginWarehouse,
+            BranchCode = "01",
+            TruckCode = "ABC1D23",
+            GrossWeight = 50_000m,
+            NetWeight = 50_000m,
+            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            ShipmentLoadKey = load.Key,
+        };
+
+        var transshipment = new ShipmentLoadTransshipment
+        {
+            ShipmentLoadKey = load.Key,
+            Sequence = 1,
+            WarehouseCode = TransshipmentWarehouse,
+            WarehouseName = "ARMAZEM TERCEIRO",
+            OutgoingQuantity = 50_000m,
+            EntryQuantity = 50_000m,
+        };
+
+        // O 15 de terceiro: por desenho, NÃO tem lote.
+        var thirdPartyEntry = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "E0001",
+            CardCode = "F0001",
+            ItemCode = load.ItemCode,
+            UnitOfMeasureCode = load.UnitOfMeasureCode,
+            WarehouseCode = TransshipmentWarehouse,
+            BranchCode = load.BranchCode,
+            StorageAddressCode = null,
+            GrossWeight = 50_000m,
+            NetWeight = 50_000m,
+            TransactionType = StorageTransactionType.TransshipmentReceipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+        };
+
+        _db.Context.ShipmentLoads.Add(load);
+        _db.Context.StorageTransactions.Add(origin);
+        _db.Context.StorageTransactions.Add(thirdPartyEntry);
+        _db.Context.ShipmentLoadsTransshipments.Add(transshipment);
+        await _db.SaveChangesAsync();
+
+        thirdPartyEntry.ShipmentLoadTransshipmentKey = transshipment.Key;
+        transshipment.EntryStorageTransactionKey = thirdPartyEntry.Key;
+        await _db.SaveChangesAsync();
+
+        // Um Shipment (1) confirmado, SEM lote e sem vínculo — o romaneio "solto" que a revisão
+        // usou para provar a liberação em dobro.
+        var rogueExit = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "S0099",
+            CardCode = "F0001",
+            ItemCode = load.ItemCode,
+            UnitOfMeasureCode = load.UnitOfMeasureCode,
+            WarehouseCode = TransshipmentWarehouse,
+            BranchCode = load.BranchCode,
+            StorageAddressCode = null,
+            GrossWeight = 49_000m,
+            NetWeight = 49_000m,
+            TransactionType = StorageTransactionType.Shipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+        };
+        _db.Context.StorageTransactions.Add(rogueExit);
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, rogueExit.Key, "tester"));
+
+        Assert.Contains("armazém de terceiro", error.Message);
+
+        Assert.Empty(await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .Where(x => x.Origin == ReleaseOrigin.Transshipment)
+            .ToListAsync());
+    }
+
+    /// <summary>
+    /// DEFEITO 1 (alto) da revisão final, guarda 2/3: sem exigir o transbordo ainda ABERTO, nada
+    /// impedia vincular uma saída de lote a um transbordo cuja Expedição de venda (o
+    /// <c>SalesShipment</c>, 7) já tivesse sido vinculada — reabrindo um transbordo já concluído.
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_RefusesWhenTheTransshipmentIsAlreadyClosed()
+    {
+        var (load, transshipment, _, _) = await SeedRegisteredTransshipmentAsync();
+
+        // A Expedição de venda que fecha o transbordo (Task 7) — HasOpenTransshipmentAsync/
+        // IsClosedAsync leem exatamente este vínculo.
+        var closingSalesShipment = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "SS0001",
+            CardCode = "F0001",
+            ItemCode = load.ItemCode,
+            UnitOfMeasureCode = load.UnitOfMeasureCode,
+            WarehouseCode = TransshipmentWarehouse,
+            BranchCode = load.BranchCode,
+            GrossWeight = 49_000m,
+            NetWeight = 49_000m,
+            TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            ShipmentLoadTransshipmentKey = transshipment.Key,
+        };
+        _db.Context.StorageTransactions.Add(closingSalesShipment);
+        await _db.SaveChangesAsync();
+
+        var lotExit = await SeedLotExitAsync(load, TransshipmentLotCode, 500m, "S0099");
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester"));
+
+        Assert.Contains("já foi concluído", error.Message);
+    }
+
+    /// <summary>
+    /// DEFEITO 1 (alto) da revisão final, guarda 3/3: <c>string.Equals(null, null)</c> devolve
+    /// <c>true</c> — a checagem de "mesmo lote" precisa recusar quando QUALQUER um dos lados não
+    /// tem lote, e não só quando os códigos são diferentes. Força os dois lados sem
+    /// <c>StorageAddressCode</c> (cenário defensivo: numa carga real
+    /// <c>EnsureReceiptIsFromTransshipmentLotAsync</c> já barraria uma entrada própria sem lote
+    /// antes de chegar aqui, mas esta checagem precisa se sustentar sozinha).
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_RefusesWhenNeitherSideHasALot()
+    {
+        var (load, transshipment, _, entryReceipt) = await SeedRegisteredTransshipmentAsync();
+
+        entryReceipt.StorageAddressCode = null;
+        await _db.SaveChangesAsync();
+
+        var lotExit = await SeedLotExitAsync(load, TransshipmentLotCode, 49_000m);
+        lotExit.StorageAddressCode = null;
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester"));
+
+        Assert.Contains("outro lote", error.Message);
+    }
+
+    /// <summary>
+    /// DEFEITO 3 (médio) da revisão final: o LOTE é debitado por <c>NetWeight</c> na confirmação
+    /// do <c>Shipment (1)</c> — a liberação que devolve a mercadoria à Expedição de Grãos precisa
+    /// usar a MESMA grandeza, senão carrega peso que nunca saiu do lote. Nenhum outro teste desta
+    /// suíte tem <c>NetWeight != GrossWeight</c>, então nenhum outro cobre este caminho.
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_ReleaseUsesNetWeightWhenTheExitHasADiscount()
+    {
+        var contract = NewContract();
+        var originRelease = NewOriginRelease(contract.Key);
+        var (load, transshipment, _, _) = await SeedRegisteredTransshipmentAsync(
+            outgoing: 50_000m, entryQuantity: 50_000m, originReleaseKey: originRelease.Key);
+
+        var lotExit = await SeedLotExitAsync(
+            load, TransshipmentLotCode, grossWeight: 49_000m, netWeight: 48_500m);
+
+        await Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester");
+
+        var release = await _db.Context.ShipmentReleases
+            .AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.Transshipment);
+
+        Assert.Equal(48_500m, release.ReleasedQuantity);
+    }
+
+    /// <summary>
+    /// DEFEITO 5 (médio-baixo) da revisão final: <c>EnsureLotExitIsUsable</c> não conferia
+    /// filial/produto/unidade contra a carga, ao contrário do irmão
+    /// <c>EnsureOwnWarehouseReceiptIsUsable</c>. A liberação herda a filial do romaneio de SAÍDA,
+    /// não da carga (<c>ShipmentReleasesFromReturnService.Create</c>): sem esta checagem, um
+    /// ticket de saída aberto na filial errada faz a liberação nascer nessa filial e sumir da
+    /// Expedição da carga, que agrupa por filial com INNER JOIN.
+    /// </summary>
+    [Fact]
+    public async Task AttachLotExit_RefusesWhenTheBranchDoesNotMatchTheLoad()
+    {
+        var (load, transshipment, _, _) = await SeedRegisteredTransshipmentAsync();
+        var lotExit = await SeedLotExitAsync(load, TransshipmentLotCode, 49_000m);
+        lotExit.BranchCode = "99";
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, lotExit.Key, "tester"));
+
+        Assert.Contains("não corresponde ao produto, filial ou unidade", error.Message);
     }
 }

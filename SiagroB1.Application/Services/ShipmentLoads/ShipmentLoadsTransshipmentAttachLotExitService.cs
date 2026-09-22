@@ -82,7 +82,8 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
                       throw new NotFoundException(
                           $"Storage transaction not found key {lotExitStorageTransactionKey}");
 
-        ShipmentLoadTransshipmentRules.EnsureLotExitIsUsable(lotExit, transshipment, entryReceipt);
+        await ShipmentLoadTransshipmentRules.EnsureLotExitIsUsableAsync(
+            db.Context, lotExit, load, transshipment, entryReceipt);
 
         // Romaneios de saída da ORIGEM da carga (não os de um transbordo): é por eles que o
         // contrato de compra é rastreado, e é entre eles que o peso REAL carregado é rateado —
@@ -132,7 +133,7 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
                 load.AvailableQuantity,
                 $"Saída do lote do transbordo {transshipment.Sequence} vinculada no armazém " +
                 $"({transshipment.WarehouseCode}) {transshipment.WarehouseName}: " +
-                $"{lotExit.GrossWeight:N3}. Romaneio {lotExit.Code}.",
+                $"{lotExit.NetWeight:N3}. Romaneio {lotExit.Code}.",
                 userName,
                 movementContext: new ShipmentLoadMovementContext(
                     WarehouseCode: transshipment.WarehouseCode,
@@ -157,6 +158,13 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
     /// <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/>: volume sem contrato
     /// rastreável não falha, degrada para uma nota no <c>Comments</c> do romaneio.
     /// </summary>
+    /// <remarks>
+    /// A liberação usa <see cref="StorageTransaction.NetWeight"/>, a mesma grandeza que debitou o
+    /// LOTE na confirmação deste <c>Shipment</c> (<c>CalculateNetWeight</c>) — não
+    /// <see cref="StorageTransaction.GrossWeight"/>. Usar o bruto aqui faria a liberação (e o
+    /// crédito simétrico esperado no armazém) carregar um volume maior do que o que de fato saiu
+    /// do lote, sobrando peso fantasma sempre que o romaneio tiver desconto de qualidade.
+    /// </remarks>
     private async Task EmitReleasesAsync(
         StorageTransaction lotExit,
         IReadOnlyList<StorageTransaction> originShipments,
@@ -164,7 +172,7 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
         string? warehouseName,
         string userName)
     {
-        var shares = ShipmentReleasesFromReturnService.DistributeByWeight(originShipments, lotExit.GrossWeight);
+        var shares = ShipmentReleasesFromReturnService.DistributeByWeight(originShipments, lotExit.NetWeight);
 
         var build = await returnReleases.BuildAsync(
             lotExit, shares, warehouseCode, warehouseName, userName, ReleaseOrigin.Transshipment);

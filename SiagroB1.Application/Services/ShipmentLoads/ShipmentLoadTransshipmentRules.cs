@@ -202,12 +202,27 @@ public static class ShipmentLoadTransshipmentRules
 
     /// <summary>
     /// Fase 2 do GAC-1181, Task 4: o <c>Shipment (1)</c> que a office vincula precisa ser a saída
-    /// REAL do MESMO lote que recebeu a entrada — confirmado, do mesmo lote, e ainda sem vínculo
-    /// com outra carga ou outro transbordo. Mesmo molde de
-    /// <see cref="EnsureOwnWarehouseReceiptIsUsable"/>.
+    /// REAL do MESMO lote que recebeu a entrada — confirmado, do mesmo lote, do transbordo AINDA
+    /// aberto, e ainda sem vínculo com outra carga ou outro transbordo. Mesmo molde de
+    /// <see cref="EnsureOwnWarehouseReceiptIsUsable"/>, incluindo as mesmas conferências de
+    /// produto/filial/unidade contra a carga.
     /// </summary>
-    public static void EnsureLotExitIsUsable(
-        StorageTransaction lotExit, ShipmentLoadTransshipment transshipment, StorageTransaction entryReceipt)
+    /// <remarks>
+    /// <b>Só vale para transbordo em armazém PRÓPRIO.</b> O discriminador é ESTRUTURAL — o TIPO
+    /// persistido de <paramref name="entryReceipt"/> —, não <c>WarehouseComplement.IsOwn</c> lido
+    /// ao vivo: esta operação decide sobre uma linha (o transbordo) JÁ EXISTENTE, e é exatamente o
+    /// caso que o <c>&lt;remarks&gt;</c> da classe manda resolver pela estrutura persistida. Em
+    /// armazém de TERCEIRO a entrada é o próprio <see cref="StorageTransactionType.TransshipmentReceipt"/>
+    /// (o 15), que não tem lote — sem esta recusa, a checagem de lote abaixo comparava dois
+    /// <c>null</c> como iguais e deixava vincular uma segunda saída, emitindo liberação em dobro
+    /// (achado da revisão final da fase 2).
+    /// </remarks>
+    public static async Task EnsureLotExitIsUsableAsync(
+        AppDbContext context,
+        StorageTransaction lotExit,
+        ShipmentLoad load,
+        ShipmentLoadTransshipment transshipment,
+        StorageTransaction entryReceipt)
     {
         if (lotExit.TransactionType != StorageTransactionType.Shipment)
             throw new ApplicationException(
@@ -216,10 +231,35 @@ public static class ShipmentLoadTransshipmentRules
         if (lotExit.TransactionStatus != StorageTransactionsStatus.Confirmed)
             throw new ApplicationException("O romaneio informado não está confirmado.");
 
-        if (!string.Equals(lotExit.StorageAddressCode, entryReceipt.StorageAddressCode, StringComparison.OrdinalIgnoreCase))
+        if (entryReceipt.TransactionType != StorageTransactionType.Receipt)
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} é em armazém de terceiro — a saída do " +
+                "lote só existe em transbordo de armazém próprio.");
+
+        if (await ShipmentLoadsRecalculateTransshippedService.IsClosedAsync(context, transshipment.Key!.Value))
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} já foi concluído (a Expedição de venda já " +
+                "foi vinculada) e não aceita uma nova saída de lote.");
+
+        // Dois nulos não são "o mesmo lote": recusa quando qualquer um dos lados não tem lote,
+        // em vez de tratar null == null como uma coincidência válida.
+        if (string.IsNullOrWhiteSpace(lotExit.StorageAddressCode) ||
+            string.IsNullOrWhiteSpace(entryReceipt.StorageAddressCode) ||
+            !string.Equals(lotExit.StorageAddressCode, entryReceipt.StorageAddressCode, StringComparison.OrdinalIgnoreCase))
             throw new ApplicationException(
                 $"O romaneio informado é de outro lote — o transbordo {transshipment.Sequence} " +
                 "recebeu a entrada no lote do romaneio de Entrada em Armazenagem vinculado.");
+
+        // Mesma conferência do irmão EnsureOwnWarehouseReceiptIsUsable: a liberação herda a filial
+        // do romaneio de SAÍDA, não da carga — sem isso ela nasce na filial errada e some da
+        // Expedição por INNER JOIN de filial.
+        if (!string.Equals(lotExit.ItemCode, load.ItemCode, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(lotExit.BranchCode, load.BranchCode, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(lotExit.UnitOfMeasureCode, load.UnitOfMeasureCode, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApplicationException(
+                "O romaneio informado não corresponde ao produto, filial ou unidade da carga.");
+        }
 
         // Sem os dois nulos, o romaneio já pertence a outra carga ou já fechou outro transbordo —
         // vinculá-lo aqui roubaria a saída de quem já a usa.
