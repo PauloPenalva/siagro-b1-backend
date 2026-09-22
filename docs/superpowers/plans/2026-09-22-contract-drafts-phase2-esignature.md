@@ -1862,7 +1862,8 @@ do webhook."
 
 **Files:**
 - Create: `SiagroB1.Web/Hooks/D4SignWebhookEndpoint.cs`
-- Modify: `SiagroB1.Web/Program.cs` (`MapD4SignWebhook(app)` + aviso de boot)
+- Modify: `SiagroB1.Web/Program.cs` (`MapD4SignWebhook(app)`, aviso de boot e `AddHttpClient<IESignatureProvider, D4SignProvider>`)
+- Modify: `SiagroB1.Web/Extensions/ServiceCollectionExtensions.cs` (DI de toda a Fase 2 — ver Step 3)
 - Modify: `SiagroB1.Gateway/appsettings.json`, `appsettings.Development.json`, `appsettings.Yokotobi-Development.json` (e demais variantes que existirem) — rota `hooks-route`
 - Test: `SiagroB1.Application.Tests/ContractDrafts/D4SignWebhookSecretTests.cs`
 
@@ -1985,7 +1986,40 @@ public static class D4SignWebhookEndpoint
 }
 ```
 
-- [ ] **Step 3: `Program.cs`**
+- [ ] **Step 3: DI e HttpClient tipado**
+
+O endpoint do webhook injeta `IESignatureProvider` e `ContractDraftsApplyProviderStateService`, e o Minimal API resolve os parâmetros injetados **antes** de executar o handler — sem estes registros, o teste de fumaça do Step 5 devolve 500 em vez de 401. Por isso o DI de toda a Fase 2 entra aqui, não na Task 8.
+
+Em `SiagroB1.Web/Extensions/ServiceCollectionExtensions.cs`, no bloco `// contract drafts (minutas — fase 1)`:
+
+```csharp
+        services.AddScoped<ContractDraftsSendToSignatureService>();
+        services.AddScoped<ContractDraftsApplyProviderStateService>();
+        services.AddScoped<ContractDraftsCancelService>();
+        services.AddScoped<ContractDraftsRefreshStateService>();
+        services.AddScoped<ContractDraftsReconcileJob>();
+```
+
+Usings novos nesse arquivo, se faltarem: `SiagroB1.Application.Jobs;`.
+
+Em `SiagroB1.Web/Program.cs`, ao lado do `AddHttpClient` do WhatsApp:
+
+```csharp
+// Assinatura eletrônica. HttpClient tipado como o do WhatsApp; credenciais são lidas a cada
+// chamada pelo provider, por isso só o endereço e o timeout ficam aqui.
+builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
+{
+    var baseUrl = builder.Configuration["Signature:D4Sign:BaseUrl"]
+                  ?? "https://sandbox.d4sign.com.br/api/v1";
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+```
+
+Usings novos no `Program.cs`: `SiagroB1.Infra.ESignature.D4Sign;` e `SiagroB1.Domain.Interfaces;` (se faltar).
+
+- [ ] **Step 4: `Program.cs` — mapear o endpoint e avisar no boot**
 
 Ao lado de `MapTruckScaleWebSocket()` (procure a chamada; se não existir com esse nome, coloque junto dos outros `Map*` depois de `app.UseAuthorization()`):
 
@@ -2025,7 +2059,7 @@ static void WarnIfD4SignWebhookIsUnprotected(WebApplication app)
 
 Acrescente `using SiagroB1.Web.Hooks;` aos usings do `Program.cs`.
 
-- [ ] **Step 4: Rota no Gateway**
+- [ ] **Step 5: Rota no Gateway**
 
 Em **cada** `SiagroB1.Gateway/appsettings*.json`, dentro de `ReverseProxy:Routes`, acrescente — copiando a forma exata das rotas vizinhas do arquivo, que podem diferir deste esqueleto:
 
@@ -2039,14 +2073,14 @@ Em **cada** `SiagroB1.Gateway/appsettings*.json`, dentro de `ReverseProxy:Routes
 
 Só o endpoint do webhook responde sob `/hooks` no Web — nada mais fica exposto por essa rota.
 
-- [ ] **Step 5: Build e testes**
+- [ ] **Step 6: Build e testes**
 
 Run: `dotnet build SiagroB1.sln`; `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~D4SignWebhookSecretTests"` → PASS (7).
 
 Fumaça manual: suba o Web com `--launch-profile yktb` e
 `curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:50000/hooks/d4sign/errado` → **401**.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add SiagroB1.Web SiagroB1.Gateway SiagroB1.Application.Tests/ContractDrafts/D4SignWebhookSecretTests.cs
@@ -2368,7 +2402,7 @@ public class ContractDraftsRefreshStateController(ContractDraftsRefreshStateServ
 }
 ```
 
-- [ ] **Step 3: EDM, DI e HttpClient**
+- [ ] **Step 3: EDM**
 
 Em `ODataConfigurations.cs`, logo após o bloco `contractDraftsDownloadPdf` da Fase 1:
 
@@ -2386,32 +2420,7 @@ Em `ODataConfigurations.cs`, logo após o bloco `contractDraftsDownloadPdf` da F
         contractDraftsRefreshState.Returns<bool>();
 ```
 
-Em `ServiceCollectionExtensions.cs`, no bloco `// contract drafts (minutas — fase 1)`:
-
-```csharp
-        services.AddScoped<ContractDraftsSendToSignatureService>();
-        services.AddScoped<ContractDraftsApplyProviderStateService>();
-        services.AddScoped<ContractDraftsCancelService>();
-        services.AddScoped<ContractDraftsRefreshStateService>();
-        services.AddScoped<ContractDraftsReconcileJob>();
-```
-
-Em `Program.cs`, ao lado do `AddHttpClient` do WhatsApp:
-
-```csharp
-// Assinatura eletrônica. HttpClient tipado como o do WhatsApp; credenciais são lidas a cada
-// chamada pelo provider, por isso só o endereço e o timeout ficam aqui.
-builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
-{
-    var baseUrl = builder.Configuration["Signature:D4Sign:BaseUrl"]
-                  ?? "https://sandbox.d4sign.com.br/api/v1";
-
-    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-```
-
-Usings novos no `Program.cs`: `SiagroB1.Application.Jobs;` (se ainda não houver) e `SiagroB1.Infra.ESignature.D4Sign;`.
+**O DI e o HttpClient tipado já foram registrados na Task 6** — o endpoint do webhook depende deles, e o Minimal API resolve os parâmetros injetados antes de executar o handler. Não registre de novo aqui: duplicar `AddHttpClient<IESignatureProvider, D4SignProvider>` troca a implementação registrada e duplicar `AddScoped` é ruído. Confira que estão lá e siga.
 
 - [ ] **Step 4: Build, testes e fumaça**
 
