@@ -144,8 +144,11 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
                 entry = await CreateThirdPartyReceiptAsync(
                     load, transshipment, warehouse, originShipments, quantity, entryDate, userName);
 
-                // Falha aqui NÃO derruba o registro — o caminhão já descarregou. Volume sem
-                // contrato rastreável fica sem liberação e o motivo vai para o Comments do 15.
+                // Volume sem contrato rastreável não derruba o registro porque
+                // ShipmentReleasesFromReturnService.BuildAsync não lança nesse caso — degrada
+                // para Note (que vira Comments do 15). Não é isolamento de falha: uma exceção
+                // REAL aqui rodaria no mesmo try/catch que faz RollbackAsync logo abaixo e
+                // derrubaria a transação inteira, romaneio 15 incluído.
                 await EmitReleasesAsync(
                     entry, originShipments, warehouse, quantity, userName);
             }

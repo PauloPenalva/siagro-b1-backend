@@ -181,10 +181,20 @@ public class ShipmentLoadsTransshipmentRegisterEntryServiceTests
     /// consome, e a carga o alcança só por <c>ShipmentLoadTransshipmentKey</c> — nunca por
     /// <c>ShipmentLoadKey</c>, que o cancelamento zeraria e deixaria a entrada órfã.
     /// </summary>
+    /// <remarks>
+    /// A origem PRECISA carregar uma <c>ShipmentReleaseKey</c> real (não nula) para a metade
+    /// <c>ShipmentReleaseKey</c> da asserção provar algo: com a origem nula, um bug que copiasse
+    /// a chave da origem passaria pelo teste do mesmo jeito, porque o valor copiado também seria
+    /// nulo. Mesmo precedente de
+    /// <c>ShipmentLoadsRefuseServiceTests.A_refusal_release_is_linked_to_the_return_shipment_and_not_to_the_load</c>.
+    /// </remarks>
     [Fact]
     public async Task RegisterEntry_TheReceiptCarriesNeitherReleaseKeyNorLoadKey()
     {
-        var (_, transshipment, _) = await SeedStartedTransshipmentAsync(outgoing: 30_000);
+        var contract = NewContract();
+        var originRelease = NewOriginRelease(contract.Key);
+        var (_, transshipment, _) = await SeedStartedTransshipmentAsync(
+            outgoing: 30_000, originReleaseKey: originRelease.Key);
 
         await Service().ExecuteAsync(
             transshipment.Key!.Value, 29_800m, null, DateTime.Today, null, "tester");
