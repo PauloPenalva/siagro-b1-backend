@@ -8,15 +8,31 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.ShipmentLoads;
 
 /// <summary>
-/// GAC-1181 fase 2, Task 6 — estornar o transbordo em armazém PRÓPRIO depois que a saída do LOTE
-/// já foi vinculada (Task 4): a entrada (Task 3) creditou o armazém pelo <c>TransshipmentReceipt</c>
-/// (o 15) e a saída emitiu a liberação a partir do <c>Shipment (1)</c>, não do <c>Receipt (0)</c>.
+/// GAC-1181 fase 2, defeito 4 da revisão final (decisão do usuário, 2026-09-22) — estornar o
+/// transbordo em armazém PRÓPRIO depois que a saída do LOTE já foi vinculada (Task 4) agora é
+/// RECUSADO: o grão já saiu fisicamente do lote, pesado e recarregado no caminhão. Cancelar o
+/// crédito do armazém (o <c>TransshipmentReceipt</c>, o 15) inteiro nesse ponto quebrava a
+/// invariante que a fase 2 existe para manter — lote e armazém deixavam de terminar IGUAIS: o
+/// armazém zerava enquanto a sobra ficava presa só no lote, invisível para a Expedição de Grãos
+/// comum (que filtra fora todo lote de natureza Transbordo).
 /// </summary>
 /// <remarks>
+/// Antes desta correção, esta classe testava o CANCELAMENTO bem-sucedido desse mesmo estado
+/// completo (Task 3 + Task 4 aplicadas). Os testes antigos
+/// (<c>Reverse_OwnWarehouse_CancelsTheWarehouseCreditAndTheRelease</c>,
+/// <c>Reverse_OwnWarehouse_UnlinksBothWeighingRomaneiosWithoutCancellingThem</c>,
+/// <c>Reverse_OwnWarehouse_KeepsTheLeftoverAndTheLotNature</c> e
+/// <c>Reverse_OwnWarehouse_RefusesWhenTheReleaseWasAlreadyShipped</c>) ficaram VERMELHOS com a nova
+/// trava (<see cref="ShipmentLoadTransshipmentRules.EnsureLotExitNotAttachedForReversal"/>) e foram
+/// substituídos pelos de recusa abaixo — não é a trava pegando largo demais por engano, é
+/// exatamente o cenário (saída do lote já vinculada) que ela existe para barrar.
+/// <para>
 /// Complementa <see cref="ShipmentLoadsTransshipmentReverseServiceTests"/>: aquela classe cobre o
 /// estado que a Task 3 sozinha deixa (só o <c>Receipt</c> vinculado, sem 15 nem saída de lote — ver
-/// <see cref="ShipmentLoadsTransshipmentReverseServiceTests.Reverse_OwnWarehouse_OnlyUnlinksTheReceipt"/>,
-/// que continua verde sem nenhuma mudança). Esta cobre o estado completo, com a Task 4 já aplicada.
+/// <see cref="ShipmentLoadsTransshipmentReverseServiceTests.Reverse_OwnWarehouse_OnlyUnlinksTheReceipt"/>),
+/// que continua estornável exatamente como antes: a trava nova só olha
+/// <c>LotExitStorageTransactionKey</c>, presente apenas depois da Task 4.
+/// </para>
 /// </remarks>
 public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
 {
@@ -190,43 +206,115 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
         return (load, transshipment, receipt, warehouseCredit, lotExit, release);
     }
 
-    [Fact]
-    public async Task Reverse_OwnWarehouse_CancelsTheWarehouseCreditAndTheRelease()
+    /// <summary>
+    /// Carga em transbordo para um armazém PRÓPRIO no estado que a Task 3 SOZINHA deixa: lote de
+    /// natureza Transbordo, <c>Receipt (0)</c> confirmado que pesou a entrada e está vinculado, e o
+    /// crédito do armazém (o 15, também confirmado, achado só pela
+    /// <c>ShipmentLoadTransshipmentKey</c>) — sem <c>Shipment (1)</c> nem liberação, porque a Task 4
+    /// ainda não rodou. É o cenário que a trava nova PRECISA continuar deixando passar.
+    /// </summary>
+    private async Task<(ShipmentLoad Load, ShipmentLoadTransshipment Transshipment,
+            StorageTransaction Receipt, StorageTransaction WarehouseCredit)>
+        SeedOwnWarehouseStateWithoutLotExitAsync(
+            decimal outgoing = 50_000m, decimal entryQuantity = 50_000m)
     {
-        var (_, transshipment, _, warehouseCredit, _, release) =
-            await SeedFullOwnWarehouseStateAsync();
+        var lot = new StorageAddress
+        {
+            Code = LotCode,
+            Description = "Lote de transbordo",
+            CardCode = CardCode,
+            ItemCode = "SOJA",
+            WarehouseCode = TransshipmentWarehouse,
+            UoM = "KG",
+            Nature = StorageAddressNature.Transshipment,
+        };
+        _db.Context.StorageAddresses.Add(lot);
 
-        await Service().ExecuteAsync(transshipment.Key!.Value, "armazem errado", "tester");
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000001",
+            BranchCode = "01",
+            ItemCode = "SOJA",
+            ItemName = "SOJA EM GRAOS",
+            UnitOfMeasureCode = "KG",
+            TruckCode = "ABC1D23",
+            WarehouseCode = OriginWarehouse,
+            Status = ShipmentLoadStatus.InTransshipment,
+            TotalQuantity = outgoing,
+            TransshippedQuantity = outgoing,
+        };
+        _db.Context.ShipmentLoads.Add(load);
 
-        // Limpa o tracker e relê do banco: a asserção precisa provar o que ficou GRAVADO, não o
-        // que o serviço deixou em memória neste mesmo DbContext.
+        var receipt = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "E0001",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = TransshipmentWarehouse,
+            BranchCode = "01",
+            StorageAddressCode = LotCode,
+            GrossWeight = entryQuantity,
+            NetWeight = entryQuantity,
+            TransactionType = StorageTransactionType.Receipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+        };
+        _db.Context.StorageTransactions.Add(receipt);
+
+        var warehouseCredit = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "R0015",
+            CardCode = "F0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = TransshipmentWarehouse,
+            BranchCode = "01",
+            GrossWeight = entryQuantity,
+            NetWeight = entryQuantity,
+            TransactionType = StorageTransactionType.TransshipmentReceipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+        };
+        _db.Context.StorageTransactions.Add(warehouseCredit);
+
+        var transshipment = new ShipmentLoadTransshipment
+        {
+            ShipmentLoadKey = load.Key,
+            Sequence = 1,
+            WarehouseCode = TransshipmentWarehouse,
+            WarehouseName = "ARMAZEM PROPRIO",
+            OutgoingQuantity = outgoing,
+            EntryQuantity = entryQuantity,
+        };
+        _db.Context.ShipmentLoadsTransshipments.Add(transshipment);
+
+        await _db.Context.SaveChangesAsync();
+
+        receipt.ShipmentLoadTransshipmentKey = transshipment.Key;
+        warehouseCredit.ShipmentLoadTransshipmentKey = transshipment.Key;
+        transshipment.EntryStorageTransactionKey = receipt.Key;
+        await _db.Context.SaveChangesAsync();
+
+        // Mesmo precedente do seed completo: força o serviço a carregar cada romaneio de novo.
         _db.Context.ChangeTracker.Clear();
 
-        var savedCredit = await _db.Context.StorageTransactions
-            .AsNoTracking().SingleAsync(x => x.Key == warehouseCredit.Key);
-        Assert.Equal(StorageTransactionsStatus.Cancelled, savedCredit.TransactionStatus);
-
-        var savedRelease = await _db.Context.ShipmentReleases
-            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
-        Assert.Equal(ReleaseStatus.Cancelled, savedRelease.Status);
-        Assert.Contains("armazem errado", savedRelease.CancellationReason);
+        return (load, transshipment, receipt, warehouseCredit);
     }
 
     /// <summary>
-    /// A regra que o usuário definiu (ver o brief da Task 6): os dois romaneios de pesagem são
-    /// movimento físico que aconteceu de verdade na balança — o estorno tira só o VÍNCULO com o
-    /// transbordo, nunca o status. Cenário completo, com os dois CONFIRMADOS e vinculados: provar
-    /// que continuam confirmados depois é o que um teste que já nasceria assim não provaria.
+    /// Impede que a trava nova pegue largo demais: SEM saída de lote vinculada, o estorno continua
+    /// funcionando exatamente como antes do defeito 4 — cancela o 15 e desvincula o <c>Receipt</c>.
     /// </summary>
     [Fact]
-    public async Task Reverse_OwnWarehouse_UnlinksBothWeighingRomaneiosWithoutCancellingThem()
+    public async Task Reverse_OwnWarehouse_WithoutLotExit_StillCancelsTheCreditAndUnlinksTheReceipt()
     {
-        var (_, transshipment, receipt, _, lotExit, _) = await SeedFullOwnWarehouseStateAsync();
+        var (_, transshipment, receipt, warehouseCredit) =
+            await SeedOwnWarehouseStateWithoutLotExitAsync();
 
-        await Service().ExecuteAsync(transshipment.Key!.Value, null, "tester");
+        await Service().ExecuteAsync(transshipment.Key!.Value, "armazem errado", "tester");
 
-        // Limpa o tracker e relê do banco: prova o ESTADO PERSISTIDO do desvínculo, não o que o
-        // change tracker deste DbContext ainda guarda em memória depois do serviço rodar.
         _db.Context.ChangeTracker.Clear();
 
         var savedReceipt = await _db.Context.StorageTransactions
@@ -234,46 +322,84 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
         Assert.Equal(StorageTransactionsStatus.Confirmed, savedReceipt.TransactionStatus);
         Assert.Null(savedReceipt.ShipmentLoadTransshipmentKey);
 
-        var savedLotExit = await _db.Context.StorageTransactions
-            .AsNoTracking().SingleAsync(x => x.Key == lotExit.Key);
-        Assert.Equal(StorageTransactionsStatus.Confirmed, savedLotExit.TransactionStatus);
-        Assert.Null(savedLotExit.ShipmentLoadTransshipmentKey);
+        var savedCredit = await _db.Context.StorageTransactions
+            .AsNoTracking().SingleAsync(x => x.Key == warehouseCredit.Key);
+        Assert.Equal(StorageTransactionsStatus.Cancelled, savedCredit.TransactionStatus);
+
+        Assert.Empty(await _db.Context.ShipmentLoadsTransshipments
+            .AsNoTracking().Where(x => x.Key == transshipment.Key).ToListAsync());
     }
 
     /// <summary>
-    /// O lote não volta a ser comum — só sai vinculado a outra carga, num transbordo novo. O valor
-    /// tem de ser <c>Transshipment</c> porque NINGUÉM o mudou (nem na criação do lote, nem no
-    /// estorno) — um "volta a Regular no estorno" acrescentado por engano tem de derrubar este
-    /// teste. O saldo residual (1.000 = 50.000 pesados menos 49.000 recarregados) é lido pela
-    /// mesma fórmula de <see cref="StorageAddress.Balance"/> que o produto usa, não reimplementado
-    /// em LINQ no teste.
+    /// D4 da revisão final: com a saída do lote já vinculada, o estorno é recusado, com a mensagem
+    /// nova de <see cref="ShipmentLoadTransshipmentRules.EnsureLotExitNotAttachedForReversal"/> —
+    /// não a mensagem antiga de "Expedição de venda vinculada" (que é outra checagem, sobre o
+    /// <c>SalesShipment</c>, o 7, que nem existe neste cenário).
     /// </summary>
     [Fact]
-    public async Task Reverse_OwnWarehouse_KeepsTheLeftoverAndTheLotNature()
+    public async Task Reverse_OwnWarehouse_RefusesWhenLotExitIsAlreadyAttached()
     {
-        var (_, transshipment, _, _, _, _) = await SeedFullOwnWarehouseStateAsync(
-            outgoing: 50_000m, entryQuantity: 50_000m, lotExitQuantity: 49_000m);
+        var (_, transshipment, _, _, _, _) = await SeedFullOwnWarehouseStateAsync();
 
-        await Service().ExecuteAsync(transshipment.Key!.Value, null, "tester");
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, null, "tester"));
 
-        // Limpa o tracker e relê do banco pelo mesmo motivo dos outros testes desta classe.
+        Assert.Contains($"transbordo {transshipment.Sequence}", error.Message);
+        Assert.Contains("já tem a saída do lote vinculada", error.Message);
+        Assert.Contains("Corrija pela pesagem", error.Message);
+    }
+
+    /// <summary>
+    /// A recusa é um bloqueio DURO, não uma tentativa parcial: nada muda no banco quando o
+    /// estorno é barrado — nem o 15, nem o vínculo do <c>Receipt</c> ou do <c>Shipment (1)</c>,
+    /// nem a liberação, nem a linha do transbordo. Prova que a checagem nova roda ANTES de
+    /// qualquer <c>BeginTransactionAsync</c>/escrita, como o resto do serviço já faz.
+    /// </summary>
+    [Fact]
+    public async Task Reverse_OwnWarehouse_RefusalWithLotExitAttached_LeavesEverythingUntouched()
+    {
+        var (_, transshipment, receipt, warehouseCredit, lotExit, release) =
+            await SeedFullOwnWarehouseStateAsync();
+
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, null, "tester"));
+
+        // Limpa o tracker e relê do banco: a asserção precisa provar o que ficou GRAVADO, não o
+        // que o serviço deixou em memória neste mesmo DbContext.
         _db.Context.ChangeTracker.Clear();
 
-        var lot = await _db.Context.StorageAddresses
-            .AsNoTracking()
-            .Include(x => x.Transactions)
-            .SingleAsync(x => x.Code == LotCode);
+        var savedTransshipment = await _db.Context.ShipmentLoadsTransshipments
+            .AsNoTracking().SingleAsync(x => x.Key == transshipment.Key);
+        Assert.NotNull(savedTransshipment.LotExitStorageTransactionKey);
 
-        Assert.Equal(StorageAddressNature.Transshipment, lot.Nature);
-        Assert.Equal(1_000m, lot.Balance);
+        var savedReceipt = await _db.Context.StorageTransactions
+            .AsNoTracking().SingleAsync(x => x.Key == receipt.Key);
+        Assert.NotNull(savedReceipt.ShipmentLoadTransshipmentKey);
+
+        var savedCredit = await _db.Context.StorageTransactions
+            .AsNoTracking().SingleAsync(x => x.Key == warehouseCredit.Key);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, savedCredit.TransactionStatus);
+        Assert.NotNull(savedCredit.ShipmentLoadTransshipmentKey);
+
+        var savedLotExit = await _db.Context.StorageTransactions
+            .AsNoTracking().SingleAsync(x => x.Key == lotExit.Key);
+        Assert.NotNull(savedLotExit.ShipmentLoadTransshipmentKey);
+
+        var savedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(ReleaseStatus.Actived, savedRelease.Status);
     }
 
     /// <summary>
-    /// Consumo de VERDADE: <c>ShippedQuantity</c> maior que zero na liberação gerada pela saída do
-    /// LOTE — não um campo que já nasceria zero de qualquer jeito.
+    /// A trava nova barra ANTES da checagem antiga de "liberação já embarcada"
+    /// (<c>ShippedQuantity > 0</c>): mesmo com a liberação parcialmente consumida, o motivo da
+    /// recusa passa a ser a saída do lote vinculada, não o consumo. Substitui o teste antigo
+    /// <c>Reverse_OwnWarehouse_RefusesWhenTheReleaseWasAlreadyShipped</c>, que esperava a mensagem
+    /// "Estorne a Expedição de saída antes" — inatingível agora que este cenário nunca passa da
+    /// trava nova.
     /// </summary>
     [Fact]
-    public async Task Reverse_OwnWarehouse_RefusesWhenTheReleaseWasAlreadyShipped()
+    public async Task Reverse_OwnWarehouse_RefusesWhenLotExitIsAttached_EvenIfTheReleaseWasAlreadyShipped()
     {
         var (_, transshipment, _, _, _, _) = await SeedFullOwnWarehouseStateAsync(
             shippedQuantity: 5_000m);
@@ -281,6 +407,6 @@ public class ShipmentLoadsTransshipmentReverseOwnWarehouseTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(transshipment.Key!.Value, null, "tester"));
 
-        Assert.Contains("Estorne a Expedição de saída antes", error.Message);
+        Assert.Contains("já tem a saída do lote vinculada", error.Message);
     }
 }

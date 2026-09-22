@@ -201,6 +201,31 @@ public static class ShipmentLoadTransshipmentRules
     }
 
     /// <summary>
+    /// Fase 2 do GAC-1181, defeito 4 da revisão final (decisão do usuário, 2026-09-22): depois
+    /// que a saída do LOTE foi vinculada (<see cref="ShipmentLoadsTransshipmentAttachLotExitService"/>),
+    /// o grão já saiu fisicamente do lote — pesado e recarregado no caminhão. Não existe mais o
+    /// que desfazer no mundo real, e cancelar o crédito do armazém (o <c>TransshipmentReceipt</c>,
+    /// o 15) inteiro nesse ponto quebra a invariante que a fase 2 existe para manter: lote e
+    /// armazém têm de terminar IGUAIS, com a mesma sobra nos dois (achado D4 da revisão final).
+    /// Zerar só o armazém deixaria a sobra presa no lote — invisível para a Expedição de Grãos
+    /// comum, que filtra fora todo lote de natureza Transbordo — e sem crédito nenhum de armazém.
+    /// </summary>
+    /// <remarks>
+    /// Chamada só no ramo de armazém PRÓPRIO de <see cref="ShipmentLoadsTransshipmentReverseService"/>.
+    /// Em armazém de TERCEIRO não existe saída de lote — a entrada É o 15, sem lote nenhum —, então
+    /// esta trava nunca alcança aquele fluxo (fase 1, em produção, permanece intocada).
+    /// </remarks>
+    public static void EnsureLotExitNotAttachedForReversal(ShipmentLoadTransshipment transshipment)
+    {
+        if (transshipment.LotExitStorageTransactionKey != null)
+            throw new ApplicationException(
+                $"O transbordo {transshipment.Sequence} já tem a saída do lote vinculada — a " +
+                "mercadoria já foi carregada e pesada na saída, então não há o que estornar " +
+                "aqui. Corrija pela pesagem (o romaneio de saída do lote), não pelo estorno do " +
+                "transbordo.");
+    }
+
+    /// <summary>
     /// Fase 2 do GAC-1181, Task 4: o <c>Shipment (1)</c> que a office vincula precisa ser a saída
     /// REAL do MESMO lote que recebeu a entrada — confirmado, do mesmo lote, do transbordo AINDA
     /// aberto, e ainda sem vínculo com outra carga ou outro transbordo. Mesmo molde de
