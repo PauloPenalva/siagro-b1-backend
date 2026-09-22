@@ -17,6 +17,7 @@ using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 using SiagroB1.Infra.Interceptors;
+using SiagroB1.Infra.Pdf;
 using SiagroB1.Infra.WhatsApp;
 using SiagroB1.Web.Security;
 using SiagroB1.Security.Authentication;
@@ -149,6 +150,9 @@ builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 
+// PDF das minutas por Chromium headless. Singleton: um browser por processo, páginas por render.
+builder.Services.AddSingleton<IHtmlToPdfRenderer, ChromiumHtmlToPdfRenderer>();
+
 modelBuilder.ConfigureODataEntities();
 
 builder.Services.AddControllers().AddOData(options =>
@@ -245,6 +249,7 @@ else
 }
 
 WarnIfTruckScaleChannelIsUnauthenticated(app);
+WarnIfContractDraftPdfIsUnavailable(app);
 
 await app.RunAsync();
 
@@ -269,4 +274,22 @@ static void WarnIfTruckScaleChannelIsUnauthenticated(WebApplication app)
             "CANAL DA BALANÇA SEM AUTENTICAÇÃO ({ConfigurationKey} não configurada). Qualquer um " +
             "que alcance /ws/truck-scale pode ler a configuração do indicador e injetar peso.",
             ScaleClientAuth.ConfigurationKey);
+}
+
+/// <summary>
+/// Avisa, no boot, que o PDF de minutas vai falhar: sem Chromium configurado nem baixado, o primeiro
+/// download de minuta dispara um download de ~150 MB (ou falha sem internet). Não derruba o serviço —
+/// o resto do sistema não depende disso.
+/// </summary>
+static void WarnIfContractDraftPdfIsUnavailable(WebApplication app)
+{
+    if (ChromiumHtmlToPdfRenderer.IsAvailable(app.Configuration))
+        return;
+
+    app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("ContractDraftPdf")
+        .LogWarning(
+            "CHROMIUM NÃO ENCONTRADO para PDF de minutas ({Key} vazio ou inválido). O primeiro PDF " +
+            "vai tentar baixar o Chromium para {Path}; sem internet, falha.",
+            ChromiumHtmlToPdfRenderer.ChromiumPathKey, Path.Combine(AppContext.BaseDirectory, "chromium"));
 }
