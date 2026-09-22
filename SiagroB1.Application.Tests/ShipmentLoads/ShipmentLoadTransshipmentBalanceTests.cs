@@ -23,7 +23,12 @@ public class ShipmentLoadTransshipmentBalanceTests
     [InlineData(30, 0, 0, 0, false, ShipmentLoadStatus.Open)]
     [InlineData(30, 30, 0, 0, false, ShipmentLoadStatus.Invoiced)]
     [InlineData(30, 0, 0, 30, true, ShipmentLoadStatus.InTransshipment)]
-    [InlineData(59.5, 0, 0, 30, false, ShipmentLoadStatus.PartiallyInvoiced)]
+    // Correção pedida pelo usuário depois da verificação: saída do transbordo vinculada e nada
+    // faturado ainda fecha o SALDO (transbordo é um dos quatro termos), mas o rótulo olha só o
+    // consumo COMERCIAL (faturado + devolvido) — com os dois zerados o rótulo é Open, não
+    // PartiallyInvoiced. Este InlineData chegou a documentar o bug; ver ShipmentLoadResolveStatusTests
+    // para o caso equivalente com os números do relato original.
+    [InlineData(59.5, 0, 0, 30, false, ShipmentLoadStatus.Open)]
     [InlineData(59.5, 29.5, 0, 30, false, ShipmentLoadStatus.Invoiced)]
     [InlineData(40, 0, 40, 0, false, ShipmentLoadStatus.Returned)]
     public void ResolveStatus_ConsidersTheTransshipment(

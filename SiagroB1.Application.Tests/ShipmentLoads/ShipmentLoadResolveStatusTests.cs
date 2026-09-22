@@ -144,4 +144,47 @@ public class ShipmentLoadResolveStatusTests
             ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
                 totalQuantity: 40_000m, invoicedQuantity: 25_000m, returnedToWarehouseQuantity: 14_999.9995m, transshippedQuantity: decimal.Zero, hasOpenTransshipment: false));
     }
+
+    // ─── Quarto termo: transbordo (GAC-1181) — o rótulo olha só o consumo COMERCIAL ───
+
+    /// <summary>
+    /// Regressão corrigida: depois que a saída do transbordo é vinculada, o volume transbordado
+    /// fecha o SALDO da carga, mas nada foi faturado ainda — o rótulo não pode ler "Faturada
+    /// Parcial" com faturado zero. É o cenário relatado pelo usuário (carga com 99.500 no total,
+    /// 50.000 transbordados e 0 faturado lia "Faturada Parcial").
+    /// </summary>
+    [Fact]
+    public void Transshipment_output_linked_with_nothing_invoiced_is_open()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Open,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+    }
+
+    /// <summary>
+    /// O restante da carga, depois do transbordo, é faturado por completo: saldo fecha e o
+    /// rótulo é <c>Invoiced</c>, sem devolução ao armazém.
+    /// </summary>
+    [Fact]
+    public void Everything_invoiced_after_the_transshipment_is_invoiced()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Invoiced,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 99_500m, invoicedQuantity: 49_500m, returnedToWarehouseQuantity: decimal.Zero, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+    }
+
+    /// <summary>
+    /// O restante da carga, depois do transbordo, volta inteiro ao armazém (recusa/devolução):
+    /// saldo fecha e o rótulo é <c>Returned</c>, que prevalece sobre <c>Invoiced</c>.
+    /// </summary>
+    [Fact]
+    public void Transshipment_plus_warehouse_return_closes_the_load_as_returned()
+    {
+        Assert.Equal(
+            ShipmentLoadStatus.Returned,
+            ShipmentLoadsRecalculateInvoicedService.ResolveStatus(
+                totalQuantity: 99_500m, invoicedQuantity: decimal.Zero, returnedToWarehouseQuantity: 49_500m, transshippedQuantity: 50_000m, hasOpenTransshipment: false));
+    }
 }
