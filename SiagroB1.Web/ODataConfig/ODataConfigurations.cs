@@ -97,6 +97,41 @@ public static class ODataConfigurations
         contractTemplatesListPlaceholders.Parameter<string>("ContractType");
         contractTemplatesListPlaceholders.ReturnsCollection<ContractDraftPlaceholderDto>();
 
+        modelBuilder.EntitySet<ContractDraft>("ContractDrafts");
+        modelBuilder.EntitySet<ContractDraftSigner>("ContractDraftSigners");
+
+        var contractDraftsCreate = modelBuilder.Action("ContractDraftsCreate");
+        contractDraftsCreate.Parameter<string>("ContractType");
+        contractDraftsCreate.Parameter<Guid>("ContractKey");
+        contractDraftsCreate.Parameter<Guid>("TemplateKey");
+        contractDraftsCreate.Parameter<string>("DraftType").Optional();
+        contractDraftsCreate.Parameter<string>("Description").Optional();
+        contractDraftsCreate.Returns<IActionResult>();
+
+        var contractDraftsUpdate = modelBuilder.Action("ContractDraftsUpdate");
+        contractDraftsUpdate.Parameter<Guid>("Key");
+        contractDraftsUpdate.Parameter<string>("Description").Optional();
+        contractDraftsUpdate.Parameter<string>("DraftType").Optional();
+        contractDraftsUpdate.Parameter<string>("BodyHtml");
+        contractDraftsUpdate.Returns<IActionResult>();
+
+        var contractDraftsDelete = modelBuilder.Action("ContractDraftsDelete");
+        contractDraftsDelete.Parameter<Guid>("Key");
+        contractDraftsDelete.Returns<IActionResult>();
+
+        var contractDraftsListByContract = modelBuilder.Function("ContractDraftsListByContract");
+        contractDraftsListByContract.Parameter<string>("ContractType");
+        contractDraftsListByContract.Parameter<Guid>("ContractKey");
+        contractDraftsListByContract.ReturnsCollection<ContractDraftDto>();
+
+        var contractDraftsGetBody = modelBuilder.Function("ContractDraftsGetBody");
+        contractDraftsGetBody.Parameter<Guid>("Key");
+        contractDraftsGetBody.Returns<string>();
+
+        var contractDraftsDownloadPdf = modelBuilder.Function("ContractDraftsDownloadPdf");
+        contractDraftsDownloadPdf.Parameter<Guid>("Key");
+        contractDraftsDownloadPdf.Returns<IActionResult>();
+
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));
