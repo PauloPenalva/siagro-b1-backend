@@ -30,12 +30,14 @@ namespace SiagroB1.Application.Tests.ShipmentLoads;
 /// </remarks>
 public class ShipmentLoadsRefuseServiceTests
 {
-    private const string CardCode = "C0001";
-    private const string Carrier = "F004702";
-    private const string OriginWarehouse = "ARM01";
-    private const string DestinationWarehouse = "ARM99";
+    // internal: reaproveitados por ShipmentLoadsRefuseTransshipmentTests (GAC-1181, Task 8), que
+    // monta a carga faturada pelo mesmo caminho REAL em vez de inventar uma fixture paralela.
+    internal const string CardCode = "C0001";
+    internal const string Carrier = "F004702";
+    internal const string OriginWarehouse = "ARM01";
+    internal const string DestinationWarehouse = "ARM99";
 
-    private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
+    internal readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private static IBusinessPartnerService Partners() =>
         new FakeBusinessPartnerService(
@@ -81,7 +83,7 @@ public class ShipmentLoadsRefuseServiceTests
             new ShipmentLoadsBalanceHookService(_db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
-    private StorageTransactionsCreateService StorageCreate(IWarehouseService? warehouses = null) =>
+    internal StorageTransactionsCreateService StorageCreate(IWarehouseService? warehouses = null) =>
         new(_db,
             new FakeDocNumberSequenceService(),
             Partners(),
@@ -91,14 +93,14 @@ public class ShipmentLoadsRefuseServiceTests
             new ShipmentReleaseMovementGuardService(_db.Context),
             NullLogger<StorageTransactionsCreateService>.Instance);
 
-    private StorageTransactionsConfirmedService StorageConfirm() =>
+    internal StorageTransactionsConfirmedService StorageConfirm() =>
         new(_db,
             new FakeStringLocalizer<Resource>(),
             new ShipmentReleasesRecalculateShippedService(_db.Context),
             new ShipmentReleaseMovementGuardService(_db.Context),
             NullLogger<StorageTransactionsConfirmedService>.Instance);
 
-    private ShipmentLoadsRefuseService Service(IWarehouseService? warehouses = null) =>
+    internal ShipmentLoadsRefuseService Service(IWarehouseService? warehouses = null) =>
         new(_db,
             CreateService(),
             ConfirmService(),
@@ -109,7 +111,7 @@ public class ShipmentLoadsRefuseServiceTests
             warehouses ?? Warehouses(),
             NullLogger<ShipmentLoadsRefuseService>.Instance);
 
-    private ShipmentBillingCreateSalesInvoiceService BillingService()
+    internal ShipmentBillingCreateSalesInvoiceService BillingService()
     {
         return new ShipmentBillingCreateSalesInvoiceService(
             _db,
@@ -125,8 +127,8 @@ public class ShipmentLoadsRefuseServiceTests
             NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance);
     }
 
-    private async Task<(ShipmentLoad Load, SalesContract Contract, SalesShipmentRelease Release,
-        StorageTransaction Shipment)> SeedAsync()
+    internal async Task<(ShipmentLoad Load, SalesContract Contract, SalesShipmentRelease Release,
+        StorageTransaction Shipment)> SeedAsync(decimal totalQuantity = 40_000m)
     {
         var load = new ShipmentLoad
         {
@@ -141,7 +143,7 @@ public class ShipmentLoadsRefuseServiceTests
             CarrierCardCode = Carrier,
             CarrierName = "TRANSPORTES YOKOTOBI LTDA",
             WarehouseCode = OriginWarehouse,
-            TotalQuantity = 40_000m,
+            TotalQuantity = totalQuantity,
             Status = ShipmentLoadStatus.Open,
         };
 
@@ -158,8 +160,8 @@ public class ShipmentLoadsRefuseServiceTests
             WarehouseCode = OriginWarehouse,
             BranchCode = "01",
             TruckCode = "ABC1D23",
-            GrossWeight = 40_000m,
-            NetWeight = 40_000m,
+            GrossWeight = totalQuantity,
+            NetWeight = totalQuantity,
             TransactionType = StorageTransactionType.SalesShipment,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             ShipmentLoadKey = load.Key,
@@ -175,7 +177,7 @@ public class ShipmentLoadsRefuseServiceTests
         return (load, contract, release, shipment);
     }
 
-    private static SalesInvoice InvoiceFor(
+    internal static SalesInvoice InvoiceFor(
         ShipmentLoad load, SalesContract contract, SalesShipmentRelease release, decimal quantity,
         string deliveryCardCode = "D0001")
     {
@@ -205,10 +207,14 @@ public class ShipmentLoadsRefuseServiceTests
         return invoice;
     }
 
-    /// <summary>Monta e fatura a carga inteira, devolvendo a nota emitida.</summary>
-    private async Task<(ShipmentLoad Load, SalesInvoice Invoice)> BilledLoadAsync(decimal quantity = 40_000m)
+    /// <summary>
+    /// Monta e fatura a carga inteira, devolvendo a nota emitida. <paramref name="quantity"/>
+    /// dimensiona TANTO o total montado da carga quanto a nota — a carga nasce sem saldo sobrando,
+    /// como o cenário do cliente (30 t de Expedição, faturados por inteiro) exige.
+    /// </summary>
+    internal async Task<(ShipmentLoad Load, SalesInvoice Invoice)> BilledLoadAsync(decimal quantity = 40_000m)
     {
-        var (load, contract, release, _) = await SeedAsync();
+        var (load, contract, release, _) = await SeedAsync(quantity);
         var invoice = InvoiceFor(load, contract, release, quantity);
 
         await BillingService().ExecuteAsync(invoice, "tester");
@@ -216,7 +222,7 @@ public class ShipmentLoadsRefuseServiceTests
         return (load, invoice);
     }
 
-    private static RefusalRequest Request(
+    internal static RefusalRequest Request(
         ShipmentLoad load,
         SalesInvoice invoice,
         decimal quantity,
@@ -228,7 +234,7 @@ public class ShipmentLoadsRefuseServiceTests
             warehouseCode,
             "Recusado por qualidade no porto");
 
-    private Task<ShipmentLoad> LoadAsync(Guid key) =>
+    internal Task<ShipmentLoad> LoadAsync(Guid key) =>
         _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == key);
 
     // ─── Destino: o caminhão segue para outro destino (refaturamento) ───

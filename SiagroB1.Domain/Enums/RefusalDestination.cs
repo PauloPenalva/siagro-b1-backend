@@ -26,4 +26,14 @@ public enum RefusalDestination
     /// estar disponível para novo embarque naquele armazém.
     /// </summary>
     Warehouse = 1,
+
+    /// <summary>
+    /// A mercadoria segue para um armazém parceiro para transbordo (GAC-1181): a recusa devolve
+    /// os documentos de saída, como os outros dois destinos, e abre o transbordo da carga com o
+    /// volume recusado. A carga NÃO se encerra — ela continua viva e o recálculo a resolve como
+    /// <see cref="ShipmentLoadStatus.InTransshipment"/> até a saída do transbordo "fechá-lo".
+    /// Exclusivo do fluxo de CARGA (<c>ShipmentLoadsRefuseService</c>); o retorno de documento
+    /// LEGADO (<c>SalesInvoicesReturnService</c>) não tem carga para carregar um transbordo.
+    /// </summary>
+    Transshipment = 2,
 }

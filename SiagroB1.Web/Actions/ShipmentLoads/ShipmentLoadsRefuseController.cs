@@ -115,6 +115,7 @@ public class ShipmentLoadsRefuseController(
     {
         "Rebilling" => RefusalDestination.Rebilling,
         "Warehouse" => RefusalDestination.Warehouse,
+        "Transshipment" => RefusalDestination.Transshipment,
         _ => null,
     };
 

@@ -29,7 +29,7 @@ public sealed record RefusalRequest(
 /// mercadoria a um armazém.
 /// </summary>
 /// <remarks>
-/// <b>Os dois destinos e o que os separa:</b>
+/// <b>Os três destinos e o que os separa:</b>
 /// <list type="bullet">
 /// <item><c>Rebilling</c> — o caminhão segue viagem. As devoluções confirmadas devolvem o saldo
 /// da carga e ela reaparece no Faturamento de Expedição. Nada muda no físico: os romaneios
@@ -38,6 +38,14 @@ public sealed record RefusalRequest(
 /// <see cref="StorageTransactionType.SalesShipmentReturn"/> confirmado no armazém escolhido, que
 /// credita o saldo dele (é o mesmo tipo que <c>GetWarehouseBalanceAsync</c> já somava) e retira
 /// o volume da carga pelo terceiro termo do saldo.</item>
+/// <item><c>Transshipment</c> (GAC-1181) — a mercadoria segue para um armazém parceiro para
+/// padronização antes de seguir viagem. Além das devoluções, abre uma linha de
+/// <see cref="ShipmentLoadTransshipment"/> com o volume recusado — o quarto termo do saldo — e a
+/// carga NÃO se encerra: <see cref="ShipmentLoadsRecalculateInvoicedService"/> a resolve como
+/// <see cref="ShipmentLoadStatus.InTransshipment"/> enquanto o transbordo estiver aberto. Quem
+/// credita o armazém é o <c>ShipmentLoadsTransshipmentRegisterEntryService</c> (Task 5), depois,
+/// quando o caminhão for pesado lá — aqui NÃO nasce romaneio 12 nem liberação
+/// <c>SalesReturn</c>.</item>
 /// </list>
 /// <para>
 /// <b>Tudo numa transação só, e por isso todos os serviços internos são chamados em
@@ -110,6 +118,10 @@ public class ShipmentLoadsRefuseService(
             {
                 await ReturnToWarehouseAsync(
                     load, warehouse!, lines, totalQuantity, request.Reason, userName);
+            }
+            else if (request.Destination == RefusalDestination.Transshipment)
+            {
+                await OpenTransshipmentAsync(load, warehouse!, totalQuantity, userName);
             }
 
             load.UpdatedAt = DateTime.Now;
@@ -247,6 +259,59 @@ public class ShipmentLoadsRefuseService(
     }
 
     /// <summary>
+    /// Abre o transbordo da carga (GAC-1181) com o volume recusado nesta chamada. A entrada no
+    /// armazém (que credita o saldo dele) e o eventual romaneio/liberação nascem depois, em
+    /// <c>ShipmentLoadsTransshipmentRegisterEntryService</c>, quando o caminhão for pesado lá —
+    /// aqui a mercadoria ainda está a caminho, só o saldo da carga já sai.
+    /// </summary>
+    /// <remarks>
+    /// <c>Sequence</c> vem de <see cref="ShipmentLoadTransshipmentRules.NextSequenceAsync"/>, o
+    /// mesmo método que <c>ShipmentLoadsTransshipmentStartService</c> usa — nunca "último + 1"
+    /// duplicado aqui. <c>OutgoingQuantity</c> é o total RECUSADO nesta chamada (não o saldo
+    /// disponível inteiro da carga, ao contrário do início "planejado"): uma recusa parcial só
+    /// transborda a parte recusada, o resto segue com o rótulo que já tinha.
+    /// </remarks>
+    private async Task OpenTransshipmentAsync(
+        ShipmentLoad load, WarehouseTarget warehouse, decimal totalQuantity, string userName)
+    {
+        var sequence = await ShipmentLoadTransshipmentRules.NextSequenceAsync(db.Context, load.Key);
+
+        var transshipment = new ShipmentLoadTransshipment
+        {
+            ShipmentLoadKey = load.Key,
+            Sequence = sequence,
+            Origin = TransshipmentOrigin.Refusal,
+            WarehouseCode = warehouse.Code,
+            WarehouseName = warehouse.Name,
+            TransshipmentDate = DateTime.Today,
+            OutgoingQuantity = totalQuantity,
+            CreatedBy = userName,
+            UpdatedBy = userName,
+        };
+
+        db.Context.ShipmentLoadsTransshipments.Add(transshipment);
+
+        // O quarto termo do saldo é um somatório no SERVIDOR — a linha precisa estar gravada
+        // antes do recálculo, senão ele lê o estado anterior.
+        await db.SaveChangesAsync();
+
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
+            db.Context, load.Key, excludedInvoiceKeys: null);
+
+        movementLog.Register(
+            load.Key,
+            ShipmentLoadMovementType.TransshipmentStarted,
+            -totalQuantity,
+            load.AvailableQuantity,
+            $"Mercadoria recusada enviada para transbordo no armazém " +
+            $"({transshipment.WarehouseCode}) {transshipment.WarehouseName}: {totalQuantity:N3}.",
+            userName,
+            movementContext: new ShipmentLoadMovementContext(
+                WarehouseCode: transshipment.WarehouseCode,
+                WarehouseName: transshipment.WarehouseName));
+    }
+
+    /// <summary>
     /// Emite as liberações que devolvem a mercadoria recusada à Expedição de Grãos.
     /// </summary>
     /// <remarks>
@@ -325,7 +390,7 @@ public class ShipmentLoadsRefuseService(
             throw new ApplicationException(
                 "Informe a quantidade a devolver de ao menos um documento de saída.");
 
-        if (request.Destination == RefusalDestination.Warehouse &&
+        if (request.Destination is RefusalDestination.Warehouse or RefusalDestination.Transshipment &&
             string.IsNullOrWhiteSpace(request.DestinationWarehouseCode))
         {
             throw new ApplicationException(
@@ -335,7 +400,7 @@ public class ShipmentLoadsRefuseService(
 
     private async Task<WarehouseTarget?> ResolveWarehouseAsync(RefusalRequest request)
     {
-        if (request.Destination != RefusalDestination.Warehouse)
+        if (request.Destination is not (RefusalDestination.Warehouse or RefusalDestination.Transshipment))
             return null;
 
         var code = request.DestinationWarehouseCode!.Trim();
