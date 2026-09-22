@@ -209,7 +209,7 @@ public class ShipmentLoadsRefuseService(
         string reason,
         string userName)
     {
-        var invoiceNumbers = string.Join(", ", lines.Select(l => l.Invoice.InvoiceNumber));
+        var invoiceNumbers = FormatInvoiceNumbers(lines);
         var cardCodes = string.Join(", ", lines.Select(l => l.Invoice.CardCode).Distinct());
 
         var entry = new StorageTransaction
@@ -300,7 +300,7 @@ public class ShipmentLoadsRefuseService(
     {
         var sequence = await ShipmentLoadTransshipmentRules.NextSequenceAsync(db.Context, load.Key);
 
-        var invoiceNumbers = string.Join(", ", lines.Select(l => l.Invoice.InvoiceNumber));
+        var invoiceNumbers = FormatInvoiceNumbers(lines);
 
         var transshipment = new ShipmentLoadTransshipment
         {
@@ -399,6 +399,14 @@ public class ShipmentLoadsRefuseService(
         var merged = string.IsNullOrWhiteSpace(current) ? addition : $"{current} {addition}";
         return merged.Length <= 500 ? merged : merged[..500];
     }
+
+    /// <summary>
+    /// Lista os documentos recusados para a narrativa do romaneio (<see cref="ReturnToWarehouseAsync"/>)
+    /// e do transbordo (<see cref="OpenTransshipmentAsync"/>) — os dois textam o mesmo conjunto de
+    /// notas, cada um no seu Comments.
+    /// </summary>
+    private static string FormatInvoiceNumbers(IReadOnlyList<ResolvedLine> lines) =>
+        string.Join(", ", lines.Select(l => l.Invoice.InvoiceNumber));
 
     private static void Validate(ShipmentLoad load, RefusalRequest request)
     {

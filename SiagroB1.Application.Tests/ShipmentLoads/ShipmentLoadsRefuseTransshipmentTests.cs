@@ -82,9 +82,12 @@ public class ShipmentLoadsRefuseTransshipmentTests
         Assert.Equal(TransshipmentWarehouse, transshipment.WarehouseCode);
         Assert.Equal("ARMAZEM RETAGUARDA", transshipment.WarehouseName);
         Assert.Equal(30_000m, transshipment.OutgoingQuantity);
-        Assert.Equal(decimal.Zero, transshipment.EntryQuantity);
-        Assert.Null(transshipment.EntryStorageTransactionKey);
         Assert.Equal(DateTime.Today, transshipment.TransshipmentDate);
+
+        // EntryQuantity zero e EntryStorageTransactionKey nulo nascem assim de qualquer jeito
+        // (são os valores default da entidade) — a prova de que a entrada ainda não foi
+        // registrada é FullScenario_SpToPortRefusedThenPartnerThenSecondCustomer, que regista a
+        // entrada depois e mostra os dois campos mudando.
 
         // A narrativa do frete registra o transbordo com o delta e o saldo reais, não um
         // valor fixo que nasceria certo de qualquer jeito.

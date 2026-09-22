@@ -660,9 +660,9 @@ public static class ODataConfigurations
         // ⚠️ Edm.Double nas quantidades, NUNCA Edm.Decimal: decimal faz o cliente serializar o
         // número como string e o backend devolve 400 que não nomeia o campo.
         //
-        // Destination como STRING ("Rebilling" | "Warehouse") e não enum: não há precedente de
-        // enum em parâmetro de action neste EDM, e o tratamento de enum do UI5 em OData v4 é
-        // justamente uma das armadilhas que só aparecem no navegador.
+        // Destination como STRING ("Rebilling" | "Warehouse" | "Transshipment") e não enum: não há
+        // precedente de enum em parâmetro de action neste EDM, e o tratamento de enum do UI5 em
+        // OData v4 é justamente uma das armadilhas que só aparecem no navegador.
         var shipmentLoadsRefuse = modelBuilder.Action("ShipmentLoadsRefuse");
         shipmentLoadsRefuse.Parameter<Guid>("Key");
         shipmentLoadsRefuse.CollectionParameter<Guid>("SalesInvoiceKeys");
