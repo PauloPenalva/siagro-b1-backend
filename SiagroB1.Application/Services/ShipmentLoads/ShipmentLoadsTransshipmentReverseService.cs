@@ -37,9 +37,22 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// inconsistente nunca chega a existir.
 /// </para>
 /// <para>
-/// <b>Armazém próprio: o <c>Receipt</c> NÃO é cancelado</b>, só desvinculado
-/// (<c>ShipmentLoadTransshipmentKey = null</c>). Ele pertence à Entrada em Armazenagem, que tem
-/// ciclo próprio e é estornada pela tela dela — cancelá-lo aqui destruiria documento alheio.
+/// <b>Armazém próprio: <c>Receipt (0)</c> e <c>Shipment (1)</c> NÃO são cancelados</b>, só
+/// desvinculados (<c>ShipmentLoadTransshipmentKey = null</c>). São movimento físico pesado na
+/// balança — o <c>Receipt</c> pertence à Entrada em Armazenagem e o <c>Shipment</c>, à pesagem que
+/// recarregou o caminhão; cada um tem ciclo próprio e é estornado pela tela dele. O que o SISTEMA
+/// criou por cima é que se cancela: o crédito do armazém (o <c>TransshipmentReceipt</c>, o 15) e a
+/// liberação — sem consumo real, nunca os romaneios de pesagem.
+/// </para>
+/// <para>
+/// ⚠️ <b>O 15 do armazém próprio não é achado por <c>EntryStorageTransactionKey</c></b> — essa
+/// chave aponta o <c>Receipt (0)</c>. O 15 é registro À PARTE
+/// (<see cref="ShipmentLoadsTransshipmentRegisterEntryService.CreateOwnWarehouseCreditReceiptAsync"/>),
+/// achado por <c>ShipmentLoadTransshipmentKey</c> + <c>TransactionType == TransshipmentReceipt</c>.
+/// E se a saída do LOTE já tiver sido vinculada (<see cref="ShipmentLoadsTransshipmentAttachLotExitService"/>,
+/// Task 4), a liberação a estornar não nasceu do 15 nem do <c>Receipt</c>: nasceu do
+/// <c>Shipment (1)</c> apontado por <c>LotExitStorageTransactionKey</c> — é dele, não da entrada,
+/// que <c>GeneratedByStorageTransactionKey</c> parte.
 /// </para>
 /// <para>
 /// ⚠️ <b>Transbordo de origem <see cref="TransshipmentOrigin.Refusal"/>: o estorno NÃO desfaz as
@@ -75,6 +88,8 @@ public class ShipmentLoadsTransshipmentReverseService(
 
         List<ShipmentRelease> releases = [];
         StorageTransaction? entry = null;
+        StorageTransaction? warehouseCredit = null;
+        StorageTransaction? lotExit = null;
 
         if (transshipment.EntryStorageTransactionKey is { } entryKey)
         {
@@ -82,9 +97,37 @@ public class ShipmentLoadsTransshipmentReverseService(
                         .FirstOrDefaultAsync(x => x.Key == entryKey) ??
                     throw new NotFoundException($"Storage transaction not found key {entryKey}");
 
-            releases = await db.Context.ShipmentReleases
-                .Where(x => x.GeneratedByStorageTransactionKey == entryKey)
-                .ToListAsync();
+            if (entry.TransactionType == StorageTransactionType.TransshipmentReceipt)
+            {
+                // Terceiro: o 15 É a entrada, e a liberação nasce dele direto.
+                releases = await db.Context.ShipmentReleases
+                    .Where(x => x.GeneratedByStorageTransactionKey == entryKey)
+                    .ToListAsync();
+            }
+            else
+            {
+                // Próprio: EntryStorageTransactionKey aponta o Receipt (0) da pesagem, não o
+                // crédito do armazém. O 15 é registro À PARTE, achado pela
+                // ShipmentLoadTransshipmentKey. Se a saída do LOTE já tiver sido vinculada
+                // (Task 4), a liberação nasceu dela — GeneratedByStorageTransactionKey aponta o
+                // Shipment (1), não a entrada.
+                warehouseCredit = await db.Context.StorageTransactions
+                    .FirstOrDefaultAsync(x =>
+                        x.ShipmentLoadTransshipmentKey == transshipment.Key &&
+                        x.TransactionType == StorageTransactionType.TransshipmentReceipt);
+
+                if (transshipment.LotExitStorageTransactionKey is { } lotExitKey)
+                {
+                    lotExit = await db.Context.StorageTransactions
+                                  .FirstOrDefaultAsync(x => x.Key == lotExitKey) ??
+                              throw new NotFoundException(
+                                  $"Storage transaction not found key {lotExitKey}");
+
+                    releases = await db.Context.ShipmentReleases
+                        .Where(x => x.GeneratedByStorageTransactionKey == lotExitKey)
+                        .ToListAsync();
+                }
+            }
 
             if (releases.Any(x => x.ShippedQuantity > ShipmentLoadTransshipmentRules.Tolerance))
                 throw new ApplicationException(
@@ -109,15 +152,15 @@ public class ShipmentLoadsTransshipmentReverseService(
 
             if (entry != null)
             {
+                var cancellationReason = ShipmentLoadTransshipmentRules.Truncate(
+                    $"Estorno do transbordo {transshipment.Sequence} da carga {load.Code}." +
+                    (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Motivo: {reason.Trim()}."));
+
                 if (entry.TransactionType == StorageTransactionType.TransshipmentReceipt)
                 {
                     entry.TransactionStatus = StorageTransactionsStatus.Cancelled;
                     entry.UpdatedAt = DateTime.Now;
                     entry.UpdatedBy = userName;
-
-                    var cancellationReason = ShipmentLoadTransshipmentRules.Truncate(
-                        $"Estorno do transbordo {transshipment.Sequence} da carga {load.Code}." +
-                        (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Motivo: {reason.Trim()}."));
 
                     foreach (var release in releases)
                     {
@@ -131,11 +174,38 @@ public class ShipmentLoadsTransshipmentReverseService(
                 }
                 else
                 {
-                    // Armazém próprio: o Receipt pertence à Entrada em Armazenagem, que tem ciclo
-                    // próprio (é estornada pela tela dela). Só desvincula.
+                    // Armazém próprio: Receipt (0) e Shipment (1) são movimento físico pesado na
+                    // balança — cada um pertence a um ciclo próprio (Entrada em Armazenagem e
+                    // pesagem de recarga) e é estornado pela tela dele. Só desvincula os dois. O
+                    // que o SISTEMA criou por cima — o crédito do armazém (o 15) e a liberação —
+                    // é o que se cancela.
                     entry.ShipmentLoadTransshipmentKey = null;
                     entry.UpdatedAt = DateTime.Now;
                     entry.UpdatedBy = userName;
+
+                    if (warehouseCredit != null)
+                    {
+                        warehouseCredit.TransactionStatus = StorageTransactionsStatus.Cancelled;
+                        warehouseCredit.UpdatedAt = DateTime.Now;
+                        warehouseCredit.UpdatedBy = userName;
+                    }
+
+                    if (lotExit != null)
+                    {
+                        lotExit.ShipmentLoadTransshipmentKey = null;
+                        lotExit.UpdatedAt = DateTime.Now;
+                        lotExit.UpdatedBy = userName;
+                    }
+
+                    foreach (var release in releases)
+                    {
+                        release.Status = ReleaseStatus.Cancelled;
+                        release.CancellationReason = cancellationReason;
+                        release.CanceledAt = DateTime.Now;
+                        release.CanceledBy = userName;
+                        release.UpdatedAt = DateTime.Now;
+                        release.UpdatedBy = userName;
+                    }
                 }
             }
 
@@ -146,6 +216,8 @@ public class ShipmentLoadsTransshipmentReverseService(
             var entryType = entry?.TransactionType;
             var entryCode = entry?.Code;
             var entryKeyForLog = entry?.Key;
+            var warehouseCreditCode = warehouseCredit?.Code;
+            var lotExitCode = lotExit?.Code;
 
             db.Context.ShipmentLoadsTransshipments.Remove(transshipment);
 
@@ -161,7 +233,13 @@ public class ShipmentLoadsTransshipmentReverseService(
                 null => string.Empty,
                 _ when entryType == StorageTransactionType.TransshipmentReceipt =>
                     $" Romaneio {entryCode} cancelado.",
-                _ => $" Entrada em Armazenagem {entryCode} desvinculada.",
+                _ => $" Entrada em Armazenagem {entryCode} desvinculada." +
+                     (warehouseCreditCode != null
+                         ? $" Crédito do armazém {warehouseCreditCode} cancelado."
+                         : string.Empty) +
+                     (lotExitCode != null
+                         ? $" Saída do lote {lotExitCode} desvinculada."
+                         : string.Empty),
             };
 
             var description =
