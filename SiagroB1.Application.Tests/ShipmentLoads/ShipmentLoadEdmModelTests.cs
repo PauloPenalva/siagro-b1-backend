@@ -175,8 +175,8 @@ public class ShipmentLoadEdmModelTests
             "Collection(Edm.Double)",
             action.Parameters.Single(p => p.Name == "Quantities").Type.Definition.FullTypeName());
 
-        // Destination é string ("Rebilling" | "Warehouse"), não enum: não há precedente de enum
-        // em parâmetro de action neste EDM.
+        // Destination é string ("Rebilling" | "Warehouse" | "Transshipment"), não enum: não há
+        // precedente de enum em parâmetro de action neste EDM.
         Assert.Equal(
             "Edm.String",
             action.Parameters.Single(p => p.Name == "Destination").Type.Definition.FullTypeName());

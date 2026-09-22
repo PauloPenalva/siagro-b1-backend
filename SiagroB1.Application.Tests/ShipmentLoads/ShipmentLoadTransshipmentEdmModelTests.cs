@@ -174,6 +174,13 @@ public class ShipmentLoadTransshipmentEdmModelTests
         Assert.Contains("Key", names);
         Assert.Contains("Reason", names);
 
+        Assert.Equal(
+            "Edm.Guid",
+            action.Parameters.Single(p => p.Name == "Key").Type.Definition.FullTypeName());
+        Assert.Equal(
+            "Edm.String",
+            action.Parameters.Single(p => p.Name == "Reason").Type.Definition.FullTypeName());
+
         Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
             action.Parameters.Single(p => p.Name == "Key"));
         Assert.IsAssignableFrom<IEdmOptionalParameter>(

@@ -32,12 +32,14 @@ public class ShipmentLoadsTransshipmentRegisterEntryController(
             parameters.TryGetValue("GrossWeight", out var grossWeightObj);
             parameters.TryGetValue("ReceiptStorageTransactionKey", out var receiptKeyObj);
 
-            // ⚠️ TryParseExact, nunca TryParse — ver ShipmentLoadActionParameters.
+            // ⚠️ TryParseExact, nunca TryParse — ver ShipmentLoadActionParameters. Mensagens
+            // PRÓPRIAS do transbordo: as de ShipmentLoadActionParameters.InvalidDateMessage/
+            // MissingDateMessage são do GAC-1171 e falam de "descarga".
             if (!ShipmentLoadActionParameters.TryParseDate(dateObj, out var parsedDate))
-                return BadRequest(ShipmentLoadActionParameters.InvalidDateMessage);
+                return BadRequest(ShipmentLoadActionParameters.TransshipmentInvalidDateMessage);
 
             if (parsedDate is null)
-                return BadRequest(ShipmentLoadActionParameters.MissingDateMessage);
+                return BadRequest(ShipmentLoadActionParameters.TransshipmentMissingDateMessage);
 
             var userName = User.Identity?.Name ?? "Unknown";
 
