@@ -55,7 +55,6 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
         Guid transshipmentKey,
         decimal grossWeight,
-        decimal? tareWeight,
         DateTime entryDate,
         Guid? receiptStorageTransactionKey,
         string userName)
@@ -103,10 +102,11 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
         }
         else
         {
-            // "Peso pesado na entrada": a leitura bruta da balança menos a tara do veículo,
-            // quando informada — o mesmo par que o resto do módulo de pesagem usa. Sem tara, o
-            // peso informado já é o líquido do transbordo.
-            quantity = tareWeight.HasValue ? grossWeight - tareWeight.Value : grossWeight;
+            // Peso único da entrada: o que foi pesado ao descarregar no armazém intermediário.
+            // Não existe tara em StorageTransaction (só GrossWeight/NetWeight) — a TareWeight que
+            // existe é a do CAMINHÃO, outra coisa. A quebra de transporte já é a diferença entre
+            // o que saiu da carga (OutgoingQuantity) e este peso.
+            quantity = grossWeight;
 
             ShipmentLoadTransshipmentRules.EnsureThirdPartyQuantityIsValid(quantity, transshipment);
         }
