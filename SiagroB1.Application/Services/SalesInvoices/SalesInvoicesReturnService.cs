@@ -274,7 +274,8 @@ public class SalesInvoicesReturnService(
             shipments.Select(x => new ReturnedShipmentShare(x.Shipment, x.Quantity)).ToList(),
             warehouse.Code,
             warehouse.Name,
-            userName);
+            userName,
+            ReleaseOrigin.SalesReturn);
 
         if (build.Releases.Count > 0)
             db.Context.ShipmentReleases.AddRange(build.Releases);

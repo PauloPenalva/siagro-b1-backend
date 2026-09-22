@@ -20,8 +20,9 @@ public sealed record ReturnReleaseBuildResult(
     string? Note);
 
 /// <summary>
-/// Emite as liberações de embarque de uma devolução ao armazém, para que a mercadoria que
-/// voltou reapareça na Expedição de Grãos em vez de ficar presa como saldo físico.
+/// Emite as liberações de uma entrada em armazém — devolução (<see cref="ReleaseOrigin.SalesReturn"/>)
+/// ou transbordo (<see cref="ReleaseOrigin.Transshipment"/>) — para que a mercadoria que voltou
+/// reapareça na Expedição de Grãos em vez de ficar presa como saldo físico.
 /// </summary>
 /// <remarks>
 /// <b>Rastreia o contrato de compra a partir da origem</b>, em duas cadeias:
@@ -56,7 +57,8 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
         IReadOnlyList<ReturnedShipmentShare> shares,
         string warehouseCode,
         string? warehouseName,
-        string userName)
+        string userName,
+        ReleaseOrigin origin)
     {
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(shares);
@@ -84,7 +86,7 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
 
         var releases = byContract
             .Select(pair => Create(
-                entry, pair.Key, pair.Value, warehouseCode, warehouseName, shares, userName))
+                entry, pair.Key, pair.Value, warehouseCode, warehouseName, shares, userName, origin))
             .ToList();
 
         var note = untraceable > Tolerance
@@ -271,15 +273,23 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
         string warehouseCode,
         string? warehouseName,
         IReadOnlyList<ReturnedShipmentShare> shares,
-        string userName)
+        string userName,
+        ReleaseOrigin origin)
     {
         var codes = string.Join(", ", shares
             .Select(x => x.Shipment.Code)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct());
 
+        // A narrativa nomeia a origem certa (GAC-1181): a mesma liberação nasce tanto de uma
+        // devolução ao armazém quanto da entrada de um transbordo, e o operador que a lê depois
+        // precisa saber qual das duas foi.
+        var originText = origin == ReleaseOrigin.Transshipment
+            ? "pela entrada do transbordo"
+            : "pela devolução ao armazém";
+
         var comments =
-            $"Liberação gerada pela devolução ao armazém (romaneio {entry.Code}). " +
+            $"Liberação gerada {originText} (romaneio {entry.Code}). " +
             (string.IsNullOrWhiteSpace(codes) ? string.Empty : $"Romaneio(s) de origem: {codes}. ") +
             "A mercadoria já está no armazém: o embarque desta liberação não debita o contrato.";
 
@@ -307,7 +317,7 @@ public class ShipmentReleasesFromReturnService(AppDbContext context)
             ApprovedAt = DateTime.Now,
             ApprovedBy = userName,
 
-            Origin = ReleaseOrigin.SalesReturn,
+            Origin = origin,
             GeneratedByStorageTransactionKey = entry.Key,
 
             Comments = Truncate(comments, 500),

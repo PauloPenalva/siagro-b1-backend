@@ -282,7 +282,7 @@ public class ShipmentLoadsRefuseService(
         var shares = ShipmentReleasesFromReturnService.DistributeByWeight(shipments, totalQuantity);
 
         var build = await returnReleases.BuildAsync(
-            entry, shares, warehouse.Code, warehouse.Name, userName);
+            entry, shares, warehouse.Code, warehouse.Name, userName, ReleaseOrigin.SalesReturn);
 
         if (build.Releases.Count > 0)
             db.Context.ShipmentReleases.AddRange(build.Releases);

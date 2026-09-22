@@ -70,4 +70,66 @@ public static class ShipmentLoadTransshipmentRules
                 $"A carga {load.Code} já tem um transbordo em aberto. Registre a entrada dele " +
                 "antes de iniciar outro.");
     }
+
+    /// <summary>
+    /// Um transbordo só registra a entrada uma vez — <see cref="ShipmentLoadTransshipment
+    /// .EntryStorageTransactionKey"/> preenchido é o carimbo de "já registrado". Corrigir exige
+    /// estornar primeiro (Task 6).
+    /// </summary>
+    public static void EnsureEntryNotAlreadyRegistered(ShipmentLoadTransshipment transshipment)
+    {
+        if (transshipment.EntryStorageTransactionKey != null)
+            throw new ApplicationException(
+                $"A entrada do transbordo {transshipment.Sequence} já foi registrada. Estorne-o " +
+                "para corrigir.");
+    }
+
+    /// <summary>
+    /// Armazém de terceiro: o peso pesado na entrada precisa ser positivo e não pode superar o
+    /// que saiu da carga — a mesma tolerância de arredondamento usada no resto do módulo.
+    /// </summary>
+    public static void EnsureThirdPartyQuantityIsValid(
+        decimal quantity, ShipmentLoadTransshipment transshipment)
+    {
+        if (quantity <= Tolerance)
+            throw new ApplicationException("Informe o peso pesado na entrada do transbordo.");
+
+        if (quantity > transshipment.OutgoingQuantity + Tolerance)
+            throw new ApplicationException(
+                $"O peso informado ({quantity:N3}) é maior que o volume transbordado " +
+                $"({transshipment.OutgoingQuantity:N3}).");
+    }
+
+    /// <summary>
+    /// Armazém próprio: a entrada não nasce aqui — já existe, lançada pela tela de Entrada em
+    /// Armazenagem de sempre. Esta checagem só admite VINCULAR um <c>Receipt</c> que realmente
+    /// corresponde a esta carga e ainda não pertence a nada.
+    /// </summary>
+    public static void EnsureOwnWarehouseReceiptIsUsable(
+        StorageTransaction receipt, ShipmentLoad load, ShipmentLoadTransshipment transshipment)
+    {
+        if (receipt.TransactionType != StorageTransactionType.Receipt)
+            throw new ApplicationException(
+                "O romaneio informado não é uma Entrada em Armazenagem.");
+
+        if (receipt.TransactionStatus != StorageTransactionsStatus.Confirmed)
+            throw new ApplicationException("O romaneio informado não está confirmado.");
+
+        if (!string.Equals(receipt.WarehouseCode, transshipment.WarehouseCode, StringComparison.OrdinalIgnoreCase))
+            throw new ApplicationException("O romaneio informado é de outro armazém.");
+
+        if (!string.Equals(receipt.ItemCode, load.ItemCode, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(receipt.BranchCode, load.BranchCode, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(receipt.UnitOfMeasureCode, load.UnitOfMeasureCode, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ApplicationException(
+                "O romaneio informado não corresponde ao produto, filial ou unidade da carga.");
+        }
+
+        // Sem os dois nulos, o romaneio já pertence a outra carga ou já fechou outro transbordo —
+        // vinculá-lo aqui roubaria a entrada de quem já a usa.
+        if (receipt.ShipmentLoadKey != null || receipt.ShipmentLoadTransshipmentKey != null)
+            throw new ApplicationException(
+                "O romaneio informado já está vinculado a uma carga ou a outro transbordo.");
+    }
 }

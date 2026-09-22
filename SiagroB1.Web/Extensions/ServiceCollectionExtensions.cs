@@ -421,6 +421,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadAttachmentsDeleteService>();
         // GAC-1181 — transbordo da carga
         services.AddScoped<ShipmentLoadsTransshipmentStartService>();
+        services.AddScoped<ShipmentLoadsTransshipmentRegisterEntryService>();
 
         // shipping orders
         services.AddScoped<ShippingOrdersCancelService>();
