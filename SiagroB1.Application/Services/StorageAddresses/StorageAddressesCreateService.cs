@@ -30,7 +30,7 @@ public class StorageAddressesCreateService(
             {
                 throw new ApplicationException(
                     $"O armazém {entity.WarehouseCode} não é armazém próprio. " +
-                    "Lote de natureza Transbordo só pode ser criado em armazém próprio.");
+                    "Escolha um armazém próprio para o lote de Transbordo, ou deixe a natureza Regular.");
             }
         }
 
