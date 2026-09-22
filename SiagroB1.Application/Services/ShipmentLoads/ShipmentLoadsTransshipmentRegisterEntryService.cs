@@ -84,6 +84,18 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
         StorageTransaction? existingReceipt = null;
         decimal quantity;
 
+        // Fase 1 do GAC-1181 (decisão do usuário, 22/09): este ramo é hoje INALCANÇÁVEL pelo
+        // fluxo — ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync recusa
+        // armazém próprio nos dois pontos de entrada (ShipmentLoadsTransshipmentStartService e o
+        // destino Transbordo de ShipmentLoadsRefuseService), então nenhum transbordo com
+        // WarehouseCode próprio chega a existir para esta chamada ler `isOwn = true` aqui. O motivo
+        // do bloqueio: vincular o Receipt não credita o saldo do ARMAZÉM (só o do lote) e não emite
+        // liberação nenhuma — a mercadoria ficaria sem porta de saída, e o operador só embarcaria
+        // consumindo uma liberação de OUTRO negócio, corrompendo o saldo dele (verificado com dado
+        // real). Mantido — e continua exercitado pelo teste direto
+        // `RegisterEntry_OwnWarehouse_LinksTheExistingReceipt`, que chama este serviço sem passar
+        // pelas travas de entrada — porque é o alicerce da fase 2 (lote de natureza "Transbordo",
+        // desenhada em docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md).
         if (isOwn)
         {
             if (receiptStorageTransactionKey is not { } receiptKey)

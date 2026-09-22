@@ -71,6 +71,7 @@ public class ShipmentLoadsRefuseService(
     ShipmentLoadsMovementLogService movementLog,
     ShipmentReleasesFromReturnService returnReleases,
     IWarehouseService warehouseService,
+    IWarehouseComplementService warehouseComplementService,
     ILogger<ShipmentLoadsRefuseService> logger)
 {
     private const decimal Tolerance = 0.001m;
@@ -94,6 +95,11 @@ public class ShipmentLoadsRefuseService(
             // silêncio. Alcançável por aqui pela recusa PARCIAL repetida.
             ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(load);
             await ShipmentLoadTransshipmentRules.EnsureIsLastAsync(db.Context, load);
+
+            // Fase 1 do GAC-1181 (decisão do usuário): armazém próprio ainda não tem porta de
+            // saída pronta — ver ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync.
+            await ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync(
+                warehouseComplementService, request.DestinationWarehouseCode!.Trim());
         }
 
         var warehouse = await ResolveWarehouseAsync(request);

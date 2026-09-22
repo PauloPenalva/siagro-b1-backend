@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -24,6 +25,7 @@ public class ShipmentLoadsTransshipmentStartServiceTests
     private ShipmentLoadsTransshipmentStartService Service() => new(
         _db,
         Warehouses(),
+        new WarehouseComplementService(_db),
         new ShipmentLoadsMovementLogService(_db.Context));
 
     private ShipmentLoad Load(
@@ -196,6 +198,52 @@ public class ShipmentLoadsTransshipmentStartServiceTests
             () => Service().ExecuteAsync(load.Key, Warehouse, DateTime.Today, null, "tester"));
 
         Assert.Contains("CG000001", error.Message);
+    }
+
+    /// <summary>
+    /// GAC-1181, fase 1 (decisão do usuário, 22/09): transbordo em armazém próprio ainda não tem
+    /// porta de saída — <c>RegisterEntryService</c> só vincula o <c>Receipt</c>, sem creditar o
+    /// armazém nem emitir liberação. A trava recusa aqui, na ENTRADA, antes de qualquer escrita.
+    /// Monta o complemento com <c>IsOwn = true</c> de verdade, não confia na ausência de registro.
+    /// </summary>
+    [Fact]
+    public async Task Start_RefusesOwnWarehouse()
+    {
+        var load = Load(totalQuantity: 30_000);
+        _db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = Warehouse,
+            IsOwn = true,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, Warehouse, DateTime.Today, null, "tester"));
+
+        Assert.Contains("armazém próprio", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await _db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+    }
+
+    /// <summary>
+    /// Regressão: um armazém com complemento cadastrado mas <c>IsOwn = false</c> continua liberado
+    /// — a trava lê o flag, não a mera existência do registro de complemento.
+    /// </summary>
+    [Fact]
+    public async Task Start_AllowsThirdPartyWarehouseWithComplementRegistered()
+    {
+        var load = Load(totalQuantity: 30_000);
+        _db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = Warehouse,
+            IsParticipant = true,
+            IsOwn = false,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var transshipment = await Service().ExecuteAsync(
+            load.Key, Warehouse, DateTime.Today, null, "tester");
+
+        Assert.Equal(30_000m, transshipment.OutgoingQuantity);
     }
 
     [Fact]

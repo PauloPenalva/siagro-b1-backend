@@ -209,6 +209,66 @@ public class ShipmentLoadsRefuseTransshipmentTests
         Assert.Empty(await _fixture._db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
     }
 
+    // ─── Trava: armazém próprio ainda não tem porta de saída (fase 1, GAC-1181) ───
+
+    /// <summary>
+    /// Decisão do usuário (22/09): o desenho de armazém próprio no
+    /// <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/> só VINCULA o <c>Receipt</c> —
+    /// não credita o armazém nem emite liberação —, então a mercadoria ficaria sem porta de saída.
+    /// A recusa recusa entrar nesse fluxo antes de qualquer escrita: nem a devolução do documento
+    /// acontece.
+    /// </summary>
+    [Fact]
+    public async Task Refuse_ToTransshipment_RefusesOwnWarehouse()
+    {
+        var (load, invoice) = await _fixture.BilledLoadAsync(30_000m);
+
+        _fixture._db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = TransshipmentWarehouse,
+            IsOwn = true,
+        });
+        await _fixture._db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => _fixture.Service().ExecuteAsync(
+                ShipmentLoadsRefuseServiceTests.Request(
+                    load, invoice, 30_000m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+                "tester"));
+
+        Assert.Contains("armazém próprio", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await _fixture._db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+
+        var origin = await _fixture._db.Context.SalesInvoices
+            .AsNoTracking().SingleAsync(x => x.Key == invoice.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, origin.InvoiceStatus);
+    }
+
+    /// <summary>
+    /// Regressão: um armazém com complemento cadastrado mas <c>IsOwn = false</c> continua liberado
+    /// — a trava lê o flag, não a mera existência do registro de complemento.
+    /// </summary>
+    [Fact]
+    public async Task Refuse_ToTransshipment_AllowsThirdPartyWarehouseWithComplementRegistered()
+    {
+        var (load, invoice) = await _fixture.BilledLoadAsync(30_000m);
+
+        _fixture._db.Context.WarehouseComplements.Add(new WarehouseComplement
+        {
+            WarehouseCode = TransshipmentWarehouse,
+            IsParticipant = true,
+            IsOwn = false,
+        });
+        await _fixture._db.SaveChangesAsync();
+
+        await _fixture.Service().ExecuteAsync(
+            ShipmentLoadsRefuseServiceTests.Request(
+                load, invoice, 30_000m, RefusalDestination.Transshipment, TransshipmentWarehouse),
+            "tester");
+
+        Assert.Single(await _fixture._db.Context.ShipmentLoadsTransshipments.AsNoTracking().ToListAsync());
+    }
+
     // ─── Trava: não empilha transbordo sobre transbordo aberto (mesma regra da Task 4) ───
 
     /// <summary>

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
@@ -36,6 +37,34 @@ public static class ShipmentLoadTransshipmentRules
     {
         if (string.IsNullOrWhiteSpace(warehouseCode))
             throw new ApplicationException("Informe o armazém do transbordo.");
+    }
+
+    /// <summary>
+    /// Fase 1 do GAC-1181: transbordo em armazém próprio ainda não tem porta de saída. O ramo que
+    /// já existe (<see cref="EnsureOwnWarehouseReceiptIsUsable"/>, usado por
+    /// <c>ShipmentLoadsTransshipmentRegisterEntryService</c>) só VINCULA um <c>Receipt</c> já
+    /// lançado pela Entrada em Armazenagem — não credita o saldo do ARMAZÉM (só o do lote) e não
+    /// emite nenhuma liberação, então a mercadoria fica sem porta de saída: o operador só
+    /// embarcaria consumindo uma liberação de outro negócio, corrompendo o saldo dele. Verificado
+    /// com dado real. A fase 2 (lote de natureza "Transbordo", entrada e saída pela pesagem) está
+    /// desenhada em <c>docs/superpowers/specs/2026-09-21-gac-1181-load-transshipment-design.md</c>,
+    /// não implementada.
+    /// <para>
+    /// Barrado aqui, na ENTRADA do fluxo (<c>ShipmentLoadsTransshipmentStartService</c> e o ramo
+    /// Transbordo de <c>ShipmentLoadsRefuseService</c>), e não removendo o ramo de
+    /// <c>RegisterEntryService</c>: ele é o alicerce da fase 2 e continua exercitado por teste
+    /// direto.
+    /// </para>
+    /// </summary>
+    public static async Task EnsureWarehouseAcceptsTransshipmentAsync(
+        IWarehouseComplementService complements, string warehouseCode)
+    {
+        var complement = await complements.GetAsync(warehouseCode);
+
+        if (complement?.IsOwn == true)
+            throw new ApplicationException(
+                "Transbordo em armazém próprio ainda não está disponível nesta versão. " +
+                "Escolha um armazém de terceiro.");
     }
 
     /// <summary>
