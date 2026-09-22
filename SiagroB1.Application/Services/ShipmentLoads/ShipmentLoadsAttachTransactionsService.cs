@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
@@ -24,6 +25,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </remarks>
 public class ShipmentLoadsAttachTransactionsService(
     IUnitOfWork db,
+    IWarehouseComplementService warehouseComplements,
     ShipmentLoadsMovementLogService movementLog)
 {
     public async Task<ShipmentLoad> ExecuteAsync(
@@ -255,20 +257,19 @@ public class ShipmentLoadsAttachTransactionsService(
             throw new ApplicationException(
                 $"A entrada do transbordo {transshipment.Sequence} ainda não foi registrada.");
 
-        // GAC-1181 fase 2: em armazém PRÓPRIO a entrada é o Receipt da pesagem (Task 3) e a
-        // liberação só nasce quando a saída do LOTE é vinculada depois
-        // (ShipmentLoadsTransshipmentAttachLotExitService, Task 4) — sem isso, esta Expedição só
-        // poderia estar consumindo liberação de outro negócio, o buraco que esta fase existe para
-        // fechar. Em armazém de terceiro a entrada já É o TransshipmentReceipt (15), que emite a
-        // liberação sozinho na Task 3, então esta checagem não se aplica — e é por isso que ela é
-        // condicionada ao TIPO do romaneio de entrada, não aplicada incondicionalmente.
-        var entryTransactionType = await db.Context.StorageTransactions
-            .Where(x => x.Key == transshipment.EntryStorageTransactionKey)
-            .Select(x => (StorageTransactionType?)x.TransactionType)
-            .FirstOrDefaultAsync();
+        // GAC-1181 fase 2: em armazém PRÓPRIO a liberação só nasce quando a saída do LOTE é
+        // vinculada depois (ShipmentLoadsTransshipmentAttachLotExitService, Task 4) — sem isso,
+        // esta Expedição só poderia estar consumindo liberação de outro negócio, o buraco que esta
+        // fase existe para fechar. Em armazém de terceiro a entrada já É o TransshipmentReceipt
+        // (15), que emite a liberação sozinho na Task 3 (ShipmentLoadsTransshipmentRegisterEntryService),
+        // então esta checagem não se aplica. O mesmo discriminador (WarehouseComplement.IsOwn) já
+        // decide essa mesma pergunta em ShipmentLoadTransshipmentRules.EnsureWarehouseAcceptsTransshipmentAsync
+        // e em ShipmentLoadsTransshipmentRegisterEntryService — reusado aqui em vez de inferir pelo
+        // TIPO do romaneio de entrada, para não ter dois discriminadores da mesma decisão que
+        // possam sair de sincronia sem ninguém notar.
+        var complement = await warehouseComplements.GetAsync(transshipment.WarehouseCode);
 
-        if (entryTransactionType == StorageTransactionType.Receipt &&
-            transshipment.LotExitStorageTransactionKey == null)
+        if (complement?.IsOwn == true && transshipment.LotExitStorageTransactionKey == null)
         {
             throw new ApplicationException(
                 $"O transbordo {transshipment.Sequence} ainda não tem a saída do lote vinculada. " +
