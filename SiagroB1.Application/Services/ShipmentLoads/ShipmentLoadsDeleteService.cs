@@ -14,11 +14,12 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// Uma carga que nunca teve romaneio nem nota não tem história que valha preservar, e
 /// transformá-la num cancelamento só polui a lista.
 /// <para>
-/// A permissão é deliberadamente ESTREITA e as quatro condições são verificadas separadamente,
-/// não deduzidas uma da outra: status <c>Planned</c>, nenhum romaneio vinculado, nenhuma nota —
-/// nem mesmo cancelada — e nenhuma troca de liberação (GAC-1177 v2; ver
-/// <see cref="Domain.Entities.ShippingReleaseChange"/>). Em qualquer outro caso a resposta é
-/// cancelar a carga, e <see cref="ShipmentLoadsCancelService"/> continua sendo o caminho.
+/// A permissão é deliberadamente ESTREITA e as condições são verificadas separadamente, não
+/// deduzidas uma da outra: status <c>Planned</c>, nenhum romaneio vinculado, nenhuma nota — nem
+/// mesmo cancelada —, nenhuma troca de liberação (GAC-1177 v2; ver
+/// <see cref="Domain.Entities.ShippingReleaseChange"/>) e nenhum transbordo (GAC-1181). Em
+/// qualquer outro caso a resposta é cancelar a carga, e <see cref="ShipmentLoadsCancelService"/>
+/// continua sendo o caminho.
 /// </para>
 /// <para>
 /// ⚠️ <b>O número consumido da sequência NÃO volta.</b> <c>DocNumberSequenceService</c> não tem
@@ -26,7 +27,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// na numeração é o preço, e é o preço certo.
 /// </para>
 /// </remarks>
-public class ShipmentLoadsDeleteService(IUnitOfWork db)
+public class ShipmentLoadsDeleteService(
+    IUnitOfWork db, ShipmentLoadsCompositionGuardService compositionGuard)
 {
     public async Task ExecuteAsync(Guid key)
     {
@@ -64,6 +66,12 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             throw new ApplicationException(
                 $"A carga {load.Code} teve troca de liberação e não pode ser excluída. Cancele a carga.");
 
+        // GAC-1181: defesa em profundidade — hoje inalcançável (uma carga com transbordo já tem
+        // volume, e uma carga apenas planejada não tem como ter transbordo pelas trilhas do
+        // app), mas usa a MESMA trava e mensagem de Cancel, e evita que o delete estoure 547
+        // silenciosamente se algum dia a exceção de "sem romaneio" deixar de valer.
+        await compositionGuard.EnsureNoTransshipmentAsync(load);
+
         var movements = await db.Context.ShipmentLoadMovements
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
@@ -81,6 +89,10 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             .ToListAsync();
 
         var attachments = await db.Context.ShipmentLoadsAttachments
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
+        var transshipments = await db.Context.ShipmentLoadsTransshipments
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
 
@@ -110,6 +122,11 @@ public class ShipmentLoadsDeleteService(IUnitOfWork db)
             // guard afrouxar — só o RemoveRange(attachments) é caminho vivo.
             db.Context.ShipmentLoadsDischarges.RemoveRange(discharges);
             db.Context.ShipmentLoadsAttachments.RemoveRange(attachments);
+
+            // GAC-1181: mesma FK NoAction, mesmo motivo — e mesmo ramo MORTO que os tickets de
+            // descarga: o guard acima já recusa excluir com transbordo. Defesa em profundidade,
+            // não caminho vivo.
+            db.Context.ShipmentLoadsTransshipments.RemoveRange(transshipments);
 
             db.Context.ShipmentLoads.Remove(load);
 

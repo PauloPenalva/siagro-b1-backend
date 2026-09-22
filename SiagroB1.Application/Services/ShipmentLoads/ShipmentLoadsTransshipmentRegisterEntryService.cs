@@ -236,7 +236,7 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
             GrossWeight = quantity,
             NetWeight = quantity,
             ShipmentLoadTransshipmentKey = transshipment.Key,
-            Comments = Truncate(comments, 500),
+            Comments = ShipmentLoadTransshipmentRules.Truncate(comments),
         };
 
         await storageCreate.ExecuteAsync(
@@ -284,9 +284,6 @@ public class ShipmentLoadsTransshipmentRegisterEntryService(
     private static string AppendComment(string? current, string addition)
     {
         var merged = string.IsNullOrWhiteSpace(current) ? addition : $"{current} {addition}";
-        return merged.Length <= 500 ? merged : merged[..500];
+        return ShipmentLoadTransshipmentRules.Truncate(merged);
     }
-
-    private static string Truncate(string value, int max) =>
-        value.Length <= max ? value : value[..max];
 }

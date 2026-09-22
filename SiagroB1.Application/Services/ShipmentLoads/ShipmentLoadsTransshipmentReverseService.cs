@@ -115,7 +115,7 @@ public class ShipmentLoadsTransshipmentReverseService(
                     entry.UpdatedAt = DateTime.Now;
                     entry.UpdatedBy = userName;
 
-                    var cancellationReason = Truncate(
+                    var cancellationReason = ShipmentLoadTransshipmentRules.Truncate(
                         $"Estorno do transbordo {transshipment.Sequence} da carga {load.Code}." +
                         (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Motivo: {reason.Trim()}."));
 
@@ -190,10 +190,4 @@ public class ShipmentLoadsTransshipmentReverseService(
             throw;
         }
     }
-
-    /// <summary>
-    /// Concatena respeitando o VARCHAR(500) da coluna — mesmo precedente de
-    /// <see cref="ShipmentLoadsTransshipmentRegisterEntryService"/>.
-    /// </summary>
-    private static string Truncate(string value) => value.Length <= 500 ? value : value[..500];
 }

@@ -34,7 +34,9 @@ public class ShipmentLoadsAttachTransactionsController(
             var key = Guid.Parse(keyObj.ToString()!);
             var userName = User.Identity?.Name ?? "Unknown";
 
-            var load = await attachService.ExecuteAsync(key, keys.ToList(), userName);
+            // GAC-1181: o parâmetro OData que expõe o papel do transbordo (Task 9) ainda não
+            // existe nesta action — por ora, todo vínculo por aqui segue o caminho comum.
+            var load = await attachService.ExecuteAsync(key, keys.ToList(), null, userName);
 
             return Ok(new { load.Key, load.Code, load.TotalQuantity, load.Status });
         }

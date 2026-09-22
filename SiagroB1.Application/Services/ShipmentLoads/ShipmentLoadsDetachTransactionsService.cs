@@ -69,6 +69,8 @@ public class ShipmentLoadsDetachTransactionsService(
             throw new ApplicationException(
                 $"O romaneio {foreign.Code} não pertence à carga {load.Code}.");
 
+        await EnsureNoOriginExitWhileThereIsATransshipmentAsync(load, shipments);
+
         var detachedQuantity = decimal.Round(
             shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven);
 
@@ -79,6 +81,10 @@ public class ShipmentLoadsDetachTransactionsService(
             foreach (var shipment in shipments)
             {
                 shipment.ShipmentLoadKey = null;
+
+                // GAC-1181: zera também o papel do transbordo, se houver — é o que permite
+                // corrigir uma saída vinculada por engano (ver EnsureNoOriginExitWhileThere...).
+                shipment.ShipmentLoadTransshipmentKey = null;
 
                 // A carga de REMOÇÃO nunca projetou status no romaneio (ver
                 // ShipmentLoadsRecalculateInvoicedService), então não há o que desfazer aqui — e
@@ -127,4 +133,28 @@ public class ShipmentLoadsDetachTransactionsService(
         return load;
     }
 
+    /// <summary>
+    /// GAC-1181: enquanto a carga tiver transbordo (qualquer um, aberto ou não — o estorno é que
+    /// apaga a linha), a saída da ORIGEM (<c>ShipmentLoadTransshipmentKey == null</c>) não pode
+    /// ser desvinculada: é ela que <c>ShipmentLoadsTransshipmentRegisterEntryService</c> usa para
+    /// ratear as liberações emitidas na entrada. A saída do PRÓPRIO transbordo não entra nesta
+    /// trava — desvinculá-la é o único jeito de corrigir um vínculo feito por engano (ver
+    /// <c>ShipmentLoadsCompositionGuardService</c>, que por isso não barra o Detach inteiro).
+    /// </summary>
+    private async Task EnsureNoOriginExitWhileThereIsATransshipmentAsync(
+        ShipmentLoad load, List<StorageTransaction> shipments)
+    {
+        var originShipment = shipments.FirstOrDefault(x => x.ShipmentLoadTransshipmentKey == null);
+        if (originShipment == null)
+            return;
+
+        var hasTransshipment = await db.Context.ShipmentLoadsTransshipments
+            .AnyAsync(x => x.ShipmentLoadKey == load.Key);
+
+        if (hasTransshipment)
+            throw new ApplicationException(
+                $"O romaneio {originShipment.Code} é saída de origem da carga {load.Code}, que " +
+                "tem transbordo. As liberações do transbordo derivam deste romaneio. Estorne o " +
+                "transbordo antes.");
+    }
 }

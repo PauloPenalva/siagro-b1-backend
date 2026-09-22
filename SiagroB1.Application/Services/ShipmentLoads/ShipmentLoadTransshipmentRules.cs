@@ -132,4 +132,12 @@ public static class ShipmentLoadTransshipmentRules
             throw new ApplicationException(
                 "O romaneio informado já está vinculado a uma carga ou a outro transbordo.");
     }
+
+    /// <summary>
+    /// Corta respeitando o VARCHAR(500) das colunas de comentário/motivo do módulo. Único lugar
+    /// que faz isso — registrar entrada (Task 5) e estornar (Task 6) chamavam a mesma regra cada
+    /// um com sua cópia privada.
+    /// </summary>
+    public static string Truncate(string value, int max = 500) =>
+        value.Length <= max ? value : value[..max];
 }

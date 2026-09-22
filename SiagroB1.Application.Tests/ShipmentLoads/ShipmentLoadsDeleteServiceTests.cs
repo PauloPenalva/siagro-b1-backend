@@ -18,7 +18,8 @@ public class ShipmentLoadsDeleteServiceTests
 {
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private ShipmentLoadsDeleteService Service() => new(_db);
+    private ShipmentLoadsDeleteService Service() => new(
+        _db, new ShipmentLoadsCompositionGuardService(_db.Context));
 
     private ShipmentLoad Load(ShipmentLoadStatus status = ShipmentLoadStatus.Planned)
     {

@@ -87,7 +87,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var c = Shipment("R3", 28_500);
         await _db.Context.SaveChangesAsync();
 
-        await Service().ExecuteAsync(load.Key, [a.Key, b.Key, c.Key], "tester");
+        await Service().ExecuteAsync(load.Key, [a.Key, b.Key, c.Key], null, "tester");
 
         var saved = await _db.Context.ShipmentLoads.SingleAsync();
         // Soma o BRUTO, e não o líquido: é o número que vira a quantidade da nota.
@@ -108,7 +108,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var a = Shipment("R1", 30_000);
         await _db.Context.SaveChangesAsync();
 
-        await Service().ExecuteAsync(load.Key, [a.Key], "tester");
+        await Service().ExecuteAsync(load.Key, [a.Key], null, "tester");
 
         var movement = await _db.Context.ShipmentLoadMovements
             .SingleAsync(x => x.ShipmentLoadKey == load.Key);
@@ -130,8 +130,8 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var b = Shipment("R2", 20_000);
         await _db.Context.SaveChangesAsync();
 
-        await Service().ExecuteAsync(load.Key, [a.Key], "tester");
-        await Service().ExecuteAsync(load.Key, [b.Key], "tester");
+        await Service().ExecuteAsync(load.Key, [a.Key], null, "tester");
+        await Service().ExecuteAsync(load.Key, [b.Key], null, "tester");
 
         Assert.Equal(50_000m, (await _db.Context.ShipmentLoads.SingleAsync()).TotalQuantity);
     }
@@ -143,7 +143,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [], "tester"));
+            () => Service().ExecuteAsync(load.Key, [], null, "tester"));
 
         Assert.Contains("romaneio", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -156,7 +156,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("veículo", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(decimal.Zero, (await _db.Context.ShipmentLoads.SingleAsync()).TotalQuantity);
@@ -170,7 +170,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("produto", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -183,7 +183,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("filial", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -200,7 +200,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("TON", error.Message);
     }
@@ -223,7 +223,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         // Nomear os dois códigos é o que torna o erro acionável: o usuário precisa saber
         // QUAL romaneio e em QUAL carga ele já está.
@@ -244,7 +244,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("R1", error.Message);
         Assert.Contains("troca de liberação", error.Message);
@@ -258,7 +258,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("R1", error.Message);
     }
@@ -271,7 +271,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("R1", error.Message);
     }
@@ -283,7 +283,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [Guid.NewGuid()], "tester"));
+            () => Service().ExecuteAsync(load.Key, [Guid.NewGuid()], null, "tester"));
 
         Assert.Contains("não encontrado", error.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -304,7 +304,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var error = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("CG000001", error.Message);
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
@@ -323,7 +323,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("recebimento", ex.Message);
         Assert.Contains("R1", ex.Message);
@@ -337,7 +337,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("embarque", ex.Message);
     }
@@ -351,7 +351,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var b = Shipment("R2", 20_000, type: StorageTransactionType.Receipt);
         await _db.Context.SaveChangesAsync();
 
-        await Service().ExecuteAsync(load.Key, [a.Key, b.Key], "tester");
+        await Service().ExecuteAsync(load.Key, [a.Key, b.Key], null, "tester");
 
         var saved = await _db.Context.ShipmentLoads.SingleAsync();
         Assert.Equal(50_000m, saved.TotalQuantity);
@@ -374,7 +374,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("não está confirmado", ex.Message);
     }
@@ -388,7 +388,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(
-            () => Service().ExecuteAsync(load.Key, [a.Key], "tester"));
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
     }

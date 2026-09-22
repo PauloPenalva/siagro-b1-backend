@@ -29,6 +29,7 @@ public class ShipmentLoadsAttachTransactionsService(
     public async Task<ShipmentLoad> ExecuteAsync(
         Guid shipmentLoadKey,
         ICollection<Guid> storageTransactionKeys,
+        Guid? transshipmentKey,
         string userName)
     {
         if (storageTransactionKeys.Count == 0)
@@ -52,6 +53,13 @@ public class ShipmentLoadsAttachTransactionsService(
         await ValidateEligibilityAsync(load, shipments);
         ValidateHomogeneity(load, shipments);
 
+        // GAC-1181: com a chave, a saída assume o PAPEL de saída do transbordo; sem ela, segue o
+        // caminho de sempre — mas barrado se o armazém for de um transbordo já recebido, que só
+        // pode ser vinculado pelo outro caminho.
+        var transshipment = transshipmentKey is { } key
+            ? await ValidateTransshipmentRoleAsync(load, key, shipments)
+            : await EnsureNoneIsATransshipmentWarehouseAsync(load, shipments);
+
         var attachedQuantity = decimal.Round(
             shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven);
 
@@ -62,6 +70,7 @@ public class ShipmentLoadsAttachTransactionsService(
             foreach (var shipment in shipments)
             {
                 shipment.ShipmentLoadKey = load.Key;
+                shipment.ShipmentLoadTransshipmentKey = transshipment?.Key;
                 shipment.UpdatedAt = DateTime.Now;
                 shipment.UpdatedBy = userName;
             }
@@ -99,7 +108,7 @@ public class ShipmentLoadsAttachTransactionsService(
     }
 
     /// <summary>
-    /// Só carga planejada ou aberta recebe romaneio.
+    /// Carga planejada, aberta ou EM TRANSBORDO (GAC-1181) recebe romaneio.
     /// </summary>
     /// <remarks>
     /// Vincular a uma carga já faturada aumentaria <see cref="ShipmentLoad.TotalQuantity"/> sob
@@ -107,10 +116,19 @@ public class ShipmentLoadsAttachTransactionsService(
     /// usa durante um faturamento em curso. Pior: o laço de projeção de status do recálculo
     /// carimbaria o romaneio recém-vinculado como <c>Invoiced</c> sem que nada dele tenha sido
     /// faturado.
+    /// <para>
+    /// <b><see cref="ShipmentLoadStatus.InTransshipment"/> é aceito de propósito</b>: é
+    /// exatamente o status da carga no momento em que a saída do transbordo precisa ser
+    /// vinculada — o transbordo descarregou o saldo INTEIRO, então a carga fica nesse status até
+    /// essa saída "fechar" o transbordo (<see cref="ShipmentLoadsRecalculateTransshippedService.HasOpenTransshipmentAsync"/>).
+    /// Quem impede o abuso desta abertura é <see cref="ValidateTransshipmentRoleAsync"/> e
+    /// <see cref="EnsureNoneIsATransshipmentWarehouseAsync"/>, não este guard.
+    /// </para>
     /// </remarks>
     private static void EnsureLoadAcceptsShipments(ShipmentLoad load)
     {
-        if (load.Status is ShipmentLoadStatus.Planned or ShipmentLoadStatus.Open)
+        if (load.Status is ShipmentLoadStatus.Planned or ShipmentLoadStatus.Open
+            or ShipmentLoadStatus.InTransshipment)
             return;
 
         var reason = load.Status switch
@@ -213,5 +231,72 @@ public class ShipmentLoadsAttachTransactionsService(
             throw new ApplicationException(
                 $"O romaneio {wrongUom.Code} está em {wrongUom.UnitOfMeasureCode} e a carga " +
                 $"{load.Code} está em {load.UnitOfMeasureCode}.");
+    }
+
+    /// <summary>
+    /// GAC-1181: vincula por PAPEL — a saída que recarrega no armazém intermediário e devolve o
+    /// volume transbordado à carga. Exige o transbordo desta carga, com entrada já registrada
+    /// (é ela que "recebeu" a mercadoria e libera a recarga), e todo romaneio selecionado do
+    /// armazém do transbordo.
+    /// </summary>
+    private async Task<ShipmentLoadTransshipment> ValidateTransshipmentRoleAsync(
+        ShipmentLoad load, Guid transshipmentKey, List<StorageTransaction> shipments)
+    {
+        var transshipment = await db.Context.ShipmentLoadsTransshipments
+                                 .FirstOrDefaultAsync(x => x.Key == transshipmentKey) ??
+                             throw new NotFoundException(
+                                 $"Shipment load transshipment not found key {transshipmentKey}");
+
+        if (transshipment.ShipmentLoadKey != load.Key)
+            throw new ApplicationException(
+                $"O transbordo informado não pertence à carga {load.Code}.");
+
+        if (transshipment.EntryStorageTransactionKey == null)
+            throw new ApplicationException(
+                $"A entrada do transbordo {transshipment.Sequence} ainda não foi registrada.");
+
+        var notShipment = shipments.FirstOrDefault(x => x.TransactionType != StorageTransactionType.SalesShipment);
+        if (notShipment != null)
+            throw new ApplicationException(
+                $"O romaneio {notShipment.Code} não é uma saída de embarque e não pode ser " +
+                "vinculado como saída de um transbordo.");
+
+        var wrongWarehouse = shipments.FirstOrDefault(x =>
+            !string.Equals(x.WarehouseCode, transshipment.WarehouseCode, StringComparison.OrdinalIgnoreCase));
+        if (wrongWarehouse != null)
+            throw new ApplicationException(
+                $"O romaneio {wrongWarehouse.Code} é do armazém {wrongWarehouse.WarehouseCode} e o " +
+                $"transbordo é no armazém {transshipment.WarehouseCode}.");
+
+        return transshipment;
+    }
+
+    /// <summary>
+    /// Sem a chave, recusa vincular um romaneio cujo armazém seja o de um transbordo desta carga
+    /// COM ENTRADA REGISTRADA: ele é a saída daquele transbordo disfarçada de vinculação comum, e
+    /// entrar por aqui deixaria a carga sem o carimbo que fecha o transbordo.
+    /// </summary>
+    private async Task<ShipmentLoadTransshipment?> EnsureNoneIsATransshipmentWarehouseAsync(
+        ShipmentLoad load, List<StorageTransaction> shipments)
+    {
+        var registered = await db.Context.ShipmentLoadsTransshipments
+            .Where(x => x.ShipmentLoadKey == load.Key && x.EntryStorageTransactionKey != null)
+            .ToListAsync();
+
+        if (registered.Count == 0)
+            return null;
+
+        foreach (var shipment in shipments)
+        {
+            var match = registered.FirstOrDefault(x =>
+                string.Equals(x.WarehouseCode, shipment.WarehouseCode, StringComparison.OrdinalIgnoreCase));
+
+            if (match != null)
+                throw new ApplicationException(
+                    $"O romaneio {shipment.Code} é do armazém do transbordo {match.Sequence} desta " +
+                    $"carga. Vincule-o como saída do transbordo {match.Sequence}.");
+        }
+
+        return null;
     }
 }
