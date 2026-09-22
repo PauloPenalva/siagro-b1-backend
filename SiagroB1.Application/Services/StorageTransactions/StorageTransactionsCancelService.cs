@@ -48,6 +48,13 @@ public class StorageTransactionsCancelService(
                 "não pode ser cancelado por aqui.");
         }
 
+        // GAC-1181: o romaneio de entrada pertence ao transbordo. Cancelá-lo por aqui deixaria o
+        // transbordo apontando um romaneio cancelado e as liberações vivas.
+        if (doc.ShipmentLoadTransshipmentKey != null)
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} é a entrada de um transbordo. Use Estornar Transbordo " +
+                "na carga.");
+
         // Romaneio nascido de ou substituído por uma troca de liberação (GAC-1177): o estorno
         // 12/9, a Expedição nova 7/8, e a Expedição ORIGINAL substituída (que já saiu da carga).
         // Cancelá-lo por aqui destruiria o rastro da troca — quem desfaz esses romaneios é o
