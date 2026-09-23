@@ -22,54 +22,19 @@ public class ShipmentLoadTransshipmentPhase2EdmTests
         return builder.GetEdmModel();
     }
 
-    [Fact]
-    public void Declares_the_attach_lot_exit_action()
-    {
-        Assert.Contains(
-            Model().SchemaElements.OfType<IEdmAction>(),
-            a => a.Name == "ShipmentLoadsTransshipmentAttachLotExit");
-    }
-
-    [Fact]
-    public void AttachLotExit_action_takes_the_expected_parameters()
-    {
-        var action = Model().SchemaElements.OfType<IEdmAction>()
-            .Single(a => a.Name == "ShipmentLoadsTransshipmentAttachLotExit");
-
-        var names = action.Parameters.Select(p => p.Name).ToHashSet();
-        Assert.Contains("Key", names);
-        Assert.Contains("LotExitStorageTransactionKey", names);
-    }
-
-    [Fact]
-    public void AttachLotExit_action_declares_both_parameters_as_guid()
-    {
-        var action = Model().SchemaElements.OfType<IEdmAction>()
-            .Single(a => a.Name == "ShipmentLoadsTransshipmentAttachLotExit");
-
-        Assert.Equal(
-            "Edm.Guid",
-            action.Parameters.Single(p => p.Name == "Key").Type.Definition.FullTypeName());
-        Assert.Equal(
-            "Edm.Guid",
-            action.Parameters.Single(p => p.Name == "LotExitStorageTransactionKey")
-                .Type.Definition.FullTypeName());
-    }
-
     /// <summary>
-    /// Os dois são obrigatórios — sem o romaneio de saída não existe o que vincular, e sem o
-    /// transbordo não existe onde vincular.
+    /// GAC-1181 fase 2 (redesenho): a action "ShipmentLoadsTransshipmentAttachLotExit" saiu do EDM
+    /// — o gatilho da liberação deixou de ser um botão da carga e passou a ser a confirmação do
+    /// romaneio de saída na pesagem. O SERVIÇO (<c>ShipmentLoadsTransshipmentAttachLotExitService</c>)
+    /// permanece, chamado agora só internamente; esta classe prova que o ponto de entrada HTTP não
+    /// existe mais.
     /// </summary>
     [Fact]
-    public void AttachLotExit_action_requires_both_parameters()
+    public void Does_not_declare_the_attach_lot_exit_action_anymore()
     {
-        var action = Model().SchemaElements.OfType<IEdmAction>()
-            .Single(a => a.Name == "ShipmentLoadsTransshipmentAttachLotExit");
-
-        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
-            action.Parameters.Single(p => p.Name == "Key"));
-        Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
-            action.Parameters.Single(p => p.Name == "LotExitStorageTransactionKey"));
+        Assert.DoesNotContain(
+            Model().SchemaElements.OfType<IEdmAction>(),
+            a => a.Name == "ShipmentLoadsTransshipmentAttachLotExit");
     }
 
     /// <summary>

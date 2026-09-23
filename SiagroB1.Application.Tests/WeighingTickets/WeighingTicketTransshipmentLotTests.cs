@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -23,9 +24,20 @@ namespace SiagroB1.Application.Tests.WeighingTickets;
 /// de <c>StorageAddressesCreateService</c> não entre em jogo aqui (o lote é persistido direto no
 /// contexto InMemory).
 /// </summary>
+/// <remarks>
+/// ⚠️ Ajustado pelo redesenho do GAC-1181 fase 2 (2026-09-23): a confirmação de uma saída
+/// (<c>Shipment</c>) num lote de natureza Transbordo agora EXIGE um transbordo aberto do MESMO
+/// caminhão (<see cref="ShipmentLoadTransshipmentRules.ResolveOpenTransshipmentForLotExitAsync"/>)
+/// — sem ele a saída é RECUSADA antes de o romaneio nascer, o que derrubaria
+/// <see cref="CompletedShipmentTicket_CreatesShipmentCarryingTheLot"/> por um motivo alheio ao que
+/// ele prova. <see cref="SeedTransshipmentLotAsync"/> passou a montar também a carga/transbordo
+/// aberto do MESMO caminhão quando há saldo de abertura — a regra de negócio em si (o vínculo, a
+/// liberação) é coberta à parte por <c>WeighingTicketTransshipmentLotExitTriggerTests</c>.
+/// </remarks>
 public class WeighingTicketTransshipmentLotTests
 {
     private const string WarehouseCode = "ARM01";
+    private const string OriginWarehouse = "ARM02";
     private const string LotCode = "L-TRANSSHIP-01";
     private const string CardCode = "C0001";
     private const string ItemCode = "SOJA";
@@ -51,6 +63,11 @@ public class WeighingTicketTransshipmentLotTests
             new ShipmentReleaseMovementGuardService(db.Context),
             NullLogger<StorageTransactionsConfirmedService>.Instance),
         new StorageAddressesGetService(db, NullLogger<StorageAddressesGetService>.Instance),
+        new ShipmentLoadsTransshipmentAttachLotExitService(
+            db,
+            new FakeWarehouseService(new() { [WarehouseCode] = "Armazém Teste" }),
+            new ShipmentReleasesFromReturnService(db.Context),
+            new ShipmentLoadsMovementLogService(db.Context)),
         new FakeStringLocalizer<Resource>(),
         NullLogger<WeighingTicketsCompletedService>.Instance);
 
@@ -59,6 +76,14 @@ public class WeighingTicketTransshipmentLotTests
     /// pelo cenário de SAÍDA: sem saldo prévio no lote, a Validate() do próprio serviço recusaria o
     /// embarque antes de chegar ao ponto que este teste quer provar.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ Redesenho do GAC-1181 fase 2: quando há saldo de abertura, este helper também monta a
+    /// carga/transbordo ABERTO do MESMO caminhão (<see cref="TruckCode"/>) — sem isso, a saída
+    /// (<see cref="CompletedShipmentTicket_CreatesShipmentCarryingTheLot"/>) seria RECUSADA pelo
+    /// gatilho novo (<see cref="ShipmentLoadTransshipmentRules.ResolveOpenTransshipmentForLotExitAsync"/>)
+    /// antes de o romaneio nascer, por falta de transbordo — e não pelo motivo que o teste do lote
+    /// preservado quer provar.
+    /// </remarks>
     private static async Task<IUnitOfWork> SeedTransshipmentLotAsync(decimal openingBalance = 0)
     {
         var db = TestDb.CreateUnitOfWork();
@@ -82,18 +107,66 @@ public class WeighingTicketTransshipmentLotTests
 
         if (openingBalance > 0)
         {
-            db.Context.StorageTransactions.Add(new StorageTransaction
+            var entryReceipt = new StorageTransaction
             {
                 Key = Guid.NewGuid(),
                 StorageAddressCode = LotCode,
                 TransactionType = StorageTransactionType.Receipt,
                 TransactionStatus = StorageTransactionsStatus.Confirmed,
                 NetWeight = openingBalance,
+                GrossWeight = openingBalance,
                 CardCode = CardCode,
                 ItemCode = ItemCode,
                 UnitOfMeasureCode = "KG",
                 WarehouseCode = WarehouseCode,
-            });
+            };
+            db.Context.StorageTransactions.Add(entryReceipt);
+
+            var load = new ShipmentLoad
+            {
+                Key = Guid.NewGuid(),
+                Code = "CG-TRANSSHIP-01",
+                ItemCode = ItemCode,
+                ItemName = "Soja em grãos",
+                UnitOfMeasureCode = "KG",
+                TruckCode = TruckCode,
+                WarehouseCode = OriginWarehouse,
+                Status = ShipmentLoadStatus.InTransshipment,
+                TotalQuantity = openingBalance,
+            };
+
+            var origin = new StorageTransaction
+            {
+                Key = Guid.NewGuid(),
+                CardCode = CardCode,
+                ItemCode = ItemCode,
+                UnitOfMeasureCode = "KG",
+                WarehouseCode = OriginWarehouse,
+                TruckCode = TruckCode,
+                GrossWeight = openingBalance,
+                NetWeight = openingBalance,
+                TransactionType = StorageTransactionType.SalesShipment,
+                TransactionStatus = StorageTransactionsStatus.Confirmed,
+                ShipmentLoadKey = load.Key,
+            };
+
+            var transshipment = new ShipmentLoadTransshipment
+            {
+                ShipmentLoadKey = load.Key,
+                Sequence = 1,
+                WarehouseCode = WarehouseCode,
+                WarehouseName = "Armazém Teste",
+                OutgoingQuantity = openingBalance,
+                EntryQuantity = openingBalance,
+            };
+
+            db.Context.ShipmentLoads.Add(load);
+            db.Context.StorageTransactions.Add(origin);
+            db.Context.ShipmentLoadsTransshipments.Add(transshipment);
+            await db.SaveChangesAsync();
+
+            entryReceipt.ShipmentLoadTransshipmentKey = transshipment.Key;
+            transshipment.EntryStorageTransactionKey = entryReceipt.Key;
         }
 
         await db.SaveChangesAsync();
