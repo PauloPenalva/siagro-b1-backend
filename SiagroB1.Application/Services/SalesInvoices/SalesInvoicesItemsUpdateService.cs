@@ -15,7 +15,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesItemsUpdateService(
     IUnitOfWork db,
     IItemService itemService,
-    ShipmentLoadsChangeLogService loadChangeLog,
+    ShipmentLoadsClosureHookService loadClosureHook,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -110,10 +110,9 @@ public class SalesInvoicesItemsUpdateService(
     }
 
     /// <summary>
-    /// Recalcula a carga da nota do item e, se a situação mudou, registra no log da carga quem
-    /// causou a mudança: a transição Concluída vem de um ato do conferente, e sem o log a carga
-    /// "se concluiria sozinha" sem rastro. No-op para nota sem carga (legada ou avulsa), como o
-    /// <c>ShipmentLoadsBalanceHookService</c>.
+    /// Recalcula a situação da carga da nota do item pelo <see cref="ShipmentLoadsClosureHookService"/>,
+    /// que também registra no log da carga quem causou a mudança: a transição Concluída vem de um
+    /// ato do conferente. No-op para item sem nota ou nota sem carga (legada ou avulsa).
     /// </summary>
     private async Task RecalculateShipmentLoadAsync(SalesInvoiceItem item, string userName)
     {
@@ -124,30 +123,7 @@ public class SalesInvoicesItemsUpdateService(
         if (invoice is null)
             return;
 
-        var loadKey = await SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync(db.Context, invoice);
-        if (loadKey is null)
-            return;
-
-        var load = await db.Context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == loadKey.Value);
-        if (load is null)
-            return;
-
-        var before = load.Status;
-
-        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
-            db.Context, load.Key, excludedInvoiceKeys: null);
-
-        if (load.Status == before)
-            return;
-
-        load.UpdatedBy = userName;
-
-        loadChangeLog.Register(
-            load.Key,
-            ShipmentLoadChangeLogFields.Status,
-            ShipmentLoadChangeLogFields.DescribeStatus(before),
-            ShipmentLoadChangeLogFields.DescribeStatus(load.Status),
-            userName);
+        await loadClosureHook.ApplyAsync(invoice, userName);
     }
 
     /// <summary>

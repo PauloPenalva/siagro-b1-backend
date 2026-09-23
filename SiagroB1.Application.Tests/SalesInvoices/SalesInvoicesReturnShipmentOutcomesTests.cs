@@ -47,6 +47,7 @@ public class SalesInvoicesReturnShipmentOutcomesTests
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     /// <summary>Nota legada confirmada, com dois romaneios faturados de 20.000 cada.</summary>

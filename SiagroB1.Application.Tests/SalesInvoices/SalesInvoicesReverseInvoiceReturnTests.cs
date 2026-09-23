@@ -79,6 +79,7 @@ public class SalesInvoicesReverseInvoiceReturnTests
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private SalesInvoicesReturnService ReturnService() =>
@@ -110,6 +111,7 @@ public class SalesInvoicesReverseInvoiceReturnTests
             new ShipmentReleasesRecalculateShippedService(_db.Context),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private async Task<(SalesInvoice Invoice, StorageTransaction R1)> SeedAsync()

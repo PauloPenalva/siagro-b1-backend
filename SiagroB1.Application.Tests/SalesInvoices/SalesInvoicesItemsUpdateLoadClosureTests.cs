@@ -23,7 +23,7 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
     private SalesInvoicesItemsUpdateService Service() => new(
         _db,
         new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
-        new ShipmentLoadsChangeLogService(_db.Context),
+        new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
         new TestLogger<SalesInvoicesUpdateService>());
 
     /// <summary>Carga Faturada de 100 t com uma nota confirmada de dois itens de 50 t.</summary>

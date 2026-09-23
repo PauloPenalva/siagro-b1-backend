@@ -27,7 +27,7 @@ public class SalesInvoicesItemsUpdateServiceTests
             ["SOJA"] = "SOJA EM GRAOS",
             ["MILHO"] = "MILHO EM GRAOS",
         }),
-        new ShipmentLoadsChangeLogService(_db.Context),
+        new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
         new TestLogger<SalesInvoicesUpdateService>());
 
     private static SalesContract NewContract(decimal totalVolume, decimal allocatedVolume) => new()

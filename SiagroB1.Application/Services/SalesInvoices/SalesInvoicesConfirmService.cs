@@ -20,6 +20,7 @@ public class SalesInvoicesConfirmService(
     SalesInvoicesUsageGuardService usageGuard,
     SalesContractsAllocationCreateForFiscalAdjustmentService fiscalAdjustment,
     ShipmentLoadsBalanceHookService loadHook,
+    ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
@@ -147,8 +148,8 @@ public class SalesInvoicesConfirmService(
                 await recalcShipped.RecalculateAsync(releaseKey);
 
             // Saldo da carga: só a DEVOLUÇÃO mexe nele aqui. Confirmar uma nota NORMAL não
-            // muda nada, porque Pending já consome — o consumo nasce na criação da nota. O
-            // "não-gancho" da nota normal é deliberado, não esquecimento.
+            // muda o saldo, porque Pending já consome — o consumo nasce na criação da nota. Por
+            // isso a nota normal não passa pelo gancho de saldo, e não grava movimento.
             if (invoice.InvoiceType == SalesInvoiceType.Return)
             {
                 await loadHook.ApplyAsync(
@@ -156,6 +157,15 @@ public class SalesInvoicesConfirmService(
                     ShipmentLoadMovementType.Returned,
                     userName,
                     $"Devolução {invoice.InvoiceNumber} confirmada: saldo devolvido à carga.");
+
+                await db.SaveChangesAsync();
+            }
+            // GAC-1171 (melhorias): a SITUAÇÃO da carga muda, mesmo com o saldo igual. Uma nota
+            // Normal Pendente impede a Concluída, e o estorno de confirmação não reabre os itens:
+            // ao confirmar de novo uma nota já conferida, a carga precisa voltar a Concluída.
+            else
+            {
+                await loadClosureHook.ApplyAsync(invoice, userName);
 
                 await db.SaveChangesAsync();
             }

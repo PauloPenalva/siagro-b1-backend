@@ -395,6 +395,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsBillingGuardService>();
         services.AddScoped<ShipmentLoadsRecalculateInvoicedService>();
         services.AddScoped<ShipmentLoadsBalanceHookService>();
+        services.AddScoped<ShipmentLoadsClosureHookService>();
         services.AddScoped<ShipmentLoadsUpdateService>();
         services.AddScoped<ShipmentLoadsDeleteService>();
         services.AddScoped<ShipmentLoadsAttachTransactionsService>();

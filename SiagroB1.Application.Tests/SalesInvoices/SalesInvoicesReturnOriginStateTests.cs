@@ -40,6 +40,7 @@ public class SalesInvoicesReturnOriginStateTests
             new SalesContractsAllocationCreateForFiscalAdjustmentService(
                 db, new SalesContractsFixedVolumeService(db.Context)),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private static SalesInvoicesReverseConfirmService Reverse(UnitOfWork db) =>
@@ -47,6 +48,7 @@ public class SalesInvoicesReturnOriginStateTests
             new SalesContractsAllocationDeleteForInvoiceService(db),
             new ShipmentReleasesRecalculateShippedService(db.Context),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private static SalesInvoicesCancelService Cancel(UnitOfWork db) =>

@@ -287,13 +287,13 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
     /// <remarks>
     /// ⚠️ Materializa as notas com os itens em vez de agregar no servidor, e filtra o status EM
     /// MEMÓRIA. O motivo é o mesmo do <c>excludedInvoiceKeys</c> de
-    /// <see cref="CalculateInvoicedAsync"/>: o recálculo roda dentro de transações alheias, às
-    /// vezes antes do flush. O cancelamento de uma devolução, por exemplo, reabre a nota de
-    /// origem e chama o hook da carga sem salvar antes. Uma consulta com o status no WHERE leria
-    /// o banco, veria a origem ainda Retornada e concluiria a carga com um item reaberto. Com a
-    /// consulta rastreada, o EF devolve as instâncias já rastreadas com os valores atuais, e o
-    /// filtro em memória enxerga a mudança. São poucas notas por carga, então o custo é
-    /// irrelevante.
+    /// <see cref="CalculateInvoicedAsync"/>: o recálculo roda dentro de transações alheias, e é
+    /// defesa para quem chamar antes do flush. Quem mudasse o status ou a entrega de uma nota e
+    /// recalculasse sem salvar leria, com o status no WHERE, o valor antigo do banco, e poderia
+    /// concluir a carga com um item reaberto. Com a consulta rastreada, o EF devolve as
+    /// instâncias já rastreadas com os valores atuais, e o filtro em memória enxerga a mudança.
+    /// Hoje os chamadores salvam antes do gancho; a leitura rastreada mantém o resultado certo se
+    /// um deles deixar de salvar. São poucas notas por carga, então o custo é irrelevante.
     /// </remarks>
     public static async Task<bool> AreAllDeliveriesClosedAsync(
         AppDbContext context,

@@ -81,6 +81,7 @@ public class ShipmentLoadsRefuseServiceTests
             new SalesContractsAllocationCreateForFiscalAdjustmentService(
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(_db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     internal StorageTransactionsCreateService StorageCreate(IWarehouseService? warehouses = null) =>
@@ -292,6 +293,37 @@ public class ShipmentLoadsRefuseServiceTests
 
         Assert.Equal(InvoiceStatus.Confirmed, origin.InvoiceStatus);
         Assert.Equal(SalesInvoiceDeliveryStatus.Open, origin.DeliveryStatus);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a devolução de nota de CARGA nasce aqui, e não em
+    /// <see cref="SalesInvoicesReturnService"/>, que recusa nota de carga. Uma carga Concluída
+    /// (Conferência toda encerrada) recusada por inteiro sai da Concluída: a confirmação embutida
+    /// da devolução passa pelo gancho de saldo, o volume devolvido sai do faturado e a carga deixa
+    /// o ramo Faturada. Por isso a recusa não precisa do gancho da situação.
+    /// </summary>
+    [Fact]
+    public async Task Returning_a_whole_load_invoice_leaves_the_load_out_of_completed()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+
+        // Concluída pelo caminho real: a Conferência fecha os itens e o recálculo deriva o status.
+        var items = await _db.Context.SalesInvoicesItems
+            .Where(i => i.SalesInvoiceKey == invoice.Key)
+            .ToListAsync();
+        foreach (var item in items)
+        {
+            item.DeliveredQuantity = item.Quantity;
+            item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        }
+        await _db.SaveChangesAsync();
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(_db.Context, load.Key, excludedInvoiceKeys: null);
+        await _db.SaveChangesAsync();
+        Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
+
+        await Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester");
+
+        Assert.Equal(ShipmentLoadStatus.Open, (await LoadAsync(load.Key)).Status);
     }
 
     /// <summary>Recusa total marca a origem como Retornada, como o caminho de sempre.</summary>
