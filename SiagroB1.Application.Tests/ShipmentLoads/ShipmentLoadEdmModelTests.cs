@@ -269,4 +269,24 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains(nameof(ShipmentLoad.LoadType), properties);
     }
 
+    /// <summary>GAC-1171 (melhorias) — Marcar e Desfazer Descarregada.</summary>
+    [Theory]
+    [InlineData("ShipmentLoadsMarkDischarged")]
+    [InlineData("ShipmentLoadsUndoDischarged")]
+    public void Discharged_actions_are_declared_with_the_load_key(string actionName)
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == actionName);
+
+        Assert.Equal(new[] { "Key" }, action.Parameters.Select(p => p.Name).ToArray());
+    }
+
+    [Fact]
+    public void The_discharged_mark_and_status_are_in_the_edm()
+    {
+        Assert.NotNull(EntityType("ShipmentLoad").FindProperty("IsDischarged"));
+
+        var status = Model().SchemaElements.OfType<IEdmEnumType>().Single(t => t.Name == "ShipmentLoadStatus");
+        Assert.Contains(status.Members, m => m.Name == "Discharged");
+    }
+
 }
