@@ -117,6 +117,18 @@ public class SalesInvoicesReverseConfirmService(
 
                 await db.SaveChangesAsync();
             }
+            // GAC-1171 (melhorias): o saldo da nota NORMAL não muda, mas a situação da carga sim.
+            // A Concluída exige que nenhuma nota Normal da carga esteja Pendente, e o estorno
+            // acabou de devolver esta a Pendente: sem o recálculo, a carga seguiria Concluída com
+            // uma nota fora da Conferência. Só o recálculo, sem movimento, porque o saldo é o mesmo.
+            else if (await SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync(db.Context, invoice)
+                     is { } shipmentLoadKey)
+            {
+                await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
+                    db.Context, shipmentLoadKey, excludedInvoiceKeys: null);
+
+                await db.SaveChangesAsync();
+            }
 
             await db.CommitAsync();
         }
