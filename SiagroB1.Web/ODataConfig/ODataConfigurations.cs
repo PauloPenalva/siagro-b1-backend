@@ -753,14 +753,11 @@ public static class ODataConfigurations
         transshipmentReverse.Parameter<string>("Reason").Optional();
         transshipmentReverse.Returns<IActionResult>();
 
-        // GAC-1181 fase 2, Task 8: vincula a saída do LOTE (o Shipment 1 pesado ao recarregar em
-        // armazém PRÓPRIO) — é este vínculo que emite a liberação pela quantidade REAL carregada
-        // (ShipmentLoadsTransshipmentAttachLotExitService, Task 4). Os dois são Guid obrigatórios:
-        // sem o romaneio não existe o que vincular, sem o transbordo não existe onde vincular.
-        var transshipmentAttachLotExit = modelBuilder.Action("ShipmentLoadsTransshipmentAttachLotExit");
-        transshipmentAttachLotExit.Parameter<Guid>("Key");
-        transshipmentAttachLotExit.Parameter<Guid>("LotExitStorageTransactionKey");
-        transshipmentAttachLotExit.Returns<IActionResult>();
+        // GAC-1181 fase 2 (redesenho): a action "ShipmentLoadsTransshipmentAttachLotExit" (Task 8)
+        // saiu daqui — o botão "Vincular Saída do Lote" sai da tela numa task irmã. O SERVIÇO
+        // (ShipmentLoadsTransshipmentAttachLotExitService) permanece: quem passa a chamá-lo é a
+        // confirmação do romaneio de saída na pesagem (WeighingTicketsCompletedService), não mais
+        // um ponto de entrada HTTP.
 
         // AttachmentType como STRING e não enum, como todo enum em parâmetro de action neste EDM.
         var shipmentLoadsAttachmentUpload = modelBuilder.Action("ShipmentLoadsAttachmentUpload");

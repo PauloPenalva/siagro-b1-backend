@@ -5,6 +5,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
@@ -46,6 +47,19 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// movimento só DEPOIS do <c>SaveChangesAsync</c> que gravou as FKs — o recálculo consulta o
 /// banco e não enxerga o change tracker.
 /// </para>
+/// <para>
+/// <b>GAC-1181 fase 2 (redesenho): gatilho passou do botão da carga para a confirmação do
+/// romaneio de saída na pesagem</b> (<c>WeighingTicketsCompletedService</c>), que já corre dentro
+/// da SUA PRÓPRIA transação. <see cref="Infra.UnitOfWork.CommitAsync"/> não é aninhável — comita
+/// e zera a transação incondicionalmente, então um <c>Commit</c> daqui no meio da pesagem
+/// derrubaria a transação de fora e o <c>Commit</c> dela, mais tarde, estouraria NRE contra a
+/// transação já nula. Por isso <paramref name="commitMode"/>: em
+/// <see cref="CommitMode.Deferred"/> este serviço não abre, comita nem desfaz transação nenhuma —
+/// só grava (<c>SaveChangesAsync</c>, que não comita, só reflete no banco dentro da transação
+/// alheia) e deixa o Begin/Commit/Rollback inteiramente para quem chamou. A action OData que
+/// chamava isto em <see cref="CommitMode.Auto"/> (dona da própria transação) foi removida nesta
+/// mesma mudança; os testes deste serviço continuam chamando em <c>Auto</c>, que é o default.
+/// </para>
 /// </remarks>
 public class ShipmentLoadsTransshipmentAttachLotExitService(
     IUnitOfWork db,
@@ -54,7 +68,10 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
     ShipmentLoadsMovementLogService movementLog)
 {
     public async Task<ShipmentLoadTransshipment> ExecuteAsync(
-        Guid transshipmentKey, Guid lotExitStorageTransactionKey, string userName)
+        Guid transshipmentKey,
+        Guid lotExitStorageTransactionKey,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto)
     {
         var transshipment = await db.Context.ShipmentLoadsTransshipments
                                  .FirstOrDefaultAsync(x => x.Key == transshipmentKey) ??
@@ -106,7 +123,8 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
 
         try
         {
-            await db.BeginTransactionAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.BeginTransactionAsync();
 
             lotExit.ShipmentLoadTransshipmentKey = transshipment.Key;
             lotExit.UpdatedAt = DateTime.Now;
@@ -141,11 +159,14 @@ public class ShipmentLoadsTransshipmentAttachLotExitService(
                     StorageTransactionKey: lotExit.Key));
 
             await db.SaveChangesAsync();
-            await db.CommitAsync();
+
+            if (commitMode == CommitMode.Auto)
+                await db.CommitAsync();
         }
         catch
         {
-            await db.RollbackAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.RollbackAsync();
             throw;
         }
 

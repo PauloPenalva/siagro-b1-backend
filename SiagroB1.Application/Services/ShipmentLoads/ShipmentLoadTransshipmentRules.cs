@@ -323,4 +323,49 @@ public static class ShipmentLoadTransshipmentRules
     /// </summary>
     public static string Truncate(string value, int max = 500) =>
         value.Length <= max ? value : value[..max];
+
+    /// <summary>
+    /// GAC-1181 fase 2 (redesenho): acha o transbordo dono da saída pesada num lote de natureza
+    /// <see cref="StorageAddressNature.Transshipment"/> — chamado pela CONFIRMAÇÃO do romaneio de
+    /// saída na pesagem (<c>WeighingTicketsCompletedService</c>), não mais por uma ação da tela da
+    /// carga. O caminhão é quem decide: "o mesmo caminhão que entrou com a mercadoria vai sair com
+    /// ela" (decisão do usuário) — a quantidade é o que varia.
+    /// </summary>
+    /// <remarks>
+    /// Candidato = transbordo ainda ABERTO (<see cref="ShipmentLoadTransshipment.LotExitStorageTransactionKey"/>
+    /// nulo) cuja entrada é um <see cref="StorageTransactionType.Receipt"/> (armazém PRÓPRIO — o
+    /// discriminador estrutural do <c>&lt;remarks&gt;</c> da classe) pesado no MESMO lote, e cuja
+    /// carga tem o MESMO <see cref="ShipmentLoad.TruckCode"/> do romaneio de saída. Zero candidatos
+    /// e mais de um candidato são recusados — nunca escolhido "o primeiro" ou "o mais recente" — a
+    /// liberação não pode nascer na carga errada.
+    /// </remarks>
+    public static async Task<ShipmentLoadTransshipment> ResolveOpenTransshipmentForLotExitAsync(
+        AppDbContext context, string lotCode, string? truckCode)
+    {
+        var matching = await context.ShipmentLoadsTransshipments
+            .Include(x => x.ShipmentLoad)
+            .Where(x => x.LotExitStorageTransactionKey == null &&
+                        x.EntryStorageTransaction != null &&
+                        x.EntryStorageTransaction.TransactionType == StorageTransactionType.Receipt &&
+                        x.EntryStorageTransaction.StorageAddressCode == lotCode &&
+                        x.ShipmentLoad!.TruckCode == truckCode)
+            .ToListAsync();
+
+        if (matching.Count == 0)
+            throw new ApplicationException(
+                $"O lote {lotCode} não tem entrada de transbordo registrada para o caminhão " +
+                $"{truckCode}. Registre a Entrada na carga do transbordo antes de pesar a saída.");
+
+        if (matching.Count > 1)
+        {
+            var candidates = string.Join(", ", matching.Select(x =>
+                $"carga {x.ShipmentLoad?.Code} (transbordo {x.Sequence})"));
+            throw new ApplicationException(
+                $"Mais de um transbordo em aberto no lote {lotCode} está aguardando saída do " +
+                $"caminhão {truckCode}: {candidates}. Corrija na carga antes de pesar a saída — a " +
+                "liberação não pode nascer sem saber qual carga é a dona.");
+        }
+
+        return matching[0];
+    }
 }
