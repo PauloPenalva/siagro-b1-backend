@@ -325,7 +325,7 @@ armazém próprio vindo de recusa.
 4. **Concorrência** continua protegida só pelo `[Timestamp] RowVersion` da carga.
 
 
-## Fase 2 — transbordo em armazém próprio (desenho aprovado, não implementado)
+## Fase 2 — transbordo em armazém próprio (IMPLEMENTADO; redesenhado em 23/09/2026)
 
 Decisões do usuário em 22/09/2026, depois que a fase 1 foi verificada no navegador e o ramo de
 armazém próprio se mostrou incompleto: ele apenas **vinculava** um `Receipt` já lançado, sem
@@ -357,19 +357,35 @@ documentos.** São dois momentos distintos, e o sistema não deve fundi-los.
 | 1 | Cadastro de lotes | escritório | cria o lote com natureza **Transbordo** | — |
 | 2 | Pesagem | armazém | ticket de entrada, gerando `Receipt (0)` no lote de transbordo | **+ lote** |
 | 3 | Carga, Registrar Entrada | escritório | vincula esse `Receipt` ao transbordo e cria o `TransshipmentReceipt (15)` | **+ armazém** |
-| 4 | Pesagem | armazém | ticket de saída, gerando `Shipment (1)` do mesmo lote, com o **peso real carregado** | **− lote** |
-| 5 | Carga, Vincular saída do lote | escritório | vincula o `Shipment (1)` ao transbordo e **emite a liberação** pela quantidade real | — |
-| 6 | Expedição de Grãos | escritório | cria a Expedição a partir dessa liberação, gerando `SalesShipment (7)` | **− armazém** |
-| 7 | Carga, Vincular Romaneios | escritório | vincula a Expedição no papel do transbordo | conclui o transbordo; **carga faturável** |
+| 4 | Pesagem | armazém | ticket de saída, gerando `Shipment (1)` do mesmo lote com o **peso real carregado** — e é a **confirmação desse romaneio** que vincula a saída ao transbordo e **emite a liberação** | **− lote** |
+| 5 | Expedição de Grãos | escritório | cria a Expedição a partir dessa liberação, gerando `SalesShipment (7)` | **− armazém** |
+| 6 | Carga, Vincular Romaneios | logística | vincula a Expedição no papel do transbordo | conclui o transbordo; **carga faturável** |
 
-As duas dimensões fecham em zero, e a **sobra fica no lote** (no exemplo do usuário: entram
-50.000, carregam 49.000, sobram 1.000 no lote).
+As duas dimensões terminam **iguais**, com a sobra em ambas (no exemplo do usuário: entram 50.000,
+carregam 49.000, sobram 1.000 no lote **e** 1.000 no armazém). ⚠️ Versões anteriores deste
+documento diziam "fecham em zero" — está errado: o grão da sobra está fisicamente no armazém, e o
+total dele acompanha a soma dos lotes, do mesmo modo que a Entrada em Armazenagem comum cria o par
+`8`+`0` pelo mesmo peso.
 
-**Por que a liberação nasce no passo 5, e não na entrada:** o peso que sai só é conhecido no
-carregamento. Emiti-la na entrada, pelos 50.000, faria a sobra existir duas vezes — como saldo de
-liberação e como saldo de lote. Aqui ela nasce pelos 49.000 reais, e o resíduo tem um lugar só.
+**Por que a liberação nasce na confirmação da saída, e não na entrada:** o peso que sai só é
+conhecido no carregamento. Emiti-la na entrada, pelos 50.000, faria a sobra existir duas vezes —
+como saldo de liberação e como saldo de lote. Nascendo pelos 49.000 reais, o resíduo tem um lugar
+só.
 
-**Por que o passo 6 não é automático** (decisão explícita do usuário): quem carrega é o armazém,
+**Por que na BALANÇA e não numa ação do escritório** (decisão do usuário em 23/09/2026, depois de
+ver o fluxo anterior funcionando): a liberação é consequência direta de um fato físico — o grão
+saiu do lote, pesado. Exigir que alguém do escritório repetisse esse fato num botão só adiava a
+liberação e criava um estado em que o caminhão já partiu e o documento ainda não existe. **O botão
+"Vincular Saída do Lote" foi removido**, junto com a action OData dele.
+
+**Como a saída sabe a que transbordo pertence:** na confirmação, o sistema procura os transbordos
+**abertos** cuja entrada está naquele lote e ainda sem saída vinculada, e desempata pelo
+**caminhão** — o `TruckCode` do romaneio contra o da carga. Palavras do usuário: *"o mesmo caminhão
+que entrou com a mercadoria vai sair com ela, o que vai variar é a quantidade."* Nenhum candidato,
+ou mais de um, **recusa a confirmação** com mensagem acionável: sem isso a liberação nasceria na
+carga errada, ou não nasceria e ninguém saberia.
+
+**Por que o passo 5 não é automático** (decisão explícita do usuário): quem carrega é o armazém,
 quem documenta é o escritório, e o escritório recebe a informação do embarque depois. A Expedição
 de Grãos é o caminho que o escritório já usa para todo embarque, e é ela que alimenta faturamento,
 CT-e e o resto.
@@ -394,7 +410,12 @@ inverso exato da trava da fase 1.
 - **Só o `Receipt` de um lote de transbordo** pode ser vinculado como entrada (passo 3), e só a um
   transbordo **aberto daquela carga**. O ramo da fase 1, que aceitava qualquer `Receipt` confirmado
   do armazém, é substituído por esta regra.
-- **Só o `Shipment (1)` do MESMO lote** pode ser vinculado como saída do lote (passo 5).
+- **Só o `Shipment (1)` do MESMO lote** vale como saída do transbordo, e o vínculo acontece na
+  confirmação do romaneio (passo 4), não por ação do escritório.
+- **Saída de lote de transbordo sem transbordo aberto que a reivindique é RECUSADA** na
+  confirmação (decisão do usuário): sem isso a mercadoria sairia da balança sem liberação e sem
+  ninguém perceber. A recusa também cobre saldo insuficiente no lote, aproveitando a trava que a
+  pesagem já aplica.
 - **Lote de transbordo é invisível para a Expedição de Grãos comum** e para qualquer consulta que
   ofereça lote livre para expedir (`StorageAddressesListOpenedByItemService` e irmãs). Se
   aparecesse, alguém embarcaria o grão por fora e a carga ficaria esperando uma saída que já
@@ -407,20 +428,25 @@ inverso exato da trava da fase 1.
   enxergando** o lote — ele tem saldo real; o que muda é só não oferecê-lo como origem livre nem
   cobrá-lo.
 
-### 5. A liberação do passo 5
+### 5. A liberação emitida na confirmação da saída
 
 Origem `ReleaseOrigin.Transshipment`, **sem lote** (o lote já foi debitado pelo `Shipment (1)`;
-carregá-la com lote faria a Expedição drenar o lote uma segunda vez), quantidade igual ao peso real
-carregado, **não consome contrato** (já debitado na origem), uma por contrato rastreado a partir
-das saídas da origem — o mesmo rastreio e rateio de `ShipmentReleasesFromReturnService`, com
-`GeneratedByStorageTransactionKey` apontando o `Shipment (1)` que a originou.
+carregá-la com lote faria a Expedição drenar o lote uma segunda vez), quantidade igual ao
+**`NetWeight`** da saída — a mesma grandeza que debitou o lote, e não o bruto, senão a sobra vai
+parar na dimensão errada quando houver desconto de secagem —, **não consome contrato** (já debitado
+na origem), uma por contrato rastreado a partir das saídas da origem — o mesmo rastreio e rateio de
+`ShipmentReleasesFromReturnService`, com `GeneratedByStorageTransactionKey` apontando o
+`Shipment (1)` que a originou.
 
 ### 6. Situações do transbordo
 
 Ganha um estado intermediário em relação à fase 1: **Aguardando entrada, Aguardando saída,
 Aguardando expedição, Concluído**. O `HasOpenTransshipmentAsync` continua correto sem mudança: ele
-procura `SalesShipment` vinculado ao transbordo, então a carga permanece `InTransshipment` entre os
-passos 5 e 7, que é o comportamento desejado.
+procura `SalesShipment` vinculado ao transbordo, então a carga permanece `InTransshipment` entre a
+confirmação da saída e o vínculo da Expedição, que é o comportamento desejado.
+
+⚠️ A passagem para **Aguardando expedição** acontece sozinha, quando o armazém confirma a pesagem
+de saída — não depende de ninguém do escritório clicar.
 
 **O volume da carga não muda de regra:** continua contando só `SalesShipment (7)`. O `Shipment (1)`
 do lote é movimento físico de armazém, não volume faturável — o que torna desnecessária a mudança
@@ -428,7 +454,7 @@ em `ShipmentLoadsRecalculateTotalService` que a versão anterior deste desenho p
 
 ### 7. Estorno e cancelamento
 
-- Estornar o transbordo depois do passo 5 e antes do 7 cancela a liberação (que ainda não tem
+- Estornar o transbordo depois da confirmação da saída e antes do vínculo da Expedição cancela a liberação (que ainda não tem
   consumo), desvincula o `Shipment (1)` e cancela o `15`.
 - **A sobra do lote fica no lote** (decisão do usuário), que **mantém a natureza Transbordo** e
   segue invisível para a Expedição comum. Ela só sai vinculada a outra carga, num transbordo novo.
