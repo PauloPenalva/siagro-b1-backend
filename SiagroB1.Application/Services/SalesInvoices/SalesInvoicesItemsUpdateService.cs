@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -12,8 +13,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesItemsUpdateService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     IItemService itemService,
+    ShipmentLoadsChangeLogService loadChangeLog,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -89,6 +91,13 @@ public class SalesInvoicesItemsUpdateService(
                 await SalesShipmentReleasesRecalculateShippedService.RecalculateForItemsAsync(
                     db.Context, [key]);
                 await db.SaveChangesAsync();
+
+                // GAC-1171 (melhorias): encerrar ou estornar a entrega muda a situação da carga
+                // (Faturada/Descarregada ↔ Concluída). Depois dos flushes acima, embora a regra
+                // já leia o estado rastreado: manter o gancho no fim deixa a ordem igual à dos
+                // outros recálculos.
+                await RecalculateShipmentLoadAsync(existingEntity, userName);
+                await db.SaveChangesAsync();
             }
         }
         catch (DbUpdateConcurrencyException)
@@ -99,7 +108,47 @@ public class SalesInvoicesItemsUpdateService(
 
         return entity;
     }
-    
+
+    /// <summary>
+    /// Recalcula a carga da nota do item e, se a situação mudou, registra no log da carga quem
+    /// causou a mudança: a transição Concluída vem de um ato do conferente, e sem o log a carga
+    /// "se concluiria sozinha" sem rastro. No-op para nota sem carga (legada ou avulsa), como o
+    /// <c>ShipmentLoadsBalanceHookService</c>.
+    /// </summary>
+    private async Task RecalculateShipmentLoadAsync(SalesInvoiceItem item, string userName)
+    {
+        if (item.SalesInvoiceKey is not { } invoiceKey)
+            return;
+
+        var invoice = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == invoiceKey);
+        if (invoice is null)
+            return;
+
+        var loadKey = await SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync(db.Context, invoice);
+        if (loadKey is null)
+            return;
+
+        var load = await db.Context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == loadKey.Value);
+        if (load is null)
+            return;
+
+        var before = load.Status;
+
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
+            db.Context, load.Key, excludedInvoiceKeys: null);
+
+        if (load.Status == before)
+            return;
+
+        load.UpdatedBy = userName;
+
+        loadChangeLog.Register(
+            load.Key,
+            ShipmentLoadChangeLogFields.Status,
+            ShipmentLoadChangeLogFields.DescribeStatus(before),
+            ShipmentLoadChangeLogFields.DescribeStatus(load.Status),
+            userName);
+    }
 
     /// <summary>
     /// Uma linha de log por campo da conferência que realmente mudou. O "de" sai do

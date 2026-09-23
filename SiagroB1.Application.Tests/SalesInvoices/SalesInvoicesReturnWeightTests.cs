@@ -67,7 +67,7 @@ public class SalesInvoicesReturnWeightTests
     }
 
     private SalesInvoicesItemsUpdateService ItemsUpdateService() =>
-        new(_db, Items(), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(_db, Items(), new ShipmentLoadsChangeLogService(_db.Context), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private SalesInvoicesItemsCreateService ItemsCreateService() =>
         new(_db, Items(), NullLogger<SalesInvoicesItemsCreateService>.Instance);
