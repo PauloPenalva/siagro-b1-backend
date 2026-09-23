@@ -1,5 +1,5 @@
 ---
-status: desenho aprovado seção a seção pelo usuário; implementação não iniciada
+status: fase 1 e fase 2 implementadas; fase 2 redesenhada em 23/09/2026 (liberação nasce na confirmação da saída); verificação no navegador em andamento
 chamado: GAC-1181
 data: 2026-09-21
 ---
