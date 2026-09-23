@@ -71,6 +71,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
     public DbSet<ShipmentLoadChangeLog> ShipmentLoadsChangeLogs { get; set; }
     public DbSet<ShipmentLoadDischarge> ShipmentLoadsDischarges { get; set; }
+    public DbSet<ShipmentLoadTransshipment> ShipmentLoadsTransshipments { get; set; }
     public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
@@ -288,6 +289,48 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.ShipmentLoad)
             .WithMany(x => x.Attachments)
             .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // GAC-1181: as duas FKs do transbordo são NoAction — ShipmentLoadsDeleteService remove os
+        // filhos à mão, e o romaneio de entrada não pode arrastar o transbordo num delete.
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.Transshipments)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasOne(x => x.EntryStorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.EntryStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // GAC-1181: um romaneio de entrada pertence a no máximo UM transbordo. A unicidade vinha
+        // por convenção do EF (par de navegações singulares) e é declarada aqui para não sumir em
+        // silêncio se as navegações mudarem.
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasIndex(x => x.EntryStorageTransactionKey)
+            .IsUnique()
+            .HasFilter("[EntryStorageTransactionKey] IS NOT NULL");
+
+        // GAC-1181 fase 2 (Task 4): mesmo molde da entrada, para a saída do LOTE em armazém
+        // próprio — NoAction pelo mesmo motivo (ShipmentLoadsDeleteService remove os filhos à
+        // mão), e único porque um romaneio de saída fecha no máximo UM transbordo.
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasOne(x => x.LotExitStorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.LotExitStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadTransshipment>()
+            .HasIndex(x => x.LotExitStorageTransactionKey)
+            .IsUnique()
+            .HasFilter("[LotExitStorageTransactionKey] IS NOT NULL");
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne(x => x.ShipmentLoadTransshipment)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentLoadTransshipmentKey)
             .OnDelete(DeleteBehavior.NoAction);
 
         // STORAGE_TRANSACTIONS e SHIPMENT_RELEASES se apontam em DUAS direções de significados

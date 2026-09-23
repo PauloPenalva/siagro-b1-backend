@@ -66,6 +66,9 @@ public class StorageTransactionsConfirmedService(
             case StorageTransactionType.SalesShipmentReturn:
                 await ExecuteSalesShipmentReturnTransactionAsync(st, userName, commitMode);
                 break;
+            case StorageTransactionType.TransshipmentReceipt:
+                await ExecuteTransshipmentReceiptTransactionAsync(st, userName, commitMode);
+                break;
             // Perda/Sobra de armazém nascem Confirmadas pela aprovação da Conferência de Saldo.
             // Sem este case caíam no default, que trata como COMPRA: aplicava descontos e
             // tornava o volume alocável a contrato.
@@ -153,6 +156,40 @@ public class StorageTransactionsConfirmedService(
         }
     }
     
+    /// <summary>
+    /// Entrada do transbordo (GAC-1181): crédito em nível de ARMAZÉM, sem lote e sem descontos.
+    /// </summary>
+    /// <remarks>
+    /// <c>NetWeight = GrossWeight</c> porque não há tabela de custos no transbordo: a quebra do
+    /// trajeto já está registrada no próprio transbordo (saída menos entrada), e descontar de novo
+    /// aqui a contaria duas vezes.
+    /// </remarks>
+    private async Task ExecuteTransshipmentReceiptTransactionAsync(
+        StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
+    {
+        if (st.TransactionStatus != StorageTransactionsStatus.Pending)
+        {
+            //Apenas romaneios pendentes podem ser confirmados.
+            throw new ApplicationException(resource["EXCEPTION_00005"]);
+        }
+
+        try
+        {
+            st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+            st.NetWeight = st.GrossWeight;
+            st.AvaiableVolumeToAllocate = decimal.Zero;
+            st.UpdatedBy = userName;
+            st.UpdatedAt = DateTime.Now;
+
+            if (commitMode == CommitMode.Auto)
+                await db.SaveChangesAsync();
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException(e.Message);
+        }
+    }
+
     private async Task ExecutePurchaseTransactionAsync(
         StorageTransaction st, string userName, CommitMode commitMode = CommitMode.Auto)
     {

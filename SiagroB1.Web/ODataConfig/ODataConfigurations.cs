@@ -201,6 +201,11 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadComment>("ShipmentLoadsComments");
         modelBuilder.EntitySet<ShipmentLoadChangeLog>("ShipmentLoadsChangeLogs");
         modelBuilder.EntitySet<ShipmentLoadDischarge>("ShipmentLoadsDischarges");
+        modelBuilder.EntitySet<ShipmentLoadTransshipment>("ShipmentLoadsTransshipments");
+        // [NotMapped] some do EDM tambem - sem este AddProperty o $select=ShrinkageQuantity
+        // devolve 400 e a tela nao consegue mostrar a quebra de transporte da linha do transbordo.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoadTransshipment))
+            .AddProperty(typeof(ShipmentLoadTransshipment).GetProperty(nameof(ShipmentLoadTransshipment.ShrinkageQuantity)));
         modelBuilder.EntitySet<OwnershipTransfer>("OwnershipTransfers");
         modelBuilder.EntitySet<WarehouseReconciliation>("WarehouseReconciliations");
         modelBuilder.EntitySet<WarehouseReconciliationReason>("WarehouseReconciliationReasons");
@@ -608,6 +613,10 @@ public static class ODataConfigurations
         var shipmentLoadsAttach = modelBuilder.Action("ShipmentLoadsAttachTransactions");
         shipmentLoadsAttach.Parameter<Guid>("Key");
         shipmentLoadsAttach.CollectionParameter<Guid>("StorageTransactionKeys");
+        // GAC-1181: presente, a saída vinculada assume o papel de saída do transbordo (fecha a
+        // linha aberta por ShipmentLoadsTransshipmentStart/Refuse). Optional: o vínculo comum,
+        // sem transbordo envolvido, continua sendo o caminho mais frequente.
+        shipmentLoadsAttach.Parameter<Guid?>("TransshipmentKey").Optional();
         shipmentLoadsAttach.Returns<IActionResult>();
 
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
@@ -660,9 +669,9 @@ public static class ODataConfigurations
         // ⚠️ Edm.Double nas quantidades, NUNCA Edm.Decimal: decimal faz o cliente serializar o
         // número como string e o backend devolve 400 que não nomeia o campo.
         //
-        // Destination como STRING ("Rebilling" | "Warehouse") e não enum: não há precedente de
-        // enum em parâmetro de action neste EDM, e o tratamento de enum do UI5 em OData v4 é
-        // justamente uma das armadilhas que só aparecem no navegador.
+        // Destination como STRING ("Rebilling" | "Warehouse" | "Transshipment") e não enum: não há
+        // precedente de enum em parâmetro de action neste EDM, e o tratamento de enum do UI5 em
+        // OData v4 é justamente uma das armadilhas que só aparecem no navegador.
         var shipmentLoadsRefuse = modelBuilder.Action("ShipmentLoadsRefuse");
         shipmentLoadsRefuse.Parameter<Guid>("Key");
         shipmentLoadsRefuse.CollectionParameter<Guid>("SalesInvoiceKeys");
@@ -711,6 +720,44 @@ public static class ODataConfigurations
         var shipmentLoadsDischargeDelete = modelBuilder.Action("ShipmentLoadsDischargeDelete");
         shipmentLoadsDischargeDelete.Parameter<Guid>("Key");
         shipmentLoadsDischargeDelete.Returns<IActionResult>();
+
+        // Transbordo da carga (GAC-1181): descarregar num armazém intermediário e recarregar,
+        // sem que a viagem vire duas cargas. Três actions — iniciar, registrar a entrada e
+        // estornar — mais o parâmetro TransshipmentKey de ShipmentLoadsAttachTransactions acima,
+        // que fecha o ciclo vinculando a saída do transbordo.
+        //
+        // ⚠️ Quantidade em Edm.Double, NUNCA Edm.Decimal, e data em string — mesmas razões das
+        // demais actions deste arquivo. Não existe parâmetro de tara: o romaneio só tem
+        // GrossWeight/NetWeight, e a entrada do transbordo tem um peso único.
+        var transshipmentStart = modelBuilder.Action("ShipmentLoadsTransshipmentStart");
+        transshipmentStart.Parameter<Guid>("LoadKey");
+        transshipmentStart.Parameter<string>("WarehouseCode");
+        transshipmentStart.Parameter<string>("TransshipmentDate");
+        transshipmentStart.Parameter<string>("Comments").Optional();
+        transshipmentStart.Returns<IActionResult>();
+
+        // GrossWeight e ReceiptStorageTransactionKey são opcionais: armazém próprio deriva o
+        // peso do romaneio de Entrada em Armazenagem apontado por ReceiptStorageTransactionKey
+        // (aí ele é obrigatório), e armazém de terceiro pesa o caminhão e informa GrossWeight
+        // (aí não há romaneio prévio a apontar) — ShipmentLoadsTransshipmentRegisterEntryService
+        // decide qual dos dois vale, pelo IsOwn do complemento do armazém.
+        var transshipmentEntry = modelBuilder.Action("ShipmentLoadsTransshipmentRegisterEntry");
+        transshipmentEntry.Parameter<Guid>("Key");
+        transshipmentEntry.Parameter<string>("EntryDate");
+        transshipmentEntry.Parameter<double>("GrossWeight").Optional();
+        transshipmentEntry.Parameter<Guid?>("ReceiptStorageTransactionKey").Optional();
+        transshipmentEntry.Returns<IActionResult>();
+
+        var transshipmentReverse = modelBuilder.Action("ShipmentLoadsTransshipmentReverse");
+        transshipmentReverse.Parameter<Guid>("Key");
+        transshipmentReverse.Parameter<string>("Reason").Optional();
+        transshipmentReverse.Returns<IActionResult>();
+
+        // GAC-1181 fase 2 (redesenho): a action "ShipmentLoadsTransshipmentAttachLotExit" (Task 8)
+        // saiu daqui — o botão "Vincular Saída do Lote" sai da tela numa task irmã. O SERVIÇO
+        // (ShipmentLoadsTransshipmentAttachLotExitService) permanece: quem passa a chamá-lo é a
+        // confirmação do romaneio de saída na pesagem (WeighingTicketsCompletedService), não mais
+        // um ponto de entrada HTTP.
 
         // AttachmentType como STRING e não enum, como todo enum em parâmetro de action neste EDM.
         var shipmentLoadsAttachmentUpload = modelBuilder.Action("ShipmentLoadsAttachmentUpload");

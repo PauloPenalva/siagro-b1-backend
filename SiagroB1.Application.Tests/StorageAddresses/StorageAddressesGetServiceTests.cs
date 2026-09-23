@@ -148,4 +148,49 @@ public class StorageAddressesGetServiceTests
                 $"{expected.Code}.{property.Name} não foi preservado pelo QueryAll.");
         }
     }
+
+    /// <summary>
+    /// GAC-1181 fase 2, round 1 de correção: a projeção manual do QueryAll não incluía
+    /// <see cref="StorageAddress.Nature"/>, então todo lote voltava da LISTA como
+    /// <see cref="StorageAddressNature.Regular"/> independentemente do que estava gravado — o
+    /// teste "every mapped field" acima não pegava isso porque nenhum dos dois lotes de exemplo
+    /// usa <see cref="StorageAddressNature.Transshipment"/> (default C# e valor gravado coincidem
+    /// em Regular por acaso). Este teste grava um lote de cada natureza para provar a diferença.
+    /// </summary>
+    [Fact]
+    public async Task QueryAll_keeps_the_nature_of_each_lot()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        db.Context.StorageAddresses.AddRange(
+            new StorageAddress
+            {
+                Code = "L003",
+                Description = "Lote regular",
+                CardCode = "C0001",
+                ItemCode = "SOJA",
+                WarehouseCode = "01",
+                UoM = "KG",
+                Nature = StorageAddressNature.Regular,
+            },
+            new StorageAddress
+            {
+                Code = "L004",
+                Description = "Lote de transbordo",
+                CardCode = "C0001",
+                ItemCode = "SOJA",
+                WarehouseCode = "01",
+                UoM = "KG",
+                Nature = StorageAddressNature.Transshipment,
+            });
+
+        await db.SaveChangesAsync();
+
+        var service = new StorageAddressesGetService(db, new TestLogger<StorageAddressesGetService>());
+
+        var natureByCode = await service.QueryAll().ToDictionaryAsync(x => x.Code!, x => x.Nature);
+
+        Assert.Equal(StorageAddressNature.Regular, natureByCode["L003"]);
+        Assert.Equal(StorageAddressNature.Transshipment, natureByCode["L004"]);
+    }
 }

@@ -103,7 +103,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         var release = Assert.Single(result.Releases);
         Assert.Equal(contract.Key, release.PurchaseContractKey);
@@ -115,6 +115,29 @@ public class ShipmentReleasesFromReturnServiceTests
         Assert.Null(release.StorageAddressCode);
         Assert.Equal(0m, result.UntraceableQuantity);
         Assert.Null(result.Note);
+    }
+
+    // ---------- origem parametrizada (GAC-1181) ----------
+
+    /// <summary>
+    /// A origem é gravada na liberação tal como recebida — é o que permite ao transbordo
+    /// (Task 5) reusar esta classe em vez de duplicá-la só para trocar o <c>Origin</c>.
+    /// </summary>
+    [Fact]
+    public async Task Build_TransshipmentOrigin_SetsTheReleaseOrigin()
+    {
+        var contract = NewContract();
+        var originRelease = NewOriginRelease(contract.Key);
+        var entry = NewEntry();
+        var shipment = NewShipment("00025", 1000m, originRelease.Key);
+        await _db.Context.SaveChangesAsync();
+
+        var result = await Service().BuildAsync(
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester",
+            ReleaseOrigin.Transshipment);
+
+        var release = Assert.Single(result.Releases);
+        Assert.Equal(ReleaseOrigin.Transshipment, release.Origin);
     }
 
     // ---------- cadeia longa ----------
@@ -155,7 +178,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         var release = Assert.Single(result.Releases);
         Assert.Equal(contract.Key, release.PurchaseContractKey);
@@ -171,7 +194,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Empty(result.Releases);
         Assert.Equal(1000m, result.UntraceableQuantity);
@@ -192,7 +215,7 @@ public class ShipmentReleasesFromReturnServiceTests
         var result = await Service().BuildAsync(
             entry,
             [new ReturnedShipmentShare(traceable, 1000m), new ReturnedShipmentShare(orphan, 500m)],
-            "01", "Armazém 01", "tester");
+            "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         var release = Assert.Single(result.Releases);
         Assert.Equal(1000m, release.ReleasedQuantity);
@@ -214,7 +237,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Empty(result.Releases);
         Assert.Equal(1000m, result.UntraceableQuantity);
@@ -234,7 +257,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Empty(result.Releases);
     }
@@ -252,7 +275,7 @@ public class ShipmentReleasesFromReturnServiceTests
         await _db.Context.SaveChangesAsync();
 
         var result = await Service().BuildAsync(
-            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester");
+            entry, [new ReturnedShipmentShare(shipment, 1000m)], "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Single(result.Releases);
     }
@@ -274,7 +297,7 @@ public class ShipmentReleasesFromReturnServiceTests
         var result = await Service().BuildAsync(
             entry,
             [new ReturnedShipmentShare(shipmentA, 1000m), new ReturnedShipmentShare(shipmentB, 500m)],
-            "01", "Armazém 01", "tester");
+            "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Equal(2, result.Releases.Count);
         Assert.Equal(1500m, result.Releases.Sum(x => x.ReleasedQuantity));
@@ -295,7 +318,7 @@ public class ShipmentReleasesFromReturnServiceTests
         var result = await Service().BuildAsync(
             entry,
             [new ReturnedShipmentShare(first, 1000m), new ReturnedShipmentShare(second, 500m)],
-            "01", "Armazém 01", "tester");
+            "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         var release = Assert.Single(result.Releases);
         Assert.Equal(1500m, release.ReleasedQuantity);
@@ -376,7 +399,7 @@ public class ShipmentReleasesFromReturnServiceTests
         var shares = ShipmentReleasesFromReturnService
             .DistributeByWeight([shipmentA, shipmentB], 7_000m);
 
-        var result = await Service().BuildAsync(entry, shares, "01", "Armazém 01", "tester");
+        var result = await Service().BuildAsync(entry, shares, "01", "Armazém 01", "tester", ReleaseOrigin.SalesReturn);
 
         Assert.Equal(2, result.Releases.Count);
         Assert.Equal(7_000m, result.Releases.Sum(x => x.ReleasedQuantity));

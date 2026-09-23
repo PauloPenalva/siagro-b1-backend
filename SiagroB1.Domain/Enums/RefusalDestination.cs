@@ -5,7 +5,8 @@ namespace SiagroB1.Domain.Enums;
 /// Compartilhado pelos dois fluxos de devolução — a recusa de CARGA
 /// (<c>ShipmentLoadsRefuseService</c>) e o retorno de documento de saída LEGADO
 /// (<c>SalesInvoicesReturnService</c>) —, porque a decisão do operador é a mesma nos dois e
-/// duplicar os valores duplicaria também o parsing <c>"Rebilling"|"Warehouse"</c> das actions.
+/// duplicar os valores duplicaria também o parsing <c>"Rebilling"|"Warehouse"|"Transshipment"</c>
+/// das actions.
 /// <para>
 /// ⚠️ O que muda entre os fluxos não é o destino, é o ESTADO TERMINAL do romaneio de origem.
 /// Em nenhum dos dois ele pode ficar <c>Returned</c>: aquele status significa "o embarque não
@@ -26,4 +27,14 @@ public enum RefusalDestination
     /// estar disponível para novo embarque naquele armazém.
     /// </summary>
     Warehouse = 1,
+
+    /// <summary>
+    /// A mercadoria segue para um armazém parceiro para transbordo (GAC-1181): a recusa devolve
+    /// os documentos de saída, como os outros dois destinos, e abre o transbordo da carga com o
+    /// volume recusado. A carga NÃO se encerra — ela continua viva e o recálculo a resolve como
+    /// <see cref="ShipmentLoadStatus.InTransshipment"/> até a saída do transbordo "fechá-lo".
+    /// Exclusivo do fluxo de CARGA (<c>ShipmentLoadsRefuseService</c>); o retorno de documento
+    /// LEGADO (<c>SalesInvoicesReturnService</c>) não tem carga para carregar um transbordo.
+    /// </summary>
+    Transshipment = 2,
 }

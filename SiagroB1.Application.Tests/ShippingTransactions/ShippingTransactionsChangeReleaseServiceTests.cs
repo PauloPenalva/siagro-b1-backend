@@ -997,6 +997,29 @@ public class ShippingTransactionsChangeReleaseServiceTests
         Assert.Contains("já está", ex.Message);
     }
 
+    /// <summary>
+    /// GAC-1181: a saída de um transbordo carrega <c>ShipmentLoadTransshipmentKey</c> — trocar a
+    /// liberação dela romperia o rateio que <c>ShipmentLoadsTransshipmentRegisterEntryService</c>
+    /// já fez entre os romaneios de saída da ORIGEM no momento em que a entrada foi registrada.
+    /// </summary>
+    [Fact]
+    public async Task Rejects_WhenSalesIsATransshipmentExit()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
+        var (shipping, _) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+
+        var sales = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        sales.ShipmentLoadTransshipmentKey = Guid.NewGuid();
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
+
+        Assert.Contains("transbordo", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     [InlineData(ShipmentLoadStatus.Returned)]

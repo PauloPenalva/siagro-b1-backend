@@ -53,6 +53,7 @@ public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddresses
                 CanceledBy = a.CanceledBy,
                 CreationDate = a.CreationDate,
                 OwnershipType = a.OwnershipType,
+                Nature = a.Nature,
                 Description = a.Description,
                 CardCode = a.CardCode,
                 CardName = a.CardName,

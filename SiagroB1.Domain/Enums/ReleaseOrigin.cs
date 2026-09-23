@@ -36,4 +36,15 @@ public enum ReleaseOrigin
     /// <c>Consumed + Returned = Released</c> não vale.
     /// </remarks>
     SalesReturn = 2,
+
+    /// <summary>
+    /// Emitida pela ENTRADA de um transbordo (GAC-1181): o grão foi descarregado num armazém
+    /// intermediário e esta liberação é a porta de saída dele. O físico já está no armazém,
+    /// creditado pelo romaneio <see cref="StorageTransactionType.TransshipmentReceipt"/>.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Não consome o contrato de compra.</b> O volume já foi debitado na saída da origem;
+    /// contá-lo de novo duplicaria o liberado — mesma razão da <see cref="SalesReturn"/>.
+    /// </remarks>
+    Transshipment = 3,
 }

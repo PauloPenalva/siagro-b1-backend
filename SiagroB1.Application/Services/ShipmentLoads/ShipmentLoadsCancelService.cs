@@ -19,6 +19,11 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <c>Cancelled</c> ou <c>Returned</c> nunca é reescrito: esses estados são dele, não projeção
 /// da carga.
 /// </para>
+/// <para>
+/// GAC-1181: carga com transbordo em curso também não cancela — a mercadoria já saiu fisicamente
+/// para um armazém intermediário sem documento de venda que a rastreie até lá. Ver
+/// <see cref="ShipmentLoadsCompositionGuardService.EnsureNoTransshipmentAsync"/>.
+/// </para>
 /// </remarks>
 public class ShipmentLoadsCancelService(
     IUnitOfWork db,
@@ -45,6 +50,9 @@ public class ShipmentLoadsCancelService(
                 $"A carga {load.Code} já foi concluída. Reabra-a antes de cancelá-la.");
 
         await compositionGuard.EnsureCanChangeCompositionAsync(load);
+
+        // GAC-1181: transbordo em curso não é composição faturada nem devolução — trava própria.
+        await compositionGuard.EnsureNoTransshipmentAsync(load);
 
         var shipments = await db.Context.StorageTransactions
             .Where(x => x.ShipmentLoadKey == key)

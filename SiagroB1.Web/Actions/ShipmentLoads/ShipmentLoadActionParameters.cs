@@ -3,7 +3,8 @@ using System.Globalization;
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
 /// <summary>
-/// Leitura dos parâmetros das actions de descarga e anexo da carga (GAC-1171).
+/// Leitura dos parâmetros das actions de descarga e anexo da carga (GAC-1171), reaproveitado
+/// pelo transbordo (GAC-1181) para o parsing de data — ver <see cref="TryParseDate"/>.
 /// </summary>
 /// <remarks>
 /// Existe porque os dois helpers daqui eram copy-paste entre os controllers, e copy-paste de
@@ -22,6 +23,17 @@ public static class ShipmentLoadActionParameters
         "Data da descarga inválida. Informe a data no formato aaaa-mm-dd.";
 
     public const string MissingDateMessage = "Informe a data da descarga.";
+
+    /// <summary>
+    /// GAC-1181: mensagens próprias do transbordo (<c>TransshipmentDate</c> do início,
+    /// <c>EntryDate</c> do registro da entrada). Reaproveitar <see cref="InvalidDateMessage"/>/
+    /// <see cref="MissingDateMessage"/> faria o operador ler "descarga" — outra tela, outro
+    /// documento — ao errar a data de um transbordo.
+    /// </summary>
+    public const string TransshipmentInvalidDateMessage =
+        "Data do transbordo inválida. Informe a data no formato aaaa-mm-dd.";
+
+    public const string TransshipmentMissingDateMessage = "Informe a data do transbordo.";
 
     public const string UnreadableFileMessage =
         "Não foi possível ler o arquivo anexado. Envie o arquivo novamente.";

@@ -69,4 +69,30 @@ public class ShipmentLoadsCompositionGuardService(AppDbContext context)
                 "composição não pode mais ser alterada.");
         }
     }
+
+    /// <summary>
+    /// Trava de cancelamento/exclusão (GAC-1181): carga com transbordo em curso não pode ser
+    /// cancelada nem excluída.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberadamente FORA de <see cref="EnsureCanChangeCompositionAsync"/></b>, embora o
+    /// texto e a decimal sejam os mesmos. Aquele método também protege o
+    /// <c>ShipmentLoadsDetachTransactionsService</c>, e barrar ali impediria desvincular até a
+    /// PRÓPRIA saída do transbordo vinculada por engano — a carga ficaria sem saída pela tela,
+    /// sem chance de correção. O <c>Detach</c> tem sua própria trava, mais estreita (recusa só a
+    /// saída da ORIGEM, em
+    /// <c>ShipmentLoadsDetachTransactionsService.EnsureNoOriginExitWhileThereIsATransshipmentAsync</c>).
+    /// Só <see cref="ShipmentLoadsCancelService"/> e <c>ShipmentLoadsDeleteService</c> chamam este
+    /// método.
+    /// </remarks>
+    public async Task EnsureNoTransshipmentAsync(ShipmentLoad load)
+    {
+        var transshipped = await ShipmentLoadsRecalculateTransshippedService
+            .CalculateTransshippedAsync(context, load.Key);
+
+        if (transshipped > Tolerance)
+            throw new ApplicationException(
+                $"A carga {load.Code} tem {transshipped:N3} em transbordo e sua composição não pode " +
+                "ser alterada. Estorne o transbordo antes.");
+    }
 }

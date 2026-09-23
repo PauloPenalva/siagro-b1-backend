@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Commons.Resources;
@@ -9,6 +10,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.WeighingTickets;
 
@@ -19,6 +21,7 @@ public class WeighingTicketsCompletedService(
     StorageTransactionsCreateService stCreateService,
     StorageTransactionsConfirmedService  stConfirmedService,
     StorageAddressesGetService  storageAddressesGetService,
+    ShipmentLoadsTransshipmentAttachLotExitService transshipmentAttachLotExitService,
     IStringLocalizer<Resource> resource,
     ILogger<WeighingTicketsCompletedService> logger
     )
@@ -90,7 +93,24 @@ public class WeighingTicketsCompletedService(
             
             st = await stCreateService.ExecuteAsync(st, userName, TransactionCode.WeighingTicket);
             await stConfirmedService.ExecuteAsync(st.Key, userName);
-            
+
+            // GAC-1181 fase 2 (redesenho): a saída confirmada num lote de TRANSBORDO é o novo
+            // gatilho da liberação de embarque — substitui o botão "Vincular Saída do Lote" da
+            // carga. Lote COMUM não entra aqui: nada muda para a pesagem normal.
+            if (existingTicket.Type == WeighingTicketType.Shipment &&
+                storageAddress.Nature == StorageAddressNature.Transshipment)
+            {
+                var transshipment = await ShipmentLoadTransshipmentRules
+                    .ResolveOpenTransshipmentForLotExitAsync(
+                        db.Context, existingTicket.StorageAddressCode!, existingTicket.TruckCode);
+
+                // CommitMode.Deferred: este serviço passa a rodar DENTRO da transação da pesagem
+                // (aberta acima) — UnitOfWork.CommitAsync não é aninhável, então ele não pode
+                // abrir/comitar/desfazer transação própria aqui. Ver o <remarks> do serviço.
+                await transshipmentAttachLotExitService.ExecuteAsync(
+                    transshipment.Key!.Value, st.Key, userName, CommitMode.Deferred);
+            }
+
             await db.CommitAsync();
         }
         catch (Exception e)

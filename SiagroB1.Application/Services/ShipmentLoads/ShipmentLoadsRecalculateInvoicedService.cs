@@ -82,9 +82,17 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
         var returned = await ShipmentLoadsRecalculateReturnedService
             .CalculateReturnedToWarehouseAsync(context, shipmentLoadKey);
 
+        // O quarto termo (GAC-1181), mesmo motivo do terceiro: o status depende dele.
+        var transshipped = await ShipmentLoadsRecalculateTransshippedService
+            .CalculateTransshippedAsync(context, shipmentLoadKey);
+
+        var hasOpenTransshipment = await ShipmentLoadsRecalculateTransshippedService
+            .HasOpenTransshipmentAsync(context, shipmentLoadKey);
+
         load.InvoicedQuantity = invoiced;
         load.ReturnedToWarehouseQuantity = returned;
-        load.Status = ResolveStatus(load.TotalQuantity, invoiced, returned);
+        load.TransshippedQuantity = transshipped;
+        load.Status = ResolveStatus(load.TotalQuantity, invoiced, returned, transshipped, hasOpenTransshipment);
         load.UpdatedAt = DateTime.Now;
 
         // Carga ENCERRADA (faturada ou devolvida ao armazém) não devolve romaneio para
@@ -94,6 +102,10 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
             ? StorageTransactionsStatus.Invoiced
             : StorageTransactionsStatus.Confirmed;
 
+        // O romaneio de ENTRADA do transbordo (TransshipmentReceipt) NÃO carrega ShipmentLoadKey
+        // — por desenho: o cancelamento da carga zera essa chave, e ele deixaria a entrada órfã
+        // se dependesse dela. Ele já está fora desta consulta por isso, sem precisar de filtro de
+        // tipo: só o romaneio de SAÍDA (embarque) da carga aponta ShipmentLoadKey.
         var shipments = await context.StorageTransactions
             .Where(x => x.ShipmentLoadKey == shipmentLoadKey)
             .ToListAsync();
@@ -142,7 +154,14 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
     /// Resolve a situação a partir do volume montado e do saldo faturado.
     /// </summary>
     /// <remarks>
-    /// <b>O primeiro ramo é o que separa planejamento de carga real</b>, e ele existe por um
+    /// <b>O ramo do transbordo vem PRIMEIRO</b> (GAC-1181), antes até do <c>Planned</c>. Depois
+    /// que o volume sai da carga para o armazém intermediário o saldo é zero, e sem este ramo a
+    /// carga leria "Faturada" (ou "Planejada", se o resto também for zero) e sumiria das telas de
+    /// pendência com a mercadoria ainda no meio do caminho — a mesma armadilha que o ramo
+    /// <c>Planned</c> corrigiu quando <c>ResolveStatus(0, 0)</c> devolvia <c>Open</c>.
+    /// </remarks>
+    /// <remarks>
+    /// <b>O segundo ramo é o que separa planejamento de carga real</b>, e ele existe por um
     /// motivo concreto: sem ele, uma carga recém-criada pela Logística (<c>TotalQuantity</c> e
     /// <c>InvoicedQuantity</c> zerados) casaria o ramo <c>invoiced &lt;= 0</c> e viraria
     /// <c>Open</c> — passando a aparecer na tela de Faturamento de Expedição com saldo zero, em
@@ -157,36 +176,61 @@ public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
     /// </para>
     /// </remarks>
     /// <remarks>
-    /// <b>O consumo é a soma dos dois abatimentos</b>, comercial e físico: uma carga com 25 t
-    /// faturadas e 15 t devolvidas ao armazém, de 40 t montadas, está encerrada — e sem somar os
-    /// dois ela leria "Faturada Parcial" com saldo zero, oferecendo-se ao Faturamento de
-    /// Expedição para sempre.
+    /// <b>O encerramento é decidido pelo SALDO (os quatro termos), o rótulo só pelo consumo
+    /// COMERCIAL (faturado + devolvido ao armazém)</b> — o transbordo fecha a carga, mas não é
+    /// venda nem devolução, então não pode fazer a carga ler "Faturada Parcial" sozinho: depois
+    /// que a saída do transbordo é vinculada e nada foi faturado ainda, <c>available</c> fica
+    /// positivo (o comercial não tocou a carga) e o resultado é <c>Open</c>, não
+    /// <c>PartiallyInvoiced</c> — o rótulo mentia dizendo "parcialmente faturada" quando o
+    /// faturado era zero.
+    /// <para>
+    /// Uma carga com 25 t faturadas e 15 t devolvidas ao armazém, de 40 t montadas, está
+    /// encerrada — e sem somar os dois abatimentos comerciais ela leria "Faturada Parcial" com
+    /// saldo zero, oferecendo-se ao Faturamento de Expedição para sempre.
+    /// </para>
     /// <para>
     /// Havendo devolução ao armazém, o encerramento é <c>Returned</c> e não <c>Invoiced</c>:
     /// parte da mercadoria não foi vendida, voltou. O rótulo prevalece porque esconder o retorno
     /// físico na lista é pior do que a carga mista aparecer como "Devolvida" — a tela de
-    /// Detalhe mostra as três quantidades lado a lado.
+    /// Detalhe mostra as quatro quantidades lado a lado.
+    /// </para>
+    /// <para>
+    /// Sem transbordo (<c>transshippedQuantity == 0</c>) este método se comporta exatamente como
+    /// antes: <c>available &lt;= Tolerance</c> é equivalente a
+    /// <c>invoiced + returned &gt;= total - Tolerance</c>, o critério antigo de fechamento, e as
+    /// duas ramificações intermediárias nunca se sobrepõem porque o ramo <c>Planned</c> já
+    /// garantiu <c>total &gt; Tolerance</c> antes de chegar aqui.
     /// </para>
     /// </remarks>
     public static ShipmentLoadStatus ResolveStatus(
         decimal totalQuantity,
         decimal invoicedQuantity,
-        decimal returnedToWarehouseQuantity)
+        decimal returnedToWarehouseQuantity,
+        decimal transshippedQuantity,
+        bool hasOpenTransshipment)
     {
+        if (hasOpenTransshipment)
+            return ShipmentLoadStatus.InTransshipment;
+
         if (totalQuantity <= Tolerance)
             return ShipmentLoadStatus.Planned;
 
-        var consumed = invoicedQuantity + returnedToWarehouseQuantity;
+        var available = totalQuantity
+            - invoicedQuantity
+            - returnedToWarehouseQuantity
+            - transshippedQuantity;
 
-        if (consumed <= decimal.Zero)
+        if (available <= Tolerance)
+        {
+            return returnedToWarehouseQuantity > Tolerance
+                ? ShipmentLoadStatus.Returned
+                : ShipmentLoadStatus.Invoiced;
+        }
+
+        if (invoicedQuantity + returnedToWarehouseQuantity <= decimal.Zero)
             return ShipmentLoadStatus.Open;
 
-        if (consumed < totalQuantity - Tolerance)
-            return ShipmentLoadStatus.PartiallyInvoiced;
-
-        return returnedToWarehouseQuantity > Tolerance
-            ? ShipmentLoadStatus.Returned
-            : ShipmentLoadStatus.Invoiced;
+        return ShipmentLoadStatus.PartiallyInvoiced;
     }
 
     /// <summary>

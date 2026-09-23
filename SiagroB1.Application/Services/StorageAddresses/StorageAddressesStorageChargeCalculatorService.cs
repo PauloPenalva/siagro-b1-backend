@@ -11,7 +11,13 @@ public class StorageAddressesStorageChargeCalculatorService(IUnitOfWork db)
     {
         var addresses = await db.Context.StorageAddresses
             .Include(x => x.ProcessingCost)
-            .Where(x => x.Status == StorageAddressStatus.Open && x.ProcessingCostCode != null)
+            .Where(x =>
+                x.Status == StorageAddressStatus.Open &&
+                x.ProcessingCostCode != null &&
+                // Lote de transbordo guarda mercadoria de passagem, não armazenagem
+                // contratada: cobrar armazenagem dele cobraria pelo serviço errado (GAC-1181
+                // fase 2).
+                x.Nature == StorageAddressNature.Regular)
             .ToListAsync(ct);
 
         foreach (var address in addresses)

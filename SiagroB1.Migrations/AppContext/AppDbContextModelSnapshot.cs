@@ -2989,6 +2989,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("TotalQuantity")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
+                    b.Property<decimal>("TransshippedQuantity")
+                        .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
                     b.Property<string>("TruckCode")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
@@ -3268,6 +3271,73 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("ShipmentLoadKey");
 
                     b.ToTable("SHIPMENT_LOAD_MOVEMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadTransshipment", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("EntryQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<Guid?>("EntryStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LotExitStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OutgoingQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("TransshipmentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("WarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("WarehouseName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("EntryStorageTransactionKey")
+                        .IsUnique()
+                        .HasFilter("[EntryStorageTransactionKey] IS NOT NULL");
+
+                    b.HasIndex("LotExitStorageTransactionKey")
+                        .IsUnique()
+                        .HasFilter("[LotExitStorageTransactionKey] IS NOT NULL");
+
+                    b.HasIndex("ShipmentLoadKey");
+
+                    b.ToTable("SHIPMENT_LOAD_TRANSSHIPMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
@@ -3670,6 +3740,9 @@ namespace SiagroB1.Migrations.Migrations
 
                     b.Property<string>("ItemName")
                         .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int>("Nature")
+                        .HasColumnType("int");
 
                     b.Property<int>("OwnershipType")
                         .HasColumnType("int");
@@ -4182,6 +4255,9 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<Guid?>("ShipmentLoadKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ShipmentLoadTransshipmentKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("ShipmentPrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
@@ -4262,6 +4338,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.HasIndex("SalesShipmentReleaseKey");
 
                     b.HasIndex("ShipmentLoadKey");
+
+                    b.HasIndex("ShipmentLoadTransshipmentKey");
 
                     b.HasIndex("ShipmentReleaseKey");
 
@@ -5757,6 +5835,31 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("ShipmentLoad");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadTransshipment", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "EntryStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("EntryStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "LotExitStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("LotExitStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("Transshipments")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("EntryStorageTransaction");
+
+                    b.Navigation("LotExitStorageTransaction");
+
+                    b.Navigation("ShipmentLoad");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -6032,6 +6135,11 @@ namespace SiagroB1.Migrations.Migrations
                         .HasForeignKey("ShipmentLoadKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoadTransshipment", "ShipmentLoadTransshipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentLoadTransshipmentKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
                         .WithMany("Transactions")
                         .HasForeignKey("ShipmentReleaseKey")
@@ -6069,6 +6177,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("SalesShipmentRelease");
 
                     b.Navigation("ShipmentLoad");
+
+                    b.Navigation("ShipmentLoadTransshipment");
 
                     b.Navigation("ShipmentRelease");
 
@@ -6330,6 +6440,8 @@ namespace SiagroB1.Migrations.Migrations
                     b.Navigation("RefusalReturns");
 
                     b.Navigation("Transactions");
+
+                    b.Navigation("Transshipments");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>

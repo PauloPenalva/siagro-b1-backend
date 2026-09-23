@@ -185,6 +185,13 @@ public class ShippingTransactionsChangeReleaseService(
         if (sales.TransactionType != StorageTransactionType.SalesShipment)
             throw new ApplicationException($"O romaneio {sales.Code} não é a perna de saída de uma Expedição.");
 
+        // GAC-1181: a entrada do transbordo já rateou suas liberações por peso entre os
+        // romaneios de saída da ORIGEM — trocar a liberação da saída do transbordo por aqui
+        // romperia esse rateio sem que o estorno do transbordo saiba.
+        if (sales.ShipmentLoadTransshipmentKey != null)
+            throw new ApplicationException(
+                "A troca de liberação não está disponível para a saída de um transbordo.");
+
         if (sales.TransactionStatus is StorageTransactionsStatus.Cancelled or StorageTransactionsStatus.Returned)
             throw new ApplicationException(
                 $"O romaneio {sales.Code} está cancelado ou devolvido e não pode ter a liberação trocada.");

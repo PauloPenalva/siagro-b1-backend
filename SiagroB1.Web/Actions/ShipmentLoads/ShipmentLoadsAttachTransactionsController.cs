@@ -34,7 +34,14 @@ public class ShipmentLoadsAttachTransactionsController(
             var key = Guid.Parse(keyObj.ToString()!);
             var userName = User.Identity?.Name ?? "Unknown";
 
-            var load = await attachService.ExecuteAsync(key, keys.ToList(), userName);
+            // GAC-1181: presente, a saída vinculada assume o papel de saída do transbordo — ver
+            // ShipmentLoadsAttachTransactionsService. Ausente (leitura defensiva: TryGetValue
+            // devolve true com valor nulo quando o parâmetro opcional simplesmente não veio),
+            // segue o caminho comum.
+            parameters.TryGetValue("TransshipmentKey", out var transshipmentKeyObj);
+            var transshipmentKey = transshipmentKeyObj as Guid?;
+
+            var load = await attachService.ExecuteAsync(key, keys.ToList(), transshipmentKey, userName);
 
             return Ok(new { load.Key, load.Code, load.TotalQuantity, load.Status });
         }

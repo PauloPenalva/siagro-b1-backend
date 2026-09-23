@@ -53,6 +53,14 @@ public class StorageTransactionsReverseService(
                 "não pode ser estornado por aqui.");
         }
 
+        // GAC-1181: o romaneio pertence a um transbordo — entrada (Receipt/TransshipmentReceipt)
+        // OU, desde a fase 2, saída do lote (Shipment). Estorná-lo por aqui deixaria o transbordo
+        // apontando um romaneio pendente e as liberações vivas.
+        if (doc.ShipmentLoadTransshipmentKey != null)
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} faz parte de um transbordo. Use Estornar Transbordo na " +
+                "carga.");
+
         // Romaneio nascido de ou substituído por uma troca de liberação (GAC-1177): o estorno
         // 12/9, a Expedição nova 7/8, e a Expedição ORIGINAL substituída (que já saiu da carga).
         // Estorná-lo por aqui destruiria o rastro da troca — quem desfaz esses romaneios é o

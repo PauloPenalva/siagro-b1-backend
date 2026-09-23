@@ -17,4 +17,5 @@ public enum StorageTransactionType
     SalesShipmentReturn = 12,     // Venda - Devolução de Venda/Recusa
     WarehouseLoss = 13,           // Perda de armazém - gerada pela Conferência de Saldo de Armazém
     WarehouseGain = 14,           // Sobra de armazém - gerada pela Conferência de Saldo de Armazém
+    TransshipmentReceipt = 15,    // Transbordo - Entrada em armazém intermediário (GAC-1181)
 }
