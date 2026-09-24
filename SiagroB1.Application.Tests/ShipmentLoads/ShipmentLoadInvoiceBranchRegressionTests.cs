@@ -37,6 +37,7 @@ public class ShipmentLoadInvoiceBranchRegressionTests
             new SalesContractsAllocationCreateForFiscalAdjustmentService(
                 db, new SalesContractsFixedVolumeService(db.Context)),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     [Fact]

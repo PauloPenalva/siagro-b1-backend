@@ -18,6 +18,7 @@ public class SalesInvoicesReverseConfirmService(
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
     ShipmentReleasesRecalculateShippedService recalcShipped,
     ShipmentLoadsBalanceHookService loadHook,
+    ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource)
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -114,6 +115,17 @@ public class SalesInvoicesReverseConfirmService(
                     ShipmentLoadMovementType.ReturnReversed,
                     userName,
                     $"Confirmação da devolução {invoice.InvoiceNumber} estornada: saldo consumido de novo.");
+
+                await db.SaveChangesAsync();
+            }
+            // GAC-1171 (melhorias): o saldo da nota NORMAL não muda, mas a situação da carga sim.
+            // A Concluída exige que nenhuma nota Normal da carga esteja Pendente, e o estorno
+            // acabou de devolver esta a Pendente: sem o recálculo, a carga seguiria Concluída com
+            // uma nota fora da Conferência. O gancho da situação recalcula e registra o log, sem
+            // movimento, porque o saldo é o mesmo.
+            else
+            {
+                await loadClosureHook.ApplyAsync(invoice, userName);
 
                 await db.SaveChangesAsync();
             }

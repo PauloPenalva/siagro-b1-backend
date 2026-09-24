@@ -41,6 +41,7 @@ public class ShipmentLoadBalanceHookTests
             new SalesContractsAllocationCreateForFiscalAdjustmentService(
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             Hook(),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private SalesInvoicesReverseConfirmService ReverseConfirm() =>
@@ -48,6 +49,7 @@ public class ShipmentLoadBalanceHookTests
             new SalesContractsAllocationDeleteForInvoiceService(_db),
             new ShipmentReleasesRecalculateShippedService(_db.Context),
             Hook(),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private SalesInvoicesCancelService Cancel() =>

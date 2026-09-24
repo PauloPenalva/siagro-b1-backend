@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -12,8 +13,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesItemsUpdateService(
-    IUnitOfWork db, 
+    IUnitOfWork db,
     IItemService itemService,
+    ShipmentLoadsClosureHookService loadClosureHook,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -89,6 +91,13 @@ public class SalesInvoicesItemsUpdateService(
                 await SalesShipmentReleasesRecalculateShippedService.RecalculateForItemsAsync(
                     db.Context, [key]);
                 await db.SaveChangesAsync();
+
+                // GAC-1171 (melhorias): encerrar ou estornar a entrega muda a situação da carga
+                // (Faturada/Descarregada ↔ Concluída). Depois dos flushes acima, embora a regra
+                // já leia o estado rastreado: manter o gancho no fim deixa a ordem igual à dos
+                // outros recálculos.
+                await RecalculateShipmentLoadAsync(existingEntity, userName);
+                await db.SaveChangesAsync();
             }
         }
         catch (DbUpdateConcurrencyException)
@@ -99,7 +108,23 @@ public class SalesInvoicesItemsUpdateService(
 
         return entity;
     }
-    
+
+    /// <summary>
+    /// Recalcula a situação da carga da nota do item pelo <see cref="ShipmentLoadsClosureHookService"/>,
+    /// que também registra no log da carga quem causou a mudança: a transição Concluída vem de um
+    /// ato do conferente. No-op para item sem nota ou nota sem carga (legada ou avulsa).
+    /// </summary>
+    private async Task RecalculateShipmentLoadAsync(SalesInvoiceItem item, string userName)
+    {
+        if (item.SalesInvoiceKey is not { } invoiceKey)
+            return;
+
+        var invoice = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == invoiceKey);
+        if (invoice is null)
+            return;
+
+        await loadClosureHook.ApplyAsync(invoice, userName);
+    }
 
     /// <summary>
     /// Uma linha de log por campo da conferência que realmente mudou. O "de" sai do

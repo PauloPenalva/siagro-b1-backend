@@ -29,6 +29,7 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
             new SalesContractsAllocationDeleteForInvoiceService(db),
             new ShipmentReleasesRecalculateShippedService(db.Context),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private static ShipmentLoad NewLoad(UnitOfWork db)

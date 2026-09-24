@@ -81,6 +81,7 @@ public class ShipmentLoadsRefuseServiceTests
             new SalesContractsAllocationCreateForFiscalAdjustmentService(
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(_db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     internal StorageTransactionsCreateService StorageCreate(IWarehouseService? warehouses = null) =>
@@ -122,7 +123,7 @@ public class ShipmentLoadsRefuseServiceTests
             new SalesContractsAllocationCreateService(
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBillingGuardService(_db.Context),
-            new ShipmentLoadsRecalculateInvoicedService(_db),
+            new ShipmentLoadsRecalculateInvoicedService(_db, new ShipmentLoadsChangeLogService(_db.Context)),
             new ShipmentLoadsMovementLogService(_db.Context),
             NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance);
     }
@@ -292,6 +293,52 @@ public class ShipmentLoadsRefuseServiceTests
 
         Assert.Equal(InvoiceStatus.Confirmed, origin.InvoiceStatus);
         Assert.Equal(SalesInvoiceDeliveryStatus.Open, origin.DeliveryStatus);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a carga Concluída (Conferência toda encerrada) foi ACEITA no destino,
+    /// e uma recusa por cima contradiria a marca. A trava de <c>Validate</c> a barra antes de
+    /// qualquer escrita, e a carga continua Concluída.
+    /// </summary>
+    /// <remarks>
+    /// Este teste substitui <c>Returning_a_whole_load_invoice_leaves_the_load_out_of_completed</c>
+    /// (Task 6), que recusava por inteiro uma carga Concluída e esperava vê-la voltar a Open. Com
+    /// a trava do spec §2.8 (Task 7), a carga Concluída Normal não aceita mais recusa, e aquele
+    /// caminho ficou inalcançável. O cenário foi mantido, com a mesma semeadura pelo caminho real,
+    /// e só a expectativa mudou: a recusa é barrada e a situação não sai de Completed. A mensagem
+    /// manda estornar a conferência, e não "desfazer a descarga": o Desfazer Descarregada recusa a
+    /// carga Concluída, então aquela dica levaria o usuário a outra trava.
+    /// </remarks>
+    [Fact]
+    public async Task Refusing_a_completed_normal_load_is_refused()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+
+        // Concluída pelo caminho real: a Conferência fecha os itens e o recálculo deriva o status.
+        var items = await _db.Context.SalesInvoicesItems
+            .Where(i => i.SalesInvoiceKey == invoice.Key)
+            .ToListAsync();
+        foreach (var item in items)
+        {
+            item.DeliveredQuantity = item.Quantity;
+            item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        }
+        await _db.SaveChangesAsync();
+        await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(_db.Context, load.Key, excludedInvoiceKeys: null);
+        await _db.SaveChangesAsync();
+        Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 já foi concluída. Estorne a conferência de entrega antes de registrar recusa.",
+            error.Message);
+        Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
+        Assert.Empty(await _db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.InvoiceType == SalesInvoiceType.Return)
+            .ToListAsync());
     }
 
     /// <summary>Recusa total marca a origem como Retornada, como o caminho de sempre.</summary>
@@ -732,6 +779,32 @@ public class ShipmentLoadsRefuseServiceTests
             () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
 
         Assert.Contains("cancelada", error.Message);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a carga Descarregada foi ACEITA no destino. Recusar por cima dela
+    /// contradiria a marca, então a recusa é barrada e o caminho é desfazer a descarga primeiro.
+    /// </summary>
+    [Fact]
+    public async Task Refusing_a_discharged_load_is_refused()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+
+        var tracked = await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key);
+        tracked.IsDischarged = true;
+        tracked.Status = ShipmentLoadStatus.Discharged;
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 já foi descarregada no destino. Desfaça a descarga antes de registrar recusa.",
+            error.Message);
+        Assert.Empty(await _db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.InvoiceType == SalesInvoiceType.Return)
+            .ToListAsync());
     }
 
     /// <summary>

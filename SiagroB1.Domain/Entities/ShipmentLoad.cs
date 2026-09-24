@@ -149,6 +149,18 @@ public class ShipmentLoad : DocumentEntity
     public decimal DischargedQuantity { get; set; }
 
     /// <summary>
+    /// Marca MANUAL de "a mercadoria foi descarregada no destino" (GAC-1171, melhorias). Não é
+    /// o status: quem traduz a marca em <see cref="ShipmentLoadStatus.Discharged"/> é o
+    /// recálculo, e só enquanto a carga está Faturada. Fora de Faturada o recálculo apaga a
+    /// marca, porque ela se referia a uma mercadoria que já não é a faturada.
+    /// </summary>
+    /// <remarks>
+    /// Independe dos tickets (<see cref="DischargedQuantity"/>): o usuário pode marcar sem ticket
+    /// nenhum, e registrar ticket não marca nada.
+    /// </remarks>
+    public bool IsDischarged { get; set; }
+
+    /// <summary>
     /// Persistido-derivado: Σ <c>OutgoingQuantity</c> dos transbordos da carga (GAC-1181) — o
     /// quarto termo do saldo. Escritor único: <c>ShipmentLoadsRecalculateInvoicedService</c>,
     /// pelo mesmo motivo do terceiro termo (o status depende dele).

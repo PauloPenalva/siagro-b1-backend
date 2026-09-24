@@ -78,6 +78,7 @@ public class SalesInvoicesReturnContractBalanceTests
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private StorageTransactionsCreateService StorageCreate() =>

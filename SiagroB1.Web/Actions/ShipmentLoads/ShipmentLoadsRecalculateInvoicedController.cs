@@ -30,7 +30,8 @@ public class ShipmentLoadsRecalculateInvoicedController(
             var key = Guid.Parse(keyObj.ToString()!);
 
             await unitOfWork.BeginTransactionAsync();
-            await recalculateService.RecalculateAsync(key);
+            // GAC-1171 (melhorias): com o usuário, para a mudança de situação ficar no log.
+            await recalculateService.RecalculateAsync(key, User.Identity?.Name ?? "unknown");
             await unitOfWork.SaveChangesAsync();
             await unitOfWork.CommitAsync();
 

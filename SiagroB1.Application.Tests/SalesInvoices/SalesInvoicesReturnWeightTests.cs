@@ -47,6 +47,7 @@ public class SalesInvoicesReturnWeightTests
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private SalesInvoicesCreateService CreateService()
@@ -67,7 +68,7 @@ public class SalesInvoicesReturnWeightTests
     }
 
     private SalesInvoicesItemsUpdateService ItemsUpdateService() =>
-        new(_db, Items(), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(_db, Items(), new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private SalesInvoicesItemsCreateService ItemsCreateService() =>
         new(_db, Items(), NullLogger<SalesInvoicesItemsCreateService>.Instance);

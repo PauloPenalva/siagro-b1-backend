@@ -63,6 +63,7 @@ public class SalesInvoicesFiscalAdjustmentTests
             new SalesInvoicesUsageGuardService(Usages(db)),
             FiscalAdjustment(db),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private static SalesInvoicesCancelService Cancel(UnitOfWork db) =>

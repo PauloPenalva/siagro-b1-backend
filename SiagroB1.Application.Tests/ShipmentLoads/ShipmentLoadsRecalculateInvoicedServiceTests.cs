@@ -15,7 +15,8 @@ public class ShipmentLoadsRecalculateInvoicedServiceTests
 {
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private ShipmentLoadsRecalculateInvoicedService Service() => new(_db);
+    private ShipmentLoadsRecalculateInvoicedService Service() => new(
+        _db, new ShipmentLoadsChangeLogService(_db.Context));
 
     private ShipmentLoad Load(decimal total = 90_000)
     {

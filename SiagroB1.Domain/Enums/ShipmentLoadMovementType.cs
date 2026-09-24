@@ -33,5 +33,7 @@ public enum ShipmentLoadMovementType
     TransshipmentStarted = 19,   // Transbordo iniciado — o saldo sai da carga para o armazém
     TransshipmentEntered = 20,   // Entrada no transbordo registrada — romaneio e liberações criados
     TransshipmentReversed = 21,  // Transbordo estornado — o saldo volta para a carga
-    TransshipmentLotExitAttached = 22 // Saída do lote vinculada (fase 2) — emite a liberação, não fecha o transbordo
+    TransshipmentLotExitAttached = 22, // Saída do lote vinculada (fase 2) — emite a liberação, não fecha o transbordo
+    Discharged = 23,             // Carga marcada à mão como descarregada no destino (GAC-1171)
+    DischargeUndone = 24         // Marcação de descarregada desfeita — o status volta ao do recálculo
 }

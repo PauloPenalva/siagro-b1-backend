@@ -75,6 +75,7 @@ public class SalesInvoicesReturnServiceTests
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBalanceHookService(
                 _db.Context, new ShipmentLoadsMovementLogService(_db.Context)),
+            new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
             new FakeStringLocalizer<Resource>());
 
     private StorageTransactionsCreateService StorageCreate() =>
@@ -454,6 +455,57 @@ public class SalesInvoicesReturnServiceTests
             () => Service().ExecuteAsync(Request(invoice, [r1.Key]), "tester"));
 
         Assert.Contains("Montagem de Carga", error.Message);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): o retorno TOTAL fecha a entrega da origem, e quem fecha a entrega de
+    /// uma nota de carga precisa recalcular a carga. Este caminho não precisa, porque RECUSA nota
+    /// de carga antes de qualquer escrita (a recusa de carga tem serviço próprio,
+    /// <see cref="ShipmentLoadsRefuseService"/>). Por isso o teste não pode provar "a carga sai da
+    /// Concluída" aqui: com uma carga Concluída de verdade, ele trava que nada nela, nem na entrega
+    /// da origem, muda. O retorno de nota de carga é coberto em <c>ShipmentLoadsRefuseServiceTests</c>
+    /// (<c>Returning_a_whole_load_invoice_leaves_the_load_out_of_completed</c>).
+    /// </summary>
+    [Fact]
+    public async Task Returning_a_whole_load_invoice_is_refused_and_leaves_the_completed_load_untouched()
+    {
+        var load = new ShipmentLoad
+        {
+            Key = Guid.NewGuid(),
+            Code = "CG000062",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            TotalQuantity = 40_000m,
+            InvoicedQuantity = 40_000m,
+            Status = ShipmentLoadStatus.Completed,
+        };
+        _db.Context.ShipmentLoads.Add(load);
+
+        var (invoice, r1, r2) = await SeedAsync(shipmentLoadKey: load.Key);
+
+        foreach (var item in invoice.Items)
+        {
+            item.DeliveredQuantity = item.Quantity;
+            item.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        }
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(Request(invoice, [r1.Key, r2.Key]), "tester"));
+        Assert.Contains("Montagem de Carga", error.Message);
+
+        var after = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key);
+        Assert.Equal(ShipmentLoadStatus.Completed, after.Status);
+        Assert.Equal(40_000m, after.InvoicedQuantity);
+
+        var origin = await _db.Context.SalesInvoices.AsNoTracking()
+            .Include(x => x.Items)
+            .SingleAsync(x => x.Key == invoice.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, origin.InvoiceStatus);
+        Assert.All(origin.Items, i => Assert.Equal(SalesInvoiceDeliveryStatus.Closed, i.DeliveryStatus));
+        Assert.DoesNotContain(
+            await _db.Context.SalesInvoices.AsNoTracking().ToListAsync(),
+            x => x.InvoiceType == SalesInvoiceType.Return);
     }
 
     [Fact]

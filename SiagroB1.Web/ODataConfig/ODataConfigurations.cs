@@ -632,6 +632,15 @@ public static class ODataConfigurations
         shipmentLoadsReopen.Parameter<Guid>("Key");
         shipmentLoadsReopen.Returns<IActionResult>();
 
+        // GAC-1171 (melhorias): marca manual de descarga no destino, e o desfazer.
+        var shipmentLoadsMarkDischarged = modelBuilder.Action("ShipmentLoadsMarkDischarged");
+        shipmentLoadsMarkDischarged.Parameter<Guid>("Key");
+        shipmentLoadsMarkDischarged.Returns<IActionResult>();
+
+        var shipmentLoadsUndoDischarged = modelBuilder.Action("ShipmentLoadsUndoDischarged");
+        shipmentLoadsUndoDischarged.Parameter<Guid>("Key");
+        shipmentLoadsUndoDischarged.Returns<IActionResult>();
+
         var shipmentLoadsDelete = modelBuilder.Action("ShipmentLoadsDelete");
         shipmentLoadsDelete.Parameter<Guid>("Key");
         shipmentLoadsDelete.Returns<IActionResult>();

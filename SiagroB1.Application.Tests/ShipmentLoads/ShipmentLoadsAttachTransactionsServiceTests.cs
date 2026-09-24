@@ -296,6 +296,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.PartiallyInvoiced)]
     [InlineData(ShipmentLoadStatus.Invoiced)]
+    [InlineData(ShipmentLoadStatus.Discharged)]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     public async Task Refuses_to_attach_to_a_load_that_is_no_longer_open(ShipmentLoadStatus status)
     {
@@ -391,6 +392,30 @@ public class ShipmentLoadsAttachTransactionsServiceTests
             () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): na carga Normal Concluída, quem destrava a composição é cancelar os
+    /// documentos de saída. Estornar a conferência só a devolveria a Faturada, e a trava de
+    /// composição continuaria recusando por causa das notas.
+    /// </summary>
+    [Fact]
+    public async Task Attaching_to_a_completed_normal_load_asks_to_cancel_the_invoices()
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        var a = Shipment("R1");
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
+
+        // Mensagem exata: a Concluída tem frase própria, com UMA dica só. O sufixo genérico da
+        // carga Normal faturada ("…antes de alterar a composição da carga.") não se soma a ela.
+        Assert.Equal(
+            "A carga CG000001 já foi concluída e não aceita novos romaneios. " +
+            "Cancele os documentos de saída antes de alterar a composição.",
+            ex.Message);
+        Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }
 
 }
