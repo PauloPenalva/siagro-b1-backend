@@ -77,10 +77,19 @@ terminal.
 - **há ao menos um** item em nota com `InvoiceStatus = Confirmed`;
 - **todos** os itens das notas `Confirmed` estão com `DeliveryStatus = Closed`.
 
-Notas `Cancelled` e `Returned` ficam fora, do mesmo jeito que ficam fora da Conferência. A consulta é
-um `AnyAsync`/`AllAsync` no servidor, com o mesmo cuidado de `SumAsync` × `ChangeTracker` já
-documentado: quem chama roda o recálculo **depois** do `SaveChangesAsync` que torna a mudança do item
-visível.
+Notas `Cancelled` e `Returned` ficam fora, do mesmo jeito que ficam fora da Conferência.
+
+**A leitura é em memória, sobre o estado rastreado** (e não um `AnyAsync`/`AllAsync` no servidor). A
+consulta materializa, rastreadas e com os itens, as notas com `ShipmentLoadKey = carga` e
+`InvoiceType = Normal`, e só então filtra em memória o status da nota, a entrega do item, o
+`excludedInvoiceKeys` e o que o `ChangeTracker` marca como `Deleted`. O motivo: o recálculo roda
+dentro de transações alheias. Quem mudasse o status ou a entrega de uma nota e recalculasse antes do
+`SaveChangesAsync` leria, com o status no `WHERE`, o valor antigo do banco, e poderia concluir a carga
+com um item reaberto. Com a consulta rastreada, o EF devolve as instâncias que já estão no contexto,
+com os valores atuais, e o filtro em memória enxerga a mudança. Hoje os chamadores salvam antes do
+gancho; a leitura rastreada mantém o resultado certo se algum deixar de salvar. São poucas notas por
+carga, então o custo é irrelevante. O limite: uma nota **adicionada** e ainda não salva não volta na
+consulta, então quem cria nota salva antes de recalcular.
 
 Método estático novo, no próprio `ShipmentLoadsRecalculateInvoicedService`:
 `AreAllDeliveriesClosedAsync(AppDbContext, Guid loadKey, ICollection<Guid>? excludedInvoiceKeys)`. O
@@ -127,6 +136,9 @@ Seguem o molde de `ShipmentLoadsCompleteService` / `ShipmentLoadsReopenService`:
 - `IsDischarged = true`, recálculo, carimbo `UpdatedAt`/`UpdatedBy`, log "Faturada → Descarregada"
   com o status **resultante do recálculo** (se a conferência já estiver toda encerrada, o resultado é
   Concluída, e o log diz isso), e movimento `Discharged`.
+- A trava de cima lê o status **persistido**, que pode estar defasado. Quem decide é o recalculado: se
+  ele não for Descarregada nem Concluída, a ação é recusada dentro da transação, sem log nem
+  movimento: "A carga {Code} não está faturada: recalcule o saldo da carga."
 
 **`ShipmentLoadsUndoDischargedService.ExecuteAsync(Guid key, string userName)`**
 - Recusa quando `Status == Completed` e é carga Normal: "A carga {Code} está concluída. Estorne a
@@ -145,42 +157,68 @@ Default/Business/Application → 400; resto → 500).
 
 A Conferência e o estorno da conferência gravam `DeliveryStatus` por PATCH em `SalesInvoicesItems`,
 tratado por `SalesInvoicesItemsUpdateService`. Nele, **quando `deliveryChanged`**, depois dos
-recálculos de contrato e liberação que já existem:
+recálculos de contrato e liberação que já existem, entra o gancho da situação,
+`ShipmentLoadsClosureHookService.ApplyAsync(invoice, userName)`:
 
 1. resolve a carga da nota com `SalesInvoiceOriginResolver.ResolveShipmentLoadKeyAsync`, o mesmo do
    `ShipmentLoadsBalanceHookService`;
 2. chama `ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(context, loadKey, null)`;
-3. se o status mudou, registra no change log da carga "Situação: {de} → {para}", assinado pelo
-   usuário da Conferência. A transição é consequência de um ato dele, e sem o log a carga "se
-   concluiria sozinha" sem rastro;
-4. `SaveChangesAsync`.
+3. se o status mudou, carimba `UpdatedBy` e registra no change log da carga "Situação: {de} →
+   {para}", assinado pelo usuário da Conferência. A transição é consequência de um ato dele, e sem o
+   log a carga "se concluiria sozinha" sem rastro. Não grava movimento, porque o saldo não mudou;
+4. quem chama faz o `SaveChangesAsync`.
 
 Nota sem carga (legada ou avulsa) → no-op, como no hook de saldo.
 
-**Outros escritores de `DeliveryStatus`**:
-- `SalesInvoicesConfirmService` (nota de retorno), `SalesInvoicesReverseConfirmService` (3 pontos):
-  já chamam o `ShipmentLoadsBalanceHookService`, que recalcula a carga.
-- `SalesInvoicesReturnService` e `SalesInvoicesReturnOriginRestoreService` (Closed/Open da nota de
-  ORIGEM na devolução): hoje não recalculam a carga.
+**Outros escritores** (cada caminho coberto por teste):
+- **Confirmar nota Normal** (`SalesInvoicesConfirmService`): passa pelo mesmo
+  `ShipmentLoadsClosureHookService`. O saldo não muda (a Pendente já consome), mas a situação sim: a
+  nota Pendente impedia a Concluída, e o estorno de confirmação não reabre os itens, então confirmar
+  de novo uma nota já conferida devolve a carga a Concluída.
+- **Estornar a confirmação de nota Normal** (`SalesInvoicesReverseConfirmService`): também pelo
+  `ShipmentLoadsClosureHookService`. A nota volta a Pendente, e a carga sai da Concluída (para
+  Descarregada, com a marca, ou para Faturada).
+- **Nota de devolução** (confirmar e estornar a confirmação): segue pelo
+  `ShipmentLoadsBalanceHookService`, que recalcula a carga e grava o movimento pelo delta.
+- **Cancelar ou excluir uma devolução** (`SalesInvoicesCancelService`, `SalesInvoicesDeleteService`):
+  chamam `SalesInvoicesReturnOriginRestoreService`, que reabre a origem, e depois o
+  `ShipmentLoadsBalanceHookService`.
+- **Criar a devolução** (`SalesInvoicesReturnService`): **recusa nota de carga** logo na validação
+  ("Registre a recusa pela tela de Montagem de Carga."). O caminho de devolução da nota de carga é o
+  `ShipmentLoadsRefuseService`, que recalcula a carga no próprio fluxo.
 
-O plano **confirma cada um desses caminhos com teste**. Onde o recálculo não acontecer, o gancho é
-acrescentado no mesmo formato. A regra: quem muda o `DeliveryStatus` de um item de nota de carga
+A regra: quem muda o `DeliveryStatus` de um item de nota de carga, ou o status de uma nota de carga,
 precisa recalcular a carga no mesmo save.
 
 ### 2.8 Varredura: quem trata `Invoiced`/`Completed` como "carga encerrada"
 
-Regra geral: **Descarregada se comporta como Faturada em toda trava**, e **Concluída de carga Normal
-se comporta como o `Completed` que já existe**.
+Regra geral: **Descarregada se comporta como Faturada em toda trava, EXCETO em três pontos**: ela
+também barra **Trocar Liberação** e **Transbordo** (a mercadoria já foi entregue no destino), e
+recusa a **Recusa** com mensagem própria. Nos três casos a mensagem manda desfazer a descarga
+primeiro (botão "Desfazer Descarregada"). **Concluída de carga Normal se comporta como o
+`Completed` que já existe** (barra vincular, desvincular, cancelar, trocar liberação e transbordo) e
+também recusa a Recusa. O **Reabrir recusa carga Normal**.
 
-| Ponto | Mudança |
+As mensagens de `Completed` trazem uma de duas dicas, ambas de `ShipmentLoadCompletionRules`:
+- `UndoHint`, **desfazer a conclusão** (usada na Recusa): "Reabra-a" na Remoção, "Estorne a
+  conferência de entrega" na Normal;
+- `CompositionHint`, **destravar a composição** (usada em Vincular, Desvincular e Cancelar):
+  "Reabra-a" na Remoção, "Cancele os documentos de saída" na Normal. Na carga Normal as duas diferem
+  de propósito. Estornar a conferência só devolve a carga a Faturada (ou Descarregada), e a trava de
+  composição continua recusando pelas notas. Quem destrava a composição é tirar o faturamento, e
+  cancelar os documentos de saída faz as duas coisas: tira a carga da Concluída e libera a composição.
+
+| Ponto | Mudança (texto final das mensagens) |
 |---|---|
 | `ShipmentLoadsRecalculateInvoicedService` (projeção nos romaneios) | §2.4 |
 | `ShipmentLoadsUpdateService.fiscalFieldsLocked` | incluir `Discharged` e `Completed` |
-| `ShipmentLoadsAttachTransactionsService.EnsureLoadAcceptsShipments` | a mensagem de `Completed` diz "reabra-a" e só vale para Remoção. Para carga Normal: "já foi concluída" e nada mais |
-| `ShipmentLoadsReopenService` | passa a **recusar carga Normal**: "A carga {Code} é concluída pela conferência de entrega: estorne a conferência para reabri-la." Sem isso, Reabrir numa Concluída normal voltaria na hora para Concluída |
-| `ShipmentLoadsCancelService` | `Completed` já barra; `Discharged` já cai na trava de carga com faturamento. O plano confirma por teste |
-| `ShipmentLoadsRefuseService` | recusa também `Discharged` e `Completed`: "A carga {Code} já foi descarregada no destino. Desfaça a descarga antes de registrar recusa." |
-| `ShipmentLoadTransshipmentRules` / `ShippingTransactionsChangeReleaseService` | incluir `Discharged` ao lado de `Completed` |
+| `ShipmentLoadsAttachTransactionsService.EnsureLoadAcceptsShipments` | `Completed`, nos dois tipos: "A carga {Code} já foi concluída e não aceita novos romaneios. {CompositionHint} antes de alterar a composição." (Remoção: "Reabra-a…"; Normal: "Cancele os documentos de saída…"). `Discharged` cai no ramo de Faturada: "A carga {Code} já foi faturada e não aceita novos romaneios. Cancele os documentos de saída antes de alterar a composição da carga." |
+| `ShipmentLoadsDetachTransactionsService` | `Completed`: "A carga {Code} já foi concluída. {CompositionHint} antes de alterar a composição." `Discharged`: a trava de composição, pelas notas: "A carga {Code} ainda tem {N} consumido(s) pelo documento de saída {Número} (situação {S}) e sua composição não pode ser alterada. Cancele ou devolva o documento antes." |
+| `ShipmentLoadsCancelService` | `Completed`: "A carga {Code} já foi concluída. {CompositionHint} antes de cancelá-la." `Discharged`: a mesma trava de composição do desvínculo. Os dois casos têm teste |
+| `ShipmentLoadsReopenService` | passa a **recusar carga Normal**. Fora de `Completed`, em qualquer tipo: "A carga {Code} não está concluída." Normal `Completed`: "A carga {Code} é concluída pela conferência de entrega: estorne a conferência para reabri-la." Sem isso, Reabrir numa Concluída normal voltaria na hora para Concluída |
+| `ShipmentLoadsRefuseService` | `Discharged`: "A carga {Code} já foi descarregada no destino. Desfaça a descarga antes de registrar recusa." Normal `Completed`: "A carga {Code} já foi concluída. Estorne a conferência de entrega antes de registrar recusa." (`UndoHint`: o "Desfazer Descarregada" recusa a Concluída, então mandar desfazer a descarga levaria a outra trava) |
+| `ShippingTransactionsChangeReleaseService` | `Discharged`: "A carga {Code} já foi descarregada no destino. Desfaça a descarga antes de trocar a liberação." `Cancelled`/`Returned`/`Completed`: "A carga {Code} está encerrada: a liberação dos romaneios não pode ser trocada." |
+| `ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment` | `Discharged`: "A carga {Code} já foi descarregada no destino. Desfaça a descarga antes de iniciar o transbordo." `Cancelled`/`Returned`/`Completed`: "A carga {Code} está encerrada e não aceita transbordo." |
 | `ShipmentLoadDischargeRules.EnsureLoadAcceptsChanges` | **não muda**: registrar, editar e excluir ticket continua valendo em Descarregada e Concluída, porque o ticket costuma chegar depois |
 | `ShipmentLoadChangeLogFields.DescribeStatus` | `Discharged => "Descarregada"` |
 | `ShipmentLoadsBillingGuardService` | sem mudança: a carga Descarregada/Concluída não tem saldo a faturar. O plano confirma |
@@ -194,9 +232,17 @@ se comporta como o `Completed` que já existe**.
 
 Uma migration, `AddShipmentLoadIsDischarged`: coluna `IsDischarged BIT NOT NULL DEFAULT 0` em
 `SHIPMENT_LOADS`. **Não há backfill**: toda carga existente continua com o status que tem, porque
-nenhuma estava marcada. Cargas Faturadas cuja conferência **já está toda encerrada** só viram Concluída
-no próximo recálculo (botão "Recalcular Saldo" ou qualquer mudança). **Não** vamos fazer backfill por
-SQL, porque ele duplicaria a regra do §2.3 num segundo lugar. Isso fica registrado para o deploy.
+nenhuma estava marcada. **Não** vamos fazer backfill por SQL, porque ele duplicaria a regra do §2.3
+num segundo lugar.
+
+> ⚠️ **Consequência para o deploy.** As cargas Normais históricas cuja Conferência de Entregas **já
+> está toda encerrada** continuam **Faturada** depois do deploy, até que algo as recalcule: o botão
+> "Recalcular Saldo" da carga, ou uma nova gravação de alguma nota dela na Conferência de Entregas.
+> O remédio, carga a carga, é o **"Recalcular Saldo"**, que agora registra a transição no log de
+> alterações ("Situação: Faturada → Concluída"), assinada por quem clicou
+> (`ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(Guid, string)`; o log fica só nesse
+> caminho, e não no recálculo estático que todo escritor usa). Uma **varredura em lote**, em C# e
+> pela mesma regra, está disponível se o usuário pedir; não foi implementada.
 
 ## 3. Frontend da carga
 
@@ -259,12 +305,18 @@ export async function openAttachmentViewer(options: {
   abre** o diálogo. Senão → `blob` → `URL.createObjectURL`. Com blob não há `Content-Disposition`
   mandando baixar, então **as rotas de download existentes servem como estão, sem mudança no
   backend**. `setBusy` global durante o fetch.
-- **Tipo**: `blob.type`, ou, quando for vazio ou `application/octet-stream`, deduzido da extensão do
-  `fileName` (`pdf`, `png`, `jpg`/`jpeg`, `gif`, `webp`, `bmp`, `txt`).
-- **Conteúdo pelo tipo**:
-  - `application/pdf`, `text/*` → `core:HTML` com `<iframe src="{objectURL}" style="width:100%;height:100%;border:0">`,
-    como o `ReportViewer` dos relatórios;
-  - `image/*` → `sap.m.Image` com `src = objectURL`, `densityAware=false`, ajustada ao diálogo;
+- **Tipo**: `blob.type` normalizado (sem parâmetros como `; charset=…`, em minúsculas), ou, quando for
+  vazio ou `application/octet-stream`, deduzido da extensão do `fileName` (`pdf`, `png`, `jpg`/`jpeg`,
+  `gif`, `webp`, `bmp`, `txt`). O blob só é refeito com o tipo resolvido quando o tipo normalizado
+  dele difere; senão fica o original, com o `charset` do texto.
+- **Conteúdo pelo tipo** (lista FECHADA):
+  - `application/pdf` e `text/plain` → `core:HTML` com `<iframe src="{objectURL}" style="width:100%;height:100%;border:0">`,
+    como o `ReportViewer` dos relatórios. **Só `text/plain`, e não `text/*`**: um blob URL herda a
+    ORIGEM da aplicação, e um `text/html` (ou `application/xhtml+xml`) aberto no iframe rodaria script
+    com a sessão do usuário logado. `sandbox` no iframe não resolve, porque bloqueia o leitor de PDF
+    do Chrome;
+  - imagem raster (`image/*`, **menos `image/svg+xml`**, pelo mesmo motivo) → `sap.m.Image` com
+    `src = objectURL`, `densityAware=false`, ajustada ao diálogo;
   - outros → `MessageStrip` "Pré-visualização indisponível para este tipo de arquivo. Use Baixar."
 - **Diálogo**: título = `title ?? fileName`, `contentWidth="80%"`, `contentHeight="85%"`,
   `resizable`, `draggable`, `stretch` em telefone.
@@ -290,8 +342,8 @@ chamada.
 ### 4.3 Item 3 — "anexo manual não abre"
 
 Pelo código, o anexo manual e o do ticket passam pelo **mesmo** `loadAttachmentBase64`, gravam
-`ContentType` do mesmo jeito e saem pela **mesma** rota `ShipmentLoadsAttachmentsDownload(Key=…)`. A
-causa, portanto, **não está identificada**. Hipóteses:
+`ContentType` do mesmo jeito e saem pela **mesma** rota `ShipmentLoadsAttachmentsDownload(Key=…)`. Na
+escrita do spec a causa **não estava identificada**. Hipóteses:
 
 - **(a)** falta de affordance: o único caminho é o botão "Baixar" da toolbar, que exige linha
   selecionada, e nada na linha é clicável. A §4.2 resolve;
@@ -300,6 +352,20 @@ causa, portanto, **não está identificada**. Hipóteses:
 **Primeira tarefa da implementação**: reproduzir no navegador, anexando pela aba Anexos e tentando
 abrir, com `superpowers:systematic-debugging` e lendo a rede. Se for (b), a correção da causa raiz
 entra nesta mesma branch, **com teste que falha antes**, e o spec ganha uma nota com a causa.
+
+**Resultado da reprodução (Task 8): causa (a), só affordance.** Não há falha de download:
+- **Baixar com a linha selecionada funciona**: `GET ShipmentLoadsAttachmentsDownload` devolve 200 com
+  `Content-Type` e `Content-Disposition` certos, e o arquivo baixado é **idêntico byte a byte** ao
+  original (PDF e PNG anexados à mão, conferidos por SHA-256). Rota, headers e bytes são os mesmos do
+  anexo da descarga;
+- **nada na linha abre o arquivo**: a coluna "Arquivo" era um `Text` simples, e a tabela não tinha
+  `cellClick`, ação de linha nem link. O único caminho era o Baixar da toolbar, que exige seleção. Na
+  descarga o clip é um botão por linha, e por isso "só o da descarga abre";
+- **o clique na linha alterna a seleção** (`selectionMode="Single"` com `selectionBehavior="Row"`): o
+  segundo clique, ou um duplo clique, desmarca a linha, e o Baixar então responde "Selecione um
+  anexo.". Isso explica o "de nenhuma forma".
+
+Não houve correção de causa raiz: o `Link` na coluna Arquivo e o botão Visualizar (§4.2) resolvem.
 
 ## 5. Testes e verificação
 
