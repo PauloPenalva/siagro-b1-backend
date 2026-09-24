@@ -52,7 +52,7 @@ public class ShipmentLoadBillingServiceTests
             new SalesContractsAllocationCreateService(
                 _db, new SalesContractsFixedVolumeService(_db.Context)),
             new ShipmentLoadsBillingGuardService(_db.Context),
-            new ShipmentLoadsRecalculateInvoicedService(_db),
+            new ShipmentLoadsRecalculateInvoicedService(_db, new ShipmentLoadsChangeLogService(_db.Context)),
             new ShipmentLoadsMovementLogService(_db.Context),
             NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance);
     }

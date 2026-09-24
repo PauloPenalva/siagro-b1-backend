@@ -42,13 +42,52 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// Marcar/Desfazer, mas o status continua saindo daqui.
 /// </para>
 /// </remarks>
-public class ShipmentLoadsRecalculateInvoicedService(IUnitOfWork db)
+public class ShipmentLoadsRecalculateInvoicedService(
+    IUnitOfWork db,
+    ShipmentLoadsChangeLogService changeLog)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
 
     public Task RecalculateAsync(Guid shipmentLoadKey) =>
         RecalculateAsync(db.Context, shipmentLoadKey, excludedInvoiceKeys: null);
+
+    /// <summary>
+    /// O "Recalcular Saldo" da tela: recalcula e, se a situação mudou, grava a linha "Situação"
+    /// no log assinada por <paramref name="userName"/>. Sem <c>SaveChanges</c>, como as demais.
+    /// </summary>
+    /// <remarks>
+    /// GAC-1171 (melhorias): é o remédio documentado para a carga Normal histórica cuja
+    /// Conferência já estava toda encerrada antes do deploy, e que só vira Concluída quando algo a
+    /// recalcula. Sem o log, a carga "se concluiria sozinha", sem rastro de quem clicou. Mesmo
+    /// formato de <see cref="ShipmentLoadsClosureHookService"/>.
+    /// <para>
+    /// O log fica SÓ aqui, e não no recálculo estático: aquele é chamado por todo escritor do
+    /// saldo, e cada um já registra (ou não) o seu próprio rastro.
+    /// </para>
+    /// </remarks>
+    public async Task RecalculateAsync(Guid shipmentLoadKey, string userName)
+    {
+        var load = await db.Context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == shipmentLoadKey);
+        if (load is null)
+            return;
+
+        var before = load.Status;
+
+        await RecalculateAsync(db.Context, shipmentLoadKey, excludedInvoiceKeys: null);
+
+        if (load.Status == before)
+            return;
+
+        load.UpdatedBy = userName;
+
+        changeLog.Register(
+            load.Key,
+            ShipmentLoadChangeLogFields.Status,
+            ShipmentLoadChangeLogFields.DescribeStatus(before),
+            ShipmentLoadChangeLogFields.DescribeStatus(load.Status),
+            userName);
+    }
 
     public Task RecalculateAsync(Guid shipmentLoadKey, ICollection<Guid>? excludedInvoiceKeys) =>
         RecalculateAsync(db.Context, shipmentLoadKey, excludedInvoiceKeys);

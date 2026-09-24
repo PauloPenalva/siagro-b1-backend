@@ -19,7 +19,8 @@ public class ShipmentLoadClosureTests
 {
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private ShipmentLoadsRecalculateInvoicedService Service() => new(_db);
+    private ShipmentLoadsRecalculateInvoicedService Service() => new(
+        _db, new ShipmentLoadsChangeLogService(_db.Context));
 
     private ShipmentLoad Load(decimal total = 90_000, bool isDischarged = false)
     {
@@ -129,6 +130,49 @@ public class ShipmentLoadClosureTests
         Assert.Equal(ShipmentLoadStatus.Completed, (await SavedAsync()).Status);
         var savedShipment = await _db.Context.StorageTransactions.AsNoTracking().SingleAsync(x => x.Key == shipment.Key);
         Assert.Equal(StorageTransactionsStatus.Invoiced, savedShipment.TransactionStatus);
+    }
+
+    /// <summary>
+    /// O "Recalcular Saldo" da tela é o remédio da carga histórica cuja Conferência já estava toda
+    /// encerrada antes do deploy. A transição que ele faz fica no log, assinada por quem clicou,
+    /// como nos outros caminhos que mudam a situação.
+    /// </summary>
+    [Fact]
+    public async Task Recalculating_on_request_logs_the_status_change_signed_by_the_user()
+    {
+        var load = Load();
+        load.Status = ShipmentLoadStatus.Invoiced;
+        load.InvoicedQuantity = 90_000;
+        Shipment(load).TransactionStatus = StorageTransactionsStatus.Invoiced;
+        Invoice(load, 90_000, delivery: SalesInvoiceDeliveryStatus.Closed);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(load.Key, "tester");
+
+        var saved = await SavedAsync();
+        Assert.Equal(ShipmentLoadStatus.Completed, saved.Status);
+        Assert.Equal("tester", saved.UpdatedBy);
+
+        var log = await _db.Context.ShipmentLoadsChangeLogs.AsNoTracking().SingleAsync();
+        Assert.Equal(ShipmentLoadChangeLogFields.Status, log.Field);
+        Assert.Equal("Faturada", log.OldValue);
+        Assert.Equal("Concluída", log.NewValue);
+        Assert.Equal("tester", log.ChangedBy);
+    }
+
+    [Fact]
+    public async Task Recalculating_on_request_without_a_status_change_writes_no_log()
+    {
+        var load = Load();
+        load.Status = ShipmentLoadStatus.Invoiced;
+        load.InvoicedQuantity = 90_000;
+        Invoice(load, 90_000);
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(load.Key, "tester");
+
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await SavedAsync()).Status);
+        Assert.Empty(_db.Context.ShipmentLoadsChangeLogs);
     }
 
     [Fact]
