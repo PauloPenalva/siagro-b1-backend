@@ -408,8 +408,11 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
-        Assert.Contains(
-            "já foi concluída — estorne a conferência de entrega antes de alterar a composição",
+        // Mensagem exata: a Concluída tem frase própria, sem o sufixo "Cancele os documentos de
+        // saída…" da carga Normal faturada, que daria ao usuário uma segunda dica contraditória.
+        Assert.Equal(
+            "A carga CG000001 já foi concluída e não aceita novos romaneios. " +
+            "Estorne a conferência de entrega antes de alterar a composição.",
             ex.Message);
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }

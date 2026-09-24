@@ -305,8 +305,9 @@ public class ShipmentLoadsRefuseServiceTests
     /// (Task 6), que recusava por inteiro uma carga Concluída e esperava vê-la voltar a Open. Com
     /// a trava do spec §2.8 (Task 7), a carga Concluída Normal não aceita mais recusa, e aquele
     /// caminho ficou inalcançável. O cenário foi mantido, com a mesma semeadura pelo caminho real,
-    /// e só a expectativa mudou: a recusa é barrada e a situação não sai de Completed. O caminho
-    /// de volta para o usuário é estornar a conferência e desfazer a descarga antes de recusar.
+    /// e só a expectativa mudou: a recusa é barrada e a situação não sai de Completed. A mensagem
+    /// manda estornar a conferência, e não "desfazer a descarga": o Desfazer Descarregada recusa a
+    /// carga Concluída, então aquela dica levaria o usuário a outra trava.
     /// </remarks>
     [Fact]
     public async Task Refusing_a_completed_normal_load_is_refused()
@@ -331,7 +332,7 @@ public class ShipmentLoadsRefuseServiceTests
             () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
 
         Assert.Equal(
-            "A carga CG000007 já foi descarregada no destino. Desfaça a descarga antes de registrar recusa.",
+            "A carga CG000007 já foi concluída. Estorne a conferência de entrega antes de registrar recusa.",
             error.Message);
         Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
         Assert.Empty(await _db.Context.SalesInvoices

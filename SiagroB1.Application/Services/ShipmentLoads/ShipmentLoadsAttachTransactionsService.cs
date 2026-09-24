@@ -131,13 +131,18 @@ public class ShipmentLoadsAttachTransactionsService(
             or ShipmentLoadStatus.InTransshipment)
             return;
 
+        // GAC-1171 (melhorias): a Concluída tem frase própria, nos dois tipos de carga. O sufixo
+        // de baixo ("Cancele os documentos de saída…") daria à carga Normal uma segunda dica, e
+        // errada: o caminho de volta dela é estornar a conferência, não cancelar as notas.
+        if (load.Status == ShipmentLoadStatus.Completed)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi concluída e não aceita novos romaneios. " +
+                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de alterar a composição.");
+
         var reason = load.Status switch
         {
             ShipmentLoadStatus.Cancelled => "está cancelada",
             ShipmentLoadStatus.PartiallyInvoiced => "já foi faturada parcialmente",
-            ShipmentLoadStatus.Completed =>
-                $"já foi concluída — {ShipmentLoadCompletionRules.UndoHint(load).ToLowerInvariant()} " +
-                "antes de alterar a composição",
             _ => "já foi faturada",
         };
 

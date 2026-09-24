@@ -25,16 +25,18 @@ public class ShipmentLoadsReopenService(
                        .FirstOrDefaultAsync(x => x.Key == key) ??
                    throw new NotFoundException($"Shipment load not found key {key}");
 
+        if (load.Status != ShipmentLoadStatus.Completed)
+            throw new ApplicationException(
+                $"A carga {load.Code} não está concluída.");
+
         // GAC-1171 (melhorias): a carga Normal também chega a Completed, mas pela Conferência de
         // Entregas. Reabri-la aqui seria desfeito na hora pelo recálculo, que a concluiria de novo.
+        // Vem DEPOIS da trava acima: a frase afirma que a carga está concluída, e numa carga que
+        // não está ela seria falsa.
         if (load.LoadType != ShipmentLoadType.Removal)
             throw new ApplicationException(
                 $"A carga {load.Code} é concluída pela conferência de entrega: " +
                 "estorne a conferência para reabri-la.");
-
-        if (load.Status != ShipmentLoadStatus.Completed)
-            throw new ApplicationException(
-                $"A carga {load.Code} não está concluída.");
 
         try
         {

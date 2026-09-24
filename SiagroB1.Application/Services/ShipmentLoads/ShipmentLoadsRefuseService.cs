@@ -417,13 +417,20 @@ public class ShipmentLoadsRefuseService(
             throw new ApplicationException(
                 $"A carga {load.Code} ainda está apenas planejada — não há faturamento a recusar.");
 
-        // GAC-1171 (melhorias): a carga descarregada ou concluída foi ACEITA no destino. Uma
-        // recusa por cima contradiria a marca, então o caminho é desfazer a descarga primeiro.
-        if (load.Status is ShipmentLoadStatus.Discharged
-            || (load.Status == ShipmentLoadStatus.Completed && load.LoadType == ShipmentLoadType.Normal))
+        // GAC-1171 (melhorias): a carga descarregada foi ACEITA no destino. Uma recusa por cima
+        // contradiria a marca, então o caminho é desfazer a descarga primeiro.
+        if (load.Status is ShipmentLoadStatus.Discharged)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi descarregada no destino. " +
                 "Desfaça a descarga antes de registrar recusa.");
+
+        // A Concluída Normal também foi aceita, mas tem mensagem própria: o Desfazer Descarregada
+        // recusa a carga Concluída, e mandar a pessoa desfazer a descarga a levaria a outra
+        // trava. O primeiro passo de volta é estornar a conferência.
+        if (load.Status == ShipmentLoadStatus.Completed && load.LoadType == ShipmentLoadType.Normal)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi concluída. " +
+                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de registrar recusa.");
 
         // GAC-1175: a recusa devolve mercadoria de um documento de SAÍDA, e a carga de remoção
         // não emite nenhum. O caminho de desfazer dela é desvincular a entrada.

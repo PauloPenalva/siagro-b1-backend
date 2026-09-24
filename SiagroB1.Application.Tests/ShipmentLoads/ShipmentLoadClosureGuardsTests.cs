@@ -50,6 +50,26 @@ public class ShipmentLoadClosureGuardsTests
             ex.Message);
     }
 
+    /// <summary>
+    /// A carga que nunca foi concluída ouve que não está concluída, e não que "é concluída pela
+    /// conferência": a trava do tipo só vale para quem está de fato em Completed.
+    /// </summary>
+    [Fact]
+    public async Task Reopening_a_normal_load_that_is_not_completed_says_it_is_not_completed()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = Load(ShipmentLoadStatus.Invoiced);
+        db.Context.ShipmentLoads.Add(load);
+        await db.Context.SaveChangesAsync();
+
+        var service = new ShipmentLoadsReopenService(
+            db, new ShipmentLoadsMovementLogService(db.Context), new ShipmentLoadsChangeLogService(db.Context));
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(load.Key, "tester"));
+
+        Assert.Equal("A carga CG000071 não está concluída.", ex.Message);
+    }
+
     [Theory]
     [InlineData(ShipmentLoadStatus.Discharged)]
     [InlineData(ShipmentLoadStatus.Completed)]
