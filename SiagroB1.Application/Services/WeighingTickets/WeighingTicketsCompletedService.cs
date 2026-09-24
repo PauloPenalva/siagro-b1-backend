@@ -52,7 +52,8 @@ public class WeighingTicketsCompletedService(
             existingTicket.Stage = WeighingTicketStage.Completed;
             existingTicket.CardName = (await businessPartnerService.GetByIdAsync(existingTicket.CardCode))?.CardName;
             existingTicket.ItemName = (await itemService.GetByIdAsync(existingTicket.ItemCode))?.ItemName;
-            
+            existingTicket.RecalculateFreightPrice();
+
             await db.SaveChangesAsync();
             
             var st = new StorageTransaction
@@ -78,7 +79,9 @@ public class WeighingTicketsCompletedService(
                 WarehouseCode = storageAddress.WarehouseCode,
                 BranchCode = existingTicket.BranchCode,
                 ProcessingCostCode = storageAddress.ProcessingCostCode,
-                FreightPrice = existingTicket.FreightPrice
+                // Método e unitário, e não o total: a criação do romaneio recalcula o FreightPrice.
+                FreightCalculationMethod = existingTicket.FreightCalculationMethod,
+                FreightUnitPrice = existingTicket.FreightUnitPrice
             };
            
             foreach (var inspection in existingTicket.QualityInspections)

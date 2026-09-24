@@ -64,6 +64,7 @@ public class StorageTransactionsCreateService(
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             entity.TransactionOrigin = transactionCode;
+            entity.RecalculateFreightPrice();
             entity.CreatedBy = userName;
             entity.CreatedAt = DateTime.Now;
             

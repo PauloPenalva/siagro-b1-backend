@@ -33,6 +33,7 @@ public class WeighingTicketsUpdateService(
             // ao lado do código novo na próxima leitura.
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            existingEntity.RecalculateFreightPrice();
 
             await db.SaveChangesAsync();
         }

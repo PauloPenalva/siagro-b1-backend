@@ -42,6 +42,7 @@ public class StorageTransactionsUpdateService(
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             existingEntity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            existingEntity.RecalculateFreightPrice();
 
             existingEntity.UpdatedBy = userName;
             existingEntity.UpdatedAt = DateTime.Now;

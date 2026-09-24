@@ -95,6 +95,23 @@ public class WeighingTicket : DocumentEntity
 
     public WeighingTicketStage? Stage { get; set; } = WeighingTicketStage.ReadyForFirstWeighing;
     
+    /// <summary>
+    /// Total do Frete/Remoção, derivado por <see cref="RecalculateFreightPrice"/>. Na conclusão, o
+    /// romaneio gerado herda <see cref="FreightCalculationMethod"/> e <see cref="FreightUnitPrice"/>.
+    /// </summary>
     [Column(TypeName = "DECIMAL(18,2)")]
     public decimal FreightPrice { get; set; }
+
+    public FreightCalculationMethod FreightCalculationMethod { get; set; } = FreightCalculationMethod.Fixed;
+
+    /// <summary>Valor da viagem (Fixo) ou R$ por saco de 60 kg (Saco).</summary>
+    [Column(TypeName = "DECIMAL(18,2)")]
+    public decimal FreightUnitPrice { get; set; }
+
+    /// <summary>
+    /// Refaz <see cref="FreightPrice"/> a partir do método, do unitário e do peso bruto. O peso
+    /// bruto só existe depois da 2ª pesagem: chamar na edição, na 2ª pesagem e na conclusão.
+    /// </summary>
+    public void RecalculateFreightPrice()
+        => FreightPrice = FreightPriceCalculator.Calculate(FreightCalculationMethod, FreightUnitPrice, GrossWeight);
 }

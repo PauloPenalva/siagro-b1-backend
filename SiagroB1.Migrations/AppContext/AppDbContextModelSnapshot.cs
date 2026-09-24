@@ -4174,7 +4174,13 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<decimal>("DryingServicePrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
+                    b.Property<int>("FreightCalculationMethod")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("FreightPrice")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("FreightUnitPrice")
                         .HasColumnType("DECIMAL(18,2)");
 
                     b.Property<Guid?>("GeneratedByReturnInvoiceKey")
@@ -4391,6 +4397,9 @@ namespace SiagroB1.Migrations.Migrations
                         .HasColumnType("VARCHAR(4) NOT NULL");
 
                     b.Property<int?>("DefaultCurrency")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DefaultFreightCalculationMethod")
                         .HasColumnType("int");
 
                     b.Property<string>("DefaultFreightUoM")
@@ -4980,7 +4989,13 @@ namespace SiagroB1.Migrations.Migrations
                     b.Property<int>("FirstWeighValue")
                         .HasColumnType("int");
 
+                    b.Property<int>("FreightCalculationMethod")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("FreightPrice")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("FreightUnitPrice")
                         .HasColumnType("DECIMAL(18,2)");
 
                     b.Property<string>("ItemCode")
