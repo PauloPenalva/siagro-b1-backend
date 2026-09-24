@@ -203,7 +203,7 @@ public class ShippingTransactionsChangeReleaseService(
 
         // Completed (Remoção, ou Normal com a conferência encerrada) e Discharged (GAC-1171): a
         // composição de uma carga entregue não muda. A Descarregada tem frase própria porque tem
-        // caminho de volta próprio, o "Desfazer Descarga".
+        // caminho de volta próprio, o "Desfazer Descarregada".
         if (load.Status == ShipmentLoadStatus.Discharged)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi descarregada no destino. Desfaça a descarga antes de trocar a liberação.");

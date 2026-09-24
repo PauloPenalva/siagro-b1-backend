@@ -60,7 +60,7 @@ public static class ShipmentLoadTransshipmentRules
 
         // Completed e Discharged: a carga Normal chega a eles pelo GAC-1171 (melhorias). A
         // mercadoria já foi entregue no destino, e não há o que transbordar. A Descarregada tem
-        // frase própria porque tem caminho de volta próprio, o "Desfazer Descarga".
+        // frase própria porque tem caminho de volta próprio, o "Desfazer Descarregada".
         if (load.Status == ShipmentLoadStatus.Discharged)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi descarregada no destino. Desfaça a descarga antes de iniciar o transbordo.");

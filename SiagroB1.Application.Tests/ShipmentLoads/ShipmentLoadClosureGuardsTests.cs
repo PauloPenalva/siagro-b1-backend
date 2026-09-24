@@ -92,7 +92,7 @@ public class ShipmentLoadClosureGuardsTests
     }
 
     /// <summary>
-    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarga"), e a mensagem aponta
+    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarregada"), e a mensagem aponta
     /// para ele em vez de dizer só "está encerrada".
     /// </summary>
     [Fact]

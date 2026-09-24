@@ -1047,7 +1047,7 @@ public class ShippingTransactionsChangeReleaseServiceTests
     }
 
     /// <summary>
-    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarga"), e a mensagem aponta
+    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarregada"), e a mensagem aponta
     /// para ele. As outras situações encerradas seguem com "está encerrada".
     /// </summary>
     [Fact]
