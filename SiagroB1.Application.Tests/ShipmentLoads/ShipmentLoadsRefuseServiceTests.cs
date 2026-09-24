@@ -296,14 +296,20 @@ public class ShipmentLoadsRefuseServiceTests
     }
 
     /// <summary>
-    /// GAC-1171 (melhorias): a devolução de nota de CARGA nasce aqui, e não em
-    /// <see cref="SalesInvoicesReturnService"/>, que recusa nota de carga. Uma carga Concluída
-    /// (Conferência toda encerrada) recusada por inteiro sai da Concluída: a confirmação embutida
-    /// da devolução passa pelo gancho de saldo, o volume devolvido sai do faturado e a carga deixa
-    /// o ramo Faturada. Por isso a recusa não precisa do gancho da situação.
+    /// GAC-1171 (melhorias): a carga Concluída (Conferência toda encerrada) foi ACEITA no destino,
+    /// e uma recusa por cima contradiria a marca. A trava de <c>Validate</c> a barra antes de
+    /// qualquer escrita, e a carga continua Concluída.
     /// </summary>
+    /// <remarks>
+    /// Este teste substitui <c>Returning_a_whole_load_invoice_leaves_the_load_out_of_completed</c>
+    /// (Task 6), que recusava por inteiro uma carga Concluída e esperava vê-la voltar a Open. Com
+    /// a trava do spec §2.8 (Task 7), a carga Concluída Normal não aceita mais recusa, e aquele
+    /// caminho ficou inalcançável. O cenário foi mantido, com a mesma semeadura pelo caminho real,
+    /// e só a expectativa mudou: a recusa é barrada e a situação não sai de Completed. O caminho
+    /// de volta para o usuário é estornar a conferência e desfazer a descarga antes de recusar.
+    /// </remarks>
     [Fact]
-    public async Task Returning_a_whole_load_invoice_leaves_the_load_out_of_completed()
+    public async Task Refusing_a_completed_normal_load_is_refused()
     {
         var (load, invoice) = await BilledLoadAsync();
 
@@ -321,9 +327,17 @@ public class ShipmentLoadsRefuseServiceTests
         await _db.SaveChangesAsync();
         Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
 
-        await Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester");
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
 
-        Assert.Equal(ShipmentLoadStatus.Open, (await LoadAsync(load.Key)).Status);
+        Assert.Equal(
+            "A carga CG000007 já foi descarregada no destino. Desfaça a descarga antes de registrar recusa.",
+            error.Message);
+        Assert.Equal(ShipmentLoadStatus.Completed, (await LoadAsync(load.Key)).Status);
+        Assert.Empty(await _db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.InvoiceType == SalesInvoiceType.Return)
+            .ToListAsync());
     }
 
     /// <summary>Recusa total marca a origem como Retornada, como o caminho de sempre.</summary>
@@ -764,6 +778,32 @@ public class ShipmentLoadsRefuseServiceTests
             () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
 
         Assert.Contains("cancelada", error.Message);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a carga Descarregada foi ACEITA no destino. Recusar por cima dela
+    /// contradiria a marca, então a recusa é barrada e o caminho é desfazer a descarga primeiro.
+    /// </summary>
+    [Fact]
+    public async Task Refusing_a_discharged_load_is_refused()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+
+        var tracked = await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key);
+        tracked.IsDischarged = true;
+        tracked.Status = ShipmentLoadStatus.Discharged;
+        await _db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 já foi descarregada no destino. Desfaça a descarga antes de registrar recusa.",
+            error.Message);
+        Assert.Empty(await _db.Context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.InvoiceType == SalesInvoiceType.Return)
+            .ToListAsync());
     }
 
     /// <summary>

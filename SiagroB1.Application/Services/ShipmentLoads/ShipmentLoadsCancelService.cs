@@ -47,7 +47,8 @@ public class ShipmentLoadsCancelService(
         // Cancelar por cima dela apagaria esse fecho sem que o usuário o desfizesse.
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
-                $"A carga {load.Code} já foi concluída. Reabra-a antes de cancelá-la.");
+                $"A carga {load.Code} já foi concluída. " +
+                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de cancelá-la.");
 
         await compositionGuard.EnsureCanChangeCompositionAsync(load);
 

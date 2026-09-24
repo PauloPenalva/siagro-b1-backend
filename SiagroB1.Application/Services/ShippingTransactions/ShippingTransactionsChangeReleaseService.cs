@@ -201,11 +201,10 @@ public class ShippingTransactionsChangeReleaseService(
 
         var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == sales.ShipmentLoadKey);
 
-        // Completed entra na lista por defesa: só carga de REMOÇÃO chega nele, e ela não tem
-        // romaneio de embarque — mas um estado terminal novo que escapasse daqui permitiria
-        // mexer na composição de uma carga já encerrada.
+        // Completed (Remoção, ou Normal com a conferência encerrada) e Discharged (GAC-1171): a
+        // composição de uma carga entregue não muda.
         if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Completed)
+            or ShipmentLoadStatus.Completed or ShipmentLoadStatus.Discharged)
         {
             throw new ApplicationException(
                 $"A carga {load.Code} está encerrada: a liberação dos romaneios não pode ser trocada.");

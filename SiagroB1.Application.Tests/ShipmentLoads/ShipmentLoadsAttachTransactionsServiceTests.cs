@@ -296,6 +296,7 @@ public class ShipmentLoadsAttachTransactionsServiceTests
     [Theory]
     [InlineData(ShipmentLoadStatus.PartiallyInvoiced)]
     [InlineData(ShipmentLoadStatus.Invoiced)]
+    [InlineData(ShipmentLoadStatus.Discharged)]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     public async Task Refuses_to_attach_to_a_load_that_is_no_longer_open(ShipmentLoadStatus status)
     {
@@ -391,6 +392,26 @@ public class ShipmentLoadsAttachTransactionsServiceTests
             () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
         Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a carga Normal é concluída pela Conferência de Entregas, não pelo
+    /// "Reabrir". A mensagem manda a pessoa ao caminho de volta certo.
+    /// </summary>
+    [Fact]
+    public async Task Attaching_to_a_completed_normal_load_asks_to_reverse_the_reconciliation()
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        var a = Shipment("R1");
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
+
+        Assert.Contains(
+            "já foi concluída — estorne a conferência de entrega antes de alterar a composição",
+            ex.Message);
+        Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }
 
 }

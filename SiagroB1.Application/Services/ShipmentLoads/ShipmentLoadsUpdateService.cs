@@ -51,8 +51,11 @@ public class ShipmentLoadsUpdateService(
         if (planningFieldsLocked)
             EnsurePlanningFieldsUnchanged(load, input);
 
+        // Descarregada e Concluída são estados POSTERIORES a Faturada (GAC-1171): os campos
+        // fiscais seguem travados.
         var fiscalFieldsLocked = load.Status is ShipmentLoadStatus.PartiallyInvoiced
-            or ShipmentLoadStatus.Invoiced;
+            or ShipmentLoadStatus.Invoiced or ShipmentLoadStatus.Discharged
+            or ShipmentLoadStatus.Completed;
 
         if (fiscalFieldsLocked)
             EnsureFiscalFieldsUnchanged(load, input);

@@ -47,7 +47,8 @@ public class ShipmentLoadsDetachTransactionsService(
         // GAC-1175: a conclusão da carga de remoção é a afirmação de que a remoção terminou.
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
-                $"A carga {load.Code} já foi concluída. Reabra-a antes de alterar a composição.");
+                $"A carga {load.Code} já foi concluída. " +
+                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de alterar a composição.");
 
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException(

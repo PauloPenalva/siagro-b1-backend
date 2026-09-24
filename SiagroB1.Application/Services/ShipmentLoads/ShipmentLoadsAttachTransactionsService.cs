@@ -136,7 +136,8 @@ public class ShipmentLoadsAttachTransactionsService(
             ShipmentLoadStatus.Cancelled => "está cancelada",
             ShipmentLoadStatus.PartiallyInvoiced => "já foi faturada parcialmente",
             ShipmentLoadStatus.Completed =>
-                "já foi concluída — reabra-a antes de alterar a composição",
+                $"já foi concluída — {ShipmentLoadCompletionRules.UndoHint(load).ToLowerInvariant()} " +
+                "antes de alterar a composição",
             _ => "já foi faturada",
         };
 

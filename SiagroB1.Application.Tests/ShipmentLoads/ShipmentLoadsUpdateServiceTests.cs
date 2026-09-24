@@ -200,6 +200,52 @@ public class ShipmentLoadsUpdateServiceTests
     }
 
     /// <summary>
+    /// GAC-1171 (melhorias): Descarregada é posterior a Faturada, e a nota continua emitida. Os
+    /// campos fiscais seguem travados.
+    /// </summary>
+    /// <remarks>
+    /// Só unidade e filial: o produto também cai na trava de planejamento, que vale fora de
+    /// Planned, e passaria sem a trava fiscal.
+    /// </remarks>
+    [Theory]
+    [InlineData("SOJA", "TON", "01", "unidade")]
+    [InlineData("SOJA", "KG", "02", "filial")]
+    public async Task Fiscal_fields_are_locked_on_a_discharged_load(
+        string item, string uom, string branch, string expected)
+    {
+        var load = Load(ShipmentLoadStatus.Discharged);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(
+                Input(load.Key, itemCode: item, unitOfMeasureCode: uom, branchCode: branch),
+                "tester"));
+
+        Assert.Contains(expected, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a Concluída da carga Normal vem depois da Descarregada, e as notas
+    /// dela continuam emitidas. Os campos fiscais seguem travados.
+    /// </summary>
+    [Theory]
+    [InlineData("SOJA", "TON", "01", "unidade")]
+    [InlineData("SOJA", "KG", "02", "filial")]
+    public async Task Fiscal_fields_are_locked_on_a_completed_load(
+        string item, string uom, string branch, string expected)
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(
+                Input(load.Key, itemCode: item, unitOfMeasureCode: uom, branchCode: branch),
+                "tester"));
+
+        Assert.Contains(expected, error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// O caso real: o motorista trocou depois de carregar. Isso continua editável mesmo com a
     /// carga faturada — é o que impede o usuário de cancelar e refazer tudo.
     /// </summary>

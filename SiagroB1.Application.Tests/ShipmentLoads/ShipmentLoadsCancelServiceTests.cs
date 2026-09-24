@@ -316,4 +316,22 @@ public class ShipmentLoadsCancelServiceTests
         Assert.Contains("reabra", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// GAC-1171 (melhorias): a carga Normal é concluída pela Conferência de Entregas, não pelo
+    /// "Reabrir". A mensagem manda a pessoa ao caminho de volta certo.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_a_completed_normal_load_asks_to_reverse_the_reconciliation()
+    {
+        var load = Load(ShipmentLoadStatus.Completed);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, "Engano", "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 já foi concluída. Estorne a conferência de entrega antes de cancelá-la.",
+            ex.Message);
+    }
+
 }

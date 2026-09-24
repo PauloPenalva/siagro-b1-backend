@@ -58,12 +58,10 @@ public static class ShipmentLoadTransshipmentRules
             throw new ApplicationException(
                 $"A carga {load.Code} é do tipo Remoção e não tem transbordo.");
 
-        // Completed é defensivo e hoje inalcançável por aqui: a única carga que chega a
-        // Completed é a de Remoção (ShipmentLoadsCompleteService), e ela já foi recusada acima
-        // pelo LoadType. Mantido para o dia em que outro tipo de carga ganhar um ciclo terminal
-        // próprio.
+        // Completed e Discharged: a carga Normal chega a eles pelo GAC-1171 (melhorias). A
+        // mercadoria já foi entregue no destino, e não há o que transbordar.
         if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Completed)
+            or ShipmentLoadStatus.Completed or ShipmentLoadStatus.Discharged)
             throw new ApplicationException(
                 $"A carga {load.Code} está encerrada e não aceita transbordo.");
     }
