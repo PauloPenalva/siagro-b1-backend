@@ -45,10 +45,12 @@ public class ShipmentLoadsDetachTransactionsService(
                    throw new NotFoundException($"Shipment load not found key {shipmentLoadKey}");
 
         // GAC-1175: a conclusão da carga de remoção é a afirmação de que a remoção terminou.
+        // GAC-1171 (melhorias): na Normal Concluída, quem destrava a composição é cancelar os
+        // documentos de saída (ver ShipmentLoadCompletionRules.CompositionHint).
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída. " +
-                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de alterar a composição.");
+                $"{ShipmentLoadCompletionRules.CompositionHint(load)} antes de alterar a composição.");
 
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException(

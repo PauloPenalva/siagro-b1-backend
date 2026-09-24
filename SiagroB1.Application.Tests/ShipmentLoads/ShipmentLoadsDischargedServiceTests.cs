@@ -126,6 +126,26 @@ public class ShipmentLoadsDischargedServiceTests
         Assert.Empty(_db.Context.ShipmentLoadsChangeLogs);
     }
 
+    /// <summary>
+    /// A trava de entrada lê o status PERSISTIDO, e ele pode estar defasado. Aqui a carga diz
+    /// Faturada, mas as notas cobrem só parte do total. Quem decide é o status recalculado: fora
+    /// de Descarregada e Concluída, a ação é recusada e nada é gravado.
+    /// </summary>
+    [Fact]
+    public async Task Marking_a_stale_invoiced_load_that_recalculates_out_of_invoiced_is_refused()
+    {
+        var load = await SeedAsync(invoiced: 50_000);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Mark().ExecuteAsync(load.Key, "tester"));
+
+        Assert.Equal("A carga CG000041 não está faturada: recalcule o saldo da carga.", ex.Message);
+        var saved = await SavedAsync();
+        Assert.False(saved.IsDischarged);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, saved.Status);
+        Assert.Empty(_db.Context.ShipmentLoadsChangeLogs);
+        Assert.Empty(_db.Context.ShipmentLoadMovements);
+    }
+
     [Fact]
     public async Task Marking_a_removal_load_is_refused()
     {

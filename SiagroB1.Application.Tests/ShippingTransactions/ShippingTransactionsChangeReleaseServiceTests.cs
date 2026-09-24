@@ -1020,10 +1020,16 @@ public class ShippingTransactionsChangeReleaseServiceTests
         Assert.Contains("transbordo", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// GAC-1171 (melhorias): Descarregada e Concluída entram na trava junto com Cancelada e
+    /// Devolvida. A mercadoria já foi entregue no destino, e a composição da carga não muda mais.
+    /// </summary>
     [Theory]
     [InlineData(ShipmentLoadStatus.Cancelled)]
     [InlineData(ShipmentLoadStatus.Returned)]
-    public async Task Rejects_WhenLoadIsCancelledOrReturned(ShipmentLoadStatus status)
+    [InlineData(ShipmentLoadStatus.Discharged)]
+    [InlineData(ShipmentLoadStatus.Completed)]
+    public async Task Rejects_WhenLoadIsClosed(ShipmentLoadStatus status)
     {
         var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
         var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
@@ -1035,6 +1041,48 @@ public class ShippingTransactionsChangeReleaseServiceTests
             [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
 
         Assert.Contains("CG000001", ex.Message);
+        var sales = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == shipping.SalesStorageTransactionKey);
+        Assert.Equal(r1.Key, sales.ShipmentReleaseKey);
+    }
+
+    /// <summary>
+    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarga"), e a mensagem aponta
+    /// para ele. As outras situações encerradas seguem com "está encerrada".
+    /// </summary>
+    [Fact]
+    public async Task Rejects_WhenLoadIsDischarged_AsksToUndoTheDischarge()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
+        var (shipping, load) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        load.Status = ShipmentLoadStatus.Discharged;
+        load.IsDischarged = true;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
+
+        Assert.Equal(
+            "A carga CG000001 já foi descarregada no destino. Desfaça a descarga antes de trocar a liberação.",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task Rejects_WhenLoadIsCompleted_SaysItIsClosed()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
+        var (shipping, load) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        load.Status = ShipmentLoadStatus.Completed;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
+
+        Assert.Equal(
+            "A carga CG000001 está encerrada: a liberação dos romaneios não pode ser trocada.",
+            ex.Message);
     }
 
     [Fact]

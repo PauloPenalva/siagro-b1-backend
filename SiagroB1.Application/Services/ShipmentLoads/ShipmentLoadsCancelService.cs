@@ -45,10 +45,12 @@ public class ShipmentLoadsCancelService(
 
         // GAC-1175: a conclusão da carga de remoção é a afirmação de que a remoção terminou.
         // Cancelar por cima dela apagaria esse fecho sem que o usuário o desfizesse.
+        // GAC-1171 (melhorias): na Normal Concluída, quem destrava o cancelamento é cancelar os
+        // documentos de saída (ver ShipmentLoadCompletionRules.CompositionHint).
         if (load.Status == ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} já foi concluída. " +
-                $"{ShipmentLoadCompletionRules.UndoHint(load)} antes de cancelá-la.");
+                $"{ShipmentLoadCompletionRules.CompositionHint(load)} antes de cancelá-la.");
 
         await compositionGuard.EnsureCanChangeCompositionAsync(load);
 

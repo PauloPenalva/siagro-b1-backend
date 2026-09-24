@@ -59,9 +59,14 @@ public static class ShipmentLoadTransshipmentRules
                 $"A carga {load.Code} é do tipo Remoção e não tem transbordo.");
 
         // Completed e Discharged: a carga Normal chega a eles pelo GAC-1171 (melhorias). A
-        // mercadoria já foi entregue no destino, e não há o que transbordar.
+        // mercadoria já foi entregue no destino, e não há o que transbordar. A Descarregada tem
+        // frase própria porque tem caminho de volta próprio, o "Desfazer Descarga".
+        if (load.Status == ShipmentLoadStatus.Discharged)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi descarregada no destino. Desfaça a descarga antes de iniciar o transbordo.");
+
         if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Completed or ShipmentLoadStatus.Discharged)
+            or ShipmentLoadStatus.Completed)
             throw new ApplicationException(
                 $"A carga {load.Code} está encerrada e não aceita transbordo.");
     }

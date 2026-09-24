@@ -317,11 +317,12 @@ public class ShipmentLoadsCancelServiceTests
     }
 
     /// <summary>
-    /// GAC-1171 (melhorias): a carga Normal é concluída pela Conferência de Entregas, não pelo
-    /// "Reabrir". A mensagem manda a pessoa ao caminho de volta certo.
+    /// GAC-1171 (melhorias): na carga Normal Concluída, quem destrava o cancelamento é cancelar
+    /// os documentos de saída. Estornar a conferência só a devolveria a Faturada, e a trava de
+    /// composição continuaria recusando por causa das notas.
     /// </summary>
     [Fact]
-    public async Task Cancelling_a_completed_normal_load_asks_to_reverse_the_reconciliation()
+    public async Task Cancelling_a_completed_normal_load_asks_to_cancel_the_invoices()
     {
         var load = Load(ShipmentLoadStatus.Completed);
         await _db.Context.SaveChangesAsync();
@@ -330,8 +331,33 @@ public class ShipmentLoadsCancelServiceTests
             () => Service().ExecuteAsync(load.Key, "Engano", "tester"));
 
         Assert.Equal(
-            "A carga CG000007 já foi concluída. Estorne a conferência de entrega antes de cancelá-la.",
+            "A carga CG000007 já foi concluída. Cancele os documentos de saída antes de cancelá-la.",
             ex.Message);
+    }
+
+    /// <summary>
+    /// GAC-1171 (melhorias): a Descarregada se comporta como a Faturada no cancelamento. Quem
+    /// recusa é a trava de composição, pelas notas que ainda consomem a carga.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_a_discharged_load_is_refused_by_the_composition_guard()
+    {
+        var load = Load(ShipmentLoadStatus.Discharged);
+        load.IsDischarged = true;
+        load.InvoicedQuantity = 90_000;
+        Invoice(load, InvoiceStatus.Confirmed, quantity: 90_000);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(load.Key, "Engano", "tester"));
+
+        Assert.Contains("CG000007", ex.Message);
+        Assert.Contains("Cancele ou devolva o documento antes.", ex.Message);
+
+        var saved = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
+        Assert.Equal(ShipmentLoadStatus.Discharged, saved.Status);
+        Assert.True(saved.IsDischarged);
+        Assert.Empty(_db.Context.ShipmentLoadMovements);
     }
 
 }

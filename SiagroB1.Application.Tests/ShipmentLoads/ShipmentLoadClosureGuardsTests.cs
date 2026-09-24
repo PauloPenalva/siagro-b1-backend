@@ -32,6 +32,18 @@ public class ShipmentLoadClosureGuardsTests
         Assert.Equal("Estorne a conferência de entrega", ShipmentLoadCompletionRules.UndoHint(Load(ShipmentLoadStatus.Completed)));
     }
 
+    /// <summary>
+    /// Na COMPOSIÇÃO (vincular, desvincular, cancelar) a carga Normal Concluída se destrava
+    /// cancelando os documentos de saída, e não estornando a conferência: depois do estorno a
+    /// carga volta a Faturada e as notas continuam travando a composição.
+    /// </summary>
+    [Fact]
+    public void The_composition_hint_depends_on_the_load_type()
+    {
+        Assert.Equal("Reabra-a", ShipmentLoadCompletionRules.CompositionHint(Load(ShipmentLoadStatus.Completed, ShipmentLoadType.Removal)));
+        Assert.Equal("Cancele os documentos de saída", ShipmentLoadCompletionRules.CompositionHint(Load(ShipmentLoadStatus.Completed)));
+    }
+
     [Fact]
     public async Task Reopening_a_completed_normal_load_is_refused()
     {
@@ -70,14 +82,30 @@ public class ShipmentLoadClosureGuardsTests
         Assert.Equal("A carga CG000071 não está concluída.", ex.Message);
     }
 
-    [Theory]
-    [InlineData(ShipmentLoadStatus.Discharged)]
-    [InlineData(ShipmentLoadStatus.Completed)]
-    public void Transshipment_is_refused_on_a_discharged_or_completed_load(ShipmentLoadStatus status)
+    [Fact]
+    public void Transshipment_is_refused_on_a_completed_load()
     {
         var ex = Assert.Throws<ApplicationException>(
-            () => ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(Load(status)));
+            () => ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(Load(ShipmentLoadStatus.Completed)));
 
-        Assert.Contains("encerrada", ex.Message);
+        Assert.Equal("A carga CG000071 está encerrada e não aceita transbordo.", ex.Message);
+    }
+
+    /// <summary>
+    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarga"), e a mensagem aponta
+    /// para ele em vez de dizer só "está encerrada".
+    /// </summary>
+    [Fact]
+    public void Transshipment_on_a_discharged_load_asks_to_undo_the_discharge()
+    {
+        var load = Load(ShipmentLoadStatus.Discharged);
+        load.IsDischarged = true;
+
+        var ex = Assert.Throws<ApplicationException>(
+            () => ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(load));
+
+        Assert.Equal(
+            "A carga CG000071 já foi descarregada no destino. Desfaça a descarga antes de iniciar o transbordo.",
+            ex.Message);
     }
 }

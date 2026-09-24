@@ -202,9 +202,14 @@ public class ShippingTransactionsChangeReleaseService(
         var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == sales.ShipmentLoadKey);
 
         // Completed (Remoção, ou Normal com a conferência encerrada) e Discharged (GAC-1171): a
-        // composição de uma carga entregue não muda.
+        // composição de uma carga entregue não muda. A Descarregada tem frase própria porque tem
+        // caminho de volta próprio, o "Desfazer Descarga".
+        if (load.Status == ShipmentLoadStatus.Discharged)
+            throw new ApplicationException(
+                $"A carga {load.Code} já foi descarregada no destino. Desfaça a descarga antes de trocar a liberação.");
+
         if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Completed or ShipmentLoadStatus.Discharged)
+            or ShipmentLoadStatus.Completed)
         {
             throw new ApplicationException(
                 $"A carga {load.Code} está encerrada: a liberação dos romaneios não pode ser trocada.");

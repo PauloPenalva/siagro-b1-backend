@@ -62,6 +62,14 @@ public class ShipmentLoadsMarkDischargedService(
             await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(
                 db.Context, load.Key, excludedInvoiceKeys: null);
 
+            // A trava de cima lê o status PERSISTIDO, que pode estar defasado. Quem decide é o
+            // recalculado: fora de Descarregada e Concluída, a marca não pegou (o recálculo a
+            // limpa quando a carga sai de Faturada), e gravar log e movimento de uma descarga
+            // que não aconteceu seria mentir. Lança dentro do try para desfazer a transação.
+            if (load.Status is not (ShipmentLoadStatus.Discharged or ShipmentLoadStatus.Completed))
+                throw new ApplicationException(
+                    $"A carga {load.Code} não está faturada: recalcule o saldo da carga.");
+
             load.UpdatedAt = DateTime.Now;
             load.UpdatedBy = userName;
 

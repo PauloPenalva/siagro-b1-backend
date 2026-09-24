@@ -395,11 +395,12 @@ public class ShipmentLoadsAttachTransactionsServiceTests
     }
 
     /// <summary>
-    /// GAC-1171 (melhorias): a carga Normal é concluída pela Conferência de Entregas, não pelo
-    /// "Reabrir". A mensagem manda a pessoa ao caminho de volta certo.
+    /// GAC-1171 (melhorias): na carga Normal Concluída, quem destrava a composição é cancelar os
+    /// documentos de saída. Estornar a conferência só a devolveria a Faturada, e a trava de
+    /// composição continuaria recusando por causa das notas.
     /// </summary>
     [Fact]
-    public async Task Attaching_to_a_completed_normal_load_asks_to_reverse_the_reconciliation()
+    public async Task Attaching_to_a_completed_normal_load_asks_to_cancel_the_invoices()
     {
         var load = Load(ShipmentLoadStatus.Completed);
         var a = Shipment("R1");
@@ -408,11 +409,11 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(load.Key, [a.Key], null, "tester"));
 
-        // Mensagem exata: a Concluída tem frase própria, sem o sufixo "Cancele os documentos de
-        // saída…" da carga Normal faturada, que daria ao usuário uma segunda dica contraditória.
+        // Mensagem exata: a Concluída tem frase própria, com UMA dica só. O sufixo genérico da
+        // carga Normal faturada ("…antes de alterar a composição da carga.") não se soma a ela.
         Assert.Equal(
             "A carga CG000001 já foi concluída e não aceita novos romaneios. " +
-            "Estorne a conferência de entrega antes de alterar a composição.",
+            "Cancele os documentos de saída antes de alterar a composição.",
             ex.Message);
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }
