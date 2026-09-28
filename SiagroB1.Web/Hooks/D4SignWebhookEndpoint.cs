@@ -57,7 +57,14 @@ public static class D4SignWebhookEndpoint
             }
 
             if (string.IsNullOrWhiteSpace(uuid))
+            {
+                // 200 pelo mesmo motivo do ramo de uuid desconhecido: não gastar as 7 tentativas
+                // do D4Sign com algo que não vai melhorar sozinho. Mas tem que aparecer no log —
+                // sem isto, um evento que chega sem form (ou com o campo renomeado numa versão
+                // nova da API) some sem rastro e a minuta só "nunca atualiza".
+                logger.LogWarning("Webhook do D4Sign sem uuid no corpo da requisição; evento ignorado");
                 return Results.Ok();
+            }
 
             var draftKey = await context.ContractDrafts
                 .Where(d => d.ExternalDocumentId == uuid)

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.SalesContracts;
@@ -17,6 +18,7 @@ public class ContractDraftsCancelService(
     AppDbContext context,
     ContractDraftsLoader loader,
     IESignatureProvider provider,
+    IConfiguration configuration,
     PurchaseContractsChangeLogService purchaseLog,
     SalesContractsChangeLogService salesLog,
     ILogger<ContractDraftsCancelService> logger)
@@ -25,6 +27,12 @@ public class ContractDraftsCancelService(
 
     public async Task ExecuteAsync(Guid key, string userName, CancellationToken ct = default)
     {
+        // Mesma guarda do envio: sem ela, com a assinatura desligada e credenciais em branco, o
+        // "Cancelar" bate no D4Sign, toma 401 e mostra ao usuário o corpo cru do provedor como se
+        // fosse erro de negócio.
+        if (!configuration.GetValue("Signature:Enabled", false))
+            throw new BusinessException(ContractDraftsSendToSignatureService.DisabledMessage);
+
         var draft = await loader.RequireDraftAsync(key, ct);
 
         if (draft.Status is not (ContractDraftStatus.AwaitingSignature or ContractDraftStatus.PartiallySigned))

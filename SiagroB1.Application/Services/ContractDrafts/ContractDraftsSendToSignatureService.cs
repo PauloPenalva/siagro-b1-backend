@@ -119,6 +119,27 @@ public class ContractDraftsSendToSignatureService(
             await transaction.RollbackAsync(ct);
             logger.LogError(e, "Minuta {Key} foi aceita pelo provedor mas não pôde ser gravada. Documento: {Uuid}",
                 key, result.ExternalDocumentId);
+
+            // O rollback devolve a minuta a Draft SEM ExternalDocumentId, mas o D4Sign já tem o
+            // documento e JÁ mandou e-mail aos signatários: a reconciliação não o acha, o webhook
+            // cai no ramo de uuid desconhecido, e a minuta volta a ser enviável — gerando um
+            // segundo documento e uma segunda rodada de e-mails às mesmas contrapartes. Cancelar
+            // é best-effort e nunca pode mascarar o erro original; é o mesmo que o provider já faz
+            // no AbortAsync dele quando um passo do envio falha depois do upload.
+            if (!string.IsNullOrWhiteSpace(result.ExternalDocumentId))
+            {
+                try
+                {
+                    await provider.CancelAsync(result.ExternalDocumentId, ct);
+                }
+                catch (Exception cancelError)
+                {
+                    logger.LogWarning(cancelError,
+                        "Documento {Uuid} ficou órfão no provedor: o cancelamento depois da falha de gravação não funcionou",
+                        result.ExternalDocumentId);
+                }
+            }
+
             throw;
         }
     }

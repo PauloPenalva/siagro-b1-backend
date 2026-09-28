@@ -185,19 +185,31 @@ public sealed class D4SignProvider(
 
             // Cancelamento rejeitado (400/409/500...) é tão órfão quanto uma exceção de rede —
             // sem este log, ninguém saberia que o documento ficou preso no cofre do D4Sign.
+            // O status vai junto porque é o que distingue os dois ramos: "o D4Sign recusou o
+            // cancelamento" pede intervenção no cofre; "não falei com o D4Sign" pode ter
+            // cancelado assim mesmo. Só a URL é que nunca pode ir ao log — ela carrega o token.
             if (!response.IsSuccessStatusCode)
-                logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign", uuid);
+                logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign: cancelamento recusado com {Status}",
+                    uuid, (int)response.StatusCode);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
-            logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign", uuid);
+            logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign: falha de rede no cancelamento", uuid);
         }
     }
 
+    /// <summary>
+    /// Corpo em JSON, ou <c>default</c> quando não dá para ler. NotSupportedException entra no
+    /// filtro junto com JsonException: <c>ReadFromJsonAsync</c> lança NotSupportedException — que
+    /// não é JsonException — quando o Content-Type não é compatível com JSON. Um 200 devolvendo
+    /// página HTML de manutenção, de WAF ou de portal cativo é o caso real, e sem isto a exceção
+    /// escaparia dos filtros <c>HttpRequestException or TaskCanceledException</c> de todos os
+    /// métodos públicos, quebrando a garantia de que este provider nunca lança.
+    /// </summary>
     private static async Task<T?> ReadAsync<T>(HttpResponseMessage response, CancellationToken ct)
     {
         try { return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct); }
-        catch (JsonException) { return default; }
+        catch (Exception e) when (e is JsonException or NotSupportedException) { return default; }
     }
 
     /// <summary>Corpo da resposta de erro, truncado. Nunca inclui a URL — ela carrega o token.</summary>

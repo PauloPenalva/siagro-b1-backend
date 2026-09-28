@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.ContractDrafts;
 using SiagroB1.Application.Services.PurchaseContracts;
@@ -8,15 +10,21 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Tests.ContractDrafts;
 
 /// <summary>Montagem comum dos testes de minuta: banco InMemory, fakes e semente mínima.</summary>
 public sealed class ContractDraftsTestContext
 {
-    public UnitOfWork Db { get; } = TestDb.CreateUnitOfWork();
+    /// <summary>Nome da base InMemory — compartilhado com os escopos de DI de <see cref="Scopes"/>.</summary>
+    public string DatabaseName { get; } = Guid.NewGuid().ToString();
+
+    public UnitOfWork Db { get; }
     public FakeHtmlToPdfRenderer Pdf { get; } = new();
     public FakeESignatureProvider Signature { get; } = new();
+
+    public ContractDraftsTestContext() => Db = TestDb.CreateUnitOfWork(DatabaseName);
 
     /// <summary>Configuração do serviço. Enabled=true por padrão; o teste de "desligado" sobrescreve.</summary>
     public IConfiguration Configuration { get; set; } = new ConfigurationBuilder()
@@ -60,10 +68,48 @@ public sealed class ContractDraftsTestContext
         NullLogger<ContractDraftsApplyProviderStateService>.Instance);
 
     public ContractDraftsCancelService Cancel() => new(
-        Db.Context, Loader(), Signature, PurchaseLog(), SalesLog(),
+        Db.Context, Loader(), Signature, Configuration, PurchaseLog(), SalesLog(),
         NullLogger<ContractDraftsCancelService>.Instance);
 
-    public ContractDraftsRefreshStateService RefreshState() => new(Loader(), Signature, ApplyState());
+    public ContractDraftsRefreshStateService RefreshState() => new(Loader(), Signature, Configuration, ApplyState());
+
+    /// <summary>
+    /// Fábrica de escopos de DI de verdade sobre a MESMA base InMemory: cada escopo ganha um
+    /// <see cref="AppDbContext"/> novo — logo, um change tracker novo — exatamente como em
+    /// produção. É o que o job de reconciliação usa para isolar uma minuta da seguinte; um
+    /// dublê que devolvesse sempre o mesmo contexto não provaria isolamento nenhum.
+    /// </summary>
+    public IServiceScopeFactory Scopes()
+    {
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
+    /// <summary>
+    /// Registra banco, fakes e os serviços de minuta num contêiner qualquer — usado tanto pelos
+    /// escopos de <see cref="Scopes"/> quanto pelo host de teste do webhook.
+    /// </summary>
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddLogging();
+        services.AddSingleton(Configuration);
+        services.AddSingleton<IESignatureProvider>(Signature);
+        services.AddDbContext<AppDbContext>(o => o
+            .UseInMemoryDatabase(DatabaseName)
+            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning)));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        services.AddScoped<ContractDraftsLoader>();
+        services.AddScoped<PurchaseContractsChangeLogService>();
+        services.AddScoped<SalesContractsChangeLogService>();
+        services.AddScoped<PurchaseContractsSetSignatureStatusService>();
+        services.AddScoped<SalesContractsSetSignatureStatusService>();
+        services.AddScoped<PurchaseContractsAttachmentsCreateService>();
+        services.AddScoped<SalesContractsAttachmentsCreateService>();
+        services.AddScoped<ContractDraftsApplyProviderStateService>();
+        services.AddScoped<ContractDraftsRefreshStateService>();
+    }
 
     public async Task<ContractTemplate> SeedTemplateAsync(
         string body = "<p>Contrato {{numero}} com {{fornecedor_razao_social}}</p>{{assinaturas_empresa}}",

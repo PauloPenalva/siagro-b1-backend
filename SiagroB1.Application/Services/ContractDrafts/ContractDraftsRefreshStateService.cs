@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Application.Services.ContractDrafts;
@@ -11,10 +13,18 @@ namespace SiagroB1.Application.Services.ContractDrafts;
 public class ContractDraftsRefreshStateService(
     ContractDraftsLoader loader,
     IESignatureProvider provider,
+    IConfiguration configuration,
     ContractDraftsApplyProviderStateService apply)
 {
     public async Task<bool> ExecuteAsync(Guid key, string userName, CancellationToken ct = default)
     {
+        // Mesma guarda do envio: sem ela, com a assinatura desligada e credenciais em branco, o
+        // "Atualizar situação" bate no D4Sign, toma 401 e mostra ao usuário o corpo cru do
+        // provedor como se fosse erro de negócio. O job de reconciliação só é registrado com
+        // Signature:Enabled ligado (ver Program.cs), então esta guarda não o afeta em operação.
+        if (!configuration.GetValue("Signature:Enabled", false))
+            throw new BusinessException(ContractDraftsSendToSignatureService.DisabledMessage);
+
         var draft = await loader.RequireDraftAsync(key, ct);
 
         if (string.IsNullOrWhiteSpace(draft.ExternalDocumentId) || !IsRefreshable(draft))

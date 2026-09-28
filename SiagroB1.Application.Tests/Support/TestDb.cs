@@ -12,15 +12,22 @@ public static class TestDb
     /// Transactions are no-ops in the InMemory provider, so the
     /// TransactionIgnoredWarning is suppressed.
     /// </summary>
-    public static UnitOfWork CreateUnitOfWork()
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+    public static UnitOfWork CreateUnitOfWork() => CreateUnitOfWork(Guid.NewGuid().ToString());
+
+    /// <summary>
+    /// Mesma base InMemory, mas com o nome escolhido por quem chama — para quando o teste precisa
+    /// de MAIS DE UM <see cref="AppDbContext"/> sobre o mesmo banco (change trackers separados,
+    /// como acontece entre escopos de DI em produção).
+    /// </summary>
+    public static UnitOfWork CreateUnitOfWork(string databaseName) =>
+        new(new AppDbContext(Options(databaseName)));
+
+    /// <summary>Opções da base InMemory nomeada, com o aviso de transação ignorada suprimido.</summary>
+    public static DbContextOptions<AppDbContext> Options(string databaseName) =>
+        new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName)
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
-
-        return new UnitOfWork(new AppDbContext(options));
-    }
 
     /// <summary>
     /// Mesma base InMemory, com um <see cref="IInterceptor"/> plugado — usado para simular no
