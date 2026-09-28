@@ -804,9 +804,21 @@ public sealed class D4SignProvider(
         return ESignatureSendResult.Fail(message, transient);
     }
 
+    /// <summary>
+    /// Cancela sem propagar erro. O documento órfão é o único efeito colateral aceitável de um
+    /// envio que falhou no meio — mas ele SEMPRE tem que ficar logado com o uuid, senão ninguém
+    /// sabe que há lixo no cofre. Por isso o status da resposta é conferido: o D4Sign recusa o
+    /// cancel com 4xx/5xx sem lançar, e engolir isso deixaria o órfão invisível.
+    /// </summary>
     private async Task TryCancelAsync(string uuid, CancellationToken ct)
     {
-        try { await http.PostAsync($"documents/{uuid}/cancel{Credentials}", null, ct); }
+        try
+        {
+            var response = await http.PostAsync($"documents/{uuid}/cancel{Credentials}", null, ct);
+            if (!response.IsSuccessStatusCode)
+                logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign (cancelamento recusado com {Status})",
+                    uuid, (int)response.StatusCode);
+        }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
             logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign", uuid);
