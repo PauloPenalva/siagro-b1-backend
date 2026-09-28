@@ -288,10 +288,14 @@ Registrado por.
 - `rows`: `$select=Key,TicketNumber,DischargeDate,DischargedQuantity,AttachmentKey,Comments,CreatedBy`,
   `$expand=Items($select=Key,Quantity,SalesInvoiceItemKey;$expand=SalesInvoice($select=Key,InvoiceNumber))`
   (profundidade 2, cabe no `MaxExpansionDepth` padrão). `$$ownRequest` e `sorter` continuam obrigatórios.
-- Coluna Documentos: `Text` com `{ path: 'Items', mode: 'OneTime', targetType: 'any', formatter }`
-  (UI5: "Property Binding With an Object Value"), mostrando `"000100 (20.000,000); 000101 (15.000,000)"`.
-- ⚠️ Provar no navegador que o `OneTime` acompanha a reciclagem de linhas da `sap.ui.table` e o
-  `refresh()`. **Plano B:** mestre-detalhe — segundo grid com o rateio do ticket selecionado.
+- Coluna Documentos: um `HBox` com `items="{ path: 'Items', templateShareable: false }"` e um `Text`
+  por parcela (`formatter.formatDischargeShare`), mostrando `000100 (20.000,000)  000101 (15.000,000)`.
+  É uma lista RELATIVA à linha, que lê o `$expand=Items` já em cache, sem requisição própria.
+  Troca feita na escrita do plano: a alternativa (`{ path: 'Items', mode: 'OneTime', targetType:
+  'any' }`) exige `OneTime` para coleção de entidade, e `OneTime` desliga o binding depois da primeira
+  leitura — não acompanharia a reciclagem de linhas da `sap.ui.table`.
+- ⚠️ Provar no navegador que a coluna acompanha a rolagem e o `refresh()`. **Plano B:**
+  mestre-detalhe — segundo grid com o rateio do ticket selecionado.
 - Registrar/Editar/Excluir visíveis em todo status **exceto Cancelada** (Devolvida entra).
 - Some a coluna Contrato (o contrato fica no diálogo; na aba exigiria `$expand` de 3 níveis).
 
@@ -343,7 +347,8 @@ critério: o gate de cobertura nunca passa neste repo.)
 1. Carga com 2 notas Normais confirmadas: diálogo sugere o rateio proporcional; ajustar uma linha mostra
    "Falta distribuir"; gravar fechado → carga **Descarregada** sozinha, log "Situação".
 2. Excluir o ticket → volta a Faturada.
-3. Aba Descargas mostra a coluna Documentos (prova do `OneTime`, ou aciona o plano B).
+3. Aba Descargas mostra a coluna Documentos, inclusive depois de gravar/excluir (prova da lista
+   aninhada, ou aciona o plano B).
 4. Carga mista Devolvida aceita ticket; status continua Devolvida.
 5. Selo "Dev. parcial" nas três telas depois de uma recusa parcial.
 6. Anexo junto com o ticket continua funcionando (visualizador).
@@ -370,7 +375,7 @@ deploy.
 
 ## 8. Riscos
 
-- `OneTime` na `sap.ui.table` (§5.3) — plano B definido.
+- Lista aninhada na célula da `sap.ui.table` (§5.3) — plano B definido.
 - Tolerância 0,001: um teste que "passa" com `total + 0,001` passa pela guarda de propósito; para provar
   a recusa, usar valor claramente fora.
 - Recusa parcial com volta ao armazém deixa a carga Devolvida: ela nunca vira Descarregada/Concluída
