@@ -179,7 +179,15 @@ public sealed class D4SignProvider(
 
     private async Task TryCancelAsync(string uuid, CancellationToken ct)
     {
-        try { await http.PostAsync($"documents/{uuid}/cancel{Credentials}", null, ct); }
+        try
+        {
+            var response = await http.PostAsync($"documents/{uuid}/cancel{Credentials}", null, ct);
+
+            // Cancelamento rejeitado (400/409/500...) é tão órfão quanto uma exceção de rede —
+            // sem este log, ninguém saberia que o documento ficou preso no cofre do D4Sign.
+            if (!response.IsSuccessStatusCode)
+                logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign", uuid);
+        }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
         {
             logger.LogWarning("Documento {Uuid} ficou órfão no cofre do D4Sign", uuid);

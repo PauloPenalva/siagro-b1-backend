@@ -103,6 +103,28 @@ public class D4SignProviderTests
         Assert.Contains("/documents/UUID-1/cancel", handler.Requests[2].RequestUri!.ToString());
     }
 
+    [Fact]
+    public async Task A_failed_cancel_after_the_upload_does_not_mask_the_original_failure()
+    {
+        // O cancelamento responde 500 (em vez de lançar) — o documento fica órfão, mas quem
+        // chamou SendAsync precisa continuar sabendo por que o ENVIO falhou, não por que o
+        // cancelamento falhou.
+        var handler = new StubHttpMessageHandler()
+            .EnqueueResponse(HttpStatusCode.OK, "{\"uuid\":\"UUID-1\"}")
+            .EnqueueResponse(HttpStatusCode.BadRequest, "{\"message\":\"signatario invalido\"}")
+            .EnqueueResponse(HttpStatusCode.InternalServerError, "{\"message\":\"cofre indisponivel\"}");
+        var (provider, _) = Build(handler);
+
+        var result = await provider.SendAsync(Request());
+
+        Assert.False(result.Succeeded);
+        Assert.False(result.Transient);
+        Assert.Contains("signatario invalido", result.ErrorMessage);
+        Assert.DoesNotContain("cofre indisponivel", result.ErrorMessage);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Contains("/documents/UUID-1/cancel", handler.Requests[2].RequestUri!.ToString());
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.RequestTimeout, true)]
     [InlineData(HttpStatusCode.TooManyRequests, true)]
