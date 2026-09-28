@@ -132,6 +132,18 @@ public static class ODataConfigurations
         contractDraftsDownloadPdf.Parameter<Guid>("Key");
         contractDraftsDownloadPdf.Returns<IActionResult>();
 
+        var contractDraftsSendToSignature = modelBuilder.Action("ContractDraftsSendToSignature");
+        contractDraftsSendToSignature.Parameter<Guid>("Key");
+        contractDraftsSendToSignature.Returns<IActionResult>();
+
+        var contractDraftsCancel = modelBuilder.Action("ContractDraftsCancel");
+        contractDraftsCancel.Parameter<Guid>("Key");
+        contractDraftsCancel.Returns<IActionResult>();
+
+        var contractDraftsRefreshState = modelBuilder.Function("ContractDraftsRefreshState");
+        contractDraftsRefreshState.Parameter<Guid>("Key");
+        contractDraftsRefreshState.Returns<bool>();
+
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));

@@ -23,6 +23,8 @@ public class ContractDraftEdmModelTests
     [InlineData("ContractDraftsCreate", "ContractType,ContractKey,TemplateKey,DraftType,Description")]
     [InlineData("ContractDraftsUpdate", "Key,Description,DraftType,BodyHtml")]
     [InlineData("ContractDraftsDelete", "Key")]
+    [InlineData("ContractDraftsSendToSignature", "Key")]
+    [InlineData("ContractDraftsCancel", "Key")]
     public void The_actions_declare_their_parameters(string action, string parameters)
     {
         var edmAction = BuildModel().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == action);
@@ -34,6 +36,7 @@ public class ContractDraftEdmModelTests
     [InlineData("ContractDraftsListByContract", "ContractType,ContractKey")]
     [InlineData("ContractDraftsGetBody", "Key")]
     [InlineData("ContractDraftsDownloadPdf", "Key")]
+    [InlineData("ContractDraftsRefreshState", "Key")]
     public void The_functions_declare_their_parameters(string function, string parameters)
     {
         var edmFunction = BuildModel().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == function);
