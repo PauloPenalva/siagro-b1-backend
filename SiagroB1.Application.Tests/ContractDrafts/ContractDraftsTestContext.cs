@@ -52,6 +52,13 @@ public sealed class ContractDraftsTestContext
         PurchaseLog(), SalesLog(), PurchaseSignatureStatus(), SalesSignatureStatus(),
         NullLogger<ContractDraftsSendToSignatureService>.Instance);
 
+    public ContractDraftsApplyProviderStateService ApplyState() => new(
+        Db.Context, Loader(), Signature,
+        new PurchaseContractsAttachmentsCreateService(Db, NullLogger<PurchaseContractsAttachmentsCreateService>.Instance),
+        new SalesContractsAttachmentsCreateService(Db, SalesLog(), NullLogger<SalesContractsAttachmentsCreateService>.Instance),
+        PurchaseLog(), SalesLog(), PurchaseSignatureStatus(), SalesSignatureStatus(),
+        NullLogger<ContractDraftsApplyProviderStateService>.Instance);
+
     public async Task<ContractTemplate> SeedTemplateAsync(
         string body = "<p>Contrato {{numero}} com {{fornecedor_razao_social}}</p>{{assinaturas_empresa}}",
         ContractTemplateScope scope = ContractTemplateScope.Purchase, bool active = true)
