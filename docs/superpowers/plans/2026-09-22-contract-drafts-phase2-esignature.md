@@ -59,14 +59,22 @@ ContractChangeLogFields.Draft                                   // const string 
 ContractChangeLogFields.DescribeDraft(int sequence, string what) // "Minuta {n} {what}"
 ```
 
-> ⚠️ **Assimetria real, não a "corrija":** os dois serviços de anexo têm assinaturas diferentes.
+> ⚠️ **Assimetria real, não a "corrija"** — conferido no código em 28/09. Os dois serviços de anexo
+> diferem **no construtor e no método**:
 > ```csharp
-> PurchaseContractsAttachmentsCreateService(IUnitOfWork db, ILogger<...> logger)
->   Task SaveAsync(Guid contractKey, PurchaseContractAttachment attachment)              // SEM userName
-> SalesContractsAttachmentsCreateService(IUnitOfWork db, ILogger<...> logger)
->   Task SaveAsync(Guid contractKey, SalesContractAttachment attachment, string userName) // COM userName
+> PurchaseContractsAttachmentsCreateService(IUnitOfWork db, ILogger<...> logger)                    // 2 args
+>   Task SaveAsync(Guid contractKey, PurchaseContractAttachment attachment)                          // SEM userName
+> SalesContractsAttachmentsCreateService(IUnitOfWork db, SalesContractsChangeLogService changeLog,
+>                                        ILogger<...> logger)                                        // 3 args
+>   Task SaveAsync(Guid contractKey, SalesContractAttachment attachment, string userName)            // COM userName
 > ```
 > Na compra, preencha `CreatedBy` no próprio objeto `PurchaseContractAttachment` antes de chamar.
+>
+> ⚠️ **Não atribua `Key` à mão em entidade nenhuma.** `BaseEntity.Key` é
+> `[DatabaseGenerated(DatabaseGeneratedOption.Identity)]`: o valor vem do banco. Consequência que
+> importa aqui — `attachment.Key` só tem valor **depois** do save do anexo, então
+> `draft.SignedAttachmentKey = attachment.Key` tem de vir depois dessa chamada, nunca antes, sob
+> pena de gravar `Guid.Empty` e deixar a minuta apontando para lugar nenhum.
 
 ### Enum `SignatoryRole` → código `act` do D4Sign
 
