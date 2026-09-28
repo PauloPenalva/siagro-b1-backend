@@ -16,6 +16,7 @@ using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
+using SiagroB1.Infra.ESignature.D4Sign;
 using SiagroB1.Infra.Interceptors;
 using SiagroB1.Infra.Pdf;
 using SiagroB1.Infra.WhatsApp;
@@ -24,6 +25,7 @@ using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
+using SiagroB1.Web.Hooks;
 using SiagroB1.Web.ODataConfig;
 using SiagroB1.Web.Sockets.TruckScale;
 using SiagroB1.Web.Startup;
@@ -150,6 +152,17 @@ builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 
+// Assinatura eletrônica. HttpClient tipado como o do WhatsApp; credenciais são lidas a cada
+// chamada pelo provider, por isso só o endereço e o timeout ficam aqui.
+builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
+{
+    var baseUrl = builder.Configuration["Signature:D4Sign:BaseUrl"]
+                  ?? "https://sandbox.d4sign.com.br/api/v1";
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 // PDF das minutas por Chromium headless. Singleton: um browser por processo, páginas por render.
 builder.Services.AddSingleton<IHtmlToPdfRenderer, ChromiumHtmlToPdfRenderer>();
 
@@ -199,6 +212,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseWebSockets();
 app.MapTruckScaleWebSocket();
+app.MapD4SignWebhook();
 
 app.UseCookieAuth();
 app.UseAuthentication();
@@ -250,6 +264,7 @@ else
 
 WarnIfTruckScaleChannelIsUnauthenticated(app);
 WarnIfContractDraftPdfIsUnavailable(app);
+WarnIfD4SignWebhookIsUnprotected(app);
 
 await app.RunAsync();
 
@@ -292,4 +307,24 @@ static void WarnIfContractDraftPdfIsUnavailable(WebApplication app)
             "CHROMIUM NÃO ENCONTRADO para PDF de minutas ({Key} vazio ou inválido). O primeiro PDF " +
             "vai tentar baixar o Chromium para {Path}; sem internet, falha.",
             ChromiumHtmlToPdfRenderer.ChromiumPathKey, Path.Combine(AppContext.BaseDirectory, "chromium"));
+}
+
+/// <summary>
+/// Avisa que o webhook do D4Sign vai recusar tudo. Sem segredo configurado o endpoint é
+/// fail-closed (401), então o estado das minutas só avança pelo job de reconciliação — que
+/// roda a cada 30 min. Não derruba o serviço.
+/// </summary>
+static void WarnIfD4SignWebhookIsUnprotected(WebApplication app)
+{
+    if (!app.Configuration.GetValue("Signature:Enabled", false))
+        return;
+    if (!string.IsNullOrWhiteSpace(app.Configuration[D4SignWebhookEndpoint.SecretKey]))
+        return;
+
+    app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("D4SignWebhook")
+        .LogWarning(
+            "WEBHOOK DO D4SIGN SEM SEGREDO ({Key} vazia) com assinatura habilitada. O endpoint " +
+            "recusa tudo com 401; as minutas só avançam pela reconciliação a cada 30 minutos.",
+            D4SignWebhookEndpoint.SecretKey);
 }

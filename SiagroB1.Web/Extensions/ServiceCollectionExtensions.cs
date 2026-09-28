@@ -321,6 +321,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ContractDraftsGetService>();
         services.AddScoped<ContractDraftsGetPdfService>();
 
+        // contract drafts (minutas — fase 2, assinatura eletrônica)
+        // ContractDraftsReconcileJob ainda não existe no código (chega na Task 7); registrar aqui
+        // quebraria o build. Quem implementar a Task 7 registra o próprio job.
+        services.AddScoped<ContractDraftsSendToSignatureService>();
+        services.AddScoped<ContractDraftsApplyProviderStateService>();
+        services.AddScoped<ContractDraftsCancelService>();
+        services.AddScoped<ContractDraftsRefreshStateService>();
+
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
         services.AddScoped<SalesContractsAllocationCreateForFiscalAdjustmentService>();
