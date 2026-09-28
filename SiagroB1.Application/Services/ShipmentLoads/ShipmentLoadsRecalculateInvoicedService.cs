@@ -37,9 +37,9 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <c>Purchase</c>/<c>PurchaseReturn</c> e filtra por <c>!= Cancelled</c>.
 /// </para>
 /// <para>
-/// GAC-1171 (melhorias): o ramo Faturada se desdobra em Faturada, Descarregada e Concluída por
-/// <see cref="ResolveClosure"/>. A marca <c>IsDischarged</c> é escrita pelos serviços
-/// Marcar/Desfazer, mas o status continua saindo daqui.
+/// GAC-1171: o ramo Faturada se desdobra em Faturada, Descarregada e Concluída por
+/// <see cref="ResolveClosure"/>. As duas são DERIVADAS: a Concluída da Conferência de Entregas, a
+/// Descarregada (rateio) do peso de ticket em cada linha entregue. Não há marca manual.
 /// </para>
 /// </remarks>
 public class ShipmentLoadsRecalculateInvoicedService(
@@ -135,21 +135,15 @@ public class ShipmentLoadsRecalculateInvoicedService(
 
         var baseStatus = ResolveStatus(load.TotalQuantity, invoiced, returned, transshipped, hasOpenTransshipment);
 
-        // GAC-1171 (melhorias): a marca manual só vale para a mercadoria que estava faturada
-        // quando o usuário a marcou. Uma nota cancelada, excluída ou devolvida (ou um transbordo)
-        // tira a carga de Faturada, e um faturamento novo depois disso não pode herdar em
-        // silêncio um "Descarregada" que se referia a outra mercadoria.
-        if (baseStatus != ShipmentLoadStatus.Invoiced)
-            load.IsDischarged = false;
-
-        // Só o ramo Faturada usa a Conferência: fora dele a consulta seria trabalho à toa.
-        var allDeliveriesClosed = baseStatus == ShipmentLoadStatus.Invoiced
-            && await AreAllDeliveriesClosedAsync(context, shipmentLoadKey, excludedInvoiceKeys);
+        // Só o ramo Faturada usa a Conferência e os tickets: fora dele a consulta seria trabalho à toa.
+        var closure = baseStatus == ShipmentLoadStatus.Invoiced
+            ? await EvaluateClosureAsync(context, shipmentLoadKey, excludedInvoiceKeys)
+            : ClosureFacts.None;
 
         load.InvoicedQuantity = invoiced;
         load.ReturnedToWarehouseQuantity = returned;
         load.TransshippedQuantity = transshipped;
-        load.Status = ResolveClosure(baseStatus, load.IsDischarged, allDeliveriesClosed);
+        load.Status = ResolveClosure(baseStatus, closure.AllDischarged, closure.AllDeliveriesClosed);
         load.UpdatedAt = DateTime.Now;
 
         // Carga ENCERRADA (faturada, descarregada, concluída ou devolvida ao armazém) não
@@ -294,18 +288,18 @@ public class ShipmentLoadsRecalculateInvoicedService(
     }
 
     /// <summary>
-    /// Desdobra o <c>Invoiced</c> de <see cref="ResolveStatus"/> pela marca manual e pela
-    /// Conferência de Entregas (GAC-1171, melhorias). Qualquer outro status passa intacto.
+    /// Desdobra o <c>Invoiced</c> de <see cref="ResolveStatus"/> pela Conferência de Entregas e pelos
+    /// tickets de descarga (GAC-1171). Qualquer outro status passa intacto — inclusive a Devolvida
+    /// da carga mista, que aceita ticket e continua Devolvida.
     /// </summary>
     /// <remarks>
-    /// A Concluída vence a marca: ela é a afirmação mais forte ("tudo foi conferido"), e passar
-    /// por Descarregada antes é opcional. É por isso que desfazer a descarga com a carga
-    /// Concluída é recusado (<c>ShipmentLoadsUndoDischargedService</c>): o botão não teria
-    /// efeito visível.
+    /// A Concluída vence a Descarregada: ela é a afirmação mais forte ("tudo foi conferido"), e passar
+    /// por Descarregada antes é opcional. Por isso excluir o ticket de uma carga Concluída não muda o
+    /// status.
     /// </remarks>
     public static ShipmentLoadStatus ResolveClosure(
         ShipmentLoadStatus baseStatus,
-        bool isDischarged,
+        bool allDischarged,
         bool allDeliveriesClosed)
     {
         if (baseStatus != ShipmentLoadStatus.Invoiced)
@@ -314,27 +308,35 @@ public class ShipmentLoadsRecalculateInvoicedService(
         if (allDeliveriesClosed)
             return ShipmentLoadStatus.Completed;
 
-        return isDischarged ? ShipmentLoadStatus.Discharged : ShipmentLoadStatus.Invoiced;
+        return allDischarged ? ShipmentLoadStatus.Discharged : ShipmentLoadStatus.Invoiced;
+    }
+
+    /// <summary>As duas respostas que refinam o ramo Faturada.</summary>
+    public readonly record struct ClosureFacts(bool AllDeliveriesClosed, bool AllDischarged)
+    {
+        public static readonly ClosureFacts None = new(false, false);
     }
 
     /// <summary>
-    /// Verdadeiro quando a Conferência de Entregas da carga está toda encerrada: há ao menos um
-    /// item em nota Normal Confirmada, nenhuma nota Normal Pendente, e todos os itens das
-    /// Confirmadas estão <c>Closed</c>. Canceladas e Retornadas ficam fora, como ficam fora da
-    /// tela de Conferência.
+    /// Numa leitura só das notas Normais da carga:
+    /// <list type="bullet">
+    /// <item><b>AllDeliveriesClosed</b> — nenhuma nota Normal Pendente, ao menos um item em nota
+    /// Normal Confirmada, e todos os itens das Confirmadas <c>Closed</c>.</item>
+    /// <item><b>AllDischarged</b> (rateio) — nenhuma nota Normal Pendente, ao menos uma linha de nota
+    /// Normal Confirmada com faturado que não voltou, e todas essas linhas com peso de ticket
+    /// (<c>TicketDeliveredQuantity</c>). A linha que voltou inteira não chegou ao destino e não
+    /// espera ticket.</item>
+    /// </list>
+    /// Canceladas e Retornadas ficam fora das duas, como ficam fora da tela de Conferência.
     /// </summary>
     /// <remarks>
-    /// ⚠️ Materializa as notas com os itens em vez de agregar no servidor, e filtra o status EM
-    /// MEMÓRIA. O motivo é o mesmo do <c>excludedInvoiceKeys</c> de
-    /// <see cref="CalculateInvoicedAsync"/>: o recálculo roda dentro de transações alheias, e é
-    /// defesa para quem chamar antes do flush. Quem mudasse o status ou a entrega de uma nota e
-    /// recalculasse sem salvar leria, com o status no WHERE, o valor antigo do banco, e poderia
-    /// concluir a carga com um item reaberto. Com a consulta rastreada, o EF devolve as
-    /// instâncias já rastreadas com os valores atuais, e o filtro em memória enxerga a mudança.
-    /// Hoje os chamadores salvam antes do gancho; a leitura rastreada mantém o resultado certo se
-    /// um deles deixar de salvar. São poucas notas por carga, então o custo é irrelevante.
+    /// ⚠️ Materializa as notas com os itens em vez de agregar no servidor, e filtra EM MEMÓRIA. O
+    /// recálculo roda dentro de transações alheias: quem mudou o status, a entrega ou o peso de ticket
+    /// de uma linha e recalcula antes de salvar leria, com o filtro no WHERE, o valor antigo do banco.
+    /// Com a consulta rastreada, o EF devolve as instâncias já rastreadas com os valores atuais. É o
+    /// que faz o ticket e a Descarregada entrarem no mesmo SaveChanges. São poucas notas por carga.
     /// </remarks>
-    public static async Task<bool> AreAllDeliveriesClosedAsync(
+    public static async Task<ClosureFacts> EvaluateClosureAsync(
         AppDbContext context,
         Guid shipmentLoadKey,
         ICollection<Guid>? excludedInvoiceKeys)
@@ -351,7 +353,7 @@ public class ShipmentLoadsRecalculateInvoicedService(
             .ToList();
 
         if (live.Any(i => i.InvoiceStatus == InvoiceStatus.Pending))
-            return false;
+            return ClosureFacts.None;
 
         var items = live
             .Where(i => i.InvoiceStatus == InvoiceStatus.Confirmed)
@@ -359,9 +361,25 @@ public class ShipmentLoadsRecalculateInvoicedService(
             .Where(item => context.Entry(item).State != EntityState.Deleted)
             .ToList();
 
-        return items.Count > 0
-               && items.All(item => item.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed);
+        var allDeliveriesClosed = items.Count > 0
+            && items.All(item => item.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed);
+
+        var delivered = items
+            .Where(item => ShipmentLoadDischargeRules.RemainingQuantity(item) > Tolerance)
+            .ToList();
+
+        var allDischarged = delivered.Count > 0
+            && delivered.All(item => item.TicketDeliveredQuantity > Tolerance);
+
+        return new ClosureFacts(allDeliveriesClosed, allDischarged);
     }
+
+    /// <summary>Atalho de <see cref="EvaluateClosureAsync"/> para quem só quer a Concluída.</summary>
+    public static async Task<bool> AreAllDeliveriesClosedAsync(
+        AppDbContext context,
+        Guid shipmentLoadKey,
+        ICollection<Guid>? excludedInvoiceKeys) =>
+        (await EvaluateClosureAsync(context, shipmentLoadKey, excludedInvoiceKeys)).AllDeliveriesClosed;
 
     /// <summary>
     /// A fórmula canônica:

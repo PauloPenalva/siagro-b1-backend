@@ -92,20 +92,17 @@ public class ShipmentLoadClosureGuardsTests
     }
 
     /// <summary>
-    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarregada"), e a mensagem aponta
-    /// para ele em vez de dizer só "está encerrada".
+    /// A Descarregada nasce dos tickets (GAC-1171, rateio): o caminho de volta é excluir o ticket, e
+    /// a mensagem aponta para ele em vez de dizer só "está encerrada".
     /// </summary>
     [Fact]
-    public void Transshipment_on_a_discharged_load_asks_to_undo_the_discharge()
+    public void Transshipment_on_a_discharged_load_asks_to_delete_the_ticket()
     {
-        var load = Load(ShipmentLoadStatus.Discharged);
-        load.IsDischarged = true;
-
         var ex = Assert.Throws<ApplicationException>(
-            () => ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(load));
+            () => ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment(Load(ShipmentLoadStatus.Discharged)));
 
         Assert.Equal(
-            "A carga CG000071 já foi descarregada no destino. Desfaça a descarga antes de iniciar o transbordo.",
+            "A carga CG000071 já foi descarregada no destino. Exclua o ticket de descarga antes de iniciar o transbordo.",
             ex.Message);
     }
 }

@@ -1,12 +1,10 @@
-using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
 
 /// <summary>
-/// GAC-1171 (melhorias): o status Descarregada e a marca manual que o produz.
+/// GAC-1171 (melhorias): o status Descarregada.
 /// </summary>
 /// <remarks>
 /// Os valores numéricos são o contrato com o banco: enum persistido como int, e renumerar
@@ -38,19 +36,4 @@ public class ShipmentLoadDischargedModelTests
         Assert.Equal(label, ShipmentLoadChangeLogFields.DescribeStatus(status));
     }
 
-    [Fact]
-    public async Task A_new_load_is_not_discharged()
-    {
-        var db = TestDb.CreateUnitOfWork();
-        db.Context.ShipmentLoads.Add(new ShipmentLoad
-        {
-            Key = Guid.NewGuid(),
-            Code = "CG000001",
-            ItemCode = "SOJA",
-            UnitOfMeasureCode = "KG",
-        });
-        await db.Context.SaveChangesAsync();
-
-        Assert.False((await db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).IsDischarged);
-    }
 }

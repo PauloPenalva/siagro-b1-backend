@@ -368,7 +368,6 @@ public class ShipmentLoadsDetachTransactionsServiceTests
     public async Task Detaching_from_a_discharged_load_is_refused_by_the_composition_guard()
     {
         var load = Load(ShipmentLoadStatus.Discharged);
-        load.IsDischarged = true;
         load.InvoicedQuantity = 60_000;
         var a = Shipment(load.Key, "R1", 30_000, StorageTransactionsStatus.Invoiced);
         Shipment(load.Key, "R2", 30_000, StorageTransactionsStatus.Invoiced);
@@ -386,7 +385,6 @@ public class ShipmentLoadsDetachTransactionsServiceTests
         Assert.Equal(load.Key, shipment.ShipmentLoadKey);
         var saved = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
         Assert.Equal(ShipmentLoadStatus.Discharged, saved.Status);
-        Assert.True(saved.IsDischarged);
     }
 
 }

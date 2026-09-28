@@ -143,22 +143,11 @@ public class ShipmentLoad : DocumentEntity
     /// <summary>
     /// Persistido-derivado: soma do peso dos tickets de descarga da carga (GAC-1171). Escritor
     /// único: <c>ShipmentLoadDischargesRecalculateService</c>. Existe para o cabeçalho confrontar
-    /// descarregado × embarcado; NÃO entra em saldo, faturamento nem status.
+    /// descarregado × embarcado; NÃO entra em saldo nem faturamento; a Descarregada lê o ticket por
+    /// LINHA (<c>SalesInvoiceItem.TicketDeliveredQuantity</c>), não esta soma.
     /// </summary>
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal DischargedQuantity { get; set; }
-
-    /// <summary>
-    /// Marca MANUAL de "a mercadoria foi descarregada no destino" (GAC-1171, melhorias). Não é
-    /// o status: quem traduz a marca em <see cref="ShipmentLoadStatus.Discharged"/> é o
-    /// recálculo, e só enquanto a carga está Faturada. Fora de Faturada o recálculo apaga a
-    /// marca, porque ela se referia a uma mercadoria que já não é a faturada.
-    /// </summary>
-    /// <remarks>
-    /// Independe dos tickets (<see cref="DischargedQuantity"/>): o usuário pode marcar sem ticket
-    /// nenhum, e registrar ticket não marca nada.
-    /// </remarks>
-    public bool IsDischarged { get; set; }
 
     /// <summary>
     /// Persistido-derivado: Σ <c>OutgoingQuantity</c> dos transbordos da carga (GAC-1181) — o

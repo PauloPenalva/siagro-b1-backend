@@ -63,10 +63,10 @@ public class ShipmentLoadClosureInvoiceWritersTests
     /// Carga de 200 t "Concluída" no banco: a nota C (100 t, confirmada, entregue) e a nota A
     /// (100 t) já retornada, com a entrega fechada pelo retorno e uma devolução PENDENTE sobre
     /// ela. Uma devolução pendente não abate o faturado, então a carga segue Faturada nos números.
-    /// <paramref name="isDischarged"/> liga a marca manual de Descarregada.
+    /// <paramref name="withTickets"/> põe peso de ticket na nota C (a única Normal confirmada).
     /// </summary>
     private static async Task<(ShipmentLoad Load, SalesInvoice Return)> SeedPendingReturnAsync(
-        UnitOfWork db, bool isDischarged = false)
+        UnitOfWork db, bool withTickets = false)
     {
         var load = new ShipmentLoad
         {
@@ -77,7 +77,6 @@ public class ShipmentLoadClosureInvoiceWritersTests
             TotalQuantity = 200m,
             InvoicedQuantity = 200m,
             Status = ShipmentLoadStatus.Completed,
-            IsDischarged = isDischarged,
         };
         db.Context.ShipmentLoads.Add(load);
 
@@ -93,6 +92,7 @@ public class ShipmentLoadClosureInvoiceWritersTests
         var otherItem = SalesContractsAllocationTestSupport.NewItem(other, contractKey: null, releaseKey: null, quantity: 100m);
         otherItem.DeliveredQuantity = 100m;
         otherItem.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+        otherItem.TicketDeliveredQuantity = withTickets ? 100m : 0m;
 
         var returnInvoice = SalesContractsAllocationTestSupport.NewInvoice(
             InvoiceStatus.Pending, SalesInvoiceType.Return, originKey: origin.Key);
@@ -172,23 +172,22 @@ public class ShipmentLoadClosureInvoiceWritersTests
     }
 
     /// <summary>
-    /// A marca manual sobrevive ao estorno: a carga continua no ramo Faturada, então sai da
-    /// Concluída para a Descarregada, que é o que o usuário tinha afirmado.
+    /// GAC-1171 (rateio): a Descarregada é derivada e exige que nenhuma nota Normal esteja
+    /// Pendente. O estorno devolve a nota a Pendente, então a carga cai para Faturada mesmo com
+    /// ticket — e volta sozinha ao reconfirmar.
     /// </summary>
     [Fact]
-    public async Task Reversing_the_confirmation_of_a_discharged_load_invoice_returns_to_discharged()
+    public async Task Reversing_the_confirmation_of_a_load_invoice_with_tickets_returns_to_invoiced()
     {
         var db = TestDb.CreateUnitOfWork();
-        await SeedPendingReturnAsync(db, isDischarged: true);
+        await SeedPendingReturnAsync(db, withTickets: true);
         var other = await ConfirmedNormalInvoiceAsync(db);
 
         await Reverse(db).ExecuteAsync(other.Key, "tester");
 
-        var load = await LoadAsync(db);
-        Assert.Equal(ShipmentLoadStatus.Discharged, load.Status);
-        Assert.True(load.IsDischarged);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await LoadAsync(db)).Status);
         await AssertSingleStatusLogAndNoMovementAsync(
-            db, ShipmentLoadStatus.Completed, ShipmentLoadStatus.Discharged);
+            db, ShipmentLoadStatus.Completed, ShipmentLoadStatus.Invoiced);
     }
 
     /// <summary>

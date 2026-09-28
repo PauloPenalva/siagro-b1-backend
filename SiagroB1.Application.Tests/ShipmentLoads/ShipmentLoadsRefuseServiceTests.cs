@@ -306,8 +306,8 @@ public class ShipmentLoadsRefuseServiceTests
     /// a trava do spec §2.8 (Task 7), a carga Concluída Normal não aceita mais recusa, e aquele
     /// caminho ficou inalcançável. O cenário foi mantido, com a mesma semeadura pelo caminho real,
     /// e só a expectativa mudou: a recusa é barrada e a situação não sai de Completed. A mensagem
-    /// manda estornar a conferência, e não "desfazer a descarga": o Desfazer Descarregada recusa a
-    /// carga Concluída, então aquela dica levaria o usuário a outra trava.
+    /// manda estornar a conferência, e não "excluir o ticket": a Concluída vence a Descarregada,
+    /// então excluir o ticket não tiraria a carga de Concluída.
     /// </remarks>
     [Fact]
     public async Task Refusing_a_completed_normal_load_is_refused()
@@ -783,7 +783,7 @@ public class ShipmentLoadsRefuseServiceTests
 
     /// <summary>
     /// GAC-1171 (melhorias): a carga Descarregada foi ACEITA no destino. Recusar por cima dela
-    /// contradiria a marca, então a recusa é barrada e o caminho é desfazer a descarga primeiro.
+    /// contradiria a marca, então a recusa é barrada e o caminho é excluir o ticket primeiro.
     /// </summary>
     [Fact]
     public async Task Refusing_a_discharged_load_is_refused()
@@ -791,7 +791,6 @@ public class ShipmentLoadsRefuseServiceTests
         var (load, invoice) = await BilledLoadAsync();
 
         var tracked = await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key);
-        tracked.IsDischarged = true;
         tracked.Status = ShipmentLoadStatus.Discharged;
         await _db.SaveChangesAsync();
 
@@ -799,7 +798,7 @@ public class ShipmentLoadsRefuseServiceTests
             () => Service().ExecuteAsync(Request(load, invoice, 40_000m), "tester"));
 
         Assert.Equal(
-            "A carga CG000007 já foi descarregada no destino. Desfaça a descarga antes de registrar recusa.",
+            "A carga CG000007 já foi descarregada no destino. Exclua o ticket de descarga antes de registrar recusa.",
             error.Message);
         Assert.Empty(await _db.Context.SalesInvoices
             .AsNoTracking()
