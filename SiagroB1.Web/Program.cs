@@ -143,6 +143,12 @@ builder.Services.AddHangfireServer(options =>
 
 // Primeiro HttpClient do solution. Instância e token do PlugZapi vão no PATH da URL, montados
 // a cada requisição pelo sender — por isso só o BaseAddress fica aqui.
+//
+// RemoveAllLoggers: os handlers de log do HttpClientFactory escrevem "Start processing HTTP
+// request {HttpMethod} {Uri}" em Information, sob a categoria System.Net.Http.HttpClient.*, que
+// nenhum appsettings filtra. A URL do PlugZapi carrega instância e token, então cada envio
+// gravaria a credencial no log. Filtrar por nível não bastaria: a URI continuaria no ESCOPO
+// de log criado por esses mesmos handlers.
 builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =>
 {
     var baseUrl = builder.Configuration["Notifications:WhatsApp:BaseUrl"]
@@ -150,10 +156,14 @@ builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =
 
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(20);
-});
+}).RemoveAllLoggers();
 
 // Assinatura eletrônica. HttpClient tipado como o do WhatsApp; credenciais são lidas a cada
 // chamada pelo provider, por isso só o endereço e o timeout ficam aqui.
+//
+// RemoveAllLoggers pelo mesmo motivo do WhatsApp, e aqui o estrago é maior: tokenAPI e cryptKey
+// vão na QUERY (é assim que a API do D4Sign funciona) e dão acesso total ao cofre de assinaturas
+// da empresa — ler, baixar e cancelar qualquer contrato já assinado.
 builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
 {
     var baseUrl = builder.Configuration["Signature:D4Sign:BaseUrl"]
@@ -161,7 +171,7 @@ builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
 
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(30);
-});
+}).RemoveAllLoggers();
 
 // PDF das minutas por Chromium headless. Singleton: um browser por processo, páginas por render.
 builder.Services.AddSingleton<IHtmlToPdfRenderer, ChromiumHtmlToPdfRenderer>();
