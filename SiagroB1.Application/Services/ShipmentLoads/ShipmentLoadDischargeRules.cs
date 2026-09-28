@@ -103,12 +103,21 @@ public static class ShipmentLoadDischargeRules
     /// Normal, Confirmada, e com faturado que não voltou. A tela manda só a linha — o par nota/linha
     /// nunca é aceito dela.
     /// </summary>
+    /// <param name="savedShares">
+    /// Na alteração, o rateio gravado do ticket (linha → peso). A parcela que volta IGUAL numa nota que
+    /// voltou a Pendente (confirmação estornada depois do ticket) é mantida: Pendente é passageiro, e
+    /// corrigir o ticket não pode obrigar a jogar o peso dela em outra nota. Mudar essa parcela, ou
+    /// criar uma nova em nota Pendente, continua recusado. Nota Cancelada não tem essa exceção.
+    /// </param>
     /// <returns>
     /// As parcelas prontas para o ticket, na ordem recebida, com as navegações <c>SalesInvoice</c> e
     /// <c>SalesInvoiceItem</c> apontando as instâncias rastreadas (o log usa o número da nota).
     /// </returns>
     public static async Task<IReadOnlyList<ShipmentLoadDischargeItem>> ResolveLinesAsync(
-        AppDbContext context, Guid loadKey, IReadOnlyList<ShipmentLoadDischargeLine> lines)
+        AppDbContext context,
+        Guid loadKey,
+        IReadOnlyList<ShipmentLoadDischargeLine> lines,
+        IReadOnlyDictionary<Guid, decimal>? savedShares = null)
     {
         var keys = lines.Select(line => (Guid?)line.SalesInvoiceItemKey).ToList();
 
@@ -135,7 +144,19 @@ public static class ShipmentLoadDischargeRules
             if (invoice.InvoiceType != SalesInvoiceType.Normal)
                 throw new DefaultException($"O documento {number} é de devolução e não recebe descarga.");
 
-            if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
+            var saved = savedShares is not null && savedShares.TryGetValue(item.Key!.Value, out var share)
+                ? share
+                : (decimal?)null;
+
+            if (invoice.InvoiceStatus == InvoiceStatus.Pending && saved is not null && saved != line.Quantity)
+                throw new DefaultException(
+                    $"O documento de saída {number} não está confirmado: a parcela gravada " +
+                    $"({saved.Value.ToString("N3", PtBr)}) não pode ser alterada. Confirme o documento de novo " +
+                    "para mudar o rateio.");
+
+            var keptPendingShare = invoice.InvoiceStatus == InvoiceStatus.Pending && saved == line.Quantity;
+
+            if (invoice.InvoiceStatus != InvoiceStatus.Confirmed && !keptPendingShare)
                 throw new DefaultException(
                     $"O documento de saída {number} não está confirmado. Só documento confirmado recebe descarga.");
 

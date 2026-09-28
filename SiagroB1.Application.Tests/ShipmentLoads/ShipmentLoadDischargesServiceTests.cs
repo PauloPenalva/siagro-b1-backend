@@ -361,6 +361,72 @@ public class ShipmentLoadDischargesServiceTests
         Assert.Contains("000101", ex.Message);
     }
 
+    /// <summary>
+    /// Revisão final: a nota do rateio teve a confirmação ESTORNADA depois do ticket (para corrigir
+    /// dado fiscal, por exemplo). Pendente é passageiro, ao contrário de Cancelada: corrigir o número do
+    /// ticket não pode obrigar o usuário a jogar a parcela dela em outra nota.
+    /// </summary>
+    [Fact]
+    public async Task Editing_after_an_invoice_went_back_to_pending_keeps_its_unchanged_share()
+    {
+        await SeedAsync();
+        var discharge = await CreateAsync(39_500m, HalfAndHalf());
+
+        _other.InvoiceStatus = InvoiceStatus.Pending;
+        await _db.Context.SaveChangesAsync();
+
+        await UpdateAsync(discharge, 39_500m, HalfAndHalf());
+
+        Assert.Equal("T-1A", discharge.TicketNumber);
+        Assert.Equal(2, discharge.Items.Count);
+        Assert.Equal(19_750m, _item.TicketDeliveredQuantity);
+        Assert.Equal(19_750m, _otherItem.TicketDeliveredQuantity);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, _load.Status);
+
+        // Confirmada de novo, a carga volta a Descarregada: a parcela não se perdeu na edição.
+        _other.InvoiceStatus = InvoiceStatus.Confirmed;
+        await ClosureHook().ApplyAsync(_load.Key, "paulo");
+        await _db.Context.SaveChangesAsync();
+
+        Assert.Equal(ShipmentLoadStatus.Discharged, _load.Status);
+    }
+
+    [Fact]
+    public async Task Changing_the_saved_share_of_a_pending_invoice_is_refused()
+    {
+        await SeedAsync();
+        var discharge = await CreateAsync(39_500m, HalfAndHalf());
+
+        _other.InvoiceStatus = InvoiceStatus.Pending;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(
+            () => UpdateAsync(discharge, 39_500m, [Line(_item, 19_500m), Line(_otherItem, 20_000m)]));
+
+        Assert.Equal(
+            "O documento de saída 000101 não está confirmado: a parcela gravada (19.750,000) não pode ser " +
+            "alterada. Confirme o documento de novo para mudar o rateio.",
+            ex.Message);
+        Assert.Equal(19_750m, _otherItem.TicketDeliveredQuantity);
+    }
+
+    [Fact]
+    public async Task Editing_cannot_add_a_share_on_a_pending_invoice()
+    {
+        await SeedAsync();
+        var discharge = await CreateAsync(20_000m, [Line(_item, 20_000m)]);
+
+        _other.InvoiceStatus = InvoiceStatus.Pending;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(
+            () => UpdateAsync(discharge, 30_000m, [Line(_item, 20_000m), Line(_otherItem, 10_000m)]));
+
+        Assert.Equal(
+            "O documento de saída 000101 não está confirmado. Só documento confirmado recebe descarga.",
+            ex.Message);
+    }
+
     [Fact]
     public async Task A_distribution_that_does_not_close_is_refused_and_nothing_is_saved()
     {

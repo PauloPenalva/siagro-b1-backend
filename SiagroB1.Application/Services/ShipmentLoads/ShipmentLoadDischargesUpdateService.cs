@@ -45,7 +45,11 @@ public class ShipmentLoadDischargesUpdateService(
 
             ShipmentLoadDischargeRules.EnsureLoadAcceptsChanges(load);
 
-            var shares = await ShipmentLoadDischargeRules.ResolveLinesAsync(context, load.Key, distribution);
+            var shares = await ShipmentLoadDischargeRules.ResolveLinesAsync(
+                context,
+                load.Key,
+                distribution,
+                discharge.Items.ToDictionary(x => x.SalesInvoiceItemKey, x => x.Quantity));
 
             var before = ShipmentLoadChangeLogFields.DescribeDischarge(
                 discharge.TicketNumber,

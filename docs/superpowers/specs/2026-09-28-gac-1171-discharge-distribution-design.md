@@ -156,7 +156,15 @@ Na ordem, com mensagens em pt-BR:
 - Excluir: vale inclusive em "Devolvida", para limpar ticket lançado antes de uma recusa total.
 
 **Alterar** substitui o rateio inteiro: remove as linhas antigas e grava as novas. Linha antiga cuja nota
-deixou de ser elegível (cancelada depois, por exemplo) simplesmente não volta — a tela nem a oferece.
+deixou de ser elegível (cancelada depois, por exemplo) simplesmente não volta — a tela nem a oferece, e
+avisa que a parcela saiu do rateio.
+
+**Exceção (revisão final da branch):** nota que voltou a **Pendente** (confirmação estornada depois do
+ticket) é estado passageiro, não saída. A parcela gravada nela volta **travada** no grid, é mantida se
+chegar IGUAL, e o servidor recusa mudá-la ("…a parcela gravada (X) não pode ser alterada. Confirme o
+documento de novo para mudar o rateio."). Criar parcela nova em nota Pendente continua recusado. Sem
+isso, corrigir o número do ticket obrigava a jogar o peso da nota estornada em outra, e a carga não
+voltava a Descarregada quando a nota fosse confirmada de novo.
 
 ### 3.3 Somas (`ShipmentLoadDischargesRecalculateService`, escritor único)
 
