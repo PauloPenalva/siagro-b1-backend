@@ -262,6 +262,20 @@ else
     RecurringJob.RemoveIfExists("sap-user-sync");
 }
 
+// Rede de segurança do webhook do D4Sign — só faz sentido rodar com a assinatura habilitada.
+if (app.Configuration.GetValue("Signature:Enabled", false))
+{
+    RecurringJob.AddOrUpdate<ContractDraftsReconcileJob>(
+        ContractDraftsReconcileJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        ContractDraftsReconcileJob.CronExpression);
+}
+else
+{
+    // Desligar a assinatura não pode deixar job órfão chamando um provedor não configurado.
+    RecurringJob.RemoveIfExists(ContractDraftsReconcileJob.RecurringJobId);
+}
+
 WarnIfTruckScaleChannelIsUnauthenticated(app);
 WarnIfContractDraftPdfIsUnavailable(app);
 WarnIfD4SignWebhookIsUnprotected(app);
