@@ -1855,13 +1855,22 @@ public class ContractDraftsRefreshStateService(
     {
         var draft = await loader.RequireDraftAsync(key, ct);
 
-        if (draft.Status is not (ContractDraftStatus.AwaitingSignature or ContractDraftStatus.PartiallySigned)
-            || string.IsNullOrWhiteSpace(draft.ExternalDocumentId))
+        if (string.IsNullOrWhiteSpace(draft.ExternalDocumentId) || !IsRefreshable(draft))
             return false;
 
         var state = await provider.GetStateAsync(draft.ExternalDocumentId, ct);
         return await apply.ExecuteAsync(key, state, userName, ct);
     }
+
+    /// <summary>
+    /// Vale atualizar enquanto a assinatura corre — e também quando a minuta já está assinada mas
+    /// ficou SEM o PDF assinado: esse é o artefato que dá sentido à funcionalidade, e sem esta
+    /// segunda hipótese ele nunca mais seria buscado (o status é terminal e o job só varre
+    /// pendentes). Quem decide o que fazer com o estado é o ApplyProviderState.
+    /// </summary>
+    private static bool IsRefreshable(ContractDraft draft) =>
+        draft.Status is ContractDraftStatus.AwaitingSignature or ContractDraftStatus.PartiallySigned
+        || (draft.Status == ContractDraftStatus.Signed && draft.SignedAttachmentKey is null);
 }
 ```
 
@@ -2241,8 +2250,12 @@ public class ContractDraftsReconcileJob(
     {
         var cutoff = DateTime.Now - Staleness;
 
+        // Duas populações: as que ainda correm, e as que ficaram assinadas SEM o PDF assinado —
+        // sem a segunda, um download que falhou uma vez nunca mais é tentado.
         var keys = await context.ContractDrafts.AsNoTracking()
-            .Where(d => (d.Status == ContractDraftStatus.AwaitingSignature || d.Status == ContractDraftStatus.PartiallySigned)
+            .Where(d => (d.Status == ContractDraftStatus.AwaitingSignature
+                         || d.Status == ContractDraftStatus.PartiallySigned
+                         || (d.Status == ContractDraftStatus.Signed && d.SignedAttachmentKey == null))
                         && d.ExternalDocumentId != null
                         && d.UpdatedAt < cutoff)
             .OrderBy(d => d.UpdatedAt)
