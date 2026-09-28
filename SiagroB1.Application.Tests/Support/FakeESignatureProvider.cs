@@ -12,6 +12,7 @@ public sealed class FakeESignatureProvider : IESignatureProvider
     private ESignatureResult _cancel = ESignatureResult.Ok;
     private ESignatureDocumentState _state = new(ESignatureDocumentStatus.Pending, []);
     private byte[]? _signedPdf = [0x25, 0x50, 0x44, 0x46];
+    private Func<Task>? _onDownload;
 
     public string Name => "D4SignFake";
 
@@ -28,6 +29,14 @@ public sealed class FakeESignatureProvider : IESignatureProvider
     public FakeESignatureProvider CancelFails(string message = "não foi possível cancelar") { _cancel = ESignatureResult.Fail(message, false); return this; }
     public FakeESignatureProvider StateIs(ESignatureDocumentState state) { _state = state; return this; }
     public FakeESignatureProvider SignedPdfIs(byte[]? pdf) { _signedPdf = pdf; return this; }
+
+    /// <summary>
+    /// Roda antes de devolver o PDF em <see cref="DownloadSignedAsync"/> — o único ponto de
+    /// <c>await</c> entre a leitura do estado atual e a abertura da transação em
+    /// <c>ContractDraftsApplyProviderStateService</c>. Usado para simular, nos testes, uma escrita
+    /// concorrente que "vence a corrida" enquanto este download está em voo.
+    /// </summary>
+    public FakeESignatureProvider OnDownload(Func<Task> callback) { _onDownload = callback; return this; }
 
     public Task<ESignatureSendResult> SendAsync(ESignatureSendRequest request, CancellationToken ct = default)
     {
@@ -50,10 +59,12 @@ public sealed class FakeESignatureProvider : IESignatureProvider
         return Task.FromResult(_state);
     }
 
-    public Task<byte[]?> DownloadSignedAsync(string externalDocumentId, CancellationToken ct = default)
+    public async Task<byte[]?> DownloadSignedAsync(string externalDocumentId, CancellationToken ct = default)
     {
         DownloadCalls++;
         LastExternalDocumentId = externalDocumentId;
-        return Task.FromResult(_signedPdf);
+        if (_onDownload is not null)
+            await _onDownload();
+        return _signedPdf;
     }
 }

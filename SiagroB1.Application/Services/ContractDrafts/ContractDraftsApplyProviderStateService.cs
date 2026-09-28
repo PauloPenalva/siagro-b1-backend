@@ -37,9 +37,17 @@ public class ContractDraftsApplyProviderStateService(
 
         var draft = await loader.RequireDraftAsync(draftKey, ct);
 
-        // Terminal: nada do provedor reabre uma minuta.
-        if (draft.Status is ContractDraftStatus.Signed or ContractDraftStatus.Canceled)
+        // Terminal: nada do provedor reabre uma minuta cancelada, ou assinada COM o PDF já
+        // anexado. Assinada SEM anexo (download anterior falhou — ver LastError) continua
+        // processável só para tentar buscar o PDF que faltou; não é reabrir, o status já é
+        // definitivo. Ver RetryMissingPdfAsync.
+        if (draft.Status == ContractDraftStatus.Canceled)
             return false;
+
+        if (draft.Status == ContractDraftStatus.Signed)
+            return draft.SignedAttachmentKey is null
+                ? await RetryMissingPdfAsync(draft, userName, ct)
+                : false;
 
         var changed = ApplySigners(draft, state);
         var target = NextStatus(draft, state);
@@ -58,6 +66,24 @@ public class ContractDraftsApplyProviderStateService(
         await using var transaction = await context.Database.BeginTransactionAsync(ct);
         try
         {
+            // Corrida: draft.Status acima é uma leitura de ANTES do download (chamada HTTP de
+            // propósito fora da transação — não segura conexão de banco esperando a rede). Outra
+            // chamada concorrente para a mesma minuta (webhook e reconciliação chamam este mesmo
+            // serviço) pode ter terminalizado a minuta nesse meio-tempo. AsNoTracking: `draft` já
+            // está rastreado em memória desde antes do download, então uma consulta rastreada
+            // normal seria resolvida pelo identity map e devolveria essa mesma cópia velha sem
+            // tocar o banco — só sem tracking a leitura realmente confere o que está gravado agora.
+            var current = await context.ContractDrafts.AsNoTracking()
+                .Where(d => d.Key == draftKey)
+                .Select(d => new { d.Status })
+                .FirstOrDefaultAsync(ct);
+
+            if (current is null || current.Status is ContractDraftStatus.Signed or ContractDraftStatus.Canceled)
+            {
+                await transaction.RollbackAsync(ct);
+                return false;
+            }
+
             if (target != draft.Status)
             {
                 draft.Status = target;
@@ -112,6 +138,57 @@ public class ContractDraftsApplyProviderStateService(
         {
             await transaction.RollbackAsync(ct);
             logger.LogError(e, "Falha ao aplicar estado do provedor na minuta {Key}", draftKey);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Minuta já <see cref="ContractDraftStatus.Signed"/> mas sem PDF anexado — o download
+    /// anterior falhou e ficou só o <c>LastError</c> registrado. Não é reabrir a minuta: o status
+    /// já é definitivo, o único trabalho possível aqui é tentar buscar o PDF de novo. Por isso não
+    /// retransiciona status, não grava um segundo log "Minuta N assinada" nem chama de novo o
+    /// *SetSignatureStatusService — isso já aconteceu na primeira passada, e repetir quebraria a
+    /// idempotência.
+    /// </summary>
+    private async Task<bool> RetryMissingPdfAsync(ContractDraft draft, string userName, CancellationToken ct)
+    {
+        var signedPdf = await provider.DownloadSignedAsync(draft.ExternalDocumentId ?? "", ct);
+        if (signedPdf is not { Length: > 0 })
+        {
+            logger.LogWarning("Minuta {Key} continua sem PDF assinado disponível no provedor", draft.Key);
+            return false;
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync(ct);
+        try
+        {
+            // Mesma corrida do fluxo principal: outra chamada pode ter conseguido o PDF enquanto
+            // este download estava em voo. AsNoTracking pelo mesmo motivo — ver ExecuteAsync.
+            var current = await context.ContractDrafts.AsNoTracking()
+                .Where(d => d.Key == draft.Key)
+                .Select(d => new { d.SignedAttachmentKey })
+                .FirstOrDefaultAsync(ct);
+
+            if (current is null || current.SignedAttachmentKey is not null)
+            {
+                await transaction.RollbackAsync(ct);
+                return false;
+            }
+
+            var description = ContractChangeLogFields.DescribeDraft(draft.Sequence, "assinada");
+            draft.SignedAttachmentKey = await AttachAsync(draft, signedPdf, description, userName);
+            draft.LastError = null;
+            draft.UpdatedAt = DateTime.Now;
+            draft.UpdatedBy = userName;
+
+            await context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return true;
+        }
+        catch (Exception e)
+        {
+            await transaction.RollbackAsync(ct);
+            logger.LogError(e, "Falha ao anexar o PDF assinado (nova tentativa) na minuta {Key}", draft.Key);
             throw;
         }
     }

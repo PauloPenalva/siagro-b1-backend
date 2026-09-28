@@ -171,4 +171,91 @@ public class ContractDraftsApplyProviderStateServiceTests
         var contract = await _ctx.Db.Context.SalesContracts.SingleAsync(c => c.Key == saved.SalesContractKey);
         Assert.Equal(SignatureStatus.Signed, contract.SignatureStatus);
     }
+
+    /// <summary>
+    /// Fecha a corrida entre a leitura do estado (antes do download, fora da transação) e a
+    /// abertura da transação: simula outra chamada concorrente que cancela a minuta enquanto o
+    /// download do PDF assinado está em voo. Usa <c>ChangeTracker.Clear()</c> no MESMO contexto
+    /// (em vez de uma segunda conexão) para forçar uma leitura/gravação que realmente passa pelo
+    /// banco — a instância `draft` que o serviço já carregou fica intencionalmente desatualizada,
+    /// exatamente a situação que o reforço dentro da transação precisa detectar.
+    /// </summary>
+    [Fact]
+    public async Task Loses_the_race_when_the_draft_turns_terminal_during_the_download_call()
+    {
+        var draft = await SentDraftAsync();
+        _ctx.Signature.SignedPdfIs([9, 9, 9]);
+        _ctx.Signature.OnDownload(async () =>
+        {
+            _ctx.Db.Context.ChangeTracker.Clear();
+            var racing = await _ctx.Db.Context.ContractDrafts.SingleAsync(d => d.Key == draft.Key);
+            racing.Status = ContractDraftStatus.Canceled;
+            racing.CanceledAt = DateTime.Now;
+            racing.CanceledBy = "webhook-vencedor";
+            await _ctx.Db.Context.SaveChangesAsync();
+        });
+
+        var changed = await _ctx.ApplyState().ExecuteAsync(draft.Key,
+            State(ESignatureDocumentStatus.Finished, ("diretor@tagui.com", true), ("produtor@x.com", true)),
+            "webhook", default);
+
+        Assert.False(changed);
+        Assert.Empty(_ctx.Db.Context.PurchaseContractAttachments);
+        var draftLogs = await _ctx.Db.Context.PurchaseContractsChangeLogs
+            .Where(l => l.NewValue == "Minuta 1 assinada").CountAsync();
+        Assert.Equal(0, draftLogs);
+
+        // O vencedor da corrida prevalece: continua Cancelada, como quem chegou primeiro gravou.
+        var saved = await _ctx.Db.Context.ContractDrafts.AsNoTracking().SingleAsync(d => d.Key == draft.Key);
+        Assert.Equal(ContractDraftStatus.Canceled, saved.Status);
+        Assert.Equal("webhook-vencedor", saved.CanceledBy);
+    }
+
+    /// <summary>
+    /// Minuta já Signed mas sem anexo (download anterior falhou). Uma nova aplicação do estado,
+    /// agora com o PDF disponível, deve completar só o que faltou — sem duplicar o log "Minuta N
+    /// assinada" nem escrever de novo o SignatureStatus do contrato. Essa última contagem é o
+    /// ponto do teste: sem ela, um bug que repetisse a gravação passaria despercebido.
+    /// </summary>
+    [Fact]
+    public async Task Retries_the_missing_pdf_on_a_draft_already_marked_signed()
+    {
+        var draft = await SentDraftAsync();
+        _ctx.Signature.SignedPdfIs(null);
+        var state = State(ESignatureDocumentStatus.Finished, ("diretor@tagui.com", true), ("produtor@x.com", true));
+
+        var firstPass = await _ctx.ApplyState().ExecuteAsync(draft.Key, state, "webhook", default);
+        Assert.True(firstPass);
+        var afterFirstPass = await _ctx.Db.Context.ContractDrafts.SingleAsync(d => d.Key == draft.Key);
+        Assert.Equal(ContractDraftStatus.Signed, afterFirstPass.Status);
+        Assert.Null(afterFirstPass.SignedAttachmentKey);
+
+        _ctx.Signature.SignedPdfIs([5, 5, 5]);
+        var secondPass = await _ctx.ApplyState().ExecuteAsync(draft.Key, state, "webhook", default);
+
+        Assert.True(secondPass);
+        var saved = await _ctx.Db.Context.ContractDrafts.SingleAsync(d => d.Key == draft.Key);
+        Assert.Equal(ContractDraftStatus.Signed, saved.Status);
+        Assert.NotNull(saved.SignedAttachmentKey);
+        Assert.Null(saved.LastError);
+
+        var attachment = await _ctx.Db.Context.PurchaseContractAttachments.SingleAsync();
+        Assert.Equal(saved.SignedAttachmentKey, attachment.Key);
+        Assert.Equal([5, 5, 5], attachment.FileData);
+        Assert.Equal("Minuta 1 assinada", attachment.Description);
+
+        var draftLogs = await _ctx.Db.Context.PurchaseContractsChangeLogs
+            .Where(l => l.NewValue == "Minuta 1 assinada").CountAsync();
+        Assert.Equal(1, draftLogs);
+
+        // SentDraftAsync() já grava um log de SignatureStatus (nulo -> AguardandoAssinatura) no
+        // envio; o que este teste precisa provar é que a transição PARA Assinado, especificamente,
+        // não foi gravada duas vezes pelo reprocessamento.
+        var signedStatusLogs = await _ctx.Db.Context.PurchaseContractsChangeLogs
+            .Where(l => l.Field == ContractChangeLogFields.SignatureStatus && l.NewValue == "Assinado").CountAsync();
+        Assert.Equal(1, signedStatusLogs);
+
+        var contract = await _ctx.Db.Context.PurchaseContracts.SingleAsync(c => c.Key == saved.PurchaseContractKey);
+        Assert.Equal(SignatureStatus.Signed, contract.SignatureStatus);
+    }
 }
