@@ -2128,6 +2128,7 @@ GetState, porque o D4Sign nao assina o webhook."
 
 **Files:**
 - Create: `SiagroB1.Application/Jobs/ContractDraftsReconcileJob.cs`
+- Modify: `SiagroB1.Web/Extensions/ServiceCollectionExtensions.cs` — **acrescentar `services.AddScoped<ContractDraftsReconcileJob>();`** ao bloco `// contract drafts (minutas — fase 2)`. A Task 6 registrou os outros quatro serviços da fase, mas **não** este: a classe ainda não existia e a linha não compilaria. Sem este registro o Hangfire não resolve o job na hora de executá-lo.
 - Modify: `SiagroB1.Web/Program.cs` (registro condicional do recurring job)
 - Test: `SiagroB1.Application.Tests/ContractDrafts/ContractDraftsReconcileJobTests.cs`
 
