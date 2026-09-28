@@ -23,7 +23,9 @@
 - **Rodar o app localmente:** `dotnet run --project SiagroB1.Web --launch-profile yktb`. **Sem `--launch-profile`, o profile `dev` aponta para `129.121.53.204/MHAGRO_SIAGRO_HOM`, homologação de outro cliente.**
 - **Segredos nunca entram em `LastError`, em log nem em mensagem de erro.** Mensagens do D4Sign são truncadas em **300 caracteres**; `HttpRequestException.Message` é descartado, como em `PlugZapiWhatsAppSender`.
 - **Sem `IOptions<T>`:** configuração lida inline com `IConfiguration["Signature:..."]`.
-- **Serviços "enqueue-only"** (`*ChangeLogService.Register`, `*SetSignatureStatusService.ExecuteAsync`) são chamados **antes** do `SaveChangesAsync` do serviço da operação.
+- **`*ChangeLogService.Register` é enqueue-only** (`void`, só adiciona ao contexto) e é chamado **antes** do `SaveChangesAsync` do serviço da operação.
+- ⚠️ **`*SetSignatureStatusService.ExecuteAsync` NÃO é enqueue-only** — conferido no código em 28/09: ele grava (`await context.SaveChangesAsync()`) e registra a própria linha de log de `SignatureStatus`. Chame-o **dentro da transação explícita** do serviço da operação; o save dele fica preso à transação e só vira permanente no commit. Ele também retorna cedo, sem gravar nada, quando o status novo é igual ao atual.
+- **Construtores reais** (não presuma um argumento): `PurchaseContractsSetSignatureStatusService(AppDbContext, PurchaseContractsChangeLogService)` e `SalesContractsSetSignatureStatusService(AppDbContext, SalesContractsChangeLogService)`.
 - **A chamada HTTP ao provedor acontece ANTES do `SaveChanges`** e o resultado decide o que se grava. Não existe estado intermediário "enviando".
 - **Escada de exceções nos controllers:** `NotFoundException`/`KeyNotFoundException` → 404; `DefaultException`/`BusinessException`/`ApplicationException` → 400; resto → 500.
 - **`ODataActionParameters` chega nulo** quando nenhum parâmetro é enviado; enums e datas viajam como string. Reusar `ContractDraftActionParameters` da Fase 1.
