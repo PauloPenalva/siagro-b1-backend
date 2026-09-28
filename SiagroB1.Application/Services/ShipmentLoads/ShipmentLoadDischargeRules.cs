@@ -1,3 +1,4 @@
+using System.Globalization;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -26,6 +27,46 @@ public static class ShipmentLoadDischargeRules
     /// </remarks>
     public static decimal RemainingQuantity(SalesInvoiceItem item) =>
         decimal.Round(item.Quantity - item.ReturnedQuantity, 3, MidpointRounding.ToEven);
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>Peso em 3 casas, a escala de <c>DECIMAL(18,3)</c>.</summary>
+    public static decimal RoundQuantity(decimal quantity) =>
+        decimal.Round(quantity, 3, MidpointRounding.ToEven);
+
+    /// <summary>
+    /// Normaliza e valida o rateio (GAC-1171, rateio): arredonda cada parcela em 3 casas, recusa
+    /// parcela negativa e item repetido, descarta as parcelas zero, exige ao menos uma, e exige que
+    /// a soma feche com o peso do ticket dentro de <see cref="Tolerance"/>.
+    /// </summary>
+    /// <returns>As parcelas maiores que zero, na ordem recebida.</returns>
+    public static IReadOnlyList<ShipmentLoadDischargeLine> NormalizeDistribution(
+        decimal ticketQuantity, IReadOnlyList<ShipmentLoadDischargeLine>? lines)
+    {
+        var rounded = (lines ?? [])
+            .Select(line => line with { Quantity = RoundQuantity(line.Quantity) })
+            .ToList();
+
+        if (rounded.Any(line => line.Quantity < decimal.Zero))
+            throw new DefaultException("O peso rateado não pode ser negativo.");
+
+        if (rounded.GroupBy(line => line.SalesInvoiceItemKey).Any(group => group.Count() > 1))
+            throw new DefaultException("O mesmo item de documento de saída aparece duas vezes no rateio.");
+
+        var positive = rounded.Where(line => line.Quantity > decimal.Zero).ToList();
+
+        if (positive.Count == 0)
+            throw new DefaultException("Distribua o peso descarregado entre os documentos de saída.");
+
+        var distributed = positive.Sum(line => line.Quantity);
+
+        if (Math.Abs(distributed - ticketQuantity) > Tolerance)
+            throw new DefaultException(
+                $"O rateio ({distributed.ToString("N3", PtBr)}) não fecha com o peso descarregado " +
+                $"({RoundQuantity(ticketQuantity).ToString("N3", PtBr)}).");
+
+        return positive;
+    }
 
     public static string NormalizeTicketNumber(string? ticketNumber)
     {
