@@ -14,6 +14,19 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// </remarks>
 public static class ShipmentLoadDischargeRules
 {
+    /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
+    public const decimal Tolerance = 0.001m;
+
+    /// <summary>
+    /// Faturado que não voltou: <c>Quantity − ReturnedQuantity</c>, em 3 casas. É a base do rateio e
+    /// o que torna a linha elegível ao ticket (GAC-1171, rateio).
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Não é <see cref="SalesInvoiceItem.NetQuantity"/>, que é o conferido menos a quebra.
+    /// </remarks>
+    public static decimal RemainingQuantity(SalesInvoiceItem item) =>
+        decimal.Round(item.Quantity - item.ReturnedQuantity, 3, MidpointRounding.ToEven);
+
     public static string NormalizeTicketNumber(string? ticketNumber)
     {
         var text = (ticketNumber ?? string.Empty).Trim();

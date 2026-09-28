@@ -68,6 +68,20 @@ public class SalesInvoiceItem
     public decimal TicketDeliveredQuantity { get; set; }
 
     /// <summary>
+    /// Quanto desta linha já voltou em devoluções CONFIRMADAS (GAC-1171, rateio): soma de
+    /// <c>Quantity</c> das linhas de devolução com <see cref="SalesInvoiceItemOriginKey"/> = esta
+    /// linha. Persistido-derivado, escritor único <c>SalesInvoicesRecalculateReturnedService</c>.
+    /// </summary>
+    /// <remarks>
+    /// "Confirmada" é o mesmo critério do saldo da carga: o projeto considera que a devolução ocorreu
+    /// na confirmação. Serve à base do rateio do ticket de descarga (faturado − devolvido) e ao selo
+    /// "Dev. parcial" das telas. NÃO muda o <c>InvoiceStatus</c>: a nota devolvida em parte continua
+    /// Confirmada.
+    /// </remarks>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal ReturnedQuantity { get; set; }
+
+    /// <summary>
     /// Diferença entre o entregue e o faturado (DeliveredQuantity − Quantity). Negativa quando
     /// chegou menos do que foi faturado, que é o caso comum de quebra. Entrega ainda não
     /// conferida (zerada e em aberto) fica 0, e não a quantidade inteira negativa. É computed
