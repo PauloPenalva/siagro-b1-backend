@@ -1,12 +1,15 @@
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Regras compartilhadas pelos três serviços de escrita do ticket de descarga (GAC-1171).
+/// Regras compartilhadas pelos três serviços de escrita do ticket de descarga (GAC-1171). Desde o
+/// rateio, também a validação das parcelas e a elegibilidade das linhas.
 /// </summary>
 /// <remarks>
 /// ⚠️ NÃO existe aqui guard de "entrega encerrada", e a ausência é deliberada: o ticket é aceito
@@ -85,13 +88,71 @@ public static class ShipmentLoadDischargeRules
     }
 
     /// <summary>
-    /// Carga cancelada ou devolvida está congelada: as três operações mexem em quantidade.
-    /// Diferente do comentário da carga, que vale a qualquer tempo porque não move número nenhum.
+    /// Carga cancelada está congelada: as três operações mexem em quantidade. Nas demais situações
+    /// quem decide é a elegibilidade das linhas (<see cref="ResolveLinesAsync"/>) — é o que deixa a
+    /// carga mista "Devolvida" registrar o ticket da parte que foi entregue (GAC-1171, rateio, D6).
     /// </summary>
     public static void EnsureLoadAcceptsChanges(ShipmentLoad load)
     {
-        if (load.Status is ShipmentLoadStatus.Cancelled or ShipmentLoadStatus.Returned)
-            throw new DefaultException(
-                "Carga cancelada ou devolvida não aceita registro de descarga.");
+        if (load.Status == ShipmentLoadStatus.Cancelled)
+            throw new DefaultException("Carga cancelada não aceita registro de descarga.");
+    }
+
+    /// <summary>
+    /// Resolve no servidor a nota de cada parcela e confere a elegibilidade: nota desta carga,
+    /// Normal, Confirmada, e com faturado que não voltou. A tela manda só a linha — o par nota/linha
+    /// nunca é aceito dela.
+    /// </summary>
+    /// <returns>
+    /// As parcelas prontas para o ticket, na ordem recebida, com as navegações <c>SalesInvoice</c> e
+    /// <c>SalesInvoiceItem</c> apontando as instâncias rastreadas (o log usa o número da nota).
+    /// </returns>
+    public static async Task<IReadOnlyList<ShipmentLoadDischargeItem>> ResolveLinesAsync(
+        AppDbContext context, Guid loadKey, IReadOnlyList<ShipmentLoadDischargeLine> lines)
+    {
+        var keys = lines.Select(line => (Guid?)line.SalesInvoiceItemKey).ToList();
+
+        var items = await context.SalesInvoicesItems
+            .Include(x => x.SalesInvoice)
+            .Where(x => keys.Contains(x.Key))
+            .ToListAsync();
+
+        var result = new List<ShipmentLoadDischargeItem>();
+
+        foreach (var line in lines)
+        {
+            var item = items.FirstOrDefault(x => x.Key == line.SalesInvoiceItemKey)
+                ?? throw new NotFoundException("Item do documento de saída não encontrado.");
+
+            var invoice = item.SalesInvoice
+                ?? throw new NotFoundException("Documento de saída não encontrado.");
+
+            var number = string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? "(sem número)" : invoice.InvoiceNumber;
+
+            if (invoice.ShipmentLoadKey != loadKey)
+                throw new DefaultException($"O documento de saída {number} não pertence a esta carga.");
+
+            if (invoice.InvoiceType != SalesInvoiceType.Normal)
+                throw new DefaultException($"O documento {number} é de devolução e não recebe descarga.");
+
+            if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
+                throw new DefaultException(
+                    $"O documento de saída {number} não está confirmado. Só documento confirmado recebe descarga.");
+
+            if (RemainingQuantity(item) <= Tolerance)
+                throw new DefaultException(
+                    $"O documento de saída {number} foi devolvido por inteiro e não recebe descarga.");
+
+            result.Add(new ShipmentLoadDischargeItem
+            {
+                SalesInvoiceKey = invoice.Key,
+                SalesInvoice = invoice,
+                SalesInvoiceItemKey = item.Key!.Value,
+                SalesInvoiceItem = item,
+                Quantity = line.Quantity,
+            });
+        }
+
+        return result;
     }
 }

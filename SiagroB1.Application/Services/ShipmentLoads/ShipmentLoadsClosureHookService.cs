@@ -8,7 +8,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 /// <summary>
 /// Gancho da SITUAÇÃO da carga (GAC-1171, melhorias): o lugar único de "a entrega ou o status de
 /// uma nota da carga mudou, então a carga pode ter virado ou deixado de ser Concluída". Chamado
-/// pela Conferência de Entregas, pela confirmação e pelo estorno de confirmação de nota Normal.
+/// pela Conferência de Entregas, pela confirmação e pelo estorno de confirmação de nota Normal, e
+/// pelas três escritas do ticket de descarga (GAC-1171, rateio).
 /// </summary>
 /// <remarks>
 /// <b>Por que grava log:</b> a Concluída (e o caminho de volta) é consequência de um ato do
@@ -34,7 +35,16 @@ public class ShipmentLoadsClosureHookService(
         if (loadKey is null)
             return;
 
-        var load = await context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == loadKey.Value);
+        await ApplyAsync(loadKey.Value, userName);
+    }
+
+    /// <summary>
+    /// GAC-1171 (rateio): o ticket de descarga muda a situação da carga (Faturada ↔ Descarregada) sem
+    /// passar por nota nenhuma — chega aqui pela chave da carga.
+    /// </summary>
+    public async Task ApplyAsync(Guid shipmentLoadKey, string userName)
+    {
+        var load = await context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == shipmentLoadKey);
         if (load is null)
             return;
 

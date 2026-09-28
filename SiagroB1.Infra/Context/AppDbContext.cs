@@ -71,6 +71,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadComment> ShipmentLoadsComments { get; set; }
     public DbSet<ShipmentLoadChangeLog> ShipmentLoadsChangeLogs { get; set; }
     public DbSet<ShipmentLoadDischarge> ShipmentLoadsDischarges { get; set; }
+    public DbSet<ShipmentLoadDischargeItem> ShipmentLoadsDischargesItems { get; set; }
     public DbSet<ShipmentLoadTransshipment> ShipmentLoadsTransshipments { get; set; }
     public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
@@ -267,13 +268,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ShipmentLoadKey)
             .OnDelete(DeleteBehavior.NoAction);
 
-        modelBuilder.Entity<ShipmentLoadDischarge>()
+        // GAC-1171 (rateio): o rateio pertence ao ticket e vai junto com ele (Cascade). As FKs para
+        // a nota e para a linha seguem NoAction, como eram no ticket: é o que sustenta a trava de
+        // exclusão da nota com descarga registrada (o ticket é a evidência do frete).
+        modelBuilder.Entity<ShipmentLoadDischargeItem>()
+            .HasOne(x => x.Discharge)
+            .WithMany(x => x.Items)
+            .HasForeignKey(x => x.DischargeKey)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ShipmentLoadDischargeItem>()
             .HasOne(x => x.SalesInvoice)
             .WithMany()
             .HasForeignKey(x => x.SalesInvoiceKey)
             .OnDelete(DeleteBehavior.NoAction);
 
-        modelBuilder.Entity<ShipmentLoadDischarge>()
+        modelBuilder.Entity<ShipmentLoadDischargeItem>()
             .HasOne(x => x.SalesInvoiceItem)
             .WithMany()
             .HasForeignKey(x => x.SalesInvoiceItemKey)

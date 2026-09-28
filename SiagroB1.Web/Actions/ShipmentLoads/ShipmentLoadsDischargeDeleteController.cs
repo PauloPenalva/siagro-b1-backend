@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Exceptions;
 
@@ -28,6 +29,14 @@ public class ShipmentLoadsDischargeDeleteController(
             await service.ExecuteAsync((Guid) keyObj, User.Identity?.Name ?? "Unknown");
 
             return Ok();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A carga tem RowVersion e o ticket agora escreve nela (soma e situação): duas gravações
+            // simultâneas na mesma carga derrubam a segunda aqui, e não com a mensagem crua do EF.
+            return BadRequest(
+                "A carga foi alterada por outro usuário enquanto a descarga era gravada. " +
+                "Reabra a tela e tente novamente.");
         }
         catch (Exception e)
         {

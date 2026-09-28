@@ -64,8 +64,8 @@ public class ShipmentLoadDischargeEdmModelTests
 
         var names = action.Parameters.Select(p => p.Name).ToHashSet();
         Assert.Contains("LoadKey", names);
-        Assert.Contains("SalesInvoiceKey", names);
-        Assert.Contains("SalesInvoiceItemKey", names);
+        Assert.Contains("SalesInvoiceItemKeys", names);
+        Assert.Contains("Quantities", names);
         Assert.Contains("TicketNumber", names);
         Assert.Contains("DischargeDate", names);
         Assert.Contains("Quantity", names);
@@ -131,6 +131,32 @@ public class ShipmentLoadDischargeEdmModelTests
             action.Parameters.Single(p => p.Name == "DischargeDate"));
         Assert.IsNotAssignableFrom<IEdmOptionalParameter>(
             action.Parameters.Single(p => p.Name == "Quantity"));
+    }
+
+    /// <summary>
+    /// GAC-1171 (rateio): arrays PARALELOS de Guid e Double, o precedente provado de
+    /// ShipmentLoadsRefuse. A nota não viaja — o servidor a resolve pela linha.
+    /// </summary>
+    [Theory]
+    [InlineData("ShipmentLoadsDischargeCreate")]
+    [InlineData("ShipmentLoadsDischargeUpdate")]
+    public void The_distribution_travels_as_parallel_guid_and_double_collections(string name)
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == name);
+
+        Assert.Equal(
+            "Collection(Edm.Guid)",
+            action.Parameters.Single(p => p.Name == "SalesInvoiceItemKeys").Type.Definition.FullTypeName());
+        Assert.Equal(
+            "Collection(Edm.Double)",
+            action.Parameters.Single(p => p.Name == "Quantities").Type.Definition.FullTypeName());
+        Assert.DoesNotContain(action.Parameters, p => p.Name is "SalesInvoiceKey" or "SalesInvoiceItemKey");
+    }
+
+    [Fact]
+    public void Declares_the_distribution_entity_set()
+    {
+        Assert.NotNull(Model().EntityContainer.FindEntitySet("ShipmentLoadsDischargesItems"));
     }
 
     /// <summary>

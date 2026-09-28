@@ -60,12 +60,19 @@ public class ShipmentLoadDischargesRecalculateServiceTests
         {
             Key = Guid.NewGuid(),
             ShipmentLoadKey = load.Key,
-            SalesInvoiceKey = invoice.Key,
-            SalesInvoiceItemKey = item.Key,
             TicketNumber = "T1",
             DischargeDate = DateTime.Now.Date,
             DischargedQuantity = weight,
         };
+
+        discharge.Items.Add(new ShipmentLoadDischargeItem
+        {
+            Key = Guid.NewGuid(),
+            SalesInvoiceKey = invoice.Key,
+            SalesInvoiceItemKey = item.Key!.Value,
+            Quantity = weight,
+        });
+
         _db.Context.ShipmentLoadsDischarges.Add(discharge);
         return discharge;
     }
@@ -118,6 +125,7 @@ public class ShipmentLoadDischargesRecalculateServiceTests
         await Service().RecalculateAsync(load.Key, [item.Key!.Value]);
         await _db.Context.SaveChangesAsync();
 
+        _db.Context.ShipmentLoadsDischargesItems.RemoveRange(_db.Context.ShipmentLoadsDischargesItems);
         _db.Context.ShipmentLoadsDischarges.RemoveRange(_db.Context.ShipmentLoadsDischarges);
         await _db.Context.SaveChangesAsync();
 
@@ -140,12 +148,56 @@ public class ShipmentLoadDischargesRecalculateServiceTests
         var toRemove = AddTicket(load, invoice, item, 14500m);
         await _db.Context.SaveChangesAsync();
 
+        _db.Context.ShipmentLoadsDischargesItems.RemoveRange(toRemove.Items);
         _db.Context.ShipmentLoadsDischarges.Remove(toRemove);
 
         await Service().RecalculateAsync(load.Key, [item.Key!.Value]);
 
         Assert.Equal(25000m, item.TicketDeliveredQuantity);
         Assert.Equal(25000m, load.DischargedQuantity);
+    }
+
+    /// <summary>GAC-1171 (rateio): UM ticket, duas linhas — cada linha soma a sua parcela.</summary>
+    [Fact]
+    public async Task Sums_the_shares_of_a_ticket_spread_over_two_lines()
+    {
+        var (load, invoice, item) = await SeedAsync();
+        var other = new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(),
+            SalesInvoiceKey = invoice.Key,
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            Quantity = 15_000m,
+        };
+        _db.Context.SalesInvoicesItems.Add(other);
+
+        var discharge = new ShipmentLoadDischarge
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = load.Key,
+            TicketNumber = "T1",
+            DischargeDate = DateTime.Now.Date,
+            DischargedQuantity = 35_000m,
+        };
+        discharge.Items.Add(new ShipmentLoadDischargeItem
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, SalesInvoiceItemKey = item.Key!.Value, Quantity = 20_000m,
+        });
+        discharge.Items.Add(new ShipmentLoadDischargeItem
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, SalesInvoiceItemKey = other.Key!.Value, Quantity = 15_000m,
+        });
+        _db.Context.ShipmentLoadsDischarges.Add(discharge);
+        // A linha nova precisa estar no banco: o recálculo a busca por consulta, e o InMemory não
+        // devolve entidade só Added.
+        await _db.Context.SaveChangesAsync();
+
+        await Service().RecalculateAsync(load.Key, [item.Key!.Value, other.Key!.Value]);
+
+        Assert.Equal(20_000m, item.TicketDeliveredQuantity);
+        Assert.Equal(15_000m, other.TicketDeliveredQuantity);
+        Assert.Equal(35_000m, load.DischargedQuantity);
     }
 
     [Fact]

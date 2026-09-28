@@ -26,8 +26,8 @@ public class ShipmentLoadDischargeModelTests
 
         var props = entityType.GetProperties().Select(p => p.Name).ToHashSet();
         Assert.Contains(nameof(ShipmentLoadDischarge.ShipmentLoadKey), props);
-        Assert.Contains(nameof(ShipmentLoadDischarge.SalesInvoiceKey), props);
-        Assert.Contains(nameof(ShipmentLoadDischarge.SalesInvoiceItemKey), props);
+        Assert.DoesNotContain("SalesInvoiceKey", props);
+        Assert.DoesNotContain("SalesInvoiceItemKey", props);
         Assert.Contains(nameof(ShipmentLoadDischarge.TicketNumber), props);
         Assert.Contains(nameof(ShipmentLoadDischarge.DischargeDate), props);
         Assert.Contains(nameof(ShipmentLoadDischarge.DischargedQuantity), props);
@@ -62,6 +62,40 @@ public class ShipmentLoadDischargeModelTests
         var itemProps = context.Model.FindEntityType(typeof(SalesInvoiceItem))!
             .GetProperties().Select(p => p.Name).ToHashSet();
         Assert.Contains(nameof(SalesInvoiceItem.TicketDeliveredQuantity), itemProps);
+    }
+
+    [Fact]
+    public void ShipmentLoadDischargeItem_is_the_distribution_line()
+    {
+        using var context = ModelOnlyContext();
+
+        var entityType = context.Model.FindEntityType(typeof(ShipmentLoadDischargeItem));
+        Assert.NotNull(entityType);
+        Assert.Equal("SHIPMENT_LOAD_DISCHARGE_ITEMS", entityType!.GetTableName());
+
+        // Um ticket não rateia duas vezes a mesma linha. Sem filtro: as colunas não são anuláveis,
+        // e índice filtrado exigiria QUOTED_IDENTIFIER em todo script manual.
+        var unique = Assert.Single(entityType.GetIndexes(), index => index.IsUnique);
+        Assert.Equal(
+            new[] { nameof(ShipmentLoadDischargeItem.DischargeKey), nameof(ShipmentLoadDischargeItem.SalesInvoiceItemKey) },
+            unique.Properties.Select(p => p.Name));
+        Assert.Null(unique.GetFilter());
+    }
+
+    [Fact]
+    public void The_distribution_goes_with_the_ticket_but_never_with_the_invoice()
+    {
+        using var context = ModelOnlyContext();
+
+        var foreignKeys = context.Model.FindEntityType(typeof(ShipmentLoadDischargeItem))!
+            .GetForeignKeys().ToList();
+
+        DeleteBehavior BehaviorTo(Type principal) =>
+            foreignKeys.Single(fk => fk.PrincipalEntityType.ClrType == principal).DeleteBehavior;
+
+        Assert.Equal(DeleteBehavior.Cascade, BehaviorTo(typeof(ShipmentLoadDischarge)));
+        Assert.Equal(DeleteBehavior.NoAction, BehaviorTo(typeof(SalesInvoice)));
+        Assert.Equal(DeleteBehavior.NoAction, BehaviorTo(typeof(SalesInvoiceItem)));
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Web.Actions.ShipmentLoads;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
@@ -73,5 +74,55 @@ public class ShipmentLoadActionParametersTests
         Assert.Contains("Data da descarga inválida", ShipmentLoadActionParameters.InvalidDateMessage);
         Assert.Contains("Informe a data da descarga", ShipmentLoadActionParameters.MissingDateMessage);
         Assert.Contains("arquivo anexado", ShipmentLoadActionParameters.UnreadableFileMessage);
+    }
+
+    [Fact]
+    public void Reads_the_parallel_distribution_arrays()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var parameters = new Dictionary<string, object>
+        {
+            ["SalesInvoiceItemKeys"] = new List<Guid> { a, b },
+            ["Quantities"] = new List<double> { 20000.5, 15000 },
+        };
+
+        Assert.True(ShipmentLoadActionParameters.TryReadDistribution(parameters, out var lines, out var error));
+        Assert.Null(error);
+        Assert.Equal(new[] { new ShipmentLoadDischargeLine(a, 20000.5m), new ShipmentLoadDischargeLine(b, 15000m) }, lines);
+    }
+
+    /// <summary>
+    /// Review Focus 2: um array de INTEIROS pode chegar como coleção de int/long. O cast direto para
+    /// double devolveria lista vazia sem erro, e o ticket seria recusado por "rateio vazio".
+    /// </summary>
+    [Fact]
+    public void Reads_integer_quantities_as_numbers()
+    {
+        var parameters = new Dictionary<string, object>
+        {
+            ["SalesInvoiceItemKeys"] = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() },
+            ["Quantities"] = new List<object> { 20000, 15000L },
+        };
+
+        Assert.True(ShipmentLoadActionParameters.TryReadDistribution(parameters, out var lines, out _));
+        Assert.Equal(new[] { 20000m, 15000m }, lines.Select(l => l.Quantity));
+    }
+
+    [Fact]
+    public void Refuses_arrays_of_different_sizes_and_a_missing_distribution()
+    {
+        var mismatched = new Dictionary<string, object>
+        {
+            ["SalesInvoiceItemKeys"] = new List<Guid> { Guid.NewGuid() },
+            ["Quantities"] = new List<double> { 1, 2 },
+        };
+
+        Assert.False(ShipmentLoadActionParameters.TryReadDistribution(mismatched, out _, out var error));
+        Assert.Equal("A lista de itens e a de pesos do rateio têm tamanhos diferentes.", error);
+
+        Assert.False(ShipmentLoadActionParameters.TryReadDistribution(
+            new Dictionary<string, object>(), out _, out var missing));
+        Assert.Equal(ShipmentLoadActionParameters.MissingDistributionMessage, missing);
     }
 }
