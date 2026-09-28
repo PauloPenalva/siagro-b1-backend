@@ -87,6 +87,63 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SalesContractComment>("SalesContractsComments");
 
         modelBuilder.EntitySet<SalesContractAttachment>("SalesContractsAttachments");
+
+        // Minutas — fase 1 (spec 2026-09-21)
+        modelBuilder.EntitySet<ContractTemplate>("ContractTemplates");
+        modelBuilder.EntitySet<CompanySignatory>("CompanySignatories");
+        modelBuilder.EntitySet<BusinessPartnerSignatory>("BusinessPartnerSignatories");
+
+        var contractTemplatesListPlaceholders = modelBuilder.Function("ContractTemplatesListPlaceholders");
+        contractTemplatesListPlaceholders.Parameter<string>("ContractType");
+        contractTemplatesListPlaceholders.ReturnsCollection<ContractDraftPlaceholderDto>();
+
+        modelBuilder.EntitySet<ContractDraft>("ContractDrafts");
+        modelBuilder.EntitySet<ContractDraftSigner>("ContractDraftSigners");
+
+        var contractDraftsCreate = modelBuilder.Action("ContractDraftsCreate");
+        contractDraftsCreate.Parameter<string>("ContractType");
+        contractDraftsCreate.Parameter<Guid>("ContractKey");
+        contractDraftsCreate.Parameter<Guid>("TemplateKey");
+        contractDraftsCreate.Parameter<string>("DraftType").Optional();
+        contractDraftsCreate.Parameter<string>("Description").Optional();
+        contractDraftsCreate.Returns<IActionResult>();
+
+        var contractDraftsUpdate = modelBuilder.Action("ContractDraftsUpdate");
+        contractDraftsUpdate.Parameter<Guid>("Key");
+        contractDraftsUpdate.Parameter<string>("Description").Optional();
+        contractDraftsUpdate.Parameter<string>("DraftType").Optional();
+        contractDraftsUpdate.Parameter<string>("BodyHtml");
+        contractDraftsUpdate.Returns<IActionResult>();
+
+        var contractDraftsDelete = modelBuilder.Action("ContractDraftsDelete");
+        contractDraftsDelete.Parameter<Guid>("Key");
+        contractDraftsDelete.Returns<IActionResult>();
+
+        var contractDraftsListByContract = modelBuilder.Function("ContractDraftsListByContract");
+        contractDraftsListByContract.Parameter<string>("ContractType");
+        contractDraftsListByContract.Parameter<Guid>("ContractKey");
+        contractDraftsListByContract.ReturnsCollection<ContractDraftDto>();
+
+        var contractDraftsGetBody = modelBuilder.Function("ContractDraftsGetBody");
+        contractDraftsGetBody.Parameter<Guid>("Key");
+        contractDraftsGetBody.Returns<string>();
+
+        var contractDraftsDownloadPdf = modelBuilder.Function("ContractDraftsDownloadPdf");
+        contractDraftsDownloadPdf.Parameter<Guid>("Key");
+        contractDraftsDownloadPdf.Returns<IActionResult>();
+
+        var contractDraftsSendToSignature = modelBuilder.Action("ContractDraftsSendToSignature");
+        contractDraftsSendToSignature.Parameter<Guid>("Key");
+        contractDraftsSendToSignature.Returns<IActionResult>();
+
+        var contractDraftsCancel = modelBuilder.Action("ContractDraftsCancel");
+        contractDraftsCancel.Parameter<Guid>("Key");
+        contractDraftsCancel.Returns<IActionResult>();
+
+        var contractDraftsRefreshState = modelBuilder.Function("ContractDraftsRefreshState");
+        contractDraftsRefreshState.Parameter<Guid>("Key");
+        contractDraftsRefreshState.Returns<bool>();
+
         modelBuilder.EntitySet<ShipmentRelease>("ShipmentReleases");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentRelease))
             .AddProperty(typeof(ShipmentRelease).GetProperty(nameof(ShipmentRelease.AvailableQuantity)));

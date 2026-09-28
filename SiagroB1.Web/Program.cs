@@ -16,13 +16,16 @@ using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
+using SiagroB1.Infra.ESignature.D4Sign;
 using SiagroB1.Infra.Interceptors;
+using SiagroB1.Infra.Pdf;
 using SiagroB1.Infra.WhatsApp;
 using SiagroB1.Web.Security;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
+using SiagroB1.Web.Hooks;
 using SiagroB1.Web.ODataConfig;
 using SiagroB1.Web.Sockets.TruckScale;
 using SiagroB1.Web.Startup;
@@ -140,6 +143,12 @@ builder.Services.AddHangfireServer(options =>
 
 // Primeiro HttpClient do solution. Instância e token do PlugZapi vão no PATH da URL, montados
 // a cada requisição pelo sender — por isso só o BaseAddress fica aqui.
+//
+// RemoveAllLoggers: os handlers de log do HttpClientFactory escrevem "Start processing HTTP
+// request {HttpMethod} {Uri}" em Information, sob a categoria System.Net.Http.HttpClient.*, que
+// nenhum appsettings filtra. A URL do PlugZapi carrega instância e token, então cada envio
+// gravaria a credencial no log. Filtrar por nível não bastaria: a URI continuaria no ESCOPO
+// de log criado por esses mesmos handlers.
 builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =>
 {
     var baseUrl = builder.Configuration["Notifications:WhatsApp:BaseUrl"]
@@ -147,7 +156,25 @@ builder.Services.AddHttpClient<IWhatsAppSender, PlugZapiWhatsAppSender>(client =
 
     client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(20);
-});
+}).RemoveAllLoggers();
+
+// Assinatura eletrônica. HttpClient tipado como o do WhatsApp; credenciais são lidas a cada
+// chamada pelo provider, por isso só o endereço e o timeout ficam aqui.
+//
+// RemoveAllLoggers pelo mesmo motivo do WhatsApp, e aqui o estrago é maior: tokenAPI e cryptKey
+// vão na QUERY (é assim que a API do D4Sign funciona) e dão acesso total ao cofre de assinaturas
+// da empresa — ler, baixar e cancelar qualquer contrato já assinado.
+builder.Services.AddHttpClient<IESignatureProvider, D4SignProvider>(client =>
+{
+    var baseUrl = builder.Configuration["Signature:D4Sign:BaseUrl"]
+                  ?? "https://sandbox.d4sign.com.br/api/v1";
+
+    client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+}).RemoveAllLoggers();
+
+// PDF das minutas por Chromium headless. Singleton: um browser por processo, páginas por render.
+builder.Services.AddSingleton<IHtmlToPdfRenderer, ChromiumHtmlToPdfRenderer>();
 
 modelBuilder.ConfigureODataEntities();
 
@@ -195,6 +222,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseWebSockets();
 app.MapTruckScaleWebSocket();
+app.MapD4SignWebhook();
 
 app.UseCookieAuth();
 app.UseAuthentication();
@@ -244,7 +272,23 @@ else
     RecurringJob.RemoveIfExists("sap-user-sync");
 }
 
+// Rede de segurança do webhook do D4Sign — só faz sentido rodar com a assinatura habilitada.
+if (app.Configuration.GetValue("Signature:Enabled", false))
+{
+    RecurringJob.AddOrUpdate<ContractDraftsReconcileJob>(
+        ContractDraftsReconcileJob.RecurringJobId,
+        job => job.ExecuteAsync(CancellationToken.None),
+        ContractDraftsReconcileJob.CronExpression);
+}
+else
+{
+    // Desligar a assinatura não pode deixar job órfão chamando um provedor não configurado.
+    RecurringJob.RemoveIfExists(ContractDraftsReconcileJob.RecurringJobId);
+}
+
 WarnIfTruckScaleChannelIsUnauthenticated(app);
+WarnIfContractDraftPdfIsUnavailable(app);
+WarnIfD4SignWebhookIsUnprotected(app);
 
 await app.RunAsync();
 
@@ -269,4 +313,42 @@ static void WarnIfTruckScaleChannelIsUnauthenticated(WebApplication app)
             "CANAL DA BALANÇA SEM AUTENTICAÇÃO ({ConfigurationKey} não configurada). Qualquer um " +
             "que alcance /ws/truck-scale pode ler a configuração do indicador e injetar peso.",
             ScaleClientAuth.ConfigurationKey);
+}
+
+/// <summary>
+/// Avisa, no boot, que o PDF de minutas vai falhar: sem Chromium configurado nem baixado, o primeiro
+/// download de minuta dispara um download de ~150 MB (ou falha sem internet). Não derruba o serviço —
+/// o resto do sistema não depende disso.
+/// </summary>
+static void WarnIfContractDraftPdfIsUnavailable(WebApplication app)
+{
+    if (ChromiumHtmlToPdfRenderer.IsAvailable(app.Configuration))
+        return;
+
+    app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("ContractDraftPdf")
+        .LogWarning(
+            "CHROMIUM NÃO ENCONTRADO para PDF de minutas ({Key} vazio ou inválido). O primeiro PDF " +
+            "vai tentar baixar o Chromium para {Path}; sem internet, falha.",
+            ChromiumHtmlToPdfRenderer.ChromiumPathKey, Path.Combine(AppContext.BaseDirectory, "chromium"));
+}
+
+/// <summary>
+/// Avisa que o webhook do D4Sign vai recusar tudo. Sem segredo configurado o endpoint é
+/// fail-closed (401), então o estado das minutas só avança pelo job de reconciliação — que
+/// roda a cada 30 min. Não derruba o serviço.
+/// </summary>
+static void WarnIfD4SignWebhookIsUnprotected(WebApplication app)
+{
+    if (!app.Configuration.GetValue("Signature:Enabled", false))
+        return;
+    if (!string.IsNullOrWhiteSpace(app.Configuration[D4SignWebhookEndpoint.SecretKey]))
+        return;
+
+    app.Services.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("D4SignWebhook")
+        .LogWarning(
+            "WEBHOOK DO D4SIGN SEM SEGREDO ({Key} vazia) com assinatura habilitada. O endpoint " +
+            "recusa tudo com 401; as minutas só avançam pela reconciliação a cada 30 minutos.",
+            D4SignWebhookEndpoint.SecretKey);
 }

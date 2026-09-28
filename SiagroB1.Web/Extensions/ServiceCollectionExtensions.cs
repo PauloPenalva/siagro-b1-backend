@@ -2,6 +2,10 @@ using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
+using SiagroB1.Application.Services.CompanySignatories;
+using SiagroB1.Application.Services.BusinessPartnerSignatories;
+using SiagroB1.Application.Services.ContractDrafts;
+using SiagroB1.Application.Services.ContractTemplates;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.MenuItem;
@@ -302,6 +306,27 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsCommentUpdateService>();
         services.AddScoped<SalesContractsCommentDeleteService>();
         services.AddScoped<SalesContractsCommentsGetService>();
+
+        // contract templates & signatories (minutas — fase 1)
+        services.AddScoped<ContractTemplateService>();
+        services.AddScoped<CompanySignatoryService>();
+        services.AddScoped<BusinessPartnerSignatoryService>();
+
+        // contract drafts (minutas — fase 1)
+        services.AddScoped<ContractDraftPlaceholderResolver>();
+        services.AddScoped<ContractDraftsLoader>();
+        services.AddScoped<ContractDraftsCreateService>();
+        services.AddScoped<ContractDraftsUpdateService>();
+        services.AddScoped<ContractDraftsDeleteService>();
+        services.AddScoped<ContractDraftsGetService>();
+        services.AddScoped<ContractDraftsGetPdfService>();
+
+        // contract drafts (minutas — fase 2, assinatura eletrônica)
+        services.AddScoped<ContractDraftsSendToSignatureService>();
+        services.AddScoped<ContractDraftsApplyProviderStateService>();
+        services.AddScoped<ContractDraftsCancelService>();
+        services.AddScoped<ContractDraftsRefreshStateService>();
+        services.AddScoped<ContractDraftsReconcileJob>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();

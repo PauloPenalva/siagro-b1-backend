@@ -138,6 +138,8 @@ public class SalesContract : DocumentEntity
 
     public ICollection<SalesContractAttachment>  Attachments { get; set; } = [];
 
+    public ICollection<ContractDraft> Drafts { get; set; } = [];
+
     public ICollection<SalesContractDeliveryLocation> DeliveryLocations { get; set; } = [];
 
     /// <summary>

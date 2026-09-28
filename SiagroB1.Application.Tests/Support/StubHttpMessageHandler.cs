@@ -15,10 +15,17 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
     private readonly HttpStatusCode _statusCode;
     private readonly string _responseBody;
     private readonly Exception? _throwOnSend;
+    private readonly Queue<(HttpStatusCode Status, string Body)> _scripted = new();
 
     public HttpRequestMessage? LastRequest { get; private set; }
     public string? LastRequestBody { get; private set; }
     public int CallCount { get; private set; }
+
+    /// <summary>Todas as requisições recebidas, na ordem — para conferir uma sequência de chamadas.</summary>
+    public List<HttpRequestMessage> Requests { get; } = [];
+
+    /// <summary>Corpo de cada requisição, no mesmo índice de <see cref="Requests"/>.</summary>
+    public List<string?> RequestBodies { get; } = [];
 
     public StubHttpMessageHandler(HttpStatusCode statusCode, string responseBody = "{}")
     {
@@ -33,6 +40,20 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
         _responseBody = "{}";
     }
 
+    /// <summary>Construtor da fila: cada chamada consome a próxima resposta enfileirada.</summary>
+    public StubHttpMessageHandler()
+    {
+        _statusCode = HttpStatusCode.OK;
+        _responseBody = "{}";
+    }
+
+    /// <summary>Enfileira a resposta da próxima chamada. Fila vazia ⇒ cai no status/corpo padrão.</summary>
+    public StubHttpMessageHandler EnqueueResponse(HttpStatusCode status, string body = "{}")
+    {
+        _scripted.Enqueue((status, body));
+        return this;
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -42,12 +63,16 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
         if (request.Content is not null)
             LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
 
-        if (_throwOnSend is not null)
-            throw _throwOnSend;
+        Requests.Add(request);
+        RequestBodies.Add(LastRequestBody);
 
-        return new HttpResponseMessage(_statusCode)
+        if (_throwOnSend is not null) throw _throwOnSend;
+
+        var (status, body) = _scripted.Count > 0 ? _scripted.Dequeue() : (_statusCode, _responseBody);
+
+        return new HttpResponseMessage(status)
         {
-            Content = new StringContent(_responseBody, Encoding.UTF8, "application/json"),
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
     }
 }

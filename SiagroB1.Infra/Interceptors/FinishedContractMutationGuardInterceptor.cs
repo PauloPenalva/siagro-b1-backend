@@ -73,6 +73,8 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
 
             // PurchaseContractComment está fora de propósito: comentário é anotação, não altera
             // valor nem saldo, e o requisito é justamente poder comentar contrato encerrado.
+            // ContractDraft / ContractDraftSigner ficam FORA de propósito: minuta é documentação,
+            // como anexo — um contrato encerrado pode ter aditivo ou distrato (spec 2026-09-21).
             Guid? key = entry.Entity switch
             {
                 PurchaseContractBroker b => b.PurchaseContractKey,

@@ -41,6 +41,7 @@ public sealed class FakeBusinessPartnerService(
             {
                 CardCode = code,
                 CardName = name,
+                TaxId = _taxIds.GetValueOrDefault(code),
                 Addresses = ResolveAddresses(code),
             }
             : null);

@@ -75,7 +75,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
-    
+
+    public DbSet<ContractTemplate> ContractTemplates { get; set; }
+    public DbSet<CompanySignatory> CompanySignatories { get; set; }
+    public DbSet<BusinessPartnerSignatory> BusinessPartnerSignatories { get; set; }
+    public DbSet<ContractDraft> ContractDrafts { get; set; }
+    public DbSet<ContractDraftSigner> ContractDraftSigners { get; set; }
+
     public DbSet<StorageCharge> StorageCharges { get; set; }
     
     public DbSet<StorageDailyBalance> StorageDailyBalances { get; set; }
@@ -381,6 +387,55 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<PurchaseContractWashout>()
             .HasOne(x => x.FinancialDocument).WithMany()
             .HasForeignKey(x => x.FinancialDocumentKey).OnDelete(DeleteBehavior.NoAction);
+
+        // Minutas (spec 2026-09-21). Duas FKs anuláveis para o contrato de compra e de venda,
+        // exatamente uma preenchida: uma tabela só evita duplicar cada serviço como a Tagui fez.
+        // NoAction nas duas — o contrato não some debaixo da minuta (anexo assinado aponta pra ele).
+        modelBuilder.Entity<ContractDraft>()
+            .HasOne(x => x.PurchaseContract).WithMany(x => x.Drafts)
+            .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ContractDraft>()
+            .HasOne(x => x.SalesContract).WithMany(x => x.Drafts)
+            .HasForeignKey(x => x.SalesContractKey).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ContractDraft>()
+            .HasOne(x => x.Template).WithMany()
+            .HasForeignKey(x => x.TemplateKey).OnDelete(DeleteBehavior.NoAction);
+
+        // XOR escrito com AND/OR, não com <> entre dois "IS NULL": T-SQL não trata predicado como
+        // valor comparável — "([X] IS NULL) <> ([Y] IS NULL)" é erro de sintaxe no SQL Server
+        // ("Incorrect syntax near '<'"), descoberto aplicando esta migration em Yokotobi-Development.
+        modelBuilder.Entity<ContractDraft>()
+            .ToTable(t => t.HasCheckConstraint(
+                "CK_CONTRACT_DRAFTS_ONE_CONTRACT",
+                "([PurchaseContractKey] IS NULL AND [SalesContractKey] IS NOT NULL) " +
+                "OR ([PurchaseContractKey] IS NOT NULL AND [SalesContractKey] IS NULL)"));
+
+        // O webhook do provedor procura a minuta pelo id externo: único enquanto preenchido.
+        modelBuilder.Entity<ContractDraft>()
+            .HasIndex(x => x.ExternalDocumentId)
+            .IsUnique()
+            .HasFilter("[ExternalDocumentId] IS NOT NULL");
+
+        // Sequência é por contrato; o índice cobre os dois lados porque a outra FK é nula (duas
+        // linhas só colidem quando as DUAS colunas batem — a que está sempre nula não atrapalha).
+        // HasFilter(null) explícito pisa na convenção do provider SqlServer, que sem isso
+        // filtraria "IS NOT NULL AND IS NOT NULL" nas duas FKs — e como o check constraint garante
+        // que só uma delas é preenchida por vez, esse filtro automático nunca casaria com nenhuma
+        // linha, e a trave de sequência duplicada viraria letra morta.
+        modelBuilder.Entity<ContractDraft>()
+            .HasIndex(x => new { x.PurchaseContractKey, x.SalesContractKey, x.Sequence })
+            .IsUnique()
+            .HasFilter(null);
+
+        modelBuilder.Entity<ContractDraftSigner>()
+            .HasOne(x => x.Draft).WithMany(x => x.Signers)
+            .HasForeignKey(x => x.DraftKey).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<CompanySignatory>()
+            .HasOne(x => x.Branch).WithMany()
+            .HasForeignKey(x => x.BranchCode).OnDelete(DeleteBehavior.NoAction);
 
         // A TRAVA DE IDEMPOTÊNCIA. Dois cliques em "Aprovar" gerariam dois provisórios
         // idênticos, e ninguém perceberia até o mês fechar com o dobro. Filtrado por
