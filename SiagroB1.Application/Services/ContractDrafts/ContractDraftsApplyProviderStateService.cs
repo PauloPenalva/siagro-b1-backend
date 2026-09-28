@@ -26,6 +26,15 @@ public class ContractDraftsApplyProviderStateService(
     SalesContractsSetSignatureStatusService salesSignatureStatus,
     ILogger<ContractDraftsApplyProviderStateService> logger)
 {
+    /// <summary>
+    /// Todos os signatários já assinaram, mas o provedor ainda não fechou o documento — o PDF
+    /// certificado ainda não existe. Fica em <c>LastError</c> para explicar por que a minuta está
+    /// assinada e sem anexo; o PDF é buscado depois pelo RetryMissingPdfAsync.
+    /// </summary>
+    public const string NotFinishedYetMessage =
+        "Todos os signatários assinaram, mas o provedor ainda não finalizou o documento. " +
+        "O PDF assinado será anexado assim que estiver disponível.";
+
     /// <returns><c>true</c> quando algo mudou; <c>false</c> quando o estado já era o mesmo.</returns>
     public async Task<bool> ExecuteAsync(Guid draftKey, ESignatureDocumentState state, string userName, CancellationToken ct = default)
     {
@@ -38,15 +47,15 @@ public class ContractDraftsApplyProviderStateService(
         var draft = await loader.RequireDraftAsync(draftKey, ct);
 
         // Terminal: nada do provedor reabre uma minuta cancelada, ou assinada COM o PDF já
-        // anexado. Assinada SEM anexo (download anterior falhou — ver LastError) continua
-        // processável só para tentar buscar o PDF que faltou; não é reabrir, o status já é
-        // definitivo. Ver RetryMissingPdfAsync.
+        // anexado. Assinada SEM anexo (download anterior falhou, ou o provedor ainda não
+        // finalizou — ver LastError) continua processável só para tentar buscar o PDF que
+        // faltou; não é reabrir, o status já é definitivo. Ver RetryMissingPdfAsync.
         if (draft.Status == ContractDraftStatus.Canceled)
             return false;
 
         if (draft.Status == ContractDraftStatus.Signed)
             return draft.SignedAttachmentKey is null
-                ? await RetryMissingPdfAsync(draft, userName, ct)
+                ? await RetryMissingPdfAsync(draft, state, userName, ct)
                 : false;
 
         var changed = ApplySigners(draft, state);
@@ -55,8 +64,18 @@ public class ContractDraftsApplyProviderStateService(
         if (target == draft.Status && !changed)
             return false;
 
+        // Só se baixa o PDF de um documento FINALIZADO no provedor. O status pode ir a Signed
+        // também pelo ramo "todos os signatários locais assinaram" (é o que a spec manda), mas aí
+        // o D4Sign ainda não fechou o documento: o que ele devolveria não é o PDF certificado, e
+        // anexá-lo gravaria SignedAttachmentKey — desligando as DUAS redes de recuperação
+        // (RetryMissingPdfAsync e a segunda população do job de reconciliação), que só enxergam
+        // PDF FALTANDO, nunca PDF ERRADO. Sem anexo, a minuta segue Signed sem
+        // SignedAttachmentKey e essas mesmas redes buscam o PDF certificado numa passada
+        // posterior.
+        var finishedAtProvider = state.Status == ESignatureDocumentStatus.Finished;
+
         byte[]? signedPdf = null;
-        if (target == ContractDraftStatus.Signed)
+        if (target == ContractDraftStatus.Signed && finishedAtProvider)
         {
             signedPdf = await provider.DownloadSignedAsync(draft.ExternalDocumentId ?? "", ct);
             if (signedPdf is null || signedPdf.Length == 0)
@@ -100,7 +119,9 @@ public class ContractDraftsApplyProviderStateService(
                     }
                     else
                     {
-                        draft.LastError = "Documento finalizado, mas o PDF assinado não pôde ser baixado do provedor.";
+                        draft.LastError = finishedAtProvider
+                            ? "Documento finalizado, mas o PDF assinado não pôde ser baixado do provedor."
+                            : NotFinishedYetMessage;
                     }
 
                     var what = ContractChangeLogFields.DescribeDraft(draft.Sequence, "assinada");
@@ -150,8 +171,16 @@ public class ContractDraftsApplyProviderStateService(
     /// *SetSignatureStatusService — isso já aconteceu na primeira passada, e repetir quebraria a
     /// idempotência.
     /// </summary>
-    private async Task<bool> RetryMissingPdfAsync(ContractDraft draft, string userName, CancellationToken ct)
+    private async Task<bool> RetryMissingPdfAsync(ContractDraft draft, ESignatureDocumentState state, string userName, CancellationToken ct)
     {
+        // Mesma regra do fluxo principal, e aqui ela é indispensável: uma minuta que virou Signed
+        // pelo ramo "todos assinaram, documento ainda Pendente" cai exatamente neste método na
+        // passada seguinte do job. Sem esta guarda, o PDF NÃO certificado que o provedor devolve
+        // para um documento aberto seria anexado como o artefato legal — o defeito só teria sido
+        // adiado em seis horas.
+        if (state.Status != ESignatureDocumentStatus.Finished)
+            return false;
+
         var signedPdf = await provider.DownloadSignedAsync(draft.ExternalDocumentId ?? "", ct);
         if (signedPdf is not { Length: > 0 })
         {
@@ -194,7 +223,7 @@ public class ContractDraftsApplyProviderStateService(
     }
 
     /// <summary>Correlaciona por e-mail. Devolve true se algum signatário mudou.</summary>
-    private static bool ApplySigners(ContractDraft draft, ESignatureDocumentState state)
+    private bool ApplySigners(ContractDraft draft, ESignatureDocumentState state)
     {
         var changed = false;
 
@@ -202,7 +231,16 @@ public class ContractDraftsApplyProviderStateService(
         {
             var signer = draft.Signers.FirstOrDefault(s =>
                 string.Equals(s.Email, incoming.Email, StringComparison.OrdinalIgnoreCase));
-            if (signer is null) continue;
+            if (signer is null)
+            {
+                // Signatário que o provedor conhece e o snapshot da minuta não: o cadastro foi
+                // editado depois do envio, ou alguém mexeu no documento direto no cofre. Deriva
+                // invisível num documento legal — este log é o único jeito de alguém descobrir.
+                logger.LogWarning(
+                    "Minuta {Key}: o provedor devolveu o signatário {Email}, que não está no snapshot da minuta",
+                    draft.Key, incoming.Email);
+                continue;
+            }
 
             var status = incoming.Signed ? SignerStatus.Signed : signer.Status;
             if (signer.Status != status)

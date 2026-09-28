@@ -63,6 +63,18 @@ public class ContractDraft : DocumentEntity
     /// <summary>Anexo do contrato onde o PDF assinado foi guardado.</summary>
     public Guid? SignedAttachmentKey { get; set; }
 
+    /// <summary>
+    /// Última vez que o job de reconciliação OLHOU esta minuta, tenha mudado algo ou não. É o
+    /// relógio da varredura, separado do <c>UpdatedAt</c> de propósito: o <c>UpdatedAt</c> é
+    /// auditoria que o usuário lê, e o job grava com o nome "reconciliacao" — carimbá-lo a cada
+    /// consulta silenciosa apagaria quem de fato mexeu na minuta. Sem este campo, uma minuta que
+    /// ninguém assina nunca muda de <c>UpdatedAt</c>, volta a ser a mais antiga a cada 30 min e,
+    /// passando de 50 nessa situação, o lote fica preso nelas e minuta nova nenhuma é conferida.
+    /// Nulo nas linhas anteriores à sua criação — a consulta cai no <c>UpdatedAt</c> nesse caso,
+    /// para não considerar "recém-conferido" tudo o que já existia.
+    /// </summary>
+    public DateTime? LastCheckedAt { get; set; }
+
     public virtual ICollection<ContractDraftSigner> Signers { get; set; } = [];
 
     [NotMapped]

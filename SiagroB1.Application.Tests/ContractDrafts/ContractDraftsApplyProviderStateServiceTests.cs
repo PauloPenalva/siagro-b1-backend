@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ContractDrafts;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -257,5 +257,70 @@ public class ContractDraftsApplyProviderStateServiceTests
 
         var contract = await _ctx.Db.Context.PurchaseContracts.SingleAsync(c => c.Key == saved.PurchaseContractKey);
         Assert.Equal(SignatureStatus.Signed, contract.SignatureStatus);
+    }
+
+    /// <summary>
+    /// Todos os signatários locais assinaram, mas o provedor AINDA NÃO finalizou o documento. A
+    /// spec manda ir para Signed nessa hipótese ("todos assinados ou documento finalizado"), e é
+    /// o que se espera aqui — mas o PDF de um documento não finalizado não é o certificado, e
+    /// anexá-lo gravaria SignedAttachmentKey, desligando as duas redes de recuperação, que só
+    /// enxergam PDF FALTANDO. Por isso: Signed, sem download, sem anexo, com o motivo no
+    /// LastError — e o PDF certificado entrando na passada em que o provedor finalizar.
+    /// </summary>
+    [Fact]
+    public async Task All_signers_signed_but_document_still_pending_marks_signed_without_attaching_a_pdf()
+    {
+        var draft = await SentDraftAsync();
+
+        // O provedor DEVOLVERIA um PDF se lhe perguntassem: o teste falha se alguém perguntar.
+        _ctx.Signature.SignedPdfIs([9, 9, 9]);
+
+        var changed = await _ctx.ApplyState().ExecuteAsync(draft.Key,
+            State(ESignatureDocumentStatus.Pending, ("diretor@tagui.com", true), ("produtor@x.com", true)),
+            "webhook", default);
+
+        Assert.True(changed);
+        var saved = await _ctx.Db.Context.ContractDrafts.SingleAsync(d => d.Key == draft.Key);
+        Assert.Equal(ContractDraftStatus.Signed, saved.Status);
+        Assert.Null(saved.SignedAttachmentKey);
+        Assert.Equal(ContractDraftsApplyProviderStateService.NotFinishedYetMessage, saved.LastError);
+        Assert.Equal(0, _ctx.Signature.DownloadCalls);
+        Assert.Empty(_ctx.Db.Context.PurchaseContractAttachments);
+    }
+
+    /// <summary>
+    /// Continuação do teste acima: enquanto o documento segue pendente, nem o RetryMissingPdf
+    /// pode baixar nada — é nele que a minuta cai na passada seguinte do job, e sem a guarda o
+    /// PDF não certificado entraria seis horas depois. Quando o provedor finaliza, o certificado
+    /// é anexado normalmente e o LastError é limpo.
+    /// </summary>
+    [Fact]
+    public async Task The_certified_pdf_only_arrives_when_the_provider_finishes_the_document()
+    {
+        var draft = await SentDraftAsync();
+        _ctx.Signature.SignedPdfIs([9, 9, 9]);
+
+        var pending = State(ESignatureDocumentStatus.Pending, ("diretor@tagui.com", true), ("produtor@x.com", true));
+        await _ctx.ApplyState().ExecuteAsync(draft.Key, pending, "webhook", default);
+
+        // Passada seguinte, documento ainda aberto: nada acontece e nada é baixado.
+        var whilePending = await _ctx.ApplyState().ExecuteAsync(draft.Key, pending, "reconciliacao", default);
+        Assert.False(whilePending);
+        Assert.Equal(0, _ctx.Signature.DownloadCalls);
+        Assert.Empty(_ctx.Db.Context.PurchaseContractAttachments);
+
+        var finished = await _ctx.ApplyState().ExecuteAsync(draft.Key,
+            State(ESignatureDocumentStatus.Finished, ("diretor@tagui.com", true), ("produtor@x.com", true)),
+            "reconciliacao", default);
+
+        Assert.True(finished);
+        var saved = await _ctx.Db.Context.ContractDrafts.SingleAsync(d => d.Key == draft.Key);
+        Assert.Equal(ContractDraftStatus.Signed, saved.Status);
+        Assert.NotNull(saved.SignedAttachmentKey);
+        Assert.Null(saved.LastError);
+
+        var attachment = await _ctx.Db.Context.PurchaseContractAttachments.SingleAsync();
+        Assert.Equal(saved.SignedAttachmentKey, attachment.Key);
+        Assert.Equal(new byte[] { 9, 9, 9 }, attachment.FileData);
     }
 }
