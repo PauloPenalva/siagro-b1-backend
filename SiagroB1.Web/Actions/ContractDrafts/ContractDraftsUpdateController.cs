@@ -13,7 +13,9 @@ public class ContractDraftsUpdateController(ContractDraftsUpdateService service)
     {
         if (!ContractDraftActionParameters.TryGetGuid(parameters, "Key", out var key))
             return BadRequest("Minuta é obrigatória.");
-        if (!ContractDraftActionParameters.TryGetDraftType(parameters, out var draftType))
+        // Optional: numa edição, DraftType ausente é "não mexa no tipo". Com o TryGetDraftType
+        // da criação, salvar só o texto rebaixava um Aditivo a Contrato sem dizer nada.
+        if (!ContractDraftActionParameters.TryGetOptionalDraftType(parameters, out var draftType))
             return BadRequest(ContractDraftActionParameters.InvalidDraftTypeMessage);
 
         var description = ContractDraftActionParameters.GetString(parameters, "Description") ?? "";
