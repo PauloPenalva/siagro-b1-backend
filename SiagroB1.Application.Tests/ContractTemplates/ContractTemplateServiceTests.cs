@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.ContractTemplates;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -55,5 +55,42 @@ public class ContractTemplateServiceTests
         created.BodyHtml = "{{numero}} {{xpto}}";
 
         await Assert.ThrowsAsync<BusinessException>(() => Service().UpdateAsync(created.Key, created));
+    }
+
+    [Fact]
+    public async Task Delete_removes_a_template_no_draft_uses()
+    {
+        var created = await Service().CreateAsync(Template("{{numero}}"));
+
+        Assert.True(await Service().DeleteAsync(created.Key));
+        Assert.Empty(_db.Context.ContractTemplates);
+    }
+
+    /// <summary>
+    /// A FK CONTRACT_DRAFTS -> CONTRACT_TEMPLATES e NoAction: sem esta guarda o banco recusa, o
+    /// BaseService engole a excecao e o usuario recebe "Error deleting entity." em ingles.
+    /// </summary>
+    [Fact]
+    public async Task Delete_refuses_a_template_in_use_and_says_how_many_drafts()
+    {
+        var created = await Service().CreateAsync(Template("{{numero}}"));
+
+        _db.Context.ContractDrafts.Add(new ContractDraft
+        {
+            TemplateKey = created.Key,
+            PurchaseContractKey = Guid.NewGuid(),
+            ContractCode = "CC0001",
+            Sequence = 1,
+            Description = "Minuta 1",
+            BodyHtml = "<p>x</p>",
+            PlaceholdersJson = "{}",
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().DeleteAsync(created.Key));
+
+        Assert.Contains("1", ex.Message);
+        Assert.Contains("minuta", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(_db.Context.ContractTemplates);
     }
 }
