@@ -71,7 +71,7 @@
       <TextObject Name="Produto" Top="192" Width="500" Height="20" Border.Lines="All" Text="PRODUTO: [PreContract.ItemCode] - [PreContract.ItemName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="Safra" Left="500" Top="192" Width="255.9" Height="20" Border.Lines="All" Text="SAFRA: [PreContract.HarvestSeasonName]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="QtdLabel" Top="212" Width="140" Height="20" Border.Lines="All" Text="QUANTIDADE:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
-      <TextObject Name="QtdValor" Left="140" Top="212" Width="200" Height="20" Border.Lines="All" Text="[PreContract.TotalVolume]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="QtdValor" Left="140" Top="212" Width="200" Height="20" Border.Lines="All" Text="[PreContract.TotalVolume]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="QtdUm" Left="340" Top="212" Width="415.9" Height="20" Border.Lines="All" Text="[PreContract.UnitOfMeasureCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="QualidadeTit" Top="240" Width="755.9" Height="20" Border.Lines="All" Text="QUALIDADE" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="QualHdr1" Top="260" Width="500" Height="18" Border.Lines="All" Text="PARÂMETRO" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -90,7 +90,7 @@
       <TextObject Name="EntregaFim" Left="450" Top="20" Width="305.9" Height="20" Border.Lines="All" Text="[PreContract.DeliveryEndDate]" Padding="3, 0, 3, 0" Format="Date" Format.Format="d" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="Clausula2" Top="48" Width="755.9" Height="20" Border.Lines="All" Text="CLÁUSULA SEGUNDA – PREÇOS E CONDIÇÕES" HorzAlign="Center" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="PrecoLabel" Top="68" Width="140" Height="20" Border.Lines="All" Text="PREÇO - R$" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
-      <TextObject Name="PrecoValor" Left="140" Top="68" Width="200" Height="20" Border.Lines="All" Text="[PreContract.StandardPrice]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="PrecoValor" Left="140" Top="68" Width="200" Height="20" Border.Lines="All" Text="[PreContract.StandardPrice]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="8" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="PrecoUm" Left="340" Top="68" Width="415.9" Height="20" Border.Lines="All" Text="POR [PreContract.UnitOfMeasureCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="DataPagLabel" Top="88" Width="240" Height="20" Border.Lines="All" Text="DATA PAGAMENTO:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="DataPagValor" Left="240" Top="88" Width="515.9" Height="20" Border.Lines="All" Text="[PreContract.StandardCashFlowDate]" Padding="3, 0, 3, 0" Format="Date" Format.Format="d" VertAlign="Center" Font="Arial, 9pt"/>
@@ -111,7 +111,7 @@
     </DataBand>
     <DataBand Name="DataFooterBlock" Top="667.4" Width="756" Height="95" CanGrow="true">
       <TextObject Name="FreteLabel" Width="200" Height="20" Border.Lines="All" Text="FRETE: [PreContract.FreightTermsText]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
-      <TextObject Name="FreteValor" Left="200" Width="180" Height="20" Border.Lines="All" Text="[PreContract.FreightCostStandard]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" VertAlign="Center" Font="Arial, 9pt"/>
+      <TextObject Name="FreteValor" Left="200" Width="180" Height="20" Border.Lines="All" Text="[PreContract.FreightCostStandard]" Padding="3, 0, 3, 0" Format="Number" Format.UseLocale="true" Format.DecimalDigits="8" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="FreteUm" Left="380" Width="375.9" Height="20" Border.Lines="All" Text="POR [PreContract.FreightUmCode]" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt"/>
       <TextObject Name="ObsLabel" Top="28" Width="755.9" Height="18" Text="OBS.:" Padding="3, 0, 3, 0" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
       <TextObject Name="ObsTxt" Top="46" Width="755.9" Height="45" Border.Lines="All" CanGrow="true" Text="[PreContract.Comments]" Padding="3, 3, 3, 3" Font="Arial, 9pt"/>
