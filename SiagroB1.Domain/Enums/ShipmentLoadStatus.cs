@@ -9,8 +9,8 @@ namespace SiagroB1.Domain.Enums;
 /// </para>
 /// <para>
 /// GAC-1171 (melhorias): <c>Discharged</c> e o <c>Completed</c> da carga Normal também são
-/// derivados. Eles refinam o <c>Invoiced</c> pela marca manual <c>ShipmentLoad.IsDischarged</c> e
-/// pela Conferência de Entregas; ver <c>ShipmentLoadsRecalculateInvoicedService.ResolveClosure</c>.
+/// derivados. Eles refinam o <c>Invoiced</c> pelos tickets de descarga (rateio) e pela Conferência
+/// de Entregas; ver <c>ShipmentLoadsRecalculateInvoicedService.ResolveClosure</c>.
 /// </para>
 /// </summary>
 /// <remarks>
@@ -29,5 +29,5 @@ public enum ShipmentLoadStatus
     Returned = 5,           // Mercadoria recusada e devolvida a armazém — encerrada, sem saldo
     Completed = 6,          // Remoção: encerrada à mão. Normal: toda a conferência de entrega encerrada (GAC-1171)
     InTransshipment = 7,    // Descarregada em armazém intermediário, aguardando a saída (GAC-1181)
-    Discharged = 8          // Faturada e marcada à mão como descarregada no destino (GAC-1171)
+    Discharged = 8          // Faturada e com peso de ticket em toda linha entregue (GAC-1171)
 }

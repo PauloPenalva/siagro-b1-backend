@@ -269,21 +269,22 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains(nameof(ShipmentLoad.LoadType), properties);
     }
 
-    /// <summary>GAC-1171 (melhorias) — Marcar e Desfazer Descarregada.</summary>
+    /// <summary>
+    /// GAC-1171 (rateio): a Descarregada é derivada dos tickets. As actions manuais e a marca saíram
+    /// do EDM — uma tela velha que as chamasse levaria 404, e não um status errado.
+    /// </summary>
     [Theory]
     [InlineData("ShipmentLoadsMarkDischarged")]
     [InlineData("ShipmentLoadsUndoDischarged")]
-    public void Discharged_actions_are_declared_with_the_load_key(string actionName)
+    public void The_manual_discharged_actions_are_gone(string actionName)
     {
-        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == actionName);
-
-        Assert.Equal(new[] { "Key" }, action.Parameters.Select(p => p.Name).ToArray());
+        Assert.DoesNotContain(Model().SchemaElements.OfType<IEdmAction>(), a => a.Name == actionName);
     }
 
     [Fact]
-    public void The_discharged_mark_and_status_are_in_the_edm()
+    public void The_discharged_status_stays_in_the_edm_without_the_manual_mark()
     {
-        Assert.NotNull(EntityType("ShipmentLoad").FindProperty("IsDischarged"));
+        Assert.Null(EntityType("ShipmentLoad").FindProperty("IsDischarged"));
 
         var status = Model().SchemaElements.OfType<IEdmEnumType>().Single(t => t.Name == "ShipmentLoadStatus");
         Assert.Contains(status.Members, m => m.Name == "Discharged");

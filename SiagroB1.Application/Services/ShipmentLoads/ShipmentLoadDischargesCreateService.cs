@@ -1,28 +1,27 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
-/// Registra um ticket de descarga na carga (GAC-1171), contra uma linha de documento de saída.
+/// Registra um ticket de descarga na carga (GAC-1171), RATEADO entre linhas de documentos de saída.
 /// </summary>
 public class ShipmentLoadDischargesCreateService(
     AppDbContext context,
     ShipmentLoadDischargesRecalculateService recalculate,
+    ShipmentLoadsClosureHookService closureHook,
     ShipmentLoadsChangeLogService changeLog,
     ILogger<ShipmentLoadDischargesCreateService> logger)
 {
     public async Task<ShipmentLoadDischarge> ExecuteAsync(
         Guid loadKey,
-        Guid salesInvoiceKey,
-        Guid salesInvoiceItemKey,
         string? ticketNumber,
         DateTime dischargeDate,
         decimal quantity,
+        IReadOnlyList<ShipmentLoadDischargeLine> lines,
         string? comments,
         Guid? attachmentKey,
         string userName)
@@ -30,46 +29,31 @@ public class ShipmentLoadDischargesCreateService(
         try
         {
             var ticket = ShipmentLoadDischargeRules.NormalizeTicketNumber(ticketNumber);
-            ShipmentLoadDischargeRules.EnsurePositiveQuantity(quantity);
+            var total = ShipmentLoadDischargeRules.RoundQuantity(quantity);
+            ShipmentLoadDischargeRules.EnsurePositiveQuantity(total);
+            var distribution = ShipmentLoadDischargeRules.NormalizeDistribution(total, lines);
 
             var load = await context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == loadKey)
                 ?? throw new NotFoundException("Carga não encontrada.");
 
             ShipmentLoadDischargeRules.EnsureLoadAcceptsChanges(load);
 
-            var invoice = await context.SalesInvoices
-                .FirstOrDefaultAsync(x => x.Key == salesInvoiceKey)
-                ?? throw new NotFoundException("Documento de saída não encontrado.");
-
-            if (invoice.ShipmentLoadKey != loadKey)
-                throw new DefaultException(
-                    "O documento de saída informado não pertence a esta carga.");
-
-            if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
-                throw new DefaultException(
-                    "Não é possível registrar descarga em documento de saída cancelado.");
-
-            var item = await context.SalesInvoicesItems
-                .FirstOrDefaultAsync(x => x.Key == salesInvoiceItemKey)
-                ?? throw new NotFoundException("Item do documento de saída não encontrado.");
-
-            if (item.SalesInvoiceKey != salesInvoiceKey)
-                throw new DefaultException(
-                    "O item informado não pertence ao documento de saída informado.");
+            var shares = await ShipmentLoadDischargeRules.ResolveLinesAsync(context, loadKey, distribution);
 
             var discharge = new ShipmentLoadDischarge
             {
                 ShipmentLoadKey = loadKey,
-                SalesInvoiceKey = salesInvoiceKey,
-                SalesInvoiceItemKey = salesInvoiceItemKey,
                 TicketNumber = ticket,
                 DischargeDate = dischargeDate.Date,
-                DischargedQuantity = quantity,
+                DischargedQuantity = total,
                 Comments = comments,
                 AttachmentKey = attachmentKey,
                 CreatedAt = DateTime.Now,
                 CreatedBy = userName,
             };
+
+            foreach (var share in shares)
+                discharge.Items.Add(share);
 
             await context.AddAsync(discharge);
 
@@ -77,10 +61,13 @@ public class ShipmentLoadDischargesCreateService(
                 loadKey,
                 ShipmentLoadChangeLogFields.Discharge,
                 null,
-                ShipmentLoadChangeLogFields.DescribeDischarge(ticket, quantity),
+                ShipmentLoadChangeLogFields.DescribeDischarge(ticket, total, Describe(discharge.Items)),
                 userName);
 
-            await recalculate.RecalculateAsync(loadKey, [salesInvoiceItemKey]);
+            await recalculate.RecalculateAsync(loadKey, shares.Select(x => x.SalesInvoiceItemKey));
+
+            // Depois das somas: a Descarregada lê o TicketDeliveredQuantity que acabou de mudar.
+            await closureHook.ApplyAsync(loadKey, userName);
 
             await context.SaveChangesAsync();
 
@@ -92,4 +79,8 @@ public class ShipmentLoadDischargesCreateService(
             throw;
         }
     }
+
+    internal static IEnumerable<(string? InvoiceNumber, decimal Quantity)> Describe(
+        IEnumerable<ShipmentLoadDischargeItem> items) =>
+        items.Select(x => (x.SalesInvoice?.InvoiceNumber, x.Quantity));
 }

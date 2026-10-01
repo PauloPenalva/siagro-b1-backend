@@ -1047,24 +1047,23 @@ public class ShippingTransactionsChangeReleaseServiceTests
     }
 
     /// <summary>
-    /// A Descarregada tem caminho de volta próprio (o "Desfazer Descarregada"), e a mensagem aponta
+    /// A Descarregada tem caminho de volta próprio (excluir o ticket de descarga), e a mensagem aponta
     /// para ele. As outras situações encerradas seguem com "está encerrada".
     /// </summary>
     [Fact]
-    public async Task Rejects_WhenLoadIsDischarged_AsksToUndoTheDischarge()
+    public async Task Rejects_WhenLoadIsDischarged_AsksToDeleteTheTicket()
     {
         var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
         var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
         var (shipping, load) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
         load.Status = ShipmentLoadStatus.Discharged;
-        load.IsDischarged = true;
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
             [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
 
         Assert.Equal(
-            "A carga CG000001 já foi descarregada no destino. Desfaça a descarga antes de trocar a liberação.",
+            "A carga CG000001 já foi descarregada no destino. Exclua o ticket de descarga antes de trocar a liberação.",
             ex.Message);
     }
 

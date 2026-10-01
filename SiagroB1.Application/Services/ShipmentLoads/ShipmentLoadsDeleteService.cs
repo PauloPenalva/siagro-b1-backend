@@ -85,6 +85,7 @@ public class ShipmentLoadsDeleteService(
             .ToListAsync();
 
         var discharges = await db.Context.ShipmentLoadsDischarges
+            .Include(x => x.Items)
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
 
@@ -120,6 +121,7 @@ public class ShipmentLoadsDeleteService(
             // desta carga (ShipmentLoadDischargesCreateService). Uma carga que chega até aqui
             // nunca tem descarga. Fica como defesa em profundidade, para o dia em que aquele
             // guard afrouxar — só o RemoveRange(attachments) é caminho vivo.
+            db.Context.ShipmentLoadsDischargesItems.RemoveRange(discharges.SelectMany(x => x.Items));
             db.Context.ShipmentLoadsDischarges.RemoveRange(discharges);
             db.Context.ShipmentLoadsAttachments.RemoveRange(attachments);
 

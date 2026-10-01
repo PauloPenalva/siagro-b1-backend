@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Globalization;
+using SiagroB1.Application.Services.ShipmentLoads;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
@@ -93,6 +95,87 @@ public static class ShipmentLoadActionParameters
             file = [];
 
             return false;
+        }
+    }
+
+    public const string MissingDistributionMessage =
+        "Distribua o peso descarregado entre os documentos de saída.";
+
+    /// <summary>
+    /// Lê o rateio (GAC-1171, rateio): <c>SalesInvoiceItemKeys</c> (Collection(Edm.Guid)) e
+    /// <c>Quantities</c> (Collection(Edm.Double)) como arrays PARALELOS, o precedente de
+    /// ShipmentLoadsRefuse. Tamanhos diferentes são erro de montagem do payload, recusado aqui.
+    /// </summary>
+    /// <remarks>
+    /// Um array de INTEIROS (<c>[20000, 15000]</c>) pode chegar como coleção de <c>int</c>/<c>long</c>.
+    /// O cast direto para <c>double</c> devolveria lista vazia sem erro, e o ticket seria recusado por
+    /// "rateio vazio" com o usuário vendo os números na tela.
+    /// </remarks>
+    public static bool TryReadDistribution(
+        IDictionary<string, object> parameters,
+        out List<ShipmentLoadDischargeLine> lines,
+        out string? error)
+    {
+        lines = [];
+        error = null;
+
+        if (!parameters.TryGetValue("SalesInvoiceItemKeys", out var keysObj) || keysObj is not IEnumerable<Guid> keys ||
+            !parameters.TryGetValue("Quantities", out var quantitiesObj) || quantitiesObj is not IEnumerable sequence)
+        {
+            error = MissingDistributionMessage;
+            return false;
+        }
+
+        var quantities = new List<decimal>();
+
+        foreach (var value in sequence)
+        {
+            if (!TryReadNumber(value, out var number))
+            {
+                error = $"Peso rateado inválido: {value}.";
+                return false;
+            }
+
+            quantities.Add(number);
+        }
+
+        var keyList = keys.ToList();
+
+        if (keyList.Count != quantities.Count)
+        {
+            error = "A lista de itens e a de pesos do rateio têm tamanhos diferentes.";
+            return false;
+        }
+
+        lines = keyList
+            .Select((key, index) => new ShipmentLoadDischargeLine(key, quantities[index]))
+            .ToList();
+
+        return true;
+    }
+
+    private static bool TryReadNumber(object? value, out decimal number)
+    {
+        switch (value)
+        {
+            case double d:
+                number = (decimal)d;
+                return true;
+            case decimal m:
+                number = m;
+                return true;
+            case int i:
+                number = i;
+                return true;
+            case long l:
+                number = l;
+                return true;
+            case float f:
+                number = (decimal)f;
+                return true;
+            default:
+                return decimal.TryParse(
+                    value?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out number);
         }
     }
 }

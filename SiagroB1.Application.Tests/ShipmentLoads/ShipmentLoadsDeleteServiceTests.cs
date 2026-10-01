@@ -134,12 +134,23 @@ public class ShipmentLoadsDeleteServiceTests
             TicketNumber = "T-1",
             DischargedQuantity = 100m,
             AttachmentKey = attachment.Key,
+            Items =
+            {
+                new ShipmentLoadDischargeItem
+                {
+                    Key = Guid.NewGuid(),
+                    SalesInvoiceKey = Guid.NewGuid(),
+                    SalesInvoiceItemKey = Guid.NewGuid(),
+                    Quantity = 100m,
+                },
+            },
         });
         await _db.Context.SaveChangesAsync();
 
         await Service().ExecuteAsync(load.Key);
 
         Assert.Empty(_db.Context.ShipmentLoadsDischarges);
+        Assert.Empty(_db.Context.ShipmentLoadsDischargesItems);
         Assert.Empty(_db.Context.ShipmentLoadsAttachments);
         Assert.Empty(_db.Context.ShipmentLoads);
     }

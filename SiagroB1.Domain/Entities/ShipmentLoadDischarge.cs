@@ -21,14 +21,12 @@ namespace SiagroB1.Domain.Entities;
 /// possivelmente adulterado no padrão da conferência.
 /// </para>
 /// <para>
-/// Guarda a nota E a linha da nota. A linha é o alvo do peso; a nota existe para o grid chegar ao
-/// número dela com um <c>$expand</c> de um nível. O par é validado no servidor, porque nada impede
-/// a tela de mandar uma combinação inconsistente.
+/// É o CABEÇALHO do ticket (GAC-1171, rateio): o peso do papel mora aqui, e o rateio entre as linhas
+/// dos documentos de saída mora em <see cref="Items"/>.
 /// </para>
 /// </remarks>
 [Table("SHIPMENT_LOAD_DISCHARGES")]
 [Index(nameof(ShipmentLoadKey))]
-[Index(nameof(SalesInvoiceItemKey))]
 public class ShipmentLoadDischarge
 {
     [Key]
@@ -38,18 +36,12 @@ public class ShipmentLoadDischarge
     public Guid? ShipmentLoadKey { get; set; }
     public virtual ShipmentLoad? ShipmentLoad { get; set; }
 
-    public Guid? SalesInvoiceKey { get; set; }
-    public virtual SalesInvoice? SalesInvoice { get; set; }
-
-    public Guid? SalesInvoiceItemKey { get; set; }
-    public virtual SalesInvoiceItem? SalesInvoiceItem { get; set; }
-
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public required string TicketNumber { get; set; }
 
     public DateTime DischargeDate { get; set; } = DateTime.Now.Date;
 
-    /// <summary>Peso do ticket. Mesma escala de <c>StorageTransaction.GrossWeight</c>.</summary>
+    /// <summary>Peso do ticket — o número do papel, que o rateio fecha. Mesma escala de <c>StorageTransaction.GrossWeight</c>.</summary>
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal DischargedQuantity { get; set; }
 
@@ -72,4 +64,7 @@ public class ShipmentLoadDischarge
 
     [Column(TypeName = "VARCHAR(100)")]
     public string? UpdatedBy { get; set; }
+
+    /// <summary>Rateio do peso entre as linhas dos documentos de saída (GAC-1171, rateio).</summary>
+    public virtual ICollection<ShipmentLoadDischargeItem> Items { get; } = [];
 }

@@ -31,7 +31,7 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
         SalesInvoiceDeliveryStatus first,
         SalesInvoiceDeliveryStatus second,
         ShipmentLoadStatus loadStatus = ShipmentLoadStatus.Invoiced,
-        bool isDischarged = false,
+        bool withTickets = false,
         bool withLoad = true)
     {
         var load = new ShipmentLoad
@@ -43,7 +43,6 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
             TotalQuantity = 100_000,
             InvoicedQuantity = 100_000,
             Status = loadStatus,
-            IsDischarged = isDischarged,
         };
         _db.Context.ShipmentLoads.Add(load);
 
@@ -66,6 +65,7 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
             Quantity = 50_000,
             DeliveredQuantity = delivery == SalesInvoiceDeliveryStatus.Closed ? 50_000 : 0m,
             DeliveryStatus = delivery,
+            TicketDeliveredQuantity = withTickets ? 50_000 : 0m,
         };
 
         var a = Item(first);
@@ -135,11 +135,11 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
     }
 
     [Fact]
-    public async Task Reopening_a_delivery_of_a_completed_and_marked_load_returns_it_to_discharged()
+    public async Task Reopening_a_delivery_of_a_completed_load_with_tickets_returns_it_to_discharged()
     {
         var (_, first, _) = await SeedAsync(
             SalesInvoiceDeliveryStatus.Closed, SalesInvoiceDeliveryStatus.Closed,
-            ShipmentLoadStatus.Completed, isDischarged: true);
+            ShipmentLoadStatus.Completed, withTickets: true);
 
         await ReopenAsync(first);
 

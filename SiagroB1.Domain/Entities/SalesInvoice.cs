@@ -91,7 +91,15 @@ public class SalesInvoice : DocumentEntity
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     
     public DateTime? DeliveryDate { get; set; }
-    
+
+    /// <summary>
+    /// Soma de <see cref="SalesInvoiceItem.ReturnedQuantity"/> das linhas (GAC-1171, rateio). Existe
+    /// no cabeçalho porque a lista de documentos mostra o selo "Dev. parcial", e uma coleção não se
+    /// binda em célula de linha. Mesmo escritor único das linhas.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal ReturnedQuantity { get; set; }
+
     public ICollection<SalesInvoiceItem> Items { get; set; } = [];
 
     public ICollection<StorageTransaction> SalesTransactions { get; set; } = [];

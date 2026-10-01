@@ -2,14 +2,14 @@ using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
 /// <summary>
-/// Altera um ticket de descarga já registrado (GAC-1171). Nota e item não viajam nesta action:
-/// apontar o ticket para outra linha é excluir e registrar de novo — ver o serviço.
+/// Altera um ticket de descarga já registrado (GAC-1171), inclusive o rateio.
 /// </summary>
 public class ShipmentLoadsDischargeUpdateController(
     ShipmentLoadDischargesUpdateService service) : ODataController
@@ -26,6 +26,9 @@ public class ShipmentLoadsDischargeUpdateController(
             if (parameters is null ||
                 !parameters.TryGetValue("Key", out var keyObj) || keyObj is null)
                 return BadRequest("Registro de descarga não informado.");
+
+            if (!ShipmentLoadActionParameters.TryReadDistribution(parameters, out var lines, out var distributionError))
+                return BadRequest(distributionError);
 
             parameters.TryGetValue("TicketNumber", out var ticketObj);
             parameters.TryGetValue("DischargeDate", out var dateObj);
@@ -47,10 +50,19 @@ public class ShipmentLoadsDischargeUpdateController(
                 ticketObj as string,
                 parsedDate.Value,
                 Convert.ToDecimal(quantityObj ?? 0d, CultureInfo.InvariantCulture),
+                lines,
                 commentsObj as string,
                 User.Identity?.Name ?? "Unknown");
 
             return Ok();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A carga tem RowVersion e o ticket agora escreve nela (soma e situação): duas gravações
+            // simultâneas na mesma carga derrubam a segunda aqui, e não com a mensagem crua do EF.
+            return BadRequest(
+                "A carga foi alterada por outro usuário enquanto a descarga era gravada. " +
+                "Reabra a tela e tente novamente.");
         }
         catch (Exception e)
         {

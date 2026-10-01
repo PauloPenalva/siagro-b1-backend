@@ -343,7 +343,6 @@ public class ShipmentLoadsCancelServiceTests
     public async Task Cancelling_a_discharged_load_is_refused_by_the_composition_guard()
     {
         var load = Load(ShipmentLoadStatus.Discharged);
-        load.IsDischarged = true;
         load.InvoicedQuantity = 90_000;
         Invoice(load, InvoiceStatus.Confirmed, quantity: 90_000);
         await _db.Context.SaveChangesAsync();
@@ -356,7 +355,6 @@ public class ShipmentLoadsCancelServiceTests
 
         var saved = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
         Assert.Equal(ShipmentLoadStatus.Discharged, saved.Status);
-        Assert.True(saved.IsDischarged);
         Assert.Empty(_db.Context.ShipmentLoadMovements);
     }
 

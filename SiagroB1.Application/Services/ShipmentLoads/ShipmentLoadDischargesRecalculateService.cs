@@ -5,7 +5,8 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
 /// Escritor ÚNICO das duas quantidades derivadas do ticket de descarga (GAC-1171):
-/// <c>SalesInvoiceItem.TicketDeliveredQuantity</c> e <c>ShipmentLoad.DischargedQuantity</c>.
+/// <c>SalesInvoiceItem.TicketDeliveredQuantity</c> (soma das parcelas do rateio que apontam para a
+/// linha) e <c>ShipmentLoad.DischargedQuantity</c> (soma do peso do papel de cada ticket).
 ///
 /// Apenas enfileira as escritas no contexto — quem chama decide quando salvar, para que a soma e
 /// o ticket que a causou entrem no mesmo <c>SaveChanges</c>.
@@ -30,24 +31,30 @@ public class ShipmentLoadDischargesRecalculateService(AppDbContext context)
             // Chave desconhecida não é erro: a exclusão em lote pode citar item já removido.
             if (item is null) continue;
 
-            item.TicketDeliveredQuantity = await SumByItemAsync(itemKey);
+            item.TicketDeliveredQuantity = await SumSharesAsync(itemKey);
         }
 
         var load = await context.ShipmentLoads.FirstOrDefaultAsync(x => x.Key == shipmentLoadKey);
 
         if (load is not null)
-            load.DischargedQuantity = await SumByLoadAsync(shipmentLoadKey);
+            load.DischargedQuantity = await SumTicketsAsync(shipmentLoadKey);
     }
 
-    private Task<decimal> SumByItemAsync(Guid itemKey) =>
+    /// <summary>Linha da nota: soma das PARCELAS do rateio que apontam para ela.</summary>
+    private Task<decimal> SumSharesAsync(Guid itemKey) =>
         SumAsync(
-            context.ShipmentLoadsDischarges.Where(x => x.SalesInvoiceItemKey == itemKey),
-            x => x.SalesInvoiceItemKey == itemKey);
+            context.ShipmentLoadsDischargesItems.Where(x => x.SalesInvoiceItemKey == itemKey),
+            x => x.SalesInvoiceItemKey == itemKey,
+            x => x.Key,
+            x => x.Quantity);
 
-    private Task<decimal> SumByLoadAsync(Guid loadKey) =>
+    /// <summary>Carga: soma do peso do PAPEL de cada ticket.</summary>
+    private Task<decimal> SumTicketsAsync(Guid loadKey) =>
         SumAsync(
             context.ShipmentLoadsDischarges.Where(x => x.ShipmentLoadKey == loadKey),
-            x => x.ShipmentLoadKey == loadKey);
+            x => x.ShipmentLoadKey == loadKey,
+            x => x.Key,
+            x => x.DischargedQuantity);
 
     /// <summary>
     /// Soma o que está no banco MAIS o que está no rastreador, em vez de usar <c>SumAsync</c> do
@@ -58,33 +65,33 @@ public class ShipmentLoadDischargesRecalculateService(AppDbContext context)
     /// A consulta entra FILTRADA por chave (<paramref name="persistedQuery"/>): somar em memória a
     /// tabela inteira funcionaria hoje e degradaria em silêncio conforme os tickets acumulam.
     /// O predicado repete o mesmo filtro para as entidades do rastreador, que o SQL não alcança.
-    /// </remarks>
-    /// <remarks>
+    /// <para>
     /// ⚠️ <c>trackedKeys</c> precisa incluir as entidades <c>Deleted</c> — é o que faz a linha
     /// ainda física no banco (lida por <paramref name="persistedQuery"/>) ser descartada da soma
-    /// quando o chamador removeu o ticket e recalculou ANTES do <c>SaveChanges</c> que efetiva a
+    /// quando o chamador a removeu e recalculou ANTES do <c>SaveChanges</c> que efetiva a
     /// exclusão. Só a lista somada (<c>tracked</c>) exclui <c>Deleted</c> — a chave, não.
+    /// </para>
     /// </remarks>
-    private async Task<decimal> SumAsync(
-        IQueryable<Domain.Entities.ShipmentLoadDischarge> persistedQuery,
-        Func<Domain.Entities.ShipmentLoadDischarge, bool> predicate)
+    private async Task<decimal> SumAsync<T>(
+        IQueryable<T> persistedQuery,
+        Func<T, bool> predicate,
+        Func<T, Guid?> keyOf,
+        Func<T, decimal> selector) where T : class
     {
         var persisted = await persistedQuery.AsNoTracking().ToListAsync();
 
-        var allTracked = context.ChangeTracker
-            .Entries<Domain.Entities.ShipmentLoadDischarge>()
-            .ToList();
+        var allTracked = context.ChangeTracker.Entries<T>().ToList();
 
-        var trackedKeys = allTracked.Select(e => e.Entity.Key).ToHashSet();
+        var trackedKeys = allTracked.Select(e => keyOf(e.Entity)).ToHashSet();
 
         var tracked = allTracked
             .Where(e => e.State != EntityState.Deleted)
             .Select(e => e.Entity);
 
         return persisted
-            .Where(x => !trackedKeys.Contains(x.Key))
+            .Where(x => !trackedKeys.Contains(keyOf(x)))
             .Concat(tracked)
             .Where(predicate)
-            .Sum(x => x.DischargedQuantity);
+            .Sum(selector);
     }
 }

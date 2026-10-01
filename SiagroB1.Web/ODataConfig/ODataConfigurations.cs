@@ -258,6 +258,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadComment>("ShipmentLoadsComments");
         modelBuilder.EntitySet<ShipmentLoadChangeLog>("ShipmentLoadsChangeLogs");
         modelBuilder.EntitySet<ShipmentLoadDischarge>("ShipmentLoadsDischarges");
+        modelBuilder.EntitySet<ShipmentLoadDischargeItem>("ShipmentLoadsDischargesItems");
         modelBuilder.EntitySet<ShipmentLoadTransshipment>("ShipmentLoadsTransshipments");
         // [NotMapped] some do EDM tambem - sem este AddProperty o $select=ShrinkageQuantity
         // devolve 400 e a tela nao consegue mostrar a quebra de transporte da linha do transbordo.
@@ -689,15 +690,6 @@ public static class ODataConfigurations
         shipmentLoadsReopen.Parameter<Guid>("Key");
         shipmentLoadsReopen.Returns<IActionResult>();
 
-        // GAC-1171 (melhorias): marca manual de descarga no destino, e o desfazer.
-        var shipmentLoadsMarkDischarged = modelBuilder.Action("ShipmentLoadsMarkDischarged");
-        shipmentLoadsMarkDischarged.Parameter<Guid>("Key");
-        shipmentLoadsMarkDischarged.Returns<IActionResult>();
-
-        var shipmentLoadsUndoDischarged = modelBuilder.Action("ShipmentLoadsUndoDischarged");
-        shipmentLoadsUndoDischarged.Parameter<Guid>("Key");
-        shipmentLoadsUndoDischarged.Returns<IActionResult>();
-
         var shipmentLoadsDelete = modelBuilder.Action("ShipmentLoadsDelete");
         shipmentLoadsDelete.Parameter<Guid>("Key");
         shipmentLoadsDelete.Returns<IActionResult>();
@@ -754,8 +746,10 @@ public static class ODataConfigurations
         // double tem precedente PROVADO em ShipmentLoadsRefuse.
         var shipmentLoadsDischargeCreate = modelBuilder.Action("ShipmentLoadsDischargeCreate");
         shipmentLoadsDischargeCreate.Parameter<Guid>("LoadKey");
-        shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceKey");
-        shipmentLoadsDischargeCreate.Parameter<Guid>("SalesInvoiceItemKey");
+        // GAC-1171 (rateio): o rateio viaja em arrays PARALELOS (linha da nota + peso), mesmo
+        // precedente PROVADO de ShipmentLoadsRefuse. A nota não viaja: o servidor a resolve pela linha.
+        shipmentLoadsDischargeCreate.CollectionParameter<Guid>("SalesInvoiceItemKeys");
+        shipmentLoadsDischargeCreate.CollectionParameter<double>("Quantities");
         shipmentLoadsDischargeCreate.Parameter<string>("DischargeDate");
         shipmentLoadsDischargeCreate.Parameter<double>("Quantity");
         // ⚠️ .Optional() não é decoração: o ODataParameterReader RECUSA o payload que não traga
@@ -771,10 +765,11 @@ public static class ODataConfigurations
         shipmentLoadsDischargeCreate.Parameter<string>("ContentType").Optional();
         shipmentLoadsDischargeCreate.Returns<IActionResult>();
 
-        // Nota e item não entram: apontar o ticket para outra linha é excluir e registrar de novo,
-        // senão a soma da linha antiga fica órfã.
+        // O rateio inteiro viaja de novo e substitui o gravado (GAC-1171, rateio).
         var shipmentLoadsDischargeUpdate = modelBuilder.Action("ShipmentLoadsDischargeUpdate");
         shipmentLoadsDischargeUpdate.Parameter<Guid>("Key");
+        shipmentLoadsDischargeUpdate.CollectionParameter<Guid>("SalesInvoiceItemKeys");
+        shipmentLoadsDischargeUpdate.CollectionParameter<double>("Quantities");
         // DischargeDate segue OBRIGATÓRIA aqui: o serviço a grava sem condição, então deixá-la
         // faltar carimbaria hoje por cima da data já registrada.
         shipmentLoadsDischargeUpdate.Parameter<string>("DischargeDate");

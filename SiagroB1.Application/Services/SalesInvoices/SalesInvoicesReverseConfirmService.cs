@@ -97,6 +97,12 @@ public class SalesInvoicesReverseConfirmService(
             invoice.ApprovedAt = null;
             invoice.ApprovedBy = null;
 
+            // GAC-1171 (rateio): a devolução estornada deixa de contar. Vale para os três ramos
+            // (carga, novo e legado), por isso fica aqui e não dentro de um deles.
+            if (invoice.InvoiceType == SalesInvoiceType.Return)
+                await SalesInvoicesRecalculateReturnedService.RecalculateAsync(
+                    db.Context, invoice.SalesInvoiceOriginKey);
+
             // Ledger: estorno de confirmação remove as alocações desta nota (Normal → as
             // alocações padrão; devolução → as linhas negativas, restaurando o consumo) e
             // recalcula contratos/liberações derivado-da-soma, na mesma transação.

@@ -36,12 +36,12 @@ public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoic
 
             var salesInvoiceKey = entity.SalesInvoiceKey;
 
-            // GAC-1171: a FK de SHIPMENT_LOAD_DISCHARGES para a linha da nota é NoAction, de
-            // propósito — o ticket de descarga é a evidência física que libera o pagamento do
-            // frete e não pode ser levado embora junto com a linha. Sem este guard o banco
-            // devolve erro 547, a transação rola atrás e o usuário vê um 500 de corpo vazio.
+            // GAC-1171: a FK de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a linha da
+            // nota é NoAction, de propósito — o ticket de descarga é a evidência física que libera
+            // o pagamento do frete e não pode ser levado embora junto com a linha. Sem este guard o
+            // banco devolve erro 547, a transação rola atrás e o usuário vê um 500 de corpo vazio.
             // ⚠️ O InMemory dos testes não aplica FK: só o guard faz o caminho aparecer.
-            if (await db.Context.ShipmentLoadsDischarges.AnyAsync(x => x.SalesInvoiceItemKey == key))
+            if (await db.Context.ShipmentLoadsDischargesItems.AnyAsync(x => x.SalesInvoiceItemKey == key))
                 throw new DefaultException(
                     "Este item tem ticket de descarga registrado na carga. " +
                     "Exclua o registro de descarga antes.");

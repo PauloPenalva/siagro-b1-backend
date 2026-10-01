@@ -20,13 +20,14 @@ public class SalesInvoicesDeleteService(
             if (entity.InvoiceStatus != InvoiceStatus.Pending)
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
 
-            // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGES para a nota e para a linha da nota são
-            // NoAction, de propósito — o ticket de descarga é a evidência física que libera o
-            // pagamento do frete e não pode ser levado embora junto com o documento. Sem este
-            // guard o banco devolve erro 547, a transação rola atrás e o usuário vê um 500 de
-            // corpo vazio. Registrar ticket em nota Pending é permitido, então o caminho é real.
+            // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a nota e
+            // para a linha da nota são NoAction, de propósito — o ticket de descarga é a evidência
+            // física que libera o pagamento do frete e não pode ser levado embora junto com o
+            // documento. Sem este guard o banco devolve erro 547, a transação rola atrás e o
+            // usuário vê um 500 de corpo vazio. O ticket nasce em nota Confirmada, e o estorno da
+            // confirmação a devolve a Pending: o caminho é real.
             // ⚠️ O InMemory dos testes não aplica FK: só o guard faz o caminho aparecer.
-            if (await db.Context.ShipmentLoadsDischarges.AnyAsync(x => x.SalesInvoiceKey == entity.Key))
+            if (await db.Context.ShipmentLoadsDischargesItems.AnyAsync(x => x.SalesInvoiceKey == entity.Key))
                 throw new DefaultException(
                     "Este documento de saída tem ticket de descarga registrado na carga. " +
                     "Exclua o registro de descarga antes.");

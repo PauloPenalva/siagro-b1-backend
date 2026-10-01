@@ -80,4 +80,23 @@ public static class ShipmentLoadChangeLogFields
     /// </summary>
     public static string DescribeDischarge(string ticketNumber, decimal quantity) =>
         $"{ticketNumber} — {quantity.ToString("N3", PtBr)}";
+
+    /// <summary>
+    /// O ticket com o rateio (GAC-1171, rateio): "123 — 35.000,000 (000100: 20.000,000; 000101:
+    /// 15.000,000)". Nota ainda sem número aparece como "(sem número)". O serviço de log trunca em
+    /// 500 caracteres.
+    /// </summary>
+    public static string DescribeDischarge(
+        string ticketNumber, decimal quantity, IEnumerable<(string? InvoiceNumber, decimal Quantity)> shares)
+    {
+        var parts = shares
+            .Select(share =>
+                $"{(string.IsNullOrWhiteSpace(share.InvoiceNumber) ? "(sem número)" : share.InvoiceNumber)}: " +
+                share.Quantity.ToString("N3", PtBr))
+            .ToList();
+
+        var head = DescribeDischarge(ticketNumber, quantity);
+
+        return parts.Count == 0 ? head : $"{head} ({string.Join("; ", parts)})";
+    }
 }

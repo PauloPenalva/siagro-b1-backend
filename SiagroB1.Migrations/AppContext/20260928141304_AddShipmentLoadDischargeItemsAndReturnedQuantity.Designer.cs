@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiagroB1.Infra.Context;
 
@@ -11,9 +12,11 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260928141304_AddShipmentLoadDischargeItemsAndReturnedQuantity")]
+    partial class AddShipmentLoadDischargeItemsAndReturnedQuantity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -130,377 +133,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("CardCode");
 
                     b.ToTable("BUSINESS_PARTNERS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartnerSignatory", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("CardCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(15) NOT NULL");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<string>("TaxId")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("CardCode");
-
-                    b.HasIndex("CardCode", "Email")
-                        .IsUnique();
-
-                    b.ToTable("BUSINESS_PARTNER_SIGNATORIES");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.CompanySignatory", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14)");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<string>("TaxId")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchCode");
-
-                    b.HasIndex("Email")
-                        .IsUnique();
-
-                    b.ToTable("COMPANY_SIGNATORIES");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraft", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("BodyHtml")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(MAX) NOT NULL");
-
-                    b.Property<string>("BranchCode")
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("ContractCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<Guid?>("DocNumberKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("DraftType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ExternalDocumentId")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<DateTime?>("LastCheckedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LastError")
-                        .HasColumnType("VARCHAR(1000)");
-
-                    b.Property<string>("PlaceholdersJson")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(MAX) NOT NULL");
-
-                    b.Property<string>("Provider")
-                        .HasColumnType("VARCHAR(20)");
-
-                    b.Property<Guid?>("PurchaseContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<Guid?>("SalesContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("SentAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Sequence")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("SignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("SignedAttachmentKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("TemplateKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("BranchCode");
-
-                    b.HasIndex("DocNumberKey");
-
-                    b.HasIndex("ExternalDocumentId")
-                        .IsUnique()
-                        .HasFilter("[ExternalDocumentId] IS NOT NULL");
-
-                    b.HasIndex("PurchaseContractKey");
-
-                    b.HasIndex("SalesContractKey");
-
-                    b.HasIndex("TemplateKey");
-
-                    b.HasIndex("PurchaseContractKey", "SalesContractKey", "Sequence")
-                        .IsUnique();
-
-                    b.ToTable("CONTRACT_DRAFTS", t =>
-                        {
-                            t.HasCheckConstraint("CK_CONTRACT_DRAFTS_ONE_CONTRACT", "([PurchaseContractKey] IS NULL AND [SalesContractKey] IS NOT NULL) OR ([PurchaseContractKey] IS NOT NULL AND [SalesContractKey] IS NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraftSigner", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("DraftKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<string>("LastMessage")
-                        .HasColumnType("VARCHAR(500)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Side")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("SignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TaxId")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(14) NOT NULL");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("DraftKey");
-
-                    b.ToTable("CONTRACT_DRAFT_SIGNERS");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractTemplate", b =>
-                {
-                    b.Property<Guid>("Key")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("BodyHtml")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(MAX) NOT NULL");
-
-                    b.Property<DateTime?>("CanceledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CanceledBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<int>("ContractType")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(100) NOT NULL");
-
-                    b.Property<int>("RowId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("Name")
-                        .IsUnique();
-
-                    b.ToTable("CONTRACT_TEMPLATES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.CostCenter", b =>
@@ -5465,66 +5097,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("BusinessPartner");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.CompanySignatory", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Branch");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraft", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
-                        .WithMany()
-                        .HasForeignKey("BranchCode")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
-                        .WithMany()
-                        .HasForeignKey("DocNumberKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
-                        .WithMany("Drafts")
-                        .HasForeignKey("PurchaseContractKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.SalesContract", "SalesContract")
-                        .WithMany("Drafts")
-                        .HasForeignKey("SalesContractKey")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("SiagroB1.Domain.Entities.ContractTemplate", "Template")
-                        .WithMany()
-                        .HasForeignKey("TemplateKey")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("DocNumber");
-
-                    b.Navigation("PurchaseContract");
-
-                    b.Navigation("SalesContract");
-
-                    b.Navigation("Template");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraftSigner", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.ContractDraft", "Draft")
-                        .WithMany("Signers")
-                        .HasForeignKey("DraftKey")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Draft");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.DocNumber", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -6796,11 +6368,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Addresses");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraft", b =>
-                {
-                    b.Navigation("Signers");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
                 {
                     b.Navigation("ChangeLogs");
@@ -6843,8 +6410,6 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Navigation("CommentEntries");
 
-                    b.Navigation("Drafts");
-
                     b.Navigation("PriceFixations");
 
                     b.Navigation("QualityParameters");
@@ -6876,8 +6441,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("CommentEntries");
 
                     b.Navigation("DeliveryLocations");
-
-                    b.Navigation("Drafts");
 
                     b.Navigation("PriceFixations");
 

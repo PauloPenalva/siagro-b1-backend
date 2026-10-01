@@ -141,6 +141,13 @@ public class SalesInvoicesConfirmService(
             invoice.ApprovedBy = userName;
             invoice.ApprovedAt = DateTime.Now;
 
+            // GAC-1171 (rateio): a quantidade devolvida da ORIGEM nasce aqui, com a devolução já
+            // Confirmada no rastreador. A Recusa de carga passa por este ponto, e o recálculo da
+            // carga (loadHook, logo abaixo) já enxerga o valor novo.
+            if (invoice.InvoiceType == SalesInvoiceType.Return)
+                await SalesInvoicesRecalculateReturnedService.RecalculateAsync(
+                    db.Context, invoice.SalesInvoiceOriginKey);
+
             await db.SaveChangesAsync();
 
             // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.

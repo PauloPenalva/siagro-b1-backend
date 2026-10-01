@@ -13,11 +13,11 @@ namespace SiagroB1.Application.Tests.SalesInvoices;
 /// GAC-1171: excluir a nota de saída — ou só uma linha dela — com ticket de descarga registrado.
 /// </summary>
 /// <remarks>
-/// As quatro FKs de SHIPMENT_LOAD_DISCHARGES são <c>NoAction</c> de propósito: o ticket é a
-/// evidência física que libera o pagamento do frete e não pode ser levado embora junto com o
-/// documento. Sem guard, o banco real devolve erro 547, a transação rola atrás e o usuário recebe
-/// um 500 de corpo vazio — o caminho é real porque registrar ticket em nota <c>Pending</c> é
-/// permitido e é exatamente a nota <c>Pending</c> que o delete aceita.
+/// As FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS para a nota e para a linha são <c>NoAction</c> de
+/// propósito: o ticket é a evidência física que libera o pagamento do frete e não pode ser levado
+/// embora junto com o documento. Sem guard, o banco real devolve erro 547, a transação rola atrás e
+/// o usuário recebe um 500 de corpo vazio — o caminho é real porque o ticket nasce em nota
+/// Confirmada e o estorno da confirmação a devolve a <c>Pending</c>, que é a nota que o delete aceita.
 /// <para>
 /// ⚠️ O provider InMemory NÃO aplica FK: sem o guard estes testes passariam em verde e a falha só
 /// apareceria em produção. É o guard, e não o banco, que este arquivo verifica.
@@ -82,17 +82,31 @@ public class SalesInvoicesDeleteDischargeGuardTests
         await _db.Context.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Ticket gravado direto, sobre a nota PENDENTE. Pela tela ele só nasce em nota Confirmada; o
+    /// caminho real até aqui é estornar a confirmação depois do ticket.
+    /// </summary>
     private async Task RegisterTicketAsync()
     {
-        var create = new ShipmentLoadDischargesCreateService(
-            _db.Context,
-            new ShipmentLoadDischargesRecalculateService(_db.Context),
-            new ShipmentLoadsChangeLogService(_db.Context),
-            NullLogger<ShipmentLoadDischargesCreateService>.Instance);
+        var discharge = new ShipmentLoadDischarge
+        {
+            Key = Guid.NewGuid(),
+            ShipmentLoadKey = _load.Key,
+            TicketNumber = "T-1",
+            DischargeDate = new DateTime(2026, 9, 17),
+            DischargedQuantity = 39500m,
+        };
 
-        await create.ExecuteAsync(
-            _load.Key, _invoice.Key, _item.Key!.Value,
-            "T-1", new DateTime(2026, 9, 17), 39500m, null, null, "paulo");
+        discharge.Items.Add(new ShipmentLoadDischargeItem
+        {
+            Key = Guid.NewGuid(),
+            SalesInvoiceKey = _invoice.Key,
+            SalesInvoiceItemKey = _item.Key!.Value,
+            Quantity = 39500m,
+        });
+
+        _db.Context.ShipmentLoadsDischarges.Add(discharge);
+        await _db.Context.SaveChangesAsync();
     }
 
     [Fact]
@@ -108,6 +122,7 @@ public class SalesInvoicesDeleteDischargeGuardTests
 
         // O ticket continua lá: excluí-lo junto destruiria a evidência física do frete.
         Assert.Single(_db.Context.ShipmentLoadsDischarges);
+        Assert.Single(_db.Context.ShipmentLoadsDischargesItems);
         Assert.NotNull(_db.Context.SalesInvoices.FirstOrDefault(x => x.Key == _invoice.Key));
     }
 
@@ -123,6 +138,7 @@ public class SalesInvoicesDeleteDischargeGuardTests
         Assert.Contains("ticket de descarga", exception.Message);
 
         Assert.Single(_db.Context.ShipmentLoadsDischarges);
+        Assert.Single(_db.Context.ShipmentLoadsDischargesItems);
         Assert.NotNull(_db.Context.SalesInvoicesItems.FirstOrDefault(x => x.Key == _item.Key));
     }
 

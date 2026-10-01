@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -10,8 +11,8 @@ using SiagroB1.Domain.Exceptions;
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
 /// <summary>
-/// Registra um ticket de descarga na carga (GAC-1171), opcionalmente já com o arquivo do ticket
-/// anexado no mesmo diálogo.
+/// Registra um ticket de descarga na carga (GAC-1171), rateado entre linhas de documentos de saída,
+/// opcionalmente já com o arquivo do ticket anexado no mesmo diálogo.
 /// </summary>
 public class ShipmentLoadsDischargeCreateController(
     ShipmentLoadDischargesCreateService service,
@@ -28,10 +29,11 @@ public class ShipmentLoadsDischargeCreateController(
             // ⚠️ parameters chega NULO quando nenhum parâmetro do EDM é enviado, e o TryGetValue
             // de um parâmetro anulável devolve true com valor nulo — daí as duas checagens.
             if (parameters is null ||
-                !parameters.TryGetValue("LoadKey", out var loadKeyObj) || loadKeyObj is null ||
-                !parameters.TryGetValue("SalesInvoiceKey", out var invoiceKeyObj) || invoiceKeyObj is null ||
-                !parameters.TryGetValue("SalesInvoiceItemKey", out var itemKeyObj) || itemKeyObj is null)
-                return BadRequest("Carga, documento de saída e item são obrigatórios.");
+                !parameters.TryGetValue("LoadKey", out var loadKeyObj) || loadKeyObj is null)
+                return BadRequest("Carga não informada.");
+
+            if (!ShipmentLoadActionParameters.TryReadDistribution(parameters, out var lines, out var distributionError))
+                return BadRequest(distributionError);
 
             parameters.TryGetValue("TicketNumber", out var ticketObj);
             parameters.TryGetValue("DischargeDate", out var dateObj);
@@ -49,6 +51,13 @@ public class ShipmentLoadsDischargeCreateController(
             // Só aqui a ausência cai no dia de hoje: registrar sem informar data significa "hoje".
             // Na alteração isso seria destrutivo — ver ShipmentLoadsDischargeUpdateController.
             var dischargeDate = parsedDate ?? DateTime.Now.Date;
+
+            var quantity = Convert.ToDecimal(quantityObj ?? 0d, CultureInfo.InvariantCulture);
+
+            // Rateio conferido ANTES do anexo: rateio que não fecha é o erro mais provável deste
+            // diálogo, e cada tentativa recusada deixaria um anexo órfão na aba.
+            ShipmentLoadDischargeRules.NormalizeDistribution(
+                ShipmentLoadDischargeRules.RoundQuantity(quantity), lines);
 
             var loadKey = (Guid) loadKeyObj;
             var userName = User.Identity?.Name ?? "Unknown";
@@ -78,16 +87,23 @@ public class ShipmentLoadsDischargeCreateController(
 
             await service.ExecuteAsync(
                 loadKey,
-                (Guid) invoiceKeyObj,
-                (Guid) itemKeyObj,
                 ticketObj as string,
                 dischargeDate,
-                Convert.ToDecimal(quantityObj ?? 0d, CultureInfo.InvariantCulture),
+                quantity,
+                lines,
                 commentsObj as string,
                 attachmentKey,
                 userName);
 
             return Ok();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A carga tem RowVersion e o ticket agora escreve nela (soma e situação): duas gravações
+            // simultâneas na mesma carga derrubam a segunda aqui, e não com a mensagem crua do EF.
+            return BadRequest(
+                "A carga foi alterada por outro usuário enquanto a descarga era gravada. " +
+                "Reabra a tela e tente novamente.");
         }
         catch (Exception e)
         {

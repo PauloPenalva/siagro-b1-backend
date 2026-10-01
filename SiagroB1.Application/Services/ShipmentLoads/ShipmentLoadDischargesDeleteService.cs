@@ -13,6 +13,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 public class ShipmentLoadDischargesDeleteService(
     AppDbContext context,
     ShipmentLoadDischargesRecalculateService recalculate,
+    ShipmentLoadsClosureHookService closureHook,
     ShipmentLoadsChangeLogService changeLog,
     ILogger<ShipmentLoadDischargesDeleteService> logger)
 {
@@ -21,6 +22,8 @@ public class ShipmentLoadDischargesDeleteService(
         try
         {
             var discharge = await context.ShipmentLoadsDischarges
+                .Include(x => x.Items)
+                .ThenInclude(x => x.SalesInvoice)
                 .FirstOrDefaultAsync(x => x.Key == dischargeKey)
                 ?? throw new NotFoundException("Registro de descarga não encontrado.");
 
@@ -30,20 +33,23 @@ public class ShipmentLoadDischargesDeleteService(
 
             ShipmentLoadDischargeRules.EnsureLoadAcceptsChanges(load);
 
-            var itemKey = discharge.SalesInvoiceItemKey;
+            // Lidas ANTES do Remove: depois dele o recálculo não saberia quais linhas zerar.
+            var itemKeys = discharge.Items.Select(x => x.SalesInvoiceItemKey).ToList();
 
+            var before = ShipmentLoadChangeLogFields.DescribeDischarge(
+                discharge.TicketNumber,
+                discharge.DischargedQuantity,
+                ShipmentLoadDischargesCreateService.Describe(discharge.Items).ToList());
+
+            // Explícito, além do Cascade do banco: o EF InMemory dos testes não aplica FK.
+            context.ShipmentLoadsDischargesItems.RemoveRange(discharge.Items);
             context.ShipmentLoadsDischarges.Remove(discharge);
 
-            changeLog.Register(
-                load.Key,
-                ShipmentLoadChangeLogFields.Discharge,
-                ShipmentLoadChangeLogFields.DescribeDischarge(
-                    discharge.TicketNumber, discharge.DischargedQuantity),
-                null,
-                userName);
+            changeLog.Register(load.Key, ShipmentLoadChangeLogFields.Discharge, before, null, userName);
 
-            if (itemKey.HasValue)
-                await recalculate.RecalculateAsync(load.Key, [itemKey.Value]);
+            await recalculate.RecalculateAsync(load.Key, itemKeys);
+
+            await closureHook.ApplyAsync(load.Key, userName);
 
             await context.SaveChangesAsync();
         }
