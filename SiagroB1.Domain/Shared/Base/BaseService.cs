@@ -1,4 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Exceptions;
 
@@ -77,7 +79,7 @@ namespace SiagroB1.Domain.Shared.Base
         {
             try
             {
-                _context.Entry(entity).State = EntityState.Modified;
+                BaseServiceMarker.MarkForUpdate(_context.Entry(entity));
                 await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
