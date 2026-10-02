@@ -95,6 +95,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
     {
         UsageEffectWriter.ValidateEffects(entity);
         ValidateDirectionRules(entity);
+        UsageTaxationValidator.Validate(entity);
 
         var usage = new Usage { Name = entity.Name };
         UsageTaxationMapper.CopyToEntity(entity, usage);
@@ -117,6 +118,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
     {
         UsageEffectWriter.ValidateEffects(entity);
         ValidateDirectionRules(entity);
+        UsageTaxationValidator.Validate(entity);
 
         var usage = await db.Context.Usages.FirstOrDefaultAsync(x => x.Code == key);
 
