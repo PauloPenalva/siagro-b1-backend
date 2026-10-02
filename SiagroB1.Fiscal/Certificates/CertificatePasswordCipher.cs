@@ -17,7 +17,7 @@ public sealed class CertificatePasswordCipher
         "Configure no servidor a chave Nfe:CertificateKey (base64 de 32 bytes) antes de enviar o certificado ou emitir NF-e.";
 
     private const string DecryptFailedMessage =
-        "Não foi possível abrir a senha do certificado: a chave Nfe:CertificateKey do servidor mudou. Envie o certificado de novo.";
+        "Não foi possível abrir a senha do certificado: a chave Nfe:CertificateKey do servidor mudou ou o dado gravado está corrompido. Envie o certificado de novo.";
 
     private const int NonceSize = 12;
     private const int TagSize = 16;
@@ -75,9 +75,9 @@ public sealed class CertificatePasswordCipher
             using var aes = new AesGcm(_key, TagSize);
             aes.Decrypt(nonce, cipher, tag, plain);
         }
-        catch (CryptographicException)
+        catch (CryptographicException e)
         {
-            throw new DefaultException(DecryptFailedMessage);
+            throw new DefaultException($"{DecryptFailedMessage} (detalhe técnico: {e.Message})");
         }
 
         return Encoding.UTF8.GetString(plain);

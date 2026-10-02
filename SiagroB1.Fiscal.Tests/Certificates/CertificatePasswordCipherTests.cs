@@ -36,6 +36,28 @@ public class CertificatePasswordCipherTests
         Assert.Contains("Envie o certificado de novo", ex.Message);
     }
 
+    [Fact]
+    public void Tampered_payload_cannot_be_decrypted()
+    {
+        var cipher = CertificatePasswordCipher.FromBase64(KeyBase64);
+        var payload = cipher.Encrypt("abc");
+        payload[^1] ^= 0xFF;
+
+        var ex = Assert.Throws<DefaultException>(() => cipher.Decrypt(payload));
+
+        Assert.Contains("corrompido", ex.Message);
+    }
+
+    [Fact]
+    public void Truncated_payload_cannot_be_decrypted()
+    {
+        var cipher = CertificatePasswordCipher.FromBase64(KeyBase64);
+
+        var ex = Assert.Throws<DefaultException>(() => cipher.Decrypt(new byte[10]));
+
+        Assert.Contains("Envie o certificado de novo", ex.Message);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

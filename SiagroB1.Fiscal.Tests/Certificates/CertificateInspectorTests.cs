@@ -46,6 +46,16 @@ public class CertificateInspectorTests
     }
 
     [Fact]
+    public void Wrong_password_message_keeps_the_technical_detail()
+    {
+        var pfx = TestCertificates.CreatePfx();
+
+        var ex = Assert.Throws<DefaultException>(() => CertificateInspector.Inspect(pfx, "errada"));
+
+        Assert.Contains("detalhe técnico", ex.Message);
+    }
+
+    [Fact]
     public void Not_a_pfx_is_a_business_error()
     {
         Assert.Throws<DefaultException>(() => CertificateInspector.Inspect([1, 2, 3], "x"));

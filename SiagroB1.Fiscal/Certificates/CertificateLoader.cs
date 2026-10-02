@@ -21,9 +21,10 @@ public static class CertificateLoader
         {
             return X509CertificateLoader.LoadPkcs12(pfx, password, flags);
         }
-        catch (CryptographicException)
+        catch (CryptographicException e)
         {
-            throw new DefaultException("O arquivo não é um certificado A1 (.pfx) válido ou a senha está errada.");
+            // Mantém a causa: falha de contêiner de chave no servidor também cai aqui.
+            throw new DefaultException($"O arquivo não é um certificado A1 (.pfx) válido ou a senha está errada (detalhe técnico: {e.Message}).");
         }
     }
 }
