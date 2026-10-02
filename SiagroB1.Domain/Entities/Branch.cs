@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities
 {
@@ -29,5 +30,18 @@ namespace SiagroB1.Domain.Entities
         /// </summary>
         [Column(TypeName = "VARCHAR(2)")]
         public string? StateCode { get; set; }
+
+        /// <summary>
+        /// Regime tributário (CRT) da NF-e. Decide CST (CRT 2/3) ou CSOSN (CRT 1/4) na linha.
+        /// Nulável: as filiais existentes não têm o dado, e só a emissão de NF-e o exige.
+        /// </summary>
+        public TaxRegime? TaxRegime { get; set; }
+
+        /// <summary>
+        /// "Emite NF-e pelo Siagro". Junto com Erp=STANDALONE é o que liga o cálculo de tributos
+        /// e a trava da linha do documento de saída — ver <c>TaxCalculationGate</c>. Em SAPB1 é
+        /// oculta e ignorada.
+        /// </summary>
+        public bool IssuesNfe { get; set; }
     }
 }
