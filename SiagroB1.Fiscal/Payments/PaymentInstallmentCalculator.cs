@@ -43,6 +43,9 @@ public static class PaymentInstallmentCalculator
     /// <summary>O grupo <c>dup</c> da NF-e aceita até 120 ocorrências.</summary>
     public const int MaxInstallments = 120;
 
+    /// <summary>Valor máximo de dias na contagem da condição de pagamento.</summary>
+    public const int MaxDay = 999;
+
     public static IReadOnlyList<int> ParseDays(string? days)
     {
         if (string.IsNullOrWhiteSpace(days))
@@ -55,6 +58,9 @@ public static class PaymentInstallmentCalculator
             if (!int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var day))
                 throw new DefaultException(
                     $"Dia inválido na condição de pagamento: \"{part}\". Use números inteiros separados por vírgula.");
+
+            if (day > MaxDay)
+                throw new DefaultException($"Os dias da condição de pagamento vão de 0 a {MaxDay}.");
 
             if (result.Count > 0 && day <= result[^1])
                 throw new DefaultException("Os dias da condição de pagamento devem ser crescentes (ex.: 30,60,90).");

@@ -95,6 +95,7 @@ public class PaymentInstallmentCalculatorTests
     [InlineData("-1")]
     [InlineData("30;60")]
     [InlineData("1.5")]
+    [InlineData("1000")]
     public void Invalid_days_are_rejected(string days)
     {
         Assert.Throws<DefaultException>(() =>
@@ -114,5 +115,14 @@ public class PaymentInstallmentCalculatorTests
             PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "05", 100m, Issue));
 
         Assert.Contains("05", ex.Message);
+    }
+
+    [Fact]
+    public void Day_above_999_is_rejected_with_a_business_message()
+    {
+        var ex = Assert.Throws<DefaultException>(() =>
+            PaymentInstallmentCalculator.ParseDays("30,1000"));
+
+        Assert.Contains("0 a 999", ex.Message);
     }
 }
