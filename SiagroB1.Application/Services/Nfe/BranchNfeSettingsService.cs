@@ -124,12 +124,17 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
             throw new DefaultException("Envie o certificado digital da filial na Configuração da NF-e.");
 
         var branch = await db.Context.Branchs.AsNoTracking().FirstAsync(b => b.Code == branchCode);
+
+        // Valida a UF antes de abrir o certificado: o que abre e não é entregue ninguém descarta.
+        if (string.IsNullOrWhiteSpace(branch.StateCode))
+            throw new DefaultException($"A filial {branchCode} está sem UF.");
+
         var password = options.Cipher().Decrypt(settings.CertificatePasswordCipher);
         var certificate = CertificateLoader.Load(settings.CertificatePfx, password);
 
         return new NfeServiceContext(settings, new NfeServiceSettings(
             environment ?? settings.Environment,
-            branch.StateCode ?? throw new DefaultException($"A filial {branchCode} está sem UF."),
+            branch.StateCode,
             certificate,
             NfeServiceSettings.DefaultSchemasDirectory,
             options.TimeoutMilliseconds,

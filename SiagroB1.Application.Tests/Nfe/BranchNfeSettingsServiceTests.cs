@@ -185,6 +185,20 @@ public class BranchNfeSettingsServiceTests
     }
 
     [Fact]
+    public async Task Open_without_branch_state_is_refused_before_loading_the_certificate()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.UploadCertificateAsync("01", TestCertificates.CreatePfx(), TestCertificates.Password, "tester");
+        (await db.Context.Branchs.SingleAsync()).StateCode = null;
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.TestConnectionAsync("01"));
+
+        Assert.Contains("sem UF", ex.Message);
+    }
+
+    [Fact]
     public async Task Test_connection_without_certificate_is_refused()
     {
         var db = await SeedAsync();
