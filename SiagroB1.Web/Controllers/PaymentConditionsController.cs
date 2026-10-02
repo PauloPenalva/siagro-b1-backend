@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.PaymentConditions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
-using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Web.Controllers;
 

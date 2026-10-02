@@ -4,7 +4,7 @@ using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Payments;
-using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Web.Functions.PaymentConditions;
 

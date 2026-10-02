@@ -1,10 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Dtos.Common;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Security.Services;
 
-public class MenuService(CommonDbContext context)
+public class MenuService(CommonDbContext context, IConfiguration configuration)
 {
     public async Task<NavigationResponseDto> GetMenuAsync(Guid userId)
     {
@@ -49,7 +51,11 @@ public class MenuService(CommonDbContext context)
                 }
             ).ToListAsync();
         
+        // Telas só do STANDALONE somem nos demais modos — mesmo teste positivo de ErpMode.
+        var standalone = ErpMode.IsStandalone(configuration);
+
         var menus = data
+            .Where(x => standalone || !x.Menu.StandaloneOnly)
             .Select(x => new MenuNode
             {
                 Key = x.Menu.Key,

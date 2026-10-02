@@ -24,6 +24,12 @@ public class MenuItem
     
     public int Order { get; set; }
 
+    /// <summary>
+    /// Item que só existe no modo STANDALONE (ex.: Condições de Pagamento, Configuração da NF-e).
+    /// O serviço de menu do Gateway o esconde nos demais modos.
+    /// </summary>
+    public bool StandaloneOnly { get; set; }
+
     [ForeignKey(nameof(Parent))]
     public string? ParentKey { get; set; }
     
