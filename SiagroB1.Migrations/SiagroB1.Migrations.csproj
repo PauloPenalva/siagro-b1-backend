@@ -17,6 +17,10 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Seeds\municipalities.txt" LogicalName="SiagroB1.Migrations.Seeds.municipalities.txt" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Folder Include="CommonContext\" />
     </ItemGroup>
 

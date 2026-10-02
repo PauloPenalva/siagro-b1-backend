@@ -51,6 +51,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
+        modelBuilder.EntitySet<Municipality>("Municipalities");
 
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
