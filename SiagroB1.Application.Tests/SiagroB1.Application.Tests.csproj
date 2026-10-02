@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\SiagroB1.Fiscal.Tests\Support\TestCertificates.cs" Link="Support\TestCertificates.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

@@ -10,7 +10,9 @@ using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.PaymentConditions;
 using SiagroB1.Application.Services.MenuItem;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Notifications;
+using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Application.Services.OwnershipTransfers;
 using SiagroB1.Application.Services.Permissions;
@@ -338,6 +340,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<MunicipalityService>();
         services.AddScoped<PaymentConditionsService>();
+        services.AddScoped<NfeOptions>();
+        services.AddScoped<BranchNfeSettingsService>();
+        // Sem estado: uma instância serve a todos (a configuração da Zeus é criada por chamada).
+        services.AddSingleton<INfeSefazClient, ZeusNfeSefazClient>();
         services.AddScoped<TaxCalculationGate>();
         services.AddScoped<SalesInvoicesTaxApplyService>();
         services.AddScoped<SalesInvoicesCreateService>();

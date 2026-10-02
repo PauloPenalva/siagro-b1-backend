@@ -64,6 +64,28 @@ public static class ODataConfigurations
         paymentConditionsPreview.Parameter<DateOnly>("IssueDate");
         paymentConditionsPreview.ReturnsCollection<PaymentInstallmentPreviewDto>();
 
+        // Configuração da NF-e por filial (NF-e STANDALONE). Senha e .pfx nunca saem.
+        var branchNfeSettingsGet = modelBuilder.Function("BranchNfeSettingsGet");
+        branchNfeSettingsGet.Parameter<string>("BranchCode");
+        branchNfeSettingsGet.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsSave = modelBuilder.Action("BranchNfeSettingsSave");
+        branchNfeSettingsSave.Parameter<string>("BranchCode");
+        branchNfeSettingsSave.Parameter<int>("Environment");
+        branchNfeSettingsSave.Parameter<int>("Series");
+        branchNfeSettingsSave.Parameter<int>("NextNumber");
+        branchNfeSettingsSave.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsUploadCertificate = modelBuilder.Action("BranchNfeSettingsUploadCertificate");
+        branchNfeSettingsUploadCertificate.Parameter<string>("BranchCode");
+        branchNfeSettingsUploadCertificate.Parameter<string>("Pfx");
+        branchNfeSettingsUploadCertificate.Parameter<string>("Password");
+        branchNfeSettingsUploadCertificate.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsTestConnection = modelBuilder.Action("BranchNfeSettingsTestConnection");
+        branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
+        branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");
