@@ -21,6 +21,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         }
 
         ValidateNfeIssuance(entity);
+        await ValidateIssuerFieldsAsync(entity);
 
         await context.Branchs.AddAsync(entity);
         await context.SaveChangesAsync();
@@ -58,6 +59,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     public async Task<Branch?> UpdateAsync(string key, Branch entity)
     {
         ValidateNfeIssuance(entity);
+        await ValidateIssuerFieldsAsync(entity);
 
         context.Entry(entity).State = EntityState.Modified;
 
@@ -93,6 +95,31 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         if (entity.TaxRegime is null || string.IsNullOrWhiteSpace(entity.StateCode))
             throw new DefaultException(
                 "Para emitir NF-e pelo Siagro, informe o regime tributário e a UF da filial.");
+    }
+
+    /// <summary>
+    /// Coerência dos dados do emitente (só STANDALONE): o município dá o cUF/cMun do XML e tem de
+    /// ser da UF da filial; o CEP vai sem máscara. Nada aqui é obrigatório — quem exige o cadastro
+    /// completo é a prontidão da emissão.
+    /// </summary>
+    private async Task ValidateIssuerFieldsAsync(Branch entity)
+    {
+        if (!ErpMode.IsStandalone(configuration))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(entity.ZipCode) && !System.Text.RegularExpressions.Regex.IsMatch(entity.ZipCode, "^[0-9]{8}$"))
+            throw new DefaultException("O CEP da filial deve ter 8 dígitos, sem traço.");
+
+        if (string.IsNullOrWhiteSpace(entity.MunicipalityCode))
+            return;
+
+        var municipality = await context.Municipalities.AsNoTracking()
+                               .FirstOrDefaultAsync(m => m.Code == entity.MunicipalityCode)
+                           ?? throw new DefaultException($"Município {entity.MunicipalityCode} não encontrado.");
+
+        if (!string.Equals(municipality.StateAbbreviation, entity.StateCode, StringComparison.OrdinalIgnoreCase))
+            throw new DefaultException(
+                $"O município {municipality.Name} é de {municipality.StateAbbreviation}, mas a UF da filial é {entity.StateCode}.");
     }
 
     private bool EntityExists(string key)

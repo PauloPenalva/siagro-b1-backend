@@ -43,5 +43,45 @@ namespace SiagroB1.Domain.Entities
         /// oculta e ignorada.
         /// </summary>
         public bool IssuesNfe { get; set; }
+        // --- Emitente da NF-e STANDALONE (ocultos e não validados em SAPB1). ---
+
+        /// <summary>Razão social do emitente (<c>emit/xNome</c>). O <see cref="BranchName"/> é rótulo interno.</summary>
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? LegalName { get; set; }
+
+        /// <summary>Nome fantasia (<c>xFant</c>).</summary>
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? TradeName { get; set; }
+
+        /// <summary>Inscrição estadual (<c>IE</c>).</summary>
+        [Column(TypeName = "VARCHAR(14)")]
+        public string? StateRegistration { get; set; }
+
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? Street { get; set; }
+
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? StreetNumber { get; set; }
+
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? Complement { get; set; }
+
+        /// <summary>Bairro (<c>xBairro</c>).</summary>
+        [Column(TypeName = "VARCHAR(60)")]
+        public string? District { get; set; }
+
+        /// <summary>Município do IBGE: dá o <c>cMun</c>/<c>xMun</c> e, nos 2 primeiros dígitos, o <c>cUF</c>.</summary>
+        [Column(TypeName = "VARCHAR(7)")]
+        [ForeignKey(nameof(Municipality))]
+        public string? MunicipalityCode { get; set; }
+
+        public virtual Municipality? Municipality { get; set; }
+
+        /// <summary>CEP, 8 dígitos sem máscara.</summary>
+        [Column(TypeName = "VARCHAR(8)")]
+        public string? ZipCode { get; set; }
+
+        [Column(TypeName = "VARCHAR(14)")]
+        public string? Phone { get; set; }
     }
 }
