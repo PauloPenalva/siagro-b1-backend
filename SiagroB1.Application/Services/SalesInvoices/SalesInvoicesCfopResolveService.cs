@@ -71,8 +71,11 @@ public class SalesInvoicesCfopResolveService(
     /// Os dois modos entregam coleções diferentes — em SAPB1 o serviço de parceiro já filtra
     /// o endereço de faturamento e devolve um só; em STANDALONE devolve todos. Escolher aqui,
     /// e não confiar na ordem da coleção, é o que faz o CFOP sair igual nos dois.
+    ///
+    /// Reaproveitado pelo cálculo de tributos (<see cref="SalesInvoicesTaxApplyService"/>): a mesma
+    /// UF tem de decidir o CFOP e o bloco de ICMS.
     /// </summary>
-    private static string? ResolvePartnerState(BusinessPartnerModel partner)
+    internal static string? ResolvePartnerState(BusinessPartnerModel partner)
     {
         var withState = partner.Addresses
             .Where(a => !string.IsNullOrWhiteSpace(a.State))
