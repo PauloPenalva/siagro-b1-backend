@@ -87,6 +87,12 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     [Column(TypeName = "VARCHAR(500) DEFAULT ''")]
     public string? TaxComments { get; set; }
+
+    /// <summary>
+    /// Condição de pagamento (NF-e STANDALONE): cobr/dup e pag do XML. Sem FK. Na criação, vazia,
+    /// recebe o padrão do cliente; obrigatória só na emissão.
+    /// </summary>
+    public int? PaymentConditionCode { get; set; }
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     

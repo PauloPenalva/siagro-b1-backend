@@ -85,7 +85,12 @@ public class SalesInvoicesCreateService(
             salesInvoice.CreatedBy = userName;
             salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
-            salesInvoice.CardName = (await businessPartnerService.GetByIdAsync(salesInvoice.CardCode))?.CardName;
+            var customer = await businessPartnerService.GetByIdAsync(salesInvoice.CardCode);
+            salesInvoice.CardName = customer?.CardName;
+
+            // Condição de pagamento padrão do cliente quando o documento chega sem ela — inclusive
+            // no faturamento de romaneio. Em SAPB1 o parceiro não tem o campo: segue nulo, como hoje.
+            salesInvoice.PaymentConditionCode ??= customer?.PaymentConditionCode;
             salesInvoice.TruckingCompanyName =
                 salesInvoice.TruckingCompanyCode != null
                     ? (await businessPartnerService.GetByIdAsync(salesInvoice.TruckingCompanyCode))?.CardName

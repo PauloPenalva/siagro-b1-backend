@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Models;
@@ -52,6 +53,16 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<Municipality>("Municipalities");
+        modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
+
+        // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
+        var paymentConditionsPreview = modelBuilder.Function("PaymentConditionsPreview");
+        paymentConditionsPreview.Parameter<string>("Days");
+        paymentConditionsPreview.Parameter<int>("StartRule");
+        paymentConditionsPreview.Parameter<string>("PaymentMeans");
+        paymentConditionsPreview.Parameter<decimal>("Total");
+        paymentConditionsPreview.Parameter<DateOnly>("IssueDate");
+        paymentConditionsPreview.ReturnsCollection<PaymentInstallmentPreviewDto>();
 
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");

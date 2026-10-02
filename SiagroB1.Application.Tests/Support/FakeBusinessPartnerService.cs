@@ -19,10 +19,14 @@ public sealed class FakeBusinessPartnerService(
     Dictionary<string, string>? states = null,
     Dictionary<string, List<AddressModel>>? addresses = null,
     Dictionary<string, string>? taxIds = null,
-    bool failOnLoadSuppliers = false) : IBusinessPartnerService
+    bool failOnLoadSuppliers = false,
+    Dictionary<string, int>? paymentConditions = null) : IBusinessPartnerService
 {
     /// <summary>CNPJ/CPF por CardCode — usado pela importação do XML, que resolve o emitente.</summary>
     private readonly Dictionary<string, string> _taxIds = taxIds ?? new();
+
+    /// <summary>Condição de pagamento padrão por CardCode — o padrão do documento de saída.</summary>
+    private readonly Dictionary<string, int> _paymentConditions = paymentConditions ?? new();
 
     private readonly Dictionary<string, string> _names = names ?? new();
     private readonly Dictionary<string, SupplierInfo> _suppliers = suppliers ?? new();
@@ -43,6 +47,7 @@ public sealed class FakeBusinessPartnerService(
                 CardName = name,
                 TaxId = _taxIds.GetValueOrDefault(code),
                 Addresses = ResolveAddresses(code),
+                PaymentConditionCode = _paymentConditions.TryGetValue(code, out var paymentCondition) ? paymentCondition : null,
             }
             : null);
 

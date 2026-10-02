@@ -8,6 +8,7 @@ using SiagroB1.Application.Services.ContractDrafts;
 using SiagroB1.Application.Services.ContractTemplates;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.PaymentConditions;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -336,6 +337,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<MunicipalityService>();
+        services.AddScoped<PaymentConditionsService>();
         services.AddScoped<TaxCalculationGate>();
         services.AddScoped<SalesInvoicesTaxApplyService>();
         services.AddScoped<SalesInvoicesCreateService>();

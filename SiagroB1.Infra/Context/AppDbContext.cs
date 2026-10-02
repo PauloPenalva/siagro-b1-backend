@@ -45,6 +45,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UsageEffect> UsageEffects { get; set; }
     public DbSet<IbsCbsRate> IbsCbsRates { get; set; }
     public DbSet<Municipality> Municipalities { get; set; }
+    public DbSet<PaymentCondition> PaymentConditions { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
