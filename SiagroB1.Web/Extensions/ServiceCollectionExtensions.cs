@@ -342,6 +342,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentConditionsService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
+        services.AddScoped<NfeNumberReservationService>();
+        services.AddScoped<NfeReadinessValidator>();
         // Sem estado: uma instância serve a todos (a configuração da Zeus é criada por chamada).
         services.AddSingleton<INfeSefazClient, ZeusNfeSefazClient>();
         services.AddScoped<TaxCalculationGate>();

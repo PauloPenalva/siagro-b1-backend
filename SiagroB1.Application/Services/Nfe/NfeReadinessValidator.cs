@@ -1,0 +1,170 @@
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Fiscal.Nfe;
+using SiagroB1.Infra;
+
+namespace SiagroB1.Application.Services.Nfe;
+
+/// <summary>
+/// Confere o cadastro antes de reservar número (spec §9.2 passo 2). Junta TODAS as lacunas numa
+/// mensagem só — emitente, configuração, certificado, chave do servidor, destinatário, entrega,
+/// transportadora e condição de pagamento — e devolve o cadastro carregado para a montagem.
+/// </summary>
+public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
+{
+    public async Task<NfeIssueContext> ValidateAsync(SalesInvoice invoice)
+    {
+        var problems = new List<string>();
+
+        var branch = await db.Context.Branchs.AsNoTracking().Include(b => b.Municipality)
+                         .FirstOrDefaultAsync(b => b.Code == invoice.BranchCode)
+                     ?? throw new DefaultException($"Filial {invoice.BranchCode} não encontrada.");
+
+        var branchGaps = Gaps(
+            ("razão social", branch.LegalName), ("inscrição estadual", branch.StateRegistration),
+            ("logradouro", branch.Street), ("número", branch.StreetNumber), ("bairro", branch.District),
+            ("município", branch.Municipality?.Code), ("CEP", branch.ZipCode));
+        if (!IsTaxId(branch.TaxId)) branchGaps.Insert(0, "CNPJ");
+        if (branch.TaxRegime is null) branchGaps.Add("regime tributário (CRT)");
+        Report(problems, $"Filial {branch.Code}", branchGaps);
+
+        var settings = await db.Context.BranchNfeSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == branch.Code);
+        if (settings is null)
+            problems.Add("Configuração da NF-e da filial não cadastrada");
+        else if (settings.CertificatePfx is null)
+            problems.Add("Certificado digital não enviado (Configuração da NF-e)");
+        else if (settings.CertificateValidUntil < DateTime.Now)
+            problems.Add($"Certificado digital vencido em {settings.CertificateValidUntil:dd/MM/yyyy}");
+
+        if (!options.HasCertificateKey)
+            problems.Add("Chave Nfe:CertificateKey não configurada no servidor");
+
+        var customer = await LoadPartnerAsync(invoice.CardCode);
+        var customerAddress = customer is null ? null : BillingAddress(customer);
+        if (customer is null)
+        {
+            problems.Add($"Cliente {invoice.CardCode} não encontrado");
+        }
+        else
+        {
+            var gaps = new List<string>();
+            if (!IsTaxId(customer.TaxId)) gaps.Add("CNPJ/CPF");
+            if (customer.StateRegistrationIndicator is null) gaps.Add("indicador da inscrição estadual");
+            else if (customer.StateRegistrationIndicator == StateRegistrationIndicator.Taxpayer &&
+                     string.IsNullOrWhiteSpace(customer.StateRegistration)) gaps.Add("inscrição estadual");
+            AddressGaps(gaps, customerAddress, "endereço de faturamento");
+            Report(problems, $"Cliente {customer.CardCode}", gaps);
+        }
+
+        BusinessPartner? deliveryPartner = null;
+        Address? deliveryAddress = null;
+        if (!string.IsNullOrWhiteSpace(invoice.DeliveryCardCode) && invoice.DeliveryCardCode != invoice.CardCode)
+        {
+            deliveryPartner = await LoadPartnerAsync(invoice.DeliveryCardCode);
+            deliveryAddress = deliveryPartner is null ? null : DeliveryAddress(deliveryPartner);
+
+            if (deliveryPartner is null)
+            {
+                problems.Add($"Local de entrega {invoice.DeliveryCardCode} não encontrado");
+            }
+            else
+            {
+                var gaps = new List<string>();
+                if (!IsTaxId(deliveryPartner.TaxId)) gaps.Add("CNPJ/CPF");
+                AddressGaps(gaps, deliveryAddress, "endereço");
+                Report(problems, $"Local de entrega {deliveryPartner.CardCode}", gaps);
+            }
+        }
+
+        BusinessPartner? carrier = null;
+        if (!string.IsNullOrWhiteSpace(invoice.TruckingCompanyCode))
+        {
+            carrier = await LoadPartnerAsync(invoice.TruckingCompanyCode);
+            if (carrier is null)
+                problems.Add($"Transportadora {invoice.TruckingCompanyCode} não encontrada");
+            else if (!string.IsNullOrWhiteSpace(carrier.TaxId) && !IsTaxId(carrier.TaxId))
+                problems.Add($"Transportadora {carrier.CardCode}: CNPJ/CPF");
+        }
+
+        PaymentCondition? condition = null;
+        if (invoice.PaymentConditionCode is null)
+        {
+            problems.Add("Documento: condição de pagamento");
+        }
+        else
+        {
+            condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == invoice.PaymentConditionCode);
+            if (condition is null)
+                problems.Add($"Documento: condição de pagamento {invoice.PaymentConditionCode} não encontrada");
+            else if (condition.Inactive)
+                problems.Add($"Documento: a condição de pagamento {condition.Name} está inativa");
+        }
+
+        if (problems.Count > 0)
+            throw new DefaultException("Faltam dados para emitir a NF-e:\n- " + string.Join("\n- ", problems));
+
+        var (plate, truckState) = await LoadTruckAsync(invoice.TruckCode);
+        var usageCodes = invoice.Items.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
+        var usages = await db.Context.Usages.AsNoTracking().Where(u => usageCodes.Contains(u.Code)).ToDictionaryAsync(u => u.Code);
+
+        return new NfeIssueContext(
+            branch, branch.Municipality!, settings!, customer!, customerAddress!, customerAddress!.Municipality!,
+            deliveryPartner, deliveryAddress, deliveryAddress?.Municipality,
+            carrier, carrier is null ? null : BillingAddress(carrier),
+            plate, truckState, condition!, usages);
+    }
+
+    private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>
+        db.Context.BusinessPartners.AsNoTracking()
+            .Include(p => p.Addresses).ThenInclude(a => a.Municipality)
+            .FirstOrDefaultAsync(p => p.CardCode == cardCode);
+
+    /// <summary>Mesma escolha de <c>SalesInvoicesCfopResolveService.ResolvePartnerState</c>: faturamento primeiro.</summary>
+    private static Address? BillingAddress(BusinessPartner partner) =>
+        partner.Addresses.FirstOrDefault(a =>
+            string.Equals(a.AdresType, "B", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.AddressName, "FATURAMENTO", StringComparison.OrdinalIgnoreCase))
+        ?? partner.Addresses.FirstOrDefault();
+
+    /// <summary>Local de entrega: endereço de entrega com município; senão o de faturamento.</summary>
+    private static Address? DeliveryAddress(BusinessPartner partner) =>
+        partner.Addresses.FirstOrDefault(a =>
+            string.Equals(a.AdresType, "S", StringComparison.OrdinalIgnoreCase) && a.MunicipalityCode is not null)
+        ?? BillingAddress(partner);
+
+    private async Task<(string? Plate, string? State)> LoadTruckAsync(string? truckCode)
+    {
+        if (string.IsNullOrWhiteSpace(truckCode))
+            return (null, null);
+
+        var truck = await db.Context.Trucks.AsNoTracking().Include(t => t.State).FirstOrDefaultAsync(t => t.Code == truckCode);
+
+        return (NfeText.AlphaNumeric(truckCode), truck?.State?.Abbreviation);
+    }
+
+    private static bool IsTaxId(string? value) => NfeText.AlphaNumeric(value).Length is 11 or 14;
+
+    private static void AddressGaps(List<string> gaps, Address? address, string label)
+    {
+        if (address is null)
+        {
+            gaps.Add(label);
+            return;
+        }
+
+        gaps.AddRange(Gaps(
+            ($"logradouro do {label}", address.Street), ($"número do {label}", address.StreetNumber),
+            ($"bairro do {label}", address.Block), ($"município do {label}", address.Municipality?.Code)));
+    }
+
+    private static List<string> Gaps(params (string Label, string? Value)[] fields) =>
+        fields.Where(f => string.IsNullOrWhiteSpace(f.Value)).Select(f => f.Label).ToList();
+
+    private static void Report(List<string> problems, string owner, List<string> gaps)
+    {
+        if (gaps.Count > 0)
+            problems.Add($"{owner}: {string.Join(", ", gaps)}");
+    }
+}

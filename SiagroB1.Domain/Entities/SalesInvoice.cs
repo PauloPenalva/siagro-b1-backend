@@ -93,6 +93,33 @@ public class SalesInvoice : DocumentEntity
     /// recebe o padrão do cliente; obrigatória só na emissão.
     /// </summary>
     public int? PaymentConditionCode { get; set; }
+
+    // --- Emissão da NF-e STANDALONE. Só a emissão escreve aqui (create e PATCH ignoram). ---
+
+    public NfeStatus NfeStatus { get; set; } = NfeStatus.None;
+
+    public NfeEnvironment? NfeEnvironment { get; set; }
+
+    /// <summary><c>cNF</c>: 8 dígitos, gerado na primeira tentativa e mantido nas seguintes.</summary>
+    [Column(TypeName = "VARCHAR(8)")]
+    public string? NfeRandomCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? NfeProtocol { get; set; }
+
+    public DateTime? NfeAuthorizedAt { get; set; }
+
+    /// <summary>Último <c>cStat</c> da SEFAZ.</summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? NfeStatusCode { get; set; }
+
+    /// <summary>Último <c>xMotivo</c> da SEFAZ ou mensagem local.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeStatusReason { get; set; }
+
+    /// <summary>NF-e autorizada, mas a confirmação do documento falhou — "Concluir confirmação" refaz.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeConfirmationError { get; set; }
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     
