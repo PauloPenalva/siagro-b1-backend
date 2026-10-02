@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -31,5 +32,21 @@ public class BusinessPartner
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
     
     [Column("Free_Text", TypeName = "VARCHAR(100)")]
-    public string? Notes { get; set; }
+        public string? Notes { get; set; }
+
+    // --- Destinatário/transportadora da NF-e STANDALONE (nulos em SAPB1). ---
+
+    [Column(TypeName = "VARCHAR(14)")]
+    public string? StateRegistration { get; set; }
+
+    public StateRegistrationIndicator? StateRegistrationIndicator { get; set; }
+
+    [Column(TypeName = "VARCHAR(250)")]
+    public string? NfeEmail { get; set; }
+
+    [Column(TypeName = "VARCHAR(14)")]
+    public string? Phone { get; set; }
+
+    /// <summary>Condição de pagamento padrão do documento de saída. Sem FK, como o spec pede.</summary>
+    public int? PaymentConditionCode { get; set; }
 }
