@@ -24,6 +24,14 @@ public class TaxationEdmModelTests
     }
 
     [Fact]
+    public void Ibs_cbs_totals_are_exposed()
+    {
+        var model = Model();
+        Assert.NotNull(model.EntityContainer.FindEntitySet("SalesInvoicesItems")!.EntityType.FindProperty("TotalIbsCbs"));
+        Assert.NotNull(model.EntityContainer.FindEntitySet("SalesInvoices")!.EntityType.FindProperty("TotalInvoiceIbsCbs"));
+    }
+
+    [Fact]
     public void TaxCalculationIsActive_is_a_function_with_branch_code()
     {
         var function = Model().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "TaxCalculationIsActive");

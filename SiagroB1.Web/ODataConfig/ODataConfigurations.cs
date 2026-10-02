@@ -164,6 +164,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceIbsCbs)));
         // Contrato de venda do documento, derivado das linhas (ver SalesInvoice). Sem estas
         // linhas as propriedades não entram no EDM e o $select da tela da carga devolve 400.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
@@ -177,6 +179,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalIbsCbs)));
         // Precisa ser explícito mesmo sendo coluna mapeada: o setter é privado (quem escreve
         // é o SQL Server) e a convenção do ODataConventionModelBuilder pula propriedade sem
         // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.

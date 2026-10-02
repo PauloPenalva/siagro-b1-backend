@@ -136,6 +136,10 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     [NotMapped]
     public decimal TotalInvoiceTaxes => Items.Sum(i => i.TotalTaxes);
+
+    /// <summary>IBS + CBS do documento. Informativo em 2026 — fora de <see cref="TotalInvoiceTaxes"/>.</summary>
+    [NotMapped]
+    public decimal TotalInvoiceIbsCbs => Items.Sum(i => i.TotalIbsCbs);
     
 
     /// <summary>
