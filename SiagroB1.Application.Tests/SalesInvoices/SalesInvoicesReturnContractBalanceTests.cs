@@ -62,6 +62,7 @@ public class SalesInvoicesReturnContractBalanceTests
             new FakeDocNumberSequenceService(),
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(_db, usages, partners),
+            TaxTestServices.InactiveApply(_db),
             NullLogger<SalesInvoicesCreateService>.Instance);
     }
 

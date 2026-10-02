@@ -47,6 +47,7 @@ public class SalesInvoicesShipmentBillingFiscalToleranceTests
             new FakeDocNumberSequenceService(),
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(db, usages, partners),
+            TaxTestServices.InactiveApply(db),
             NullLogger<SalesInvoicesCreateService>.Instance);
     }
 

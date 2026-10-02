@@ -18,6 +18,7 @@ public class SalesInvoicesCreateService(
     DocNumberSequenceService numberSequenceService,
     SalesInvoicesUsageGuardService usageGuard,
     SalesInvoicesCfopResolveService cfopResolve,
+    SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto)
@@ -44,11 +45,16 @@ public class SalesInvoicesCreateService(
         // CFOP: numa base sem natureza padrão o faturamento passaria a RECUSAR, que é
         // exatamente o que o <remarks> deste serviço diz que não pode acontecer.
         var fromShipmentBilling = SalesInvoiceOriginResolver.ConsumesShipments(salesInvoice);
+
+        // Com a tributação da NF-e STANDALONE ativa, a cadeia fiscal volta a ser ESTRITA também
+        // no romaneio: a tolerância abaixo existe para bases sem cadastro fiscal (SAPB1 recém-
+        // implantada), e uma filial que emite NF-e não pode faturar com CFOP em branco.
+        var taxActive = await taxApply.IsActiveForAsync(salesInvoice);
         var cfopByItem = new Dictionary<SalesInvoiceItem, string>();
 
         foreach (var (item, usage) in lineUsages)
         {
-            var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling);
+            var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling && !taxActive);
 
             if (cfop != null)
             {
@@ -57,6 +63,14 @@ public class SalesInvoicesCreateService(
 
             // Nome desnormalizado vem do servidor, não da tela — mesmo tratamento de ItemName.
             item.UsageName = usage.Name;
+        }
+
+        // Tributos pela natureza, ANTES de numerar: as guardas recusam com mensagem de negócio e
+        // não faz sentido consumir número de um documento que não vai nascer. Fora do try de
+        // propósito — lá dentro a DefaultException viraria ApplicationException e perderia o 400.
+        if (taxActive)
+        {
+            await taxApply.ApplyAsync(salesInvoice, salesInvoice.Items);
         }
 
         salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
@@ -83,8 +97,12 @@ public class SalesInvoicesCreateService(
 
                 // CFOP congelado como histórico da linha: mudar o cadastro da natureza
                 // depois não pode mudar o documento já emitido. Ausente quando o cadastro
-                // fiscal ainda não está completo e o documento veio de romaneio.
-                item.Cfop = cfopByItem.GetValueOrDefault(item);
+                // fiscal ainda não está completo e o documento veio de romaneio. Com a
+                // tributação ativa ele já veio do cálculo (mesma regra, mesmo valor).
+                if (!taxActive)
+                {
+                    item.Cfop = cfopByItem.GetValueOrDefault(item);
+                }
             }
 
             // Numa DEVOLUÇÃO o peso do cabeçalho é a soma das linhas — inclusive na criada à
