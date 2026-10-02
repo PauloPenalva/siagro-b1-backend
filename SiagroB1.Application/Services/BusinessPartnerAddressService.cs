@@ -23,6 +23,9 @@ public class BusinessPartnerAddressService(
             .Where(x => x.CardCode == cardCode)
             .Select(a => new AddressModel()
             {
+                // Parte da chave do endereço no EDM (não anulável): sem ela a serialização do
+                // GET estourava no meio da resposta e a conexão caía.
+                CardCode = a.CardCode,
                 AddressName = a.AddressName,
                 AdresType = a.AdresType,
                 Block = a.Block,
@@ -45,6 +48,7 @@ public class BusinessPartnerAddressService(
 
         return new AddressModel()
         {
+            CardCode = entity.CardCode,
             AddressName = entity.AddressName,
             AdresType = entity.AdresType,
             Block = entity.Block,
