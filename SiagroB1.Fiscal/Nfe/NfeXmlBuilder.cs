@@ -55,6 +55,12 @@ public static class NfeXmlBuilder
 
     public static ZeusNFe Build(NfeIssueInput input)
     {
+        var noteTotal = input.Items.Sum(i => i.Total);
+
+        if (input.Payment.PaymentMeans != PaymentMeansCodes.NoPayment
+            && (input.Payment.PaidAmount != noteTotal || input.Payment.Installments.Sum(i => i.Amount) != noteTotal))
+            throw new DefaultException("O total do pagamento não confere com o valor da nota.");
+
         var interstate = !string.Equals(
             input.Issuer.Address.State, input.Recipient.Address.State, StringComparison.OrdinalIgnoreCase);
 
@@ -121,7 +127,7 @@ public static class NfeXmlBuilder
         var result = new emit
         {
             xNome = Truncate(issuer.LegalName, 60),
-            xFant = Blank(issuer.TradeName),
+            xFant = TruncateOrNull(issuer.TradeName, 60),
             IE = issuer.StateRegistration,
             CRT = issuer.TaxRegime switch
             {
@@ -132,12 +138,12 @@ public static class NfeXmlBuilder
             },
             enderEmit = new enderEmit
             {
-                xLgr = address.Street,
-                nro = address.Number,
-                xCpl = Blank(address.Complement),
-                xBairro = address.District,
+                xLgr = Truncate(address.Street, 60),
+                nro = Truncate(address.Number, 60),
+                xCpl = TruncateOrNull(address.Complement, 60),
+                xBairro = Truncate(address.District, 60),
                 cMun = long.Parse(address.MunicipalityCode, CultureInfo.InvariantCulture),
-                xMun = address.MunicipalityName,
+                xMun = Truncate(address.MunicipalityName, 60),
                 UF = Enum.Parse<Estado>(address.State, ignoreCase: true),
                 CEP = address.ZipCode,
                 cPais = Brazil,
@@ -159,6 +165,9 @@ public static class NfeXmlBuilder
         var recipient = input.Recipient;
         var address = recipient.Address;
 
+        if (recipient.Indicator == StateRegistrationIndicator.Taxpayer && string.IsNullOrWhiteSpace(recipient.StateRegistration))
+            throw new DefaultException("Destinatário contribuinte do ICMS sem inscrição estadual.");
+
         var result = new dest(VersaoServico.Versao400)
         {
             xNome = input.Environment == NfeEnvironment.Homologation
@@ -172,15 +181,15 @@ public static class NfeXmlBuilder
             },
             // Só o contribuinte leva IE: isento e não contribuinte não informam (schema e NT).
             IE = recipient.Indicator == StateRegistrationIndicator.Taxpayer ? recipient.StateRegistration : null,
-            email = Blank(recipient.Email),
+            email = TruncateOrNull(recipient.Email, 60),
             enderDest = new enderDest
             {
-                xLgr = address.Street,
-                nro = address.Number,
-                xCpl = Blank(address.Complement),
-                xBairro = address.District,
+                xLgr = Truncate(address.Street, 60),
+                nro = Truncate(address.Number, 60),
+                xCpl = TruncateOrNull(address.Complement, 60),
+                xBairro = Truncate(address.District, 60),
                 cMun = long.Parse(address.MunicipalityCode, CultureInfo.InvariantCulture),
-                xMun = address.MunicipalityName,
+                xMun = Truncate(address.MunicipalityName, 60),
                 UF = address.State,
                 CEP = address.ZipCode,
                 cPais = Brazil,
@@ -203,12 +212,12 @@ public static class NfeXmlBuilder
         var result = new entrega
         {
             xNome = Truncate(delivery.Name, 60),
-            xLgr = address.Street,
-            nro = address.Number,
-            xCpl = Blank(address.Complement),
-            xBairro = address.District,
+            xLgr = Truncate(address.Street, 60),
+            nro = Truncate(address.Number, 60),
+            xCpl = TruncateOrNull(address.Complement, 60),
+            xBairro = Truncate(address.District, 60),
             cMun = long.Parse(address.MunicipalityCode, CultureInfo.InvariantCulture),
-            xMun = address.MunicipalityName,
+            xMun = Truncate(address.MunicipalityName, 60),
             UF = address.State,
             cPais = Brazil,
             xPais = BrazilName,
@@ -231,7 +240,7 @@ public static class NfeXmlBuilder
         nItem = item.Number,
         prod = new prod
         {
-            cProd = item.ItemCode,
+            cProd = Truncate(item.ItemCode, 60),
             cEAN = WithoutGtin,
             xProd = Truncate(item.Description, 120),
             NCM = item.Ncm,
@@ -311,6 +320,8 @@ public static class NfeXmlBuilder
         if (!PisCofinsCarriesValues(item.PisCst))
             return new PISNT { CST = cst };
 
+        EnsureOutrCst(item, item.PisCst);
+
         return new PISOutr { CST = cst, vBC = item.PisBase, pPIS = item.PisRate, vPIS = item.PisValue };
     }
 
@@ -324,7 +335,18 @@ public static class NfeXmlBuilder
         if (!PisCofinsCarriesValues(item.CofinsCst))
             return new COFINSNT { CST = cst };
 
+        EnsureOutrCst(item, item.CofinsCst);
+
         return new COFINSOutr { CST = cst, vBC = item.CofinsBase, pCOFINS = item.CofinsRate, vCOFINS = item.CofinsValue };
+    }
+
+    /// <summary>O grupo Outr só vale para o CST 49 e de 50 a 99; os demais não têm grupo aqui.</summary>
+    private static void EnsureOutrCst(NfeItem item, string cst)
+    {
+        var valid = cst == "49" || (int.TryParse(cst, CultureInfo.InvariantCulture, out var number) && number is >= 50 and <= 99);
+
+        if (!valid)
+            throw new DefaultException($"O item {item.ItemCode} tem o CST de PIS/COFINS {cst}, que este sistema não emite.");
     }
 
     private static IBSCBS? BuildIbsCbs(NfeItem item)
@@ -442,14 +464,14 @@ public static class NfeXmlBuilder
             },
         };
 
-        if (input.Carrier is { } carrier)
+        if (input.FreightTerms != FreightTerms.None && input.Carrier is { } carrier)
         {
             result.transporta = new transporta
             {
                 xNome = Truncate(carrier.Name, 60),
                 IE = Blank(carrier.StateRegistration),
                 xEnder = carrier.FullAddress is null ? null : Truncate(carrier.FullAddress, 60),
-                xMun = Blank(carrier.MunicipalityName),
+                xMun = TruncateOrNull(carrier.MunicipalityName, 60),
                 UF = Blank(carrier.State),
             };
 
@@ -460,7 +482,7 @@ public static class NfeXmlBuilder
         }
 
         // Veículo só em operação interna (spec §8 e risco §14): na interestadual a SEFAZ rejeita.
-        if (!interstate && input.Vehicle is { } vehicle)
+        if (input.FreightTerms != FreightTerms.None && !interstate && input.Vehicle is { } vehicle)
             result.veicTransp = new veicTransp { placa = vehicle.Plate, UF = vehicle.State };
 
         if (input.NetWeight > 0 || input.GrossWeight > 0)
@@ -528,12 +550,15 @@ public static class NfeXmlBuilder
         };
     }
 
+    private static string? TruncateOrNull(string? value, int length) =>
+        Blank(value) is { } text ? Truncate(text, length) : null;
+
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string Truncate(string value, int length)
     {
         var trimmed = value.Trim();
-        return trimmed.Length <= length ? trimmed : trimmed[..length];
+        return trimmed.Length <= length ? trimmed : trimmed[..length].TrimEnd();
     }
 
     private static long? Phone(string? value)

@@ -214,7 +214,12 @@ public class NfeXmlBuilderTests
     [Fact]
     public void Totals_add_up_the_lines()
     {
-        var input = NfeTestData.Input() with { Items = [NfeTestData.Item(1), NfeTestData.Item(2) with { IcmsCode = "41" }] };
+        var input = NfeTestData.Input() with
+        {
+            Items = [NfeTestData.Item(1), NfeTestData.Item(2) with { IcmsCode = "41" }],
+            Payment = PaymentInstallmentCalculator.Calculate("30,60", PaymentStartRule.IssueDate, "15", 120000m,
+                new DateOnly(2026, 10, 2)),
+        };
 
         var total = Build(input).infNFe.total;
 
@@ -330,5 +335,63 @@ public class NfeXmlBuilderTests
         Assert.Equal(Estado.SP, emit.enderEmit.UF);
         Assert.Equal(3521705L, emit.enderEmit.cMun);
         Assert.Equal(1535621234L, emit.enderEmit.fone);
+    }
+
+    [Fact]
+    public void Payment_that_does_not_match_the_note_total_is_refused()
+    {
+        var input = NfeTestData.Input() with
+        {
+            Payment = PaymentInstallmentCalculator.Calculate("30,60", PaymentStartRule.IssueDate, "15", 50000m,
+                new DateOnly(2026, 10, 2)),
+        };
+
+        Assert.Throws<SiagroB1.Domain.Exceptions.DefaultException>(() => Build(input));
+    }
+
+    [Fact]
+    public void Pis_cst_03_is_refused()
+    {
+        var input = NfeTestData.Input() with { Items = [NfeTestData.Item() with { PisCst = "03", CofinsCst = "03" }] };
+
+        Assert.Throws<SiagroB1.Domain.Exceptions.DefaultException>(() => Build(input));
+    }
+
+    [Fact]
+    public void Incoming_cst_goes_to_the_outr_group()
+    {
+        var input = NfeTestData.Input() with { Items = [NfeTestData.Item() with { PisCst = "50", CofinsCst = "50" }] };
+        var imposto = Build(input).infNFe.det[0].imposto;
+
+        Assert.IsType<PISOutr>(imposto.PIS.TipoPIS);
+        Assert.IsType<COFINSOutr>(imposto.COFINS.TipoCOFINS);
+    }
+
+    [Fact]
+    public void Long_address_fields_are_cut_at_60_characters()
+    {
+        var address = NfeTestData.Salvador() with { Street = new string('A', 59) + " " + new string('B', 20) };
+        var nfe = Build(NfeTestData.Input(recipientAddress: address));
+
+        Assert.Equal(new string('A', 59), nfe.infNFe.dest.enderDest.xLgr);
+    }
+
+    [Fact]
+    public void Taxpayer_recipient_without_state_registration_is_refused()
+    {
+        var input = NfeTestData.Input();
+        input = input with { Recipient = input.Recipient with { StateRegistration = " " } };
+
+        Assert.Throws<SiagroB1.Domain.Exceptions.DefaultException>(() => Build(input));
+    }
+
+    [Fact]
+    public void No_freight_omits_carrier_and_vehicle()
+    {
+        var nfe = Build(NfeTestData.Input(recipientAddress: NfeTestData.SaoPaulo()) with { FreightTerms = FreightTerms.None });
+
+        Assert.Null(nfe.infNFe.transp.transporta);
+        Assert.Null(nfe.infNFe.transp.veicTransp);
+        Assert.NotEmpty(nfe.infNFe.transp.vol);
     }
 }
