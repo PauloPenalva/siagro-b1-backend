@@ -38,7 +38,10 @@ public class BusinessPartnersAddressesController(
         {
             await service.Create(Unquote(key), model);
 
-            return Created(model);
+            // Created monta o Location a partir do entity set, e esta rota de atributo não tem
+            // entity set (EdmUnknownEntitySet): o endereço gravava e a resposta estourava 500
+            // com InvalidCastException. Ok devolve o mesmo corpo sem precisar do Location.
+            return Ok(model);
         }
         catch (Exception ex)
         {

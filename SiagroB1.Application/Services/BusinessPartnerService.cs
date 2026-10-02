@@ -86,7 +86,26 @@ public class BusinessPartnerService(
             QryGroup23 = "N",
             TaxId = model.TaxId
         };
-        
+
+        // A tela cria o parceiro com os endereços aninhados (deep insert). Sem copiá-los o
+        // parceiro nascia sem endereço, e é do endereço de faturamento que sai a UF do CFOP e
+        // do cálculo de tributos do documento de saída.
+        foreach (var address in model.Addresses)
+        {
+            entity.Addresses.Add(new Address
+            {
+                CardCode = model.CardCode,
+                AddressName = address.AddressName,
+                AdresType = address.AdresType,
+                Street = address.Street,
+                Block = address.Block,
+                ZipCode = address.ZipCode,
+                City = address.City,
+                State = address.State,
+                Country = address.Country,
+            });
+        }
+
         await db.Context.BusinessPartners.AddAsync(entity);
         await db.SaveChangesAsync();
         return model;
