@@ -16,6 +16,7 @@ public class SalesInvoicesItemsUpdateService(
     IUnitOfWork db,
     IItemService itemService,
     ShipmentLoadsClosureHookService loadClosureHook,
+    SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -56,6 +57,8 @@ public class SalesInvoicesItemsUpdateService(
             var logs = deliveryChanged ? BuildDeliveryLogs(existingEntity, entity, original, userName) : [];
 
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
+
+            await ApplyTaxLockAsync(existingEntity);
 
             if (deliveryChanged)
             {
@@ -107,6 +110,28 @@ public class SalesInvoicesItemsUpdateService(
         }
 
         return entity;
+    }
+
+    /// <summary>
+    /// Trava da tributação STANDALONE. Pendente: o cálculo sobrescreve o que veio no corpo (o
+    /// PATCH reenvia a entidade inteira, então recusar quebraria a tela). Já confirmado (a
+    /// Conferência de entregas usa este mesmo serviço): os campos travados voltam ao gravado.
+    /// Regra inativa: nada muda — é o caminho da Yokotobi e da MH Agro.
+    /// </summary>
+    private async Task ApplyTaxLockAsync(SalesInvoiceItem item)
+    {
+        var invoice = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == item.SalesInvoiceKey);
+
+        if (invoice is null || !await taxApply.IsActiveForAsync(invoice))
+            return;
+
+        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending)
+        {
+            await taxApply.ApplyAsync(invoice, [item]);
+            return;
+        }
+
+        SalesInvoiceTaxSnapshot.RestoreLocked(db.Context.Entry(item));
     }
 
     /// <summary>

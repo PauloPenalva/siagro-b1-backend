@@ -28,6 +28,7 @@ public class SalesInvoicesItemsUpdateServiceTests
             ["MILHO"] = "MILHO EM GRAOS",
         }),
         new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
+        TaxTestServices.InactiveApply(_db),
         new TestLogger<SalesInvoicesUpdateService>());
 
     private static SalesContract NewContract(decimal totalVolume, decimal allocatedVolume) => new()

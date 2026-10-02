@@ -10,6 +10,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesUpdateService(
     IUnitOfWork db, 
     IBusinessPartnerService businessPartnerService,
+    SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoice?> ExecuteAsync(Guid key, SalesInvoice entity, string userName)
@@ -19,6 +20,14 @@ public class SalesInvoicesUpdateService(
         
         try
         {
+            // O "antes" vem do rastreador: no PATCH a entidade chega já mutada (é a mesma
+            // instância de existingEntity), então compará-las não acusaria mudança nenhuma.
+            var original = db.Context.Entry(existingEntity).OriginalValues;
+            var fiscalInputsChanged =
+                !Equals(original[nameof(SalesInvoice.InvoiceDate)], entity.InvoiceDate) ||
+                !Equals(original[nameof(SalesInvoice.CardCode)], entity.CardCode) ||
+                !Equals(original[nameof(SalesInvoice.BranchCode)], entity.BranchCode);
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
             existingEntity.UpdatedAt = DateTime.Now;
@@ -32,6 +41,17 @@ public class SalesInvoicesUpdateService(
                 entity.DeliveryCardCode != null
                     ? (await businessPartnerService.GetByIdAsync(entity.DeliveryCardCode))?.CardName
                     : string.Empty;
+
+            // Data, cliente e filial são entradas do cálculo (vigência do IBS/CBS, UF, regime):
+            // mudou um deles, todas as linhas se recalculam. No-op com a regra inativa.
+            if (fiscalInputsChanged)
+            {
+                var items = await db.Context.SalesInvoicesItems
+                    .Where(i => i.SalesInvoiceKey == existingEntity.Key)
+                    .ToListAsync();
+
+                await taxApply.ApplyAsync(existingEntity, items);
+            }
 
             await db.SaveChangesAsync();
         }
