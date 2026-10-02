@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Entities;
@@ -41,6 +42,22 @@ public class SalesInvoicesItemsController(
         }
     }
     
+    /// <summary>
+    /// Item pela navegação do documento. O UI5 v4 busca por aqui as "late properties" — campos
+    /// que não vieram no request principal porque não estão na grade, como os do diálogo fiscal
+    /// (NCM, CST, bases, IBS/CBS, centro de custo). Sem a rota declarada o diálogo abria vazio
+    /// em documento já gravado e cada campo virava um 404.
+    /// </summary>
+    [HttpGet("odata/SalesInvoices({key:guid})/Items({itemKey:guid})")]
+    [HttpGet("odata/SalesInvoices/{key:guid}/Items/{itemKey:guid}")]
+    [EnableQuery]
+    public ActionResult<SalesInvoiceItem> GetInvoiceItem([FromRoute] Guid key, [FromRoute] Guid itemKey)
+    {
+        var query = getService.QueryAll().Where(x => x.SalesInvoiceKey == key && x.Key == itemKey);
+
+        return Ok(SingleResult.Create(query));
+    }
+
     public async Task<IActionResult> Post([FromBody] SalesInvoiceItem entity)
     {
         if (!ModelState.IsValid)
