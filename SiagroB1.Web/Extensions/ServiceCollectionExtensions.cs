@@ -335,6 +335,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesCfopResolveService>();
         services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<IbsCbsRatesService>();
+        services.AddScoped<TaxCalculationGate>();
         services.AddScoped<SalesInvoicesCreateService>();
         services.AddScoped<SalesInvoicesDeleteService>();
         services.AddScoped<SalesInvoicesGetService>();

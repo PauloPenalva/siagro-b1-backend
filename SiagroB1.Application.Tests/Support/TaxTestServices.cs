@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.Support;
 
@@ -9,4 +11,6 @@ public static class TaxTestServices
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Erp"] = erp })
             .Build();
+
+    public static TaxCalculationGate Gate(UnitOfWork db, string? erp) => new(db, Config(erp));
 }

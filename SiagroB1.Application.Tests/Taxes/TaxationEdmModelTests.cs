@@ -22,4 +22,12 @@ public class TaxationEdmModelTests
         var start = set!.EntityType.FindProperty("StartDate");
         Assert.Equal("Edm.Date", start.Type.FullName());
     }
+
+    [Fact]
+    public void TaxCalculationIsActive_is_a_function_with_branch_code()
+    {
+        var function = Model().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "TaxCalculationIsActive");
+        Assert.Equal("Edm.String", function.Parameters.Single(p => p.Name == "BranchCode").Type.FullName());
+        Assert.Equal("Edm.Boolean", function.ReturnType.FullName());
+    }
 }

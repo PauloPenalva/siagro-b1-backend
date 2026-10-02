@@ -1037,6 +1037,11 @@ public static class ODataConfigurations
         salesInvoicesGetReturnableShipments.Parameter<Guid>("Key");
         salesInvoicesGetReturnableShipments.ReturnsCollection<SalesInvoiceReturnableShipmentDto>();
         
+        // Regra de ativação da tributação da NF-e STANDALONE, para a tela travar a linha.
+        var taxCalculationIsActive = modelBuilder.Function("TaxCalculationIsActive");
+        taxCalculationIsActive.Parameter<string>("BranchCode");
+        taxCalculationIsActive.Returns<bool>();
+
         // Prévia do CFOP para a tela; a gravação continua sendo do serviço de criação.
         var salesInvoicesResolveCfop = modelBuilder.Function("SalesInvoicesResolveCfop");
         salesInvoicesResolveCfop.Parameter<int>("UsageCode");
