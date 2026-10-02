@@ -23,9 +23,10 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
                      ?? throw new DefaultException($"Filial {invoice.BranchCode} não encontrada.");
 
         var branchGaps = Gaps(
-            ("razão social", branch.LegalName), ("inscrição estadual", branch.StateRegistration),
+            ("razão social", branch.LegalName), ("inscrição estadual", NfeText.AlphaNumeric(branch.StateRegistration)),
             ("logradouro", branch.Street), ("número", branch.StreetNumber), ("bairro", branch.District),
-            ("município", branch.Municipality?.Code), ("CEP", branch.ZipCode));
+            ("município", branch.Municipality?.Code));
+        if (NfeText.Digits(branch.ZipCode).Length != 8) branchGaps.Add("CEP");
         if (!IsTaxId(branch.TaxId)) branchGaps.Insert(0, "CNPJ");
         if (branch.TaxRegime is null) branchGaps.Add("regime tributário (CRT)");
         Report(problems, $"Filial {branch.Code}", branchGaps);
@@ -53,7 +54,7 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             if (!IsTaxId(customer.TaxId)) gaps.Add("CNPJ/CPF");
             if (customer.StateRegistrationIndicator is null) gaps.Add("indicador da inscrição estadual");
             else if (customer.StateRegistrationIndicator == StateRegistrationIndicator.Taxpayer &&
-                     string.IsNullOrWhiteSpace(customer.StateRegistration)) gaps.Add("inscrição estadual");
+                     string.IsNullOrWhiteSpace(NfeText.Digits(customer.StateRegistration))) gaps.Add("inscrição estadual");
             AddressGaps(gaps, customerAddress, "endereço de faturamento");
             Report(problems, $"Cliente {customer.CardCode}", gaps);
         }

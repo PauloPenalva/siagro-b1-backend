@@ -100,4 +100,43 @@ public class NfeReadinessValidatorTests
 
         Assert.Contains("inativa", ex.Message);
     }
+
+    [Fact]
+    public async Task Taxpayer_with_non_numeric_state_registration_is_reported()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.BusinessPartners.SingleAsync(p => p.CardCode == NfeTestSeed.CardCode)).StateRegistration = "ISENTO";
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("inscrição estadual", ex.Message);
+    }
+
+    [Fact]
+    public async Task Branch_zip_code_without_eight_digits_is_reported()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.Branchs.SingleAsync()).ZipCode = "1844";
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Filial 01", ex.Message);
+        Assert.Contains("CEP", ex.Message);
+    }
+
+    [Fact]
+    public async Task Delivery_partner_gaps_are_reported()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "E-SP", CardName = "ARMAZEM SEM DADOS", CardType = "C" });
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).DeliveryCardCode = "E-SP";
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Local de entrega", ex.Message);
+        Assert.Contains("CNPJ/CPF", ex.Message);
+    }
 }

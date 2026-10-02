@@ -134,4 +134,36 @@ public class NfeIssueInputAssemblerTests
         Assert.Null((await BuildAsync(scenario)).Delivery);
         Assert.Null((await BuildAsync(scenario, i => i.DeliveryCardCode = NfeTestSeed.CardCode)).Delivery);
     }
+
+    [Fact]
+    public async Task Delivery_partner_is_sent_normalized()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.BusinessPartners.Add(new BusinessPartner
+        {
+            CardCode = "E-SP", CardName = "ARMAZEM DESTINO", CardType = "C", TaxId = "44.555.666/0001-77",
+            StateRegistration = "111.222.333.444",
+            Addresses =
+            [
+                new Address
+                {
+                    CardCode = "E-SP", AddressName = "FATURAMENTO", AdresType = "B", Street = "RUA C", StreetNumber = "1",
+                    Block = "CENTRO", City = "Itapeva", State = "SP", MunicipalityCode = "3522406",
+                },
+                new Address
+                {
+                    CardCode = "E-SP", AddressName = "ENTREGA", AdresType = "S", Street = "RUA D", StreetNumber = "2",
+                    Block = "RURAL", City = "Itaberá", State = "SP", MunicipalityCode = "3521705",
+                },
+            ],
+        });
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario, i => i.DeliveryCardCode = "E-SP");
+
+        Assert.NotNull(input.Delivery);
+        Assert.Equal("44555666000177", input.Delivery.TaxId);
+        Assert.Equal("111222333444", input.Delivery.StateRegistration);
+        Assert.Equal("3521705", input.Delivery.Address.MunicipalityCode);
+    }
 }
