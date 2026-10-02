@@ -23,6 +23,7 @@ using SiagroB1.Application.Services.RolesMenus;
 using SiagroB1.Application.Services.RolesPermissions;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Application.Services.ShipmentBilling;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -333,6 +334,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAllocationCreateForFiscalAdjustmentService>();
         services.AddScoped<SalesInvoicesCfopResolveService>();
         services.AddScoped<SalesInvoicesUsageGuardService>();
+        services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<SalesInvoicesCreateService>();
         services.AddScoped<SalesInvoicesDeleteService>();
         services.AddScoped<SalesInvoicesGetService>();
