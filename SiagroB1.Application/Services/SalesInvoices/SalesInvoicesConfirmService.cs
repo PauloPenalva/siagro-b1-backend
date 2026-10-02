@@ -55,7 +55,7 @@ public class SalesInvoicesConfirmService(
     /// no destino armazém creditaria o grão duas vezes.
     /// </para>
     /// </param>
-    public async Task ExecuteAsync(
+    public virtual async Task ExecuteAsync(
         Guid key,
         string userName,
         CommitMode commitMode = CommitMode.Auto,

@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 namespace SiagroB1.Fiscal.Nfe;
 
 /// <summary>
@@ -12,6 +14,15 @@ public static class NfeProcComposer
         Body(signedNfeXml) +
         Body(protocolXml) +
         "</nfeProc>";
+
+    /// <summary>Texto do primeiro <c>DigestValue</c> do XML assinado (ignora namespaces).</summary>
+    public static string? SignedDigest(string signedNfeXml) => FirstValue(signedNfeXml, "DigestValue");
+
+    /// <summary>Texto do <c>digVal</c> do protNFe — o digest do XML que a SEFAZ autorizou.</summary>
+    public static string? ProtocolDigest(string protocolXml) => FirstValue(protocolXml, "digVal");
+
+    private static string? FirstValue(string xml, string localName) =>
+        XDocument.Parse(xml).Descendants().FirstOrDefault(e => e.Name.LocalName == localName)?.Value.Trim();
 
     private static string Body(string xml)
     {

@@ -43,4 +43,30 @@ public class NfeProcComposerTests
         Assert.Equal("135260000000001", parsed.protNFe.infProt.nProt);
         Assert.Equal($"NFe{signed.AccessKey}", parsed.NFe.infNFe.Id);
     }
+
+    [Fact]
+    public void Digests_are_read_from_the_signed_xml_and_the_protocol()
+    {
+        var settings = new NfeServiceSettings(
+            NfeEnvironment.Homologation, "SP",
+            CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password),
+            NfeServiceSettings.DefaultSchemasDirectory);
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), settings);
+        var protocol = new protNFe
+        {
+            versao = "4.00",
+            infProt = new infProt
+            {
+                tpAmb = TipoAmbiente.Homologacao, Id = "ID135260000000001", chNFe = signed.AccessKey, nProt = "135260000000001", cStat = 100,
+                xMotivo = "Autorizado o uso da NF-e", dhRecbto = NfeTestData.IssuedAt,
+                digVal = NfeProcComposer.SignedDigest(signed.Xml), verAplic = "SP_NFE",
+            },
+        };
+
+        var signedDigest = NfeProcComposer.SignedDigest(signed.Xml);
+        var protocolDigest = NfeProcComposer.ProtocolDigest(FuncoesXml.ClasseParaXmlString(protocol));
+
+        Assert.False(string.IsNullOrWhiteSpace(signedDigest));
+        Assert.Equal(signedDigest, protocolDigest);
+    }
 }

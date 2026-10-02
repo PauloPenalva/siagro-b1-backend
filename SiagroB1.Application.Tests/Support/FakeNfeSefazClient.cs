@@ -11,6 +11,9 @@ namespace SiagroB1.Application.Tests.Support;
 /// </summary>
 public sealed class FakeNfeSefazClient : INfeSefazClient
 {
+    /// <summary>Marcador de digest: o fake troca pelo digest do XML realmente enviado.</summary>
+    public const string MatchingDigest = "__MATCH__";
+
     public Queue<Func<string, NfeSefazResult>> AuthorizeResponses { get; } = new();
     public Queue<Func<string, NfeSefazResult>> ConsultResponses { get; } = new();
     public NfeSefazResult StatusResponse { get; set; } = new(107, "Serviço em Operação");
@@ -26,20 +29,28 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         if (BeforeAuthorize is not null)
             await BeforeAuthorize();
 
-        return AuthorizeResponses.Dequeue()(nfe.AccessKey);
+        var result = AuthorizeResponses.Dequeue()(nfe.AccessKey);
+        return result.ProtocolXml is not null && result.ProtocolXml.Contains(MatchingDigest)
+            ? result with { ProtocolXml = result.ProtocolXml.Replace(MatchingDigest, NfeProcComposer.SignedDigest(nfe.Xml)) }
+            : result;
     }
 
     public Task<NfeSefazResult> ConsultProtocolAsync(
         string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default)
     {
         Consulted.Add(accessKey);
-        return Task.FromResult(ConsultResponses.Dequeue()(accessKey));
+        var result = ConsultResponses.Dequeue()(accessKey);
+
+        if (result.ProtocolXml is not null && result.ProtocolXml.Contains(MatchingDigest) && Sent.Count > 0)
+            result = result with { ProtocolXml = result.ProtocolXml.Replace(MatchingDigest, NfeProcComposer.SignedDigest(Sent[^1].Xml)) };
+
+        return Task.FromResult(result);
     }
 
     public Task<NfeSefazResult> ServiceStatusAsync(NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
         Task.FromResult(StatusResponse);
 
-    public static NfeSefazResult Authorized(string accessKey, int status = 100) => new(
+    public static NfeSefazResult Authorized(string accessKey, int status = 100, string digVal = MatchingDigest) => new(
         status, "Autorizado o uso da NF-e", "135260000000001", new DateTimeOffset(2026, 10, 2, 10, 0, 5, TimeSpan.FromHours(-3)),
         FuncoesXml.ClasseParaXmlString(new protNFe
         {
@@ -49,7 +60,7 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
                 Id = "ID135260000000001", tpAmb = TipoAmbiente.Homologacao, chNFe = accessKey, cStat = status,
                 xMotivo = "Autorizado o uso da NF-e",
                 nProt = "135260000000001", dhRecbto = new DateTimeOffset(2026, 10, 2, 10, 0, 5, TimeSpan.FromHours(-3)),
-                digVal = "abc=", verAplic = "TESTE",
+                digVal = digVal, verAplic = "TESTE",
             },
         }));
 

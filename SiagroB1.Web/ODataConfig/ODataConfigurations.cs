@@ -86,6 +86,10 @@ public static class ODataConfigurations
         branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
         branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
 
+        var salesInvoicesIssueNfe = modelBuilder.Action("SalesInvoicesIssueNfe");
+        salesInvoicesIssueNfe.Parameter<Guid>("Key");
+        salesInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");
