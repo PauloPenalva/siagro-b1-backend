@@ -117,6 +117,25 @@ public class SalesInvoicesCreateTaxationTests
         Assert.Equal(455.75m, item.CbsValue);
     }
 
+    /// <summary>
+    /// A tela de inclusão deixa escolher o Status: um corpo com "Confirmado" não pode fazer o
+    /// documento nascer sem imposto e sem CFOP — o serviço força Pendente de qualquer jeito.
+    /// </summary>
+    [Fact]
+    public async Task Create_with_non_pending_status_in_the_body_still_calculates()
+    {
+        var db = await Seed();
+        var invoice = Invoice();
+        invoice.InvoiceStatus = InvoiceStatus.Confirmed;
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        var item = invoice.Items.Single();
+        Assert.Equal(InvoiceStatus.Pending, invoice.InvoiceStatus);
+        Assert.Equal("6102", item.Cfop);
+        Assert.Equal(4200.00m, item.IcmsValue);
+    }
+
     [Fact]
     public async Task Shipment_billing_with_rule_active_fails_without_cfop()
     {

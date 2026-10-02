@@ -70,6 +70,10 @@ public class SalesInvoicesCreateService(
         // propósito — lá dentro a DefaultException viraria ApplicationException e perderia o 400.
         if (taxActive)
         {
+            // Todo documento nasce Pendente (o try abaixo força o mesmo). Forçar ANTES do
+            // cálculo: o status vem do corpo, e o cálculo só age em documento Pendente — um
+            // "Confirmado" escolhido na tela faria a linha nascer sem imposto e sem CFOP.
+            salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             await taxApply.ApplyAsync(salesInvoice, salesInvoice.Items);
         }
 
