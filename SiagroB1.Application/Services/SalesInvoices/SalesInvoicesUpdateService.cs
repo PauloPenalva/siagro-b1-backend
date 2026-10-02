@@ -28,7 +28,11 @@ public class SalesInvoicesUpdateService(
                 !Equals(original[nameof(SalesInvoice.CardCode)], entity.CardCode) ||
                 !Equals(original[nameof(SalesInvoice.BranchCode)], entity.BranchCode);
 
-            db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
+            var entry = db.Context.Entry(existingEntity);
+            entry.CurrentValues.SetValues(entity);
+
+            SalesInvoiceNfeLock.EnsureHeaderEditable(entry);
+            SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
 
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;

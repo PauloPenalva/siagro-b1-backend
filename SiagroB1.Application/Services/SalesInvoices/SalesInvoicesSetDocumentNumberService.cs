@@ -24,6 +24,8 @@ public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db, SalesInvoices
             .FirstOrDefaultAsync(x => x.Key == key)
             ??  throw new NotFoundException("Sales invoice not found.");
 
+        SalesInvoiceNfeLock.EnsureManualTaxDocument(invoice);
+
         // Branco vira null: a chave de acesso é opcional, e gravar "" faria todo documento
         // seguinte sem chave colidir com o anterior.
         var number = withoutTaxDocument ? null : Normalize(documentNumber);

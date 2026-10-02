@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -21,7 +22,8 @@ public class SalesInvoicesConfirmService(
     SalesContractsAllocationCreateForFiscalAdjustmentService fiscalAdjustment,
     ShipmentLoadsBalanceHookService loadHook,
     ShipmentLoadsClosureHookService loadClosureHook,
-    IStringLocalizer<Resource> resource)
+    IStringLocalizer<Resource> resource,
+    TaxCalculationGate? gate = null)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
@@ -72,6 +74,17 @@ public class SalesInvoicesConfirmService(
         {
             throw new ApplicationException(
                 "Invoice is not pending.");
+        }
+
+        // NF-e STANDALONE: na filial com a regra ativa, o documento Normal só confirma com a NF-e
+        // autorizada — é a emissão que chama esta confirmação. Devolução segue como sempre. Sem o
+        // gate (os testes antigos constroem o serviço sem ele) a regra fica inativa.
+        if (gate is not null &&
+            invoice.InvoiceType == SalesInvoiceType.Normal &&
+            invoice.NfeStatus != NfeStatus.Authorized &&
+            await gate.IsActiveAsync(invoice.BranchCode))
+        {
+            throw new DefaultException("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.");
         }
 
         // Antes de abrir a transação: uma devolução cujo peso de cabeçalho discorda das linhas

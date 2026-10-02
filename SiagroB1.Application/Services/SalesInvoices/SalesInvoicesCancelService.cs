@@ -26,6 +26,8 @@ public class SalesInvoicesCancelService(
 
         if (existingInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new ApplicationException("Documento já está cancelado.");
+
+        SalesInvoiceNfeLock.EnsureCancellable(existingInvoice);
         
         if (existingInvoice.InvoiceType == SalesInvoiceType.Return && existingInvoice.InvoiceStatus == InvoiceStatus.Confirmed)
             throw new ApplicationException("Documento do tipo retorno já está confirmado. Não é possivel cancelar.");

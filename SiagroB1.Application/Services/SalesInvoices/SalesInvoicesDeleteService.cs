@@ -20,6 +20,14 @@ public class SalesInvoicesDeleteService(
             if (entity.InvoiceStatus != InvoiceStatus.Pending)
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
 
+            SalesInvoiceNfeLock.EnsureDeletable(entity);
+
+            // A FK de SALES_INVOICE_NFE_XMLS para o documento é NoAction no banco real: sem remover
+            // os XMLs (da NF-e rejeitada) antes, o delete estoura 547 em produção. O InMemory dos
+            // testes não aplica FK e não acusaria.
+            db.Context.SalesInvoiceNfeXmls.RemoveRange(
+                await db.Context.SalesInvoiceNfeXmls.Where(x => x.SalesInvoiceKey == entity.Key).ToListAsync());
+
             // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a nota e
             // para a linha da nota são NoAction, de propósito — o ticket de descarga é a evidência
             // física que libera o pagamento do frete e não pode ser levado embora junto com o

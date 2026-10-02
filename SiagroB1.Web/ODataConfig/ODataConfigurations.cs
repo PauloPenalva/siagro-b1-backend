@@ -90,6 +90,14 @@ public static class ODataConfigurations
         salesInvoicesIssueNfe.Parameter<Guid>("Key");
         salesInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
 
+        var salesInvoicesConsultNfe = modelBuilder.Action("SalesInvoicesConsultNfe");
+        salesInvoicesConsultNfe.Parameter<Guid>("Key");
+        salesInvoicesConsultNfe.Returns<NfeIssueOutcomeDto>();
+
+        var salesInvoicesCompleteNfeConfirmation = modelBuilder.Action("SalesInvoicesCompleteNfeConfirmation");
+        salesInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
+        salesInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");

@@ -36,6 +36,11 @@ public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoic
 
             var salesInvoiceKey = entity.SalesInvoiceKey;
 
+            SalesInvoiceNfeLock.EnsureLinesChangeable(await db.Context.SalesInvoices.AsNoTracking()
+                .Where(i => i.Key == salesInvoiceKey)
+                .Select(i => i.NfeStatus)
+                .FirstOrDefaultAsync());
+
             // GAC-1171: a FK de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a linha da
             // nota é NoAction, de propósito — o ticket de descarga é a evidência física que libera
             // o pagamento do frete e não pode ser levado embora junto com a linha. Sem este guard o

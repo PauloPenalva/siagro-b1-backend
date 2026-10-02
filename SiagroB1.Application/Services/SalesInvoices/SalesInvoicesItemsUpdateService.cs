@@ -58,6 +58,12 @@ public class SalesInvoicesItemsUpdateService(
 
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
 
+            var invoiceNfeStatus = await db.Context.SalesInvoices.AsNoTracking()
+                .Where(i => i.Key == existingEntity.SalesInvoiceKey)
+                .Select(i => i.NfeStatus)
+                .FirstOrDefaultAsync();
+            SalesInvoiceNfeLock.EnsureItemEditable(invoiceNfeStatus, db.Context.Entry(existingEntity));
+
             await ApplyTaxLockAsync(existingEntity);
 
             if (deliveryChanged)

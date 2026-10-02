@@ -22,6 +22,7 @@ public class SalesInvoicesItemsCreateService(
 
         if (invoice is not null)
         {
+            SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus);
             await taxApply.ApplyAsync(invoice, [salesInvoiceItem]);
         }
 

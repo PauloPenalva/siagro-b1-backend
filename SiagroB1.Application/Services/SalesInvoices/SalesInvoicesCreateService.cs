@@ -26,6 +26,10 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
 
+        // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
+        // da confirmação direta.
+        SalesInvoiceNfeLock.ResetIssuanceFields(salesInvoice);
+
         // Natureza de operação e CFOP são resolvidos ANTES de qualquer gravação: os dois
         // rejeitam com mensagem de negócio, e não faz sentido numerar um documento que não
         // vai nascer. Vale para o documento avulso e para o faturamento de romaneio — o
