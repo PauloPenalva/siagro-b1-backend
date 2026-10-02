@@ -48,7 +48,8 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
                 return call(services);
             }
             catch (Exception e) when (e is ComunicacaoException or WebException or HttpRequestException
-                                          or TimeoutException or IOException or SocketException
+                                          or TimeoutException or SocketException
+                                          or (IOException and not (FileNotFoundException or DirectoryNotFoundException))
                                           or TaskCanceledException)
             {
                 throw new NfeCommunicationException(e.Message, e);

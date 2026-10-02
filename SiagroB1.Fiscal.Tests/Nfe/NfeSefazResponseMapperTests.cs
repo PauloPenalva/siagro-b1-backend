@@ -74,6 +74,27 @@ public class NfeSefazResponseMapperTests
     }
 
     [Fact]
+    public void Consult_of_cancelled_note_reports_the_top_level_status()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 101, xMotivo = "Cancelamento de NF-e homologado", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+        });
+
+        Assert.Equal(101, result.StatusCode);
+        Assert.Null(result.ProtocolXml);
+        Assert.False(NfeStatusCodes.IsAuthorized(result.StatusCode));
+    }
+
+    [Fact]
+    public void Missing_reason_becomes_empty()
+    {
+        var result = NfeSefazResponseMapper.FromStatus(new retConsStatServ { cStat = 107, xMotivo = null });
+
+        Assert.Equal(string.Empty, result.Reason);
+    }
+
+    [Fact]
     public void Consult_of_unknown_note_is_217()
     {
         var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe

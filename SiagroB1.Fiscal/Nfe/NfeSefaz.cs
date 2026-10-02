@@ -49,21 +49,26 @@ internal static class NfeSefazResponseMapper
     public static NfeSefazResult FromAuthorization(retEnviNFe response) =>
         response.cStat == NfeStatusCodes.BatchProcessed && response.protNFe?.infProt is not null
             ? FromProtocol(response.protNFe)
-            : new NfeSefazResult(response.cStat, response.xMotivo);
+            : new NfeSefazResult(response.cStat, response.xMotivo ?? string.Empty);
 
+    /// <summary>
+    /// O protocolo só vale quando o status do topo é de autorização/denegação: numa nota cancelada
+    /// o topo é 101 e o protNFe ainda traz a autorização original (100).
+    /// </summary>
     public static NfeSefazResult FromConsult(retConsSitNFe response) =>
         response.protNFe?.infProt is not null
+        && (NfeStatusCodes.IsAuthorized(response.cStat) || NfeStatusCodes.IsDenied(response.cStat))
             ? FromProtocol(response.protNFe)
-            : new NfeSefazResult(response.cStat, response.xMotivo);
+            : new NfeSefazResult(response.cStat, response.xMotivo ?? string.Empty);
 
     public static NfeSefazResult FromStatus(retConsStatServ response) =>
-        new(response.cStat, response.xMotivo);
+        new(response.cStat, response.xMotivo ?? string.Empty);
 
     private static NfeSefazResult FromProtocol(protNFe protocol)
     {
         var info = protocol.infProt;
 
         return new NfeSefazResult(
-            info.cStat, info.xMotivo, info.nProt, info.dhRecbto, FuncoesXml.ClasseParaXmlString(protocol));
+            info.cStat, info.xMotivo ?? string.Empty, info.nProt, info.dhRecbto, FuncoesXml.ClasseParaXmlString(protocol));
     }
 }
