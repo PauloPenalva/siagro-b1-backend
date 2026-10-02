@@ -146,6 +146,36 @@ public class UsageTaxationValidatorTests
         Invalid(m, "entre 0 e 100");
     }
 
+    /// <summary>
+    /// CST 03 é alíquota POR UNIDADE (R$/unidade), que o cálculo deste sub-projeto não faz —
+    /// aceitá-lo daria PIS/COFINS errado numa linha travada.
+    /// </summary>
+    [Fact]
+    public void Pis_cofins_cst_03_is_not_supported()
+    {
+        var m = Empty();
+        m.PisCst = "03";
+        Invalid(m, "CST de PIS");
+    }
+
+    /// <summary>CST 01/02 tributam: sem alíquota a linha sairia com PIS/COFINS zero em silêncio.</summary>
+    [Theory]
+    [InlineData("01")]
+    [InlineData("02")]
+    public void Taxed_pis_cofins_cst_requires_a_rate(string cst)
+    {
+        var m = Empty();
+        m.PisCst = cst;
+        Invalid(m, "alíquota de PIS");
+
+        m.PisRate = 1.65m;
+        m.CofinsCst = cst;
+        Invalid(m, "alíquota de COFINS");
+
+        m.CofinsRate = 7.6m;
+        UsageTaxationValidator.Validate(m);
+    }
+
     [Fact]
     public void Pis_cst_must_match_the_direction()
     {

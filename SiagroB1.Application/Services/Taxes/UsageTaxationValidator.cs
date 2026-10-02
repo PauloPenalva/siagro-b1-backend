@@ -37,6 +37,8 @@ public static class UsageTaxationValidator
         ValidateCode(model.CofinsCst, allowedPisCofins, "CST de COFINS", incoming);
         ValidatePercent(model.PisRate, "Alíquota de PIS");
         ValidatePercent(model.CofinsRate, "Alíquota de COFINS");
+        ValidateRateForTaxedCst(model.PisCst, model.PisRate, "PIS");
+        ValidateRateForTaxedCst(model.CofinsCst, model.CofinsRate, "COFINS");
 
         ValidateIbsCbs(model);
     }
@@ -108,6 +110,14 @@ public static class UsageTaxationValidator
         if (!allowed.Contains(code))
             throw new DefaultException(
                 $"{label} {code} não é válido para natureza de {(incoming ? "entrada" : "saída")}.");
+    }
+
+    private static void ValidateRateForTaxedCst(string? rawCst, decimal? rate, string tax)
+    {
+        var cst = UsageTaxationMapper.Normalize(rawCst);
+
+        if (cst is not null && FiscalCodes.PisCofinsCstRequiringRate.Contains(cst) && (rate ?? 0) <= 0)
+            throw new DefaultException($"Informe a alíquota de {tax} para o CST {cst}.");
     }
 
     private static void ValidatePercent(decimal? value, string label)

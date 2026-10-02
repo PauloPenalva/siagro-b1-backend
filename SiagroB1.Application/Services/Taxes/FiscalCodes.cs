@@ -27,8 +27,15 @@ public static class FiscalCodes
     /// <summary>CST de ICMS que aceitam redução de base.</summary>
     public static readonly IReadOnlySet<string> IcmsCodesWithReduction = new HashSet<string> { "20", "51", "90", "900" };
 
+    /// <summary>
+    /// CST 03 (alíquota por unidade de medida, R$/unidade) fica de fora: o cálculo deste
+    /// sub-projeto é percentual sobre a base, e o 03 sairia errado numa linha travada.
+    /// </summary>
     public static readonly IReadOnlySet<string> PisCofinsCstOutgoing =
-        new HashSet<string> { "01", "02", "03", "04", "05", "06", "07", "08", "09", "49" };
+        new HashSet<string> { "01", "02", "04", "05", "06", "07", "08", "09", "49" };
+
+    /// <summary>CST de PIS/COFINS que tributam por alíquota: sem ela a linha sairia zerada em silêncio.</summary>
+    public static readonly IReadOnlySet<string> PisCofinsCstRequiringRate = new HashSet<string> { "01", "02" };
 
     public static readonly IReadOnlySet<string> PisCofinsCstIncoming = new HashSet<string>
     {
