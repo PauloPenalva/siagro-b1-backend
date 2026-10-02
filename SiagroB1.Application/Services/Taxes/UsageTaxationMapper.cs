@@ -1,6 +1,7 @@
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Models;
+using SiagroB1.Fiscal.Taxes;
 
 namespace SiagroB1.Application.Services.Taxes;
 
@@ -10,9 +11,8 @@ namespace SiagroB1.Application.Services.Taxes;
 /// </summary>
 internal static class UsageTaxationMapper
 {
-    /// <summary>Select vazio da tela chega como "": no banco o "não informado" é nulo.</summary>
-    internal static string? Normalize(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    /// <summary>Mesma regra do catálogo fiscal — ver <see cref="FiscalCodes.Normalize"/>.</summary>
+    internal static string? Normalize(string? value) => FiscalCodes.Normalize(value);
 
     internal static void CopyToEntity(UsageModel model, Usage usage)
     {

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Application.Services.SalesInvoices;

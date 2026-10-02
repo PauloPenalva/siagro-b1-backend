@@ -1,4 +1,4 @@
-namespace SiagroB1.Application.Services.Taxes;
+namespace SiagroB1.Fiscal.Taxes;
 
 /// <summary>
 /// Alíquota interestadual do ICMS pela Resolução do Senado — lei fixa, não motor de regra:

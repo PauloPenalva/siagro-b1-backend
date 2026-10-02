@@ -2,7 +2,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 
-namespace SiagroB1.Application.Services.Taxes;
+namespace SiagroB1.Fiscal.Taxes;
 
 /// <summary>
 /// Coerência do cadastro tributário da natureza (STANDALONE). Cada regra só olha campo
@@ -45,7 +45,7 @@ public static class UsageTaxationValidator
 
     private static void ValidateCfop(string? cfop, char prefix, string label)
     {
-        var value = UsageTaxationMapper.Normalize(cfop);
+        var value = FiscalCodes.Normalize(cfop);
         if (value is null) return;
 
         if (value.Length != 4 || !value.All(char.IsDigit) || value[0] != prefix)
@@ -58,8 +58,8 @@ public static class UsageTaxationValidator
         string block, string? cstRaw, string? csosnRaw,
         decimal? rate, decimal? reduction, decimal? deferral, bool rateRequired)
     {
-        var cst = UsageTaxationMapper.Normalize(cstRaw);
-        var csosn = UsageTaxationMapper.Normalize(csosnRaw);
+        var cst = FiscalCodes.Normalize(cstRaw);
+        var csosn = FiscalCodes.Normalize(csosnRaw);
 
         if (cst is not null && !FiscalCodes.IcmsCst.Contains(cst))
             throw new DefaultException($"CST de ICMS {cst} ({block}) não é suportado.");
@@ -104,7 +104,7 @@ public static class UsageTaxationValidator
 
     private static void ValidateCode(string? raw, IReadOnlySet<string> allowed, string label, bool incoming)
     {
-        var code = UsageTaxationMapper.Normalize(raw);
+        var code = FiscalCodes.Normalize(raw);
         if (code is null) return;
 
         if (!allowed.Contains(code))
@@ -114,7 +114,7 @@ public static class UsageTaxationValidator
 
     private static void ValidateRateForTaxedCst(string? rawCst, decimal? rate, string tax)
     {
-        var cst = UsageTaxationMapper.Normalize(rawCst);
+        var cst = FiscalCodes.Normalize(rawCst);
 
         if (cst is not null && FiscalCodes.PisCofinsCstRequiringRate.Contains(cst) && (rate ?? 0) <= 0)
             throw new DefaultException($"Informe a alíquota de {tax} para o CST {cst}.");
@@ -128,8 +128,8 @@ public static class UsageTaxationValidator
 
     private static void ValidateIbsCbs(UsageModel model)
     {
-        var cst = UsageTaxationMapper.Normalize(model.IbsCbsCst);
-        var classCode = UsageTaxationMapper.Normalize(model.IbsCbsClassCode);
+        var cst = FiscalCodes.Normalize(model.IbsCbsCst);
+        var classCode = FiscalCodes.Normalize(model.IbsCbsClassCode);
 
         ValidatePercent(model.IbsRateReduction, "Redução do IBS");
         ValidatePercent(model.CbsRateReduction, "Redução da CBS");

@@ -1,6 +1,6 @@
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Application.Services.Taxes;
+namespace SiagroB1.Fiscal.Taxes;
 
 /// <summary>
 /// Códigos fiscais que este sub-projeto sabe calcular. A tela da natureza só aceita estes, e o
@@ -55,6 +55,10 @@ public static class FiscalCodes
 
     /// <summary>Origem da mercadoria com alíquota interestadual de 4% (Res. Senado 13/2012).</summary>
     public static readonly IReadOnlySet<byte> ImportedGoodsOrigins = new HashSet<byte> { 1, 2, 3, 8 };
+
+    /// <summary>Select vazio da tela chega como "": no banco o "não informado" é nulo.</summary>
+    public static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Regimes que usam CSOSN em vez de CST: Simples Nacional (1) e MEI (4).</summary>
     public static bool UsesCsosn(TaxRegime regime) =>

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -7,21 +7,17 @@
         <LangVersion>14</LangVersion>
         <FileVersion>1.0.116</FileVersion>
         <Company>IDX Consultoria e Sistemas</Company>
-        <Product>Siagro B1 Application</Product>
+        <Product>Siagro B1 Fiscal</Product>
         <Authors>IDX Consultoria e Sistemas</Authors>
         <Copyright>Copyright © 2026 IDX Consultoria e Sistemas</Copyright>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\SiagroB1.Commons\SiagroB1.Commons.csproj" />
       <ProjectReference Include="..\SiagroB1.Domain\SiagroB1.Domain.csproj" />
-      <ProjectReference Include="..\SiagroB1.Fiscal\SiagroB1.Fiscal.csproj" />
-      <ProjectReference Include="..\SiagroB1.Infra\SiagroB1.Infra.csproj" />
-      <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.3" />
+      <PackageReference Include="Zeus.Net.NFe.NFCe" Version="2026.9.24.1416" />
     </ItemGroup>
 
 </Project>

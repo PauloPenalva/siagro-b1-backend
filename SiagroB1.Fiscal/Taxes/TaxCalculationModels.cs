@@ -1,6 +1,6 @@
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Application.Services.Taxes;
+namespace SiagroB1.Fiscal.Taxes;
 
 /// <summary>Bloco de ICMS da natureza já escolhido (dentro ou fora do estado).</summary>
 public sealed record IcmsRule(

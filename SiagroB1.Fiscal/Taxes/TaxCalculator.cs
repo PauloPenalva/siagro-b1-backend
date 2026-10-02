@@ -1,4 +1,4 @@
-namespace SiagroB1.Application.Services.Taxes;
+namespace SiagroB1.Fiscal.Taxes;
 
 /// <summary>
 /// As contas do spec §6, puras. Ordem fixa: ICMS → PIS/COFINS → IBS/CBS, cada base e cada valor

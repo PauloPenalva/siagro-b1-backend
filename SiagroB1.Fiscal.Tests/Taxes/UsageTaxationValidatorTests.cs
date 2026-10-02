@@ -1,9 +1,9 @@
-using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 
-namespace SiagroB1.Application.Tests.Usages;
+namespace SiagroB1.Fiscal.Tests.Taxes;
 
 /// <summary>
 /// A tela da natureza valida COERÊNCIA, nunca exigência: natureza sem tributação nenhuma é

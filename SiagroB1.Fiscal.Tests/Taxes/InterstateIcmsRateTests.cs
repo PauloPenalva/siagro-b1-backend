@@ -1,6 +1,6 @@
-using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Fiscal.Taxes;
 
-namespace SiagroB1.Application.Tests.Taxes;
+namespace SiagroB1.Fiscal.Tests.Taxes;
 
 public class InterstateIcmsRateTests
 {

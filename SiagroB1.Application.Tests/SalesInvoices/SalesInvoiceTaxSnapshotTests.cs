@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 

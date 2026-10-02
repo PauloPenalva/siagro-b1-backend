@@ -1,7 +1,7 @@
-using SiagroB1.Application.Services.Taxes;
+using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Application.Tests.Taxes;
+namespace SiagroB1.Fiscal.Tests.Taxes;
 
 /// <summary>
 /// Contas da §6 do spec. A ordem é fixa (ICMS → PIS/COFINS → IBS/CBS) porque cada tributo usa o
