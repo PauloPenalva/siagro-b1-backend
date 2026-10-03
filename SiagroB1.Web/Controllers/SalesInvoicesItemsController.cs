@@ -43,6 +43,18 @@ public class SalesInvoicesItemsController(
     }
     
     /// <summary>
+    /// Coleção pela navegação <c>SalesInvoices({key})/Items</c>. Logo depois do POST de um documento
+    /// novo o UI5 v4 lê a coleção filha por navegação; sem a rota o documento gravava e em seguida
+    /// aparecia um diálogo de erro de comunicação (404). Método SEPARADO do <c>Get(Guid key)</c>, cuja
+    /// chave é a da LINHA — aqui é a do documento (mesmo par de rotas de <c>PurchaseInvoices</c>).
+    /// </summary>
+    [HttpGet("odata/SalesInvoices({key:guid})/Items")]
+    [HttpGet("odata/SalesInvoices/{key:guid}/Items")]
+    [EnableQuery]
+    public ActionResult<IEnumerable<SalesInvoiceItem>> GetByInvoice([FromRoute] Guid key) =>
+        Ok(getService.QueryAll().Where(x => x.SalesInvoiceKey == key));
+
+    /// <summary>
     /// Item pela navegação do documento. O UI5 v4 busca por aqui as "late properties" — campos
     /// que não vieram no request principal porque não estão na grade, como os do diálogo fiscal
     /// (NCM, CST, bases, IBS/CBS, centro de custo). Sem a rota declarada o diálogo abria vazio
