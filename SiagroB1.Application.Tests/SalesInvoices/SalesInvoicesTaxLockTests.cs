@@ -193,4 +193,30 @@ public class SalesInvoicesTaxLockTests
         var stored = await db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(x => x.Key == line.Key);
         Assert.Equal(77m, stored.IcmsValue);
     }
+
+    /// <summary>
+    /// Pendente com NF-e autorizada (a confirmação falhou ou foi estornada): uma edição que não é
+    /// fiscal, depois de a natureza mudar, não pode recalcular a linha e descolá-la do XML.
+    /// </summary>
+    [Fact]
+    public async Task Pending_line_with_authorized_nfe_keeps_its_taxes_after_the_setup_changes()
+    {
+        var (db, invoice, line) = await Seed();
+        invoice.NfeStatus = NfeStatus.Authorized;
+        await db.SaveChangesAsync();
+
+        var usage = await db.Context.Usages.SingleAsync();
+        usage.CfopOutgoingOutState = "6999";
+        usage.IcmsOutStateCst = "20";
+        await db.SaveChangesAsync();
+
+        line.SalesContractKey = Guid.NewGuid();
+        await ItemsUpdate(db).ExecuteAsync(line.Key!.Value, line, "tester");
+
+        var stored = await db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(x => x.Key == line.Key);
+        Assert.Equal("6102", stored.Cfop);
+        Assert.Equal("00", stored.CstIcms);
+        Assert.Equal(4200.00m, stored.IcmsValue);
+        Assert.NotNull(stored.SalesContractKey);
+    }
 }

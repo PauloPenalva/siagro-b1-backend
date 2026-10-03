@@ -40,6 +40,7 @@ public class SalesInvoicesNfeConsultService(
         }
         catch (NfeCommunicationException)
         {
+            invoice.NfeStatusCode = null;
             invoice.NfeStatusReason = "Sem resposta da SEFAZ na consulta — tente de novo em instantes.";
             await db.SaveChangesAsync();
 
@@ -49,6 +50,7 @@ public class SalesInvoicesNfeConsultService(
         {
             // Qualquer outra falha da chamada (certificado, TLS, XML de retorno ilegível) também
             // deixa o documento em processamento: o detalhe técnico vai para o motivo.
+            invoice.NfeStatusCode = null;
             invoice.NfeStatusReason = SalesInvoiceNfeResultHandler.Truncate(
                 $"Sem resposta da SEFAZ na consulta — tente de novo em instantes. (detalhe técnico: {e.Message})");
             await db.SaveChangesAsync();

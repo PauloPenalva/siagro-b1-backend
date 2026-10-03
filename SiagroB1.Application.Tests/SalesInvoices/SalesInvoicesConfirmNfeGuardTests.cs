@@ -39,7 +39,8 @@ public class SalesInvoicesConfirmNfeGuardTests
     }
 
     /// <summary>Documento AVULSO de uma linha, natureza sem efeito no contrato, filial com a chave.</summary>
-    private static async Task<(UnitOfWork Db, SalesInvoice Invoice)> SeedAsync(bool issuesNfe = true, NfeStatus nfe = NfeStatus.None)
+    private static async Task<(UnitOfWork Db, SalesInvoice Invoice)> SeedAsync(
+        bool issuesNfe = true, NfeStatus nfe = NfeStatus.None, SalesInvoiceType type = SalesInvoiceType.Normal)
     {
         var db = TestDb.CreateUnitOfWork();
         db.Context.Branchs.Add(new Branch { Code = "01", BranchName = "CEAGUI", StateCode = "SP", TaxRegime = TaxRegime.Normal, IssuesNfe = issuesNfe });
@@ -51,12 +52,25 @@ public class SalesInvoicesConfirmNfeGuardTests
         });
 
         var contract = SalesContractsAllocationTestSupport.NewContract(totalVolume: 1_000m);
-        var invoice = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Pending);
+
+        // Devolução: precisa de uma origem confirmada com a linha que ela devolve.
+        var origin = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Confirmed);
+        origin.BranchCode = "01";
+        var originItem = SalesContractsAllocationTestSupport.NewItem(origin, contract.Key, releaseKey: null, 100m);
+        originItem.UsageCode = usage.Code;
+
+        var invoice = SalesContractsAllocationTestSupport.NewInvoice(
+            InvoiceStatus.Pending, type, originKey: type == SalesInvoiceType.Return ? origin.Key : null);
         invoice.BranchCode = "01";
         invoice.NfeStatus = nfe;
-        SalesContractsAllocationTestSupport.NewItem(invoice, contract.Key, releaseKey: null, 100m).UsageCode = usage.Code;
+        invoice.NetWeight = invoice.GrossWeight = 100m; // devolução: o peso do cabeçalho fecha com a linha
+        SalesContractsAllocationTestSupport.NewItem(
+            invoice, contract.Key, releaseKey: null, 100m,
+            originItemKey: type == SalesInvoiceType.Return ? originItem.Key : null).UsageCode = usage.Code;
 
         db.Context.SalesContracts.Add(contract);
+        if (type == SalesInvoiceType.Return)
+            db.Context.SalesInvoices.Add(origin);
         db.Context.SalesInvoices.Add(invoice);
         await db.SaveChangesAsync();
 
@@ -74,6 +88,17 @@ public class SalesInvoicesConfirmNfeGuardTests
         var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", ex.Message);
+    }
+
+    /// <summary>Devolução não emite NF-e por este fluxo: a guarda só vale para o documento Normal.</summary>
+    [Fact]
+    public async Task Rule_active_still_confirms_a_return_directly()
+    {
+        var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return);
+
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
 
     [Fact]

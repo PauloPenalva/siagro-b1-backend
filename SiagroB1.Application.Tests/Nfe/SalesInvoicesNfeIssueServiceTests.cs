@@ -167,6 +167,30 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Contains("Consultar situação", invoice.NfeStatusReason);
     }
 
+    /// <summary>Reenvio de uma rejeitada: o código antigo não pode ficar ao lado do "sem resposta".</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task No_response_clears_the_stale_status_code(bool unexpectedFailure)
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var previous = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        previous.NfeStatus = NfeStatus.Rejected;
+        previous.NfeStatusCode = "209";
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(unexpectedFailure
+            ? _ => throw new InvalidOperationException("XML inválido")
+            : FakeNfeSefazClient.NoResponse);
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db)).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var invoice = await ReloadAsync(scenario);
+        Assert.Equal(NfeStatus.Processing, invoice.NfeStatus);
+        Assert.Null(invoice.NfeStatusCode);
+        Assert.StartsWith("Sem resposta da SEFAZ", invoice.NfeStatusReason);
+    }
+
     [Fact]
     public async Task Unreadable_sefaz_answer_keeps_the_document_processing()
     {

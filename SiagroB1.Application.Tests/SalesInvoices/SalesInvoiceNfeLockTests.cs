@@ -9,6 +9,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.SalesInvoices;
@@ -94,21 +95,86 @@ public class SalesInvoiceNfeLockTests
         Assert.Null(saved.NfeProtocol);
     }
 
+    /// <summary>Pelo serviço de criação: um corpo "Autorizada" passaria pela guarda da confirmação direta.</summary>
     [Fact]
-    public void Create_ignores_issuance_fields_in_the_body()
+    public async Task Create_ignores_issuance_fields_in_the_body()
     {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.Branchs.Add(new Branch { Code = "01", BranchName = "MATRIZ", StateCode = "SP" });
+        await db.SaveChangesAsync();
+
+        var partners = new FakeBusinessPartnerService(names: new() { ["C1"] = "CLIENTE" }, states: new() { ["C1"] = "SP" });
+        var usages = new UsageService(db, NullLogger<UsageService>.Instance);
+        await usages.CreateAsync(new UsageModel
+        {
+            Name = "Venda", CfopOutgoingInState = "5102", CfopOutgoingOutState = "6102",
+            RequiresQuantity = true, IsDefault = true,
+        });
+
         var invoice = new SalesInvoice
         {
-            CardCode = "C1", NfeStatus = NfeStatus.Authorized, NfeProtocol = "1", NfeRandomCode = "12345678",
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = "C1", InvoiceDate = new DateTime(2026, 10, 2),
+            NfeStatus = NfeStatus.Authorized, NfeProtocol = "123456", NfeRandomCode = "12345678",
             NfeConfirmationError = "x",
+            Items =
+            [
+                new SalesInvoiceItem
+                {
+                    Key = Guid.NewGuid(), ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 10m, UnitPrice = 2m,
+                    SalesContractKey = Guid.NewGuid(),
+                },
+            ],
         };
 
-        SalesInvoiceNfeLock.ResetIssuanceFields(invoice);
+        await new SalesInvoicesCreateService(db, partners,
+                new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
+                new FakeDocNumberSequenceService(), new SalesInvoicesUsageGuardService(usages),
+                new SalesInvoicesCfopResolveService(db, usages, partners), TaxTestServices.InactiveApply(db),
+                NullLogger<SalesInvoicesCreateService>.Instance)
+            .ExecuteAsync(invoice, "tester");
 
-        Assert.Equal(NfeStatus.None, invoice.NfeStatus);
-        Assert.Null(invoice.NfeProtocol);
-        Assert.Null(invoice.NfeRandomCode);
-        Assert.Null(invoice.NfeConfirmationError);
+        var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync(x => x.Key == invoice.Key);
+        Assert.Equal(NfeStatus.None, saved.NfeStatus);
+        Assert.Null(saved.NfeProtocol);
+        Assert.Null(saved.NfeRandomCode);
+        Assert.Null(saved.NfeConfirmationError);
+    }
+
+    /// <summary>Caminho vivo da Yokotobi e da MH Agro: o número/série/chave são digitados no formulário.</summary>
+    [Fact]
+    public async Task Document_without_nfe_keeps_the_tax_document_fields_writable()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        invoice.TaxDocumentNumber = "000000010";
+        invoice.TaxDocumentSeries = "1";
+        invoice.ChaveNFe = "35261012345678000195550010000000101000000011";
+
+        await HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester");
+
+        var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("000000010", saved.TaxDocumentNumber);
+        Assert.Equal("1", saved.TaxDocumentSeries);
+        Assert.Equal("35261012345678000195550010000000101000000011", saved.ChaveNFe);
+    }
+
+    [Fact]
+    public async Task Emitted_document_keeps_the_tax_document_fields_unchanged()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        invoice.TaxDocumentNumber = "000000010";
+        invoice.TaxDocumentSeries = "1";
+        invoice.ChaveNFe = "CHAVE-ORIGINAL";
+        await db.SaveChangesAsync();
+
+        invoice.TaxDocumentNumber = "999";
+        invoice.TaxDocumentSeries = "9";
+        invoice.ChaveNFe = "CHAVE-FORJADA";
+        await HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester");
+
+        var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("000000010", saved.TaxDocumentNumber);
+        Assert.Equal("1", saved.TaxDocumentSeries);
+        Assert.Equal("CHAVE-ORIGINAL", saved.ChaveNFe);
     }
 
     [Fact]
@@ -189,6 +255,31 @@ public class SalesInvoiceNfeLockTests
 
         Assert.True(deleted);
         Assert.False(await db.Context.SalesInvoiceNfeXmls.AnyAsync(x => x.SalesInvoiceKey == invoice.Key));
+    }
+
+    /// <summary>A remoção dos XMLs vem depois de todas as guardas: recusado o delete, nada fica marcado.</summary>
+    [Fact]
+    public async Task Refused_delete_does_not_leave_the_xmls_marked_for_removal()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Rejected);
+        db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Xml = "<NFe/>", CreatedAt = DateTime.Now,
+        });
+        db.Context.ShipmentLoadsDischargesItems.Add(new ShipmentLoadDischargeItem
+        {
+            Key = Guid.NewGuid(), DischargeKey = Guid.NewGuid(), SalesInvoiceKey = invoice.Key,
+            SalesInvoiceItemKey = invoice.Items.Single().Key!.Value, Quantity = 1m,
+        });
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() => new SalesInvoicesDeleteService(db,
+                new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+                NullLogger<SalesInvoicesDeleteService>.Instance)
+            .ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.DoesNotContain(db.Context.ChangeTracker.Entries<SalesInvoiceNfeXml>(), e => e.State == EntityState.Deleted);
     }
 
     [Fact]

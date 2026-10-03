@@ -3,6 +3,7 @@ using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Nfe;
@@ -82,8 +83,58 @@ public class SalesInvoicesNfeConsultServiceTests
     public async Task Only_processing_documents_are_consulted()
     {
         var scenario = await NfeTestSeed.SeedAsync();
-        var (_, consult) = Services(scenario, new FakeNfeSefazClient(), new RecordingConfirmService(scenario.Db));
+        var sefaz = new FakeNfeSefazClient();
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
 
-        await Assert.ThrowsAsync<DefaultException>(() => consult.ExecuteAsync(scenario.InvoiceKey, "tester"));
+        // Com o XML assinado gravado: só a trava de situação (P12) pode recusar.
+        var invoice = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        invoice.NfeStatus = NfeStatus.Rejected;
+        scenario.Db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Xml = "<NFe/>", CreatedAt = DateTime.Now,
+        });
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => consult.ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("Só a NF-e em processamento é consultada.", ex.Message);
+        Assert.Empty(sefaz.Consulted);
+    }
+
+    [Fact]
+    public async Task Communication_failure_keeps_processing_and_clears_the_stale_status_code()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var (sefaz, _, consult) = await ProcessingAsync(scenario);
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).NfeStatusCode = "656";
+        await scenario.Db.SaveChangesAsync();
+        sefaz.ConsultResponses.Enqueue(_ => throw new NfeCommunicationException("Tempo esgotado."));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Processing, outcome.NfeStatus);
+        Assert.Null(outcome.StatusCode);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Null(saved.NfeStatusCode);
+        Assert.StartsWith("Sem resposta da SEFAZ na consulta", saved.NfeStatusReason);
+        Assert.DoesNotContain("detalhe técnico", saved.NfeStatusReason);
+    }
+
+    [Fact]
+    public async Task Unexpected_failure_keeps_processing_with_the_technical_detail()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var (sefaz, _, consult) = await ProcessingAsync(scenario);
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).NfeStatusCode = "656";
+        await scenario.Db.SaveChangesAsync();
+        sefaz.ConsultResponses.Enqueue(_ => throw new InvalidOperationException("XML ilegível"));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Processing, outcome.NfeStatus);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Null(saved.NfeStatusCode);
+        Assert.Contains("(detalhe técnico: XML ilegível)", saved.NfeStatusReason);
     }
 }

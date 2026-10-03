@@ -131,7 +131,9 @@ public class SalesInvoicesItemsUpdateService(
         if (invoice is null || !await taxApply.IsActiveForAsync(invoice))
             return;
 
-        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending)
+        // Pendente com NF-e autorizada (a confirmação falhou ou foi estornada): o que foi ao XML
+        // não se recalcula — um recálculo com alíquota ou natureza novas descolaria a linha da nota.
+        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending && invoice.NfeStatus != NfeStatus.Authorized)
         {
             await taxApply.ApplyAsync(invoice, [item]);
             return;
