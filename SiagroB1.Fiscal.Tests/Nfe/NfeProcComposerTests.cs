@@ -18,10 +18,9 @@ public class NfeProcComposerTests
     [Fact]
     public void Composed_proc_keeps_the_signed_part_and_parses_back()
     {
+        using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password);
         var settings = new NfeServiceSettings(
-            NfeEnvironment.Homologation, "SP",
-            CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password),
-            NfeServiceSettings.DefaultSchemasDirectory);
+            NfeEnvironment.Homologation, "SP", certificate, NfeServiceSettings.DefaultSchemasDirectory);
         var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), settings);
         var protocol = new protNFe
         {
@@ -47,10 +46,9 @@ public class NfeProcComposerTests
     [Fact]
     public void Digests_are_read_from_the_signed_xml_and_the_protocol()
     {
+        using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password);
         var settings = new NfeServiceSettings(
-            NfeEnvironment.Homologation, "SP",
-            CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password),
-            NfeServiceSettings.DefaultSchemasDirectory);
+            NfeEnvironment.Homologation, "SP", certificate, NfeServiceSettings.DefaultSchemasDirectory);
         var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), settings);
         var protocol = new protNFe
         {

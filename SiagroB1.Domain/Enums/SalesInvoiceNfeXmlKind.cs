@@ -5,4 +5,6 @@ public enum SalesInvoiceNfeXmlKind
 {
     Signed = 1,
     Authorized = 2,
+    /// <summary>procNFe da NF-e denegada: o emitente guarda o XML denegado.</summary>
+    Denied = 3,
 }

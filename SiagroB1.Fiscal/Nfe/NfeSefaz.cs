@@ -26,6 +26,9 @@ public static class NfeStatusCodes
     public const int InOperation = 107;
     public const int NotFound = 217;
 
+    /// <summary>539: o mesmo número já existe na SEFAZ com outra chave de acesso.</summary>
+    public const int NumberUsedByAnotherKey = 539;
+
     public static bool IsAuthorized(int code) => code is 100 or 150;
 
     public static bool IsDenied(int code) => code is 110 or 301 or 302 or 303;

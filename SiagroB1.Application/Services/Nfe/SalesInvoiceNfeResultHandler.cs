@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
@@ -13,7 +14,8 @@ namespace SiagroB1.Application.Services.Nfe;
 /// Aplica no documento o retorno da SEFAZ (spec §9.2 passo 6 e §9.3) — o mesmo para emissão e
 /// consulta. Autorizada: grava o procNFe e a situação, SALVA, e só então confirma o documento.
 /// </summary>
-public class SalesInvoiceNfeResultHandler(IUnitOfWork db, SalesInvoicesConfirmService confirm)
+public class SalesInvoiceNfeResultHandler(
+    IUnitOfWork db, SalesInvoicesConfirmService confirm, ILogger<SalesInvoiceNfeResultHandler> logger)
 {
     public Task<NfeIssueOutcomeDto> ApplyAuthorizationAsync(
         SalesInvoice invoice, string signedXml, NfeSefazResult result, string userName) =>
@@ -36,6 +38,8 @@ public class SalesInvoiceNfeResultHandler(IUnitOfWork db, SalesInvoicesConfirmSe
         }
         catch (Exception e)
         {
+            logger.LogError(e, "Falha ao confirmar o documento {InvoiceKey} depois da NF-e autorizada.", key);
+
             // ⚠️ A confirmação mexe em entidades rastreadas antes de falhar, e o rollback da
             // transação dela não desfaz o rastreador: salvar por cima gravaria a confirmação pela
             // metade. Descarta tudo e grava só o erro, relendo o documento.
@@ -116,6 +120,24 @@ public class SalesInvoiceNfeResultHandler(IUnitOfWork db, SalesInvoicesConfirmSe
         {
             invoice.NfeStatus = NfeStatus.Denied;
             invoice.NfeProtocol = result.Protocol;
+
+            // O emitente guarda o XML da NF-e denegada: mesmo procNFe da autorizada, com o XML
+            // assinado que o protocolo aponta (pelo digest).
+            if (result.ProtocolXml is not null)
+            {
+                var protocolDigest = NfeProcComposer.ProtocolDigest(result.ProtocolXml);
+                var deniedSigned = signedXmls.FirstOrDefault(x => NfeProcComposer.SignedDigest(x) == protocolDigest);
+
+                if (deniedSigned is not null)
+                    db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
+                    {
+                        Key = Guid.NewGuid(),
+                        SalesInvoiceKey = invoice.Key,
+                        Kind = SalesInvoiceNfeXmlKind.Denied,
+                        Xml = NfeProcComposer.Compose(deniedSigned, result.ProtocolXml),
+                        CreatedAt = DateTime.Now,
+                    });
+            }
         }
         else if (!fromConsult || result.StatusCode == NfeStatusCodes.NotFound)
         {

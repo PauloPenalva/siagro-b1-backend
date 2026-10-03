@@ -59,6 +59,25 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             Report(problems, $"Cliente {customer.CardCode}", gaps);
         }
 
+        // CFOP x destino: 5xxx é dentro da UF da filial, 6xxx fora. O CFOP é gravado no cálculo do
+        // item; mudar a UF do cliente depois sem recalcular o deixaria incoerente.
+        var branchState = branch.Municipality?.StateAbbreviation ?? branch.StateCode;
+        var destinationState = customerAddress?.Municipality?.StateAbbreviation ?? customerAddress?.State;
+        if (!string.IsNullOrWhiteSpace(branchState) && !string.IsNullOrWhiteSpace(destinationState))
+        {
+            var sameState = string.Equals(branchState, destinationState, StringComparison.OrdinalIgnoreCase);
+            var line = 0;
+
+            foreach (var item in invoice.Items)
+            {
+                line++;
+                var first = item.Cfop?.Trim().FirstOrDefault();
+
+                if ((first == '5' && !sameState) || (first == '6' && sameState))
+                    problems.Add($"Item {line}: CFOP {item.Cfop} não confere com o destino ({destinationState}) — salve o item de novo para recalcular.");
+            }
+        }
+
         BusinessPartner? deliveryPartner = null;
         Address? deliveryAddress = null;
         if (!string.IsNullOrWhiteSpace(invoice.DeliveryCardCode) && invoice.DeliveryCardCode != invoice.CardCode)

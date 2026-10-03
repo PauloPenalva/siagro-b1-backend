@@ -12,7 +12,24 @@ namespace SiagroB1.Application.Services.Nfe;
 /// </summary>
 public static class NfeIssueInputAssembler
 {
-    private static readonly TimeZoneInfo Brasilia = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+    private static readonly TimeZoneInfo Brasilia = FindBrasilia();
+
+    /// <summary>IANA (Linux/ICU) primeiro; o id do Windows quando o ICU não está presente.</summary>
+    private static TimeZoneInfo FindBrasilia()
+    {
+        foreach (var id in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+        }
+
+        throw new TimeZoneNotFoundException("Fuso de Brasília não encontrado neste servidor.");
+    }
 
     /// <summary><c>dhEmi</c> em America/Sao_Paulo (IANA: funciona em Linux e Windows com ICU).</summary>
     public static DateTimeOffset BrasiliaNow() => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Brasilia);

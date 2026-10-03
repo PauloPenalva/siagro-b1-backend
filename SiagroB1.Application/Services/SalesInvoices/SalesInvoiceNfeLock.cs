@@ -64,7 +64,9 @@ public static class SalesInvoiceNfeLock
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>
     public static void RestoreIssuanceFields(EntityEntry<SalesInvoice> entry)
     {
-        var emitted = (NfeStatus)entry.OriginalValues[nameof(SalesInvoice.NfeStatus)]! != NfeStatus.None;
+        // Emitido OU com número reservado (cNF gravado): o número já pertence à emissão.
+        var emitted = (NfeStatus)entry.OriginalValues[nameof(SalesInvoice.NfeStatus)]! != NfeStatus.None
+                      || entry.OriginalValues[nameof(SalesInvoice.NfeRandomCode)] is not null;
         var fields = emitted ? IssuanceFields.Concat(TaxDocumentFields) : IssuanceFields;
 
         foreach (var field in fields)
@@ -123,7 +125,7 @@ public static class SalesInvoiceNfeLock
 
     public static void EnsureManualTaxDocument(SalesInvoice invoice)
     {
-        if (invoice.NfeStatus != NfeStatus.None)
+        if (invoice.NfeStatus != NfeStatus.None || invoice.NfeRandomCode is not null)
             throw new DefaultException("Número, série e chave deste documento vêm da emissão da NF-e pelo Siagro.");
     }
 

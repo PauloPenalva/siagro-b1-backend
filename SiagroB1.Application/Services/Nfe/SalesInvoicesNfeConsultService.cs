@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -12,10 +13,18 @@ namespace SiagroB1.Application.Services.Nfe;
 /// procNFe a partir do XML assinado gravado antes do envio.
 /// </summary>
 public class SalesInvoicesNfeConsultService(
-    IUnitOfWork db, BranchNfeSettingsService settingsService, INfeSefazClient sefaz, SalesInvoiceNfeResultHandler resultHandler)
+    IUnitOfWork db,
+    BranchNfeSettingsService settingsService,
+    INfeSefazClient sefaz,
+    SalesInvoiceNfeResultHandler resultHandler,
+    NfeNumberReservationService reservation,
+    ILogger<SalesInvoicesNfeConsultService> logger)
 {
     public async Task<NfeIssueOutcomeDto> ExecuteAsync(Guid key, string userName)
     {
+        // A mesma trava da emissão: consultar no meio de uma emissão em curso gravaria por cima.
+        await using var emissionLock = await reservation.AcquireEmissionLockAsync(key);
+
         var invoice = await db.Context.SalesInvoices.FirstOrDefaultAsync(i => i.Key == key)
                       ?? throw new NotFoundException("Documento de saída não encontrado.");
 
@@ -50,6 +59,7 @@ public class SalesInvoicesNfeConsultService(
         {
             // Qualquer outra falha da chamada (certificado, TLS, XML de retorno ilegível) também
             // deixa o documento em processamento: o detalhe técnico vai para o motivo.
+            logger.LogError(e, "Falha inesperada ao consultar a NF-e do documento {InvoiceKey}.", key);
             invoice.NfeStatusCode = null;
             invoice.NfeStatusReason = SalesInvoiceNfeResultHandler.Truncate(
                 $"Sem resposta da SEFAZ na consulta — tente de novo em instantes. (detalhe técnico: {e.Message})");

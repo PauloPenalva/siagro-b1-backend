@@ -32,7 +32,7 @@ public class BusinessPartner
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
     
     [Column("Free_Text", TypeName = "VARCHAR(100)")]
-        public string? Notes { get; set; }
+    public string? Notes { get; set; }
 
     // --- Destinatário/transportadora da NF-e STANDALONE (nulos em SAPB1). ---
 

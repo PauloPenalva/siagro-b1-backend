@@ -18,6 +18,11 @@ public static class NfeTestSeed
 {
     public const string CardCode = "C-BA";
 
+    /// <summary>Relógio fixo dos testes: o documento semeado tem a data deste dia (a emissão exige "hoje").</summary>
+    public static readonly DateTimeOffset Now = new(2026, 10, 2, 12, 0, 0, TimeSpan.FromHours(-3));
+
+    public static DateTimeOffset Clock() => Now;
+
     public static readonly string CertificateKey =
         Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray());
 

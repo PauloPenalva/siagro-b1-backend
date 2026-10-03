@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.Taxes;
@@ -14,17 +15,21 @@ namespace SiagroB1.Application.Tests.Nfe;
 public class SalesInvoicesNfeConsultServiceTests
 {
     private static (SalesInvoicesNfeIssueService Issue, SalesInvoicesNfeConsultService Consult) Services(
-        NfeScenario scenario, FakeNfeSefazClient sefaz, SalesInvoicesConfirmService confirm)
+        NfeScenario scenario, FakeNfeSefazClient sefaz, SalesInvoicesConfirmService confirm,
+        FakeNfeNumberReservationService? reservation = null)
     {
+        reservation ??= new FakeNfeNumberReservationService();
         var config = NfeTestSeed.Config();
         var options = new NfeOptions(config);
         var settings = new BranchNfeSettingsService(scenario.Db, options, sefaz);
-        var handler = new SalesInvoiceNfeResultHandler(scenario.Db, confirm);
+        var handler = new SalesInvoiceNfeResultHandler(scenario.Db, confirm, NullLogger<SalesInvoiceNfeResultHandler>.Instance);
 
         return (
             new SalesInvoicesNfeIssueService(scenario.Db, new TaxCalculationGate(scenario.Db, config),
-                new NfeReadinessValidator(scenario.Db, options), settings, new FakeNfeNumberReservationService(), sefaz, handler, options),
-            new SalesInvoicesNfeConsultService(scenario.Db, settings, sefaz, handler));
+                new NfeReadinessValidator(scenario.Db, options), settings, reservation, sefaz, handler, options,
+                NullLogger<SalesInvoicesNfeIssueService>.Instance, NfeTestSeed.Clock),
+            new SalesInvoicesNfeConsultService(
+                scenario.Db, settings, sefaz, handler, reservation, NullLogger<SalesInvoicesNfeConsultService>.Instance));
     }
 
     /// <summary>Emite sem resposta: o documento fica em processamento com o XML assinado gravado.</summary>
@@ -99,6 +104,20 @@ public class SalesInvoicesNfeConsultServiceTests
         var ex = await Assert.ThrowsAsync<DefaultException>(() => consult.ExecuteAsync(scenario.InvoiceKey, "tester"));
 
         Assert.Equal("Só a NF-e em processamento é consultada.", ex.Message);
+        Assert.Empty(sefaz.Consulted);
+    }
+
+    [Fact]
+    public async Task Consult_while_an_emission_is_in_progress_is_refused_without_calling_sefaz()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var (sefaz, _, _) = await ProcessingAsync(scenario);
+        var reservation = new FakeNfeNumberReservationService { EmissionBusy = true };
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => consult.ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("A emissão deste documento já está em andamento. Aguarde e consulte a situação.", ex.Message);
         Assert.Empty(sefaz.Consulted);
     }
 

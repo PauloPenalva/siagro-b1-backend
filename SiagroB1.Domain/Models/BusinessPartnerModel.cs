@@ -18,7 +18,7 @@ public class BusinessPartnerModel
     
     public string? QryGroup23 { get;  set; }
     
-        public string? Notes { get; set; }
+    public string? Notes { get; set; }
 
     public string? StateRegistration { get; set; }
 

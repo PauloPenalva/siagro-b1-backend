@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Application.Services.SalesInvoices;
@@ -13,7 +14,8 @@ public class SalesInvoicesNfeIssueServiceTests
 {
     private static SalesInvoicesNfeIssueService Issue(
         NfeScenario scenario, FakeNfeSefazClient sefaz, SalesInvoicesConfirmService confirm,
-        string erp = "STANDALONE", FakeNfeNumberReservationService? reservation = null)
+        string erp = "STANDALONE", FakeNfeNumberReservationService? reservation = null,
+        Func<DateTimeOffset>? clock = null)
     {
         var config = NfeTestSeed.Config(erp);
         var options = new NfeOptions(config);
@@ -25,8 +27,10 @@ public class SalesInvoicesNfeIssueServiceTests
             new BranchNfeSettingsService(scenario.Db, options, sefaz),
             reservation ?? new FakeNfeNumberReservationService(),
             sefaz,
-            new SalesInvoiceNfeResultHandler(scenario.Db, confirm),
-            options);
+            new SalesInvoiceNfeResultHandler(scenario.Db, confirm, NullLogger<SalesInvoiceNfeResultHandler>.Instance),
+            options,
+            NullLogger<SalesInvoicesNfeIssueService>.Instance,
+            clock ?? NfeTestSeed.Clock);
     }
 
     private static Task<Domain.Entities.SalesInvoice> ReloadAsync(NfeScenario scenario) =>
@@ -329,5 +333,145 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Equal("000000001", invoice.TaxDocumentNumber);
         Assert.Equal("1", invoice.TaxDocumentSeries);
         Assert.Equal(1, reservation.Calls);
+    }
+
+    [Fact]
+    public async Task Emission_in_progress_is_refused_before_anything_is_reserved_or_sent()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        var reservation = new FakeNfeNumberReservationService { EmissionBusy = true };
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation)
+                .ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("A emissão deste documento já está em andamento. Aguarde e consulte a situação.", ex.Message);
+        Assert.Empty(sefaz.Sent);
+        Assert.Equal(0, reservation.Calls);
+    }
+
+    [Fact]
+    public async Task The_emission_lock_is_released_when_the_emission_ends()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation)
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(1, reservation.LockAttempts);
+        Assert.Equal(0, reservation.LocksHeld);
+    }
+
+    /// <summary>539: mesmo número com outra chave. Consultar não resolve — a reserva é que está errada.</summary>
+    [Fact]
+    public async Task Number_already_used_with_another_key_is_rejected_without_consulting_and_releases_the_reservation()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(_ => new Fiscal.Nfe.NfeSefazResult(539, "Rejeição: Duplicidade de NF-e, com diferença na Chave de Acesso"));
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+        var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
+
+        var outcome = await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Rejected, outcome.NfeStatus);
+        Assert.Empty(sefaz.Consulted);
+        var invoice = await ReloadAsync(scenario);
+        Assert.Equal("539", invoice.NfeStatusCode);
+        Assert.StartsWith("Rejeição: Duplicidade de NF-e", invoice.NfeStatusReason);
+        Assert.EndsWith("ajuste o Próximo número na Configuração da NF-e se o número já foi usado por outro sistema.", invoice.NfeStatusReason);
+        Assert.Null(invoice.NfeRandomCode);
+        Assert.Null(invoice.TaxDocumentNumber);
+        Assert.Null(invoice.TaxDocumentSeries);
+        Assert.Null(invoice.ChaveNFe);
+
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(2, reservation.Calls);
+        Assert.Equal("000000002", (await ReloadAsync(scenario)).TaxDocumentNumber);
+    }
+
+    [Fact]
+    public async Task Retry_after_the_series_changed_reserves_a_new_number()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(_ => FakeNfeSefazClient.Rejected());
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+        var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+        (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).Series = 2;
+        await scenario.Db.SaveChangesAsync();
+
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var invoice = await ReloadAsync(scenario);
+        Assert.Equal(2, reservation.Calls);
+        Assert.Equal("2", invoice.TaxDocumentSeries);
+        Assert.Equal("000000002", invoice.TaxDocumentNumber);
+    }
+
+    [Fact]
+    public async Task Retry_after_the_environment_changed_reserves_a_new_number()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(_ => FakeNfeSefazClient.Rejected());
+        sefaz.AuthorizeResponses.Enqueue(_ => FakeNfeSefazClient.Rejected());
+        var reservation = new FakeNfeNumberReservationService();
+        var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+        (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).Environment = NfeEnvironment.Production;
+        await scenario.Db.SaveChangesAsync();
+
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(2, reservation.Calls);
+        Assert.Equal("000000002", (await ReloadAsync(scenario)).TaxDocumentNumber);
+        var lastSigned = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt).Select(x => x.Xml).FirstAsync();
+        Assert.Contains("<tpAmb>1</tpAmb>", lastSigned);
+    }
+
+    [Fact]
+    public async Task Document_dated_another_day_is_refused_before_reserving_a_number()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        var reservation = new FakeNfeNumberReservationService();
+        var tomorrow = NfeTestSeed.Now.AddDays(1);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation, clock: () => tomorrow)
+                .ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal(
+            "A data do documento (02/10/2026) precisa ser a de hoje para emitir a NF-e: altere a data e salve (os impostos são recalculados).",
+            ex.Message);
+        Assert.Equal(0, reservation.Calls);
+        Assert.Empty(sefaz.Sent);
+    }
+
+    [Fact]
+    public async Task Denied_nfe_is_archived_as_a_denied_xml()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key, status: 110));
+        var confirm = new RecordingConfirmService(scenario.Db);
+
+        var outcome = await Issue(scenario, sefaz, confirm).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Denied, outcome.NfeStatus);
+        Assert.Equal(0, confirm.Calls);
+        var xmls = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().ToListAsync();
+        Assert.Contains(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Denied && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
+        Assert.DoesNotContain(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Authorized);
     }
 }

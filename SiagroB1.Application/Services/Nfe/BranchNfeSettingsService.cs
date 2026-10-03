@@ -49,6 +49,14 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
             throw new DefaultException("O próximo número da NF-e vai de 1 a 999.999.999.");
 
         var settings = await LoadOrCreateAsync(branchCode);
+
+        // Voltar a numeração com o mesmo ambiente e série reemitiria números já usados (rejeição
+        // 539). Trocar a série ou o ambiente começa outra numeração e libera qualquer número.
+        if (settings.Environment == environment && settings.Series == series && nextNumber < settings.NextNumber)
+            throw new DefaultException(
+                "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. " +
+                "Para recomeçar, troque a série ou o ambiente.");
+
         settings.Environment = environment;
         settings.Series = series;
         settings.NextNumber = nextNumber;

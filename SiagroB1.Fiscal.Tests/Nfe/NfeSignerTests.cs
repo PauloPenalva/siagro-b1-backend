@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using DFe.Utils;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Fiscal.Certificates;
@@ -12,15 +13,17 @@ namespace SiagroB1.Fiscal.Tests.Nfe;
 /// </summary>
 public class NfeSignerTests
 {
-    private static NfeServiceSettings Settings(string cnpj = "12345678000195") => new(
-        NfeEnvironment.Homologation, "SP",
-        CertificateLoader.Load(TestCertificates.CreatePfx(cnpj), TestCertificates.Password),
-        NfeServiceSettings.DefaultSchemasDirectory);
+    private static X509Certificate2 Certificate(string cnpj = "12345678000195") =>
+        CertificateLoader.Load(TestCertificates.CreatePfx(cnpj), TestCertificates.Password);
+
+    private static NfeServiceSettings Settings(X509Certificate2 certificate) =>
+        new(NfeEnvironment.Homologation, "SP", certificate, NfeServiceSettings.DefaultSchemasDirectory);
 
     [Fact]
     public void Signed_xml_validates_against_the_official_schema()
     {
-        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), Settings());
+        using var certificate = Certificate();
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), Settings(certificate));
 
         Assert.Contains("<Signature", signed.Xml);
         Assert.Contains("NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", signed.Xml);
@@ -29,7 +32,8 @@ public class NfeSignerTests
     [Fact]
     public void Access_key_is_valid_and_reflects_the_document()
     {
-        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), Settings());
+        using var certificate = Certificate();
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), Settings(certificate));
 
         Assert.Equal(44, signed.AccessKey.Length);
         Assert.True(ChaveFiscal.ChaveValida(signed.AccessKey));
@@ -45,8 +49,9 @@ public class NfeSignerTests
     [Fact]
     public void Alphanumeric_issuer_cnpj_produces_a_valid_key()
     {
+        using var certificate = Certificate("12ABC34501DE35");
         var signed = NfeSigner.BuildSignAndValidate(
-            NfeTestData.Input(issuerTaxId: "12ABC34501DE35"), Settings("12ABC34501DE35"));
+            NfeTestData.Input(issuerTaxId: "12ABC34501DE35"), Settings(certificate));
 
         Assert.Equal("12ABC34501DE35", signed.AccessKey.Substring(6, 14));
         Assert.True(ChaveFiscal.ChaveValida(signed.AccessKey));
@@ -55,9 +60,10 @@ public class NfeSignerTests
     [Fact]
     public void Schema_violation_is_reported_as_validation_error()
     {
+        using var certificate = Certificate();
         var input = NfeTestData.Input() with { Items = [NfeTestData.Item() with { Ncm = "1201" }] };
 
-        var ex = Assert.Throws<NfeValidationException>(() => NfeSigner.BuildSignAndValidate(input, Settings()));
+        var ex = Assert.Throws<NfeValidationException>(() => NfeSigner.BuildSignAndValidate(input, Settings(certificate)));
 
         Assert.Contains("NCM", ex.Message, StringComparison.OrdinalIgnoreCase);
     }

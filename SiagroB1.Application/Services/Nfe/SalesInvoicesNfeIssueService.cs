@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
@@ -24,10 +26,20 @@ public class SalesInvoicesNfeIssueService(
     NfeNumberReservationService reservation,
     INfeSefazClient sefaz,
     SalesInvoiceNfeResultHandler resultHandler,
-    NfeOptions options)
+    NfeOptions options,
+    ILogger<SalesInvoicesNfeIssueService> logger,
+    Func<DateTimeOffset>? clock = null)
 {
+    private const string NumberUsedHint =
+        " — ajuste o Próximo número na Configuração da NF-e se o número já foi usado por outro sistema.";
+
+    private readonly Func<DateTimeOffset> _now = clock ?? NfeIssueInputAssembler.BrasiliaNow;
+
     public async Task<NfeIssueOutcomeDto> ExecuteAsync(Guid key, string userName)
     {
+        // Antes de ler o documento: duas requisições da primeira tentativa transmitiriam duas NF-e.
+        await using var emissionLock = await reservation.AcquireEmissionLockAsync(key);
+
         var invoice = await db.Context.SalesInvoices.Include(i => i.Items).FirstOrDefaultAsync(i => i.Key == key)
                       ?? throw new NotFoundException("Documento de saída não encontrado.");
 
@@ -40,7 +52,7 @@ public class SalesInvoicesNfeIssueService(
         await ReserveNumberAsync(invoice, context.Settings);
 
         var input = NfeIssueInputAssembler.Build(
-            invoice, context, NfeIssueInputAssembler.BrasiliaNow(), options.TechnicalResponsible);
+            invoice, context, _now(), options.TechnicalResponsible);
 
         SignedNfe signed;
         try
@@ -79,7 +91,7 @@ public class SalesInvoicesNfeIssueService(
         {
             result = await sefaz.AuthorizeAsync(signed, service.Settings);
 
-            if (NfeStatusCodes.IsDuplicate(result.StatusCode))
+            if (NfeStatusCodes.IsDuplicate(result.StatusCode) && result.StatusCode != NfeStatusCodes.NumberUsedByAnotherKey)
                 consulted = await sefaz.ConsultProtocolAsync(signed.AccessKey, service.Settings);
         }
         catch (NfeCommunicationException)
@@ -93,8 +105,29 @@ public class SalesInvoicesNfeIssueService(
         {
             // A nota pode já estar autorizada na SEFAZ sem que a resposta tenha sido lida:
             // mantém Em processamento (nunca Rejeitada) e deixa o usuário consultar.
+            logger.LogError(e, "Falha inesperada ao transmitir a NF-e do documento {InvoiceKey}.", invoice.Key);
             invoice.NfeStatusReason = SalesInvoiceNfeResultHandler.Truncate(
                 $"Sem resposta da SEFAZ — use Consultar situação. (detalhe técnico: {e.Message})");
+            await db.SaveChangesAsync();
+
+            return NfeIssueOutcomeDto.From(invoice);
+        }
+
+        // 539: o número já existe na SEFAZ com OUTRA chave — não é a mesma nota, então não se
+        // consulta. Rejeita e solta a reserva: a próxima tentativa pega um número novo.
+        if (result.StatusCode == NfeStatusCodes.NumberUsedByAnotherKey)
+        {
+            var reason = result.Reason.Length <= 500 - NumberUsedHint.Length
+                ? result.Reason
+                : result.Reason[..(500 - NumberUsedHint.Length)];
+
+            invoice.NfeStatus = NfeStatus.Rejected;
+            invoice.NfeStatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
+            invoice.NfeStatusReason = reason + NumberUsedHint;
+            invoice.NfeRandomCode = null;
+            invoice.TaxDocumentNumber = null;
+            invoice.TaxDocumentSeries = null;
+            invoice.ChaveNFe = null;
             await db.SaveChangesAsync();
 
             return NfeIssueOutcomeDto.From(invoice);
@@ -138,6 +171,14 @@ public class SalesInvoicesNfeIssueService(
                 throw new DefaultException("A NF-e deste documento foi denegada: o número não pode ser reutilizado.");
         }
 
+        // A NF-e leva a data de HOJE (dhEmi); o documento de outro dia teria data e impostos
+        // (vigência do IBS/CBS) descolados da nota. Antes de reservar o número.
+        var today = DateOnly.FromDateTime(_now().DateTime);
+        if (invoice.InvoiceDate is not { } invoiceDate || DateOnly.FromDateTime(invoiceDate) != today)
+            throw new DefaultException(
+                $"A data do documento ({invoice.InvoiceDate:dd/MM/yyyy}) precisa ser a de hoje para emitir a NF-e: " +
+                "altere a data e salve (os impostos são recalculados).");
+
         if (invoice.Items.Count == 0)
             throw new DefaultException("O documento não tem itens.");
 
@@ -157,6 +198,15 @@ public class SalesInvoicesNfeIssueService(
     /// </summary>
     private async Task ReserveNumberAsync(SalesInvoice invoice, BranchNfeSettings settings)
     {
+        // Retentativa que não pode reaproveitar a reserva: a série mudou, ou o XML assinado da
+        // tentativa anterior foi no outro ambiente (tpAmb) — a numeração é por ambiente e série.
+        if (invoice.NfeRandomCode is not null &&
+            (invoice.TaxDocumentSeries != settings.Series.ToString(CultureInfo.InvariantCulture) ||
+             await SignedEnvironmentDiffersAsync(invoice, settings.Environment)))
+        {
+            invoice.NfeRandomCode = null;
+        }
+
         // Sem cNF = primeira tentativa: número/série digitados à mão não valem, sempre reserva.
         if (invoice.NfeRandomCode is null)
         {
@@ -168,6 +218,20 @@ public class SalesInvoicesNfeIssueService(
         invoice.NfeRandomCode ??= NewRandomCode(invoice.TaxDocumentNumber!);
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>O tpAmb do XML assinado MAIS NOVO do documento difere do ambiente da configuração?</summary>
+    private async Task<bool> SignedEnvironmentDiffersAsync(SalesInvoice invoice, NfeEnvironment environment)
+    {
+        var lastSigned = await db.Context.SalesInvoiceNfeXmls.AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == invoice.Key && x.Kind == SalesInvoiceNfeXmlKind.Signed)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => x.Xml)
+            .FirstOrDefaultAsync();
+
+        var match = lastSigned is null ? null : Regex.Match(lastSigned, @"<tpAmb>(\d)</tpAmb>");
+
+        return match is { Success: true } && int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) != (int)environment;
     }
 
     /// <summary>8 dígitos aleatórios, diferentes do número da nota (regra da SEFAZ).</summary>

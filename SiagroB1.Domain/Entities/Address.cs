@@ -24,7 +24,7 @@ public class Address
     
     public string? State { get; set; }
     
-        public string? Country { get; set; }
+    public string? Country { get; set; }
 
     [Column(TypeName = "VARCHAR(60)")]
     public string? StreetNumber { get; set; }

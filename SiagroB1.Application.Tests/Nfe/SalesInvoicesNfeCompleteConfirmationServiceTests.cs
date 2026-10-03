@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Enums;
@@ -26,7 +27,7 @@ public class SalesInvoicesNfeCompleteConfirmationServiceTests
         var confirm = new RecordingConfirmService(scenario.Db);
 
         var outcome = await new SalesInvoicesNfeCompleteConfirmationService(
-            scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, confirm)).ExecuteAsync(scenario.InvoiceKey, "tester");
+            scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, confirm, NullLogger<SalesInvoiceNfeResultHandler>.Instance)).ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, outcome.InvoiceStatus);
         Assert.Null(outcome.ConfirmationError);
@@ -39,7 +40,7 @@ public class SalesInvoicesNfeCompleteConfirmationServiceTests
         var confirm = new RecordingConfirmService(scenario.Db, failWith: new DefaultException("Contrato encerrado."));
 
         var outcome = await new SalesInvoicesNfeCompleteConfirmationService(
-            scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, confirm)).ExecuteAsync(scenario.InvoiceKey, "tester");
+            scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, confirm, NullLogger<SalesInvoiceNfeResultHandler>.Instance)).ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal("Contrato encerrado.", outcome.ConfirmationError);
         Assert.Equal(InvoiceStatus.Pending, outcome.InvoiceStatus);
@@ -51,7 +52,7 @@ public class SalesInvoicesNfeCompleteConfirmationServiceTests
         var scenario = await NfeTestSeed.SeedAsync();
 
         await Assert.ThrowsAsync<DefaultException>(() => new SalesInvoicesNfeCompleteConfirmationService(
-                scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, new RecordingConfirmService(scenario.Db)))
+                scenario.Db, new SalesInvoiceNfeResultHandler(scenario.Db, new RecordingConfirmService(scenario.Db), NullLogger<SalesInvoiceNfeResultHandler>.Instance))
             .ExecuteAsync(scenario.InvoiceKey, "tester"));
     }
 }

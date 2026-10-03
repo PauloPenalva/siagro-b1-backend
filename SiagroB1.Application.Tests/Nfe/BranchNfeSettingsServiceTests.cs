@@ -208,4 +208,36 @@ public class BranchNfeSettingsServiceTests
 
         Assert.Contains("certificado", ex.Message);
     }
+
+    [Fact]
+    public async Task Save_refuses_to_lower_the_next_number_in_the_same_environment_and_series()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 50, "tester");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.SaveAsync("01", NfeEnvironment.Homologation, 1, 10, "tester"));
+
+        Assert.Equal(
+            "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. Para recomeçar, troque a série ou o ambiente.",
+            ex.Message);
+        Assert.Equal(50, (await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync()).NextNumber);
+    }
+
+    [Fact]
+    public async Task Save_allows_a_lower_number_when_the_series_or_environment_changes_and_a_higher_one_always()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 50, "tester");
+
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 60, "tester");
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 2, 1, "tester");
+        await service.SaveAsync("01", NfeEnvironment.Production, 2, 1, "tester");
+
+        var saved = await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync();
+        Assert.Equal(NfeEnvironment.Production, saved.Environment);
+        Assert.Equal(1, saved.NextNumber);
+    }
 }

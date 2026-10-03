@@ -306,4 +306,35 @@ public class SalesInvoiceNfeLockTests
             new SalesInvoicesSetDocumentNumberService(db, new SalesInvoicesChangeLogService(db.Context))
                 .ExecuteAsync(invoice.Key, "000000010", "1", null, "tester"));
     }
+
+    /// <summary>Número reservado (cNF gravado) já é da emissão, mesmo com a situação ainda None.</summary>
+    [Fact]
+    public async Task Reserved_number_cannot_be_overwritten_by_a_patch()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        invoice.NfeRandomCode = "12345678";
+        invoice.TaxDocumentNumber = "000000007";
+        invoice.TaxDocumentSeries = "1";
+        await db.SaveChangesAsync();
+
+        invoice.TaxDocumentNumber = "999";
+        invoice.TaxDocumentSeries = "9";
+        await HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester");
+
+        var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("000000007", saved.TaxDocumentNumber);
+        Assert.Equal("1", saved.TaxDocumentSeries);
+    }
+
+    [Fact]
+    public async Task Reserved_number_refuses_informar_nota_fiscal()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        invoice.NfeRandomCode = "12345678";
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            new SalesInvoicesSetDocumentNumberService(db, new SalesInvoicesChangeLogService(db.Context))
+                .ExecuteAsync(invoice.Key, "000000010", "1", null, "tester"));
+    }
 }

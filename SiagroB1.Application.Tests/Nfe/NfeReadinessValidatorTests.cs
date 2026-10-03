@@ -139,4 +139,29 @@ public class NfeReadinessValidatorTests
         Assert.Contains("Local de entrega", ex.Message);
         Assert.Contains("CNPJ/CPF", ex.Message);
     }
+
+    [Fact]
+    public async Task Interstate_cfop_for_a_same_state_customer_is_refused()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var address = await scenario.Db.Context.Addresses.SingleAsync(a => a.CardCode == NfeTestSeed.CardCode);
+        address.MunicipalityCode = "3522406"; // Itapeva/SP: mesma UF da filial, e o item tem CFOP 6102
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Item 1: CFOP 6102 não confere com o destino (SP) — salve o item de novo para recalcular.", ex.Message);
+    }
+
+    [Fact]
+    public async Task In_state_cfop_for_an_out_of_state_customer_is_refused()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.SalesInvoicesItems.SingleAsync()).Cfop = "5102";
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Item 1: CFOP 5102 não confere com o destino (BA)", ex.Message);
+    }
 }
