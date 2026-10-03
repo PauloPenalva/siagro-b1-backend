@@ -74,6 +74,13 @@ builder.Services.AddScoped<IDbConnection>(sp =>
 
 FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDataConnection));
 
+// ⚠️ Com os stubs desligados o FastReport NÃO valida nada nos scripts dos relatórios (no
+// FastReport.OpenSource 2026.1.3 a StopList/RegexStopList nunca é lida pelo núcleo). Aceito porque todo
+// .frx é arquivo versionado neste repositório; nenhum modelo vem do usuário nem do banco. Os stubs
+// precisam sair porque declaram um System.Environment vazio e o script do DANFE da Zeus (NFeRetrato.frx)
+// usa Environment.NewLine. Armadilha: nunca carregue um modelo de fora do repositório sem restaurar a validação.
+SiagroB1.Reports.Services.DanfeReportService.DisableScriptStubs();
+
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddReportServices();
 

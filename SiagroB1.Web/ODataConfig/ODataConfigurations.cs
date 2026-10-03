@@ -1343,6 +1343,10 @@ public static class ODataConfigurations
         financialTotals.Parameter<string>("BranchCode").Optional();
         financialTotals.Returns<FinancialDocumentTotalsDto>();
 
+        var salesInvoicesNfeXml = modelBuilder.Function("SalesInvoicesNfeXml");
+        salesInvoicesNfeXml.Parameter<Guid>("Key");
+        salesInvoicesNfeXml.Returns<IActionResult>();
+
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");
         financialByContract.Parameter<Guid>("ContractKey");

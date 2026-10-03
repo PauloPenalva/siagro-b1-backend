@@ -8,7 +8,7 @@ SiagroB1 backend: a .NET 10 solution that provides an ERP/agribusiness back offi
 
 ## Build / run / test
 
-There is no test project, no CI config, no `.editorconfig`, and no lint/formatter setup in this repo.
+Tests live in `SiagroB1.Application.Tests` (xUnit + EF InMemory; also links the Fiscal test support files) and `SiagroB1.Fiscal.Tests` (`dotnet test <project> --filter "FullyQualifiedName~Class"`). There is no CI config, no `.editorconfig`, and no lint/formatter setup in this repo.
 
 ```bash
 dotnet build SiagroB1.sln
@@ -39,14 +39,17 @@ Project reference graph:
 ```
 Commons ─┐
 Domain ──┼─> Infra ──> Security ──┬─> Application ──> Web
-         │                        ├─> Reports
+         │                        ├─> Reports ──> NFe.Danfe.Base (vendored LGPL)
          │                        └─> Gateway
+Domain ──> Fiscal ──> Application   (Fiscal.Tests tests Fiscal)
 Migrations ──> Infra
 Client (standalone, no project references)
 ```
 
 - **Domain** — entities, enums, DTOs, interfaces, exceptions. Notably depends directly on `Microsoft.EntityFrameworkCore` (not a framework-agnostic domain layer).
-- **Infra** — four `DbContext`s in `Context/`: `AppDbContext` and `CommonDbContext` (this app's own SQL Server DBs), plus `SapErpDbContext`/`SapCommonDbContext` (SAP B1's own databases, only wired up in SAP mode). Uses EF Core for most access but also Dapper/Dapper.Contrib for raw SQL, `UnitOfWork`/`IUnitOfWork`, Hangfire (+ SQL Server storage), `B1SLayer` (SAP Business One Service Layer HTTP client), `Zeus.Net.NFe.NFCe` (Brazilian e-invoicing).
+- **Infra** — four `DbContext`s in `Context/`: `AppDbContext` and `CommonDbContext` (this app's own SQL Server DBs), plus `SapErpDbContext`/`SapCommonDbContext` (SAP B1's own databases, only wired up in SAP mode). Uses EF Core for most access but also Dapper/Dapper.Contrib for raw SQL, `UnitOfWork`/`IUnitOfWork`, Hangfire (+ SQL Server storage), `B1SLayer` (SAP Business One Service Layer HTTP client).
+- **Fiscal** — pure fiscal library (references only Domain; no DbContext, no `IConfiguration`): tax engine, NF-e XML build/signing via `Zeus.Net.NFe.NFCe`, SEFAZ client, A1 certificates. Tested by `SiagroB1.Fiscal.Tests`. The certificate password is encrypted with `Nfe:CertificateKey` (base64 of 32 bytes), which is empty in the repo's `appsettings.json` and must be set per environment.
+- **NFe.Danfe.Base** (`SiagroB1.Reports/ThirdParty/Zeus-LGPL/NFe.Danfe.Base.csproj`) — vendored Zeus DANFE sources and `NFeRetrato.frx`, LGPL-2.1, **unedited** (see its README); a separate DLL on purpose, and Reports does not compile those files. `Zeus.Net.NFe.NFCe` is referenced by Fiscal and NFe.Danfe.Base only; keep the two versions equal.
 - **Security** — auth/user/branch/menu services. No ASP.NET Identity; a hand-rolled `BasicAuthenticationHandler` plus a cookie scheme (`SIAGROB1` cookie, 8h sliding expiration). No JWT.
 - **Application** — business logic organized as one class per operation under `Services/<Feature>/`, e.g. `PurchaseContractsCreateService`, `PurchaseContractsUpdateService`, `PurchaseContractsGetService`, `PurchaseContractsDeleteService` rather than one CRUD service per feature. This is CQRS-shaped by convention only — there is no MediatR, no command/query bus. Every service is registered individually (not assembly-scanned, despite `Scrutor` being referenced) in the ~150+ line `AddApplicationServices()` in `SiagroB1.Web/Extensions/ServiceCollectionExtensions.cs` — new services must be added there by hand.
 - **Web** — OData API. Controllers extend `ODataController` (one per entity set), stay thin, and call directly into an injected `I<Feature>Service` — services call EF Core directly, there is no repository abstraction layer beyond that. Swagger/OpenAPI (Swashbuckle) only in Development. Hosts a raw WebSocket endpoint (`MapTruckScaleWebSocket()`) for the truck-scale integration and one Hangfire recurring job (`storage-daily-calculation-job`, cron `0 1 * * *`) registered in `Program.cs`.
