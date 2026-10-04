@@ -19,6 +19,15 @@
         "ASPNETCORE_ENVIRONMENT": "Yokotobi-Development"
       }
     },
+    "ceagui": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:50000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Ceagui-Development"
+      }
+    },
     "standalone": {
       "commandName": "Project",
       "dotnetRunMessages": true,
