@@ -70,6 +70,16 @@ public sealed record NfeVolume(int? Quantity, string? Species, string? Brand, st
 public sealed record NfeTechnicalResponsible(string Cnpj, string Contact, string Email, string Phone);
 
 /// <summary>Linha do documento com a fotografia dos tributos do sub-projeto 1, já gravada.</summary>
+/// <summary>Finalidade da NF-e: venda (saída, <c>finNFe</c> 1) ou devolução de venda (entrada, <c>finNFe</c> 4).</summary>
+public enum NfePurpose
+{
+    Sale,
+    Return,
+}
+
+/// <summary>Item da nota original que este item devolve (<c>det/DFeReferenciado</c>, regra VC02-14).</summary>
+public sealed record NfeItemReference(string AccessKey, int ItemNumber);
+
 public sealed record NfeItem
 {
     public required int Number { get; init; }
@@ -86,6 +96,9 @@ public sealed record NfeItem
 
     /// <summary>CEST (7 dígitos) do cadastro do produto; vazio = a NF-e não leva CEST.</summary>
     public string? Cest { get; init; }
+
+    /// <summary>Na devolução, o item da venda devolvido; nulo na venda.</summary>
+    public NfeItemReference? Reference { get; init; }
 
     /// <summary>CST (2 dígitos) ou CSOSN (3 dígitos) do ICMS.</summary>
     public required string IcmsCode { get; init; }
@@ -131,6 +144,11 @@ public sealed record NfeIssueInput
 
     /// <summary><c>cNF</c>: 8 dígitos, gerado uma vez e guardado no documento.</summary>
     public required string RandomCode { get; init; }
+
+    public NfePurpose Purpose { get; init; } = NfePurpose.Sale;
+
+    /// <summary><c>ide/NFref/refNFe</c> — na devolução, a chave da venda (rejeição 321 sem ela).</summary>
+    public IReadOnlyList<string> ReferencedKeys { get; init; } = [];
 
     /// <summary><c>dhEmi</c>, já em America/Sao_Paulo.</summary>
     public required DateTimeOffset IssuedAt { get; init; }

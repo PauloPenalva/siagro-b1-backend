@@ -1,3 +1,4 @@
+using NFe.Classes.Informacoes.Identificacao;
 using NFe.Classes.Informacoes.Destinatario;
 using NFe.Classes.Informacoes.Detalhe;
 using NFe.Classes.Informacoes.Detalhe.Tributacao.Estadual;
@@ -453,5 +454,47 @@ public class NfeXmlBuilderTests
         Assert.Equal(60, vol.esp.Length);
         Assert.Equal(60, vol.marca.Length);
         Assert.Equal(60, vol.nVol.Length);
+    }
+
+    [Fact]
+    public void Return_note_is_an_incoming_return_with_the_sale_referenced()
+    {
+        var nfe = Build(NfeTestData.ReturnInput());
+
+        Assert.Equal(TipoNFe.tnEntrada, nfe.infNFe.ide.tpNF);
+        Assert.Equal(FinalidadeNFe.fnDevolucao, nfe.infNFe.ide.finNFe);
+        Assert.Equal(NfeTestData.SaleAccessKey, Assert.Single(nfe.infNFe.ide.NFref).refNFe);
+    }
+
+    [Fact]
+    public void Each_returned_item_references_the_sale_item()
+    {
+        var det = Assert.Single(Build(NfeTestData.ReturnInput()).infNFe.det);
+
+        Assert.Equal(NfeTestData.SaleAccessKey, det.DFeReferenciado.chaveAcesso);
+        Assert.Equal(1, det.DFeReferenciado.nItem);
+        Assert.Equal(1202, det.prod.CFOP);
+    }
+
+    [Fact]
+    public void Return_note_pays_nothing_and_has_no_billing()
+    {
+        var nfe = Build(NfeTestData.ReturnInput());
+
+        var payment = Assert.Single(Assert.Single(nfe.infNFe.pag).detPag);
+        Assert.Equal(90, (int)payment.tPag!);
+        Assert.Equal(0m, payment.vPag);
+        Assert.Null(nfe.infNFe.cobr);
+    }
+
+    [Fact]
+    public void Sale_stays_an_outgoing_normal_note_without_references()
+    {
+        var nfe = Build(NfeTestData.Input());
+
+        Assert.Equal(TipoNFe.tnSaida, nfe.infNFe.ide.tpNF);
+        Assert.Equal(FinalidadeNFe.fnNormal, nfe.infNFe.ide.finNFe);
+        Assert.Null(nfe.infNFe.ide.NFref);
+        Assert.Null(Assert.Single(nfe.infNFe.det).DFeReferenciado);
     }
 }

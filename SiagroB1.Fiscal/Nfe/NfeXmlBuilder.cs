@@ -102,13 +102,13 @@ public static class NfeXmlBuilder
         nNF = input.Number,
         dhEmi = input.IssuedAt,
         dhSaiEnt = input.IssuedAt,
-        tpNF = TipoNFe.tnSaida,
+        tpNF = input.Purpose == NfePurpose.Return ? TipoNFe.tnEntrada : TipoNFe.tnSaida,
         idDest = interstate ? DestinoOperacao.doInterestadual : DestinoOperacao.doInterna,
         cMunFG = long.Parse(input.Issuer.Address.MunicipalityCode, CultureInfo.InvariantCulture),
         tpImp = TipoImpressao.tiRetrato,
         tpEmis = TipoEmissao.teNormal,
         tpAmb = Environment(input.Environment),
-        finNFe = FinalidadeNFe.fnNormal,
+        finNFe = input.Purpose == NfePurpose.Return ? FinalidadeNFe.fnDevolucao : FinalidadeNFe.fnNormal,
         indFinal = input.Recipient.Indicator == StateRegistrationIndicator.NonTaxpayer
             ? ConsumidorFinal.cfConsumidorFinal
             : ConsumidorFinal.cfNao,
@@ -116,6 +116,9 @@ public static class NfeXmlBuilder
         indIntermed = IndicadorIntermediador.iiSemIntermediador,
         procEmi = ProcessoEmissao.peAplicativoContribuinte,
         verProc = Truncate(input.ApplicationVersion, 20),
+        NFref = input.ReferencedKeys.Count == 0
+            ? null
+            : input.ReferencedKeys.Select(key => new NFref { refNFe = key }).ToList(),
     };
 
     internal static TipoAmbiente Environment(NfeEnvironment environment) =>
@@ -266,6 +269,10 @@ public static class NfeXmlBuilder
             COFINS = new COFINS { TipoCOFINS = BuildCofins(item) },
             IBSCBS = BuildIbsCbs(item),
         },
+        // VC02-14: cada item da devolução aponta o item da venda (chave + nItem da nota original).
+        DFeReferenciado = item.Reference is { } reference
+            ? new DFeReferenciado { chaveAcesso = reference.AccessKey, nItem = reference.ItemNumber }
+            : null,
     };
 
     private static ICMSBasico BuildIcms(NfeItem item)

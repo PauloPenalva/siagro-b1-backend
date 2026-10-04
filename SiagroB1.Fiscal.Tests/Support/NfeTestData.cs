@@ -82,4 +82,20 @@ public static class NfeTestData
         FiscoInfo = "Pedido 77",
         TechnicalResponsible = new NfeTechnicalResponsible("09123456000100", "IDX Consultoria", "fiscal@idx.com.br", "1533334444"),
     };
+
+    /// <summary>Chave da venda que a devolução de teste referencia.</summary>
+    public const string SaleAccessKey = "35261012345678000195550010000000981481516230";
+
+    /// <summary>
+    /// Devolução da venda de teste pelo cliente de SP (operação interna): entrada, CFOP 1202, PIS/COFINS
+    /// de entrada, sem pagamento, com a venda referenciada no cabeçalho e no item.
+    /// </summary>
+    public static NfeIssueInput ReturnInput() => Input(recipientAddress: SaoPaulo()) with
+    {
+        OperationNature = "DEVOLUCAO DE VENDA",
+        Purpose = NfePurpose.Return,
+        ReferencedKeys = [SaleAccessKey],
+        Items = [Item() with { Cfop = "1202", PisCst = "72", CofinsCst = "72", Reference = new NfeItemReference(SaleAccessKey, 1) }],
+        Payment = new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, []),
+    };
 }
