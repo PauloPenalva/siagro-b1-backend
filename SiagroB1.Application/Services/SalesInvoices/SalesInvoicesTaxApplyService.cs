@@ -13,7 +13,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 /// <summary>
 /// Cálculo dos tributos da linha pela natureza de operação (NF-e STANDALONE, spec §6–§7).
 ///
-/// Só age com a regra ativa (<see cref="TaxCalculationGate"/>), em documento Normal e enquanto o
+/// Só age com a regra ativa (<see cref="TaxCalculationGate"/>), em documento Normal ou na devolução própria (InvoiceType Return + IsNfeReturn) e enquanto o
 /// documento está Pendente: fora disso a linha fica exatamente como chegou — é isso que mantém a
 /// Yokotobi (SAPB1) e a MH Agro (chave desligada) intocadas.
 ///
@@ -28,7 +28,12 @@ public class SalesInvoicesTaxApplyService(
     IbsCbsRatesService ibsCbsRatesService)
 {
     public async Task<bool> IsActiveForAsync(SalesInvoice invoice) =>
-        invoice.InvoiceType == SalesInvoiceType.Normal && await gate.IsActiveAsync(invoice.BranchCode);
+        (invoice.InvoiceType == SalesInvoiceType.Normal || IsOwnNfeReturn(invoice))
+        && await gate.IsActiveAsync(invoice.BranchCode);
+
+    /// <summary>Devolução criada pelo "Devolver" da venda: sai com NF-e própria de entrada (spec §7).</summary>
+    public static bool IsOwnNfeReturn(SalesInvoice invoice) =>
+        invoice.InvoiceType == SalesInvoiceType.Return && invoice.IsNfeReturn;
 
     public async Task ApplyAsync(SalesInvoice invoice, IEnumerable<SalesInvoiceItem> items)
     {
@@ -38,20 +43,28 @@ public class SalesInvoicesTaxApplyService(
         if (!await IsActiveForAsync(invoice))
             return;
 
+        var lines = items.ToList();
+        var ownReturn = IsOwnNfeReturn(invoice);
         var branch = await LoadBranchAsync(invoice.BranchCode);
         var customerState = await LoadCustomerStateAsync(invoice.CardCode);
         var inState = string.Equals(branch.StateCode, customerState, StringComparison.OrdinalIgnoreCase);
-        var issueDate = DateOnly.FromDateTime(invoice.InvoiceDate ?? DateTime.Today);
+
+        // Devolução: IBS/CBS pelas alíquotas da DATA DA VENDA — ela anula o tributo daquela operação,
+        // inclusive se a vigência virou entre a venda e a devolução.
+        var rateDate = ownReturn
+            ? await OriginDateAsync(invoice)
+            : DateOnly.FromDateTime(invoice.InvoiceDate ?? DateTime.Today);
+        var origins = ownReturn ? await LoadOriginItemsAsync(lines) : new Dictionary<Guid, SalesInvoiceItem>();
         var usages = new Dictionary<int, UsageModel>();
 
-        foreach (var item in items)
+        foreach (var item in lines)
         {
-            var usage = await ResolveUsageAsync(item, usages);
+            var usage = await ResolveUsageAsync(item, usages, ownReturn);
             var product = await LoadProductAsync(item.ItemCode);
-            var cfop = ResolveCfop(usage, inState);
+            var cfop = ResolveCfop(usage, inState, incoming: ownReturn);
             var icms = ResolveIcmsRule(usage, inState, branch.TaxRegime!.Value);
             var pisCofins = ResolvePisCofinsRule(usage);
-            var (ibsCbs, rates) = await ResolveIbsCbsAsync(usage, issueDate);
+            var (ibsCbs, rates) = await ResolveIbsCbsAsync(usage, rateDate);
 
             var result = TaxCalculator.Calculate(new TaxCalculationInput(
                 item.Total, inState, branch.StateCode!, customerState, branch.TaxRegime!.Value,
@@ -66,8 +79,36 @@ public class SalesInvoicesTaxApplyService(
             item.CreatesFinancialDocument = usage.CreatesFinancialDocument;
 
             SalesInvoiceTaxSnapshot.Write(item, result);
+
+            if (ownReturn)
+                SalesInvoiceNfeReturnConference.Ensure(item, OriginOf(item, origins), usage.Name);
         }
     }
+
+    private async Task<DateOnly> OriginDateAsync(SalesInvoice invoice)
+    {
+        var date = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(i => i.Key == invoice.SalesInvoiceOriginKey)
+            .Select(i => i.InvoiceDate)
+            .FirstOrDefaultAsync();
+
+        return DateOnly.FromDateTime(date ?? throw new DefaultException("A devolução está sem a venda de origem."));
+    }
+
+    private async Task<Dictionary<Guid, SalesInvoiceItem>> LoadOriginItemsAsync(IEnumerable<SalesInvoiceItem> lines)
+    {
+        var keys = lines.Where(l => l.SalesInvoiceItemOriginKey != null)
+            .Select(l => l.SalesInvoiceItemOriginKey!.Value).Distinct().ToList();
+
+        return await db.Context.SalesInvoicesItems.AsNoTracking()
+            .Where(i => i.Key != null && keys.Contains(i.Key.Value))
+            .ToDictionaryAsync(i => i.Key!.Value);
+    }
+
+    private static SalesInvoiceItem OriginOf(SalesInvoiceItem item, Dictionary<Guid, SalesInvoiceItem> origins) =>
+        item.SalesInvoiceItemOriginKey is { } key && origins.TryGetValue(key, out var origin)
+            ? origin
+            : throw new DefaultException($"O item {item.ItemCode} da devolução não aponta um item da venda.");
 
     private async Task<Branch> LoadBranchAsync(string? branchCode)
     {
@@ -94,7 +135,8 @@ public class SalesInvoicesTaxApplyService(
             : state;
     }
 
-    private async Task<UsageModel> ResolveUsageAsync(SalesInvoiceItem item, Dictionary<int, UsageModel> cache)
+    private async Task<UsageModel> ResolveUsageAsync(
+        SalesInvoiceItem item, Dictionary<int, UsageModel> cache, bool ownReturn)
     {
         UsageModel usage;
 
@@ -107,6 +149,12 @@ public class SalesInvoicesTaxApplyService(
                 cache[code] = usage;
             }
         }
+        else if (ownReturn)
+        {
+            // A linha da devolução nasce com a natureza de devolução da linha vendida; sem ela, a
+            // natureza padrão (de SAÍDA) daria CFOP de venda numa nota de entrada.
+            throw new DefaultException($"O item {item.ItemCode} da devolução está sem natureza de devolução.");
+        }
         else
         {
             usage = (await usageService.GetAllAsync()).FirstOrDefault(u => u is { IsDefault: true, Inactive: false })
@@ -114,7 +162,11 @@ public class SalesInvoicesTaxApplyService(
                         $"O item {item.ItemCode} está sem natureza de operação e não há natureza padrão cadastrada.");
         }
 
-        if (usage.Direction == UsageDirection.Incoming)
+        if (ownReturn && usage.Direction != UsageDirection.Incoming)
+            throw new DefaultException(
+                $"A natureza de operação {usage.Name} é de saída e não pode ser usada na devolução.");
+
+        if (!ownReturn && usage.Direction == UsageDirection.Incoming)
             throw new DefaultException(
                 $"A natureza de operação {usage.Name} é de entrada e não pode ser usada no documento de saída.");
 
@@ -138,14 +190,17 @@ public class SalesInvoicesTaxApplyService(
         return product;
     }
 
-    private static string ResolveCfop(UsageModel usage, bool inState)
+    private static string ResolveCfop(UsageModel usage, bool inState, bool incoming)
     {
-        var cfop = inState ? usage.CfopOutgoingInState : usage.CfopOutgoingOutState;
+        var cfop = incoming
+            ? inState ? usage.CfopIncomingInState : usage.CfopIncomingOutState
+            : inState ? usage.CfopOutgoingInState : usage.CfopOutgoingOutState;
+        var kind = incoming ? "entrada" : "saída";
 
         return string.IsNullOrWhiteSpace(cfop)
             ? throw new DefaultException(inState
-                ? $"Natureza de operação {usage.Name} está sem CFOP de saída dentro do estado."
-                : $"Natureza de operação {usage.Name} está sem CFOP de saída fora do estado.")
+                ? $"Natureza de operação {usage.Name} está sem CFOP de {kind} dentro do estado."
+                : $"Natureza de operação {usage.Name} está sem CFOP de {kind} fora do estado.")
             : cfop;
     }
 
