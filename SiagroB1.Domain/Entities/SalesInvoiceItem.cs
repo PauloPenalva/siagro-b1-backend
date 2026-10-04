@@ -236,6 +236,12 @@ public class SalesInvoiceItem
     /// <summary>Cópia das flags da natureza na gravação — sem efeito por ora (spec D14).</summary>
     public bool CreatesFinancialDocument { get; set; }
 
+    /// <summary>
+    /// <c>det/@nItem</c> com que a linha saiu na NF-e. Gravado na emissão: a NF-e de devolução
+    /// referencia o item da venda por este número (<c>DFeReferenciado</c>, regra VC02-14).
+    /// </summary>
+    public int? NfeItemNumber { get; set; }
+
     /// <summary>Centro de custo da linha. Sem FK: o cadastro é dual-mode (OPRC/COST_CENTERS).</summary>
     [Column(TypeName = "VARCHAR(10)")]
     public string? CostCenterCode { get; set; }

@@ -59,5 +59,8 @@ internal static class UsageTaxationMapper
         usage.IbsCbsClassCode = Normalize(model.IbsCbsClassCode);
         usage.IbsRateReduction = model.IbsRateReduction;
         usage.CbsRateReduction = model.CbsRateReduction;
+
+        // Natureza de entrada não tem natureza de devolução: a coluna fica nula, venha o que vier.
+        usage.ReturnUsageCode = incoming ? null : model.ReturnUsageCode;
     }
 }

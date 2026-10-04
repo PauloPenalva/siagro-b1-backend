@@ -63,6 +63,8 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     IbsCbsClassCode = x.usage.IbsCbsClassCode,
                     IbsRateReduction = x.usage.IbsRateReduction,
                     CbsRateReduction = x.usage.CbsRateReduction,
+                    ReturnUsageCode = x.usage.ReturnUsageCode,
+                    ReturnUsageName = x.usage.ReturnUsage != null ? x.usage.ReturnUsage.Name : null,
                     ContractBalanceEffect = effect != null ? effect.ContractBalanceEffect : 0,
                     ContractValueEffect = effect != null ? effect.ContractValueEffect : 0,
                     RequiresContract = effect != null && effect.RequiresContract,
@@ -97,6 +99,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
         UsageEffectWriter.ValidateEffects(entity);
         ValidateDirectionRules(entity);
         UsageTaxationValidator.Validate(entity);
+        await ValidateReturnUsageAsync(entity, key: null);
 
         var usage = new Usage { Name = entity.Name };
         UsageTaxationMapper.CopyToEntity(entity, usage);
@@ -120,6 +123,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
         UsageEffectWriter.ValidateEffects(entity);
         ValidateDirectionRules(entity);
         UsageTaxationValidator.Validate(entity);
+        await ValidateReturnUsageAsync(entity, key);
 
         var usage = await db.Context.Usages.FirstOrDefaultAsync(x => x.Code == key);
 
@@ -138,6 +142,16 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
             throw new DefaultException(
                 $"Natureza de operação {usage.Name} já foi utilizada em documento de saída. " +
                 "O tipo não pode ser alterado.");
+        }
+
+        // Natureza de entrada que é a devolução de outra natureza viraria uma "devolução" de saída:
+        // a devolução criada pelo Devolver passaria a nascer com CFOP de saída.
+        if (newDirection == UsageDirection.Outgoing && usage.Direction == UsageDirection.Incoming &&
+            await db.Context.Usages.AnyAsync(x => x.ReturnUsageCode == key))
+        {
+            throw new DefaultException(
+                $"A natureza {usage.Name} é a natureza de devolução de outra natureza de saída: " +
+                "o tipo não pode virar Saída.");
         }
 
         UsageTaxationMapper.CopyToEntity(entity, usage);
@@ -183,6 +197,14 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                 "Inative-a em vez de excluir.");
         }
 
+        // Com a FK de USAGES.ReturnUsageCode o banco recusaria com um 547 sem mensagem de negócio.
+        if (await db.Context.Usages.AnyAsync(x => x.ReturnUsageCode == key))
+        {
+            throw new DefaultException(
+                $"Natureza de operação {usage.Name} é a natureza de devolução de outra natureza. " +
+                "Inative-a em vez de excluir.");
+        }
+
         var effect = await db.Context.UsageEffects.FirstOrDefaultAsync(x => x.UsageCode == key);
 
         if (effect != null)
@@ -207,6 +229,28 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
             throw new DefaultException(
                 "Natureza de operação de entrada não pode ser a padrão do faturamento de romaneio.");
         }
+    }
+
+    /// <summary>Natureza de devolução (spec §5): só em natureza de Saída e apontando uma de Entrada ativa.</summary>
+    private async Task ValidateReturnUsageAsync(UsageModel model, int? key)
+    {
+        if (model.ReturnUsageCode is not { } returnCode)
+            return;
+
+        if (model.Direction == UsageDirection.Incoming)
+            throw new DefaultException("Só natureza de saída tem natureza de devolução.");
+
+        if (key == returnCode)
+            throw new DefaultException("A natureza de devolução não pode ser a própria natureza.");
+
+        var target = await db.Context.Usages.AsNoTracking().FirstOrDefaultAsync(x => x.Code == returnCode)
+                     ?? throw new DefaultException($"Natureza de devolução {returnCode} não encontrada.");
+
+        if (target.Direction != UsageDirection.Incoming)
+            throw new DefaultException($"A natureza de devolução {target.Name} precisa ser de entrada.");
+
+        if (target.Inactive)
+            throw new DefaultException($"A natureza de devolução {target.Name} está inativa.");
     }
 
     private bool EntityExists(int key)

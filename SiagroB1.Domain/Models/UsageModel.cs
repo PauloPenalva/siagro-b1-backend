@@ -62,6 +62,12 @@ public class UsageModel
     public decimal? IbsRateReduction { get; set; }
     public decimal? CbsRateReduction { get; set; }
 
+    /// <summary>Natureza de entrada da NF-e de devolução (só natureza de Saída, só STANDALONE).</summary>
+    public int? ReturnUsageCode { get; set; }
+
+    /// <summary>Nome da natureza de devolução — só leitura (projeção); o PATCH o ignora.</summary>
+    public string? ReturnUsageName { get; set; }
+
     public ContractBalanceEffect ContractBalanceEffect { get; set; }
 
     public ContractValueEffect ContractValueEffect { get; set; }

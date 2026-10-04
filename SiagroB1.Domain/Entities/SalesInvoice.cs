@@ -135,6 +135,13 @@ public class SalesInvoice : DocumentEntity
     /// <summary>NF-e autorizada, mas a confirmação do documento falhou — "Concluir confirmação" refaz.</summary>
     [Column(TypeName = "VARCHAR(500)")]
     public string? NfeConfirmationError { get; set; }
+
+    /// <summary>
+    /// Devolução criada pelo "Devolver" de uma venda autorizada: sai com NF-e PRÓPRIA de entrada
+    /// (finalidade 4). Só <c>SalesInvoicesNfeReturnCreateService</c> grava <c>true</c>; create e PATCH
+    /// da API nunca.
+    /// </summary>
+    public bool IsNfeReturn { get; set; }
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     

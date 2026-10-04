@@ -104,4 +104,13 @@ public class Usage
     [Column(TypeName = "VARCHAR(6)")] public string? IbsCbsClassCode { get; set; }
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? IbsRateReduction { get; set; }
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? CbsRateReduction { get; set; }
+
+    /// <summary>
+    /// Natureza de ENTRADA da NF-e de devolução de uma venda feita com esta natureza (só natureza de
+    /// Saída, só STANDALONE). A devolução criada pelo "Devolver" herda esta natureza em cada linha.
+    /// </summary>
+    public int? ReturnUsageCode { get; set; }
+
+    [ForeignKey(nameof(ReturnUsageCode))]
+    public Usage? ReturnUsage { get; set; }
 }
