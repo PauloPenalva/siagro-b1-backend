@@ -15,7 +15,7 @@ public class SalesInvoicesNfeIssueServiceTests
     private static SalesInvoicesNfeIssueService Issue(
         NfeScenario scenario, FakeNfeSefazClient sefaz, SalesInvoicesConfirmService confirm,
         string erp = "STANDALONE", FakeNfeNumberReservationService? reservation = null,
-        Func<DateTimeOffset>? clock = null)
+        Func<DateTimeOffset>? clock = null, TimeZoneInfo? storageZone = null)
     {
         var config = NfeTestSeed.Config(erp);
         var options = new NfeOptions(config);
@@ -30,7 +30,9 @@ public class SalesInvoicesNfeIssueServiceTests
             new SalesInvoiceNfeResultHandler(scenario.Db, confirm, NullLogger<SalesInvoiceNfeResultHandler>.Instance),
             options,
             NullLogger<SalesInvoicesNfeIssueService>.Instance,
-            clock ?? NfeTestSeed.Clock);
+            clock ?? NfeTestSeed.Clock,
+            // As datas semeadas são de Brasília: o teste não depende do fuso da máquina.
+            storageZone ?? NfeIssueInputAssembler.BrasiliaZone);
     }
 
     private static Task<Domain.Entities.SalesInvoice> ReloadAsync(NfeScenario scenario) =>
@@ -456,6 +458,72 @@ public class SalesInvoicesNfeIssueServiceTests
             ex.Message);
         Assert.Equal(0, reservation.Calls);
         Assert.Empty(sefaz.Sent);
+    }
+
+    [Fact]
+    public async Task Document_created_in_the_evening_on_a_utc_server_is_emitted_the_same_day()
+    {
+        // Servidor em UTC: o documento criado às 22:30 de Brasília (02/10) fica gravado 03/10 01:30.
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).InvoiceDate = new DateTime(2026, 10, 3, 1, 30, 0);
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var evening = new DateTimeOffset(2026, 10, 2, 22, 45, 0, TimeSpan.FromHours(-3));
+
+        var outcome = await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db),
+                clock: () => evening, storageZone: TimeZoneInfo.Utc)
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+    }
+
+    [Fact]
+    public async Task Document_from_another_day_on_a_utc_server_is_refused_with_the_brasilia_date()
+    {
+        // Gravado 03/10 02:00 num servidor em UTC = 02/10 23:00 em Brasília; a emissão é 03/10 10:00.
+        // Pelo dia gravado (03/10) a nota sairia com data de um documento de 02/10.
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).InvoiceDate = new DateTime(2026, 10, 3, 2, 0, 0);
+        await scenario.Db.SaveChangesAsync();
+        var reservation = new FakeNfeNumberReservationService();
+        var nextMorning = new DateTimeOffset(2026, 10, 3, 10, 0, 0, TimeSpan.FromHours(-3));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, new FakeNfeSefazClient(), new RecordingConfirmService(scenario.Db), reservation: reservation,
+                    clock: () => nextMorning, storageZone: TimeZoneInfo.Utc)
+                .ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.StartsWith("A data do documento (02/10/2026) precisa ser a de hoje", ex.Message);
+        Assert.Equal(0, reservation.Calls);
+    }
+
+    [Fact]
+    public async Task Retry_after_the_environment_changed_without_a_signed_xml_reserves_a_new_number()
+    {
+        // A tentativa anterior reservou o número em homologação e parou na validação local
+        // (nenhum XML assinado gravado); depois a filial passou para produção.
+        var scenario = await NfeTestSeed.SeedAsync();
+        var invoice = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        invoice.NfeStatus = NfeStatus.Rejected;
+        invoice.NfeEnvironment = NfeEnvironment.Homologation;
+        invoice.NfeRandomCode = "12345678";
+        invoice.TaxDocumentNumber = "000000001";
+        invoice.TaxDocumentSeries = "1";
+        (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).Environment = NfeEnvironment.Production;
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService(next: 7);
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation)
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var reloaded = await ReloadAsync(scenario);
+        Assert.Equal(1, reservation.Calls);
+        Assert.Equal("000000007", reloaded.TaxDocumentNumber);
+        Assert.NotEqual("12345678", reloaded.NfeRandomCode);
+        Assert.Equal(NfeEnvironment.Production, reloaded.NfeEnvironment);
     }
 
     [Fact]

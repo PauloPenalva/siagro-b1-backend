@@ -34,6 +34,9 @@ public static class NfeIssueInputAssembler
     /// <summary><c>dhEmi</c> em America/Sao_Paulo (IANA: funciona em Linux e Windows com ICU).</summary>
     public static DateTimeOffset BrasiliaNow() => TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Brasilia);
 
+    /// <summary>Fuso de Brasília (America/Sao_Paulo), o da data da NF-e.</summary>
+    public static TimeZoneInfo BrasiliaZone => Brasilia;
+
     public static NfeIssueInput Build(
         SalesInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
     {

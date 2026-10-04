@@ -4,7 +4,7 @@ using SiagroB1.Domain.Exceptions;
 namespace SiagroB1.Application.Tests.Support;
 
 /// <summary>Numeração em memória (o InMemory não roda o UPDATE ... OUTPUT nem o sp_getapplock).</summary>
-public sealed class FakeNfeNumberReservationService(int next = 1) : NfeNumberReservationService(null!)
+public sealed class FakeNfeNumberReservationService(int next = 1) : NfeNumberReservationService(null!, null!)
 {
     private int _next = next;
 

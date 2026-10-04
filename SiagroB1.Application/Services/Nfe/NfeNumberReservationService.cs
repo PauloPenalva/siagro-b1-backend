@@ -1,6 +1,7 @@
 using System.Data;
 using Dapper;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Application.Services.Nfe;
@@ -10,8 +11,20 @@ namespace SiagroB1.Application.Services.Nfe;
 /// ⚠️ Roda numa conexão Dapper própria, fora da transação do EF: chame antes de abrir transação.
 /// O InMemory dos testes não roda SQL cru — use o fake.
 /// </summary>
-public class NfeNumberReservationService(IDbConnection connection)
+public class NfeNumberReservationService(IDbConnection connection, IConfiguration configuration)
 {
+    /// <summary>
+    /// String da conexão da trava: a da CONFIGURAÇÃO (a da conexão da requisição perde a senha
+    /// depois de aberta, com Persist Security Info=False) e SEM pool — com pool, fechar devolve a
+    /// conexão ociosa ao pool ainda segurando a trava de sessão, e o documento responderia
+    /// "em andamento" até a conexão ser reaproveitada.
+    /// </summary>
+    public string EmissionLockConnectionString() =>
+        new SqlConnectionStringBuilder(configuration.GetConnectionString("SiagroDB") ?? connection.ConnectionString)
+        {
+            Pooling = false,
+        }.ConnectionString;
+
     public virtual async Task<int> ReserveAsync(string branchCode)
     {
         const string sql = """
@@ -27,13 +40,14 @@ public class NfeNumberReservationService(IDbConnection connection)
 
     /// <summary>
     /// Trava de aplicação (sp_getapplock) da emissão do documento: duas requisições da primeira
-    /// tentativa transmitiriam duas NF-e para o mesmo documento. Conexão PRÓPRIA — a da requisição
-    /// pode abrir e fechar a cada comando — com dono "Session": fechar a conexão libera a trava, e
-    /// uma queda do processo também. Não espera (timeout 0): quem chega depois é recusado.
+    /// tentativa transmitiriam duas NF-e para o mesmo documento. Conexão PRÓPRIA e fora do pool
+    /// (<see cref="EmissionLockConnectionString"/>) — a da requisição pode abrir e fechar a cada
+    /// comando — com dono "Session": fechar a conexão encerra a sessão e libera a trava, e uma
+    /// queda do processo também. Não espera (timeout 0): quem chega depois é recusado.
     /// </summary>
     public virtual async Task<IAsyncDisposable> AcquireEmissionLockAsync(Guid invoiceKey)
     {
-        var lockConnection = new SqlConnection(connection.ConnectionString);
+        var lockConnection = new SqlConnection(EmissionLockConnectionString());
 
         try
         {
