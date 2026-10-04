@@ -21,7 +21,8 @@ public class SalesInvoicesCreateService(
     SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesCreateService> logger)
 {
-    public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto)
+    public async Task ExecuteAsync(
+        SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto, bool nfeReturn = false)
     {
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
@@ -29,6 +30,10 @@ public class SalesInvoicesCreateService(
         // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
         // da confirmação direta.
         SalesInvoiceNfeLock.ResetIssuanceFields(salesInvoice);
+
+        // Só o "Devolver" (SalesInvoicesNfeReturnCreateService) marca a devolução com NF-e própria;
+        // o corpo da API nunca — senão um POST tiraria a nota da confirmação direta.
+        salesInvoice.IsNfeReturn = nfeReturn && salesInvoice.InvoiceType == SalesInvoiceType.Return;
 
         // Natureza de operação e CFOP são resolvidos ANTES de qualquer gravação: os dois
         // rejeitam com mensagem de negócio, e não faz sentido numerar um documento que não
@@ -58,11 +63,16 @@ public class SalesInvoicesCreateService(
 
         foreach (var (item, usage) in lineUsages)
         {
-            var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling && !taxActive);
-
-            if (cfop != null)
+            // A devolução própria usa natureza de ENTRADA: o CFOP (1202/2202) sai do cálculo, e a
+            // resolução de saída abaixo recusaria a natureza.
+            if (!salesInvoice.IsNfeReturn)
             {
-                cfopByItem[item] = cfop;
+                var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling && !taxActive);
+
+                if (cfop != null)
+                {
+                    cfopByItem[item] = cfop;
+                }
             }
 
             // Nome desnormalizado vem do servidor, não da tela — mesmo tratamento de ItemName.
@@ -94,7 +104,9 @@ public class SalesInvoicesCreateService(
 
             // Condição de pagamento padrão do cliente quando o documento chega sem ela — inclusive
             // no faturamento de romaneio. Em SAPB1 o parceiro não tem o campo: segue nulo, como hoje.
-            salesInvoice.PaymentConditionCode ??= customer?.PaymentConditionCode;
+            // A devolução própria não tem pagamento (tPag 90): a condição do cliente só confundiria.
+            if (!salesInvoice.IsNfeReturn)
+                salesInvoice.PaymentConditionCode ??= customer?.PaymentConditionCode;
             salesInvoice.TruckingCompanyName =
                 salesInvoice.TruckingCompanyCode != null
                     ? (await businessPartnerService.GetByIdAsync(salesInvoice.TruckingCompanyCode))?.CardName
