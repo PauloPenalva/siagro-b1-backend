@@ -71,6 +71,17 @@ public class SalesInvoiceNfeLockTests
     }
 
     [Fact]
+    public async Task Authorized_document_cannot_change_the_volume()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        invoice.VolumeSpecies = "SACO";
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester"));
+
+        Assert.Contains("autorizada", ex.Message);
+    }
+
+    [Fact]
     public async Task Authorized_document_can_change_internal_comments()
     {
         var (db, invoice) = await SeedAsync(NfeStatus.Authorized);

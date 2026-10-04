@@ -164,4 +164,44 @@ public class NfeReadinessValidatorTests
 
         Assert.Contains("Item 1: CFOP 5102 não confere com o destino (BA)", ex.Message);
     }
+
+    [Fact]
+    public async Task Missing_weights_are_reported()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var invoice = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        invoice.GrossWeight = 0;
+        invoice.NetWeight = 0;
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Documento: peso bruto e peso líquido", ex.Message);
+    }
+
+    [Fact]
+    public async Task Gross_weight_below_net_weight_is_reported()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var invoice = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        invoice.GrossWeight = 29000m;
+        invoice.NetWeight = 30000m;
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Documento: o peso bruto não pode ser menor que o peso líquido", ex.Message);
+    }
+
+    [Fact]
+    public async Task Context_brings_the_cest_of_each_product()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.Items.Add(new Item { ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", Cest = "0600500" });
+        await scenario.Db.SaveChangesAsync();
+
+        var context = await ValidateAsync(scenario);
+
+        Assert.Equal("0600500", context.ItemCests["SOJA"]);
+    }
 }

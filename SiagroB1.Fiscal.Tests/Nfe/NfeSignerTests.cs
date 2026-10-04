@@ -30,6 +30,22 @@ public class NfeSignerTests
     }
 
     [Fact]
+    public void Cest_and_full_volume_validate_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+        var input = NfeTestData.Input() with
+        {
+            Items = [NfeTestData.Item() with { Cest = "0600500" }],
+            Volume = new NfeVolume(40, "SACO", "CEAGUI", "1 A 40"),
+        };
+
+        var signed = NfeSigner.BuildSignAndValidate(input, Settings(certificate));
+
+        Assert.Contains("<CEST>0600500</CEST><indEscala>S</indEscala>", signed.Xml);
+        Assert.Contains("<vol><qVol>40</qVol><esp>SACO</esp><marca>CEAGUI</marca><nVol>1 A 40</nVol>", signed.Xml);
+    }
+
+    [Fact]
     public void Access_key_is_valid_and_reflects_the_document()
     {
         using var certificate = Certificate();

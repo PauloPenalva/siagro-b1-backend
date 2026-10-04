@@ -244,6 +244,9 @@ public static class NfeXmlBuilder
             cEAN = WithoutGtin,
             xProd = Truncate(item.Description, 120),
             NCM = item.Ncm,
+            CEST = Blank(item.Cest),
+            // Com CEST, a escala vai como relevante (S) — o caso "N" exige o CNPJ do fabricante.
+            indEscala = Blank(item.Cest) is null ? null : indEscala.S,
             cBenef = Blank(item.BenefitCode),
             CFOP = int.Parse(item.Cfop, CultureInfo.InvariantCulture),
             uCom = Truncate(item.UnitOfMeasure, 6),
@@ -485,8 +488,21 @@ public static class NfeXmlBuilder
         if (input.FreightTerms != FreightTerms.None && !interstate && input.Vehicle is { } vehicle)
             result.veicTransp = new veicTransp { placa = vehicle.Plate, UF = vehicle.State };
 
+        // Os pesos são exigidos na prontidão; quantidade, espécie, marca e numeração vão só se
+        // informados no documento (granel normalmente não tem).
         if (input.NetWeight > 0 || input.GrossWeight > 0)
-            result.vol = [new vol { pesoL = input.NetWeight, pesoB = input.GrossWeight }];
+            result.vol =
+            [
+                new vol
+                {
+                    qVol = input.Volume?.Quantity,
+                    esp = TruncateOrNull(input.Volume?.Species, 60),
+                    marca = TruncateOrNull(input.Volume?.Brand, 60),
+                    nVol = TruncateOrNull(input.Volume?.Numbering, 60),
+                    pesoL = input.NetWeight,
+                    pesoB = input.GrossWeight,
+                },
+            ];
 
         return result;
     }

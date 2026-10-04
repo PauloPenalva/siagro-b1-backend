@@ -25,4 +25,8 @@ public class Item
     /// <summary>NCM, 8 dígitos. Copiado para a linha do documento fiscal.</summary>
     [Column(TypeName = "VARCHAR(8)")]
     public string? Ncm { get; set; }
+
+    /// <summary>CEST, 7 dígitos (opcional). Vai no item da NF-e, com escala relevante.</summary>
+    [Column(TypeName = "VARCHAR(7)")]
+    public string? Cest { get; set; }
 }

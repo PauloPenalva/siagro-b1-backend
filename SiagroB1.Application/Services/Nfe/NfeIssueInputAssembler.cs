@@ -91,7 +91,10 @@ public static class NfeIssueInputAssembler
                     StateRegistration = NfeText.Digits(context.DeliveryPartner.StateRegistration),
                     Address = ToAddress(context.DeliveryAddress!, context.DeliveryMunicipality!, context.DeliveryPartner.Phone),
                 },
-            Items = items.Select((item, index) => ToItem(item, index + 1)).ToList(),
+            Items = items.Select((item, index) => ToItem(item, index + 1) with
+            {
+                Cest = context.ItemCests.GetValueOrDefault(item.ItemCode),
+            }).ToList(),
             FreightTerms = invoice.FreightTerms,
             Carrier = context.Carrier is null
                 ? null
@@ -112,6 +115,8 @@ public static class NfeIssueInputAssembler
                 : null,
             NetWeight = invoice.NetWeight,
             GrossWeight = invoice.GrossWeight,
+            Volume = new NfeVolume(
+                invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
             Payment = PaymentInstallmentCalculator.Calculate(
                 context.PaymentCondition.Days, context.PaymentCondition.StartRule, context.PaymentCondition.PaymentMeans,
                 total, DateOnly.FromDateTime(issuedAt.Date)),
@@ -121,6 +126,8 @@ public static class NfeIssueInputAssembler
             TechnicalResponsible = technicalResponsible,
         };
     }
+
+    private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static NfeAddress ToAddress(Address address, Municipality municipality, string? phone) => new()
     {

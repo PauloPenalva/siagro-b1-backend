@@ -1,4 +1,5 @@
 using NFe.Classes.Informacoes.Destinatario;
+using NFe.Classes.Informacoes.Detalhe;
 using NFe.Classes.Informacoes.Detalhe.Tributacao.Estadual;
 using NFe.Classes.Informacoes.Detalhe.Tributacao.Federal;
 using NFe.Classes.Informacoes.Identificacao.Tipos;
@@ -393,5 +394,64 @@ public class NfeXmlBuilderTests
         Assert.Null(nfe.infNFe.transp.transporta);
         Assert.Null(nfe.infNFe.transp.veicTransp);
         Assert.NotEmpty(nfe.infNFe.transp.vol);
+    }
+
+    [Fact]
+    public void Item_with_cest_sends_cest_and_relevant_scale()
+    {
+        var item = NfeTestData.Item() with { Cest = "0600500" };
+
+        var prod = Build(NfeTestData.Input() with { Items = [item] }).infNFe.det[0].prod;
+
+        Assert.Equal("0600500", prod.CEST);
+        Assert.Equal(indEscala.S, prod.indEscala);
+    }
+
+    [Fact]
+    public void Item_without_cest_sends_neither_cest_nor_scale()
+    {
+        var prod = Build(NfeTestData.Input()).infNFe.det[0].prod;
+
+        Assert.Null(prod.CEST);
+        Assert.Null(prod.indEscala);
+    }
+
+    [Fact]
+    public void Volume_data_go_to_the_vol_group_with_the_weights()
+    {
+        var input = NfeTestData.Input() with { Volume = new NfeVolume(40, "SACO", "CEAGUI", "1 A 40") };
+
+        var vol = Build(input).infNFe.transp.vol.Single();
+
+        Assert.Equal(40, vol.qVol);
+        Assert.Equal("SACO", vol.esp);
+        Assert.Equal("CEAGUI", vol.marca);
+        Assert.Equal("1 A 40", vol.nVol);
+        Assert.Equal(30000m, vol.pesoL);
+        Assert.Equal(30500m, vol.pesoB);
+    }
+
+    [Fact]
+    public void Volume_without_the_optional_data_sends_only_the_weights()
+    {
+        var vol = Build(NfeTestData.Input() with { Volume = new NfeVolume(null, " ", null, "") }).infNFe.transp.vol.Single();
+
+        Assert.Null(vol.qVol);
+        Assert.Null(vol.esp);
+        Assert.Null(vol.marca);
+        Assert.Null(vol.nVol);
+        Assert.Equal(30000m, vol.pesoL);
+        Assert.Equal(30500m, vol.pesoB);
+    }
+
+    [Fact]
+    public void Volume_texts_are_cut_at_60_characters()
+    {
+        var text = new string('S', 70);
+        var vol = Build(NfeTestData.Input() with { Volume = new NfeVolume(1, text, text, text) }).infNFe.transp.vol.Single();
+
+        Assert.Equal(60, vol.esp.Length);
+        Assert.Equal(60, vol.marca.Length);
+        Assert.Equal(60, vol.nVol.Length);
     }
 }

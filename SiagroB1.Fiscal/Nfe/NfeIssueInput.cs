@@ -60,6 +60,12 @@ public sealed record NfeCarrier
 /// <summary>Placa (sem traço, maiúscula) e UF do veículo.</summary>
 public sealed record NfeVehicle(string Plate, string State);
 
+/// <summary>
+/// Volume da NF-e (grupo <c>vol</c>), informado no documento — opcionais; os pesos vêm à parte
+/// (<see cref="NfeIssueInput.NetWeight"/>/<see cref="NfeIssueInput.GrossWeight"/>).
+/// </summary>
+public sealed record NfeVolume(int? Quantity, string? Species, string? Brand, string? Numbering);
+
 /// <summary><c>infRespTec</c> — os dados da IDX, de <c>Nfe:TechnicalResponsible</c>.</summary>
 public sealed record NfeTechnicalResponsible(string Cnpj, string Contact, string Email, string Phone);
 
@@ -77,6 +83,9 @@ public sealed record NfeItem
     public required decimal Total { get; init; }
     public required byte GoodsOrigin { get; init; }
     public string? BenefitCode { get; init; }
+
+    /// <summary>CEST (7 dígitos) do cadastro do produto; vazio = a NF-e não leva CEST.</summary>
+    public string? Cest { get; init; }
 
     /// <summary>CST (2 dígitos) ou CSOSN (3 dígitos) do ICMS.</summary>
     public required string IcmsCode { get; init; }
@@ -137,6 +146,7 @@ public sealed record NfeIssueInput
     public NfeVehicle? Vehicle { get; init; }
     public decimal NetWeight { get; init; }
     public decimal GrossWeight { get; init; }
+    public NfeVolume? Volume { get; init; }
     public required PaymentPlan Payment { get; init; }
 
     /// <summary><c>cobr/fat/nFat</c> — o número fiscal do documento.</summary>

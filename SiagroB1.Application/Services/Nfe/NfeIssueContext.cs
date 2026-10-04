@@ -18,4 +18,5 @@ public sealed record NfeIssueContext(
     string? TruckPlate,
     string? TruckState,
     PaymentCondition PaymentCondition,
-    IReadOnlyDictionary<int, Usage> Usages);
+    IReadOnlyDictionary<int, Usage> Usages,
+    IReadOnlyDictionary<string, string?> ItemCests);

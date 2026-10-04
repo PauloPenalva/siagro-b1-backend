@@ -108,6 +108,13 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
                 problems.Add($"Transportadora {carrier.CardCode}: CNPJ/CPF");
         }
 
+        // Volume da NF-e: só os pesos são obrigatórios (quantidade, espécie, marca e numeração não).
+        // Informados, não derivados da quantidade: a unidade pode ser saco, bag, caixa...
+        if (invoice.GrossWeight <= 0 || invoice.NetWeight <= 0)
+            problems.Add("Documento: peso bruto e peso líquido");
+        else if (invoice.GrossWeight < invoice.NetWeight)
+            problems.Add("Documento: o peso bruto não pode ser menor que o peso líquido");
+
         PaymentCondition? condition = null;
         if (invoice.PaymentConditionCode is null)
         {
@@ -128,12 +135,16 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         var (plate, truckState) = await LoadTruckAsync(invoice.TruckCode);
         var usageCodes = invoice.Items.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
         var usages = await db.Context.Usages.AsNoTracking().Where(u => usageCodes.Contains(u.Code)).ToDictionaryAsync(u => u.Code);
+        var itemCodes = invoice.Items.Select(i => i.ItemCode).Distinct().ToList();
+        var itemCests = await db.Context.Items.AsNoTracking()
+            .Where(i => itemCodes.Contains(i.ItemCode))
+            .ToDictionaryAsync(i => i.ItemCode, i => i.Cest);
 
         return new NfeIssueContext(
             branch, branch.Municipality!, settings!, customer!, customerAddress!, customerAddress!.Municipality!,
             deliveryPartner, deliveryAddress, deliveryAddress?.Municipality,
             carrier, carrier is null ? null : BillingAddress(carrier),
-            plate, truckState, condition!, usages);
+            plate, truckState, condition!, usages, itemCests);
     }
 
     private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>

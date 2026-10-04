@@ -24,6 +24,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             Enabled = entity.Enabled,
             GoodsOrigin = entity.GoodsOrigin,
             Ncm = NormalizeNcm(entity.Ncm),
+            Cest = NormalizeCest(entity.Cest),
         };
             
         await db.Context.Items.AddAsync(item);
@@ -43,6 +44,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
                 Enabled = x.Enabled,
                 GoodsOrigin = x.GoodsOrigin,
                 Ncm = x.Ncm,
+                Cest = x.Cest,
             })
             .AsNoTracking()
             .Where(x => x.ItmsGrpCod == 105 && 
@@ -73,6 +75,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
                     Enabled = x.Enabled,
                     GoodsOrigin = x.GoodsOrigin,
                     Ncm = x.Ncm,
+                    Cest = x.Cest,
                 })
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ItemCode == code && 
@@ -115,6 +118,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
         item.Enabled = entity.Enabled;
         item.GoodsOrigin = entity.GoodsOrigin;
         item.Ncm = NormalizeNcm(entity.Ncm);
+        item.Cest = NormalizeCest(entity.Cest);
         
         try
         {
@@ -140,6 +144,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             Enabled = item.Enabled,
             GoodsOrigin = item.GoodsOrigin,
             Ncm = item.Ncm,
+            Cest = item.Cest,
         };
     }
     
@@ -153,10 +158,19 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
 
         if (entity.GoodsOrigin is > 8)
             throw new DefaultException("A origem da mercadoria deve estar entre 0 e 8.");
+
+        var cest = NormalizeCest(entity.Cest);
+
+        if (cest is not null && (cest.Length != 7 || !cest.All(char.IsDigit)))
+            throw new DefaultException("O CEST deve ter 7 dígitos.");
     }
 
     private static string? NormalizeNcm(string? ncm) =>
         string.IsNullOrWhiteSpace(ncm) ? null : ncm.Trim();
+
+    /// <summary>Aceita o CEST no formato oficial com pontos (06.005.00) e grava só os dígitos.</summary>
+    private static string? NormalizeCest(string? cest) =>
+        string.IsNullOrWhiteSpace(cest) ? null : cest.Replace(".", "").Trim();
 
     private bool EntityExists(string code)
     {

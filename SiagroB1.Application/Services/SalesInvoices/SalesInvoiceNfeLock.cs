@@ -25,7 +25,8 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.InvoiceType), nameof(SalesInvoice.DeliveryCardCode), nameof(SalesInvoice.TruckingCompanyCode),
         nameof(SalesInvoice.TruckCode), nameof(SalesInvoice.FreightTerms), nameof(SalesInvoice.PaymentConditionCode),
         nameof(SalesInvoice.GrossWeight), nameof(SalesInvoice.NetWeight), nameof(SalesInvoice.TaxPayerComments),
-        nameof(SalesInvoice.TaxComments),
+        nameof(SalesInvoice.TaxComments), nameof(SalesInvoice.VolumeQuantity), nameof(SalesInvoice.VolumeSpecies),
+        nameof(SalesInvoice.VolumeBrand), nameof(SalesInvoice.VolumeNumbering),
     ];
 
     /// <summary>Campos da linha que vão para o XML (a Conferência de entregas mexe em outros).</summary>

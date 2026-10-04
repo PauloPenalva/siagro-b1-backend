@@ -166,4 +166,25 @@ public class NfeIssueInputAssemblerTests
         Assert.Equal("111222333444", input.Delivery.StateRegistration);
         Assert.Equal("3521705", input.Delivery.Address.MunicipalityCode);
     }
+
+    [Fact]
+    public async Task Volume_and_product_cest_go_to_the_input()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.Items.Add(new Item { ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", Cest = "0600500" });
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario, i =>
+        {
+            i.VolumeQuantity = 40;
+            i.VolumeSpecies = " SACO ";
+            i.VolumeBrand = "CEAGUI";
+            i.VolumeNumbering = "1 A 40";
+        });
+
+        Assert.Equal("0600500", input.Items[0].Cest);
+        Assert.Equal(new NfeVolume(40, "SACO", "CEAGUI", "1 A 40"), input.Volume);
+        Assert.Equal(30500m, input.GrossWeight);
+        Assert.Equal(30000m, input.NetWeight);
+    }
 }

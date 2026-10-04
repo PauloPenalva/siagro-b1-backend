@@ -18,4 +18,7 @@ public class ItemModel
 
     /// <summary>NCM (8 dígitos). Nulo em SAPB1, pelo mesmo motivo.</summary>
     public string? Ncm { get; set; }
+
+    /// <summary>CEST (7 dígitos), opcional. Nulo em SAPB1, pelo mesmo motivo.</summary>
+    public string? Cest { get; set; }
 }

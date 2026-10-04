@@ -27,7 +27,22 @@ public class SalesInvoice : DocumentEntity
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal NetWeight  { get; set; }
-    
+
+    /// <summary>Volume da NF-e (grupo vol): quantidade de volumes — opcional, informado no documento.</summary>
+    public int? VolumeQuantity { get; set; }
+
+    /// <summary>Espécie dos volumes (GRANEL, SACO, BAG, CAIXA...) — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeSpecies { get; set; }
+
+    /// <summary>Marca dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeBrand { get; set; }
+
+    /// <summary>Numeração dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeNumbering { get; set; }
+
     [Column(TypeName = "VARCHAR(15)")]
     public string? DeliveryCardCode { get; set; }
 
