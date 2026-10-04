@@ -12,7 +12,7 @@ namespace SiagroB1.Application.Tests.Nfe;
 /// <summary>"Emitir NF-e" da devolução própria (spec §8–§9): entrada, finalidade 4, venda referenciada.</summary>
 public class SalesInvoicesNfeReturnIssueTests
 {
-    private static SalesInvoicesNfeIssueService Issue(NfeScenario scenario, FakeNfeSefazClient sefaz)
+    private static SalesInvoicesNfeIssueService Issue(NfeScenario scenario, FakeNfeSefazClient sefaz, TimeZoneInfo? storageZone = null)
     {
         var config = NfeTestSeed.Config();
         var options = new NfeOptions(config);
@@ -21,7 +21,7 @@ public class SalesInvoicesNfeReturnIssueTests
             scenario.Db, new TaxCalculationGate(scenario.Db, config), new NfeReadinessValidator(scenario.Db, options),
             new BranchNfeSettingsService(scenario.Db, options, sefaz), new FakeNfeNumberReservationService(), sefaz,
             new SalesInvoiceNfeResultHandler(scenario.Db, new RecordingConfirmService(scenario.Db), NullLogger<SalesInvoiceNfeResultHandler>.Instance),
-            options, NullLogger<SalesInvoicesNfeIssueService>.Instance, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
+            options, NullLogger<SalesInvoicesNfeIssueService>.Instance, NfeTestSeed.Clock, storageZone ?? NfeIssueInputAssembler.BrasiliaZone);
     }
 
     private static async Task<string> SignedXmlAsync(NfeScenario scenario, Guid invoiceKey) =>
@@ -121,5 +121,22 @@ public class SalesInvoicesNfeReturnIssueTests
 
         Assert.Null(context.PaymentCondition);
         Assert.Equal(NfeReturnTestSeed.SaleAccessKey, context.ReturnOrigin!.AccessKey);
+    }
+
+    [Fact]
+    public async Task Sale_date_in_the_reference_text_is_the_day_in_Brasilia_when_stored_in_UTC()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 10000m);
+        // 03/10 01:00 UTC = 02/10 22:00 em Brasília.
+        (await s.Sale.Db.Context.SalesInvoices.SingleAsync(i => i.Key == s.Sale.InvoiceKey)).InvoiceDate = new DateTime(2026, 10, 3, 1, 0, 0);
+        await s.Sale.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(s.Sale, sefaz, TimeZoneInfo.Utc).ExecuteAsync(created.Key, "tester");
+
+        var xml = await SignedXmlAsync(s.Sale, created.Key);
+        Assert.Contains("de 02/10/2026, chave", xml);
     }
 }

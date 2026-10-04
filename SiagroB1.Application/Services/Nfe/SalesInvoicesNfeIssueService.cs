@@ -52,6 +52,18 @@ public class SalesInvoicesNfeIssueService(
 
         var context = await readiness.ValidateAsync(invoice);
 
+        // O InvoiceDate da venda é gravado no fuso do servidor; o texto cita o dia dela em Brasília,
+        // como a conferência do dia de emissão faz.
+        if (context.ReturnOrigin is { IssuedOn: { } issuedOn } returnOrigin)
+            context = context with
+            {
+                ReturnOrigin = returnOrigin with
+                {
+                    IssuedOn = TimeZoneInfo.ConvertTime(
+                        DateTime.SpecifyKind(issuedOn, DateTimeKind.Unspecified), _storageZone, NfeIssueInputAssembler.BrasiliaZone),
+                },
+            };
+
         using var service = await settingsService.OpenAsync(invoice.BranchCode!);
 
         await ReserveNumberAsync(invoice, context.Settings);
