@@ -40,7 +40,7 @@ public static class NfeIssueInputAssembler
     public static NfeIssueInput Build(
         SalesInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
     {
-        var items = invoice.Items.ToList();
+        var items = SalesInvoiceNfeItemNumbering.Ordered(invoice.Items);
         var total = items.Sum(i => i.Total);
         var firstUsage = items.Select(i => i.UsageCode).FirstOrDefault(c => c is not null) is { } code
                          && context.Usages.TryGetValue(code, out var usage)
@@ -91,7 +91,7 @@ public static class NfeIssueInputAssembler
                     StateRegistration = NfeText.Digits(context.DeliveryPartner.StateRegistration),
                     Address = ToAddress(context.DeliveryAddress!, context.DeliveryMunicipality!, context.DeliveryPartner.Phone),
                 },
-            Items = items.Select((item, index) => ToItem(item, index + 1) with
+            Items = items.Select((item, index) => ToItem(item, item.NfeItemNumber ?? index + 1) with
             {
                 Cest = context.ItemCests.GetValueOrDefault(item.ItemCode),
             }).ToList(),

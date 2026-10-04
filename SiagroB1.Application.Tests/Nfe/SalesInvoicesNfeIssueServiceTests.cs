@@ -542,4 +542,18 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Contains(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Denied && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
         Assert.DoesNotContain(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Authorized);
     }
+
+    [Fact]
+    public async Task Item_numbers_are_saved_with_the_signed_xml()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db)).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var item = await TestDb.CreateUnitOfWork(scenario.DatabaseName).Context.SalesInvoicesItems.AsNoTracking()
+            .SingleAsync(i => i.SalesInvoiceKey == scenario.InvoiceKey);
+        Assert.Equal(1, item.NfeItemNumber);
+    }
 }
