@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
@@ -163,8 +164,9 @@ public class SalesInvoicesNfeIssueService(
         if (!await gate.IsActiveAsync(invoice.BranchCode))
             throw new DefaultException($"A filial {invoice.BranchCode} não emite NF-e pelo Siagro.");
 
-        if (invoice.InvoiceType != SalesInvoiceType.Normal)
-            throw new DefaultException("Só o documento Normal é emitido como NF-e por aqui; a devolução fica para a próxima etapa.");
+        if (invoice.InvoiceType != SalesInvoiceType.Normal && !SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+            throw new DefaultException(
+                "Só o documento Normal e a devolução criada pelo Devolver são emitidos como NF-e por aqui.");
 
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
             throw new DefaultException("Só documento Pendente pode ser emitido.");
@@ -205,6 +207,11 @@ public class SalesInvoicesNfeIssueService(
         if (uncalculated is not null)
             throw new DefaultException(
                 $"O item {uncalculated.ItemCode} está sem os tributos calculados. Salve o documento para recalcular antes de emitir.");
+
+        // Devolução: o saldo da venda ANTES de reservar o número — a conferência da confirmação roda
+        // depois da autorização, tarde demais para impedir uma NF-e de quantidade a mais.
+        if (invoice.IsNfeReturn)
+            await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, invoice.Items);
     }
 
     /// <summary>

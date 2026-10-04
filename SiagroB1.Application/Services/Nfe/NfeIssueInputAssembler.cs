@@ -1,6 +1,7 @@
 using System.Globalization;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Fiscal.Payments;
 
@@ -41,6 +42,9 @@ public static class NfeIssueInputAssembler
         SalesInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
     {
         var items = SalesInvoiceNfeItemNumbering.Ordered(invoice.Items);
+        var returnOrigin = invoice.IsNfeReturn
+            ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a venda de origem.")
+            : null;
         var total = items.Sum(i => i.Total);
         var firstUsage = items.Select(i => i.UsageCode).FirstOrDefault(c => c is not null) is { } code
                          && context.Usages.TryGetValue(code, out var usage)
@@ -53,6 +57,8 @@ public static class NfeIssueInputAssembler
             Series = int.Parse(invoice.TaxDocumentSeries!, CultureInfo.InvariantCulture),
             Number = long.Parse(invoice.TaxDocumentNumber!, CultureInfo.InvariantCulture),
             RandomCode = invoice.NfeRandomCode!,
+            Purpose = returnOrigin is null ? NfePurpose.Sale : NfePurpose.Return,
+            ReferencedKeys = returnOrigin is null ? [] : [returnOrigin.AccessKey],
             IssuedAt = issuedAt,
             OperationNature = string.IsNullOrWhiteSpace(firstUsage?.InvoiceOperationText)
                 ? firstUsage?.Name ?? "VENDA"
@@ -94,6 +100,10 @@ public static class NfeIssueInputAssembler
             Items = items.Select((item, index) => ToItem(item, item.NfeItemNumber ?? index + 1) with
             {
                 Cest = context.ItemCests.GetValueOrDefault(item.ItemCode),
+                // VC02-14: o número do item NA VENDA, não a posição na devolução.
+                Reference = returnOrigin is null
+                    ? null
+                    : new NfeItemReference(returnOrigin.AccessKey, returnOrigin.ItemNumbers[item.SalesInvoiceItemOriginKey!.Value]),
             }).ToList(),
             FreightTerms = invoice.FreightTerms,
             Carrier = context.Carrier is null
@@ -117,11 +127,14 @@ public static class NfeIssueInputAssembler
             GrossWeight = invoice.GrossWeight,
             Volume = new NfeVolume(
                 invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
-            Payment = PaymentInstallmentCalculator.Calculate(
-                context.PaymentCondition.Days, context.PaymentCondition.StartRule, context.PaymentCondition.PaymentMeans,
-                total, DateOnly.FromDateTime(issuedAt.Date)),
+            // Devolução: tPag 90 com vPag 0 (rejeição 871) e sem cobr.
+            Payment = returnOrigin is not null
+                ? new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, [])
+                : PaymentInstallmentCalculator.Calculate(
+                    context.PaymentCondition!.Days, context.PaymentCondition.StartRule, context.PaymentCondition.PaymentMeans,
+                    total, DateOnly.FromDateTime(issuedAt.Date)),
             BillingNumber = invoice.TaxDocumentNumber!,
-            AdditionalInfo = AdditionalInfo(items, context.Usages, invoice.TaxPayerComments),
+            AdditionalInfo = AdditionalInfo(items, context.Usages, invoice.TaxPayerComments, ReturnReference(returnOrigin)),
             FiscoInfo = invoice.TaxComments,
             TechnicalResponsible = technicalResponsible,
         };
@@ -184,9 +197,13 @@ public static class NfeIssueInputAssembler
         CbsValue = item.CbsValue,
     };
 
-    /// <summary><c>infCpl</c>: textos padrão distintos das naturezas, na ordem das linhas, + informações do contribuinte.</summary>
+    /// <summary>
+    /// <c>infCpl</c>: na devolução, a referência à venda primeiro; depois os textos padrão distintos das
+    /// naturezas, na ordem das linhas, e as informações do contribuinte.
+    /// </summary>
     private static string? AdditionalInfo(
-        IEnumerable<SalesInvoiceItem> items, IReadOnlyDictionary<int, Usage> usages, string? taxPayerComments)
+        IEnumerable<SalesInvoiceItem> items, IReadOnlyDictionary<int, Usage> usages, string? taxPayerComments,
+        string? returnReference = null)
     {
         var texts = items
             .Select(i => i.UsageCode is { } code && usages.TryGetValue(code, out var usage) ? usage.DefaultAdditionalInfo : null)
@@ -195,9 +212,23 @@ public static class NfeIssueInputAssembler
             .Distinct()
             .ToList();
 
+        if (returnReference is not null)
+            texts.Insert(0, returnReference);
+
         if (!string.IsNullOrWhiteSpace(taxPayerComments))
             texts.Add(taxPayerComments.Trim());
 
         return texts.Count == 0 ? null : string.Join(" | ", texts);
     }
+
+    private static string? ReturnReference(NfeReturnOrigin? origin) =>
+        origin is null
+            ? null
+            : $"Devolução da NF-e nº {NumberText(origin.Number)}, série {origin.Series}, " +
+              $"de {origin.IssuedOn?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)}, chave {origin.AccessKey}.";
+
+    private static string NumberText(string number) =>
+        long.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? value.ToString(CultureInfo.InvariantCulture)
+            : number;
 }

@@ -3,6 +3,8 @@ using SiagroB1.Domain.Entities;
 namespace SiagroB1.Application.Services.Nfe;
 
 /// <summary>Cadastro já carregado e conferido pela prontidão — tudo o que a montagem da entrada usa.</summary>
+/// <param name="PaymentCondition">Nula só na devolução própria, que não tem pagamento (tPag 90).</param>
+/// <param name="ReturnOrigin">Na devolução própria, a venda referenciada; nula na venda.</param>
 public sealed record NfeIssueContext(
     Branch Branch,
     Municipality BranchMunicipality,
@@ -17,6 +19,15 @@ public sealed record NfeIssueContext(
     Address? CarrierAddress,
     string? TruckPlate,
     string? TruckState,
-    PaymentCondition PaymentCondition,
+    PaymentCondition? PaymentCondition,
     IReadOnlyDictionary<int, Usage> Usages,
-    IReadOnlyDictionary<string, string?> ItemCests);
+    IReadOnlyDictionary<string, string?> ItemCests,
+    NfeReturnOrigin? ReturnOrigin = null);
+
+/// <summary>
+/// A venda que a devolução própria referencia, já conferida: a chave vai no <c>NFref</c> e, com o
+/// número de cada item vendido (<c>ItemNumbers</c>, pela chave do item da venda), no
+/// <c>DFeReferenciado</c> de cada item.
+/// </summary>
+public sealed record NfeReturnOrigin(
+    string AccessKey, string Number, string Series, DateTime? IssuedOn, IReadOnlyDictionary<Guid, int> ItemNumbers);

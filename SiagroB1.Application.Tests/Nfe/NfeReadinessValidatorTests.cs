@@ -30,7 +30,7 @@ public class NfeReadinessValidatorTests
         Assert.Equal("T-001", context.Carrier!.CardCode);
         Assert.Equal("ABC1D23", context.TruckPlate);
         Assert.Equal("SP", context.TruckState);
-        Assert.Equal("30/60 boleto", context.PaymentCondition.Name);
+        Assert.Equal("30/60 boleto", context.PaymentCondition!.Name);
     }
 
     [Fact]

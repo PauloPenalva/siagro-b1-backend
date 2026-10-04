@@ -73,7 +73,11 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
                 line++;
                 var first = item.Cfop?.Trim().FirstOrDefault();
 
-                if ((first == '5' && !sameState) || (first == '6' && sameState))
+                // Venda: 5xxx dentro, 6xxx fora. Devolução própria (entrada): 1xxx dentro, 2xxx fora.
+                var inStatePrefix = invoice.IsNfeReturn ? '1' : '5';
+                var outStatePrefix = invoice.IsNfeReturn ? '2' : '6';
+
+                if ((first == inStatePrefix && !sameState) || (first == outStatePrefix && sameState))
                     problems.Add($"Item {line}: CFOP {item.Cfop} não confere com o destino ({destinationState}) — salve o item de novo para recalcular.");
             }
         }
@@ -115,19 +119,25 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         else if (invoice.GrossWeight < invoice.NetWeight)
             problems.Add("Documento: o peso bruto não pode ser menor que o peso líquido");
 
+        // A devolução própria não tem pagamento (tPag 90, rejeição 871 com qualquer outro meio).
         PaymentCondition? condition = null;
-        if (invoice.PaymentConditionCode is null)
+        if (!invoice.IsNfeReturn)
         {
-            problems.Add("Documento: condição de pagamento");
+            if (invoice.PaymentConditionCode is null)
+            {
+                problems.Add("Documento: condição de pagamento");
+            }
+            else
+            {
+                condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == invoice.PaymentConditionCode);
+                if (condition is null)
+                    problems.Add($"Documento: condição de pagamento {invoice.PaymentConditionCode} não encontrada");
+                else if (condition.Inactive)
+                    problems.Add($"Documento: a condição de pagamento {condition.Name} está inativa");
+            }
         }
-        else
-        {
-            condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == invoice.PaymentConditionCode);
-            if (condition is null)
-                problems.Add($"Documento: condição de pagamento {invoice.PaymentConditionCode} não encontrada");
-            else if (condition.Inactive)
-                problems.Add($"Documento: a condição de pagamento {condition.Name} está inativa");
-        }
+
+        var returnOrigin = invoice.IsNfeReturn ? await LoadReturnOriginAsync(invoice, problems) : null;
 
         if (problems.Count > 0)
             throw new DefaultException("Faltam dados para emitir a NF-e:\n- " + string.Join("\n- ", problems));
@@ -144,7 +154,48 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             branch, branch.Municipality!, settings!, customer!, customerAddress!, customerAddress!.Municipality!,
             deliveryPartner, deliveryAddress, deliveryAddress?.Municipality,
             carrier, carrier is null ? null : BillingAddress(carrier),
-            plate, truckState, condition!, usages, itemCests);
+            plate, truckState, condition, usages, itemCests, returnOrigin);
+    }
+
+    /// <summary>A venda da devolução própria: confirmada, com NF-e autorizada e o nItem de cada item devolvido.</summary>
+    private async Task<NfeReturnOrigin?> LoadReturnOriginAsync(SalesInvoice invoice, List<string> problems)
+    {
+        var origin = await db.Context.SalesInvoices.AsNoTracking().Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Key == invoice.SalesInvoiceOriginKey);
+
+        if (origin is null)
+        {
+            problems.Add("Documento: venda de origem não encontrada");
+            return null;
+        }
+
+        if (origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
+        {
+            problems.Add($"Venda de origem {origin.InvoiceNumber}: NF-e não autorizada");
+            return null;
+        }
+
+        // Confirmada (ou já Devolvida por outras devoluções): uma venda estornada depois de a devolução
+        // nascer faria a confirmação pós-autorização falhar com a NF-e já emitida.
+        if (origin.InvoiceStatus is not (InvoiceStatus.Confirmed or InvoiceStatus.Returned))
+        {
+            problems.Add($"Venda de origem {origin.InvoiceNumber}: não está confirmada");
+            return null;
+        }
+
+        var numbers = new Dictionary<Guid, int>();
+        foreach (var item in invoice.Items)
+        {
+            var sold = origin.Items.FirstOrDefault(o => o.Key == item.SalesInvoiceItemOriginKey);
+            var number = sold is null ? null : SalesInvoiceNfeItemNumbering.OriginNumber(sold, origin.Items.Count);
+
+            if (number is null)
+                problems.Add($"Item {item.ItemCode}: sem o item correspondente da NF-e de venda");
+            else
+                numbers[sold!.Key!.Value] = number.Value;
+        }
+
+        return new NfeReturnOrigin(origin.ChaveNFe, origin.TaxDocumentNumber!, origin.TaxDocumentSeries!, origin.InvoiceDate, numbers);
     }
 
     private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>
