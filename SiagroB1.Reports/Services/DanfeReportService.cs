@@ -35,7 +35,18 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
     public async Task<(byte[] Pdf, string FileName)> GeneratePdfAsync(Guid invoiceKey)
     {
         var xml = await db.Context.SalesInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
+        return Render(xml);
+    }
 
+    /// <summary>DANFE da NF-e do documento de entrada (entrada própria ou devolução de compra).</summary>
+    public async Task<(byte[] Pdf, string FileName)> GeneratePurchasePdfAsync(Guid invoiceKey)
+    {
+        var xml = await db.Context.PurchaseInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
+        return Render(xml);
+    }
+
+    private (byte[] Pdf, string FileName) Render(string xml)
+    {
         var proc = new nfeProc().CarregarDeXmlString(xml);
         var template = Path.Combine(env.ContentRootPath, "ThirdParty", "Zeus-LGPL", "NFe.Danfe.Base", "NFe", "NFeRetrato.frx");
 
