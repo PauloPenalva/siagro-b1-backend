@@ -95,6 +95,12 @@ public class PurchaseInvoicesUpdateService(
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
 
+        // Documento eletrônico de terceiro: chave coerente com o fornecedor, número e série (spec terceiro-chave §7).
+        if (SupplierNfeKeyGuard.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
+            SupplierNfeKeyGuard.Ensure(existing, (await businessPartnerService.GetByIdAsync(existing.CardCode))?.TaxId);
+
+        await PurchaseInvoiceChaveNFe.EnsureFreeAsync(db, existing.ChaveNFe, existing.Key);
+
         await SyncItemsAsync(existing, entity);
 
         // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
