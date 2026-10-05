@@ -16,9 +16,9 @@ public class PurchaseInvoicesThirdPartyReturnTests
         names: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "PRODUTOR RURAL TESTE" },
         states: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "SP" });
 
-    internal static PurchaseInvoicesNfeReturnCreateService Returns(PurchaseNfeScenario scenario) =>
+    internal static PurchaseInvoicesNfeReturnCreateService Returns(PurchaseNfeScenario scenario, FakeBusinessPartnerService? partners = null) =>
         new(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()),
-            new PurchaseInvoicesCreateService(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners())),
+            new PurchaseInvoicesCreateService(scenario.Db, partners ?? Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, partners ?? Partners())),
             NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
 
     private static PurchaseInvoiceNfeReturnRequest Request(PurchaseInvoice origin, params (string Code, decimal Quantity, int? ItemNumber)[] lines) =>
@@ -276,6 +276,40 @@ public class PurchaseInvoicesThirdPartyReturnTests
         Assert.Contains("<tPag>90</tPag>", signed);
         Assert.Contains("<CPF>52998224725</CPF>", signed);
         Assert.Contains("Devolução da NF-e nº 456, série 1", signed);
+    }
+
+    [Fact]
+    public async Task Third_party_return_from_a_supplier_out_of_state_is_issued_with_cfop_6202()
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+        var context = scenario.Db.Context;
+
+        // Fornecedor do PR: a natureza de devolução usa o ICMS fora do estado (CST 00) e a alíquota interestadual de 12%.
+        context.Municipalities.Add(new Municipality { Code = "4106902", Name = "Curitiba", StateAbbreviation = "PR" });
+        var address = await context.Addresses.SingleAsync(a => a.CardCode == PurchaseNfeTestSeed.Supplier);
+        (address.State, address.City, address.MunicipalityCode) = ("PR", "Curitiba", "4106902");
+        var stored = await context.PurchaseInvoices.Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);
+        stored.XmlData = SupplierNfeXml.Bytes(SupplierNfeXml.Build(
+            SupplierNfeXml.Det(1, "TRIGO", "TRIGO EM GRAOS", 1000m, 1.5m, SupplierNfeXml.Icms00(1500m, 12m), cfop: "6102", benefitCode: null),
+            SupplierNfeXml.Det(2, "MILHO", "MILHO EM GRAOS", 500m, 1m, SupplierNfeXml.Icms00(500m, 12m), cfop: "6102", benefitCode: null)));
+        PurchaseInvoiceSupplierTaxes.Apply(stored, stored.Items);
+        await scenario.Db.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        origin = await context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);
+        var partners = new FakeBusinessPartnerService(
+            names: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "PRODUTOR RURAL TESTE" },
+            states: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "PR" });
+
+        var created = await Returns(scenario, partners).ExecuteAsync(Request(origin, ("TRIGO", 100m, null)), "tester");
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        var outcome = await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(created.Key, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        var signed = Assert.Single(sefaz.Sent).Xml;
+        Assert.Contains("<CFOP>6202</CFOP>", signed);
+        Assert.Contains("<idDest>2</idDest>", signed);
     }
 
     [Fact]
