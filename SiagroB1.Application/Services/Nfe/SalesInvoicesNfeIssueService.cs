@@ -223,7 +223,11 @@ public class SalesInvoicesNfeIssueService(
         // Devolução: o saldo da venda ANTES de reservar o número — a conferência da confirmação roda
         // depois da autorização, tarde demais para impedir uma NF-e de quantidade a mais.
         if (invoice.IsNfeReturn)
+        {
+            // Peso do cabeçalho x itens: a confirmação o exige e roda depois da autorização.
+            SalesInvoicesReturnWeightService.EnsureHeaderWeightMatchesItems(invoice);
             await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, invoice.Items);
+        }
     }
 
     /// <summary>

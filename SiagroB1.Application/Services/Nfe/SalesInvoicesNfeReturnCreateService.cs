@@ -30,7 +30,6 @@ public class SalesInvoicesNfeReturnCreateService(
     Func<DateTimeOffset>? clock = null,
     TimeZoneInfo? storageZone = null)
 {
-    private const decimal Tolerance = 0.001m;
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly Func<DateTimeOffset> _now = clock ?? NfeIssueInputAssembler.BrasiliaNow;
@@ -60,6 +59,9 @@ public class SalesInvoicesNfeReturnCreateService(
         var returnInvoice = SalesInvoiceReturnFactory.CreateFrom(origin, userName, quantities);
         returnInvoice.InvoiceDate = TimeZoneInfo.ConvertTime(_now(), _storageZone).DateTime;
         returnInvoice.PaymentConditionCode = null;
+        // A devolução volta ao remetente: não leva o local de entrega da venda (sem <entrega> no XML).
+        returnInvoice.DeliveryCardCode = null;
+        returnInvoice.DeliveryCardName = null;
         returnInvoice.TaxPayerComments = null;
         returnInvoice.TaxComments = null;
         returnInvoice.VolumeQuantity = origin.VolumeQuantity;
@@ -128,7 +130,7 @@ public class SalesInvoicesNfeReturnCreateService(
                        ?? throw new DefaultException("Item informado não pertence ao documento de saída.");
             var available = sold.Quantity - returned.GetValueOrDefault(requested.OriginItemKey);
 
-            if (requested.Quantity - available > Tolerance)
+            if (requested.Quantity > available)
                 throw new DefaultException(
                     $"Item {sold.ItemCode}: a quantidade a devolver ({requested.Quantity.ToString("N3", PtBr)}) " +
                     $"passa do saldo devolvível ({available.ToString("N3", PtBr)}).");

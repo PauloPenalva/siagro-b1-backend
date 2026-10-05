@@ -69,7 +69,6 @@ public sealed record NfeVolume(int? Quantity, string? Species, string? Brand, st
 /// <summary><c>infRespTec</c> — os dados da IDX, de <c>Nfe:TechnicalResponsible</c>.</summary>
 public sealed record NfeTechnicalResponsible(string Cnpj, string Contact, string Email, string Phone);
 
-/// <summary>Linha do documento com a fotografia dos tributos do sub-projeto 1, já gravada.</summary>
 /// <summary>Finalidade da NF-e: venda (saída, <c>finNFe</c> 1) ou devolução de venda (entrada, <c>finNFe</c> 4).</summary>
 public enum NfePurpose
 {
@@ -80,6 +79,7 @@ public enum NfePurpose
 /// <summary>Item da nota original que este item devolve (<c>det/DFeReferenciado</c>, regra VC02-14).</summary>
 public sealed record NfeItemReference(string AccessKey, int ItemNumber);
 
+/// <summary>Linha do documento com a fotografia dos tributos do sub-projeto 1, já gravada.</summary>
 public sealed record NfeItem
 {
     public required int Number { get; init; }

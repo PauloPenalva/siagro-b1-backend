@@ -152,6 +152,26 @@ public class SalesInvoicesNfeReturnLockTests
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
             new SalesInvoiceReturnRequest(s.Sale.InvoiceKey, [], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
 
+        Assert.Equal("Na filial que emite NF-e pelo Siagro, a devolução deste documento é feita pelo botão Devolver, no detalhe do documento.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Retornar_keeps_the_romaneio_message_for_a_sale_with_romaneio()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        s.Sale.Db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = s.Sale.InvoiceKey, CardCode = NfeTestSeed.CardCode, ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "01", TransactionType = StorageTransactionType.SalesShipment,
+            TransactionStatus = StorageTransactionsStatus.Invoiced, NetWeight = 30000m, GrossWeight = 30000m,
+        });
+        await s.Sale.Db.SaveChangesAsync();
+        var service = new SalesInvoicesReturnService(s.Sale.Db, null!, null!, null!, null!, null!, null!,
+            NullLogger<SalesInvoicesReturnService>.Instance, TaxTestServices.Gate(s.Sale.Db, "STANDALONE"));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
+            new SalesInvoiceReturnRequest(s.Sale.InvoiceKey, [], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
+
         Assert.Equal("Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.", ex.Message);
     }
 

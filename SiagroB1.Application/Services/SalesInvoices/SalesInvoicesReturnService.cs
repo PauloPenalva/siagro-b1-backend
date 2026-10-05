@@ -93,8 +93,15 @@ public class SalesInvoicesReturnService(
     private async Task EnsureNotIssuedBySiagroAsync(SalesInvoice origin)
     {
         if (gate is not null && origin.NfeStatus == NfeStatus.Authorized && await gate.IsActiveAsync(origin.BranchCode))
+        {
+            // Sem romaneio nem carga o botão certo é o Devolver (NF-e de devolução), não este.
+            if (origin.SalesTransactions.Count == 0 && origin.ShipmentLoadKey == null)
+                throw new DefaultException(
+                    "Na filial que emite NF-e pelo Siagro, a devolução deste documento é feita pelo botão Devolver, no detalhe do documento.");
+
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
+        }
     }
 
     /// <summary>Cultura das quantidades que vão para texto lido pelo operador.</summary>

@@ -57,7 +57,11 @@ public class SalesInvoicesItemsUpdateService(
             // se o guard acima tiver estourado.
             var logs = deliveryChanged ? BuildDeliveryLogs(existingEntity, entity, original, userName) : [];
 
+            // Numeração do item na NF-e é do servidor: só a emissão a grava.
+            var storedNfeItemNumber = (int?)original[nameof(SalesInvoiceItem.NfeItemNumber)];
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
+            existingEntity.NfeItemNumber = storedNfeItemNumber;
 
             var invoiceNfeStatus = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == existingEntity.SalesInvoiceKey)
