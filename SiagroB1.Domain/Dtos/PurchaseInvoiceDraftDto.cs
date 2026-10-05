@@ -42,4 +42,7 @@ public class PurchaseInvoiceDraftItemDto
     public decimal Quantity { get; set; }
 
     public decimal UnitPrice { get; set; }
+
+    /// <summary>Número do item (nItem) na NF-e do fornecedor — é o que a devolução referencia.</summary>
+    public int? NfeItemNumber { get; set; }
 }

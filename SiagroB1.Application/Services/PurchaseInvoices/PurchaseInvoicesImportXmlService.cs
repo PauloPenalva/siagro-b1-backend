@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using System.Xml.Linq;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
@@ -21,8 +20,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// Infra mas nunca foi exercitada neste projeto, e o valor dela é na EMISSÃO. Para ler uma dezena
 /// de campos de um layout estável, a dependência não paga o risco.
 ///
-/// A leitura de <c>ide/NFref</c> (que resolve remessa → NF de venda futura) e dos campos fiscais
-/// (CFOP, NCM, CST, impostos) entra na Fase 2.
+/// A tributação de cada item é lida por <see cref="SupplierNfeXmlReader"/> e gravada na linha pelo
+/// <c>PurchaseInvoiceSupplierTaxes</c> quando o documento é salvo; o rascunho só leva o <c>nItem</c>.
 /// </summary>
 public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPartnerService)
 {
@@ -35,34 +34,15 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
     /// </summary>
     public Task<PurchaseInvoiceDraftDto> ExecuteAsync(byte[] xmlData, string fileName)
     {
-        if (xmlData is null || xmlData.Length == 0)
-            throw new DefaultException("Arquivo XML vazio.");
-
-        XDocument document;
-
-        try
-        {
-            document = XDocument.Parse(Encoding.UTF8.GetString(xmlData));
-        }
-        catch (Exception)
-        {
-            throw new DefaultException("Arquivo não é um XML válido.");
-        }
-
-        // O arquivo pode vir como <nfeProc> (com protocolo) ou <NFe> puro.
-        var infNfe = document.Descendants(Nfe + "infNFe").FirstOrDefault()
-                     ?? throw new DefaultException(
-                         "XML não parece uma NF-e: elemento infNFe não encontrado.");
-
+        var nfe = SupplierNfeXmlReader.Read(xmlData);
+        var infNfe = nfe.InfNfe;
         var ide = infNfe.Element(Nfe + "ide");
         var emit = infNfe.Element(Nfe + "emit");
         var cnpj = Value(emit, "CNPJ") ?? Value(emit, "CPF");
 
         var draft = new PurchaseInvoiceDraftDto
         {
-            // A chave vem no atributo Id como "NFe" + 44 dígitos.
-            ChaveNFe = (infNfe.Attribute("Id")?.Value ?? string.Empty)
-                .Replace("NFe", string.Empty, StringComparison.OrdinalIgnoreCase),
+            ChaveNFe = nfe.AccessKey,
             TaxDocumentNumber = Value(ide, "nNF"),
             TaxDocumentSeries = Value(ide, "serie"),
             IssueDate = ParseDate(Value(ide, "dhEmi") ?? Value(ide, "dEmi")),
@@ -74,17 +54,16 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
             XmlFileName = fileName,
         };
 
-        foreach (var det in infNfe.Elements(Nfe + "det"))
+        foreach (var item in nfe.Items)
         {
-            var prod = det.Element(Nfe + "prod");
-
             draft.Items.Add(new PurchaseInvoiceDraftItemDto
             {
-                ItemCode = Value(prod, "cProd"),
-                ItemName = Value(prod, "xProd"),
-                UnitOfMeasureCode = Value(prod, "uCom"),
-                Quantity = ParseDecimal(prod, "qCom"),
-                UnitPrice = ParseDecimal(prod, "vUnCom"),
+                ItemCode = item.ProductCode,
+                ItemName = item.ProductName,
+                UnitOfMeasureCode = item.UnitOfMeasure,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                NfeItemNumber = item.ItemNumber,
             });
         }
 

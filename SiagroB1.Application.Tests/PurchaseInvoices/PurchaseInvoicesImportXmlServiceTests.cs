@@ -144,4 +144,22 @@ public class PurchaseInvoicesImportXmlServiceTests
         await Assert.ThrowsAsync<DefaultException>(
             () => Service().ExecuteAsync(Bytes(noItems), "nfe.xml"));
     }
+
+    [Fact]
+    public async Task Draft_lines_carry_the_supplier_item_number_in_xml_order()
+    {
+        var partners = new FakeBusinessPartnerService(
+            names: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "PRODUTOR RURAL TESTE" },
+            taxIds: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "529.982.247-25" });
+        var xml = SupplierNfeXml.Build(
+            SupplierNfeXml.Det(1, "TRG", "TRIGO", 1000m, 1.5m, SupplierNfeXml.Icms51(1500m)),
+            SupplierNfeXml.Det(2, "MLH", "MILHO", 500m, 1m, SupplierNfeXml.Icms51(500m)));
+
+        var draft = await new PurchaseInvoicesImportXmlService(partners).ExecuteAsync(SupplierNfeXml.Bytes(xml), "nota.xml");
+
+        Assert.Equal(PurchaseNfeTestSeed.Supplier, draft.CardCode);
+        Assert.Equal(SupplierNfeXml.AccessKey, draft.ChaveNFe);
+        Assert.Equal(new[] { (1, "TRG", 1000m), (2, "MLH", 500m) },
+            draft.Items.Select(i => (i.NfeItemNumber!.Value, i.ItemCode!, i.Quantity)).ToArray());
+    }
 }
