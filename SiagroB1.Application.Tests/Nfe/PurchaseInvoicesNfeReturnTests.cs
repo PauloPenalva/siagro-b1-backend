@@ -230,6 +230,42 @@ public class PurchaseInvoicesNfeReturnTests
     }
 
     [Fact]
+    public async Task Editing_the_return_checks_the_discount_against_the_restored_price()
+    {
+        // Revisão final M2: o preço enviado (50) é descartado pela trava; o desconto que só cabe nele não pode passar.
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+        var line = await scenario.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == created.Key);
+        line.UnitPrice = 50m;
+        line.DiscountValue = 10000m;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsUpdateService(scenario.Db, new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
+                .ExecuteAsync(line.Key!.Value, line, "tester"));
+
+        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+    }
+
+    [Fact]
+    public async Task Editing_the_return_through_the_document_checks_the_discount_against_the_restored_price()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        var line = saved.Items.Single();
+        line.UnitPrice = 50m;
+        line.DiscountValue = 10000m;
+        var incoming = new PurchaseInvoice { CardCode = saved.CardCode };
+        incoming.AddItem(line);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesUpdateService(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
+                .ExecuteAsync(created.Key, incoming, "tester"));
+
+        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+    }
+
+    [Fact]
     public async Task Returnable_items_show_purchased_returned_and_balance()
     {
         var (scenario, origin) = await AuthorizedOriginAsync();
@@ -293,6 +329,29 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Equal((36m, 0.02m, 12m, 0m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
         // Base = 600,00 + 36,00 + 0,02 − 12,00 (D3 na devolução).
         Assert.Equal(624.02m, line.IcmsBase);
+    }
+
+    [Fact]
+    public async Task Proportional_discount_never_passes_the_ceiling_of_the_return_line()
+    {
+        // Revisão final I1: ver o teste equivalente da devolução de venda (3 x 150,125, desconto 450,38, volta 1).
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+        // Valores gravados depois da emissão: uma nota inteira bonificada não autoriza no teste (total 0 com pagamento).
+        var seeded = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.PurchaseInvoiceKey == scenario.InvoiceKey);
+        (seeded.Quantity, seeded.UnitPrice, seeded.DiscountValue) = (3m, 150.125m, 450.38m);
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        var origin = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 1m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal(150.12m, line.Total);
+        Assert.Equal(150.12m, line.DiscountValue);
     }
 
     [Fact]

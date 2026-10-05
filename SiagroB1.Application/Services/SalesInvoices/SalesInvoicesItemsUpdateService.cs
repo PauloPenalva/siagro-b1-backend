@@ -147,6 +147,8 @@ public class SalesInvoicesItemsUpdateService(
             if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             {
                 SalesInvoiceNfeReturnLock.RestoreLine(db.Context.Entry(item));
+                // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+                InvoiceLineChargeRules.Ensure(item);
 
                 if (item.Quantity <= 0)
                     throw new DefaultException($"Item {item.ItemCode}: informe a quantidade a devolver.");

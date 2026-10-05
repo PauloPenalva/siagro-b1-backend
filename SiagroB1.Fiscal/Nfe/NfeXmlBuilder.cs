@@ -456,7 +456,8 @@ public static class NfeXmlBuilder
                 vCOFINS = items.Where(i => PisCofinsCarriesValues(i.CofinsCst)).Sum(i => i.CofinsValue),
                 vOutro = otherExpenses,
                 // W16: vNF = vProd − vDesc + vFrete + vSeg + vOutro (sem ST, IPI, II e serviços, que o Siagro não trata).
-                vNF = products + freight + insurance + otherExpenses - discount,
+                // Soma do total da linha, a MESMA fórmula da trava de pagamento e do vPag: um termo novo entra num lugar só.
+                vNF = items.Sum(i => i.GrandTotal),
             },
             IBSCBSTot = items.Any(i => i.IbsCbsCst is not null)
                 ? new IBSCBSTot

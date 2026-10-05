@@ -228,6 +228,23 @@ public class SalesInvoicesNfeReturnCreateServiceTests
     }
 
     [Fact]
+    public async Task Proportional_discount_never_passes_the_ceiling_of_the_return_line()
+    {
+        // Revisão final I1: 3 x 150,125 = 450,38 (ToEven) e desconto 450,38 (bonificação) passa na origem; devolvendo 1,
+        // a linha vale 150,12 (ToEven) e 450,38 / 3 = 150,1266 arredondaria para 150,13, acima do teto da própria linha.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var item = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.Key == s.SaleItemKey);
+        (item.Quantity, item.UnitPrice, item.DiscountValue) = (3m, 150.125m, 450.38m);
+        await s.Sale.Db.SaveChangesAsync();
+
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 1m);
+
+        var line = await ReturnLineAsync(s, created.Key);
+        Assert.Equal(150.12m, line.Total);
+        Assert.Equal(150.12m, line.DiscountValue);
+    }
+
+    [Fact]
     public async Task Half_cent_of_the_proportion_rounds_away_from_zero()
     {
         // Review Focus 2: 0,05 na metade = 0,025 → 0,03 (e não 0,02); 0,01 na metade = 0,005 → 0,01.

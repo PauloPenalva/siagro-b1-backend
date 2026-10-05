@@ -97,7 +97,7 @@ public class PurchaseInvoicesNfeReturnCreateService(
         {
             var quantity = quantities[bought.Key!.Value];
 
-            returnInvoice.AddItem(new PurchaseInvoiceItem
+            var returnItem = new PurchaseInvoiceItem
             {
                 Key = Guid.NewGuid(),
                 ItemCode = bought.ItemCode,
@@ -107,13 +107,12 @@ public class PurchaseInvoicesNfeReturnCreateService(
                 UnitPrice = bought.UnitPrice,
                 UsageCode = returnUsages[bought.Key!.Value],
                 PurchaseInvoiceItemOriginKey = bought.Key,
-                // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
-                // enquanto a devolução está Pendente.
-                FreightValue = InvoiceLineChargeRules.Proportional(bought.FreightValue, quantity, bought.Quantity),
-                InsuranceValue = InvoiceLineChargeRules.Proportional(bought.InsuranceValue, quantity, bought.Quantity),
-                DiscountValue = InvoiceLineChargeRules.Proportional(bought.DiscountValue, quantity, bought.Quantity),
-                OtherExpensesValue = InvoiceLineChargeRules.Proportional(bought.OtherExpensesValue, quantity, bought.Quantity),
-            });
+            };
+
+            // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
+            // enquanto a devolução está Pendente.
+            InvoiceLineChargeRules.ApplyProportional(returnItem, bought);
+            returnInvoice.AddItem(returnItem);
         }
 
         // O create calcula e confere os tributos (spec §6.2) e grava num SaveChanges só.

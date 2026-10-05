@@ -77,7 +77,11 @@ public class PurchaseInvoicesItemsUpdateService(
         // Travas da NF-e: devolução de compra só muda a quantidade e os quatro valores; emitido/em processamento trava a linha.
         var entry = db.Context.Entry(existing);
         if (invoice.IsNfeReturn)
+        {
             PurchaseInvoiceNfeLock.RestoreReturnLine(entry);
+            // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+            InvoiceLineChargeRules.Ensure(existing);
+        }
         PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
 
         if (invoice.IsNfeReturn)

@@ -237,7 +237,11 @@ public class PurchaseInvoicesUpdateService(
             // Na devolução de compra só a quantidade e os quatro valores da linha mudam (a descrição re-resolvida também volta).
             var lineEntry = db.Context.Entry(current);
             if (existing.IsNfeReturn)
+            {
                 PurchaseInvoiceNfeLock.RestoreReturnLine(lineEntry);
+                // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+                InvoiceLineChargeRules.Ensure(current);
+            }
             PurchaseInvoiceNfeLock.EnsureItemEditable(existing.NfeStatus, lineEntry);
 
             if (existing.IsNfeReturn && current.Quantity <= 0)

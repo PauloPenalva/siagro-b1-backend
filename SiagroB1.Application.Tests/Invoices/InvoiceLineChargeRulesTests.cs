@@ -285,4 +285,33 @@ public class InvoiceLineChargeRulesTests
 
         Assert.Equal(D(expected), InvoiceLineChargeRules.Proportional(D(value), D(returned), D(original)));
     }
+
+    [Fact]
+    public void ApplyProportional_scales_the_four_values_and_keeps_a_discount_that_fits()
+    {
+        var origin = new SalesInvoiceItem
+        {
+            ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 3m, UnitPrice = 150.125m, DiscountValue = 450.38m, FreightValue = 3m, InsuranceValue = 0.03m, OtherExpensesValue = 1m,
+        };
+        var target = new PurchaseInvoiceItem { ItemCode = "TRIGO", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 150.125m };
+
+        InvoiceLineChargeRules.ApplyProportional(target, origin);
+
+        Assert.Equal(150.12m, target.Total);
+        Assert.Equal((1m, 0.01m, 0.33m), (target.FreightValue, target.InsuranceValue, target.OtherExpensesValue));
+        // Teto = 150,12 + 1,00 + 0,01 + 0,33 = 151,46: o desconto proporcional (150,13) cabe e sai como veio.
+        Assert.Equal(150.13m, target.DiscountValue);
+    }
+
+    [Fact]
+    public void ApplyProportional_caps_the_discount_when_the_proportion_passes_the_ceiling()
+    {
+        var origin = new SalesInvoiceItem { ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 3m, UnitPrice = 150.125m, DiscountValue = 450.38m };
+        var target = new SalesInvoiceItem { ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 150.125m };
+
+        InvoiceLineChargeRules.ApplyProportional(target, origin);
+
+        Assert.Equal(150.12m, target.DiscountValue);
+        InvoiceLineChargeRules.Ensure(target);
+    }
 }

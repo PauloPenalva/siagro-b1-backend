@@ -45,5 +45,24 @@ public static class InvoiceLineChargeRules
             ? 0m
             : decimal.Round(value * returnedQuantity / originalQuantity, 2, MidpointRounding.AwayFromZero);
 
+    /// <summary>
+    /// Frete, seguro, desconto e outras despesas da linha de devolução na proporção da quantidade que volta
+    /// (<paramref name="target"/>.Quantity ÷ <paramref name="origin"/>.Quantity). O desconto nunca passa do teto da PRÓPRIA
+    /// linha da devolução: o <see cref="INfeTaxedLine.Total"/> dela arredonda a quantidade × preço de outro jeito que o
+    /// desconto proporcional (ex.: origem 3 × 150,125 = 450,38 com desconto 450,38; devolvendo 1, a linha vale 150,12 e a
+    /// proporção daria 150,13), e a devolução não tem campo para o usuário corrigir na criação.
+    /// </summary>
+    public static void ApplyProportional(INfeTaxedLine target, INfeTaxedLine origin)
+    {
+        var returned = target.Quantity;
+        var original = origin.Quantity;
+
+        target.FreightValue = Proportional(origin.FreightValue, returned, original);
+        target.InsuranceValue = Proportional(origin.InsuranceValue, returned, original);
+        target.OtherExpensesValue = Proportional(origin.OtherExpensesValue, returned, original);
+        var ceiling = Math.Max(0m, target.Total + target.FreightValue + target.InsuranceValue + target.OtherExpensesValue);
+        target.DiscountValue = Math.Min(Proportional(origin.DiscountValue, returned, original), ceiling);
+    }
+
     private static decimal Cents(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 }

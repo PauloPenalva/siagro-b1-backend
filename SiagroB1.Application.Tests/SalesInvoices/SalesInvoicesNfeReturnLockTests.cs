@@ -103,6 +103,21 @@ public class SalesInvoicesNfeReturnLockTests
     }
 
     [Fact]
+    public async Task Own_return_line_discount_is_checked_against_the_restored_price()
+    {
+        // Revisão final M2: o preço enviado (9) é descartado pela trava; o desconto que só cabe nele não pode passar.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        line.UnitPrice = 9m;
+        line.DiscountValue = 100000m;
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester"));
+
+        Assert.Equal("Item SOJA: o desconto passa do valor da linha.", ex.Message);
+    }
+
+    [Fact]
     public async Task Own_return_line_above_the_balance_is_refused()
     {
         var s = await NfeReturnTestSeed.SeedAsync();
