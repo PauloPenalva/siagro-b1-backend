@@ -30,6 +30,14 @@ public class SalesInvoicesReverseConfirmService(
             ?? throw new NotFoundException(
                 resource["SALES_INVOICE_NOT_FOUND"].Value);
 
+        // Devolução própria autorizada só sai pelo cancelamento da NF-e (spec §9.4): sem carga nem
+        // ReturnInvoiceKey ela cairia no ramo legado e carimbaria um romaneio alheio como faturado.
+        if (invoice.IsNfeReturn)
+        {
+            throw new DefaultException(
+                "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e de devolução, recurso da próxima etapa.");
+        }
+
         if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
         {
             throw new ApplicationException(

@@ -23,6 +23,9 @@ public class BusinessPartnerAddressService(
             .Where(x => x.CardCode == cardCode)
             .Select(a => new AddressModel()
             {
+                // Parte da chave do endereço no EDM (não anulável): sem ela a serialização do
+                // GET estourava no meio da resposta e a conexão caía.
+                CardCode = a.CardCode,
                 AddressName = a.AddressName,
                 AdresType = a.AdresType,
                 Block = a.Block,
@@ -31,6 +34,9 @@ public class BusinessPartnerAddressService(
                 State = a.State,
                 Street = a.Street,
                 ZipCode = a.ZipCode,
+                StreetNumber = a.StreetNumber,
+                Complement = a.Complement,
+                MunicipalityCode = a.MunicipalityCode,
             })
             .AsNoTracking();
     }
@@ -45,6 +51,7 @@ public class BusinessPartnerAddressService(
 
         return new AddressModel()
         {
+            CardCode = entity.CardCode,
             AddressName = entity.AddressName,
             AdresType = entity.AdresType,
             Block = entity.Block,
@@ -53,6 +60,9 @@ public class BusinessPartnerAddressService(
             State = entity.State,
             Street = entity.Street,
             ZipCode = entity.ZipCode,
+            StreetNumber = entity.StreetNumber,
+            Complement = entity.Complement,
+            MunicipalityCode = entity.MunicipalityCode,
         };
     }
     
@@ -73,7 +83,12 @@ public class BusinessPartnerAddressService(
             State = addressModel.State,
             Street = addressModel.Street,
             ZipCode = addressModel.ZipCode,
+            StreetNumber = addressModel.StreetNumber,
+            Complement = addressModel.Complement,
+            MunicipalityCode = addressModel.MunicipalityCode,
         };
+
+        await AddressMunicipalityResolver.ApplyAsync(db.Context, address);
         
         try
         {
@@ -105,6 +120,10 @@ public class BusinessPartnerAddressService(
         entity.State = addressModel.State;
         entity.Street = addressModel.Street;
         entity.ZipCode = addressModel.ZipCode;
+        entity.StreetNumber = addressModel.StreetNumber;
+        entity.Complement = addressModel.Complement;
+        entity.MunicipalityCode = addressModel.MunicipalityCode;
+        await AddressMunicipalityResolver.ApplyAsync(db.Context, entity);
         
         try
         {

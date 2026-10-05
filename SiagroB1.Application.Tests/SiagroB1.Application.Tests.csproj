@@ -28,6 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\SiagroB1.Fiscal.Tests\Support\TestCertificates.cs" Link="Support\TestCertificates.cs" />
+    <Compile Include="..\SiagroB1.Fiscal.Tests\Support\NfeTestData.cs" Link="Support\NfeTestData.cs" />
+    <None Include="..\SiagroB1.Reports\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
+          Link="ReportsContentRoot\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

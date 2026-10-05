@@ -43,6 +43,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<LedgerAccount> LedgerAccounts { get; set; }
     public DbSet<Usage> Usages { get; set; }
     public DbSet<UsageEffect> UsageEffects { get; set; }
+    public DbSet<IbsCbsRate> IbsCbsRates { get; set; }
+    public DbSet<Municipality> Municipalities { get; set; }
+    public DbSet<PaymentCondition> PaymentConditions { get; set; }
+    public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
@@ -51,6 +55,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShippingOrder> ShippingOrders { get; set; }
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
+    public DbSet<SalesInvoiceNfeXml> SalesInvoiceNfeXmls { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
     public DbSet<SalesInvoiceComment> SalesInvoicesComments { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }

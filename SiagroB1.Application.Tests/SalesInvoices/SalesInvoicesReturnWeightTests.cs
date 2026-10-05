@@ -64,14 +64,15 @@ public class SalesInvoicesReturnWeightTests
             new FakeDocNumberSequenceService(),
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(_db, usages, partners),
+            TaxTestServices.InactiveApply(_db),
             NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private SalesInvoicesItemsUpdateService ItemsUpdateService() =>
-        new(_db, Items(), new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(_db, Items(), new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)), TaxTestServices.InactiveApply(_db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private SalesInvoicesItemsCreateService ItemsCreateService() =>
-        new(_db, Items(), NullLogger<SalesInvoicesItemsCreateService>.Instance);
+        new(_db, Items(), TaxTestServices.InactiveApply(_db), NullLogger<SalesInvoicesItemsCreateService>.Instance);
 
     private SalesInvoicesItemsDeleteService ItemsDeleteService() =>
         new(_db, NullLogger<SalesInvoicesItemsDeleteService>.Instance);

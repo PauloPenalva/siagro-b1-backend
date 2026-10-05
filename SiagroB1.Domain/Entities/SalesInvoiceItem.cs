@@ -168,7 +168,8 @@ public class SalesInvoiceItem
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal IcmsBase { get; set; }
 
-    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    /// <summary>Percentual, como na NF-e: 18% = 18,0000.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
     public decimal IcmsRate { get; set; }
 
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
@@ -180,7 +181,8 @@ public class SalesInvoiceItem
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal PisBase { get; set; }
 
-    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    /// <summary>Percentual, como na NF-e: 1,65% = 1,6500.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
     public decimal PisRate { get; set; }
 
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
@@ -192,11 +194,53 @@ public class SalesInvoiceItem
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal CofinsBase { get; set; }
 
-    [Column(TypeName = "DECIMAL(5,4) DEFAULT 0")]
+    /// <summary>Percentual, como na NF-e: 7,6% = 7,6000.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
     public decimal CofinsRate { get; set; }
 
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal CofinsValue { get; set; }
+
+    // --- Fotografia do cálculo de tributos da NF-e STANDALONE (só com a regra ativa). ---
+
+    /// <summary>Origem da mercadoria copiada do produto na gravação.</summary>
+    [Column(TypeName = "TINYINT")]
+    public byte? GoodsOrigin { get; set; }
+
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IcmsBaseReduction { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IcmsDeferral { get; set; }
+
+    /// <summary>ICMS da operação (vICMSOp) — só no CST 51.</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IcmsOperationValue { get; set; }
+
+    /// <summary>ICMS diferido (vICMSDif) — só no CST 51.</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IcmsDeferredValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")] public string? IcmsBenefitCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")] public string? IbsCbsCst { get; set; }
+    [Column(TypeName = "VARCHAR(6)")] public string? IbsCbsClassCode { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsCbsBase { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal CbsRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal CbsRateReduction { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal CbsValue { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsStateRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsMunicipalRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsRateReduction { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsStateValue { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsMunicipalValue { get; set; }
+
+    /// <summary>Cópia das flags da natureza na gravação — sem efeito por ora (spec D14).</summary>
+    public bool MovesFiscalInventory { get; set; }
+
+    /// <summary>Cópia das flags da natureza na gravação — sem efeito por ora (spec D14).</summary>
+    public bool CreatesFinancialDocument { get; set; }
+
+    /// <summary>
+    /// <c>det/@nItem</c> com que a linha saiu na NF-e. Gravado na emissão: a NF-e de devolução
+    /// referencia o item da venda por este número (<c>DFeReferenciado</c>, regra VC02-14).
+    /// </summary>
+    public int? NfeItemNumber { get; set; }
 
     /// <summary>Centro de custo da linha. Sem FK: o cadastro é dual-mode (OPRC/COST_CENTERS).</summary>
     [Column(TypeName = "VARCHAR(10)")]
@@ -212,4 +256,11 @@ public class SalesInvoiceItem
     /// </summary>
     [NotMapped]
     public decimal TotalTaxes => IcmsValue + PisValue + CofinsValue;
+
+    /// <summary>
+    /// IBS + CBS da linha. Separado de <see cref="TotalTaxes"/> porque em 2026 é informativo e
+    /// não compõe o total do documento.
+    /// </summary>
+    [NotMapped]
+    public decimal TotalIbsCbs => CbsValue + IbsStateValue + IbsMunicipalValue;
 }

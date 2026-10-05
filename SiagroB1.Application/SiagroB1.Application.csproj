@@ -15,6 +15,7 @@
     <ItemGroup>
       <ProjectReference Include="..\SiagroB1.Commons\SiagroB1.Commons.csproj" />
       <ProjectReference Include="..\SiagroB1.Domain\SiagroB1.Domain.csproj" />
+      <ProjectReference Include="..\SiagroB1.Fiscal\SiagroB1.Fiscal.csproj" />
       <ProjectReference Include="..\SiagroB1.Infra\SiagroB1.Infra.csproj" />
       <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
     </ItemGroup>

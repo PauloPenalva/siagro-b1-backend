@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Models;
@@ -50,6 +51,66 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
+        modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
+        modelBuilder.EntitySet<Municipality>("Municipalities");
+        modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
+
+        // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
+        var paymentConditionsPreview = modelBuilder.Function("PaymentConditionsPreview");
+        paymentConditionsPreview.Parameter<string>("Days");
+        paymentConditionsPreview.Parameter<int>("StartRule");
+        paymentConditionsPreview.Parameter<string>("PaymentMeans");
+        paymentConditionsPreview.Parameter<decimal>("Total");
+        paymentConditionsPreview.Parameter<DateOnly>("IssueDate");
+        paymentConditionsPreview.ReturnsCollection<PaymentInstallmentPreviewDto>();
+
+        // Configuração da NF-e por filial (NF-e STANDALONE). Senha e .pfx nunca saem.
+        var branchNfeSettingsGet = modelBuilder.Function("BranchNfeSettingsGet");
+        branchNfeSettingsGet.Parameter<string>("BranchCode");
+        branchNfeSettingsGet.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsSave = modelBuilder.Action("BranchNfeSettingsSave");
+        branchNfeSettingsSave.Parameter<string>("BranchCode");
+        branchNfeSettingsSave.Parameter<int>("Environment");
+        branchNfeSettingsSave.Parameter<int>("Series");
+        branchNfeSettingsSave.Parameter<int>("NextNumber");
+        branchNfeSettingsSave.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsUploadCertificate = modelBuilder.Action("BranchNfeSettingsUploadCertificate");
+        branchNfeSettingsUploadCertificate.Parameter<string>("BranchCode");
+        branchNfeSettingsUploadCertificate.Parameter<string>("Pfx");
+        branchNfeSettingsUploadCertificate.Parameter<string>("Password");
+        branchNfeSettingsUploadCertificate.Returns<BranchNfeSettingsModel>();
+
+        var branchNfeSettingsTestConnection = modelBuilder.Action("BranchNfeSettingsTestConnection");
+        branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
+        branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
+
+        var salesInvoicesIssueNfe = modelBuilder.Action("SalesInvoicesIssueNfe");
+        salesInvoicesIssueNfe.Parameter<Guid>("Key");
+        salesInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
+
+        var salesInvoicesConsultNfe = modelBuilder.Action("SalesInvoicesConsultNfe");
+        salesInvoicesConsultNfe.Parameter<Guid>("Key");
+        salesInvoicesConsultNfe.Returns<NfeIssueOutcomeDto>();
+
+        var salesInvoicesCompleteNfeConfirmation = modelBuilder.Action("SalesInvoicesCompleteNfeConfirmation");
+        salesInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
+        salesInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
+
+        // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
+        // ⚠️ Quantities em double, paralelo a OriginItemKeys, como no SalesInvoicesReturn: o UI5
+        // serializa Edm.Decimal como string e o 400 não nomeia o campo.
+        var salesInvoicesCreateNfeReturn = modelBuilder.Action("SalesInvoicesCreateNfeReturn");
+        salesInvoicesCreateNfeReturn.Parameter<Guid>("Key");
+        salesInvoicesCreateNfeReturn.CollectionParameter<Guid>("OriginItemKeys");
+        salesInvoicesCreateNfeReturn.CollectionParameter<double>("Quantities");
+        salesInvoicesCreateNfeReturn.Parameter<string>("Reason");
+        salesInvoicesCreateNfeReturn.Returns<Guid>();
+
+        var salesInvoicesNfeReturnableItems = modelBuilder.Function("SalesInvoicesNfeReturnableItems");
+        salesInvoicesNfeReturnableItems.Parameter<Guid>("Key");
+        salesInvoicesNfeReturnableItems.ReturnsCollection<SalesInvoiceNfeReturnableItemDto>();
 
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
@@ -163,6 +224,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceItems)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceIbsCbs)));
         // Contrato de venda do documento, derivado das linhas (ver SalesInvoice). Sem estas
         // linhas as propriedades não entram no EDM e o $select da tela da carga devolve 400.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
@@ -176,6 +239,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalIbsCbs)));
         // Precisa ser explícito mesmo sendo coluna mapeada: o setter é privado (quem escreve
         // é o SQL Server) e a convenção do ODataConventionModelBuilder pula propriedade sem
         // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.
@@ -1036,6 +1101,11 @@ public static class ODataConfigurations
         salesInvoicesGetReturnableShipments.Parameter<Guid>("Key");
         salesInvoicesGetReturnableShipments.ReturnsCollection<SalesInvoiceReturnableShipmentDto>();
         
+        // Regra de ativação da tributação da NF-e STANDALONE, para a tela travar a linha.
+        var taxCalculationIsActive = modelBuilder.Function("TaxCalculationIsActive");
+        taxCalculationIsActive.Parameter<string>("BranchCode");
+        taxCalculationIsActive.Returns<bool>();
+
         // Prévia do CFOP para a tela; a gravação continua sendo do serviço de criação.
         var salesInvoicesResolveCfop = modelBuilder.Function("SalesInvoicesResolveCfop");
         salesInvoicesResolveCfop.Parameter<int>("UsageCode");
@@ -1286,6 +1356,10 @@ public static class ODataConfigurations
         financialTotals.Parameter<string>("Direction");
         financialTotals.Parameter<string>("BranchCode").Optional();
         financialTotals.Returns<FinancialDocumentTotalsDto>();
+
+        var salesInvoicesNfeXml = modelBuilder.Function("SalesInvoicesNfeXml");
+        salesInvoicesNfeXml.Parameter<Guid>("Key");
+        salesInvoicesNfeXml.Returns<IActionResult>();
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");

@@ -53,6 +53,9 @@ public class ReportHeaderService(
         }
     }
 
+    /// <summary>Bytes do logo configurado (ou nulo) — para layouts que recebem a imagem crua, como o DANFE.</summary>
+    public byte[]? LogoBytes() => LoadLogo();
+
     private byte[]? LoadLogo()
     {
         var configuredPath = configuration.GetValue<string>("CompanyLogoPath");

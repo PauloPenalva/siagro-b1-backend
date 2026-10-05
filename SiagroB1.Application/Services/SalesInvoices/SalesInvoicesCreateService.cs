@@ -18,12 +18,22 @@ public class SalesInvoicesCreateService(
     DocNumberSequenceService numberSequenceService,
     SalesInvoicesUsageGuardService usageGuard,
     SalesInvoicesCfopResolveService cfopResolve,
+    SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesCreateService> logger)
 {
-    public async Task ExecuteAsync(SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto)
+    public async Task ExecuteAsync(
+        SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto, bool nfeReturn = false)
     {
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
+
+        // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
+        // da confirmação direta.
+        SalesInvoiceNfeLock.ResetIssuanceFields(salesInvoice);
+
+        // Só o "Devolver" (SalesInvoicesNfeReturnCreateService) marca a devolução com NF-e própria;
+        // o corpo da API nunca — senão um POST tiraria a nota da confirmação direta.
+        salesInvoice.IsNfeReturn = nfeReturn && salesInvoice.InvoiceType == SalesInvoiceType.Return;
 
         // Natureza de operação e CFOP são resolvidos ANTES de qualquer gravação: os dois
         // rejeitam com mensagem de negócio, e não faz sentido numerar um documento que não
@@ -44,19 +54,41 @@ public class SalesInvoicesCreateService(
         // CFOP: numa base sem natureza padrão o faturamento passaria a RECUSAR, que é
         // exatamente o que o <remarks> deste serviço diz que não pode acontecer.
         var fromShipmentBilling = SalesInvoiceOriginResolver.ConsumesShipments(salesInvoice);
+
+        // Com a tributação da NF-e STANDALONE ativa, a cadeia fiscal volta a ser ESTRITA também
+        // no romaneio: a tolerância abaixo existe para bases sem cadastro fiscal (SAPB1 recém-
+        // implantada), e uma filial que emite NF-e não pode faturar com CFOP em branco.
+        var taxActive = await taxApply.IsActiveForAsync(salesInvoice);
         var cfopByItem = new Dictionary<SalesInvoiceItem, string>();
 
         foreach (var (item, usage) in lineUsages)
         {
-            var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling);
-
-            if (cfop != null)
+            // A devolução própria usa natureza de ENTRADA: o CFOP (1202/2202) sai do cálculo, e a
+            // resolução de saída abaixo recusaria a natureza.
+            if (!salesInvoice.IsNfeReturn)
             {
-                cfopByItem[item] = cfop;
+                var cfop = await ResolveCfopAsync(salesInvoice, usage, fromShipmentBilling && !taxActive);
+
+                if (cfop != null)
+                {
+                    cfopByItem[item] = cfop;
+                }
             }
 
             // Nome desnormalizado vem do servidor, não da tela — mesmo tratamento de ItemName.
             item.UsageName = usage.Name;
+        }
+
+        // Tributos pela natureza, ANTES de numerar: as guardas recusam com mensagem de negócio e
+        // não faz sentido consumir número de um documento que não vai nascer. Fora do try de
+        // propósito — lá dentro a DefaultException viraria ApplicationException e perderia o 400.
+        if (taxActive)
+        {
+            // Todo documento nasce Pendente (o try abaixo força o mesmo). Forçar ANTES do
+            // cálculo: o status vem do corpo, e o cálculo só age em documento Pendente — um
+            // "Confirmado" escolhido na tela faria a linha nascer sem imposto e sem CFOP.
+            salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
+            await taxApply.ApplyAsync(salesInvoice, salesInvoice.Items);
         }
 
         salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
@@ -67,7 +99,14 @@ public class SalesInvoicesCreateService(
             salesInvoice.CreatedBy = userName;
             salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
-            salesInvoice.CardName = (await businessPartnerService.GetByIdAsync(salesInvoice.CardCode))?.CardName;
+            var customer = await businessPartnerService.GetByIdAsync(salesInvoice.CardCode);
+            salesInvoice.CardName = customer?.CardName;
+
+            // Condição de pagamento padrão do cliente quando o documento chega sem ela — inclusive
+            // no faturamento de romaneio. Em SAPB1 o parceiro não tem o campo: segue nulo, como hoje.
+            // A devolução própria não tem pagamento (tPag 90): a condição do cliente só confundiria.
+            if (!salesInvoice.IsNfeReturn)
+                salesInvoice.PaymentConditionCode ??= customer?.PaymentConditionCode;
             salesInvoice.TruckingCompanyName =
                 salesInvoice.TruckingCompanyCode != null
                     ? (await businessPartnerService.GetByIdAsync(salesInvoice.TruckingCompanyCode))?.CardName
@@ -83,8 +122,12 @@ public class SalesInvoicesCreateService(
 
                 // CFOP congelado como histórico da linha: mudar o cadastro da natureza
                 // depois não pode mudar o documento já emitido. Ausente quando o cadastro
-                // fiscal ainda não está completo e o documento veio de romaneio.
-                item.Cfop = cfopByItem.GetValueOrDefault(item);
+                // fiscal ainda não está completo e o documento veio de romaneio. Com a
+                // tributação ativa ele já veio do cálculo (mesma regra, mesmo valor).
+                if (!taxActive)
+                {
+                    item.Cfop = cfopByItem.GetValueOrDefault(item);
+                }
             }
 
             // Numa DEVOLUÇÃO o peso do cabeçalho é a soma das linhas — inclusive na criada à

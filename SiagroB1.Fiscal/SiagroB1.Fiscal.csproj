@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <FileVersion>1.0.116</FileVersion>
+        <Company>IDX Consultoria e Sistemas</Company>
+        <Product>Siagro B1 Fiscal</Product>
+        <Authors>IDX Consultoria e Sistemas</Authors>
+        <Copyright>Copyright © 2026 IDX Consultoria e Sistemas</Copyright>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SiagroB1.Domain\SiagroB1.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Zeus.Net.NFe.NFCe" Version="2026.9.24.1416" />
+      <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="Schemas\**\*.xsd" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <InternalsVisibleTo Include="SiagroB1.Fiscal.Tests" />
+    </ItemGroup>
+
+</Project>

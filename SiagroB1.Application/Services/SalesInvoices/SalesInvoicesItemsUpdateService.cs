@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -16,6 +17,7 @@ public class SalesInvoicesItemsUpdateService(
     IUnitOfWork db,
     IItemService itemService,
     ShipmentLoadsClosureHookService loadClosureHook,
+    SalesInvoicesTaxApplyService taxApply,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -55,7 +57,19 @@ public class SalesInvoicesItemsUpdateService(
             // se o guard acima tiver estourado.
             var logs = deliveryChanged ? BuildDeliveryLogs(existingEntity, entity, original, userName) : [];
 
+            // Numeração do item na NF-e é do servidor: só a emissão a grava.
+            var storedNfeItemNumber = (int?)original[nameof(SalesInvoiceItem.NfeItemNumber)];
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
+            existingEntity.NfeItemNumber = storedNfeItemNumber;
+
+            var invoiceNfeStatus = await db.Context.SalesInvoices.AsNoTracking()
+                .Where(i => i.Key == existingEntity.SalesInvoiceKey)
+                .Select(i => i.NfeStatus)
+                .FirstOrDefaultAsync();
+            SalesInvoiceNfeLock.EnsureItemEditable(invoiceNfeStatus, db.Context.Entry(existingEntity));
+
+            await ApplyTaxLockAsync(existingEntity);
 
             if (deliveryChanged)
             {
@@ -107,6 +121,40 @@ public class SalesInvoicesItemsUpdateService(
         }
 
         return entity;
+    }
+
+    /// <summary>
+    /// Trava da tributação STANDALONE. Pendente: o cálculo sobrescreve o que veio no corpo (o
+    /// PATCH reenvia a entidade inteira, então recusar quebraria a tela). Já confirmado (a
+    /// Conferência de entregas usa este mesmo serviço): os campos travados voltam ao gravado.
+    /// Regra inativa: nada muda — é o caminho da Yokotobi e da MH Agro.
+    /// </summary>
+    private async Task ApplyTaxLockAsync(SalesInvoiceItem item)
+    {
+        var invoice = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == item.SalesInvoiceKey);
+
+        if (invoice is null || !await taxApply.IsActiveForAsync(invoice))
+            return;
+
+        // Pendente com NF-e autorizada (a confirmação falhou ou foi estornada): o que foi ao XML
+        // não se recalcula — um recálculo com alíquota ou natureza novas descolaria a linha da nota.
+        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending && invoice.NfeStatus != NfeStatus.Authorized)
+        {
+            if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+            {
+                SalesInvoiceNfeReturnLock.RestoreLine(db.Context.Entry(item));
+
+                if (item.Quantity <= 0)
+                    throw new DefaultException($"Item {item.ItemCode}: informe a quantidade a devolver.");
+
+                await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [item]);
+            }
+
+            await taxApply.ApplyAsync(invoice, [item]);
+            return;
+        }
+
+        SalesInvoiceTaxSnapshot.RestoreLocked(db.Context.Entry(item));
     }
 
     /// <summary>

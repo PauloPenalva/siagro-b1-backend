@@ -27,7 +27,22 @@ public class SalesInvoice : DocumentEntity
     
     [Column(TypeName = "decimal(18,3) DEFAULT 0")]
     public decimal NetWeight  { get; set; }
-    
+
+    /// <summary>Volume da NF-e (grupo vol): quantidade de volumes — opcional, informado no documento.</summary>
+    public int? VolumeQuantity { get; set; }
+
+    /// <summary>Espécie dos volumes (GRANEL, SACO, BAG, CAIXA...) — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeSpecies { get; set; }
+
+    /// <summary>Marca dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeBrand { get; set; }
+
+    /// <summary>Numeração dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeNumbering { get; set; }
+
     [Column(TypeName = "VARCHAR(15)")]
     public string? DeliveryCardCode { get; set; }
 
@@ -87,6 +102,46 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     [Column(TypeName = "VARCHAR(500) DEFAULT ''")]
     public string? TaxComments { get; set; }
+
+    /// <summary>
+    /// Condição de pagamento (NF-e STANDALONE): cobr/dup e pag do XML. Sem FK. Na criação, vazia,
+    /// recebe o padrão do cliente; obrigatória só na emissão.
+    /// </summary>
+    public int? PaymentConditionCode { get; set; }
+
+    // --- Emissão da NF-e STANDALONE. Só a emissão escreve aqui (create e PATCH ignoram). ---
+
+    public NfeStatus NfeStatus { get; set; } = NfeStatus.None;
+
+    public NfeEnvironment? NfeEnvironment { get; set; }
+
+    /// <summary><c>cNF</c>: 8 dígitos, gerado na primeira tentativa e mantido nas seguintes.</summary>
+    [Column(TypeName = "VARCHAR(8)")]
+    public string? NfeRandomCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? NfeProtocol { get; set; }
+
+    public DateTime? NfeAuthorizedAt { get; set; }
+
+    /// <summary>Último <c>cStat</c> da SEFAZ.</summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? NfeStatusCode { get; set; }
+
+    /// <summary>Último <c>xMotivo</c> da SEFAZ ou mensagem local.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeStatusReason { get; set; }
+
+    /// <summary>NF-e autorizada, mas a confirmação do documento falhou — "Concluir confirmação" refaz.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeConfirmationError { get; set; }
+
+    /// <summary>
+    /// Devolução criada pelo "Devolver" de uma venda autorizada: sai com NF-e PRÓPRIA de entrada
+    /// (finalidade 4). Só <c>SalesInvoicesNfeReturnCreateService</c> grava <c>true</c>; create e PATCH
+    /// da API nunca.
+    /// </summary>
+    public bool IsNfeReturn { get; set; }
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     
@@ -136,6 +191,10 @@ public class SalesInvoice : DocumentEntity
     /// </summary>
     [NotMapped]
     public decimal TotalInvoiceTaxes => Items.Sum(i => i.TotalTaxes);
+
+    /// <summary>IBS + CBS do documento. Informativo em 2026 — fora de <see cref="TotalInvoiceTaxes"/>.</summary>
+    [NotMapped]
+    public decimal TotalInvoiceIbsCbs => Items.Sum(i => i.TotalIbsCbs);
     
 
     /// <summary>

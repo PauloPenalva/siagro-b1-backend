@@ -64,6 +64,9 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Property<string>("ParentKey")
                         .HasColumnType("VARCHAR(50)");
 
+                    b.Property<bool>("StandaloneOnly")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");

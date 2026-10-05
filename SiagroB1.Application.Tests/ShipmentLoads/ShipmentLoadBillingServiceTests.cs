@@ -45,6 +45,7 @@ public class ShipmentLoadBillingServiceTests
                 new FakeDocNumberSequenceService(),
                 new SalesInvoicesUsageGuardService(usages),
                 new SalesInvoicesCfopResolveService(_db, usages, partners),
+                TaxTestServices.InactiveApply(_db),
                 NullLogger<SalesInvoicesCreateService>.Instance),
             new ShipmentBillingTransactionGuardService(_db.Context),
             new SalesShipmentReleaseMovementGuardService(_db.Context),

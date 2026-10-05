@@ -33,6 +33,8 @@
 
     <ItemGroup>
       <ProjectReference Include="..\SiagroB1.Commons\SiagroB1.Commons.csproj" />
+      <!-- DANFE da Zeus (LGPL) em DLL própria, trocável: ver ThirdParty/Zeus-LGPL/README.md -->
+      <ProjectReference Include="ThirdParty\Zeus-LGPL\NFe.Danfe.Base.csproj" />
       <ProjectReference Include="..\SiagroB1.Infra\SiagroB1.Infra.csproj" />
       <ProjectReference Include="..\SiagroB1.Security\SiagroB1.Security.csproj" />
     </ItemGroup>
@@ -43,6 +45,17 @@
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
         </None>
         <None Remove="Reports\Templates\Teste.frx" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <!-- Os .cs da Zeus compilam no projeto NFe.Danfe.Base, não aqui. -->
+      <Compile Remove="ThirdParty\**" />
+      <None Remove="ThirdParty\**\bin\**;ThirdParty\**\obj\**" />
+      <Content Remove="ThirdParty\**\bin\**;ThirdParty\**\obj\**" />
+      <None Update="ThirdParty\Zeus-LGPL\**\*.frx;ThirdParty\Zeus-LGPL\LICENSE;ThirdParty\Zeus-LGPL\README.md">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </None>
     </ItemGroup>
 
 </Project>

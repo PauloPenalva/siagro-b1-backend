@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -80,9 +81,28 @@ public class SalesInvoicesReturnService(
     StorageTransactionsConfirmedService storageConfirm,
     ShipmentReleasesFromReturnService returnReleases,
     IWarehouseService warehouseService,
-    ILogger<SalesInvoicesReturnService> logger)
+    ILogger<SalesInvoicesReturnService> logger,
+    TaxCalculationGate? gate = null)
 {
     private const decimal Tolerance = 0.001m;
+
+    /// <summary>
+    /// Na filial que emite NF-e pelo Siagro, a venda autorizada só volta com NF-e de devolução — e o
+    /// caminho com romaneio ainda não a emite (spec §3/§9.4). Sem a regra ativa, nada muda.
+    /// </summary>
+    private async Task EnsureNotIssuedBySiagroAsync(SalesInvoice origin)
+    {
+        if (gate is not null && origin.NfeStatus == NfeStatus.Authorized && await gate.IsActiveAsync(origin.BranchCode))
+        {
+            // Sem romaneio nem carga o botão certo é o Devolver (NF-e de devolução), não este.
+            if (origin.SalesTransactions.Count == 0 && origin.ShipmentLoadKey == null)
+                throw new DefaultException(
+                    "Na filial que emite NF-e pelo Siagro, a devolução deste documento é feita pelo botão Devolver, no detalhe do documento.");
+
+            throw new DefaultException(
+                "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
+        }
+    }
 
     /// <summary>Cultura das quantidades que vão para texto lido pelo operador.</summary>
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
@@ -97,6 +117,7 @@ public class SalesInvoicesReturnService(
 
         // TODA a validação antes de qualquer escrita: um retorno recusado não pode deixar meia
         // devolução no banco.
+        await EnsureNotIssuedBySiagroAsync(originInvoice);
         Validate(originInvoice, request);
 
         var warehouse = await ResolveWarehouseAsync(request);
