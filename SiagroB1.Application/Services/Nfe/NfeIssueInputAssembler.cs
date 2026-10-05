@@ -58,6 +58,32 @@ public static class NfeIssueInputAssembler
             invoice.TaxPayerComments, invoice.TaxComments, "VENDA"), context, issuedAt, technicalResponsible);
     }
 
+    /// <summary>
+    /// Entrada própria: ENTRADA normal, destinatário = fornecedor, a NF-e do produtor no NFref. Devolução de
+    /// compra: SAÍDA com finalidade 4, o item da entrada no DFeReferenciado, sem pagamento.
+    /// </summary>
+    public static NfeIssueInput Build(
+        PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
+    {
+        var returnOrigin = invoice.IsNfeReturn
+            ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a entrada de origem.")
+            : null;
+
+        IReadOnlyList<string> referencedKeys = returnOrigin is not null
+            ? [returnOrigin.AccessKey]
+            : invoice.ReferencedAccessKey is { Length: 44 } producerKey ? [producerKey] : [];
+
+        return Build(new NfeDocumentView(
+            invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
+            returnOrigin is null ? NfeDirection.Incoming : NfeDirection.Outgoing,
+            returnOrigin, referencedKeys,
+            NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
+            line => ((PurchaseInvoiceItem)line).PurchaseInvoiceItemOriginKey,
+            invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight, Volume: null,
+            invoice.TaxPayerComments, TaxComments: null,
+            returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA"), context, issuedAt, technicalResponsible);
+    }
+
     /// <summary>O que o montador precisa do documento, sem saber se é de saída ou de entrada.</summary>
     /// <param name="Lines">Já na ordem do <c>nItem</c> (<see cref="NfeItemNumbering.Ordered{TLine}"/>).</param>
     /// <param name="OriginItemKey">Na devolução, a chave do item da operação original que a linha devolve.</param>

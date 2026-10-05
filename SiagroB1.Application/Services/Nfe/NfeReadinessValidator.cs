@@ -40,6 +40,22 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             invoice.IsNfeReturn ? problems => LoadReturnOriginAsync(invoice, problems) : null);
 
     /// <summary>
+    /// Entrada própria (destinatário = fornecedor, CFOP 1xxx/2xxx, condição de pagamento) ou devolução de compra
+    /// (CFOP 5xxx/6xxx, sem pagamento, a entrada de origem conferida). Produto e unidade em toda linha: na
+    /// entrada os dois são anuláveis (nota de terceiro pode trazer código fora do cadastro).
+    /// </summary>
+    public Task<NfeIssueContext> ValidateAsync(PurchaseInvoice invoice) =>
+        ValidateCoreAsync(
+            new NfeReadinessRequest(
+                invoice.BranchCode, invoice.CardCode, "Fornecedor", DeliveryCardCode: null, invoice.TruckingCompanyCode,
+                invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
+                RequiresPayment: !invoice.IsNfeReturn,
+                Direction: invoice.IsNfeReturn ? NfeDirection.Outgoing : NfeDirection.Incoming,
+                Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
+                RequiresProductAndUnit: true),
+            invoice.IsNfeReturn ? problems => LoadPurchaseReturnOriginAsync(invoice, problems) : null);
+
+    /// <summary>
     /// O núcleo, sem saber de que documento se trata: o que muda vem no <paramref name="request"/>, e a
     /// operação de origem (só na devolução) em <paramref name="loadReturnOrigin"/>, que acrescenta as
     /// próprias lacunas à lista.
@@ -241,6 +257,45 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         }
 
         return new NfeReturnOrigin(origin.ChaveNFe, origin.TaxDocumentNumber!, origin.TaxDocumentSeries!, origin.InvoiceDate, numbers);
+    }
+
+    /// <summary>A entrada da devolução de compra: própria, confirmada, com NF-e autorizada e o nItem de cada item devolvido.</summary>
+    private async Task<NfeReturnOrigin?> LoadPurchaseReturnOriginAsync(PurchaseInvoice invoice, List<string> problems)
+    {
+        var origin = await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Key == invoice.PurchaseInvoiceOriginKey);
+
+        if (origin is null)
+        {
+            problems.Add("Documento: entrada de origem não encontrada");
+            return null;
+        }
+
+        if (origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
+        {
+            problems.Add($"Entrada de origem {origin.TaxDocumentNumber}: NF-e não autorizada");
+            return null;
+        }
+
+        if (origin.InvoiceStatus != InvoiceStatus.Confirmed)
+        {
+            problems.Add($"Entrada de origem {origin.TaxDocumentNumber}: não está confirmada");
+            return null;
+        }
+
+        var numbers = new Dictionary<Guid, int>();
+        foreach (var item in invoice.Items)
+        {
+            var bought = origin.Items.FirstOrDefault(o => o.Key == item.PurchaseInvoiceItemOriginKey);
+            var number = bought is null ? null : NfeItemNumbering.OriginNumber(bought, origin.Items.Count);
+
+            if (number is null)
+                problems.Add($"Item {item.ItemCode}: sem o item correspondente da NF-e de entrada");
+            else
+                numbers[bought!.Key!.Value] = number.Value;
+        }
+
+        return new NfeReturnOrigin(origin.ChaveNFe, origin.TaxDocumentNumber!, origin.TaxDocumentSeries!, origin.IssueDate, numbers);
     }
 
     private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>

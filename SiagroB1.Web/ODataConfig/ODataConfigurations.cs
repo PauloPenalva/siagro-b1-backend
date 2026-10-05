@@ -98,6 +98,19 @@ public static class ODataConfigurations
         salesInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
         salesInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
 
+        // NF-e de entrada própria (spec 2026-10-05).
+        var purchaseInvoicesIssueNfe = modelBuilder.Action("PurchaseInvoicesIssueNfe");
+        purchaseInvoicesIssueNfe.Parameter<Guid>("Key");
+        purchaseInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
+
+        var purchaseInvoicesConsultNfe = modelBuilder.Action("PurchaseInvoicesConsultNfe");
+        purchaseInvoicesConsultNfe.Parameter<Guid>("Key");
+        purchaseInvoicesConsultNfe.Returns<NfeIssueOutcomeDto>();
+
+        var purchaseInvoicesCompleteNfeConfirmation = modelBuilder.Action("PurchaseInvoicesCompleteNfeConfirmation");
+        purchaseInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
+        purchaseInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
+
         // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
         // ⚠️ Quantities em double, paralelo a OriginItemKeys, como no SalesInvoicesReturn: o UI5
         // serializa Edm.Decimal como string e o 400 não nomeia o campo.
@@ -1369,6 +1382,10 @@ public static class ODataConfigurations
         var salesInvoicesNfeXml = modelBuilder.Function("SalesInvoicesNfeXml");
         salesInvoicesNfeXml.Parameter<Guid>("Key");
         salesInvoicesNfeXml.Returns<IActionResult>();
+
+        var purchaseInvoicesNfeXml = modelBuilder.Function("PurchaseInvoicesNfeXml");
+        purchaseInvoicesNfeXml.Parameter<Guid>("Key");
+        purchaseInvoicesNfeXml.Returns<IActionResult>();
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");
