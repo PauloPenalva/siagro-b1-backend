@@ -69,10 +69,20 @@ public sealed record NfeVolume(int? Quantity, string? Species, string? Brand, st
 /// <summary><c>infRespTec</c> — os dados da IDX, de <c>Nfe:TechnicalResponsible</c>.</summary>
 public sealed record NfeTechnicalResponsible(string Cnpj, string Contact, string Email, string Phone);
 
-/// <summary>Finalidade da NF-e: venda (saída, <c>finNFe</c> 1) ou devolução de venda (entrada, <c>finNFe</c> 4).</summary>
+/// <summary>Sentido da NF-e (<c>ide/tpNF</c>): saída (1) ou entrada (0).</summary>
+public enum NfeDirection
+{
+    Outgoing,
+    Incoming,
+}
+
+/// <summary>
+/// Finalidade da NF-e (<c>ide/finNFe</c>): normal (1) ou devolução (4). Não decide o sentido: a devolução
+/// de venda é entrada e a devolução de compra é saída (<see cref="NfeDirection"/>).
+/// </summary>
 public enum NfePurpose
 {
-    Sale,
+    Normal,
     Return,
 }
 
@@ -145,9 +155,11 @@ public sealed record NfeIssueInput
     /// <summary><c>cNF</c>: 8 dígitos, gerado uma vez e guardado no documento.</summary>
     public required string RandomCode { get; init; }
 
-    public NfePurpose Purpose { get; init; } = NfePurpose.Sale;
+    public NfeDirection Direction { get; init; } = NfeDirection.Outgoing;
 
-    /// <summary><c>ide/NFref/refNFe</c> — na devolução, a chave da venda (rejeição 321 sem ela).</summary>
+    public NfePurpose Purpose { get; init; } = NfePurpose.Normal;
+
+    /// <summary><c>ide/NFref/refNFe</c> — na devolução, a chave da nota de origem; na entrada própria, a NF-e do produtor. Só vai ao cabeçalho quando nenhum item tem <see cref="NfeItem.Reference"/> (rejeição 1010).</summary>
     public IReadOnlyList<string> ReferencedKeys { get; init; } = [];
 
     /// <summary><c>dhEmi</c>, já em America/Sao_Paulo.</summary>

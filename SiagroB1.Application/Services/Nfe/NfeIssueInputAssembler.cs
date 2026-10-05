@@ -57,7 +57,9 @@ public static class NfeIssueInputAssembler
             Series = int.Parse(invoice.TaxDocumentSeries!, CultureInfo.InvariantCulture),
             Number = long.Parse(invoice.TaxDocumentNumber!, CultureInfo.InvariantCulture),
             RandomCode = invoice.NfeRandomCode!,
-            Purpose = returnOrigin is null ? NfePurpose.Sale : NfePurpose.Return,
+            // Venda: saída normal. Devolução de venda: ENTRADA com finalidade 4.
+            Direction = returnOrigin is null ? NfeDirection.Outgoing : NfeDirection.Incoming,
+            Purpose = returnOrigin is null ? NfePurpose.Normal : NfePurpose.Return,
             ReferencedKeys = returnOrigin is null ? [] : [returnOrigin.AccessKey],
             IssuedAt = issuedAt,
             OperationNature = string.IsNullOrWhiteSpace(firstUsage?.InvoiceOperationText)

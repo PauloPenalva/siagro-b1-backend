@@ -102,14 +102,16 @@ public static class NfeXmlBuilder
         nNF = input.Number,
         dhEmi = input.IssuedAt,
         dhSaiEnt = input.IssuedAt,
-        tpNF = input.Purpose == NfePurpose.Return ? TipoNFe.tnEntrada : TipoNFe.tnSaida,
+        tpNF = input.Direction == NfeDirection.Incoming ? TipoNFe.tnEntrada : TipoNFe.tnSaida,
         idDest = interstate ? DestinoOperacao.doInterestadual : DestinoOperacao.doInterna,
         cMunFG = long.Parse(input.Issuer.Address.MunicipalityCode, CultureInfo.InvariantCulture),
         tpImp = TipoImpressao.tiRetrato,
         tpEmis = TipoEmissao.teNormal,
         tpAmb = Environment(input.Environment),
         finNFe = input.Purpose == NfePurpose.Return ? FinalidadeNFe.fnDevolucao : FinalidadeNFe.fnNormal,
-        indFinal = input.Recipient.Indicator == StateRegistrationIndicator.NonTaxpayer
+        // Consumidor final só existe na SAÍDA (regra 696): na entrada o destinatário é quem vende.
+        indFinal = input.Direction == NfeDirection.Outgoing &&
+                   input.Recipient.Indicator == StateRegistrationIndicator.NonTaxpayer
             ? ConsumidorFinal.cfConsumidorFinal
             : ConsumidorFinal.cfNao,
         indPres = PresencaComprador.pcOutros,

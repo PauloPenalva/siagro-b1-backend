@@ -224,4 +224,15 @@ public class TaxCalculatorTests
         var r = TaxCalculator.Calculate(Input(Cst("00", rate: 18m), inState: true, amount: 0.25m));
         Assert.Equal(0.05m, r.IcmsValue);
     }
+
+    /// <summary>Compra interestadual: a alíquota segue a mercadoria (BA → SP = 12%), não a filial (SP → BA = 7%).</summary>
+    [Fact]
+    public void Interstate_entry_uses_the_supplier_state_as_origin()
+    {
+        var r = TaxCalculator.Calculate(new TaxCalculationInput(
+            Amount: 60000m, InState: false, OriginState: "BA", DestinationState: "SP", Regime: TaxRegime.Normal,
+            GoodsOrigin: 0, Icms: Cst("00"), PisCofins: PisCofins, IbsCbs: null, Rates: null));
+
+        Assert.Equal(12m, r.IcmsRate);
+    }
 }

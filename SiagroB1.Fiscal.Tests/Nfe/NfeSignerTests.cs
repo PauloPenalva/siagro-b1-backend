@@ -98,4 +98,31 @@ public class NfeSignerTests
         Assert.Contains("<tPag>90</tPag>", signed.Xml);
         Assert.DoesNotContain("<cobr>", signed.Xml);
     }
+
+    [Fact]
+    public void Purchase_entry_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.PurchaseEntryInput(), Settings(certificate));
+
+        Assert.Contains("<tpNF>0</tpNF>", signed.Xml);
+        Assert.Contains("<finNFe>1</finNFe>", signed.Xml);
+        Assert.Contains($"<NFref><refNFe>{NfeTestData.ProducerAccessKey}</refNFe></NFref>", signed.Xml);
+        Assert.Contains("<CPF>52998224725</CPF>", signed.Xml);
+    }
+
+    [Fact]
+    public void Purchase_return_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.PurchaseReturnInput(), Settings(certificate));
+
+        Assert.Contains("<tpNF>1</tpNF>", signed.Xml);
+        Assert.Contains("<finNFe>4</finNFe>", signed.Xml);
+        Assert.DoesNotContain("<NFref>", signed.Xml);
+        Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeTestData.EntryAccessKey}</chaveAcesso><nItem>2</nItem></DFeReferenciado>", signed.Xml);
+        Assert.Contains("<tPag>90</tPag>", signed.Xml);
+    }
 }

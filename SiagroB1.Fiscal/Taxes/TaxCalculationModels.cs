@@ -15,11 +15,13 @@ public sealed record IbsCbsRule(string Cst, string ClassCode, decimal? IbsReduct
 public sealed record IbsCbsRates(decimal Cbs, decimal IbsState, decimal IbsMunicipal);
 
 /// <summary>Tudo de que a conta precisa — sem banco, sem configuração.</summary>
+/// <param name="OriginState">UF de onde a mercadoria SAI: a filial na venda, o fornecedor na compra.</param>
+/// <param name="DestinationState">UF para onde a mercadoria VAI: o cliente na venda, a filial na compra.</param>
 public sealed record TaxCalculationInput(
     decimal Amount,
     bool InState,
-    string BranchState,
-    string CustomerState,
+    string OriginState,
+    string DestinationState,
     TaxRegime Regime,
     byte GoodsOrigin,
     IcmsRule Icms,

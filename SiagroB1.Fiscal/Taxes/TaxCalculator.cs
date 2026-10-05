@@ -63,7 +63,7 @@ public static class TaxCalculator
 
         var rate = input.InState
             ? input.Icms.Rate ?? 0m
-            : InterstateIcmsRate.Resolve(input.BranchState, input.CustomerState, input.GoodsOrigin);
+            : InterstateIcmsRate.Resolve(input.OriginState, input.DestinationState, input.GoodsOrigin);
 
         var reduction = FiscalCodes.IcmsCodesWithReduction.Contains(code) ? input.Icms.BaseReduction ?? 0m : 0m;
         var icmsBase = Round(input.Amount * (1m - reduction / 100m));
