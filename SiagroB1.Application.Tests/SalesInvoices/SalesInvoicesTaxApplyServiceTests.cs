@@ -260,4 +260,55 @@ public class SalesInvoicesTaxApplyServiceTests
         var item = await Apply(db, invoice);
         Assert.Equal(123m, item.IcmsValue);
     }
+
+    // --- Frete, seguro, desconto e outras despesas na base (spec 2026-10-05 D3) ---
+
+    private static SalesInvoice InvoiceWithCharges(int usageCode)
+    {
+        var invoice = Invoice(CardBa, usageCode);
+        var item = invoice.Items.Single();
+        (item.FreightValue, item.InsuranceValue, item.DiscountValue, item.OtherExpensesValue) = (1000m, 100m, 500m, 400m);
+        return invoice;
+    }
+
+    [Fact]
+    public async Task Charges_enter_the_base_of_every_tax()
+    {
+        var (db, code) = await Seed();
+
+        var item = await Apply(db, InvoiceWithCharges(code));
+
+        Assert.Equal(61000m, item.GrandTotal);
+        Assert.Equal((61000m, 4270.00m), (item.IcmsBase, item.IcmsValue));
+        Assert.Equal((56730.00m, 936.05m), (item.PisBase, item.PisValue));
+        Assert.Equal((56730.00m, 4311.48m), (item.CofinsBase, item.CofinsValue));
+        Assert.Equal((51482.47m, 463.34m, 51.48m), (item.IbsCbsBase, item.CbsValue, item.IbsStateValue));
+    }
+
+    [Fact]
+    public async Task Icms_base_reduction_applies_to_the_grand_total_of_the_line()
+    {
+        // Review Focus 4: CST 20 com 40% de redução — 61.000,00 × 60% = 36.600,00; 7% = 2.562,00.
+        var (db, code) = await Seed(tweak: u =>
+        {
+            u.IcmsOutStateCst = "20";
+            u.IcmsOutStateBaseReduction = 40m;
+        });
+
+        var item = await Apply(db, InvoiceWithCharges(code));
+
+        Assert.Equal((40m, 36600.00m, 2562.00m), (item.IcmsBaseReduction, item.IcmsBase, item.IcmsValue));
+    }
+
+    [Fact]
+    public async Task Branch_without_the_rule_only_keeps_the_charges()
+    {
+        var (db, code) = await Seed();
+        var invoice = InvoiceWithCharges(code);
+
+        await TaxTestServices.Apply(db, Partners(), "SAPB1").ApplyAsync(invoice, invoice.Items);
+
+        var item = invoice.Items.Single();
+        Assert.Equal((1000m, 0m, (string?)null), (item.FreightValue, item.IcmsBase, item.CstIcms));
+    }
 }

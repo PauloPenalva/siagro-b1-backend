@@ -215,4 +215,18 @@ public class SalesInvoicesNfeReturnLockTests
         var saved = await s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
         Assert.Equal((150m, 20m, 2m), (saved.FreightValue, saved.DiscountValue, saved.UnitPrice));
     }
+
+    [Fact]
+    public async Task Own_return_line_tax_base_follows_the_edited_charges()
+    {
+        // Review Focus 5 + D3: o frete editado na devolução Pendente entra na base (60.000 + 150 − 20).
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        (line.FreightValue, line.DiscountValue) = (150m, 20m);
+
+        await ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester");
+
+        Assert.Equal(60130m, (await s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key)).IcmsBase);
+    }
 }

@@ -75,9 +75,10 @@ public class PurchaseInvoicesTaxApplyService(
             var usage = await ResolveUsageAsync(item, usages, ownReturn);
 
             // A mercadoria vem do FORNECEDOR para a filial; a devolução repete a operação da compra, para
-            // reproduzir a alíquota creditada (12% de BA→SP, e não 7% de SP→BA).
+            // reproduzir a alíquota creditada (12% de BA→SP, e não 7% de SP→BA). Base = total geral da linha
+            // (spec 2026-10-05 D3).
             var line = await _lines.CalculateAsync(new TaxLineRequest(
-                usage, item.ItemCode, item.Total, inState, supplierState, branch.StateCode!,
+                usage, item.ItemCode, item.GrandTotal, inState, supplierState, branch.StateCode!,
                 branch.TaxRegime!.Value, rateDate, IncomingCfop: !ownReturn));
 
             TaxLineCalculator.Apply(item, usage, line);

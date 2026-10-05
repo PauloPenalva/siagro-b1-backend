@@ -63,9 +63,10 @@ public class SalesInvoicesTaxApplyService(
         {
             var usage = await ResolveUsageAsync(item, usages, ownReturn);
             // Venda e devolução de venda: a mercadoria sai da filial para o cliente (na devolução, a operação
-            // é a da venda, que ela anula).
+            // é a da venda, que ela anula). Base = total geral da linha: itens + frete + seguro + outras despesas
+            // − desconto (spec 2026-10-05 D3; LC 87/96 art. 13 e LC 214).
             var line = await _lines.CalculateAsync(new TaxLineRequest(
-                usage, item.ItemCode, item.Total, inState, branch.StateCode!, customerState,
+                usage, item.ItemCode, item.GrandTotal, inState, branch.StateCode!, customerState,
                 branch.TaxRegime!.Value, rateDate, IncomingCfop: ownReturn));
 
             TaxLineCalculator.Apply(item, usage, line);
