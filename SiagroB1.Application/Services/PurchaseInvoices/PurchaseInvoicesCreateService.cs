@@ -76,7 +76,9 @@ public class PurchaseInvoicesCreateService(
         }
 
         // Documento de terceiro com o XML: a tributação de cada linha é a da nota do fornecedor (spec terceiro §7).
-        PurchaseInvoiceSupplierTaxes.Apply(invoice, invoice.Items);
+        // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
+        if (await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            PurchaseInvoiceSupplierTaxes.Apply(invoice, invoice.Items);
 
         // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
         await taxApply.ApplyAsync(invoice, invoice.Items);

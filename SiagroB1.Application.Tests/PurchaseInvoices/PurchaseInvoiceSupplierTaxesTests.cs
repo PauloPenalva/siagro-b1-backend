@@ -1,4 +1,3 @@
-// SiagroB1.Application.Tests/PurchaseInvoices/PurchaseInvoiceSupplierTaxesTests.cs
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Tests.Support;
@@ -25,7 +24,7 @@ public class PurchaseInvoiceSupplierTaxesTests
         {
             Key = Guid.NewGuid(), CardCode = PurchaseNfeTestSeed.Supplier, IssuerType = DocumentIssuerType.ThirdParty,
             InvoiceType = PurchaseInvoiceType.Normal, XmlData = xml is null ? null : SupplierNfeXml.Bytes(xml),
-            ChaveNFe = SupplierNfeXml.AccessKey, TaxDocumentNumber = "456", TaxDocumentSeries = "1",
+            BranchCode = "01", ChaveNFe = SupplierNfeXml.AccessKey, TaxDocumentNumber = "456", TaxDocumentSeries = "1",
         };
         foreach (var line in lines)
             invoice.AddItem(line);
@@ -105,53 +104,53 @@ public class PurchaseInvoiceSupplierTaxesTests
     [Fact]
     public async Task Create_fills_the_supplier_taxes_of_a_third_party_document()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = await ActiveDbAsync();
         var invoice = ThirdParty(Xml(), Line("TRIGO", 1));
 
         await Create(db).ExecuteAsync(invoice, "tester");
 
-        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key);
         Assert.Equal(("51", 1, 18m), (saved.CstIcms, saved.NfeItemNumber!.Value, saved.IcmsRate));
     }
 
     [Fact]
     public async Task Update_keeps_the_supplier_item_after_the_product_changes()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = await ActiveDbAsync();
         var invoice = ThirdParty(Xml(), Line("TRG", 1));
         await Create(db).ExecuteAsync(invoice, "tester");
         db.Context.ChangeTracker.Clear();
-        var changed = await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
+        var changed = await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == invoice.Key);
         changed.Items.Single().ItemCode = "TRIGO";
 
         await new PurchaseInvoicesUpdateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
-            TaxTestServices.InactivePurchaseApply(db)).ExecuteAsync(changed.Key, changed, "tester");
+            ActiveApply(db)).ExecuteAsync(changed.Key, changed, "tester");
 
-        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key);
         Assert.Equal(("TRIGO", 1, "51"), (saved.ItemCode, saved.NfeItemNumber!.Value, saved.CstIcms));
     }
 
     [Fact]
     public async Task Line_added_after_the_import_has_no_item_number()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = await ActiveDbAsync();
         var invoice = ThirdParty(Xml(), Line("TRIGO", 1));
         await Create(db).ExecuteAsync(invoice, "tester");
         var added = Line("MILHO", 2);
         added.PurchaseInvoiceKey = invoice.Key;
         added.CstIcms = "00";
 
-        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
+        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), ActiveApply(db))
             .ExecuteAsync(added, "tester");
 
-        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.ItemCode == "MILHO");
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key && i.ItemCode == "MILHO");
         Assert.Equal(((int?)null, (string?)null), (saved.NfeItemNumber, saved.CstIcms));
     }
 
     [Fact]
     public async Task Line_added_to_a_customer_return_keeps_what_was_posted()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = await ActiveDbAsync();
         var invoice = ThirdParty(Xml(), Line("TRIGO", 1));
         invoice.InvoiceType = PurchaseInvoiceType.Return;
         await Create(db).ExecuteAsync(invoice, "tester");
@@ -159,13 +158,35 @@ public class PurchaseInvoiceSupplierTaxesTests
         added.PurchaseInvoiceKey = invoice.Key;
         added.CstIcms = "00";
 
-        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
+        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), ActiveApply(db))
             .ExecuteAsync(added, "tester");
 
-        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.ItemCode == "MILHO");
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key && i.ItemCode == "MILHO");
         Assert.Equal((5, "00"), (saved.NfeItemNumber!.Value, saved.CstIcms));
     }
 
+    /// <summary>Banco com a filial "01" que emite NF-e (regra ativa em STANDALONE).</summary>
+    private static async Task<UnitOfWork> ActiveDbAsync() => (await PurchaseNfeTestSeed.SeedAsync()).Db;
+
+    private static PurchaseInvoicesTaxApplyService ActiveApply(UnitOfWork db) =>
+        TaxTestServices.PurchaseApply(db, new FakeBusinessPartnerService(), "STANDALONE");
+
+    [Fact]
+    public async Task Create_in_a_branch_without_nfe_leaves_the_lines_as_they_came()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var line = Line("TRIGO", 1);
+        line.CstIcms = "00";
+        var invoice = ThirdParty(Xml(), line);
+        invoice.BranchCode = null;
+
+        await new PurchaseInvoicesCreateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
+            TaxTestServices.InactivePurchaseApply(db)).ExecuteAsync(invoice, "tester");
+
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
+        Assert.Equal((1, "00", 0m), (saved.NfeItemNumber!.Value, saved.CstIcms, saved.IcmsRate));
+    }
+
     private static PurchaseInvoicesCreateService Create(UnitOfWork db) =>
-        new(db, new FakeBusinessPartnerService(), new FakeItemService(), TaxTestServices.InactivePurchaseApply(db));
+        new(db, new FakeBusinessPartnerService(), new FakeItemService(), ActiveApply(db));
 }

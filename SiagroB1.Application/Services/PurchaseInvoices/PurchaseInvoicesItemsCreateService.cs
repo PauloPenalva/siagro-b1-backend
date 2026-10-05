@@ -29,7 +29,9 @@ public class PurchaseInvoicesItemsCreateService(
         PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
 
         // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem e sem fotografia.
-        if (invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
+        // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela a linha grava como veio.
+        if (invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal &&
+            await taxApply.IsBranchActiveAsync(invoice.BranchCode))
         {
             item.NfeItemNumber = null;
             PurchaseInvoiceSupplierTaxes.Clear(item);

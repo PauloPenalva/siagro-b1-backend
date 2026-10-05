@@ -96,7 +96,9 @@ public class PurchaseInvoicesUpdateService(
 
         await SyncItemsAsync(existing, entity);
 
-        PurchaseInvoiceSupplierTaxes.Apply(existing, existing.Items);
+        // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
+        if (await taxApply.IsBranchActiveAsync(existing.BranchCode))
+            PurchaseInvoiceSupplierTaxes.Apply(existing, existing.Items);
 
         if (existing.IsNfeReturn)
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, existing, existing.Items);
