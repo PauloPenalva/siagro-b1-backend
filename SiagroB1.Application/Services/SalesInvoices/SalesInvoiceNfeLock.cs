@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -12,12 +13,6 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 /// </summary>
 public static class SalesInvoiceNfeLock
 {
-    private const string ProcessingMessage =
-        "A NF-e deste documento está em processamento na SEFAZ: aguarde e use Consultar situação.";
-
-    private const string AuthorizedMessage =
-        "A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.";
-
     /// <summary>Campos do cabeçalho que vão para o XML.</summary>
     private static readonly string[] HeaderFiscalFields =
     [
@@ -56,10 +51,10 @@ public static class SalesInvoiceNfeLock
         var status = (NfeStatus)entry.OriginalValues[nameof(SalesInvoice.NfeStatus)]!;
 
         if (status == NfeStatus.Processing)
-            throw new DefaultException(ProcessingMessage);
+            throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (status == NfeStatus.Authorized && AnyChanged(entry, HeaderFiscalFields))
-            throw new DefaultException(AuthorizedMessage);
+        if (status == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
+            throw new DefaultException(NfeLockRules.AuthorizedMessage);
     }
 
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>
@@ -70,8 +65,7 @@ public static class SalesInvoiceNfeLock
                       || entry.OriginalValues[nameof(SalesInvoice.NfeRandomCode)] is not null;
         var fields = emitted ? IssuanceFields.Concat(TaxDocumentFields) : IssuanceFields;
 
-        foreach (var field in fields)
-            entry.Property(field).CurrentValue = entry.OriginalValues[field];
+        NfeLockRules.Restore(entry, fields);
 
         // A marca da devolução própria nasce no Devolver e nunca muda pela API.
         entry.Property(nameof(SalesInvoice.IsNfeReturn)).CurrentValue = entry.OriginalValues[nameof(SalesInvoice.IsNfeReturn)];
@@ -94,20 +88,20 @@ public static class SalesInvoiceNfeLock
     public static void EnsureItemEditable(NfeStatus invoiceStatus, EntityEntry<SalesInvoiceItem> entry)
     {
         if (invoiceStatus == NfeStatus.Processing)
-            throw new DefaultException(ProcessingMessage);
+            throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (invoiceStatus == NfeStatus.Authorized && AnyChanged(entry, ItemFiscalFields))
-            throw new DefaultException(AuthorizedMessage);
+        if (invoiceStatus == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
+            throw new DefaultException(NfeLockRules.AuthorizedMessage);
     }
 
     /// <summary>Incluir ou excluir linha.</summary>
     public static void EnsureLinesChangeable(NfeStatus invoiceStatus)
     {
         if (invoiceStatus == NfeStatus.Processing)
-            throw new DefaultException(ProcessingMessage);
+            throw new DefaultException(NfeLockRules.ProcessingMessage);
 
         if (invoiceStatus == NfeStatus.Authorized)
-            throw new DefaultException(AuthorizedMessage);
+            throw new DefaultException(NfeLockRules.AuthorizedMessage);
     }
 
     public static void EnsureDeletable(SalesInvoice invoice)
@@ -120,7 +114,7 @@ public static class SalesInvoiceNfeLock
     public static void EnsureCancellable(SalesInvoice invoice)
     {
         if (invoice.NfeStatus == NfeStatus.Processing)
-            throw new DefaultException(ProcessingMessage);
+            throw new DefaultException(NfeLockRules.ProcessingMessage);
 
         if (invoice.NfeStatus == NfeStatus.Authorized)
             throw new DefaultException(
@@ -135,7 +129,4 @@ public static class SalesInvoiceNfeLock
         if (invoice.NfeStatus != NfeStatus.None || invoice.NfeRandomCode is not null)
             throw new DefaultException("Número, série e chave deste documento vêm da emissão da NF-e pelo Siagro.");
     }
-
-    private static bool AnyChanged(EntityEntry entry, IEnumerable<string> properties) =>
-        properties.Any(p => !Equals(entry.OriginalValues[p], entry.CurrentValues[p]));
 }

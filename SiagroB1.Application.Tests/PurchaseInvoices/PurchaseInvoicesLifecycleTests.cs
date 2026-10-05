@@ -44,7 +44,7 @@ public class PurchaseInvoicesLifecycleTests
     {
         var (db, invoice) = await SeedAsync();
 
-        await new PurchaseInvoicesConfirmService(db).ExecuteAsync(invoice.Key, "tester");
+        await new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "SAPB1")).ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, invoice.InvoiceStatus);
         Assert.Equal("tester", invoice.ApprovedBy);
@@ -57,7 +57,7 @@ public class PurchaseInvoicesLifecycleTests
         var (db, invoice) = await SeedAsync(InvoiceStatus.Confirmed);
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesConfirmService(db).ExecuteAsync(invoice.Key, "tester"));
+            () => new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "SAPB1")).ExecuteAsync(invoice.Key, "tester"));
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class PurchaseInvoicesLifecycleTests
         var missing = Guid.NewGuid();
 
         await Assert.ThrowsAsync<NotFoundException>(
-            () => new PurchaseInvoicesConfirmService(db).ExecuteAsync(missing, "tester"));
+            () => new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "SAPB1")).ExecuteAsync(missing, "tester"));
         await Assert.ThrowsAsync<NotFoundException>(
             () => new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(missing, "tester"));
         await Assert.ThrowsAsync<NotFoundException>(

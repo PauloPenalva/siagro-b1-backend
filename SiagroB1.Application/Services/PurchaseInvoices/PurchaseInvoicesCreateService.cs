@@ -25,6 +25,9 @@ public class PurchaseInvoicesCreateService(
         if (invoice.Items.Count == 0)
             throw new DefaultException("Informe ao menos um item no documento de entrada.");
 
+        // O documento nunca nasce emitido, venha o que vier no corpo.
+        PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
+
         // Só o "Devolver" (PurchaseInvoicesNfeReturnCreateService) marca a devolução de compra; o corpo da
         // API nunca — senão um POST tiraria a nota da confirmação pela emissão.
         invoice.IsNfeReturn = nfeReturn && invoice.InvoiceType == PurchaseInvoiceType.Return;

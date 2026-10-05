@@ -25,6 +25,8 @@ public class PurchaseInvoicesItemsCreateService(
 
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == item.PurchaseInvoiceKey);
 
+        PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
+
         // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard.
         if (item.PurchaseContractKey is not null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(

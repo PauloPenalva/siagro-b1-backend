@@ -65,6 +65,13 @@ public class PurchaseInvoicesItemsUpdateService(
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
+
+        // Travas da NF-e: devolução de compra só muda a quantidade; emitido/em processamento trava a linha.
+        var entry = db.Context.Entry(existing);
+        if (invoice.IsNfeReturn)
+            PurchaseInvoiceNfeLock.RestoreReturnLine(entry);
+        PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
+
         await taxApply.ApplyAsync(invoice, [existing]);
 
         await db.SaveChangesAsync();
