@@ -16,7 +16,7 @@ public class SalesInvoicesNfeXmlDownloadServiceTests
         invoice.ChaveNFe = "35261012345678000195550010000000011481516230";
         scenario.Db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Authorized,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = NfeXmlKind.Authorized,
             Xml = "<nfeProc/>", CreatedAt = DateTime.Now,
         });
         await scenario.Db.SaveChangesAsync();
@@ -42,7 +42,7 @@ public class SalesInvoicesNfeXmlDownloadServiceTests
         var scenario = await NfeTestSeed.SeedAsync();
         scenario.Db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = scenario.InvoiceKey, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Key = Guid.NewGuid(), SalesInvoiceKey = scenario.InvoiceKey, Kind = NfeXmlKind.Signed,
             Xml = "<NFe/>", CreatedAt = DateTime.Now,
         });
         await scenario.Db.SaveChangesAsync();

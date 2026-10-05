@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_INVOICES_ITEMS")]
-public class SalesInvoiceItem
+public class SalesInvoiceItem : INfeTaxedLine
 {
     [Key]
     public Guid? Key { get; set; }

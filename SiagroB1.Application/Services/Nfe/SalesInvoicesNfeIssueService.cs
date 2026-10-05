@@ -100,7 +100,7 @@ public class SalesInvoicesNfeIssueService(
         {
             Key = Guid.NewGuid(),
             SalesInvoiceKey = invoice.Key,
-            Kind = SalesInvoiceNfeXmlKind.Signed,
+            Kind = NfeXmlKind.Signed,
             Xml = signed.Xml,
             CreatedAt = DateTime.Now,
         });
@@ -160,7 +160,7 @@ public class SalesInvoicesNfeIssueService(
             // Duplicidade: o autorizado pode ser o XML de uma tentativa anterior, então todos os
             // assinados do documento (o mais novo primeiro) entram na conferência pelo digest.
             var signedXmls = await db.Context.SalesInvoiceNfeXmls
-                .Where(x => x.SalesInvoiceKey == invoice.Key && x.Kind == SalesInvoiceNfeXmlKind.Signed)
+                .Where(x => x.SalesInvoiceKey == invoice.Key && x.Kind == NfeXmlKind.Signed)
                 .OrderByDescending(x => x.CreatedAt)
                 .Select(x => x.Xml)
                 .ToListAsync();

@@ -56,6 +56,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoice> SalesInvoices { get; set; }
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<SalesInvoiceNfeXml> SalesInvoiceNfeXmls { get; set; }
+    public DbSet<PurchaseInvoiceNfeXml> PurchaseInvoiceNfeXmls { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
     public DbSet<SalesInvoiceComment> SalesInvoicesComments { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
@@ -186,6 +187,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => x.ChaveNFe)
             .IsUnique()
             .HasFilter($"[ChaveNFe] IS NOT NULL AND [InvoiceStatus] <> {(int)InvoiceStatus.Cancelled}");
+
+        modelBuilder.Entity<PurchaseInvoiceNfeXml>()
+            .HasIndex(x => new { x.PurchaseInvoiceKey, x.Kind });
 
         // Auto-relação: a NF de remessa aponta a NF de venda futura que a antecipou. Restrict, e
         // não Cascade — apagar a nota futura não pode levar as remessas junto.

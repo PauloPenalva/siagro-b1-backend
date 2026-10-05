@@ -19,7 +19,7 @@ public class SalesInvoiceNfeXml
 
     public virtual SalesInvoice? SalesInvoice { get; set; }
 
-    public SalesInvoiceNfeXmlKind Kind { get; set; }
+    public NfeXmlKind Kind { get; set; }
 
     [Column(TypeName = "NVARCHAR(MAX)")]
     public required string Xml { get; set; }

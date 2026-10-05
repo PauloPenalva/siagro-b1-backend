@@ -1,5 +1,5 @@
-using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Dtos.Nfe;
 
@@ -16,7 +16,7 @@ public class NfeIssueOutcomeDto
     public string? AccessKey { get; set; }
     public string? ConfirmationError { get; set; }
 
-    public static NfeIssueOutcomeDto From(SalesInvoice invoice) => new()
+    public static NfeIssueOutcomeDto From(INfeDocument invoice) => new()
     {
         NfeStatus = invoice.NfeStatus,
         InvoiceStatus = invoice.InvoiceStatus,

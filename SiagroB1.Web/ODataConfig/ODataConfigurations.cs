@@ -272,6 +272,15 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.Difference)));
 
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceIbsCbs)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalIbsCbs)));
+
         var purchaseInvoicesImportXml = modelBuilder.Action("PurchaseInvoicesImportXml");
         purchaseInvoicesImportXml.Parameter<string>("XmlContent");
         purchaseInvoicesImportXml.Parameter<string>("FileName");

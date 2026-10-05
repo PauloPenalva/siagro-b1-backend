@@ -32,7 +32,7 @@ public class SalesInvoicesNfeConsultService(
             throw new DefaultException("Só a NF-e em processamento é consultada.");
 
         var signedXmls = await db.Context.SalesInvoiceNfeXmls.AsNoTracking()
-            .Where(x => x.SalesInvoiceKey == key && x.Kind == SalesInvoiceNfeXmlKind.Signed)
+            .Where(x => x.SalesInvoiceKey == key && x.Kind == NfeXmlKind.Signed)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => x.Xml)
             .ToListAsync();

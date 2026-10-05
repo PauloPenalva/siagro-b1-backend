@@ -24,7 +24,7 @@ public class DanfeReportServiceTests
         var invoiceKey = Guid.NewGuid();
         db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = SalesInvoiceNfeXmlKind.Authorized, CreatedAt = DateTime.Now,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = NfeXmlKind.Authorized, CreatedAt = DateTime.Now,
             Xml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!),
         });
         await db.SaveChangesAsync();

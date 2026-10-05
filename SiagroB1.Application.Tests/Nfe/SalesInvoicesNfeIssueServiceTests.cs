@@ -61,8 +61,8 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Equal(1, confirm.Calls);
 
         var xmls = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().ToListAsync();
-        Assert.Contains(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Signed && x.Xml.Contains("NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"));
-        Assert.Contains(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Authorized && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
+        Assert.Contains(xmls, x => x.Kind == NfeXmlKind.Signed && x.Xml.Contains("NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL"));
+        Assert.Contains(xmls, x => x.Kind == NfeXmlKind.Authorized && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class SalesInvoicesNfeIssueServiceTests
         {
             var other = TestDb.CreateUnitOfWork(scenario.DatabaseName).Context;
             statusAtSend = (await other.SalesInvoices.AsNoTracking().SingleAsync()).NfeStatus;
-            signedAtSend = await other.SalesInvoiceNfeXmls.CountAsync(x => x.Kind == SalesInvoiceNfeXmlKind.Signed);
+            signedAtSend = await other.SalesInvoiceNfeXmls.CountAsync(x => x.Kind == NfeXmlKind.Signed);
         };
         sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
 
@@ -313,7 +313,7 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Equal(0, confirm.Calls);
         Assert.DoesNotContain(
             await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().ToListAsync(),
-            x => x.Kind == SalesInvoiceNfeXmlKind.Authorized);
+            x => x.Kind == NfeXmlKind.Authorized);
     }
 
     [Fact]
@@ -539,8 +539,8 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Equal(NfeStatus.Denied, outcome.NfeStatus);
         Assert.Equal(0, confirm.Calls);
         var xmls = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().ToListAsync();
-        Assert.Contains(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Denied && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
-        Assert.DoesNotContain(xmls, x => x.Kind == SalesInvoiceNfeXmlKind.Authorized);
+        Assert.Contains(xmls, x => x.Kind == NfeXmlKind.Denied && x.Xml.Contains("<nfeProc") && x.Xml.Contains("<protNFe"));
+        Assert.DoesNotContain(xmls, x => x.Kind == NfeXmlKind.Authorized);
     }
 
     [Fact]

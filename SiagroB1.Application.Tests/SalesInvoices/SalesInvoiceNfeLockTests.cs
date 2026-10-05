@@ -254,7 +254,7 @@ public class SalesInvoiceNfeLockTests
         var (db, invoice) = await SeedAsync(NfeStatus.Rejected);
         db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = NfeXmlKind.Signed,
             Xml = "<NFe/>", CreatedAt = DateTime.Now,
         });
         await db.SaveChangesAsync();
@@ -275,7 +275,7 @@ public class SalesInvoiceNfeLockTests
         var (db, invoice) = await SeedAsync(NfeStatus.Rejected);
         db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = NfeXmlKind.Signed,
             Xml = "<NFe/>", CreatedAt = DateTime.Now,
         });
         db.Context.ShipmentLoadsDischargesItems.Add(new ShipmentLoadDischargeItem

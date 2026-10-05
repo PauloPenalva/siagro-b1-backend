@@ -54,8 +54,8 @@ public class SalesInvoicesNfeConsultServiceTests
 
         Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
         Assert.Equal(1, confirm.Calls);
-        var signed = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == SalesInvoiceNfeXmlKind.Signed);
-        var proc = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == SalesInvoiceNfeXmlKind.Authorized);
+        var signed = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == NfeXmlKind.Signed);
+        var proc = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == NfeXmlKind.Authorized);
         Assert.Contains(signed.Xml[signed.Xml.IndexOf("<NFe", StringComparison.Ordinal)..].Trim(), proc.Xml);
     }
 
@@ -96,7 +96,7 @@ public class SalesInvoicesNfeConsultServiceTests
         invoice.NfeStatus = NfeStatus.Rejected;
         scenario.Db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = SalesInvoiceNfeXmlKind.Signed,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, Kind = NfeXmlKind.Signed,
             Xml = "<NFe/>", CreatedAt = DateTime.Now,
         });
         await scenario.Db.SaveChangesAsync();

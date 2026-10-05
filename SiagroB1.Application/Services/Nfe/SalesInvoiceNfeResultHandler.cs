@@ -89,7 +89,7 @@ public class SalesInvoiceNfeResultHandler(
             {
                 Key = Guid.NewGuid(),
                 SalesInvoiceKey = invoice.Key,
-                Kind = SalesInvoiceNfeXmlKind.Authorized,
+                Kind = NfeXmlKind.Authorized,
                 Xml = NfeProcComposer.Compose(signedXml, result.ProtocolXml),
                 CreatedAt = DateTime.Now,
             });
@@ -133,7 +133,7 @@ public class SalesInvoiceNfeResultHandler(
                     {
                         Key = Guid.NewGuid(),
                         SalesInvoiceKey = invoice.Key,
-                        Kind = SalesInvoiceNfeXmlKind.Denied,
+                        Kind = NfeXmlKind.Denied,
                         Xml = NfeProcComposer.Compose(deniedSigned, result.ProtocolXml),
                         CreatedAt = DateTime.Now,
                     });

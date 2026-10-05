@@ -26,7 +26,7 @@ public class SalesInvoicesNfeReturnIssueTests
 
     private static async Task<string> SignedXmlAsync(NfeScenario scenario, Guid invoiceKey) =>
         (await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking()
-            .SingleAsync(x => x.SalesInvoiceKey == invoiceKey && x.Kind == SalesInvoiceNfeXmlKind.Signed)).Xml;
+            .SingleAsync(x => x.SalesInvoiceKey == invoiceKey && x.Kind == NfeXmlKind.Signed)).Xml;
 
     [Fact]
     public async Task Own_return_is_issued_as_an_incoming_return_referencing_the_sale()
