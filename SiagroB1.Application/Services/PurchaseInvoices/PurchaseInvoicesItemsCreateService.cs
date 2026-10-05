@@ -29,7 +29,7 @@ public class PurchaseInvoicesItemsCreateService(
         PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
 
         // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem e sem fotografia.
-        if (invoice.IssuerType == DocumentIssuerType.ThirdParty)
+        if (invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
         {
             item.NfeItemNumber = null;
             PurchaseInvoiceSupplierTaxes.Clear(item);

@@ -148,6 +148,24 @@ public class PurchaseInvoiceSupplierTaxesTests
         Assert.Equal(((int?)null, (string?)null), (saved.NfeItemNumber, saved.CstIcms));
     }
 
+    [Fact]
+    public async Task Line_added_to_a_customer_return_keeps_what_was_posted()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var invoice = ThirdParty(Xml(), Line("TRIGO", 1));
+        invoice.InvoiceType = PurchaseInvoiceType.Return;
+        await Create(db).ExecuteAsync(invoice, "tester");
+        var added = Line("MILHO", 5);
+        added.PurchaseInvoiceKey = invoice.Key;
+        added.CstIcms = "00";
+
+        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
+            .ExecuteAsync(added, "tester");
+
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.ItemCode == "MILHO");
+        Assert.Equal((5, "00"), (saved.NfeItemNumber!.Value, saved.CstIcms));
+    }
+
     private static PurchaseInvoicesCreateService Create(UnitOfWork db) =>
         new(db, new FakeBusinessPartnerService(), new FakeItemService(), TaxTestServices.InactivePurchaseApply(db));
 }
