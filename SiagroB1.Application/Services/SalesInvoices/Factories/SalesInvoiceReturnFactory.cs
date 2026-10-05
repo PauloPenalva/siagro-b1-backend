@@ -65,6 +65,12 @@ public static class SalesInvoiceReturnFactory
                 UnitOfMeasureCode = item.UnitOfMeasureCode,
                 SalesInvoiceItemOriginKey = item.Key,
                 SalesContractKey = item.SalesContractKey,
+                // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
+                // enquanto a devolução está Pendente.
+                FreightValue = InvoiceLineChargeRules.Proportional(item.FreightValue, quantity, item.Quantity),
+                InsuranceValue = InvoiceLineChargeRules.Proportional(item.InsuranceValue, quantity, item.Quantity),
+                DiscountValue = InvoiceLineChargeRules.Proportional(item.DiscountValue, quantity, item.Quantity),
+                OtherExpensesValue = InvoiceLineChargeRules.Proportional(item.OtherExpensesValue, quantity, item.Quantity),
             });
         }
 

@@ -263,4 +263,57 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Contains("não está confirmada", e.Message);
         Assert.Equal(0, reservation.Calls);
     }
+
+    // --- Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4) ---
+
+    /// <summary>A entrada do cenário com os quatro valores na linha, autorizada e confirmada pela emissão.</summary>
+    private static async Task<(PurchaseNfeScenario Scenario, PurchaseInvoice Origin)> AuthorizedOriginWithChargesAsync(
+        decimal freight, decimal insurance, decimal discount, decimal other)
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var line = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.PurchaseInvoiceKey == scenario.InvoiceKey);
+        (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue) = (freight, insurance, discount, other);
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        return (scenario, await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario));
+    }
+
+    [Fact]
+    public async Task Partial_purchase_return_brings_the_charges_in_proportion_and_taxes_them()
+    {
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(90m, 0.05m, 30m, 0m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal((36m, 0.02m, 12m, 0m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
+        // Base = 600,00 + 36,00 + 0,02 − 12,00 (D3 na devolução).
+        Assert.Equal(624.02m, line.IcmsBase);
+    }
+
+    [Fact]
+    public async Task Half_cent_of_the_purchase_return_proportion_rounds_away_from_zero()
+    {
+        // Review Focus 2.
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(0m, 0.05m, 0m, 0m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 500m), "tester");
+
+        Assert.Equal(0.03m, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single().InsuranceValue);
+    }
+
+    [Fact]
+    public async Task Total_purchase_return_brings_exactly_the_charges_of_the_entry()
+    {
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(90m, 0.05m, 30m, 7m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 1000m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal((90m, 0.05m, 30m, 7m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
+    }
 }

@@ -34,5 +34,16 @@ public static class InvoiceLineChargeRules
             throw new DefaultException($"Item {line.ItemCode}: o desconto passa do valor da linha.");
     }
 
+    /// <summary>
+    /// Valor da linha de origem na proporção do que volta (spec 2026-10-05 D4): valor × devolvida ÷ original, em centavos
+    /// (<see cref="MidpointRounding.AwayFromZero"/>). Devolvendo a quantidade inteira o valor vem exato; a soma de várias
+    /// devoluções parciais pode diferir 1 centavo da origem (risco aceito, a última não é ajustada). Origem sem quantidade:
+    /// nada volta.
+    /// </summary>
+    public static decimal Proportional(decimal value, decimal returnedQuantity, decimal originalQuantity) =>
+        originalQuantity == 0m
+            ? 0m
+            : decimal.Round(value * returnedQuantity / originalQuantity, 2, MidpointRounding.AwayFromZero);
+
     private static decimal Cents(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 }

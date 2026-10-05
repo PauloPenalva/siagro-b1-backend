@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
@@ -268,5 +269,20 @@ public class InvoiceLineChargeRulesTests
 
         var reloaded = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == key);
         Assert.Equal((3m, 2m, 1m, 0.5m), (reloaded.FreightValue, reloaded.InsuranceValue, reloaded.DiscountValue, reloaded.OtherExpensesValue));
+    }
+
+    // --- proporção da devolução (D4) ---
+
+    [Theory]
+    [InlineData("100.00", "10000", "30000", "33.33")]
+    [InlineData("0.05", "15000", "30000", "0.03")]
+    [InlineData("50.00", "10000", "30000", "16.67")]
+    [InlineData("100.00", "30000", "30000", "100.00")]
+    [InlineData("100.00", "0", "0", "0")]
+    public void Proportional_value_is_rounded_away_from_zero_in_cents(string value, string returned, string original, string expected)
+    {
+        decimal D(string s) => decimal.Parse(s, CultureInfo.InvariantCulture);
+
+        Assert.Equal(D(expected), InvoiceLineChargeRules.Proportional(D(value), D(returned), D(original)));
     }
 }

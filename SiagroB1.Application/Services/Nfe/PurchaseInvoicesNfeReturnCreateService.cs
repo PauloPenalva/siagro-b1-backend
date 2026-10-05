@@ -95,16 +95,24 @@ public class PurchaseInvoicesNfeReturnCreateService(
 
         foreach (var bought in NfeItemNumbering.Ordered(origin.Items).Where(i => quantities.ContainsKey(i.Key!.Value)))
         {
+            var quantity = quantities[bought.Key!.Value];
+
             returnInvoice.AddItem(new PurchaseInvoiceItem
             {
                 Key = Guid.NewGuid(),
                 ItemCode = bought.ItemCode,
                 ItemName = bought.ItemName,
                 UnitOfMeasureCode = bought.UnitOfMeasureCode,
-                Quantity = quantities[bought.Key!.Value],
+                Quantity = quantity,
                 UnitPrice = bought.UnitPrice,
                 UsageCode = returnUsages[bought.Key!.Value],
                 PurchaseInvoiceItemOriginKey = bought.Key,
+                // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
+                // enquanto a devolução está Pendente.
+                FreightValue = InvoiceLineChargeRules.Proportional(bought.FreightValue, quantity, bought.Quantity),
+                InsuranceValue = InvoiceLineChargeRules.Proportional(bought.InsuranceValue, quantity, bought.Quantity),
+                DiscountValue = InvoiceLineChargeRules.Proportional(bought.DiscountValue, quantity, bought.Quantity),
+                OtherExpensesValue = InvoiceLineChargeRules.Proportional(bought.OtherExpensesValue, quantity, bought.Quantity),
             });
         }
 
