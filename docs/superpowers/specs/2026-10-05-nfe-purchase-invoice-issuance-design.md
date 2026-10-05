@@ -296,8 +296,10 @@ ou excluir enquanto Pendente: permitido (a origem não foi tocada, D12).
 | `NfeReadinessValidator.ValidateAsync(SalesInvoice)` | núcleo neutro + `ValidateAsync(SalesInvoice)` (inalterado por fora) e `ValidateAsync(PurchaseInvoice)` |
 | `NfeIssueInputAssembler.Build(SalesInvoice, …)` | núcleo neutro + `Build(SalesInvoice, …)` e `Build(PurchaseInvoice, …)` |
 
-Regra de ouro: **os testes do documento de saída passam sem alteração de asserção**; só as fábricas de teste mudam se
-um construtor mudar.
+Regra de ouro: **os testes do documento de saída passam sem alteração de asserção**. Só mudam as fábricas de teste
+(se um construtor mudar) e as renomeações mecânicas de identificador (`SalesInvoiceNfeXmlKind` → `NfeXmlKind`,
+`NfePurpose.Sale` → `NfePurpose.Normal`, `SalesInvoiceTaxSnapshot` → `TaxSnapshot` etc.). A única asserção que muda
+de propósito é a da D15 (`indFinal` da devolução de venda para não contribuinte), se houver teste que a fixe.
 
 ## 11. Telas (frontend)
 
