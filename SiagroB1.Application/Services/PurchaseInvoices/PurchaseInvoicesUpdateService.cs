@@ -96,6 +96,8 @@ public class PurchaseInvoicesUpdateService(
 
         await SyncItemsAsync(existing, entity);
 
+        PurchaseInvoiceSupplierTaxes.Apply(existing, existing.Items);
+
         if (existing.IsNfeReturn)
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, existing, existing.Items);
 

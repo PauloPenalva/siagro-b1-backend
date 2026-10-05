@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
@@ -26,6 +27,13 @@ public class PurchaseInvoicesItemsCreateService(
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == item.PurchaseInvoiceKey);
 
         PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
+
+        // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem e sem fotografia.
+        if (invoice.IssuerType == DocumentIssuerType.ThirdParty)
+        {
+            item.NfeItemNumber = null;
+            PurchaseInvoiceSupplierTaxes.Clear(item);
+        }
 
         // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard.
         if (item.PurchaseContractKey is not null)

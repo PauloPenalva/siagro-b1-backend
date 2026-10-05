@@ -75,6 +75,9 @@ public class PurchaseInvoicesCreateService(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
 
+        // Documento de terceiro com o XML: a tributação de cada linha é a da nota do fornecedor (spec terceiro §7).
+        PurchaseInvoiceSupplierTaxes.Apply(invoice, invoice.Items);
+
         // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
         await taxApply.ApplyAsync(invoice, invoice.Items);
 
