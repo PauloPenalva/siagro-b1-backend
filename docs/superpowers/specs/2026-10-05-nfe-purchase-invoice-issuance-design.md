@@ -49,7 +49,7 @@ copiar. As devoluções do snapshot (CFOP 1202) são devoluções de **venda**, 
 | D4 | **Natureza de devolução vale nos dois sentidos.** A natureza de **Entrada** (compra) passa a poder apontar uma natureza de devolução de **Saída** (ex.: COMPRA 1102 → DEVOLUÇÃO DE COMPRA 5202), como a de Saída já aponta uma de Entrada. A regra vira "a natureza de devolução tem o sentido oposto". | Reaproveita o vínculo `USAGES.ReturnUsageCode` de 04/10: cada linha da devolução herda sozinha a natureza certa. |
 | D5 | **Impostos: calcular e conferir**, como na devolução de venda. A entrada própria é calculada pelo motor com a natureza de Entrada. A devolução de compra é calculada com a natureza de devolução (Saída), **com as UFs da operação original** (fornecedor → filial) e o IBS/CBS pelas alíquotas da **data da entrada**; a conferência recusa se o resultado não reproduzir a tributação da linha comprada (mesmos campos da devolução de venda). | Abordagem A, escolhida pelo usuário em 04/10. Usar as UFs da compra é o que faz a devolução de uma compra interestadual repetir a alíquota creditada (12% de BA→SP, e não 7% de SP→BA). |
 | D6 | **Na entrada interestadual a alíquota segue o sentido da mercadoria:** origem = UF do fornecedor, destino = UF da filial. Os parâmetros do motor passam a se chamar `OriginState`/`DestinationState`. | A Resolução do Senado olha origem e destino da mercadoria; na compra a mercadoria vem do fornecedor. Os nomes atuais (`BranchState`/`CustomerState`) induziriam ao erro. A CEAGUI só tem operação interna hoje: nada muda nos números reais. |
-| D7 | **NF-e referenciada (nota do produtor):** campo opcional no cabeçalho, `ReferencedAccessKey` (44 dígitos, dígito verificador conferido), que vai no `ide/NFref/refNFe` da entrada. | 18 das 23 notas reais referenciam a NF-e do produtor. Nota de produtor em papel (`refNFP`, modelo 04) fica fora: as 3 notas reais sem chave citam a nota no `infCpl`, que continua livre. |
+| D7 | ~~**NF-e referenciada (nota do produtor):**~~ **Revogada em 05/10 (§16).** campo opcional no cabeçalho, `ReferencedAccessKey` (44 dígitos, dígito verificador conferido), que vai no `ide/NFref/refNFe` da entrada. | 18 das 23 notas reais referenciam a NF-e do produtor. Nota de produtor em papel (`refNFP`, modelo 04) fica fora: as 3 notas reais sem chave citam a nota no `infCpl`, que continua livre. |
 | D8 | **Pagamento:** o Documento de Entrada ganha `PaymentConditionCode` (padrão = a do fornecedor), obrigatório para emitir a entrada (`cobr` + `pag` pelo `PaymentInstallmentCalculator` do 2a). A devolução de compra sai com `tPag 90`, `vPag 0`, sem `cobr` (rejeição 871). | Mesmo modelo da venda; as notas reais de compra levam duplicata. |
 | D9 | **Numeração:** mesma série e sequência da filial que a venda (`NfeNumberReservationService`). | A numeração da NF-e modelo 55 é por emitente e série, para entrada e saída. É o que a CEAGUI faz hoje. |
 | D10 | **A filial passa a ser gravada no Documento de Entrada** (`BranchCode`, que existia e nunca era enviado), com padrão = filial da sessão, editável enquanto Pendente e travada depois da emissão. | Sem filial não há regra ativa, emitente nem numeração. Documento antigo sem filial continua como está (só o de Emissão Própria precisa dela para emitir). |
@@ -58,7 +58,7 @@ copiar. As devoluções do snapshot (CFOP 1202) são devoluções de **venda**, 
 | D13 | **Arquitetura: um pipeline de NF-e, dois documentos.** O 2a é generalizado por duas interfaces (`INfeDocument` no cabeçalho, `INfeTaxedLine` na linha) e por classes base de emissão, consulta e tratamento de retorno. Os serviços do documento de saída mantêm nome, construtor e comportamento; os do de entrada são subclasses finas. | A lógica sensível do 2a (reservar e salvar antes de assinar, "Em processamento" gravado antes do envio, 539, duplicidade por digest, confirmação depois de salvar a autorização) não pode existir em duas cópias. |
 | D14 | `NfePurpose { Sale, Return }` vira **`{ Normal, Return }`** (`finNFe`), e nasce **`NfeDirection { Outgoing, Incoming }`** (`tpNF`). Hoje `Return` implica `tpNF 0`; com a devolução de compra (`tpNF 1`, `finNFe 4`) os dois eixos se separam. | Uma entrada de compra não é "Sale"; e as quatro combinações agora existem. |
 | D15 | **`indFinal = 1` só na saída (`tpNF 1`) para destinatário não contribuinte.** | A regra 696 da SEFAZ vale para a saída. Na entrada o destinatário é o vendedor, nunca consumidor final. Única mudança de comportamento para o já existente: a devolução de venda (entrada) para cliente não contribuinte passa a sair com `indFinal 0` — não há nenhuma em produção. |
-| D16 | **Sem campos de volume no Documento de Entrada**; os pesos (que já existem) são obrigatórios para emitir, com bruto ≥ líquido. | As notas reais levam pesos. Quantidade/espécie/marca de volume entraram na venda a pedido; na entrada não houve pedido (YAGNI). |
+| D16 | ~~**Sem campos de volume no Documento de Entrada**~~ **Revogada em 05/10 (§16)**; os pesos (que já existem) são obrigatórios para emitir, com bruto ≥ líquido. | As notas reais levam pesos. Quantidade/espécie/marca de volume entraram na venda a pedido; na entrada não houve pedido (YAGNI). |
 | D17 | **Documento de terceiro e "Devolução do cliente" ficam exatamente como hoje**: sem cálculo, sem guarda nova, sem campo novo obrigatório. | Isolamento: a camada fiscal da entrada de terceiro (escrituração) é outro trabalho. |
 | D18 | **Efeito no contrato de compra fica fora** (o SP1 §3 cita "efeito da natureza de entrada em contrato de compra"). | É a Fase 3 do Documento de Entrada; hoje a amarração ao contrato é só referência, por decisão de 07/08. |
 
@@ -359,7 +359,8 @@ aumento sobre a base (920); QUnit verde.
   na "devolução de saída que referencia nota de saída" (a entrada própria tem `tpNF 0`), com entrada em homologação
   em 05/10/2026 e em produção em 03/11/2026 — a SP ainda rodava a redação antiga. O XML não mudou; reemitir a devolução
   (série 9 nº 6, número reservado). Se a SEFAZ continuar rejeitando depois da correção, a devolução de entrada própria
-  terá de referenciar a NF-e do produtor (`ReferencedAccessKey`), o que exige o `nItem` daquela nota.
+  terá de referenciar a NF-e do produtor, o que exige guardar as notas referenciadas da entrada (1:N, §16) e o
+  `nItem` de cada uma.
 - **À vista sem `cobr` (rejeição 853):** com condição à vista (`indPag 0`) o montador não manda `cobr`; achado na
   emissão da entrada em homologação e corrigido no montador comum (vale também para a venda).
 - **Produtor não contribuinte com IE:** o EfisCloud manda IE com indicador 9; o Siagro só manda IE com indicador 1
@@ -370,3 +371,19 @@ aumento sobre a base (920); QUnit verde.
 Devolução de documento de terceiro (ler a tributação e o `nItem` do XML do fornecedor); nota de produtor em papel
 (`refNFP`); Funrural calculado; efeito da entrada no contrato de compra (Fase 3); 2b (cancelamento, CC-e,
 inutilização) para os dois documentos.
+
+## 16. Revisão de 05/10/2026 (pedido do usuário depois da verificação)
+
+- **D7 revogada — sai a NF-e referenciada única.** O `NFref` é 1:N no leiaute (até 500), e um campo único no
+  cabeçalho modelava errado. Saem `ReferencedAccessKey` (migration `AddPurchaseInvoiceVolume` derruba a coluna),
+  a conferência da chave e o campo da tela. A entrada própria sai sem `NFref`; `NfeIssueInput.ReferencedKeys`
+  continua na biblioteca fiscal. Se as notas do produtor voltarem, entram como tabela filha (1:N).
+- **D16 revogada — volume no Documento de Entrada**, igual à saída: `VolumeQuantity`, `VolumeSpecies`,
+  `VolumeBrand`, `VolumeNumbering` (opcionais), no grupo `vol` do XML da entrada própria e da devolução, travados
+  com a NF-e autorizada; a devolução de compra os copia da entrada (como a de venda).
+- **Formulário com o desenho da saída:** três colunas no XL; seções Dados do Documento de Entrada, Transporte
+  (com pesos e volume, só no modo NF-e), Dados da NF-e, Informações Complementares e Outras Informações.
+- **Correções achadas no uso:** o rascunho abria com a grade vazia e o primeiro "Incluir Item" mostrava duas
+  linhas (a linha aninhada no `create()` do cabeçalho não aparecia na tabela) — as linhas do rascunho passam a
+  entrar pelo binding da tabela; o value help de unidade só listava `Locked = 'N'` e as unidades importadas da
+  CEAGUI têm `Locked` nulo — o filtro passa a aceitar nulo e a criação de unidade grava `'N'`.
