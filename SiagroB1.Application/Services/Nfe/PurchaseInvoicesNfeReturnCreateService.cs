@@ -15,9 +15,11 @@ public sealed record PurchaseInvoiceNfeReturnRequest(
     Guid PurchaseInvoiceKey, IReadOnlyList<PurchaseInvoiceNfeReturnItem> Items, string Reason);
 
 /// <summary>
-/// "Devolver" do Documento de Entrada (spec §9.2): a partir de uma entrada própria autorizada pelo Siagro **ou de uma entrada de terceiro confirmada (NF-e do fornecedor, spec terceiro §8)**, cria a
-/// devolução de compra Pendente que sai com NF-e PRÓPRIA de saída (finalidade 4). Não confirma (quem confirma é a
-/// emissão) e não mexe na entrada de origem: o saldo devolvível é calculado das devoluções (D12).
+/// "Devolver" do Documento de Entrada (spec §9.2): a partir de uma entrada própria autorizada pelo Siagro ou de uma
+/// entrada de terceiro confirmada (NF-e do fornecedor, spec terceiro §8), cria a devolução de compra Pendente que sai
+/// com NF-e PRÓPRIA de saída (finalidade 4). Não confirma (quem confirma é a emissão). A única escrita na entrada de
+/// origem é o número do item do fornecedor digitado no diálogo (spec terceiro D6); o saldo devolvível é calculado das
+/// devoluções (D12).
 /// </summary>
 public class PurchaseInvoicesNfeReturnCreateService(
     IUnitOfWork db,
@@ -120,7 +122,7 @@ public class PurchaseInvoicesNfeReturnCreateService(
         if (origin.IssuerType == DocumentIssuerType.ThirdParty)
         {
             if (origin.InvoiceType != PurchaseInvoiceType.Normal || origin.InvoiceStatus != InvoiceStatus.Confirmed ||
-                origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsDigit))
+                origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsAsciiDigit))
                 throw new DefaultException(
                     "A devolução de entrada de terceiro parte de um documento Normal, confirmado e com a chave da NF-e do fornecedor (44 dígitos).");
 

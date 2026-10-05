@@ -29,8 +29,7 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
 
     /// <summary>
     /// Assíncrono na assinatura, síncrono na execução: a leitura é toda em memória, e o
-    /// <c>Task.FromResult</c> evita o aviso de método async sem await. A Fase 2 vai precisar de
-    /// consulta ao cadastro de naturezas, e aí o await passa a existir de verdade.
+    /// <c>Task.FromResult</c> evita o aviso de método async sem await.
     /// </summary>
     public Task<PurchaseInvoiceDraftDto> ExecuteAsync(byte[] xmlData, string fileName)
     {

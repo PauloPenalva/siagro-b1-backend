@@ -274,7 +274,7 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         // Entrada de terceiro: a NF-e é do fornecedor (o NfeStatus fica None para sempre); basta a chave dele.
         var thirdParty = origin.IssuerType == DocumentIssuerType.ThirdParty;
 
-        if (thirdParty ? origin.ChaveNFe is not { Length: 44 } : origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
+        if (thirdParty ? origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsAsciiDigit) : origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
         {
             problems.Add(thirdParty
                 ? $"Entrada de origem {origin.TaxDocumentNumber}: sem a chave da NF-e do fornecedor"

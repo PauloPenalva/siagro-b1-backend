@@ -90,6 +90,19 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     /// enquanto a chave está ligada (não só na virada), para ninguém apagar o CRT depois.
     /// Só em STANDALONE: em SAPB1 a chave nem aparece na tela.
     /// </summary>
+    private void ValidateNfeIssuance(Branch entity)
+    {
+        if (!entity.IssuesNfe || !ErpMode.IsStandalone(configuration))
+            return;
+
+        if (entity.TaxRegime is null || string.IsNullOrWhiteSpace(entity.StateCode))
+            throw new DefaultException(
+                "Para emitir NF-e pelo Siagro, informe o regime tributário e a UF da filial.");
+    }
+
+    /// <summary>
+    /// Natureza de devolução de compra de terceiro: precisa ser de Saída e ativa.
+    /// </summary>
     private async Task ValidateThirdPartyReturnUsageAsync(Branch entity)
     {
         if (entity.ThirdPartyPurchaseReturnUsageCode is not { } code)
@@ -99,16 +112,6 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
 
         if (usage is null || usage.Inactive || usage.Direction != UsageDirection.Outgoing)
             throw new DefaultException("A natureza de devolução de compra de terceiro precisa ser de Saída e ativa.");
-    }
-
-    private void ValidateNfeIssuance(Branch entity)
-    {
-        if (!entity.IssuesNfe || !ErpMode.IsStandalone(configuration))
-            return;
-
-        if (entity.TaxRegime is null || string.IsNullOrWhiteSpace(entity.StateCode))
-            throw new DefaultException(
-                "Para emitir NF-e pelo Siagro, informe o regime tributário e a UF da filial.");
     }
 
     /// <summary>

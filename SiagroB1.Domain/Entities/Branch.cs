@@ -49,6 +49,7 @@ namespace SiagroB1.Domain.Entities
         /// de uma entrada de terceiro. De Saída e ativa. Sem FK, como as demais referências a natureza.
         /// </summary>
         public int? ThirdPartyPurchaseReturnUsageCode { get; set; }
+
         // --- Emitente da NF-e STANDALONE (ocultos e não validados em SAPB1). ---
 
         /// <summary>Razão social do emitente (<c>emit/xNome</c>). O <see cref="BranchName"/> é rótulo interno.</summary>
