@@ -37,7 +37,7 @@ public class SalesInvoicesUpdateService(
 
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
-            existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
+            existingEntity.CardName = (await businessPartnerService.GetByIdAsync(existingEntity.CardCode))?.CardName;
             existingEntity.TruckingCompanyName =
                 entity.TruckingCompanyCode != null
                     ? (await businessPartnerService.GetByIdAsync(entity.TruckingCompanyCode))?.CardName

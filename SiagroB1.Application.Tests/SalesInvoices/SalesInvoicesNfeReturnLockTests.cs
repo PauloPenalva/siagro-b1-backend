@@ -65,6 +65,22 @@ public class SalesInvoicesNfeReturnLockTests
         var saved = await s.Sale.Db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == created.Key);
         Assert.Equal(NfeTestSeed.CardCode, saved.CardCode);
         Assert.Equal("01", saved.BranchCode);
+        Assert.Equal("CLIENTE BA LTDA", saved.CardName);
+    }
+
+    [Fact]
+    public async Task Own_return_put_with_another_customer_keeps_customer_code_and_name()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var put = (SalesInvoice)s.Sale.Db.Context.Entry(created).CurrentValues.ToObject();
+        put.CardCode = "C2";
+
+        await HeaderUpdate(s.Sale.Db).ExecuteAsync(created.Key, put, "tester");
+
+        var saved = await s.Sale.Db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == created.Key);
+        Assert.Equal(NfeTestSeed.CardCode, saved.CardCode);
+        Assert.Equal("CLIENTE BA LTDA", saved.CardName);
     }
 
     [Fact]
