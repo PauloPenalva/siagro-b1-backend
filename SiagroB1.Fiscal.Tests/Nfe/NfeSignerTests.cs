@@ -93,7 +93,7 @@ public class NfeSignerTests
 
         Assert.Contains("<tpNF>0</tpNF>", signed.Xml);
         Assert.Contains("<finNFe>4</finNFe>", signed.Xml);
-        Assert.Contains($"<NFref><refNFe>{NfeTestData.SaleAccessKey}</refNFe></NFref>", signed.Xml);
+        Assert.DoesNotContain("<NFref>", signed.Xml);
         Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeTestData.SaleAccessKey}</chaveAcesso><nItem>1</nItem></DFeReferenciado>", signed.Xml);
         Assert.Contains("<tPag>90</tPag>", signed.Xml);
         Assert.DoesNotContain("<cobr>", signed.Xml);

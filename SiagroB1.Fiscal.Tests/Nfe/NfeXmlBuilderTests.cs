@@ -457,13 +457,26 @@ public class NfeXmlBuilderTests
     }
 
     [Fact]
-    public void Return_note_is_an_incoming_return_with_the_sale_referenced()
+    public void Return_note_is_an_incoming_return_referenced_only_at_item_level()
     {
         var nfe = Build(NfeTestData.ReturnInput());
 
         Assert.Equal(TipoNFe.tnEntrada, nfe.infNFe.ide.tpNF);
         Assert.Equal(FinalidadeNFe.fnDevolucao, nfe.infNFe.ide.finNFe);
+        // Rejeição 1010: a referência vai num nível só; com DFeReferenciado no item, sem NFref no cabeçalho.
+        Assert.Null(nfe.infNFe.ide.NFref);
+        var reference = Assert.Single(nfe.infNFe.det).DFeReferenciado;
+        Assert.Equal(NfeTestData.SaleAccessKey, reference.chaveAcesso);
+        Assert.Equal(1, reference.nItem);
+    }
+
+    [Fact]
+    public void Referenced_keys_without_item_references_still_emit_the_header_NFref()
+    {
+        var nfe = Build(NfeTestData.Input() with { ReferencedKeys = [NfeTestData.SaleAccessKey] });
+
         Assert.Equal(NfeTestData.SaleAccessKey, Assert.Single(nfe.infNFe.ide.NFref).refNFe);
+        Assert.Null(Assert.Single(nfe.infNFe.det).DFeReferenciado);
     }
 
     [Fact]

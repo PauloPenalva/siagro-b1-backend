@@ -42,7 +42,7 @@ public class SalesInvoicesNfeReturnIssueTests
         var xml = await SignedXmlAsync(s.Sale, created.Key);
         Assert.Contains("<tpNF>0</tpNF>", xml);
         Assert.Contains("<finNFe>4</finNFe>", xml);
-        Assert.Contains($"<refNFe>{NfeReturnTestSeed.SaleAccessKey}</refNFe>", xml);
+        Assert.DoesNotContain("<NFref>", xml);
         Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeReturnTestSeed.SaleAccessKey}</chaveAcesso><nItem>1</nItem></DFeReferenciado>", xml);
         Assert.Contains("<CFOP>2202</CFOP>", xml);
         Assert.Contains("<tPag>90</tPag>", xml);

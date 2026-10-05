@@ -116,7 +116,9 @@ public static class NfeXmlBuilder
         indIntermed = IndicadorIntermediador.iiSemIntermediador,
         procEmi = ProcessoEmissao.peAplicativoContribuinte,
         verProc = Truncate(input.ApplicationVersion, 20),
-        NFref = input.ReferencedKeys.Count == 0
+        // Rejeição 1010: a referência vai num nível só. Com DFeReferenciado nos itens (VC02-14),
+        // o cabeçalho fica sem NFref.
+        NFref = input.ReferencedKeys.Count == 0 || input.Items.Any(item => item.Reference is not null)
             ? null
             : input.ReferencedKeys.Select(key => new NFref { refNFe = key }).ToList(),
     };

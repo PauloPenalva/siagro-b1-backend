@@ -40,6 +40,10 @@ em **produção a partir de 03/11/2026**. O XSD do repositório (`SiagroB1.Fisca
 linha 5294) e a Zeus `2026.9.24.1416` (`NFe.Classes`) já têm o grupo. As devoluções do EfisCloud de setembro
 não o levam (eram anteriores à data de produção).
 
+**A referência vai num nível só:** a devolução carrega a referência **apenas no item** (`DFeReferenciado`) e
+**não leva `NFref` no cabeçalho** — a SEFAZ rejeita os dois níveis juntos (rejeição **1010**, "NF-e com
+referenciamento de documento a nível de nota e a nível de item", vista em homologação em 04/10/2026).
+
 Outras regras da SEFAZ que o desenho respeita: rejeição **871** (`finNFe` 3 ou 4 exige `tPag 90` com `vPag 0`)
 e rejeição **321** (devolução sem documento referenciado).
 
@@ -52,7 +56,7 @@ e rejeição **321** (devolução sem documento referenciado).
 | D3 | **Natureza de devolução vinculada à natureza de venda.** A natureza de saída ganha o campo "Natureza de devolução" (ex.: 2 VENDA SUSPENSÃO → 5 ENTRADA DEVOLUÇÃO); cada linha da devolução herda sozinha a natureza certa. Sem vínculo, a devolução é recusada com mensagem. |
 | D4 | **Impostos: abordagem A — calcular e conferir.** A linha da devolução passa pelo mesmo motor da venda com a natureza de entrada; IBS/CBS pelas alíquotas da **data da venda**; uma conferência recusa a devolução se o resultado não reproduzir a tributação da linha vendida. (Rejeitada: B — copiar o imposto da venda proporcionalmente; segundo caminho de cálculo e arredondamento na parcial.) |
 | D5 | **Fluxo (parte 1 aprovada):** "Devolver" no detalhe da venda → devolução **Pendente** → "Emitir NF-e" → autorizada ⇒ confirma. Mesma regra do 2a: na filial que emite NF-e, a devolução não confirma sem NF-e. |
-| D6 | **XML (parte 2 aprovada):** `tpNF 0`, `finNFe 4`, `NFref/refNFe`, `DFeReferenciado` por item, `tPag 90`, sem `cobr`; o `nItem` da venda passa a ser gravado na emissão. |
+| D6 | **XML (parte 2 aprovada):** `tpNF 0`, `finNFe 4`, `DFeReferenciado` por item (referência só no item, sem `NFref` — rejeição 1010), `tPag 90`, sem `cobr`; o `nItem` da venda passa a ser gravado na emissão. |
 | D7 | **Telas, testes e verificação (parte 3 aprovada)**, incluindo a emissão em homologação pela tela com dado real, só com pedido explícito do usuário na hora. |
 
 ## 3. Escopo
@@ -175,7 +179,7 @@ Hoje o montador numera as linhas na ordem em que o EF as devolve (`NfeIssueInput
 |---|---|---|
 | `ide/tpNF` | 1 | **0** |
 | `ide/finNFe` | 1 | **4** |
-| `ide/NFref` | — | `refNFe` = chave da venda |
+| `ide/NFref` | — | **ausente** — a referência vai só no item (`DFeReferenciado`); a SEFAZ rejeita nota + item juntos (rejeição 1010, homologação 04/10/2026) |
 | `ide/natOp` | texto da natureza da 1ª linha | idem (é a natureza de devolução) |
 | `det/prod/CFOP` | 5xxx/6xxx | **1xxx/2xxx** (da natureza de entrada) |
 | `det/DFeReferenciado` | — | `chaveAcesso` = chave da venda, `nItem` = `NfeItemNumber` da linha vendida |
@@ -252,7 +256,7 @@ Uma, aditiva, no `AppDbContext` (`AddSalesReturnNfe`): `USAGES.ReturnUsageCode` 
 TDD com RED visto antes do GREEN.
 
 **`SiagroB1.Fiscal.Tests`:**
-- `NfeXmlBuilder`, devolução: `tpNF 0`, `finNFe 4`, `NFref/refNFe`, `DFeReferenciado` em cada item com a chave
+- `NfeXmlBuilder`, devolução: `tpNF 0`, `finNFe 4`, sem `NFref` no cabeçalho, `DFeReferenciado` em cada item com a chave
   e o `nItem`, CFOP 1202, `tPag 90` / `vPag 0`, sem `cobr`, texto de referência no `infCpl`;
 - a venda continua idêntica (sem `NFref`, sem `DFeReferenciado`, `tpNF 1`, `finNFe 1`);
 - `NfeSigner`: a devolução valida no XSD oficial.
