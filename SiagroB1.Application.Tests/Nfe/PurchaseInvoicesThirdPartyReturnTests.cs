@@ -279,6 +279,29 @@ public class PurchaseInvoicesThirdPartyReturnTests
     }
 
     [Fact]
+    public async Task Typed_entry_calculated_by_the_engine_is_conferred_and_mirrored()
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync(withXml: false);
+        var context = scenario.Db.Context;
+        var usage = await PurchaseNfeTestSeed.PurchaseUsageCodeAsync(scenario.Db);
+        var stored = await context.PurchaseInvoices.Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);
+        stored.InvoiceStatus = InvoiceStatus.Pending;
+        foreach (var item in stored.Items)
+            item.UsageCode = usage;
+        await TaxTestServices.PurchaseApply(scenario.Db, PurchaseNfeTestSeed.Partners()).ApplyAsync(stored, stored.Items);
+        stored.InvoiceStatus = InvoiceStatus.Confirmed;
+        await scenario.Db.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        origin = await context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);
+        Assert.Equal("51", origin.Items.Single(i => i.ItemCode == "TRIGO").CstIcms);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 100m, 1)), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal(("5202", "51", 100m), (line.Cfop, line.CstIcms, line.IcmsDeferral));
+    }
+
+    [Fact]
     public async Task Third_party_return_from_a_supplier_out_of_state_is_issued_with_cfop_6202()
     {
         var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
@@ -292,7 +315,7 @@ public class PurchaseInvoicesThirdPartyReturnTests
         stored.XmlData = SupplierNfeXml.Bytes(SupplierNfeXml.Build(
             SupplierNfeXml.Det(1, "TRIGO", "TRIGO EM GRAOS", 1000m, 1.5m, SupplierNfeXml.Icms00(1500m, 12m), cfop: "6102", benefitCode: null),
             SupplierNfeXml.Det(2, "MILHO", "MILHO EM GRAOS", 500m, 1m, SupplierNfeXml.Icms00(500m, 12m), cfop: "6102", benefitCode: null)));
-        PurchaseInvoiceSupplierTaxes.Apply(stored, stored.Items);
+        LegacySupplierSnapshot.Apply(stored);
         await scenario.Db.SaveChangesAsync();
         context.ChangeTracker.Clear();
         origin = await context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);

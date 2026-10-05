@@ -28,21 +28,19 @@ public class PurchaseInvoicesItemsCreateService(
 
         PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
 
-        // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem e sem fotografia.
+        // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem (informado no "Devolver").
+        // A tributação vem da natureza, como em toda linha do terceiro Normal.
         // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela a linha grava como veio.
         if (invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal &&
             await taxApply.IsBranchActiveAsync(invoice.BranchCode))
-        {
             item.NfeItemNumber = null;
-            PurchaseInvoiceSupplierTaxes.Clear(item);
-        }
 
         // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard.
         if (item.PurchaseContractKey is not null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
 
-        // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
+        // Tributos pela natureza (no-op com a regra inativa, devolução do cliente ou documento confirmado).
         await taxApply.ApplyAsync(invoice, [item]);
 
         await db.Context.PurchaseInvoicesItems.AddAsync(item);

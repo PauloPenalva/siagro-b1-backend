@@ -15,6 +15,16 @@ public static class PurchaseNfeTestSeed
 {
     public const string Supplier = "F-SP";
 
+    /// <summary>O fornecedor F-SP como o cadastro o vê: nome, UF (SP) e CPF — o CPF é o que a chave de acesso traz.</summary>
+    public static FakeBusinessPartnerService Partners() => new(
+        names: new Dictionary<string, string> { [Supplier] = "PRODUTOR RURAL TESTE" },
+        states: new Dictionary<string, string> { [Supplier] = "SP" },
+        taxIds: new Dictionary<string, string> { [Supplier] = "52998224725" });
+
+    /// <summary>Código da natureza de Entrada "COMPRA DE MERCADORIA" semeada.</summary>
+    public static Task<int> PurchaseUsageCodeAsync(UnitOfWork db) =>
+        db.Context.Usages.Where(u => u.Name == "COMPRA DE MERCADORIA").Select(u => u.Code).SingleAsync();
+
     public static async Task<PurchaseNfeScenario> SeedAsync(bool twoItems = false)
     {
         var sale = await NfeTestSeed.SeedAsync();

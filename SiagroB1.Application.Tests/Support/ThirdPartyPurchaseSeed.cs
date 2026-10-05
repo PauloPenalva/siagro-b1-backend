@@ -46,7 +46,8 @@ public static class ThirdPartyPurchaseSeed
             Key = Guid.NewGuid(), ItemCode = "MILHO", ItemName = "MILHO EM GRAOS", UnitOfMeasureCode = "KG", Quantity = 500m,
             UnitPrice = 1m, NfeItemNumber = withXml ? 2 : null,
         });
-        PurchaseInvoiceSupplierTaxes.Apply(origin, origin.Items);
+        if (withXml)
+            LegacySupplierSnapshot.Apply(origin);
 
         context.PurchaseInvoices.Add(origin);
         await scenario.Db.SaveChangesAsync();
