@@ -108,7 +108,8 @@ public class PurchaseInvoiceContractLinkTests
             new FakeBusinessPartnerService(
                 names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(
-                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }));
+                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
+            TaxTestServices.InactivePurchaseApply(_db));
 
     [Fact]
     public async Task Contract_of_another_supplier_is_refused()
@@ -209,7 +210,8 @@ public class PurchaseInvoiceContractLinkTests
                 ["F0002"] = "OUTRO PARCEIRO",
             }),
             new FakeItemService(
-                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }));
+                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
+            TaxTestServices.InactivePurchaseApply(_db));
 
         await Assert.ThrowsAsync<DefaultException>(
             () => updateService.ExecuteAsync(invoice.Key, incoming, "tester"));

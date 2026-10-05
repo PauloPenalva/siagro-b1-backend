@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
 
 namespace SiagroB1.Domain.Entities;
@@ -18,7 +19,7 @@ namespace SiagroB1.Domain.Entities;
 /// natureza de operação de cada linha.
 /// </summary>
 [Table("PURCHASE_INVOICES")]
-public class PurchaseInvoice : DocumentEntity
+public class PurchaseInvoice : DocumentEntity, INfeDocument
 {
     public PurchaseInvoiceType InvoiceType { get; set; } = PurchaseInvoiceType.Normal;
 
@@ -93,6 +94,21 @@ public class PurchaseInvoice : DocumentEntity
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal NetWeight { get; set; }
 
+    /// <summary>Volume da NF-e (grupo vol): quantidade de volumes — opcional, informado no documento.</summary>
+    public int? VolumeQuantity { get; set; }
+
+    /// <summary>Espécie dos volumes (GRANEL, SACO, BAG, CAIXA...) — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeSpecies { get; set; }
+
+    /// <summary>Marca dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeBrand { get; set; }
+
+    /// <summary>Numeração dos volumes — opcional.</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? VolumeNumbering { get; set; }
+
     [Column(TypeName = "VARCHAR(10)")]
     public string? TruckCode { get; set; }
 
@@ -103,6 +119,40 @@ public class PurchaseInvoice : DocumentEntity
     public string? TruckingCompanyName { get; set; }
 
     public FreightTerms FreightTerms { get; set; }
+
+    /// <summary>Condição de pagamento (NF-e STANDALONE): vira cobr/dup e pag na entrada própria. Sem FK, como na saída.</summary>
+    public int? PaymentConditionCode { get; set; }
+
+    /// <summary>
+    /// Devolução de compra criada pelo "Devolver" a partir de uma entrada própria autorizada: sai com NF-e
+    /// PRÓPRIA de saída (finalidade 4). Só <c>PurchaseInvoicesNfeReturnCreateService</c> grava <c>true</c>.
+    /// </summary>
+    public bool IsNfeReturn { get; set; }
+
+    // --- NF-e (mesmas colunas do documento de saída, spec 2a §9.1) ---
+    public NfeStatus NfeStatus { get; set; } = NfeStatus.None;
+
+    public NfeEnvironment? NfeEnvironment { get; set; }
+
+    [Column(TypeName = "VARCHAR(8)")]
+    public string? NfeRandomCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? NfeProtocol { get; set; }
+
+    public DateTime? NfeAuthorizedAt { get; set; }
+
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? NfeStatusCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeStatusReason { get; set; }
+
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeConfirmationError { get; set; }
+
+    /// <summary>O status desta entidade não é anulável; a interface comum o lê como na saída.</summary>
+    InvoiceStatus? INfeDocument.InvoiceStatus => InvoiceStatus;
 
     /// <summary>
     /// Documento de origem. É como a NF de REMESSA aponta a NF de venda futura que a antecipou —
@@ -132,6 +182,12 @@ public class PurchaseInvoice : DocumentEntity
 
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);
+
+    [NotMapped]
+    public decimal TotalInvoiceTaxes => Items.Sum(i => i.TotalTaxes);
+
+    [NotMapped]
+    public decimal TotalInvoiceIbsCbs => Items.Sum(i => i.TotalIbsCbs);
 
     public void AddItem(PurchaseInvoiceItem item)
     {

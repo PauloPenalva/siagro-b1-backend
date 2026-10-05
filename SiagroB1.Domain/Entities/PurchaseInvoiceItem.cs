@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Domain.Entities;
 
@@ -10,12 +11,13 @@ namespace SiagroB1.Domain.Entities;
 /// <see cref="SalesInvoiceItem"/>: o código vem do emitente e pode não existir no cadastro local —
 /// quem vale para a conferência é a linha de origem.
 ///
-/// Os campos fiscais (natureza de operação, CFOP, NCM, CST, impostos) chegam na Fase 2, e as
-/// amarrações a contrato de compra e a romaneio na Fase 3, junto com o value help e a coluna de
-/// divergência que as consomem.
+/// Os campos fiscais (natureza de operação, CFOP, NCM, CST, impostos e a fotografia do cálculo)
+/// existem e só são preenchidos pelo cálculo da emissão própria (modo NF-e); documento de terceiro
+/// os deixa vazios. As amarrações a contrato de compra e a romaneio chegam na Fase 3, junto com o
+/// value help e a coluna de divergência que as consomem.
 /// </summary>
 [Table("PURCHASE_INVOICES_ITEMS")]
-public class PurchaseInvoiceItem
+public class PurchaseInvoiceItem : INfeTaxedLine
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -67,6 +69,126 @@ public class PurchaseInvoiceItem
     /// <summary>Linha de remessa apontando a linha da NF de venda futura que a antecipou.</summary>
     public Guid? PurchaseInvoiceItemOriginKey { get; set; }
     public virtual PurchaseInvoiceItem? PurchaseInvoiceItemOrigin { get; set; }
+
+    /// <summary>
+    /// Natureza de operação da LINHA (<c>Usage</c>), como no SAP: cada item tem a sua,
+    /// resolve o próprio CFOP e produz o próprio efeito no contrato. Um documento pode
+    /// misturar naturezas.
+    ///
+    /// Gravada SEM chave estrangeira, como o restante do cadastro dual-mode: em modo SAPB1 a
+    /// tabela local fica vazia e uma FK obrigatória viraria INNER JOIN, zerando a coleção
+    /// inteira. A validação é no serviço.
+    ///
+    /// Nulável: só a entrada própria em filial que emite NF-e e a devolução de compra exigem a
+    /// natureza (validado no cálculo dos tributos); documento de terceiro e o legado ficam sem ela.
+    /// </summary>
+    public int? UsageCode { get; set; }
+
+    /// <summary>
+    /// Nome da natureza, desnormalizado como <see cref="ItemName"/> — é o que a grade e os
+    /// relatórios mostram sem depender do cadastro (que em SAPB1 nem é local). Quem manda é
+    /// o servidor: o serviço de criação sobrescreve com o nome da natureza resolvida.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? UsageName { get; set; }
+
+    /// <summary>
+    /// CFOP resolvido da natureza de operação no momento da GRAVAÇÃO e congelado como
+    /// histórico: se o cadastro da natureza mudar depois, o documento já emitido não pode
+    /// mudar junto. Ver <c>SalesInvoicesCfopResolveService</c>.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? Cfop { get; set; }
+
+    [Column(TypeName = "VARCHAR(8)")]
+    public string? Ncm { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstIcms { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal IcmsBase { get; set; }
+
+    /// <summary>Percentual, como na NF-e: 18% = 18,0000.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal IcmsRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal IcmsValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstPis { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal PisBase { get; set; }
+
+    /// <summary>Percentual, como na NF-e: 1,65% = 1,6500.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal PisRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal PisValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CstCofins { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal CofinsBase { get; set; }
+
+    /// <summary>Percentual, como na NF-e: 7,6% = 7,6000.</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal CofinsRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal CofinsValue { get; set; }
+
+    // --- Fotografia do cálculo de tributos da NF-e STANDALONE (só com a regra ativa). ---
+
+    /// <summary>Origem da mercadoria copiada do produto na gravação.</summary>
+    [Column(TypeName = "TINYINT")]
+    public byte? GoodsOrigin { get; set; }
+
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IcmsBaseReduction { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IcmsDeferral { get; set; }
+
+    /// <summary>ICMS da operação (vICMSOp) — só no CST 51.</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IcmsOperationValue { get; set; }
+
+    /// <summary>ICMS diferido (vICMSDif) — só no CST 51.</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IcmsDeferredValue { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")] public string? IcmsBenefitCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(3)")] public string? IbsCbsCst { get; set; }
+    [Column(TypeName = "VARCHAR(6)")] public string? IbsCbsClassCode { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsCbsBase { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal CbsRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal CbsRateReduction { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal CbsValue { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsStateRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsMunicipalRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")] public decimal IbsRateReduction { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsStateValue { get; set; }
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")] public decimal IbsMunicipalValue { get; set; }
+
+    /// <summary>Cópia das flags da natureza na gravação — sem efeito por ora (spec D14).</summary>
+    public bool MovesFiscalInventory { get; set; }
+
+    /// <summary>Cópia das flags da natureza na gravação — sem efeito por ora (spec D14).</summary>
+    public bool CreatesFinancialDocument { get; set; }
+
+    /// <summary>
+    /// <c>det/@nItem</c> com que a linha saiu na NF-e. Gravado na emissão: a NF-e de devolução
+    /// referencia o item da venda por este número (<c>DFeReferenciado</c>, regra VC02-14).
+    /// </summary>
+    public int? NfeItemNumber { get; set; }
+
+    /// <summary>ICMS + PIS + COFINS da fotografia (o IBS/CBS de 2026 é informativo e fica fora).</summary>
+    [NotMapped]
+    public decimal TotalTaxes => IcmsValue + PisValue + CofinsValue;
+
+    [NotMapped]
+    public decimal TotalIbsCbs => CbsValue + IbsStateValue + IbsMunicipalValue;
 
     [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);

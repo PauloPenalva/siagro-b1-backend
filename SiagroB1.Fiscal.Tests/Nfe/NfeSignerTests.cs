@@ -3,6 +3,7 @@ using DFe.Utils;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Fiscal.Certificates;
 using SiagroB1.Fiscal.Nfe;
+using SiagroB1.Fiscal.Payments;
 using SiagroB1.Fiscal.Tests.Support;
 
 namespace SiagroB1.Fiscal.Tests.Nfe;
@@ -27,6 +28,21 @@ public class NfeSignerTests
 
         Assert.Contains("<Signature", signed.Xml);
         Assert.Contains("NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", signed.Xml);
+    }
+
+    [Fact]
+    public void Cash_payment_without_billing_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+        var input = NfeTestData.Input() with
+        {
+            Payment = PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "99", 60000m, DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var signed = NfeSigner.BuildSignAndValidate(input, Settings(certificate));
+
+        Assert.Contains("<Signature", signed.Xml);
+        Assert.DoesNotContain("<cobr>", signed.Xml);
     }
 
     [Fact]
@@ -97,5 +113,32 @@ public class NfeSignerTests
         Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeTestData.SaleAccessKey}</chaveAcesso><nItem>1</nItem></DFeReferenciado>", signed.Xml);
         Assert.Contains("<tPag>90</tPag>", signed.Xml);
         Assert.DoesNotContain("<cobr>", signed.Xml);
+    }
+
+    [Fact]
+    public void Purchase_entry_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.PurchaseEntryInput(), Settings(certificate));
+
+        Assert.Contains("<tpNF>0</tpNF>", signed.Xml);
+        Assert.Contains("<finNFe>1</finNFe>", signed.Xml);
+        Assert.Contains($"<NFref><refNFe>{NfeTestData.ProducerAccessKey}</refNFe></NFref>", signed.Xml);
+        Assert.Contains("<CPF>52998224725</CPF>", signed.Xml);
+    }
+
+    [Fact]
+    public void Purchase_return_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.PurchaseReturnInput(), Settings(certificate));
+
+        Assert.Contains("<tpNF>1</tpNF>", signed.Xml);
+        Assert.Contains("<finNFe>4</finNFe>", signed.Xml);
+        Assert.DoesNotContain("<NFref>", signed.Xml);
+        Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeTestData.EntryAccessKey}</chaveAcesso><nItem>2</nItem></DFeReferenciado>", signed.Xml);
+        Assert.Contains("<tPag>90</tPag>", signed.Xml);
     }
 }

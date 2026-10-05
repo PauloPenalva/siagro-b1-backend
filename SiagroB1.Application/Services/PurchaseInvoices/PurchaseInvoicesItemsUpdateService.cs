@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -13,7 +14,10 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// A guarda de status é a do documento PAI, e é lida da linha existente e não da entrante: um
 /// PATCH parcial não traz <c>PurchaseInvoiceKey</c>.
 /// </summary>
-public class PurchaseInvoicesItemsUpdateService(IUnitOfWork db, IItemService itemService)
+public class PurchaseInvoicesItemsUpdateService(
+    IUnitOfWork db,
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoiceItem entity, string userName)
     {
@@ -58,6 +62,26 @@ public class PurchaseInvoicesItemsUpdateService(IUnitOfWork db, IItemService ite
         existing.SalesInvoiceItemKey = entity.SalesInvoiceItemKey;
         existing.PurchaseInvoiceItemOriginKey = entity.PurchaseInvoiceItemOriginKey;
         existing.PurchaseContractKey = entity.PurchaseContractKey;
+        existing.UsageCode = entity.UsageCode;
+
+        // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
+        var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
+
+        // Travas da NF-e: devolução de compra só muda a quantidade; emitido/em processamento trava a linha.
+        var entry = db.Context.Entry(existing);
+        if (invoice.IsNfeReturn)
+            PurchaseInvoiceNfeLock.RestoreReturnLine(entry);
+        PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
+
+        if (invoice.IsNfeReturn)
+        {
+            if (existing.Quantity <= 0)
+                throw new DefaultException($"Item {existing.ItemCode}: informe a quantidade a devolver.");
+
+            await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [existing]);
+        }
+
+        await taxApply.ApplyAsync(invoice, [existing]);
 
         await db.SaveChangesAsync();
     }

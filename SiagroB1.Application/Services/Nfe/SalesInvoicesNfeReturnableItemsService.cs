@@ -16,7 +16,7 @@ public class SalesInvoicesNfeReturnableItemsService(IUnitOfWork db)
 
         var returned = await SalesInvoiceNfeReturnBalance.ReturnedByOriginItemAsync(db.Context, key, null);
 
-        return SalesInvoiceNfeItemNumbering.Ordered(origin.Items)
+        return NfeItemNumbering.Ordered(origin.Items)
             .Select(item =>
             {
                 var back = returned.GetValueOrDefault(item.Key!.Value);

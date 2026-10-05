@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
@@ -24,7 +22,7 @@ public class SalesInvoicesCreateNfeReturnController(SalesInvoicesNfeReturnCreate
         var itemKeys = parameters.TryGetValue("OriginItemKeys", out var keysObj) && keysObj is IEnumerable<Guid> keys
             ? keys.ToList()
             : [];
-        var quantities = Quantities(parameters);
+        var quantities = NfeReturnActionParameters.Quantities(parameters);
 
         if (itemKeys.Count == 0)
             return BadRequest("Informe a quantidade a devolver de ao menos um item.");
@@ -56,30 +54,5 @@ public class SalesInvoicesCreateNfeReturnController(SalesInvoicesNfeReturnCreate
         {
             return BadRequest(e.Message);
         }
-    }
-
-    private static List<decimal> Quantities(ODataActionParameters parameters)
-    {
-        if (!parameters.TryGetValue("Quantities", out var value) || value is not IEnumerable sequence)
-            return [];
-
-        var result = new List<decimal>();
-
-        foreach (var item in sequence)
-        {
-            result.Add(item switch
-            {
-                double d => (decimal)d,
-                decimal m => m,
-                int i => i,
-                long l => l,
-                float f => (decimal)f,
-                _ => decimal.TryParse(item?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
-                    ? parsed
-                    : throw new ApplicationException($"Quantidade inválida: {item}"),
-            });
-        }
-
-        return result;
     }
 }

@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Nfe;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -21,7 +22,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public class PurchaseInvoicesUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
-    IItemService itemService)
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoice entity, string userName)
     {
@@ -64,15 +66,44 @@ public class PurchaseInvoicesUpdateService(
         existing.Comments = entity.Comments;
         existing.GrossWeight = entity.GrossWeight;
         existing.NetWeight = entity.NetWeight;
+        existing.VolumeQuantity = entity.VolumeQuantity;
+        existing.VolumeSpecies = entity.VolumeSpecies;
+        existing.VolumeBrand = entity.VolumeBrand;
+        existing.VolumeNumbering = entity.VolumeNumbering;
         existing.TruckCode = entity.TruckCode;
         existing.TruckingCompanyCode = entity.TruckingCompanyCode;
         existing.TruckingCompanyName = entity.TruckingCompanyName;
         existing.FreightTerms = entity.FreightTerms;
+        existing.BranchCode = entity.BranchCode;
+        existing.PaymentConditionCode = entity.PaymentConditionCode;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
+        // Travas da NF-e (spec §7): o corpo nunca escreve a emissão; a devolução de compra mantém o
+        // cabeçalho que a identifica; emitido/em processamento tem o cabeçalho fiscal travado.
+        var entry = db.Context.Entry(existing);
+        PurchaseInvoiceNfeLock.RestoreIssuanceFields(entry);
+        PurchaseInvoiceNfeLock.RestoreReturnHeader(entry);
+        PurchaseInvoiceNfeLock.EnsureHeaderEditable(entry);
+
+        // Mesma recusa do Create: sem ela o PATCH trocaria o tipo de uma entrada própria para Devolução e
+        // fugiria do botão Devolver. Depois da restauração acima, a devolução de compra de verdade mantém o tipo.
+        if (existing.IssuerType == DocumentIssuerType.Own && existing.InvoiceType == PurchaseInvoiceType.Return &&
+            !existing.IsNfeReturn && await taxApply.IsBranchActiveAsync(existing.BranchCode))
+            throw new DefaultException(
+                "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
+
         await SyncItemsAsync(existing, entity);
+
+        if (existing.IsNfeReturn)
+            await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, existing, existing.Items);
+
+        // O PATCH do cabeçalho traz todas as linhas (o controller carrega com Include e aplica o Delta),
+        // então toda alteração passa por aqui: recalcula o documento inteiro — data, fornecedor e filial
+        // mudam o CFOP e a alíquota de todas as linhas. As linhas incluídas no SyncItems já estão na
+        // coleção pelo fixup do EF.
+        await taxApply.ApplyAsync(existing, existing.Items);
 
         await db.SaveChangesAsync();
     }
@@ -100,6 +131,9 @@ public class PurchaseInvoicesUpdateService(
             .Where(current => incoming.All(i => i.Key != current.Key))
             .ToList();
 
+        if (removed.Count > 0)
+            PurchaseInvoiceNfeLock.EnsureLinesChangeable(existing.NfeStatus);
+
         foreach (var line in removed)
         {
             existing.Items.Remove(line);
@@ -114,6 +148,8 @@ public class PurchaseInvoicesUpdateService(
 
             if (current is null)
             {
+                PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(existing);
+
                 await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                     db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
 
@@ -134,6 +170,7 @@ public class PurchaseInvoicesUpdateService(
                     SalesInvoiceItemKey = line.SalesInvoiceItemKey,
                     PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey,
                     PurchaseContractKey = line.PurchaseContractKey,
+                    UsageCode = line.UsageCode,
                 });
 
                 continue;
@@ -154,6 +191,16 @@ public class PurchaseInvoicesUpdateService(
             current.SalesInvoiceItemKey = line.SalesInvoiceItemKey;
             current.PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey;
             current.PurchaseContractKey = line.PurchaseContractKey;
+            current.UsageCode = line.UsageCode;
+
+            // Na devolução de compra só a quantidade muda (a descrição re-resolvida também volta).
+            var lineEntry = db.Context.Entry(current);
+            if (existing.IsNfeReturn)
+                PurchaseInvoiceNfeLock.RestoreReturnLine(lineEntry);
+            PurchaseInvoiceNfeLock.EnsureItemEditable(existing.NfeStatus, lineEntry);
+
+            if (existing.IsNfeReturn && current.Quantity <= 0)
+                throw new DefaultException($"Item {current.ItemCode}: informe a quantidade a devolver.");
         }
     }
 }

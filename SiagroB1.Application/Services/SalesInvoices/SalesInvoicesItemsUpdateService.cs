@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
@@ -154,7 +155,7 @@ public class SalesInvoicesItemsUpdateService(
             return;
         }
 
-        SalesInvoiceTaxSnapshot.RestoreLocked(db.Context.Entry(item));
+        TaxSnapshot.RestoreLocked(db.Context.Entry(item));
     }
 
     /// <summary>

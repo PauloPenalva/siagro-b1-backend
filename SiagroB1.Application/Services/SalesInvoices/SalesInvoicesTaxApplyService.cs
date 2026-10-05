@@ -27,6 +27,8 @@ public class SalesInvoicesTaxApplyService(
     IBusinessPartnerService businessPartnerService,
     IbsCbsRatesService ibsCbsRatesService)
 {
+    private readonly TaxLineCalculator _lines = new(db, ibsCbsRatesService);
+
     public async Task<bool> IsActiveForAsync(SalesInvoice invoice) =>
         (invoice.InvoiceType == SalesInvoiceType.Normal || IsOwnNfeReturn(invoice))
         && await gate.IsActiveAsync(invoice.BranchCode);
@@ -45,8 +47,8 @@ public class SalesInvoicesTaxApplyService(
 
         var lines = items.ToList();
         var ownReturn = IsOwnNfeReturn(invoice);
-        var branch = await LoadBranchAsync(invoice.BranchCode);
-        var customerState = await LoadCustomerStateAsync(invoice.CardCode);
+        var branch = await _lines.LoadBranchAsync(invoice.BranchCode);
+        var customerState = await TaxLineCalculator.LoadPartnerStateAsync(businessPartnerService, invoice.CardCode);
         var inState = string.Equals(branch.StateCode, customerState, StringComparison.OrdinalIgnoreCase);
 
         // Devolução: IBS/CBS pelas alíquotas da DATA DA VENDA — ela anula o tributo daquela operação,
@@ -60,28 +62,16 @@ public class SalesInvoicesTaxApplyService(
         foreach (var item in lines)
         {
             var usage = await ResolveUsageAsync(item, usages, ownReturn);
-            var product = await LoadProductAsync(item.ItemCode);
-            var cfop = ResolveCfop(usage, inState, incoming: ownReturn);
-            var icms = ResolveIcmsRule(usage, inState, branch.TaxRegime!.Value);
-            var pisCofins = ResolvePisCofinsRule(usage);
-            var (ibsCbs, rates) = await ResolveIbsCbsAsync(usage, rateDate);
+            // Venda e devolução de venda: a mercadoria sai da filial para o cliente (na devolução, a operação
+            // é a da venda, que ela anula).
+            var line = await _lines.CalculateAsync(new TaxLineRequest(
+                usage, item.ItemCode, item.Total, inState, branch.StateCode!, customerState,
+                branch.TaxRegime!.Value, rateDate, IncomingCfop: ownReturn));
 
-            var result = TaxCalculator.Calculate(new TaxCalculationInput(
-                item.Total, inState, branch.StateCode!, customerState, branch.TaxRegime!.Value,
-                product.GoodsOrigin!.Value, icms, pisCofins, ibsCbs, rates));
-
-            item.UsageCode = usage.Code;
-            item.UsageName = usage.Name;
-            item.Cfop = cfop;
-            item.Ncm = product.Ncm;
-            item.GoodsOrigin = product.GoodsOrigin;
-            item.MovesFiscalInventory = usage.MovesFiscalInventory;
-            item.CreatesFinancialDocument = usage.CreatesFinancialDocument;
-
-            SalesInvoiceTaxSnapshot.Write(item, result);
+            TaxLineCalculator.Apply(item, usage, line);
 
             if (ownReturn)
-                SalesInvoiceNfeReturnConference.Ensure(item, OriginOf(item, origins), usage.Name);
+                NfeReturnConference.Ensure(item, OriginOf(item, origins), usage.Name, "venda");
         }
     }
 
@@ -109,31 +99,6 @@ public class SalesInvoicesTaxApplyService(
         item.SalesInvoiceItemOriginKey is { } key && origins.TryGetValue(key, out var origin)
             ? origin
             : throw new DefaultException($"O item {item.ItemCode} da devolução não aponta um item da venda.");
-
-    private async Task<Branch> LoadBranchAsync(string? branchCode)
-    {
-        var branch = await db.Context.Branchs.AsNoTracking().FirstOrDefaultAsync(b => b.Code == branchCode)
-                     ?? throw new DefaultException($"Filial {branchCode} do documento não encontrada.");
-
-        if (branch.TaxRegime is null || string.IsNullOrWhiteSpace(branch.StateCode))
-            throw new DefaultException(
-                $"Filial {branch.Code} está sem regime tributário ou UF. " +
-                "Complete o cadastro da filial antes de emitir o documento.");
-
-        return branch;
-    }
-
-    private async Task<string> LoadCustomerStateAsync(string cardCode)
-    {
-        var partner = await businessPartnerService.GetByIdAsync(cardCode)
-                      ?? throw new DefaultException($"Parceiro {cardCode} não encontrado.");
-
-        var state = SalesInvoicesCfopResolveService.ResolvePartnerState(partner);
-
-        return string.IsNullOrWhiteSpace(state)
-            ? throw new DefaultException($"Parceiro {cardCode} está sem UF no endereço de faturamento.")
-            : state;
-    }
 
     private async Task<UsageModel> ResolveUsageAsync(
         SalesInvoiceItem item, Dictionary<int, UsageModel> cache, bool ownReturn)
@@ -174,80 +139,5 @@ public class SalesInvoicesTaxApplyService(
             throw new DefaultException($"Natureza de operação {usage.Name} está inativa.");
 
         return usage;
-    }
-
-    private async Task<Item> LoadProductAsync(string itemCode)
-    {
-        var product = await db.Context.Items.AsNoTracking().FirstOrDefaultAsync(x => x.ItemCode == itemCode)
-                      ?? throw new DefaultException($"Produto {itemCode} não encontrado no cadastro.");
-
-        if (string.IsNullOrWhiteSpace(product.Ncm))
-            throw new DefaultException($"Produto {itemCode} está sem NCM cadastrado.");
-
-        if (product.GoodsOrigin is null)
-            throw new DefaultException($"Produto {itemCode} está sem origem da mercadoria cadastrada.");
-
-        return product;
-    }
-
-    private static string ResolveCfop(UsageModel usage, bool inState, bool incoming)
-    {
-        var cfop = incoming
-            ? inState ? usage.CfopIncomingInState : usage.CfopIncomingOutState
-            : inState ? usage.CfopOutgoingInState : usage.CfopOutgoingOutState;
-        var kind = incoming ? "entrada" : "saída";
-
-        return string.IsNullOrWhiteSpace(cfop)
-            ? throw new DefaultException(inState
-                ? $"Natureza de operação {usage.Name} está sem CFOP de {kind} dentro do estado."
-                : $"Natureza de operação {usage.Name} está sem CFOP de {kind} fora do estado.")
-            : cfop;
-    }
-
-    private static IcmsRule ResolveIcmsRule(UsageModel usage, bool inState, TaxRegime regime)
-    {
-        var rule = inState
-            ? new IcmsRule(usage.IcmsInStateCst, usage.IcmsInStateCsosn, usage.IcmsInStateRate,
-                usage.IcmsInStateBaseReduction, usage.IcmsInStateDeferral, usage.IcmsInStateBenefitCode)
-            : new IcmsRule(usage.IcmsOutStateCst, usage.IcmsOutStateCsosn, null,
-                usage.IcmsOutStateBaseReduction, usage.IcmsOutStateDeferral, usage.IcmsOutStateBenefitCode);
-
-        var csosn = FiscalCodes.UsesCsosn(regime);
-        var code = csosn ? rule.Csosn : rule.Cst;
-
-        if (string.IsNullOrWhiteSpace(code))
-            throw new DefaultException(
-                $"Natureza de operação {usage.Name} está sem {(csosn ? "CSOSN" : "CST")} de ICMS " +
-                $"{(inState ? "dentro do estado" : "fora do estado")}. " +
-                "Configure a tributação no cadastro de Naturezas de Operação.");
-
-        return rule;
-    }
-
-    private static PisCofinsRule ResolvePisCofinsRule(UsageModel usage)
-    {
-        if (string.IsNullOrWhiteSpace(usage.PisCst) || string.IsNullOrWhiteSpace(usage.CofinsCst))
-            throw new DefaultException(
-                $"Natureza de operação {usage.Name} está sem CST de PIS/COFINS. " +
-                "Configure a tributação no cadastro de Naturezas de Operação.");
-
-        return new PisCofinsRule(usage.PisCst, usage.PisRate, usage.CofinsCst, usage.CofinsRate,
-            usage.ExcludeIcmsFromPisCofinsBase);
-    }
-
-    private async Task<(IbsCbsRule? rule, IbsCbsRates? rates)> ResolveIbsCbsAsync(UsageModel usage, DateOnly issueDate)
-    {
-        if (string.IsNullOrWhiteSpace(usage.IbsCbsCst))
-            return (null, null);
-
-        var rule = new IbsCbsRule(usage.IbsCbsCst, usage.IbsCbsClassCode ?? string.Empty,
-            usage.IbsRateReduction, usage.CbsRateReduction);
-
-        var rate = await ibsCbsRatesService.GetEffectiveAsync(issueDate)
-                   ?? throw new DefaultException(
-                       $"Não há alíquota de IBS/CBS vigente em {issueDate:dd/MM/yyyy}. " +
-                       "Cadastre-a em Naturezas de Operação > Alíquotas IBS/CBS.");
-
-        return (rule, new IbsCbsRates(rate.CbsRate, rate.IbsStateRate, rate.IbsMunicipalRate));
     }
 }

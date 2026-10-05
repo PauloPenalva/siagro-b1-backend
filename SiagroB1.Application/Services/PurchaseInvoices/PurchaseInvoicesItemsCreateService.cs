@@ -11,7 +11,10 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// A guarda de status é aplicada aqui e não só no Update do cabeçalho — ver
 /// <see cref="PurchaseInvoiceLineGuard"/>.
 /// </summary>
-public class PurchaseInvoicesItemsCreateService(IUnitOfWork db, IItemService itemService)
+public class PurchaseInvoicesItemsCreateService(
+    IUnitOfWork db,
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(PurchaseInvoiceItem item, string userName)
     {
@@ -20,18 +23,17 @@ public class PurchaseInvoicesItemsCreateService(IUnitOfWork db, IItemService ite
         item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
             itemService, item.ItemCode, item.ItemName);
 
-        // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa do CardCode do pai —
-        // pula a query e a chamada ao guard.
-        if (item.PurchaseContractKey is not null)
-        {
-            var cardCode = await db.Context.PurchaseInvoices
-                .Where(x => x.Key == item.PurchaseInvoiceKey)
-                .Select(x => x.CardCode)
-                .FirstAsync();
+        var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == item.PurchaseInvoiceKey);
 
+        PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
+
+        // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard.
+        if (item.PurchaseContractKey is not null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
-                db, item.PurchaseContractKey, item.ItemCode, cardCode);
-        }
+                db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
+
+        // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
+        await taxApply.ApplyAsync(invoice, [item]);
 
         await db.Context.PurchaseInvoicesItems.AddAsync(item);
         await db.SaveChangesAsync();

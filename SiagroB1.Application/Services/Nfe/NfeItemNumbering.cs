@@ -1,4 +1,4 @@
-using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -12,12 +12,12 @@ namespace SiagroB1.Application.Services.Nfe;
 /// A ordem é a do número já gravado e, para as linhas novas, a da <c>Key</c> comparada em MEMÓRIA
 /// (<see cref="Guid"/> do .NET): o SQL Server ordena <c>uniqueidentifier</c> de outro jeito.
 /// </remarks>
-public static class SalesInvoiceNfeItemNumbering
+public static class NfeItemNumbering
 {
-    public static IReadOnlyList<SalesInvoiceItem> Ordered(IEnumerable<SalesInvoiceItem> items) =>
+    public static IReadOnlyList<TLine> Ordered<TLine>(IEnumerable<TLine> items) where TLine : INfeTaxedLine =>
         items.OrderBy(i => i.NfeItemNumber ?? int.MaxValue).ThenBy(i => i.Key).ToList();
 
-    public static void Renumber(IEnumerable<SalesInvoiceItem> items)
+    public static void Renumber<TLine>(IEnumerable<TLine> items) where TLine : INfeTaxedLine
     {
         var ordered = Ordered(items);
 
@@ -26,9 +26,9 @@ public static class SalesInvoiceNfeItemNumbering
     }
 
     /// <summary>
-    /// Número da linha vendida na NF-e de venda. Venda autorizada antes desta numeração existir: com
+    /// Número da linha de origem na NF-e da operação original (venda ou compra). Origem autorizada antes desta numeração existir: com
     /// um item só, ele é o 1; com vários, não há como saber — nulo.
     /// </summary>
-    public static int? OriginNumber(SalesInvoiceItem originItem, int originItemCount) =>
+    public static int? OriginNumber(INfeTaxedLine originItem, int originItemCount) =>
         originItem.NfeItemNumber ?? (originItemCount == 1 ? 1 : null);
 }

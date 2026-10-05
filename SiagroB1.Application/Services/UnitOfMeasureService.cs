@@ -24,10 +24,12 @@ public class UnitOfMeasureService(AppDbContext context, ILogger<UnitOfMeasureSer
             var entity = new SiagroB1.Domain.Entities.UnitOfMeasure
             {
                 Code = model.Code,
-                Description = model.Description, 
-                Locked = model.Locked,
+                Description = model.Description,
+                // Sem a flag, a unidade nasce liberada: os value helps só listam Locked = 'N', e uma
+                // unidade importada ou criada por POST avulso sumia de todas as telas.
+                Locked = string.IsNullOrWhiteSpace(model.Locked) ? "N" : model.Locked,
             };
-            
+
             await context.UnitsOfMeasure.AddAsync(entity);
             await context.SaveChangesAsync();
             return model;

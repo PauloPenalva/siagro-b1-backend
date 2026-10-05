@@ -60,7 +60,8 @@ internal static class UsageTaxationMapper
         usage.IbsRateReduction = model.IbsRateReduction;
         usage.CbsRateReduction = model.CbsRateReduction;
 
-        // Natureza de entrada não tem natureza de devolução: a coluna fica nula, venha o que vier.
-        usage.ReturnUsageCode = incoming ? null : model.ReturnUsageCode;
+        // A natureza de devolução vale nos dois sentidos (venda → devolução de venda, compra → devolução
+        // de compra); o sentido oposto é validado pelo UsageService antes de chegar aqui.
+        usage.ReturnUsageCode = model.ReturnUsageCode;
     }
 }

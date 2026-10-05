@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
@@ -10,8 +11,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.Usages;
 
 /// <summary>
-/// Natureza de devolução (spec §5): a natureza de SAÍDA aponta a natureza de ENTRADA que a NF-e de
-/// devolução de uma venda feita com ela vai usar.
+/// Natureza de devolução (spec §5): aponta a natureza da direção OPOSTA que a NF-e de devolução vai usar —
+/// a de SAÍDA (venda) aponta uma de ENTRADA (devolução de venda); a de ENTRADA (compra) aponta uma de
+/// SAÍDA (devolução de compra).
 /// </summary>
 public class UsageReturnUsageTests
 {
@@ -29,6 +31,17 @@ public class UsageReturnUsageTests
         CfopIncomingInState = "1202", CfopIncomingOutState = "2202",
         PisCst = "72", CofinsCst = "72", RequiresQuantity = true, Inactive = inactive,
     };
+
+    private static UsageModel Model(string name, UsageDirection direction, int? returnCode)
+    {
+        var model = direction == UsageDirection.Outgoing ? Sale(name, returnCode) : Return();
+        model.Name = name;
+        model.ReturnUsageCode = returnCode;
+        return model;
+    }
+
+    private static async Task<int> CreateAsync(UnitOfWork db, string name, UsageDirection direction) =>
+        (await Service(db).CreateAsync(Model(name, direction, null))).Code;
 
     private static async Task<string> Rejects(Func<Task> act)
     {
@@ -50,15 +63,67 @@ public class UsageReturnUsageTests
     }
 
     [Fact]
-    public async Task Incoming_usage_cannot_have_a_return_usage()
+    public async Task Incoming_usage_points_to_an_outgoing_return_usage()
+    {
+        // natureza de compra (Entrada) → devolução de compra (Saída): o vínculo da devolução de compra.
+        var db = TestDb.CreateUnitOfWork();
+        var returnCode = await CreateAsync(db, "Devolução de compra", UsageDirection.Outgoing);
+
+        var created = await Service(db).CreateAsync(Model("Compra", UsageDirection.Incoming, returnCode));
+
+        Assert.Equal(returnCode, created.ReturnUsageCode);
+        Assert.Equal(returnCode,
+            (await db.Context.Usages.AsNoTracking().SingleAsync(u => u.Code == created.Code)).ReturnUsageCode);
+    }
+
+    [Fact]
+    public async Task Incoming_usage_cannot_point_to_another_incoming_usage()
     {
         var db = TestDb.CreateUnitOfWork();
-        var ret = await Service(db).CreateAsync(Return());
-        var model = Return();
-        model.Name = "Outra entrada";
-        model.ReturnUsageCode = ret.Code;
+        var returnCode = await CreateAsync(db, "Entrada 2", UsageDirection.Incoming);
 
-        Assert.Equal("Só natureza de saída tem natureza de devolução.", await Rejects(() => Service(db).CreateAsync(model)));
+        Assert.Equal("A natureza de devolução Entrada 2 precisa ser de saída.",
+            await Rejects(() => Service(db).CreateAsync(Model("Compra", UsageDirection.Incoming, returnCode))));
+    }
+
+    [Fact]
+    public async Task Usage_used_by_a_purchase_invoice_line_cannot_change_direction()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var code = await CreateAsync(db, "Compra", UsageDirection.Incoming);
+        db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem { Key = Guid.NewGuid(), ItemCode = "SOJA", UsageCode = code });
+        await db.SaveChangesAsync();
+
+        var model = Model("Compra", UsageDirection.Outgoing, null);
+
+        Assert.Equal(
+            "Natureza de operação Compra já foi utilizada em documento de entrada. O tipo não pode ser alterado.",
+            await Rejects(() => Service(db).UpdateAsync(code, model)));
+    }
+
+    [Fact]
+    public async Task Usage_used_by_a_purchase_invoice_line_cannot_be_deleted()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var code = await CreateAsync(db, "Compra", UsageDirection.Incoming);
+        db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem { Key = Guid.NewGuid(), ItemCode = "SOJA", UsageCode = code });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(
+            "Natureza de operação Compra já foi utilizada em documento de entrada. Inative-a em vez de excluir.",
+            await Rejects(() => Service(db).DeleteAsync(code)));
+    }
+
+    [Fact]
+    public async Task Outgoing_return_usage_of_a_purchase_cannot_become_incoming()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var returnCode = await CreateAsync(db, "Devolução de compra", UsageDirection.Outgoing);
+        await Service(db).CreateAsync(Model("Compra", UsageDirection.Incoming, returnCode));
+
+        Assert.Equal(
+            "A natureza Devolução de compra é a natureza de devolução de outra natureza de entrada: o tipo não pode virar Entrada.",
+            await Rejects(() => Service(db).UpdateAsync(returnCode, Model("Devolução de compra", UsageDirection.Incoming, null))));
     }
 
     [Fact]

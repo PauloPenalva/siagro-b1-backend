@@ -62,7 +62,10 @@ public class UsageModel
     public decimal? IbsRateReduction { get; set; }
     public decimal? CbsRateReduction { get; set; }
 
-    /// <summary>Natureza de entrada da NF-e de devolução (só natureza de Saída, só STANDALONE).</summary>
+    /// <summary>
+    /// Natureza da NF-e de devolução, da direção OPOSTA à desta (venda → devolução de venda, de Entrada;
+    /// compra → devolução de compra, de Saída). Só STANDALONE.
+    /// </summary>
     public int? ReturnUsageCode { get; set; }
 
     /// <summary>Nome da natureza de devolução — só leitura (projeção); o PATCH o ignora.</summary>

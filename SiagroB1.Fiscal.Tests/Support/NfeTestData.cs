@@ -93,9 +93,51 @@ public static class NfeTestData
     public static NfeIssueInput ReturnInput() => Input(recipientAddress: SaoPaulo()) with
     {
         OperationNature = "DEVOLUCAO DE VENDA",
+        Direction = NfeDirection.Incoming,
         Purpose = NfePurpose.Return,
         ReferencedKeys = [SaleAccessKey],
         Items = [Item() with { Cfop = "1202", PisCst = "72", CofinsCst = "72", Reference = new NfeItemReference(SaleAccessKey, 1) }],
+        Payment = new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, []),
+    };
+
+    /// <summary>Chave da NF-e do produtor que a compra de teste referencia (nota de terceiro).</summary>
+    public const string ProducerAccessKey = "35261011222333000181550010000004561123456780";
+
+    /// <summary>Chave da NF-e de entrada própria que a devolução de compra de teste referencia.</summary>
+    public const string EntryAccessKey = "35261012345678000195550010000001231481516234";
+
+    private static NfeRecipient NonTaxpayerProducer() => new()
+    {
+        TaxId = "52998224725", Name = "PRODUTOR RURAL TESTE", Indicator = StateRegistrationIndicator.NonTaxpayer,
+        Address = SaoPaulo(),
+    };
+
+    /// <summary>
+    /// Compra de produtor de SP (operação interna) com NF-e própria de entrada: CFOP 1102, PIS/COFINS
+    /// de entrada, cobrança pela condição e a NF-e do produtor referenciada no cabeçalho.
+    /// </summary>
+    public static NfeIssueInput PurchaseEntryInput() => Input(recipientAddress: SaoPaulo()) with
+    {
+        OperationNature = "COMPRA DE MERCADORIA",
+        Direction = NfeDirection.Incoming,
+        Purpose = NfePurpose.Normal,
+        ReferencedKeys = [ProducerAccessKey],
+        Recipient = NonTaxpayerProducer(),
+        Items = [Item() with { Cfop = "1102", PisCst = "74", CofinsCst = "74" }],
+    };
+
+    /// <summary>
+    /// Devolução de compra ao mesmo produtor (saída, finalidade 4): CFOP 5202, sem pagamento, com o
+    /// item 2 da entrada referenciado no item (VC02-14) e nada no cabeçalho (rejeição 1010).
+    /// </summary>
+    public static NfeIssueInput PurchaseReturnInput() => Input(recipientAddress: SaoPaulo()) with
+    {
+        OperationNature = "DEVOLUCAO DE COMPRA",
+        Direction = NfeDirection.Outgoing,
+        Purpose = NfePurpose.Return,
+        ReferencedKeys = [EntryAccessKey],
+        Recipient = NonTaxpayerProducer(),
+        Items = [Item() with { Cfop = "5202", PisCst = "49", CofinsCst = "49", Reference = new NfeItemReference(EntryAccessKey, 2) }],
         Payment = new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, []),
     };
 }

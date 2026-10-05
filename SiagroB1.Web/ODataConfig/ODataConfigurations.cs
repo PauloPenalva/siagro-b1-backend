@@ -98,6 +98,19 @@ public static class ODataConfigurations
         salesInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
         salesInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
 
+        // NF-e de entrada própria (spec 2026-10-05).
+        var purchaseInvoicesIssueNfe = modelBuilder.Action("PurchaseInvoicesIssueNfe");
+        purchaseInvoicesIssueNfe.Parameter<Guid>("Key");
+        purchaseInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
+
+        var purchaseInvoicesConsultNfe = modelBuilder.Action("PurchaseInvoicesConsultNfe");
+        purchaseInvoicesConsultNfe.Parameter<Guid>("Key");
+        purchaseInvoicesConsultNfe.Returns<NfeIssueOutcomeDto>();
+
+        var purchaseInvoicesCompleteNfeConfirmation = modelBuilder.Action("PurchaseInvoicesCompleteNfeConfirmation");
+        purchaseInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
+        purchaseInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
+
         // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
         // ⚠️ Quantities em double, paralelo a OriginItemKeys, como no SalesInvoicesReturn: o UI5
         // serializa Edm.Decimal como string e o 400 não nomeia o campo.
@@ -111,6 +124,18 @@ public static class ODataConfigurations
         var salesInvoicesNfeReturnableItems = modelBuilder.Function("SalesInvoicesNfeReturnableItems");
         salesInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         salesInvoicesNfeReturnableItems.ReturnsCollection<SalesInvoiceNfeReturnableItemDto>();
+
+        // Devolução de compra (spec 2026-10-05): cria a devolução a partir da entrada própria autorizada.
+        var purchaseInvoicesCreateNfeReturn = modelBuilder.Action("PurchaseInvoicesCreateNfeReturn");
+        purchaseInvoicesCreateNfeReturn.Parameter<Guid>("Key");
+        purchaseInvoicesCreateNfeReturn.CollectionParameter<Guid>("OriginItemKeys");
+        purchaseInvoicesCreateNfeReturn.CollectionParameter<double>("Quantities");
+        purchaseInvoicesCreateNfeReturn.Parameter<string>("Reason");
+        purchaseInvoicesCreateNfeReturn.Returns<Guid>();
+
+        var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
+        purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
+        purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();
 
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
@@ -271,6 +296,15 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.AssessedShortage)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.Difference)));
+
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceIbsCbs)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalTaxes)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalIbsCbs)));
 
         var purchaseInvoicesImportXml = modelBuilder.Action("PurchaseInvoicesImportXml");
         purchaseInvoicesImportXml.Parameter<string>("XmlContent");
@@ -1360,6 +1394,10 @@ public static class ODataConfigurations
         var salesInvoicesNfeXml = modelBuilder.Function("SalesInvoicesNfeXml");
         salesInvoicesNfeXml.Parameter<Guid>("Key");
         salesInvoicesNfeXml.Returns<IActionResult>();
+
+        var purchaseInvoicesNfeXml = modelBuilder.Function("PurchaseInvoicesNfeXml");
+        purchaseInvoicesNfeXml.Parameter<Guid>("Key");
+        purchaseInvoicesNfeXml.Returns<IActionResult>();
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");

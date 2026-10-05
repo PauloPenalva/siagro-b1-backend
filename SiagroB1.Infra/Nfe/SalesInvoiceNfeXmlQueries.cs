@@ -11,7 +11,7 @@ public static class SalesInvoiceNfeXmlQueries
     /// <summary>procNFe autorizado mais recente do documento; sem ele, <see cref="NotFoundException"/>.</summary>
     public static async Task<string> LatestAuthorizedXmlAsync(this IQueryable<SalesInvoiceNfeXml> xmls, Guid invoiceKey) =>
         await xmls.AsNoTracking()
-            .Where(x => x.SalesInvoiceKey == invoiceKey && x.Kind == SalesInvoiceNfeXmlKind.Authorized)
+            .Where(x => x.SalesInvoiceKey == invoiceKey && x.Kind == NfeXmlKind.Authorized)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => x.Xml)
             .FirstOrDefaultAsync()

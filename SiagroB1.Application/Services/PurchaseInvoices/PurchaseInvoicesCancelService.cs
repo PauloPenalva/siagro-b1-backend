@@ -24,6 +24,8 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento de entrada já está cancelado.");
 
+        PurchaseInvoiceNfeLock.EnsureCancellable(invoice);
+
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
         invoice.CanceledAt = DateTime.Now;
         invoice.CanceledBy = userName;

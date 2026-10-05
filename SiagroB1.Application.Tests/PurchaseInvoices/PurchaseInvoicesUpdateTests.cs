@@ -54,7 +54,7 @@ public class PurchaseInvoicesUpdateTests
         });
 
     private static PurchaseInvoicesUpdateService Service(UnitOfWork db) =>
-        new(db, Partners(), Catalog());
+        new(db, Partners(), Catalog(), TaxTestServices.InactivePurchaseApply(db));
 
     private static PurchaseInvoice Incoming(Guid? lineKey, Guid? originKey = null)
     {

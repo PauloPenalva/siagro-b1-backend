@@ -169,7 +169,7 @@ public class SalesInvoicesNfeReturnCreateService(
     {
         foreach (var key in originItemKeys)
         {
-            if (SalesInvoiceNfeItemNumbering.OriginNumber(origin.Items.First(i => i.Key == key), origin.Items.Count) is null)
+            if (NfeItemNumbering.OriginNumber(origin.Items.First(i => i.Key == key), origin.Items.Count) is null)
                 throw new DefaultException(
                     "A NF-e de venda foi emitida antes da numeração dos itens; a devolução com NF-e não está disponível para ela.");
         }

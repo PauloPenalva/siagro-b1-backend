@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Interfaces;
@@ -26,4 +27,13 @@ public static class TaxTestServices
     /// <summary>Regra sempre inativa (modo SAPB1) — para os testes antigos, que não exercitam a tributação.</summary>
     public static SalesInvoicesTaxApplyService InactiveApply(UnitOfWork db) =>
         Apply(db, new FakeBusinessPartnerService(), "SAPB1");
+
+    public static PurchaseInvoicesTaxApplyService PurchaseApply(
+        UnitOfWork db, IBusinessPartnerService partners, string? erp = "STANDALONE") =>
+        new(db, Gate(db, erp), new UsageService(db, NullLogger<UsageService>.Instance), partners,
+            new IbsCbsRatesService(db));
+
+    /// <summary>Regra sempre inativa (modo SAPB1) — para os testes antigos da entrada, que não exercitam a tributação.</summary>
+    public static PurchaseInvoicesTaxApplyService InactivePurchaseApply(UnitOfWork db) =>
+        PurchaseApply(db, new FakeBusinessPartnerService(), "SAPB1");
 }

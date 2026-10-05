@@ -274,6 +274,24 @@ public class NfeXmlBuilderTests
     }
 
     [Fact]
+    public void Cash_payment_omits_billing_but_keeps_the_payment_detail()
+    {
+        var input = NfeTestData.Input() with
+        {
+            Payment = PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "99", 60000m, DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var nfe = Build(input);
+        var detPag = nfe.infNFe.pag.Single().detPag.Single();
+
+        // Rejeição 853: pagamento à vista não leva cobrança.
+        Assert.Null(nfe.infNFe.cobr);
+        Assert.Equal(IndicadorPagamentoDetalhePagamento.ipDetPgVista, detPag.indPag);
+        Assert.Equal(60000m, detPag.vPag);
+        Assert.Equal("Outros", detPag.xPag);
+    }
+
+    [Fact]
     public void No_payment_means_omits_billing_and_pays_zero()
     {
         var input = NfeTestData.Input() with
@@ -509,5 +527,78 @@ public class NfeXmlBuilderTests
         Assert.Equal(FinalidadeNFe.fnNormal, nfe.infNFe.ide.finNFe);
         Assert.Null(nfe.infNFe.ide.NFref);
         Assert.Null(Assert.Single(nfe.infNFe.det).DFeReferenciado);
+    }
+
+    [Fact]
+    public void Purchase_entry_is_an_incoming_normal_note_with_the_producer_note_referenced()
+    {
+        var nfe = Build(NfeTestData.PurchaseEntryInput());
+
+        Assert.Equal(TipoNFe.tnEntrada, nfe.infNFe.ide.tpNF);
+        Assert.Equal(FinalidadeNFe.fnNormal, nfe.infNFe.ide.finNFe);
+        Assert.Equal(NfeTestData.ProducerAccessKey, Assert.Single(nfe.infNFe.ide.NFref).refNFe);
+        var det = Assert.Single(nfe.infNFe.det);
+        Assert.Null(det.DFeReferenciado);
+        Assert.Equal(1102, det.prod.CFOP);
+    }
+
+    [Fact]
+    public void Purchase_entry_from_a_non_taxpayer_is_not_a_final_consumer_operation()
+    {
+        Assert.Equal(ConsumidorFinal.cfNao, Build(NfeTestData.PurchaseEntryInput()).infNFe.ide.indFinal);
+    }
+
+    [Fact]
+    public void Purchase_entry_bills_by_the_payment_plan()
+    {
+        var nfe = Build(NfeTestData.PurchaseEntryInput());
+
+        Assert.NotNull(nfe.infNFe.cobr);
+        Assert.Equal(2, nfe.infNFe.cobr.dup.Count);
+    }
+
+    [Fact]
+    public void Purchase_return_is_an_outgoing_return_referenced_only_at_item_level()
+    {
+        var nfe = Build(NfeTestData.PurchaseReturnInput());
+
+        Assert.Equal(TipoNFe.tnSaida, nfe.infNFe.ide.tpNF);
+        Assert.Equal(FinalidadeNFe.fnDevolucao, nfe.infNFe.ide.finNFe);
+        Assert.Null(nfe.infNFe.ide.NFref);
+        var det = Assert.Single(nfe.infNFe.det);
+        Assert.Equal(NfeTestData.EntryAccessKey, det.DFeReferenciado.chaveAcesso);
+        Assert.Equal(2, det.DFeReferenciado.nItem);
+        Assert.Equal(5202, det.prod.CFOP);
+    }
+
+    [Fact]
+    public void Purchase_return_to_a_non_taxpayer_is_a_final_consumer_operation()
+    {
+        Assert.Equal(ConsumidorFinal.cfConsumidorFinal, Build(NfeTestData.PurchaseReturnInput()).infNFe.ide.indFinal);
+    }
+
+    [Fact]
+    public void Purchase_return_pays_nothing_and_has_no_billing()
+    {
+        var nfe = Build(NfeTestData.PurchaseReturnInput());
+
+        var payment = Assert.Single(Assert.Single(nfe.infNFe.pag).detPag);
+        Assert.Equal(90, (int)payment.tPag!);
+        Assert.Equal(0m, payment.vPag);
+        Assert.Null(nfe.infNFe.cobr);
+    }
+
+    [Fact]
+    public void Sales_return_to_a_non_taxpayer_is_not_a_final_consumer_operation()
+    {
+        var input = NfeTestData.ReturnInput() with
+        {
+            Recipient = NfeTestData.ReturnInput().Recipient with
+            {
+                Indicator = StateRegistrationIndicator.NonTaxpayer, StateRegistration = null,
+            },
+        };
+
+        Assert.Equal(ConsumidorFinal.cfNao, Build(input).infNFe.ide.indFinal);
     }
 }

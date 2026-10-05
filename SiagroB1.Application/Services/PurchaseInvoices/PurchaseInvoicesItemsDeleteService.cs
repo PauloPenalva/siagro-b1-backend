@@ -18,6 +18,12 @@ public class PurchaseInvoicesItemsDeleteService(IUnitOfWork db)
 
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, item.PurchaseInvoiceKey);
 
+        var nfeStatus = await db.Context.PurchaseInvoices
+            .Where(x => x.Key == item.PurchaseInvoiceKey)
+            .Select(x => x.NfeStatus)
+            .FirstAsync();
+        PurchaseInvoiceNfeLock.EnsureLinesChangeable(nfeStatus);
+
         db.Context.PurchaseInvoicesItems.Remove(item);
         await db.SaveChangesAsync();
     }

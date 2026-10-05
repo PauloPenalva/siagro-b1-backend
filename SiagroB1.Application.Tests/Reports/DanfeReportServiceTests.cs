@@ -24,7 +24,7 @@ public class DanfeReportServiceTests
         var invoiceKey = Guid.NewGuid();
         db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
-            Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = SalesInvoiceNfeXmlKind.Authorized, CreatedAt = DateTime.Now,
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = NfeXmlKind.Authorized, CreatedAt = DateTime.Now,
             Xml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!),
         });
         await db.SaveChangesAsync();
@@ -52,5 +52,33 @@ public class DanfeReportServiceTests
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             new DanfeReportService(db, environment, header).GeneratePdfAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task Authorized_purchase_nfe_renders_a_pdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password);
+        var settings = new NfeServiceSettings(NfeEnvironment.Homologation, "SP", certificate, NfeServiceSettings.DefaultSchemasDirectory);
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.PurchaseEntryInput(), settings);
+        var invoiceKey = Guid.NewGuid();
+        db.Context.PurchaseInvoiceNfeXmls.Add(new PurchaseInvoiceNfeXml
+        {
+            Key = Guid.NewGuid(), PurchaseInvoiceKey = invoiceKey, Kind = NfeXmlKind.Authorized, CreatedAt = DateTime.Now,
+            Xml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!),
+        });
+        await db.SaveChangesAsync();
+
+        var contentRoot = Path.Combine(AppContext.BaseDirectory, "ReportsContentRoot");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
+            .Build();
+        var environment = new TestWebHostEnvironment(contentRoot);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+
+        var (pdf, fileName) = await new DanfeReportService(db, environment, header).GeneratePurchasePdfAsync(invoiceKey);
+
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
+        Assert.Equal($"{signed.AccessKey}-danfe.pdf", fileName);
     }
 }

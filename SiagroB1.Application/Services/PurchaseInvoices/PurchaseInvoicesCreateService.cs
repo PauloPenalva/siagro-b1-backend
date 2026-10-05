@@ -17,12 +17,25 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public class PurchaseInvoicesCreateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
-    IItemService itemService)
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
-    public async Task ExecuteAsync(PurchaseInvoice invoice, string userName)
+    public async Task ExecuteAsync(PurchaseInvoice invoice, string userName, bool nfeReturn = false)
     {
         if (invoice.Items.Count == 0)
             throw new DefaultException("Informe ao menos um item no documento de entrada.");
+
+        // O documento nunca nasce emitido, venha o que vier no corpo.
+        PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
+
+        // Só o "Devolver" (PurchaseInvoicesNfeReturnCreateService) marca a devolução de compra; o corpo da
+        // API nunca — senão um POST tiraria a nota da confirmação pela emissão.
+        invoice.IsNfeReturn = nfeReturn && invoice.InvoiceType == PurchaseInvoiceType.Return;
+
+        if (invoice.IssuerType == DocumentIssuerType.Own && invoice.InvoiceType == PurchaseInvoiceType.Return &&
+            !invoice.IsNfeReturn && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            throw new DefaultException(
+                "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
 
         await EnsureChaveNFeIsFreeAsync(invoice.ChaveNFe, invoice.Key);
 
@@ -38,9 +51,17 @@ public class PurchaseInvoicesCreateService(
         // do servidor — e o create() do UI5 é obrigado a declarar a propriedade para a primeira
         // digitação não abrir "Must not change a property before it has been read". Com `??=` o
         // nome do emitente ficava em branco na tela E no banco.
+        //
+        // O parceiro é carregado UMA vez: serve ao nome e à condição de pagamento padrão.
+        var partner = await businessPartnerService.GetByIdAsync(invoice.CardCode);
+
         if (string.IsNullOrWhiteSpace(invoice.CardName))
-            invoice.CardName =
-                (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.CardName;
+            invoice.CardName = partner?.CardName;
+
+        // Condição padrão do fornecedor (NF-e STANDALONE), como no documento de saída. A devolução de
+        // compra não tem pagamento (tPag 90).
+        if (!invoice.IsNfeReturn)
+            invoice.PaymentConditionCode ??= partner?.PaymentConditionCode;
 
         // Mesma história do nome do emitente, uma linha por vez: a descrição escolhida no value
         // help não entra no deep-insert, e sem isto a linha gravava com o produto certo e a
@@ -53,6 +74,9 @@ public class PurchaseInvoicesCreateService(
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
+
+        // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
+        await taxApply.ApplyAsync(invoice, invoice.Items);
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();

@@ -2386,6 +2386,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("InvoiceType")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsNfeReturn")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("IssueDate")
                         .HasColumnType("datetime2");
 
@@ -2394,6 +2397,33 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<decimal>("NetWeight")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
+
+                    b.Property<DateTime?>("NfeAuthorizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NfeConfirmationError")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int?>("NfeEnvironment")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NfeProtocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("NfeRandomCode")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int>("NfeStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NfeStatusCode")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<string>("NfeStatusReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int?>("PaymentConditionCode")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("PostingDate")
                         .HasColumnType("datetime2");
@@ -2433,6 +2463,18 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("VolumeBrand")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("VolumeNumbering")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int?>("VolumeQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VolumeSpecies")
+                        .HasColumnType("VARCHAR(60)");
 
                     b.Property<byte[]>("XmlData")
                         .HasColumnType("VARBINARY(MAX)");
@@ -2519,11 +2561,113 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("CbsRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("CbsRateReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("CbsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("Cfop")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<decimal>("CofinsBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("CofinsRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("CofinsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<bool>("CreatesFinancialDocument")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CstCofins")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("CstIcms")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("CstPis")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<byte?>("GoodsOrigin")
+                        .HasColumnType("TINYINT");
+
+                    b.Property<decimal>("IbsCbsBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("IbsCbsClassCode")
+                        .HasColumnType("VARCHAR(6)");
+
+                    b.Property<string>("IbsCbsCst")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<decimal>("IbsMunicipalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsMunicipalValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IbsRateReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsStateRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsStateValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsBaseReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<string>("IcmsBenefitCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<decimal>("IcmsDeferral")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsDeferredValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsOperationValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<string>("ItemCode")
                         .HasColumnType("VARCHAR(30)");
 
                     b.Property<string>("ItemName")
                         .HasColumnType("VARCHAR(200)");
+
+                    b.Property<bool>("MovesFiscalInventory")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Ncm")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int?>("NfeItemNumber")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PisBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("PisRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("PisValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
@@ -2546,6 +2690,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("DECIMAL(18,8) DEFAULT 0");
 
+                    b.Property<int?>("UsageCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UsageName")
+                        .HasColumnType("VARCHAR(200)");
+
                     b.HasKey("Key");
 
                     b.HasIndex("PurchaseContractKey");
@@ -2557,6 +2707,32 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("SalesInvoiceItemKey");
 
                     b.ToTable("PURCHASE_INVOICES_ITEMS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceNfeXml", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PurchaseInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PurchaseInvoiceKey", "Kind");
+
+                    b.ToTable("PURCHASE_INVOICE_NFE_XMLS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
@@ -6400,6 +6576,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("PurchaseInvoiceItemOrigin");
 
                     b.Navigation("SalesInvoiceItem");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceNfeXml", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "PurchaseInvoice")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseInvoice");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>

@@ -106,8 +106,10 @@ public class Usage
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? CbsRateReduction { get; set; }
 
     /// <summary>
-    /// Natureza de ENTRADA da NF-e de devolução de uma venda feita com esta natureza (só natureza de
-    /// Saída, só STANDALONE). A devolução criada pelo "Devolver" herda esta natureza em cada linha.
+    /// Natureza de devolução, SEMPRE da direção OPOSTA à desta (só STANDALONE): a natureza de Saída
+    /// (venda) aponta a de Entrada que a devolução de venda usa; a de Entrada (compra) aponta a de
+    /// Saída que a devolução de compra usa. A devolução criada pelo "Devolver" herda esta natureza
+    /// em cada linha.
     /// </summary>
     public int? ReturnUsageCode { get; set; }
 
