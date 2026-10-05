@@ -130,6 +130,27 @@ public class PurchaseInvoicesThirdPartyReturnTests
         Assert.Equal("Item TRIGO: o número 2 já é de outro item desta NF-e do fornecedor.", e.Message);
     }
 
+    [Theory]
+    [InlineData(9, false)]
+    [InlineData(1, true)]
+    public async Task Typed_item_number_must_exist_in_the_stored_xml(int typed, bool accepted)
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+        var trigo = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.ItemCode == "TRIGO" && i.PurchaseInvoiceKey == origin.Key);
+        trigo.NfeItemNumber = null;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        origin = await scenario.Db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == origin.Key);
+
+        var run = () => Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 100m, typed)), "tester");
+
+        if (accepted)
+            Assert.NotEqual(Guid.Empty, (await run()).Key);
+        else
+            Assert.Equal("Item TRIGO: o item 9 não existe na NF-e do fornecedor.",
+                (await Assert.ThrowsAsync<DefaultException>(run)).Message);
+    }
+
     [Fact]
     public async Task Typed_item_number_is_saved_and_reused_by_the_next_return()
     {

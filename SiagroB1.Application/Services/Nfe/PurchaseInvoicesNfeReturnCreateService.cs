@@ -235,6 +235,9 @@ public class PurchaseInvoicesNfeReturnCreateService(
             }
 
             var det = supplierNfe?.Items.FirstOrDefault(d => d.ItemNumber == number);
+            if (supplierNfe is not null && det is null)
+                throw new DefaultException($"Item {bought.ItemCode}: o item {number} não existe na NF-e do fornecedor.");
+
             if (det is not null && (det.IpiValue > 0m || det.IcmsStValue > 0m))
                 throw new DefaultException($"Item {bought.ItemCode}: a nota do fornecedor tem IPI/ICMS-ST neste item, que o Siagro ainda não devolve.");
 
