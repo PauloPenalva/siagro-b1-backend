@@ -80,6 +80,12 @@ public static class PurchaseInvoiceNfeLock
 
         NfeLockRules.Restore(entry, emitted ? IssuanceFields.Concat(TaxDocumentFields) : IssuanceFields);
 
+        // Com número reservado a filial, o emitente e o tipo ficam como estão (spec D10): o número da filial A
+        // não pode sair pela B nem ficar encalhado pela troca para terceiro. Sobrescreve, não recusa.
+        if (emitted)
+            NfeLockRules.Restore(entry,
+                [nameof(PurchaseInvoice.BranchCode), nameof(PurchaseInvoice.IssuerType), nameof(PurchaseInvoice.InvoiceType)]);
+
         // A marca da devolução própria nasce no Devolver e nunca muda pela API.
         NfeLockRules.Restore(entry, [nameof(PurchaseInvoice.IsNfeReturn)]);
     }

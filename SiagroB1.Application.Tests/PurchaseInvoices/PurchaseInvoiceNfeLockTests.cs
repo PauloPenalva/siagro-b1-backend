@@ -122,6 +122,43 @@ public class PurchaseInvoiceNfeLockTests
     }
 
     [Fact]
+    public async Task Reserved_number_keeps_the_branch_the_issuer_and_the_type()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Rejected);
+        db.Context.Branchs.Add(new Branch
+        {
+            Code = "02", BranchName = "OUTRA", ShortName = "OUTRA", TaxId = "98765432000110", StateCode = "SP",
+            TaxRegime = TaxRegime.Normal, IssuesNfe = true,
+        });
+        await db.SaveChangesAsync();
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.BranchCode = "02";
+        changed.IssuerType = DocumentIssuerType.ThirdParty;
+        changed.InvoiceType = PurchaseInvoiceType.Return;
+        changed.Comments = "ok";
+
+        await Update(db).ExecuteAsync(invoice.Key, changed, "tester");
+
+        var saved = await LoadAsync(db, invoice.Key);
+        Assert.Equal("01", saved.BranchCode);
+        Assert.Equal(DocumentIssuerType.Own, saved.IssuerType);
+        Assert.Equal(PurchaseInvoiceType.Normal, saved.InvoiceType);
+        Assert.Equal("ok", saved.Comments);
+    }
+
+    [Fact]
+    public async Task Document_without_a_reserved_number_still_accepts_a_branch_change()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.BranchCode = "02";
+
+        await Update(db).ExecuteAsync(invoice.Key, changed, "tester");
+
+        Assert.Equal("02", (await LoadAsync(db, invoice.Key)).BranchCode);
+    }
+
+    [Fact]
     public async Task Line_cannot_be_added_while_authorized()
     {
         var (db, invoice) = await SeedAsync(NfeStatus.Authorized);

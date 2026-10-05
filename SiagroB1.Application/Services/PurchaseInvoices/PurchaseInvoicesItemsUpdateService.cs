@@ -74,7 +74,12 @@ public class PurchaseInvoicesItemsUpdateService(
         PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
 
         if (invoice.IsNfeReturn)
+        {
+            if (existing.Quantity <= 0)
+                throw new DefaultException($"Item {existing.ItemCode}: informe a quantidade a devolver.");
+
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [existing]);
+        }
 
         await taxApply.ApplyAsync(invoice, [existing]);
 

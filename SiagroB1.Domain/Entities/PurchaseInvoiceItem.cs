@@ -79,8 +79,8 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     /// tabela local fica vazia e uma FK obrigatória viraria INNER JOIN, zerando a coleção
     /// inteira. A validação é no serviço.
     ///
-    /// Obrigatória na criação; a COLUNA é nulável só por causa do legado — a migration de
-    /// backfill preenche as linhas existentes com a natureza semente.
+    /// Nulável: só a entrada própria em filial que emite NF-e e a devolução de compra exigem a
+    /// natureza (validado no cálculo dos tributos); documento de terceiro e o legado ficam sem ela.
     /// </summary>
     public int? UsageCode { get; set; }
 

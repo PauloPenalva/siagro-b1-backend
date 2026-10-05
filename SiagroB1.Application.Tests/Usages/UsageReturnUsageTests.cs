@@ -11,8 +11,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.Usages;
 
 /// <summary>
-/// Natureza de devolução (spec §5): a natureza de SAÍDA aponta a natureza de ENTRADA que a NF-e de
-/// devolução de uma venda feita com ela vai usar.
+/// Natureza de devolução (spec §5): aponta a natureza da direção OPOSTA que a NF-e de devolução vai usar —
+/// a de SAÍDA (venda) aponta uma de ENTRADA (devolução de venda); a de ENTRADA (compra) aponta uma de
+/// SAÍDA (devolução de compra).
 /// </summary>
 public class UsageReturnUsageTests
 {

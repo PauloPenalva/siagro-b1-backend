@@ -197,6 +197,9 @@ public class PurchaseInvoicesUpdateService(
             if (existing.IsNfeReturn)
                 PurchaseInvoiceNfeLock.RestoreReturnLine(lineEntry);
             PurchaseInvoiceNfeLock.EnsureItemEditable(existing.NfeStatus, lineEntry);
+
+            if (existing.IsNfeReturn && current.Quantity <= 0)
+                throw new DefaultException($"Item {current.ItemCode}: informe a quantidade a devolver.");
         }
     }
 }

@@ -6,8 +6,9 @@ namespace SiagroB1.Application.Services.Taxes;
 
 /// <summary>
 /// Conferência da devolução própria contra a linha de origem (venda ou compra) (spec §7, abordagem A): a devolução é
-/// calculada pela natureza de entrada, e esta conferência garante que o resultado reproduz a
-/// tributação da operação original (venda ou compra). PIS/COFINS ficam de fora de propósito: na entrada o CST é outro.
+/// calculada pela natureza de devolução (de entrada na devolução de venda, de saída na devolução de compra),
+/// e esta conferência garante que o resultado reproduz a tributação da operação original. PIS/COFINS ficam
+/// de fora de propósito: o CST difere entre as duas direções.
 /// </summary>
 public static class NfeReturnConference
 {
