@@ -33,6 +33,7 @@ public class SalesInvoicesUpdateService(
 
             SalesInvoiceNfeLock.EnsureHeaderEditable(entry);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
+            SalesInvoiceNfeReturnLock.RestoreHeader(entry);
 
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;

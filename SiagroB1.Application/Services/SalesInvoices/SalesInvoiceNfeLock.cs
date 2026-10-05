@@ -72,6 +72,9 @@ public static class SalesInvoiceNfeLock
 
         foreach (var field in fields)
             entry.Property(field).CurrentValue = entry.OriginalValues[field];
+
+        // A marca da devolução própria nasce no Devolver e nunca muda pela API.
+        entry.Property(nameof(SalesInvoice.IsNfeReturn)).CurrentValue = entry.OriginalValues[nameof(SalesInvoice.IsNfeReturn)];
     }
 
     /// <summary>A criação nunca nasce emitida, venha o que vier no corpo.</summary>
@@ -126,6 +129,9 @@ public static class SalesInvoiceNfeLock
 
     public static void EnsureManualTaxDocument(SalesInvoice invoice)
     {
+        if (invoice.IsNfeReturn)
+            throw new DefaultException("Número, série e chave da devolução vêm da emissão da NF-e pelo Siagro.");
+
         if (invoice.NfeStatus != NfeStatus.None || invoice.NfeRandomCode is not null)
             throw new DefaultException("Número, série e chave deste documento vêm da emissão da NF-e pelo Siagro.");
     }

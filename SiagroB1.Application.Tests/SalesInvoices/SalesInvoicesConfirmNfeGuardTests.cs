@@ -40,7 +40,8 @@ public class SalesInvoicesConfirmNfeGuardTests
 
     /// <summary>Documento AVULSO de uma linha, natureza sem efeito no contrato, filial com a chave.</summary>
     private static async Task<(UnitOfWork Db, SalesInvoice Invoice)> SeedAsync(
-        bool issuesNfe = true, NfeStatus nfe = NfeStatus.None, SalesInvoiceType type = SalesInvoiceType.Normal)
+        bool issuesNfe = true, NfeStatus nfe = NfeStatus.None, SalesInvoiceType type = SalesInvoiceType.Normal,
+        bool nfeReturn = false)
     {
         var db = TestDb.CreateUnitOfWork();
         db.Context.Branchs.Add(new Branch { Code = "01", BranchName = "CEAGUI", StateCode = "SP", TaxRegime = TaxRegime.Normal, IssuesNfe = issuesNfe });
@@ -63,6 +64,7 @@ public class SalesInvoicesConfirmNfeGuardTests
             InvoiceStatus.Pending, type, originKey: type == SalesInvoiceType.Return ? origin.Key : null);
         invoice.BranchCode = "01";
         invoice.NfeStatus = nfe;
+        invoice.IsNfeReturn = nfeReturn;
         invoice.NetWeight = invoice.GrossWeight = 100m; // devolução: o peso do cabeçalho fecha com a linha
         SalesContractsAllocationTestSupport.NewItem(
             invoice, contract.Key, releaseKey: null, 100m,
@@ -125,6 +127,26 @@ public class SalesInvoicesConfirmNfeGuardTests
     public async Task Standalone_without_the_flag_confirms_as_today()
     {
         var (db, invoice) = await SeedAsync(issuesNfe: false);
+
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
+
+    [Fact]
+    public async Task Rule_active_refuses_direct_confirmation_of_an_own_return()
+    {
+        var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return, nfeReturn: true);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Own_return_with_authorized_nfe_is_confirmed()
+    {
+        var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return, nfeReturn: true, nfe: NfeStatus.Authorized);
 
         await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 

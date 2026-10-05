@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
@@ -22,6 +23,10 @@ public class SalesInvoicesItemsCreateService(
 
         if (invoice is not null)
         {
+            if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+                throw new DefaultException(
+                    "Na devolução com NF-e, os itens vêm da venda: para devolver outro item, use o Devolver da venda.");
+
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus);
             await taxApply.ApplyAsync(invoice, [salesInvoiceItem]);
         }

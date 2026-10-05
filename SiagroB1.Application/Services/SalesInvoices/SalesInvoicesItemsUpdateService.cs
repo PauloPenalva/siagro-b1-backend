@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -135,6 +136,16 @@ public class SalesInvoicesItemsUpdateService(
         // não se recalcula — um recálculo com alíquota ou natureza novas descolaria a linha da nota.
         if (invoice.InvoiceStatus is null or InvoiceStatus.Pending && invoice.NfeStatus != NfeStatus.Authorized)
         {
+            if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+            {
+                SalesInvoiceNfeReturnLock.RestoreLine(db.Context.Entry(item));
+
+                if (item.Quantity <= 0)
+                    throw new DefaultException($"Item {item.ItemCode}: informe a quantidade a devolver.");
+
+                await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [item]);
+            }
+
             await taxApply.ApplyAsync(invoice, [item]);
             return;
         }

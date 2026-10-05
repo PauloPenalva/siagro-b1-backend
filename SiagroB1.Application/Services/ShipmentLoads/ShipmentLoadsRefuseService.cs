@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -71,12 +72,36 @@ public class ShipmentLoadsRefuseService(
     ShipmentLoadsMovementLogService movementLog,
     ShipmentReleasesFromReturnService returnReleases,
     IWarehouseService warehouseService,
-    ILogger<ShipmentLoadsRefuseService> logger)
+    ILogger<ShipmentLoadsRefuseService> logger,
+    TaxCalculationGate? gate = null)
 {
     private const decimal Tolerance = 0.001m;
 
+    /// <summary>Mesma regra de <c>SalesInvoicesReturnService</c>: nota autorizada pelo Siagro não volta sem NF-e.</summary>
+    private async Task EnsureNotIssuedBySiagroAsync(RefusalRequest request)
+    {
+        if (gate is null)
+            return;
+
+        var keys = request.Lines.Select(l => l.SalesInvoiceKey).ToList();
+        var branches = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(i => keys.Contains(i.Key) && i.NfeStatus == NfeStatus.Authorized)
+            .Select(i => i.BranchCode)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var branch in branches)
+        {
+            if (await gate.IsActiveAsync(branch))
+                throw new DefaultException(
+                    "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
+        }
+    }
+
     public async Task<ShipmentLoad> ExecuteAsync(RefusalRequest request, string userName)
     {
+        await EnsureNotIssuedBySiagroAsync(request);
+
         var load = await db.Context.ShipmentLoads
                        .FirstOrDefaultAsync(x => x.Key == request.ShipmentLoadKey) ??
                    throw new NotFoundException($"Shipment load not found key {request.ShipmentLoadKey}");
