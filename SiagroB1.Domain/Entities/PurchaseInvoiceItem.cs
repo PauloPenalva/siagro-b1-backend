@@ -204,8 +204,8 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     public decimal InsuranceValue { get; set; }
 
     /// <summary>
-    /// Desconto incondicional da linha (<c>det/prod/vDesc</c>). Nunca passa de itens + frete + seguro + outras despesas
-    /// (<c>InvoiceLineChargeRules</c>).
+    /// Desconto incondicional da linha (<c>det/prod/vDesc</c>). Nunca passa do valor do produto da linha (<see cref="Total"/>:
+    /// a SEFAZ rejeita vDesc maior que vProd, 483) — <c>InvoiceLineChargeRules</c>.
     /// </summary>
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal DiscountValue { get; set; }

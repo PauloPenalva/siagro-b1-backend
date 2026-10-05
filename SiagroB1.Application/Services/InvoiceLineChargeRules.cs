@@ -13,8 +13,8 @@ public static class InvoiceLineChargeRules
 {
     /// <summary>
     /// Arredonda os quatro valores em centavos — a coluna é DECIMAL(18,2), e o cálculo dos tributos não pode ver uma casa
-    /// que o banco descartaria — e recusa valor negativo ou desconto acima de itens + frete + seguro + outras despesas.
-    /// Desconto IGUAL ao valor da linha passa (bonificação): o total geral fica 0.
+    /// que o banco descartaria — e recusa valor negativo ou desconto acima do valor do produto da linha (<see cref="INfeTaxedLine.Total"/>, quantidade × preço):
+    /// a SEFAZ rejeita vDesc maior que vProd (483), seja qual for o frete. Desconto IGUAL ao valor do produto passa (bonificação).
     /// </summary>
     public static void Ensure(INfeTaxedLine line)
     {
@@ -29,9 +29,9 @@ public static class InvoiceLineChargeRules
 
         // Math.Max: quantidade negativa deixa Total negativo, e o teto não pode recusar um desconto 0 com a mensagem do
         // desconto — a quantidade inválida tem mensagem própria, dada pelo serviço que a conhece.
-        var ceiling = Math.Max(0m, line.Total + line.FreightValue + line.InsuranceValue + line.OtherExpensesValue);
+        var ceiling = Math.Max(0m, line.Total);
         if (line.DiscountValue > ceiling)
-            throw new DefaultException($"Item {line.ItemCode}: o desconto passa do valor da linha.");
+            throw new DefaultException($"Item {line.ItemCode}: o desconto passa do valor do produto da linha.");
     }
 
     /// <summary>
@@ -47,8 +47,8 @@ public static class InvoiceLineChargeRules
 
     /// <summary>
     /// Frete, seguro, desconto e outras despesas da linha de devolução na proporção da quantidade que volta
-    /// (<paramref name="target"/>.Quantity ÷ <paramref name="origin"/>.Quantity). O desconto nunca passa do teto da PRÓPRIA
-    /// linha da devolução: o <see cref="INfeTaxedLine.Total"/> dela arredonda a quantidade × preço de outro jeito que o
+    /// (<paramref name="target"/>.Quantity ÷ <paramref name="origin"/>.Quantity). O desconto nunca passa do valor do produto da
+    /// PRÓPRIA linha da devolução: o <see cref="INfeTaxedLine.Total"/> dela arredonda a quantidade × preço de outro jeito que o
     /// desconto proporcional (ex.: origem 3 × 150,125 = 450,38 com desconto 450,38; devolvendo 1, a linha vale 150,12 e a
     /// proporção daria 150,13), e a devolução não tem campo para o usuário corrigir na criação.
     /// </summary>
@@ -60,7 +60,7 @@ public static class InvoiceLineChargeRules
         target.FreightValue = Proportional(origin.FreightValue, returned, original);
         target.InsuranceValue = Proportional(origin.InsuranceValue, returned, original);
         target.OtherExpensesValue = Proportional(origin.OtherExpensesValue, returned, original);
-        var ceiling = Math.Max(0m, target.Total + target.FreightValue + target.InsuranceValue + target.OtherExpensesValue);
+        var ceiling = Math.Max(0m, target.Total);
         target.DiscountValue = Math.Min(Proportional(origin.DiscountValue, returned, original), ceiling);
     }
 

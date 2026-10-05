@@ -243,7 +243,7 @@ public class PurchaseInvoicesNfeReturnTests
             new PurchaseInvoicesItemsUpdateService(scenario.Db, new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
                 .ExecuteAsync(line.Key!.Value, line, "tester"));
 
-        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
@@ -262,7 +262,7 @@ public class PurchaseInvoicesNfeReturnTests
             new PurchaseInvoicesUpdateService(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
                 .ExecuteAsync(created.Key, incoming, "tester"));
 
-        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]

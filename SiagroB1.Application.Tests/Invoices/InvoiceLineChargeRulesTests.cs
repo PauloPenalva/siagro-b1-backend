@@ -94,21 +94,36 @@ public class InvoiceLineChargeRulesTests
     [Fact]
     public void Discount_above_the_line_is_refused()
     {
-        // Linha: 20,00 de produtos + frete 5,00 + seguro 1,00 + outras despesas 0,50 = 26,50.
-        var e = Assert.Throws<DefaultException>(() => InvoiceLineChargeRules.Ensure(SalesLine(5m, 1m, 26.51m, 0.5m)));
+        // Linha: 20,00 de produtos; o teto do desconto é o valor do produto, mesmo com frete, seguro e despesas.
+        var e = Assert.Throws<DefaultException>(() => InvoiceLineChargeRules.Ensure(SalesLine(5m, 1m, 20.01m, 0.5m)));
 
-        Assert.Equal("Item SOJA: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
-    public void Discount_of_the_whole_line_is_accepted_and_the_line_totals_zero()
+    public void Discount_equal_to_the_product_value_is_accepted()
     {
-        // Review Focus 1: bonificação — o desconto leva a linha inteira, e só o que passar disso é recusado.
-        var line = SalesLine(5m, 1m, 26.50m, 0.5m);
+        // Bonificação: o desconto leva o valor do produto inteiro; frete, seguro e despesas continuam a cobrar.
+        var line = SalesLine(5m, 1m, 20m, 0.5m);
 
         InvoiceLineChargeRules.Ensure(line);
 
-        Assert.Equal(0m, line.GrandTotal);
+        Assert.Equal(6.5m, line.GrandTotal);
+    }
+
+    [Fact]
+    public void Discount_above_the_product_value_is_refused_even_when_freight_would_cover_it()
+    {
+        // Caso recusado pela SEFAZ (483): 16,50 de produto, frete 100 e desconto 50 — vDesc não pode passar de vProd.
+        var line = new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(), ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 16.50m,
+            FreightValue = 100m, DiscountValue = 50m,
+        };
+
+        var e = Assert.Throws<DefaultException>(() => InvoiceLineChargeRules.Ensure(line));
+
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
@@ -147,7 +162,7 @@ public class InvoiceLineChargeRulesTests
             new SalesInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactiveApply(db),
                 NullLogger<SalesInvoicesItemsCreateService>.Instance).ExecuteAsync(SalesLine(discount: 20.01m), "tester"));
 
-        Assert.Equal("Item SOJA: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
@@ -158,7 +173,7 @@ public class InvoiceLineChargeRulesTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => SalesItemUpdate(db).ExecuteAsync(line.Key!.Value, line, "tester"));
 
-        Assert.Equal("Item SOJA: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
@@ -197,7 +212,7 @@ public class InvoiceLineChargeRulesTests
             new PurchaseInvoicesCreateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
                 TaxTestServices.InactivePurchaseApply(db)).ExecuteAsync(invoice, "tester"));
 
-        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
     }
 
     [Fact]
@@ -260,7 +275,7 @@ public class InvoiceLineChargeRulesTests
         var refused = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == key);
         refused.DiscountValue = 20.01m;
         var e = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(key, refused, "tester"));
-        Assert.Equal("Item TRIGO: o desconto passa do valor da linha.", e.Message);
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
 
         db.Context.ChangeTracker.Clear();
         var valid = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == key);
@@ -287,7 +302,7 @@ public class InvoiceLineChargeRulesTests
     }
 
     [Fact]
-    public void ApplyProportional_scales_the_four_values_and_keeps_a_discount_that_fits()
+    public void ApplyProportional_scales_the_four_values_and_clamps_the_discount_at_the_product_value()
     {
         var origin = new SalesInvoiceItem
         {
@@ -299,8 +314,8 @@ public class InvoiceLineChargeRulesTests
 
         Assert.Equal(150.12m, target.Total);
         Assert.Equal((1m, 0.01m, 0.33m), (target.FreightValue, target.InsuranceValue, target.OtherExpensesValue));
-        // Teto = 150,12 + 1,00 + 0,01 + 0,33 = 151,46: o desconto proporcional (150,13) cabe e sai como veio.
-        Assert.Equal(150.13m, target.DiscountValue);
+        // Teto = valor do produto da devolução (150,12): o desconto proporcional (150,13) é limitado a ele.
+        Assert.Equal(150.12m, target.DiscountValue);
     }
 
     [Fact]
@@ -313,5 +328,17 @@ public class InvoiceLineChargeRulesTests
 
         Assert.Equal(150.12m, target.DiscountValue);
         InvoiceLineChargeRules.Ensure(target);
+    }
+
+    [Fact]
+    public void ApplyProportional_clamps_at_the_product_value_even_when_freight_would_allow_more()
+    {
+        var origin = new SalesInvoiceItem { ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 20m, DiscountValue = 30m, FreightValue = 50m };
+        var target = new SalesInvoiceItem { ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 20m };
+
+        InvoiceLineChargeRules.ApplyProportional(target, origin);
+
+        Assert.Equal(50m, target.FreightValue);
+        Assert.Equal(20m, target.DiscountValue);
     }
 }

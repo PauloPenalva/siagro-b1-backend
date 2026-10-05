@@ -114,7 +114,7 @@ public class SalesInvoicesNfeReturnLockTests
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester"));
 
-        Assert.Equal("Item SOJA: o desconto passa do valor da linha.", ex.Message);
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", ex.Message);
     }
 
     [Fact]

@@ -29,7 +29,7 @@ Decisões do desenho (aprovado em 05/10):
 | # | Decisão |
 |---|---|
 | R1 | Os campos valem em **todas as filiais** (padrão 0 — nada muda onde não são preenchidos). O efeito nos tributos e na NF-e só existe onde o motor calcula (filial com a regra ativa). |
-| R2 | Validação: nenhum valor negativo; o desconto não passa de itens + frete + seguro + outras despesas da linha. |
+| R2 | Validação: nenhum valor negativo; o desconto não passa do valor do produto da linha (quantidade × preço). |
 | R3 | Entrada de terceiro: importar o XML lê os quatro valores de cada `det`; o **valor declarado** (`TotalDocumentValue`) passa a ser o **total geral** — no terceiro Normal da filial ativa (regra de 05/10) e na emissão própria. |
 | R4 | Telas: quatro colunas na grade de itens; coluna "Total" = total geral da linha; seção **"Totais"** no Detail; a barra da grade e as listas mostram o total geral. |
 
@@ -76,8 +76,10 @@ Migration única `AddInvoiceLineCharges` (`AppDbContext`); linhas existentes fic
 ## 5. Validação (R2)
 
 Na gravação da linha (inclusão/alteração de documento e de linha, nas duas entidades): valor negativo recusa
-"Item {código}: frete, seguro, desconto e outras despesas não podem ser negativos."; desconto acima de itens + frete +
-seguro + outras despesas recusa "Item {código}: o desconto passa do valor da linha.".
+"Item {código}: frete, seguro, desconto e outras despesas não podem ser negativos."; desconto acima do valor do produto da linha
+(quantidade × preço, o `vProd`) recusa "Item {código}: o desconto passa do valor do produto da linha.". O teto não inclui
+frete, seguro nem outras despesas: a SEFAZ rejeitou, em homologação em 05/10/2026, uma NF-e com a rejeição 483 "Valor do
+desconto maior que valor do produto" (por item, `vDesc` não pode passar de `vProd`).
 
 ## 6. Tributos (D3)
 
