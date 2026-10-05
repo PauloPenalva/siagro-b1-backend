@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
@@ -15,8 +17,14 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 ///
 /// A Fase 3 pendura aqui o efeito da natureza de operação sobre o contrato de compra, sem mexer
 /// nesta máquina de estados.
+///
+/// Documento eletrônico de terceiro: conferência da chave e, em Produção, consulta à SEFAZ (spec terceiro-chave §8).
 /// </summary>
-public class PurchaseInvoicesConfirmService(IUnitOfWork db, TaxCalculationGate gate)
+public class PurchaseInvoicesConfirmService(
+    IUnitOfWork db,
+    TaxCalculationGate gate,
+    IBusinessPartnerService businessPartnerService,
+    SupplierNfeAuthorizationService supplierNfe)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -28,10 +36,18 @@ public class PurchaseInvoicesConfirmService(IUnitOfWork db, TaxCalculationGate g
             throw new DefaultException("Somente documento pendente pode ser confirmado.");
 
         // Emitir é o que confirma (spec D3): na filial com a regra ativa, o documento de emissão própria só
-        // confirma com a NF-e autorizada — é o que a emissão chama. Documento de terceiro confirma como hoje.
+        // confirma com a NF-e autorizada — é o que a emissão chama. O de terceiro tem a conferência própria logo abaixo.
         if (invoice.IssuerType == DocumentIssuerType.Own && invoice.NfeStatus != NfeStatus.Authorized &&
             await gate.IsActiveAsync(invoice.BranchCode))
             throw new DefaultException("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.");
+
+        // Documento eletrônico de terceiro (spec terceiro-chave §7/§8): a chave é conferida de novo e, com a filial em
+        // Produção, a NF-e do fornecedor precisa estar autorizada na SEFAZ. A recusa deixa o documento Pendente.
+        if (SupplierNfeKeyGuard.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))
+        {
+            SupplierNfeKeyGuard.Ensure(invoice, (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.TaxId);
+            await supplierNfe.EnsureAuthorizedAsync(invoice);
+        }
 
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;

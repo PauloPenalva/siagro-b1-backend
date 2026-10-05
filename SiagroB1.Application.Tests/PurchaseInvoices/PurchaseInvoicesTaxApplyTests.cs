@@ -158,15 +158,17 @@ public class PurchaseInvoicesTaxApplyTests
     }
 
     [Fact]
-    public async Task Third_party_document_is_not_calculated()
+    public async Task Third_party_normal_document_is_calculated_like_the_own()
     {
+        // Antes desta mudança o terceiro nunca calculava; a spec terceiro-chave D1 o põe igual à própria.
         var seed = await SeedAsync();
-        var invoice = OwnEntry(null);
+        var invoice = OwnEntry(seed.PurchaseUsage);
         invoice.IssuerType = DocumentIssuerType.ThirdParty;
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
 
         await Create(seed).ExecuteAsync(invoice, "tester");
 
-        Assert.Null((await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync()).Cfop);
+        Assert.NotNull((await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync()).Cfop);
     }
 
     [Fact]

@@ -10,10 +10,11 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
 /// <summary>
-/// Tributos da linha do Documento de Entrada pela natureza (spec §6.2). Só age com a regra ativa, documento
-/// Pendente e EMISSÃO PRÓPRIA — a entrada Normal (natureza de Entrada, CFOP 1xxx/2xxx) e a devolução de compra
-/// criada pelo Devolver (natureza de Saída, CFOP 5xxx/6xxx, conferida contra a linha comprada). Documento de
-/// terceiro e a devolução do cliente ficam exatamente como chegaram.
+/// Tributos da linha do Documento de Entrada pela natureza (spec §6.2). Só age com a regra ativa e documento
+/// Pendente. Calcula a emissão própria — a entrada Normal (natureza de Entrada, CFOP 1xxx/2xxx) e a devolução de
+/// compra criada pelo Devolver (natureza de Saída, CFOP 5xxx/6xxx, conferida contra a linha comprada) — e, desde a
+/// spec terceiro-chave (D1), o documento de terceiro Normal, igual à entrada própria. A devolução do cliente
+/// (terceiro + Devolução) fica exatamente como chegou.
 /// </summary>
 public class PurchaseInvoicesTaxApplyService(
     IUnitOfWork db,
@@ -27,8 +28,9 @@ public class PurchaseInvoicesTaxApplyService(
     public Task<bool> IsBranchActiveAsync(string? branchCode) => gate.IsActiveAsync(branchCode);
 
     public async Task<bool> IsActiveForAsync(PurchaseInvoice invoice) =>
-        invoice.IssuerType == DocumentIssuerType.Own
-        && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
+        (invoice.IssuerType == DocumentIssuerType.Own
+         && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
+         || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
         && await gate.IsActiveAsync(invoice.BranchCode);
 
     /// <summary>Devolução de compra criada pelo "Devolver": sai com NF-e própria de saída.</summary>
@@ -84,8 +86,8 @@ public class PurchaseInvoicesTaxApplyService(
             {
                 var origin = OriginOf(item, origins);
 
-                // Linha de origem sem fotografia (entrada de terceiro digitada, ou linha incluída depois da importação):
-                // não há com o que conferir (spec terceiro D2).
+                // Origem sem fotografia (entrada de terceiro antiga digitada, ou linha incluída depois da importação
+                // antes da spec terceiro-chave): não há com o que conferir. A origem calculada pelo motor é conferida.
                 if (!string.IsNullOrWhiteSpace(origin.CstIcms))
                     NfeReturnConference.Ensure(item, origin, usage.Name, "compra");
             }

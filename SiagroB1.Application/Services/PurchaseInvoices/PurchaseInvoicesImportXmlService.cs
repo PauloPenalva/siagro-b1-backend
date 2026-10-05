@@ -20,8 +20,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// Infra mas nunca foi exercitada neste projeto, e o valor dela é na EMISSÃO. Para ler uma dezena
 /// de campos de um layout estável, a dependência não paga o risco.
 ///
-/// A tributação de cada item é lida por <see cref="SupplierNfeXmlReader"/> e gravada na linha pelo
-/// <c>PurchaseInvoiceSupplierTaxes</c> quando o documento é salvo; o rascunho só leva o <c>nItem</c>.
+/// O rascunho só leva o <c>nItem</c> de cada item; a tributação é calculada pela natureza quando o documento é
+/// salvo, e o <c>PurchaseInvoiceSupplierItemNumbers</c> confere o <c>nItem</c> contra o XML guardado.
 /// </summary>
 public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPartnerService)
 {

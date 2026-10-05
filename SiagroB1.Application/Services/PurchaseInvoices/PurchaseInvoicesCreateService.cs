@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -28,6 +27,12 @@ public class PurchaseInvoicesCreateService(
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
 
+        // A autorização da NF-e do fornecedor só o confirmar grava; emissão própria é sempre NF-e.
+        invoice.SupplierNfeProtocol = null;
+        invoice.SupplierNfeCheckedAt = null;
+        if (invoice.IssuerType == DocumentIssuerType.Own)
+            invoice.TaxDocumentKind = TaxDocumentKind.Nfe;
+
         // Só o "Devolver" (PurchaseInvoicesNfeReturnCreateService) marca a devolução de compra; o corpo da
         // API nunca — senão um POST tiraria a nota da confirmação pela emissão.
         invoice.IsNfeReturn = nfeReturn && invoice.InvoiceType == PurchaseInvoiceType.Return;
@@ -36,8 +41,6 @@ public class PurchaseInvoicesCreateService(
             !invoice.IsNfeReturn && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
-
-        await EnsureChaveNFeIsFreeAsync(invoice.ChaveNFe, invoice.Key);
 
         invoice.CreatedAt = DateTime.Now;
         invoice.CreatedBy = userName;
@@ -54,6 +57,13 @@ public class PurchaseInvoicesCreateService(
         //
         // O parceiro é carregado UMA vez: serve ao nome e à condição de pagamento padrão.
         var partner = await businessPartnerService.GetByIdAsync(invoice.CardCode);
+
+        // Documento eletrônico de terceiro: chave coerente com o fornecedor, número e série (spec terceiro-chave §7).
+        // Antes da unicidade: o guard normaliza a chave colada com espaços.
+        if (SupplierNfeKeyGuard.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            SupplierNfeKeyGuard.Ensure(invoice, partner?.TaxId);
+
+        await PurchaseInvoiceChaveNFe.EnsureFreeAsync(db, invoice.ChaveNFe, invoice.Key);
 
         if (string.IsNullOrWhiteSpace(invoice.CardName))
             invoice.CardName = partner?.CardName;
@@ -75,40 +85,15 @@ public class PurchaseInvoicesCreateService(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
 
-        // Documento de terceiro com o XML: a tributação de cada linha é a da nota do fornecedor (spec terceiro §7).
-        // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
+        // Documento de terceiro com o XML: todo nItem informado precisa existir na nota do fornecedor (é o que a
+        // devolução referencia). Só na filial que emite NF-e pelo Siagro; fora dela o documento grava como veio.
         if (await taxApply.IsBranchActiveAsync(invoice.BranchCode))
-            PurchaseInvoiceSupplierTaxes.Apply(invoice, invoice.Items);
+            PurchaseInvoiceSupplierItemNumbers.Ensure(invoice, invoice.Items);
 
         // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
         await taxApply.ApplyAsync(invoice, invoice.Items);
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Uma chave de NF-e, um documento registrado. O índice único no banco é a rede de segurança;
-    /// esta checagem existe para a mensagem sair legível em pt-BR.
-    ///
-    /// Documento CANCELADO não segura a chave — relançar é caminho legítimo, e é por isso que o
-    /// índice do banco também é filtrado por status.
-    ///
-    /// Chave vazia ou em branco é tratada como AUSENTE. Sem isso, dois documentos digitados à mão
-    /// sem chave colidiriam entre si numa query de igualdade sobre string vazia.
-    /// </summary>
-    private async Task EnsureChaveNFeIsFreeAsync(string? chaveNFe, Guid key)
-    {
-        if (string.IsNullOrWhiteSpace(chaveNFe))
-            return;
-
-        var duplicated = await db.Context.PurchaseInvoices
-            .AnyAsync(x => x.ChaveNFe == chaveNFe &&
-                           x.InvoiceStatus != InvoiceStatus.Cancelled &&
-                           x.Key != key);
-
-        if (duplicated)
-            throw new DefaultException(
-                $"Já existe documento de entrada com a chave de NF-e {chaveNFe}.");
     }
 }

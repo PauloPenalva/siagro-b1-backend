@@ -59,6 +59,19 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     [Column(TypeName = "VARCHAR(44)")]
     public string? ChaveNFe { get; set; }
 
+    /// <summary>Tipo do documento fiscal (spec terceiro-chave D2). Emissão própria é sempre <see cref="TaxDocumentKind.Nfe"/>.</summary>
+    public TaxDocumentKind TaxDocumentKind { get; set; } = TaxDocumentKind.Nfe;
+
+    /// <summary>
+    /// Protocolo de autorização da NF-e do fornecedor, devolvido pela consulta à SEFAZ no confirmar (filial em
+    /// Produção). Só o servidor grava.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? SupplierNfeProtocol { get; set; }
+
+    /// <summary>Quando a consulta à SEFAZ autorizou a NF-e do fornecedor. Só o servidor grava.</summary>
+    public DateTime? SupplierNfeCheckedAt { get; set; }
+
     /// <summary>Emissão, como declarada pelo emitente.</summary>
     public DateTime? IssueDate { get; set; } = DateTime.Now.Date;
 

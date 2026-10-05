@@ -342,6 +342,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PaymentConditionsService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
+        services.AddScoped<SupplierNfeAuthorizationService>();
         services.AddScoped<NfeNumberReservationService>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();
