@@ -193,6 +193,34 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
 
+    // --- Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05, D1). Padrão 0 em toda filial (R1). ---
+
+    /// <summary>Frete cobrado na linha (<c>det/prod/vFrete</c>).</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FreightValue { get; set; }
+
+    /// <summary>Seguro cobrado na linha (<c>det/prod/vSeg</c>).</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal InsuranceValue { get; set; }
+
+    /// <summary>
+    /// Desconto incondicional da linha (<c>det/prod/vDesc</c>). Nunca passa de itens + frete + seguro + outras despesas
+    /// (<c>InvoiceLineChargeRules</c>).
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal DiscountValue { get; set; }
+
+    /// <summary>Outras despesas acessórias da linha (<c>det/prod/vOutro</c>).</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal OtherExpensesValue { get; set; }
+
+    /// <summary>
+    /// Total geral da linha (spec D2): <see cref="Total"/> (o vProd) + frete + seguro + outras despesas − desconto. É a
+    /// base dos tributos (D3) e a parte da linha no vNF. Derivado, sem coluna.
+    /// </summary>
+    [NotMapped]
+    public decimal GrandTotal => Total + FreightValue + InsuranceValue + OtherExpensesValue - DiscountValue;
+
     /// <summary>
     /// Quebra apurada da linha de ORIGEM — o número que o fiscal deveria espelhar.
     /// </summary>
