@@ -297,7 +297,7 @@ public class PurchaseInvoiceNfeLockTests
         var (db, invoice) = await SeedAsync(NfeStatus.None);
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "STANDALONE")).ExecuteAsync(invoice.Key, "tester"));
+            TaxTestServices.PurchaseConfirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", e.Message);
     }
@@ -307,7 +307,7 @@ public class PurchaseInvoiceNfeLockTests
     {
         var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
 
-        await new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "STANDALONE")).ExecuteAsync(invoice.Key, "tester");
+        await TaxTestServices.PurchaseConfirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, (await LoadAsync(db, invoice.Key)).InvoiceStatus);
     }
@@ -318,9 +318,10 @@ public class PurchaseInvoiceNfeLockTests
         var (db, invoice) = await SeedAsync(NfeStatus.None);
         var entity = await db.Context.PurchaseInvoices.SingleAsync(i => i.Key == invoice.Key);
         entity.IssuerType = DocumentIssuerType.ThirdParty;
+        entity.TaxDocumentKind = TaxDocumentKind.Other;
         await db.SaveChangesAsync();
 
-        await new PurchaseInvoicesConfirmService(db, TaxTestServices.Gate(db, "STANDALONE")).ExecuteAsync(invoice.Key, "tester");
+        await TaxTestServices.PurchaseConfirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, (await LoadAsync(db, invoice.Key)).InvoiceStatus);
     }

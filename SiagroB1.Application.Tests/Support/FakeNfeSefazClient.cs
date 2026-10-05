@@ -19,6 +19,7 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
     public NfeSefazResult StatusResponse { get; set; } = new(107, "Serviço em Operação");
     public List<SignedNfe> Sent { get; } = [];
     public List<string> Consulted { get; } = [];
+    public List<NfeServiceSettings> ConsultedSettings { get; } = [];
     public Func<Task>? BeforeAuthorize { get; set; }
 
     public async Task<NfeSefazResult> AuthorizeAsync(
@@ -39,6 +40,7 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default)
     {
         Consulted.Add(accessKey);
+        ConsultedSettings.Add(settings);
         var result = ConsultResponses.Dequeue()(accessKey);
 
         if (result.ProtocolXml is not null && result.ProtocolXml.Contains(MatchingDigest) && Sent.Count > 0)

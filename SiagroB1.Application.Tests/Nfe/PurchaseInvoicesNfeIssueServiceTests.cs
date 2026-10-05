@@ -14,7 +14,7 @@ namespace SiagroB1.Application.Tests.Nfe;
 public class PurchaseInvoicesNfeIssueServiceTests
 {
     internal static PurchaseInvoiceNfeResultHandler Handler(PurchaseNfeScenario scenario) =>
-        new(scenario.Db, new PurchaseInvoicesConfirmService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config())),
+        new(scenario.Db, TaxTestServices.PurchaseConfirm(scenario.Db),
             NullLogger<PurchaseInvoiceNfeResultHandler>.Instance);
 
     internal static PurchaseInvoicesNfeIssueService Issue(
