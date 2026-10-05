@@ -59,7 +59,7 @@ public class PurchaseInvoicesNfeIssueService(
         PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible) =>
         NfeIssueInputAssembler.Build(invoice, context, issuedAt, technicalResponsible);
 
-    /// <summary>O total da nota própria é o vNF (soma dos itens): o "valor declarado" passa a ser o emitido.</summary>
+    /// <summary>O total da nota própria é o vNF (total geral das linhas, spec 2026-10-05 R3): o "valor declarado" passa a ser o emitido.</summary>
     protected override void BeforeSigning(PurchaseInvoice invoice) =>
-        invoice.TotalDocumentValue = invoice.Items.Sum(i => i.Total);
+        invoice.TotalDocumentValue = invoice.Items.Sum(i => i.GrandTotal);
 }

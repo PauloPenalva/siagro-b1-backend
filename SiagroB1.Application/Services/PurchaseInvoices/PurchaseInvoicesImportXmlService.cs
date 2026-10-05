@@ -63,6 +63,10 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 NfeItemNumber = item.ItemNumber,
+                FreightValue = item.FreightValue,
+                InsuranceValue = item.InsuranceValue,
+                DiscountValue = item.DiscountValue,
+                OtherExpensesValue = item.OtherExpensesValue,
             });
         }
 

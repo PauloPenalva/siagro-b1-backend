@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
@@ -246,5 +248,25 @@ public class PurchaseInvoicesNfeIssueServiceTests
             .ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, outcome.InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Own_entry_declared_value_and_vNF_are_the_grand_total()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await ChangeAsync(scenario, invoice =>
+        {
+            var line = invoice.Items.Single();
+            (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue) = (100m, 20m, 50m, 30m);
+        });
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(1600m, (await ReloadAsync(scenario)).TotalDocumentValue);
+        XNamespace ns = "http://www.portalfiscal.inf.br/nfe";
+        var vNF = XDocument.Parse(Assert.Single(sefaz.Sent).Xml).Descendants(ns + "vNF").Single().Value;
+        Assert.Equal(1600m, decimal.Parse(vNF, CultureInfo.InvariantCulture));
     }
 }

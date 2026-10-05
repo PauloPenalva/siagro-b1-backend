@@ -81,4 +81,18 @@ public class SupplierNfeXmlReaderTests
 
         Assert.Equal("XML não parece uma NF-e: elemento infNFe não encontrado.", e.Message);
     }
+
+    [Fact]
+    public void Reads_the_line_charges_and_absent_ones_are_zero()
+    {
+        var nfe = SupplierNfeXmlReader.Read(SupplierNfeXml.Bytes(SupplierNfeXml.Build(
+            SupplierNfeXml.Det(1, "TRG", "TRIGO", 1000m, 1.5m, SupplierNfeXml.Icms51(1500m),
+                charges: SupplierNfeXml.Charges(100m, 20m, 50m, 30m)),
+            SupplierNfeXml.Det(2, "MLH", "MILHO", 500m, 1m, SupplierNfeXml.Icms00(500m, 12m)))));
+
+        var first = nfe.Items.Single(i => i.ItemNumber == 1);
+        var second = nfe.Items.Single(i => i.ItemNumber == 2);
+        Assert.Equal((100m, 20m, 50m, 30m), (first.FreightValue, first.InsuranceValue, first.DiscountValue, first.OtherExpensesValue));
+        Assert.Equal((0m, 0m, 0m, 0m), (second.FreightValue, second.InsuranceValue, second.DiscountValue, second.OtherExpensesValue));
+    }
 }

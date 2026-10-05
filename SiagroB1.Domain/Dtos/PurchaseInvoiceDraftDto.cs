@@ -45,4 +45,16 @@ public class PurchaseInvoiceDraftItemDto
 
     /// <summary>Número do item (nItem) na NF-e do fornecedor — é o que a devolução referencia.</summary>
     public int? NfeItemNumber { get; set; }
+
+    /// <summary>Frete da linha no XML do fornecedor (<c>det/prod/vFrete</c>); 0 quando ausente.</summary>
+    public decimal FreightValue { get; set; }
+
+    /// <summary>Seguro da linha (<c>det/prod/vSeg</c>).</summary>
+    public decimal InsuranceValue { get; set; }
+
+    /// <summary>Desconto da linha (<c>det/prod/vDesc</c>).</summary>
+    public decimal DiscountValue { get; set; }
+
+    /// <summary>Outras despesas da linha (<c>det/prod/vOutro</c>).</summary>
+    public decimal OtherExpensesValue { get; set; }
 }

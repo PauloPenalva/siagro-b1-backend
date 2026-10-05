@@ -119,4 +119,32 @@ public class PurchaseInvoiceDeclaredTotalTests
 
         Assert.Equal(999m, await DeclaredAsync(db, invoice.Key));
     }
+
+    [Fact]
+    public async Task Declared_value_is_the_grand_total_of_the_lines()
+    {
+        var (db, usage) = await SeedAsync();
+        var invoice = ThirdParty(usage);
+        var line = invoice.Items.Single();
+        (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue) = (100m, 20m, 50m, 30m);
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal(1600m, await DeclaredAsync(db, invoice.Key));
+    }
+
+    [Fact]
+    public async Task Changing_the_freight_of_a_line_recalculates_the_declared_value()
+    {
+        var (db, usage) = await SeedAsync();
+        var invoice = ThirdParty(usage);
+        await Create(db).ExecuteAsync(invoice, "tester");
+        db.Context.ChangeTracker.Clear();
+        var patch = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key);
+        patch.FreightValue = 250m;
+
+        await new PurchaseInvoicesItemsUpdateService(db, new FakeItemService(), Apply(db)).ExecuteAsync(patch.Key!.Value, patch, "tester");
+
+        Assert.Equal(1750m, await DeclaredAsync(db, invoice.Key));
+    }
 }

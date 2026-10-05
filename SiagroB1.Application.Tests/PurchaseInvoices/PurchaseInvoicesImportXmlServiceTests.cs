@@ -214,4 +214,19 @@ public class PurchaseInvoicesImportXmlServiceTests
         Assert.Equal(new[] { (1, "TRG", 1000m), (2, "MLH", 500m) },
             draft.Items.Select(i => (i.NfeItemNumber!.Value, i.ItemCode!, i.Quantity)).ToArray());
     }
+
+    [Fact]
+    public async Task Draft_lines_carry_the_line_charges_of_the_xml()
+    {
+        var xml = SupplierNfeXml.Build(
+            SupplierNfeXml.Det(1, "TRG", "TRIGO", 1000m, 1.5m, SupplierNfeXml.Icms51(1500m),
+                charges: SupplierNfeXml.Charges(100m, 20m, 50m, 30m)),
+            SupplierNfeXml.Det(2, "MLH", "MILHO", 500m, 1m, SupplierNfeXml.Icms00(500m, 12m)));
+
+        var draft = await Service(PurchaseNfeTestSeed.Supplier, "529.982.247-25").ExecuteAsync(SupplierNfeXml.Bytes(xml), "nfe.xml");
+
+        var (first, second) = (draft.Items[0], draft.Items[1]);
+        Assert.Equal((100m, 20m, 50m, 30m), (first.FreightValue, first.InsuranceValue, first.DiscountValue, first.OtherExpensesValue));
+        Assert.Equal((0m, 0m, 0m, 0m), (second.FreightValue, second.InsuranceValue, second.DiscountValue, second.OtherExpensesValue));
+    }
 }
