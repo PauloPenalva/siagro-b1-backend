@@ -353,6 +353,15 @@ aumento sobre a base (920); QUnit verde.
 - **NF-e referenciada de outro ambiente:** em homologação, uma chave de produção como `refNFe` pode ser recusada;
   o teste usa entrada sem referência e, se possível, uma chave de homologação.
 - **VC02-14 na devolução de compra:** mesma regra e mesmas datas da devolução de venda (produção em 03/11/2026).
+- **VC02-50 (rejeição 1194) na devolução de entrada própria:** na verificação em homologação (05/10/2026, 03h) a
+  devolução da entrada nº 5 foi rejeitada com "Destinatário da NF-e deve ser igual ao Emitente da NF referenciada",
+  porque a referenciada é a nossa própria entrada. A NT 2025.002 v1.52 (01/10/2026) corrigiu a VC02-50 para valer só
+  na "devolução de saída que referencia nota de saída" (a entrada própria tem `tpNF 0`), com entrada em homologação
+  em 05/10/2026 e em produção em 03/11/2026 — a SP ainda rodava a redação antiga. O XML não mudou; reemitir a devolução
+  (série 9 nº 6, número reservado). Se a SEFAZ continuar rejeitando depois da correção, a devolução de entrada própria
+  terá de referenciar a NF-e do produtor (`ReferencedAccessKey`), o que exige o `nItem` daquela nota.
+- **À vista sem `cobr` (rejeição 853):** com condição à vista (`indPag 0`) o montador não manda `cobr`; achado na
+  emissão da entrada em homologação e corrigido no montador comum (vale também para a venda).
 - **Produtor não contribuinte com IE:** o EfisCloud manda IE com indicador 9; o Siagro só manda IE com indicador 1
   (regra do 2a). Se a SEFAZ exigir, o cadastro do fornecedor precisa do indicador 1.
 
