@@ -3,6 +3,10 @@ using SiagroB1.Domain.Entities;
 namespace SiagroB1.Application.Services.Nfe;
 
 /// <summary>Cadastro já carregado e conferido pela prontidão — tudo o que a montagem da entrada usa.</summary>
+/// <param name="Customer">
+/// O destinatário da NF-e (<c>dest</c>): o cliente no documento de saída, o fornecedor no de entrada.
+/// <c>CustomerAddress</c> e <c>CustomerMunicipality</c> são o endereço de faturamento dele.
+/// </param>
 /// <param name="PaymentCondition">Nula só na devolução própria, que não tem pagamento (tPag 90).</param>
 /// <param name="ReturnOrigin">Na devolução própria, a venda referenciada; nula na venda.</param>
 public sealed record NfeIssueContext(

@@ -2,10 +2,23 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Nfe;
+
+/// <summary>
+/// O que a prontidão precisa do documento, sem saber se é de saída ou de entrada.
+/// </summary>
+/// <param name="PartnerLabel">Como o destinatário aparece nas lacunas ("Cliente", "Fornecedor").</param>
+/// <param name="RequiresPayment">Falso na devolução própria, que não tem pagamento (tPag 90).</param>
+/// <param name="Direction">Sentido da NF-e: decide os prefixos de CFOP conferidos (5/6 na saída, 1/2 na entrada).</param>
+/// <param name="RequiresProductAndUnit">Linha cujo produto/unidade é anulável: lista a lacuna em vez de estourar no montador.</param>
+public sealed record NfeReadinessRequest(
+    string? BranchCode, string PartnerCode, string PartnerLabel, string? DeliveryCardCode, string? TruckingCompanyCode,
+    string? TruckCode, decimal GrossWeight, decimal NetWeight, int? PaymentConditionCode, bool RequiresPayment,
+    NfeDirection Direction, IReadOnlyList<INfeTaxedLine> Lines, bool RequiresProductAndUnit);
 
 /// <summary>
 /// Confere o cadastro antes de reservar número (spec §9.2 passo 2). Junta TODAS as lacunas numa
@@ -14,13 +27,31 @@ namespace SiagroB1.Application.Services.Nfe;
 /// </summary>
 public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
 {
-    public async Task<NfeIssueContext> ValidateAsync(SalesInvoice invoice)
+    public Task<NfeIssueContext> ValidateAsync(SalesInvoice invoice) =>
+        ValidateCoreAsync(
+            new NfeReadinessRequest(
+                invoice.BranchCode, invoice.CardCode, "Cliente", invoice.DeliveryCardCode, invoice.TruckingCompanyCode,
+                invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
+                RequiresPayment: !invoice.IsNfeReturn,
+                // Venda: saída. Devolução própria: entrada.
+                Direction: invoice.IsNfeReturn ? NfeDirection.Incoming : NfeDirection.Outgoing,
+                Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
+                RequiresProductAndUnit: false),
+            invoice.IsNfeReturn ? problems => LoadReturnOriginAsync(invoice, problems) : null);
+
+    /// <summary>
+    /// O núcleo, sem saber de que documento se trata: o que muda vem no <paramref name="request"/>, e a
+    /// operação de origem (só na devolução) em <paramref name="loadReturnOrigin"/>, que acrescenta as
+    /// próprias lacunas à lista.
+    /// </summary>
+    private async Task<NfeIssueContext> ValidateCoreAsync(
+        NfeReadinessRequest request, Func<List<string>, Task<NfeReturnOrigin?>>? loadReturnOrigin)
     {
         var problems = new List<string>();
 
         var branch = await db.Context.Branchs.AsNoTracking().Include(b => b.Municipality)
-                         .FirstOrDefaultAsync(b => b.Code == invoice.BranchCode)
-                     ?? throw new DefaultException($"Filial {invoice.BranchCode} não encontrada.");
+                         .FirstOrDefaultAsync(b => b.Code == request.BranchCode)
+                     ?? throw new DefaultException($"Filial {request.BranchCode} não encontrada.");
 
         var branchGaps = Gaps(
             ("razão social", branch.LegalName), ("inscrição estadual", NfeText.AlphaNumeric(branch.StateRegistration)),
@@ -42,11 +73,11 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         if (!options.HasCertificateKey)
             problems.Add("Chave Nfe:CertificateKey não configurada no servidor");
 
-        var customer = await LoadPartnerAsync(invoice.CardCode);
+        var customer = await LoadPartnerAsync(request.PartnerCode);
         var customerAddress = customer is null ? null : BillingAddress(customer);
         if (customer is null)
         {
-            problems.Add($"Cliente {invoice.CardCode} não encontrado");
+            problems.Add($"{request.PartnerLabel} {request.PartnerCode} não encontrado");
         }
         else
         {
@@ -56,7 +87,21 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             else if (customer.StateRegistrationIndicator == StateRegistrationIndicator.Taxpayer &&
                      string.IsNullOrWhiteSpace(NfeText.Digits(customer.StateRegistration))) gaps.Add("inscrição estadual");
             AddressGaps(gaps, customerAddress, "endereço de faturamento");
-            Report(problems, $"Cliente {customer.CardCode}", gaps);
+            Report(problems, $"{request.PartnerLabel} {customer.CardCode}", gaps);
+        }
+
+        // Linha de documento em que produto e unidade são anuláveis: o montador usa os dois sem conferir.
+        if (request.RequiresProductAndUnit)
+        {
+            var position = 0;
+            foreach (var line in request.Lines)
+            {
+                position++;
+                var gaps = new List<string>();
+                if (string.IsNullOrWhiteSpace(line.ItemCode)) gaps.Add("produto");
+                if (string.IsNullOrWhiteSpace(line.UnitOfMeasureCode)) gaps.Add("unidade de medida");
+                Report(problems, $"Item {position}", gaps);
+            }
         }
 
         // CFOP x destino: 5xxx é dentro da UF da filial, 6xxx fora. O CFOP é gravado no cálculo do
@@ -68,14 +113,14 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             var sameState = string.Equals(branchState, destinationState, StringComparison.OrdinalIgnoreCase);
             var line = 0;
 
-            foreach (var item in invoice.Items)
+            foreach (var item in request.Lines)
             {
                 line++;
                 var first = item.Cfop?.Trim().FirstOrDefault();
 
-                // Venda: 5xxx dentro, 6xxx fora. Devolução própria (entrada): 1xxx dentro, 2xxx fora.
-                var inStatePrefix = invoice.IsNfeReturn ? '1' : '5';
-                var outStatePrefix = invoice.IsNfeReturn ? '2' : '6';
+                // Saída: 5xxx dentro, 6xxx fora. Entrada (ex.: devolução própria de venda): 1xxx dentro, 2xxx fora.
+                var inStatePrefix = request.Direction == NfeDirection.Incoming ? '1' : '5';
+                var outStatePrefix = request.Direction == NfeDirection.Incoming ? '2' : '6';
 
                 if ((first == inStatePrefix && !sameState) || (first == outStatePrefix && sameState))
                     problems.Add($"Item {line}: CFOP {item.Cfop} não confere com o destino ({destinationState}) — salve o item de novo para recalcular.");
@@ -84,14 +129,14 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
 
         BusinessPartner? deliveryPartner = null;
         Address? deliveryAddress = null;
-        if (!string.IsNullOrWhiteSpace(invoice.DeliveryCardCode) && invoice.DeliveryCardCode != invoice.CardCode)
+        if (!string.IsNullOrWhiteSpace(request.DeliveryCardCode) && request.DeliveryCardCode != request.PartnerCode)
         {
-            deliveryPartner = await LoadPartnerAsync(invoice.DeliveryCardCode);
+            deliveryPartner = await LoadPartnerAsync(request.DeliveryCardCode);
             deliveryAddress = deliveryPartner is null ? null : DeliveryAddress(deliveryPartner);
 
             if (deliveryPartner is null)
             {
-                problems.Add($"Local de entrega {invoice.DeliveryCardCode} não encontrado");
+                problems.Add($"Local de entrega {request.DeliveryCardCode} não encontrado");
             }
             else
             {
@@ -103,49 +148,49 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         }
 
         BusinessPartner? carrier = null;
-        if (!string.IsNullOrWhiteSpace(invoice.TruckingCompanyCode))
+        if (!string.IsNullOrWhiteSpace(request.TruckingCompanyCode))
         {
-            carrier = await LoadPartnerAsync(invoice.TruckingCompanyCode);
+            carrier = await LoadPartnerAsync(request.TruckingCompanyCode);
             if (carrier is null)
-                problems.Add($"Transportadora {invoice.TruckingCompanyCode} não encontrada");
+                problems.Add($"Transportadora {request.TruckingCompanyCode} não encontrada");
             else if (!string.IsNullOrWhiteSpace(carrier.TaxId) && !IsTaxId(carrier.TaxId))
                 problems.Add($"Transportadora {carrier.CardCode}: CNPJ/CPF");
         }
 
         // Volume da NF-e: só os pesos são obrigatórios (quantidade, espécie, marca e numeração não).
         // Informados, não derivados da quantidade: a unidade pode ser saco, bag, caixa...
-        if (invoice.GrossWeight <= 0 || invoice.NetWeight <= 0)
+        if (request.GrossWeight <= 0 || request.NetWeight <= 0)
             problems.Add("Documento: peso bruto e peso líquido");
-        else if (invoice.GrossWeight < invoice.NetWeight)
+        else if (request.GrossWeight < request.NetWeight)
             problems.Add("Documento: o peso bruto não pode ser menor que o peso líquido");
 
         // A devolução própria não tem pagamento (tPag 90, rejeição 871 com qualquer outro meio).
         PaymentCondition? condition = null;
-        if (!invoice.IsNfeReturn)
+        if (request.RequiresPayment)
         {
-            if (invoice.PaymentConditionCode is null)
+            if (request.PaymentConditionCode is null)
             {
                 problems.Add("Documento: condição de pagamento");
             }
             else
             {
-                condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == invoice.PaymentConditionCode);
+                condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == request.PaymentConditionCode);
                 if (condition is null)
-                    problems.Add($"Documento: condição de pagamento {invoice.PaymentConditionCode} não encontrada");
+                    problems.Add($"Documento: condição de pagamento {request.PaymentConditionCode} não encontrada");
                 else if (condition.Inactive)
                     problems.Add($"Documento: a condição de pagamento {condition.Name} está inativa");
             }
         }
 
-        var returnOrigin = invoice.IsNfeReturn ? await LoadReturnOriginAsync(invoice, problems) : null;
+        var returnOrigin = loadReturnOrigin is null ? null : await loadReturnOrigin(problems);
 
         if (problems.Count > 0)
             throw new DefaultException("Faltam dados para emitir a NF-e:\n- " + string.Join("\n- ", problems));
 
-        var (plate, truckState) = await LoadTruckAsync(invoice.TruckCode);
-        var usageCodes = invoice.Items.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
+        var (plate, truckState) = await LoadTruckAsync(request.TruckCode);
+        var usageCodes = request.Lines.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
         var usages = await db.Context.Usages.AsNoTracking().Where(u => usageCodes.Contains(u.Code)).ToDictionaryAsync(u => u.Code);
-        var itemCodes = invoice.Items.Select(i => i.ItemCode).Distinct().ToList();
+        var itemCodes = request.Lines.Select(i => i.ItemCode).Where(c => c is not null).Select(c => c!).Distinct().ToList();
         var itemCests = await db.Context.Items.AsNoTracking()
             .Where(i => itemCodes.Contains(i.ItemCode))
             .ToDictionaryAsync(i => i.ItemCode, i => i.Cest);
