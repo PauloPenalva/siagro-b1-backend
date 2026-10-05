@@ -70,6 +70,11 @@ public class PurchaseInvoicesNfeReturnCreateService(
             TruckingCompanyCode = origin.TruckingCompanyCode,
             TruckingCompanyName = origin.TruckingCompanyName,
             FreightTerms = origin.FreightTerms,
+            // Volume como na devolução de venda: copiado da entrada e editável enquanto Pendente.
+            VolumeQuantity = origin.VolumeQuantity,
+            VolumeSpecies = origin.VolumeSpecies,
+            VolumeBrand = origin.VolumeBrand,
+            VolumeNumbering = origin.VolumeNumbering,
             Comments = $"Devolução da NF-e {NumberText(origin.TaxDocumentNumber)} série {origin.TaxDocumentSeries}. " +
                        $"Motivo: {request.Reason.Trim()}",
         };

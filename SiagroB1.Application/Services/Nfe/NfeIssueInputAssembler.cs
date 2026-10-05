@@ -59,8 +59,9 @@ public static class NfeIssueInputAssembler
     }
 
     /// <summary>
-    /// Entrada própria: ENTRADA normal, destinatário = fornecedor, a NF-e do produtor no NFref. Devolução de
-    /// compra: SAÍDA com finalidade 4, o item da entrada no DFeReferenciado, sem pagamento.
+    /// Entrada própria: ENTRADA normal, destinatário = fornecedor, sem NF-e referenciada (o NFref é 1:N no
+    /// leiaute e o documento não tem onde guardá-las). Devolução de compra: SAÍDA com finalidade 4, o item da
+    /// entrada no DFeReferenciado, sem pagamento.
     /// </summary>
     public static NfeIssueInput Build(
         PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
@@ -69,9 +70,7 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a entrada de origem.")
             : null;
 
-        IReadOnlyList<string> referencedKeys = returnOrigin is not null
-            ? [returnOrigin.AccessKey]
-            : invoice.ReferencedAccessKey is { Length: 44 } producerKey ? [producerKey] : [];
+        IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey] : [];
 
         return Build(new NfeDocumentView(
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
@@ -79,7 +78,8 @@ public static class NfeIssueInputAssembler
             returnOrigin, referencedKeys,
             NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
             line => ((PurchaseInvoiceItem)line).PurchaseInvoiceItemOriginKey,
-            invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight, Volume: null,
+            invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
+            new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
             invoice.TaxPayerComments, TaxComments: null,
             returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA"), context, issuedAt, technicalResponsible);
     }

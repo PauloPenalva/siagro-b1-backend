@@ -14,7 +14,6 @@ public sealed record PurchaseNfeScenario(UnitOfWork Db, string DatabaseName, Gui
 public static class PurchaseNfeTestSeed
 {
     public const string Supplier = "F-SP";
-    public const string ProducerKey = "35261011222333000181550010000004561123456780";
 
     public static async Task<PurchaseNfeScenario> SeedAsync(bool twoItems = false)
     {
@@ -67,7 +66,7 @@ public static class PurchaseNfeTestSeed
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = Supplier, CardName = "PRODUTOR RURAL TESTE",
             IssuerType = DocumentIssuerType.Own, InvoiceType = PurchaseInvoiceType.Normal, InvoiceStatus = InvoiceStatus.Pending,
             IssueDate = new DateTime(2026, 10, 2), PostingDate = new DateTime(2026, 10, 2), GrossWeight = 1000m, NetWeight = 1000m,
-            FreightTerms = FreightTerms.None, PaymentConditionCode = condition.Code, ReferencedAccessKey = ProducerKey,
+            FreightTerms = FreightTerms.None, PaymentConditionCode = condition.Code,
             TaxPayerComments = "Contribuição Social denominada Funrural 1,5% = R$ 22,50",
         };
         invoice.AddItem(Line("TRIGO", "TRIGO EM GRAOS", "10019900", 1000m, purchaseUsage));

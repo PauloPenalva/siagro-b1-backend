@@ -103,6 +103,35 @@ public class PurchaseInvoiceNfeLockTests
     }
 
     [Fact]
+    public async Task Authorized_document_keeps_the_volume()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.VolumeSpecies = "BAG";
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Update(db).ExecuteAsync(invoice.Key, changed, "tester"));
+
+        Assert.Equal("A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.", e.Message);
+    }
+
+    [Fact]
+    public async Task Pending_document_saves_the_volume()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.VolumeQuantity = 20;
+        changed.VolumeSpecies = "SACO";
+        changed.VolumeBrand = "CEAGUI";
+        changed.VolumeNumbering = "1 A 20";
+
+        await Update(db).ExecuteAsync(invoice.Key, changed, "tester");
+
+        var saved = await LoadAsync(db, invoice.Key);
+        Assert.Equal((20, "SACO", "CEAGUI", "1 A 20"),
+            (saved.VolumeQuantity, saved.VolumeSpecies, saved.VolumeBrand, saved.VolumeNumbering));
+    }
+
+    [Fact]
     public async Task Api_never_writes_the_issuance_fields_nor_the_number_after_reservation()
     {
         var (db, invoice) = await SeedAsync(NfeStatus.Rejected);

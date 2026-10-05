@@ -66,13 +66,16 @@ public class PurchaseInvoicesUpdateService(
         existing.Comments = entity.Comments;
         existing.GrossWeight = entity.GrossWeight;
         existing.NetWeight = entity.NetWeight;
+        existing.VolumeQuantity = entity.VolumeQuantity;
+        existing.VolumeSpecies = entity.VolumeSpecies;
+        existing.VolumeBrand = entity.VolumeBrand;
+        existing.VolumeNumbering = entity.VolumeNumbering;
         existing.TruckCode = entity.TruckCode;
         existing.TruckingCompanyCode = entity.TruckingCompanyCode;
         existing.TruckingCompanyName = entity.TruckingCompanyName;
         existing.FreightTerms = entity.FreightTerms;
         existing.BranchCode = entity.BranchCode;
         existing.PaymentConditionCode = entity.PaymentConditionCode;
-        existing.ReferencedAccessKey = entity.ReferencedAccessKey;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
@@ -90,8 +93,6 @@ public class PurchaseInvoicesUpdateService(
             !existing.IsNfeReturn && await taxApply.IsBranchActiveAsync(existing.BranchCode))
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
-
-        PurchaseInvoiceAccessKey.EnsureValidReference(existing);
 
         await SyncItemsAsync(existing, entity);
 

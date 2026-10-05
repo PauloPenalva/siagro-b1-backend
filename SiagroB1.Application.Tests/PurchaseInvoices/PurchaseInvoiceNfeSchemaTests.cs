@@ -36,11 +36,23 @@ public class PurchaseInvoiceNfeSchemaTests
 
         foreach (var name in new[]
                  {
-                     "PaymentConditionCode", "ReferencedAccessKey", "IsNfeReturn", "NfeStatus", "NfeEnvironment",
+                     "PaymentConditionCode", "IsNfeReturn", "NfeStatus", "NfeEnvironment",
                      "NfeProtocol", "NfeAuthorizedAt", "NfeStatusCode", "NfeStatusReason", "NfeConfirmationError",
                      "TotalInvoiceTaxes", "TotalInvoiceIbsCbs",
+                     "VolumeQuantity", "VolumeSpecies", "VolumeBrand", "VolumeNumbering",
                  })
             Assert.NotNull(type.FindProperty(name));
+    }
+
+    /// <summary>
+    /// A NF-e referenciada (NFref) é 1:N no leiaute; um campo único no cabeçalho modelava errado e saiu.
+    /// </summary>
+    [Fact]
+    public void Purchase_invoice_has_no_single_referenced_access_key()
+    {
+        var type = Model().SchemaElements.OfType<IEdmEntityType>().Single(t => t.Name == nameof(PurchaseInvoice));
+
+        Assert.Null(type.FindProperty("ReferencedAccessKey"));
     }
 
     [Fact]

@@ -37,7 +37,6 @@ public class PurchaseInvoicesCreateService(
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
 
-        PurchaseInvoiceAccessKey.EnsureValidReference(invoice);
         await EnsureChaveNFeIsFreeAsync(invoice.ChaveNFe, invoice.Key);
 
         invoice.CreatedAt = DateTime.Now;

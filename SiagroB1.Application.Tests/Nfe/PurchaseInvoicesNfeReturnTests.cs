@@ -52,7 +52,6 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Equal(InvoiceStatus.Pending, saved.InvoiceStatus);
         Assert.Equal(origin.Key, saved.PurchaseInvoiceOriginKey);
         Assert.Null(saved.PaymentConditionCode);
-        Assert.Null(saved.ReferencedAccessKey);
         Assert.Equal(400m, saved.NetWeight);
         Assert.Equal(400m, saved.GrossWeight);
         var line = saved.Items.Single();
@@ -61,6 +60,22 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Equal(scenario.ReturnUsage, line.UsageCode);
         Assert.Equal("5202", line.Cfop);
         Assert.StartsWith($"Devolução da NF-e 1 série 1. Motivo: grão fora do padrão", saved.Comments);
+    }
+
+    [Fact]
+    public async Task Return_copies_the_volume_of_the_entry()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var stored = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == origin.Key);
+        (stored.VolumeQuantity, stored.VolumeSpecies, stored.VolumeBrand, stored.VolumeNumbering) = (20, "SACO", "CEAGUI", "1 A 20");
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        Assert.Equal((20, "SACO", "CEAGUI", "1 A 20"),
+            (saved.VolumeQuantity, saved.VolumeSpecies, saved.VolumeBrand, saved.VolumeNumbering));
     }
 
     [Fact]

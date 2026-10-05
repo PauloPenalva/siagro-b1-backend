@@ -13,7 +13,6 @@ namespace SiagroB1.Application.Tests.PurchaseInvoices;
 public class PurchaseInvoicesTaxApplyTests
 {
     private const string Supplier = "F-SP";
-    private const string ValidKey = "35261011222333000181550010000004561123456780";
 
     private sealed record Seed(UnitOfWork Db, int PurchaseUsage, int ReturnUsage, FakeBusinessPartnerService Partners);
 
@@ -216,30 +215,6 @@ public class PurchaseInvoicesTaxApplyTests
         await update.ExecuteAsync(changed.Key, changed, "tester");
 
         Assert.Equal("2102", (await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync()).Cfop);
-    }
-
-    [Fact]
-    public async Task Referenced_key_with_a_wrong_check_digit_is_refused()
-    {
-        var seed = await SeedAsync();
-        var invoice = OwnEntry(seed.PurchaseUsage);
-        invoice.ReferencedAccessKey = ValidKey[..43] + "1";
-
-        var e = await Assert.ThrowsAsync<DefaultException>(() => Create(seed).ExecuteAsync(invoice, "tester"));
-
-        Assert.Equal("A chave da NF-e referenciada é inválida.", e.Message);
-    }
-
-    [Fact]
-    public async Task Referenced_key_is_kept_with_digits_only()
-    {
-        var seed = await SeedAsync();
-        var invoice = OwnEntry(seed.PurchaseUsage);
-        invoice.ReferencedAccessKey = " " + ValidKey + " ";
-
-        await Create(seed).ExecuteAsync(invoice, "tester");
-
-        Assert.Equal(ValidKey, invoice.ReferencedAccessKey);
     }
 
     [Fact]

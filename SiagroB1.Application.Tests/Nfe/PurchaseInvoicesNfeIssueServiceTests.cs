@@ -64,7 +64,8 @@ public class PurchaseInvoicesNfeIssueServiceTests
         var signed = Assert.Single(sefaz.Sent).Xml;
         Assert.Contains("<tpNF>0</tpNF>", signed);
         Assert.Contains("<finNFe>1</finNFe>", signed);
-        Assert.Contains($"<refNFe>{PurchaseNfeTestSeed.ProducerKey}</refNFe>", signed);
+        // Sem NF-e referenciada no cabeçalho: o campo único saiu (NFref é 1:N no leiaute).
+        Assert.DoesNotContain("<NFref>", signed);
         Assert.Contains("<CFOP>1102</CFOP>", signed);
         Assert.Contains("<indFinal>0</indFinal>", signed);
         Assert.Contains("Funrural", signed);
@@ -72,6 +73,26 @@ public class PurchaseInvoicesNfeIssueServiceTests
         var xmls = await scenario.Db.Context.PurchaseInvoiceNfeXmls.AsNoTracking().ToListAsync();
         Assert.Contains(xmls, x => x.Kind == NfeXmlKind.Signed);
         Assert.Contains(xmls, x => x.Kind == NfeXmlKind.Authorized && x.Xml.Contains("<protNFe"));
+    }
+
+    [Fact]
+    public async Task Entry_volume_goes_to_the_vol_group()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await ChangeAsync(scenario, invoice =>
+        {
+            invoice.VolumeQuantity = 20;
+            invoice.VolumeSpecies = " SACO ";
+            invoice.VolumeBrand = "CEAGUI";
+            invoice.VolumeNumbering = "1 A 20";
+        });
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var signed = Assert.Single(sefaz.Sent).Xml;
+        Assert.Contains("<qVol>20</qVol><esp>SACO</esp><marca>CEAGUI</marca><nVol>1 A 20</nVol>", signed);
     }
 
     [Fact]

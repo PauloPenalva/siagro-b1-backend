@@ -19,7 +19,8 @@ public static class PurchaseInvoiceNfeLock
         nameof(PurchaseInvoice.InvoiceType), nameof(PurchaseInvoice.IssuerType), nameof(PurchaseInvoice.TruckingCompanyCode),
         nameof(PurchaseInvoice.TruckCode), nameof(PurchaseInvoice.FreightTerms), nameof(PurchaseInvoice.PaymentConditionCode),
         nameof(PurchaseInvoice.GrossWeight), nameof(PurchaseInvoice.NetWeight), nameof(PurchaseInvoice.TaxPayerComments),
-        nameof(PurchaseInvoice.ReferencedAccessKey),
+        nameof(PurchaseInvoice.VolumeQuantity), nameof(PurchaseInvoice.VolumeSpecies), nameof(PurchaseInvoice.VolumeBrand),
+        nameof(PurchaseInvoice.VolumeNumbering),
     ];
 
     private static readonly string[] ItemFiscalFields =
