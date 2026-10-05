@@ -30,6 +30,9 @@ public class SalesInvoicesItemsUpdateService(
         {
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
 
+            // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
+            InvoiceLineChargeRules.Ensure(entity);
+
             // No PATCH a entidade chega JÁ rastreada e mutada — o controller a carrega e
             // aplica o Delta nela no MESMO DbContext, então o FirstOrDefault acima devolve
             // essa mesma instância (identity map) e comparar existingEntity com entity

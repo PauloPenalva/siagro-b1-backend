@@ -16,6 +16,11 @@ public static class SalesInvoiceNfeReturnLock
         nameof(SalesInvoice.InvoiceType), nameof(SalesInvoice.SalesInvoiceOriginKey),
     ];
 
+    /// <summary>
+    /// Restaurados na linha da devolução. Quantidade e os quatro valores da linha (frete, seguro, desconto, outras
+    /// despesas) ficam de fora de propósito: nascem da venda na proporção do que volta e são editáveis enquanto a
+    /// devolução está Pendente (spec 2026-10-05 D4).
+    /// </summary>
     private static readonly string[] LineFields =
     [
         nameof(SalesInvoiceItem.ItemCode), nameof(SalesInvoiceItem.UnitOfMeasureCode), nameof(SalesInvoiceItem.UnitPrice),
@@ -33,7 +38,7 @@ public static class SalesInvoiceNfeReturnLock
             entry.Property(field).CurrentValue = entry.OriginalValues[field];
     }
 
-    /// <summary>Chamado DEPOIS do SetValues da linha de uma devolução própria: só a quantidade muda.</summary>
+    /// <summary>Chamado DEPOIS do SetValues da linha de uma devolução própria: só a quantidade e os quatro valores da linha mudam.</summary>
     public static void RestoreLine(EntityEntry<SalesInvoiceItem> entry)
     {
         foreach (var field in LineFields)

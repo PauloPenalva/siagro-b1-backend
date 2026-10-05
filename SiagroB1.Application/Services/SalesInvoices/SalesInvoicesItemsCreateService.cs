@@ -15,6 +15,9 @@ public class SalesInvoicesItemsCreateService(
 {
     public async Task ExecuteAsync(SalesInvoiceItem salesInvoiceItem, string userName)
     {
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5). Fora do try: 400 com a mensagem.
+        InvoiceLineChargeRules.Ensure(salesInvoiceItem);
+
         // Tributação da NF-e STANDALONE: calcula a linha nova antes de gravar. Fora do try para a
         // guarda chegar à tela como 400, e não embrulhada em ApplicationException. No-op com a
         // regra inativa.

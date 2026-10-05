@@ -27,6 +27,9 @@ public class PurchaseInvoicesItemsUpdateService(
 
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, existing.PurchaseInvoiceKey);
 
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): antes de qualquer cópia.
+        InvoiceLineChargeRules.Ensure(entity);
+
         // É por AQUI que a grade do Edit troca o produto: ela faz PATCH na LINHA
         // (`PurchaseInvoicesItems({key})`), não no cabeçalho, então o SyncItems do
         // PurchaseInvoicesUpdateService nunca vê essa alteração.
@@ -63,11 +66,15 @@ public class PurchaseInvoicesItemsUpdateService(
         existing.PurchaseInvoiceItemOriginKey = entity.PurchaseInvoiceItemOriginKey;
         existing.PurchaseContractKey = entity.PurchaseContractKey;
         existing.UsageCode = entity.UsageCode;
+        existing.FreightValue = entity.FreightValue;
+        existing.InsuranceValue = entity.InsuranceValue;
+        existing.DiscountValue = entity.DiscountValue;
+        existing.OtherExpensesValue = entity.OtherExpensesValue;
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
 
-        // Travas da NF-e: devolução de compra só muda a quantidade; emitido/em processamento trava a linha.
+        // Travas da NF-e: devolução de compra só muda a quantidade e os quatro valores; emitido/em processamento trava a linha.
         var entry = db.Context.Entry(existing);
         if (invoice.IsNfeReturn)
             PurchaseInvoiceNfeLock.RestoreReturnLine(entry);

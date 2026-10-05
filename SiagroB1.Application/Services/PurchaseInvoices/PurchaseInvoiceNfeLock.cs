@@ -26,7 +26,8 @@ public static class PurchaseInvoiceNfeLock
     private static readonly string[] ItemFiscalFields =
     [
         nameof(PurchaseInvoiceItem.ItemCode), nameof(PurchaseInvoiceItem.UnitOfMeasureCode), nameof(PurchaseInvoiceItem.Quantity),
-        nameof(PurchaseInvoiceItem.UnitPrice), nameof(PurchaseInvoiceItem.UsageCode),
+        nameof(PurchaseInvoiceItem.UnitPrice), nameof(PurchaseInvoiceItem.UsageCode), nameof(PurchaseInvoiceItem.FreightValue),
+        nameof(PurchaseInvoiceItem.InsuranceValue), nameof(PurchaseInvoiceItem.DiscountValue), nameof(PurchaseInvoiceItem.OtherExpensesValue),
     ];
 
     private static readonly string[] IssuanceFields =
@@ -50,7 +51,7 @@ public static class PurchaseInvoiceNfeLock
         nameof(PurchaseInvoice.IssuerType), nameof(PurchaseInvoice.PurchaseInvoiceOriginKey),
     ];
 
-    /// <summary>Na linha da devolução de compra só a quantidade é editável.</summary>
+    /// <summary>Na linha da devolução de compra só a quantidade e os quatro valores da linha (spec 2026-10-05 D4) são editáveis.</summary>
     private static readonly string[] ReturnLineFields =
     [
         nameof(PurchaseInvoiceItem.ItemCode), nameof(PurchaseInvoiceItem.ItemName), nameof(PurchaseInvoiceItem.UnitOfMeasureCode),

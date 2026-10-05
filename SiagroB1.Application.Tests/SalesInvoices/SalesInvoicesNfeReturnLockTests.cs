@@ -200,4 +200,19 @@ public class SalesInvoicesNfeReturnLockTests
 
         Assert.Equal("Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.", ex.Message);
     }
+
+    [Fact]
+    public async Task Own_return_line_keeps_the_edited_charges()
+    {
+        // Review Focus 5: na devolução Pendente os quatro valores são editáveis (spec D4); a trava volta só preço/produto/natureza.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        (line.FreightValue, line.DiscountValue, line.UnitPrice) = (150m, 20m, 9m);
+
+        await ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester");
+
+        var saved = await s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
+        Assert.Equal((150m, 20m, 2m), (saved.FreightValue, saved.DiscountValue, saved.UnitPrice));
+    }
 }
