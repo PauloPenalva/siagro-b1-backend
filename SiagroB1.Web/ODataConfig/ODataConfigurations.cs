@@ -98,6 +98,20 @@ public static class ODataConfigurations
         salesInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
         salesInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
 
+        // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
+        // ⚠️ Quantities em double, paralelo a OriginItemKeys, como no SalesInvoicesReturn: o UI5
+        // serializa Edm.Decimal como string e o 400 não nomeia o campo.
+        var salesInvoicesCreateNfeReturn = modelBuilder.Action("SalesInvoicesCreateNfeReturn");
+        salesInvoicesCreateNfeReturn.Parameter<Guid>("Key");
+        salesInvoicesCreateNfeReturn.CollectionParameter<Guid>("OriginItemKeys");
+        salesInvoicesCreateNfeReturn.CollectionParameter<double>("Quantities");
+        salesInvoicesCreateNfeReturn.Parameter<string>("Reason");
+        salesInvoicesCreateNfeReturn.Returns<Guid>();
+
+        var salesInvoicesNfeReturnableItems = modelBuilder.Function("SalesInvoicesNfeReturnableItems");
+        salesInvoicesNfeReturnableItems.Parameter<Guid>("Key");
+        salesInvoicesNfeReturnableItems.ReturnsCollection<SalesInvoiceNfeReturnableItemDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");
