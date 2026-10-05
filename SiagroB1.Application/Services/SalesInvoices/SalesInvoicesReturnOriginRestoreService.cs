@@ -39,6 +39,22 @@ public static class SalesInvoicesReturnOriginRestoreService
             return;
         }
 
+        // Devolução própria (NF-e de devolução): a criação não aplicou nada na entrega da venda
+        // (spec §6), então não há o que reabrir nem saldo de contrato a recalcular. Só o status:
+        // a venda pode estar Retornada porque a conta de "devolvida por inteiro" também conta
+        // devolução Pendente.
+        if (returnInvoice.IsNfeReturn)
+        {
+            if (originInvoice.InvoiceStatus == InvoiceStatus.Returned)
+            {
+                originInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
+                originInvoice.UpdatedAt = DateTime.Now;
+                originInvoice.UpdatedBy = userName;
+            }
+
+            return;
+        }
+
         originInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
         originInvoice.UpdatedAt = DateTime.Now;
         originInvoice.UpdatedBy = userName;

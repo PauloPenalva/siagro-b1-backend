@@ -13,7 +13,6 @@ namespace SiagroB1.Application.Services.Nfe;
 /// </summary>
 public static class SalesInvoiceNfeReturnBalance
 {
-    private const decimal Tolerance = 0.001m;
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     public static Task<Dictionary<Guid, decimal>> ReturnedByOriginItemAsync(
@@ -51,7 +50,7 @@ public static class SalesInvoiceNfeReturnBalance
                       ?? throw new DefaultException($"O item {line.ItemCode} da devolução não aponta um item da venda.");
             var available = sold.GetValueOrDefault(key) - returned.GetValueOrDefault(key);
 
-            if (line.Quantity - available > Tolerance)
+            if (line.Quantity > available)
                 throw new DefaultException(
                     $"Item {line.ItemCode}: a devolução ({line.Quantity.ToString("N3", PtBr)}) passa do saldo " +
                     $"devolvível da venda ({available.ToString("N3", PtBr)}).");
