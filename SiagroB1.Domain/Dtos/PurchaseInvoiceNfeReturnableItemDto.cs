@@ -22,6 +22,10 @@ public class PurchaseInvoiceNfeReturnableItemDto
     [JsonPropertyName("UnitOfMeasureCode")]
     public string? UnitOfMeasureCode { get; set; }
 
+    /// <summary>nItem da linha na NF-e de origem; nulo na entrada de terceiro sem o número (o diálogo pede).</summary>
+    [JsonPropertyName("ItemNumber")]
+    public int? ItemNumber { get; set; }
+
     [JsonPropertyName("PurchasedQuantity")]
     public double PurchasedQuantity { get; set; }
 

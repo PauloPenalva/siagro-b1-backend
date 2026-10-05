@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -27,6 +28,9 @@ public class PurchaseInvoicesNfeReturnableItemsService(IUnitOfWork db)
                     ItemCode = item.ItemCode,
                     ItemName = item.ItemName,
                     UnitOfMeasureCode = item.UnitOfMeasureCode,
+                    ItemNumber = origin.IssuerType == DocumentIssuerType.ThirdParty
+                        ? item.NfeItemNumber
+                        : NfeItemNumbering.OriginNumber(item, origin.Items.Count),
                     PurchasedQuantity = (double)item.Quantity,
                     ReturnedQuantity = (double)back,
                     Returnable = (double)Math.Max(0m, item.Quantity - back),

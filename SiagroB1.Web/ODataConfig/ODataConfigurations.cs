@@ -130,6 +130,8 @@ public static class ODataConfigurations
         purchaseInvoicesCreateNfeReturn.Parameter<Guid>("Key");
         purchaseInvoicesCreateNfeReturn.CollectionParameter<Guid>("OriginItemKeys");
         purchaseInvoicesCreateNfeReturn.CollectionParameter<double>("Quantities");
+        // nItem digitado da entrada de terceiro, paralelo a OriginItemKeys (0 = não informado). Sempre enviado pela tela.
+        purchaseInvoicesCreateNfeReturn.CollectionParameter<int>("ItemNumbers");
         purchaseInvoicesCreateNfeReturn.Parameter<string>("Reason");
         purchaseInvoicesCreateNfeReturn.Returns<Guid>();
 

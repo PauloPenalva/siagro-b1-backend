@@ -81,7 +81,14 @@ public class PurchaseInvoicesTaxApplyService(
             TaxLineCalculator.Apply(item, usage, line);
 
             if (ownReturn)
-                NfeReturnConference.Ensure(item, OriginOf(item, origins), usage.Name, "compra");
+            {
+                var origin = OriginOf(item, origins);
+
+                // Linha de origem sem fotografia (entrada de terceiro digitada, ou linha incluída depois da importação):
+                // não há com o que conferir (spec terceiro D2).
+                if (!string.IsNullOrWhiteSpace(origin.CstIcms))
+                    NfeReturnConference.Ensure(item, origin, usage.Name, "compra");
+            }
         }
     }
 

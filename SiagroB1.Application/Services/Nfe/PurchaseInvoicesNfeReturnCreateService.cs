@@ -9,13 +9,13 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Nfe;
 
-public sealed record PurchaseInvoiceNfeReturnItem(Guid OriginItemKey, decimal Quantity);
+public sealed record PurchaseInvoiceNfeReturnItem(Guid OriginItemKey, decimal Quantity, int? ItemNumber = null);
 
 public sealed record PurchaseInvoiceNfeReturnRequest(
     Guid PurchaseInvoiceKey, IReadOnlyList<PurchaseInvoiceNfeReturnItem> Items, string Reason);
 
 /// <summary>
-/// "Devolver" do Documento de Entrada (spec §9.2): a partir de uma entrada própria autorizada pelo Siagro, cria a
+/// "Devolver" do Documento de Entrada (spec §9.2): a partir de uma entrada própria autorizada pelo Siagro **ou de uma entrada de terceiro confirmada (NF-e do fornecedor, spec terceiro §8)**, cria a
 /// devolução de compra Pendente que sai com NF-e PRÓPRIA de saída (finalidade 4). Não confirma (quem confirma é a
 /// emissão) e não mexe na entrada de origem: o saldo devolvível é calculado das devoluções (D12).
 /// </summary>
@@ -40,14 +40,26 @@ public class PurchaseInvoicesNfeReturnCreateService(
                      ?? throw new NotFoundException("Documento de entrada não encontrado.");
 
         // TODA a validação antes de qualquer escrita.
-        await ValidateOriginAsync(origin);
+        var thirdParty = await ValidateOriginAsync(origin);
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             throw new DefaultException("Informe o motivo da devolução.");
 
         var quantities = await ResolveQuantitiesAsync(origin, request.Items);
-        var returnUsages = await ResolveReturnUsagesAsync(origin, quantities.Keys);
-        EnsureEntryItemNumbers(origin, quantities.Keys);
+        var returnUsages = thirdParty
+            ? await ResolveThirdPartyUsageAsync(origin, quantities.Keys)
+            : await ResolveReturnUsagesAsync(origin, quantities.Keys);
+        var typedNumbers = thirdParty
+            ? await ResolveThirdPartyItemNumbersAsync(origin, request.Items, quantities.Keys)
+            : new Dictionary<Guid, int>();
+
+        if (!thirdParty)
+            EnsureEntryItemNumbers(origin, quantities.Keys);
+
+        // O nItem digitado é identidade da linha na nota do fornecedor: fica na linha de origem para as próximas
+        // devoluções (D6). Única escrita na origem; gravada no mesmo SaveChanges do create.
+        foreach (var (key, number) in typedNumbers)
+            (await db.Context.PurchaseInvoicesItems.FirstAsync(i => i.Key == key)).NfeItemNumber = number;
 
         var today = TimeZoneInfo.ConvertTime(_now(), _storageZone).DateTime;
         var share = quantities.Values.Sum() / origin.Items.Sum(i => i.Quantity);
@@ -100,10 +112,20 @@ public class PurchaseInvoicesNfeReturnCreateService(
         return returnInvoice;
     }
 
-    private async Task ValidateOriginAsync(PurchaseInvoice origin)
+    private async Task<bool> ValidateOriginAsync(PurchaseInvoice origin)
     {
         if (!await gate.IsActiveAsync(origin.BranchCode))
             throw new DefaultException($"A filial {origin.BranchCode} não emite NF-e pelo Siagro.");
+
+        if (origin.IssuerType == DocumentIssuerType.ThirdParty)
+        {
+            if (origin.InvoiceType != PurchaseInvoiceType.Normal || origin.InvoiceStatus != InvoiceStatus.Confirmed ||
+                origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsDigit))
+                throw new DefaultException(
+                    "A devolução de entrada de terceiro parte de um documento Normal, confirmado e com a chave da NF-e do fornecedor (44 dígitos).");
+
+            return true;
+        }
 
         if (origin.IssuerType != DocumentIssuerType.Own || origin.InvoiceType != PurchaseInvoiceType.Normal ||
             origin.InvoiceStatus != InvoiceStatus.Confirmed || origin.NfeStatus != NfeStatus.Authorized ||
@@ -111,6 +133,8 @@ public class PurchaseInvoicesNfeReturnCreateService(
             throw new DefaultException(
                 "O documento de entrada não tem NF-e própria autorizada pelo Siagro: " +
                 "a devolução de compra parte de uma entrada própria autorizada.");
+
+        return false;
     }
 
     private async Task<Dictionary<Guid, decimal>> ResolveQuantitiesAsync(
@@ -161,6 +185,64 @@ public class PurchaseInvoicesNfeReturnCreateService(
         }
 
         return result;
+    }
+
+    /// <summary>Natureza padrão da filial (spec terceiro D3), a mesma para todas as linhas.</summary>
+    private async Task<Dictionary<Guid, int>> ResolveThirdPartyUsageAsync(PurchaseInvoice origin, IEnumerable<Guid> originItemKeys)
+    {
+        var code = await db.Context.Branchs.AsNoTracking()
+            .Where(b => b.Code == origin.BranchCode)
+            .Select(b => b.ThirdPartyPurchaseReturnUsageCode)
+            .FirstOrDefaultAsync();
+        var usage = code is { } value
+            ? await db.Context.Usages.AsNoTracking().FirstOrDefaultAsync(u => u.Code == value)
+            : null;
+
+        if (usage is null || usage.Inactive || usage.Direction != UsageDirection.Outgoing)
+            throw new DefaultException($"Configure a natureza de devolução de compra de terceiro na filial {origin.BranchCode}.");
+
+        return originItemKeys.ToDictionary(key => key, _ => usage.Code);
+    }
+
+    /// <summary>
+    /// nItem de cada linha devolvida (spec terceiro §8.3): o da linha de origem, ou o digitado quando falta (1–990, único no
+    /// documento); recusa item com IPI/ICMS-ST na nota do fornecedor e produto fora do cadastro. Devolve só os digitados.
+    /// </summary>
+    private async Task<Dictionary<Guid, int>> ResolveThirdPartyItemNumbersAsync(
+        PurchaseInvoice origin, IReadOnlyList<PurchaseInvoiceNfeReturnItem> requested, IEnumerable<Guid> originItemKeys)
+    {
+        var supplierNfe = origin.XmlData is { Length: > 0 } ? SupplierNfeXmlReader.Read(origin.XmlData) : null;
+        var used = origin.Items.Where(i => i.NfeItemNumber != null).Select(i => i.NfeItemNumber!.Value).ToHashSet();
+        var typed = new Dictionary<Guid, int>();
+
+        foreach (var key in originItemKeys)
+        {
+            var bought = origin.Items.First(i => i.Key == key);
+            var number = bought.NfeItemNumber;
+
+            if (number is null)
+            {
+                var informed = requested.First(i => i.OriginItemKey == key).ItemNumber;
+
+                if (informed is not (>= 1 and <= 990))
+                    throw new DefaultException($"Item {bought.ItemCode}: informe o número do item na NF-e do fornecedor.");
+
+                if (!used.Add(informed.Value))
+                    throw new DefaultException($"Item {bought.ItemCode}: o número {informed} já é de outro item desta NF-e do fornecedor.");
+
+                typed[key] = informed.Value;
+                number = informed;
+            }
+
+            var det = supplierNfe?.Items.FirstOrDefault(d => d.ItemNumber == number);
+            if (det is not null && (det.IpiValue > 0m || det.IcmsStValue > 0m))
+                throw new DefaultException($"Item {bought.ItemCode}: a nota do fornecedor tem IPI/ICMS-ST neste item, que o Siagro ainda não devolve.");
+
+            if (!await db.Context.Items.AsNoTracking().AnyAsync(i => i.ItemCode == bought.ItemCode))
+                throw new DefaultException($"Item {bought.ItemCode}: o produto não está cadastrado; ajuste o produto na entrada antes de devolver.");
+        }
+
+        return typed;
     }
 
     private static void EnsureEntryItemNumbers(PurchaseInvoice origin, IEnumerable<Guid> originItemKeys)
