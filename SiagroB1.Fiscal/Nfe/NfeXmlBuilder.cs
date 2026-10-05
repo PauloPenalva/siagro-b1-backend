@@ -523,6 +523,10 @@ public static class NfeXmlBuilder
         if (input.Payment.Installments.Count == 0)
             return null;
 
+        // Rejeição 853: pagamento à vista (indPag 0) não pode informar dados de cobrança (fat/dup).
+        if (input.Payment.PaymentIndicator == 0)
+            return null;
+
         var total = input.Items.Sum(i => i.Total);
 
         return new cobr

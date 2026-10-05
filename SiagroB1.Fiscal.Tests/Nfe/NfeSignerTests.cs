@@ -3,6 +3,7 @@ using DFe.Utils;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Fiscal.Certificates;
 using SiagroB1.Fiscal.Nfe;
+using SiagroB1.Fiscal.Payments;
 using SiagroB1.Fiscal.Tests.Support;
 
 namespace SiagroB1.Fiscal.Tests.Nfe;
@@ -27,6 +28,21 @@ public class NfeSignerTests
 
         Assert.Contains("<Signature", signed.Xml);
         Assert.Contains("NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", signed.Xml);
+    }
+
+    [Fact]
+    public void Cash_payment_without_billing_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+        var input = NfeTestData.Input() with
+        {
+            Payment = PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "99", 60000m, DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var signed = NfeSigner.BuildSignAndValidate(input, Settings(certificate));
+
+        Assert.Contains("<Signature", signed.Xml);
+        Assert.DoesNotContain("<cobr>", signed.Xml);
     }
 
     [Fact]

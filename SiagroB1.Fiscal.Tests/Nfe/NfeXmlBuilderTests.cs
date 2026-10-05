@@ -274,6 +274,24 @@ public class NfeXmlBuilderTests
     }
 
     [Fact]
+    public void Cash_payment_omits_billing_but_keeps_the_payment_detail()
+    {
+        var input = NfeTestData.Input() with
+        {
+            Payment = PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "99", 60000m, DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var nfe = Build(input);
+        var detPag = nfe.infNFe.pag.Single().detPag.Single();
+
+        // Rejeição 853: pagamento à vista não leva cobrança.
+        Assert.Null(nfe.infNFe.cobr);
+        Assert.Equal(IndicadorPagamentoDetalhePagamento.ipDetPgVista, detPag.indPag);
+        Assert.Equal(60000m, detPag.vPag);
+        Assert.Equal("Outros", detPag.xPag);
+    }
+
+    [Fact]
     public void No_payment_means_omits_billing_and_pays_zero()
     {
         var input = NfeTestData.Input() with
