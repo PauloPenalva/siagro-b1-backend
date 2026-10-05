@@ -271,9 +271,14 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             return null;
         }
 
-        if (origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
+        // Entrada de terceiro: a NF-e é do fornecedor (o NfeStatus fica None para sempre); basta a chave dele.
+        var thirdParty = origin.IssuerType == DocumentIssuerType.ThirdParty;
+
+        if (thirdParty ? origin.ChaveNFe is not { Length: 44 } : origin.NfeStatus != NfeStatus.Authorized || origin.ChaveNFe is not { Length: 44 })
         {
-            problems.Add($"Entrada de origem {origin.TaxDocumentNumber}: NF-e não autorizada");
+            problems.Add(thirdParty
+                ? $"Entrada de origem {origin.TaxDocumentNumber}: sem a chave da NF-e do fornecedor"
+                : $"Entrada de origem {origin.TaxDocumentNumber}: NF-e não autorizada");
             return null;
         }
 
@@ -287,7 +292,8 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         foreach (var item in invoice.Items)
         {
             var bought = origin.Items.FirstOrDefault(o => o.Key == item.PurchaseInvoiceItemOriginKey);
-            var number = bought is null ? null : NfeItemNumbering.OriginNumber(bought, origin.Items.Count);
+            // Terceiro: só o nItem gravado (da importação ou digitado no Devolver); o "uma linha só = item 1" é da origem própria.
+            var number = bought is null ? null : thirdParty ? bought.NfeItemNumber : NfeItemNumbering.OriginNumber(bought, origin.Items.Count);
 
             if (number is null)
                 problems.Add($"Item {item.ItemCode}: sem o item correspondente da NF-e de entrada");

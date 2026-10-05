@@ -231,4 +231,47 @@ public class PurchaseInvoicesThirdPartyReturnTests
         Assert.Equal(400m, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single().Quantity);
         Assert.Equal(1, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario)).Items.Single().NfeItemNumber);
     }
+
+    [Theory]
+    [InlineData("TRIGO", 1, "5202")]
+    [InlineData("MILHO", 2, "5202")]
+    public async Task Third_party_return_is_issued_referencing_the_supplier_item(string code, int nItem, string cfop)
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, (code, 100m, null)), "tester");
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        var outcome = await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(created.Key, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        var signed = Assert.Single(sefaz.Sent).Xml;
+        Assert.Contains("<tpNF>1</tpNF>", signed);
+        Assert.Contains("<finNFe>4</finNFe>", signed);
+        Assert.Contains($"<CFOP>{cfop}</CFOP>", signed);
+        Assert.Contains($"<chaveAcesso>{SupplierNfeXml.AccessKey}</chaveAcesso>", signed);
+        Assert.Contains($"<nItem>{nItem}</nItem>", signed);
+        Assert.DoesNotContain("<NFref>", signed);
+        Assert.Contains("<tPag>90</tPag>", signed);
+        Assert.Contains("<CPF>52998224725</CPF>", signed);
+        Assert.Contains("Devolução da NF-e nº 456, série 1", signed);
+    }
+
+    [Fact]
+    public async Task Return_whose_origin_lost_its_key_is_refused_before_the_number()
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 100m, null)), "tester");
+        var context = TestDb.CreateUnitOfWork(scenario.DatabaseName).Context;
+        (await context.PurchaseInvoices.SingleAsync(i => i.Key == origin.Key)).ChaveNFe = null;
+        await context.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        var reservation = new FakeNfeNumberReservationService(10);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, new FakeNfeSefazClient(), reservation).ExecuteAsync(created.Key, "tester"));
+
+        Assert.Contains("Entrada de origem 456: sem a chave da NF-e do fornecedor", e.Message);
+        Assert.Equal(0, reservation.Calls);
+    }
 }
