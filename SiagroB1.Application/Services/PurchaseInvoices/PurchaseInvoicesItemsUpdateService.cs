@@ -13,7 +13,10 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// A guarda de status é a do documento PAI, e é lida da linha existente e não da entrante: um
 /// PATCH parcial não traz <c>PurchaseInvoiceKey</c>.
 /// </summary>
-public class PurchaseInvoicesItemsUpdateService(IUnitOfWork db, IItemService itemService)
+public class PurchaseInvoicesItemsUpdateService(
+    IUnitOfWork db,
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoiceItem entity, string userName)
     {
@@ -58,6 +61,11 @@ public class PurchaseInvoicesItemsUpdateService(IUnitOfWork db, IItemService ite
         existing.SalesInvoiceItemKey = entity.SalesInvoiceItemKey;
         existing.PurchaseInvoiceItemOriginKey = entity.PurchaseInvoiceItemOriginKey;
         existing.PurchaseContractKey = entity.PurchaseContractKey;
+        existing.UsageCode = entity.UsageCode;
+
+        // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
+        var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
+        await taxApply.ApplyAsync(invoice, [existing]);
 
         await db.SaveChangesAsync();
     }

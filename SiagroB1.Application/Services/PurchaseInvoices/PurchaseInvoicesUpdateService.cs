@@ -21,7 +21,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public class PurchaseInvoicesUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
-    IItemService itemService)
+    IItemService itemService,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoice entity, string userName)
     {
@@ -68,11 +69,22 @@ public class PurchaseInvoicesUpdateService(
         existing.TruckingCompanyCode = entity.TruckingCompanyCode;
         existing.TruckingCompanyName = entity.TruckingCompanyName;
         existing.FreightTerms = entity.FreightTerms;
+        existing.BranchCode = entity.BranchCode;
+        existing.PaymentConditionCode = entity.PaymentConditionCode;
+        existing.ReferencedAccessKey = entity.ReferencedAccessKey;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
+        PurchaseInvoiceAccessKey.EnsureValidReference(existing);
+
         await SyncItemsAsync(existing, entity);
+
+        // O PATCH do cabeçalho traz todas as linhas (o controller carrega com Include e aplica o Delta),
+        // então toda alteração passa por aqui: recalcula o documento inteiro — data, fornecedor e filial
+        // mudam o CFOP e a alíquota de todas as linhas. As linhas incluídas no SyncItems já estão na
+        // coleção pelo fixup do EF.
+        await taxApply.ApplyAsync(existing, existing.Items);
 
         await db.SaveChangesAsync();
     }
@@ -134,6 +146,7 @@ public class PurchaseInvoicesUpdateService(
                     SalesInvoiceItemKey = line.SalesInvoiceItemKey,
                     PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey,
                     PurchaseContractKey = line.PurchaseContractKey,
+                    UsageCode = line.UsageCode,
                 });
 
                 continue;
@@ -154,6 +167,7 @@ public class PurchaseInvoicesUpdateService(
             current.SalesInvoiceItemKey = line.SalesInvoiceItemKey;
             current.PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey;
             current.PurchaseContractKey = line.PurchaseContractKey;
+            current.UsageCode = line.UsageCode;
         }
     }
 }

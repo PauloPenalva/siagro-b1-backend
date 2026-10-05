@@ -47,7 +47,7 @@ public class PurchaseInvoicesItemsTests
             PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 10m,
         };
 
-        await new PurchaseInvoicesItemsCreateService(_db, Catalog()).ExecuteAsync(item, "tester");
+        await new PurchaseInvoicesItemsCreateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db)).ExecuteAsync(item, "tester");
 
         Assert.Equal("SOJA DO CADASTRO", item.ItemName);
     }
@@ -65,7 +65,7 @@ public class PurchaseInvoicesItemsTests
             Quantity = 10m,
         };
 
-        await new PurchaseInvoicesItemsCreateService(_db, Catalog()).ExecuteAsync(item, "tester");
+        await new PurchaseInvoicesItemsCreateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db)).ExecuteAsync(item, "tester");
 
         // Num documento de terceiro vale a descrição QUE CONSTA NA NOTA.
         Assert.Equal("SOJA EM GRAOS (DO XML)", item.ItemName);
@@ -84,7 +84,7 @@ public class PurchaseInvoicesItemsTests
             Quantity = 1m,
         };
 
-        await new PurchaseInvoicesItemsCreateService(_db, Catalog()).ExecuteAsync(item, "tester");
+        await new PurchaseInvoicesItemsCreateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db)).ExecuteAsync(item, "tester");
 
         // O código vem do emitente e pode não existir no cadastro local — isso é normal aqui.
         Assert.Equal("PRODUTO QUALQUER", item.ItemName);
@@ -101,7 +101,7 @@ public class PurchaseInvoicesItemsTests
         };
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesItemsCreateService(_db, Catalog()).ExecuteAsync(item, "tester"));
+            () => new PurchaseInvoicesItemsCreateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db)).ExecuteAsync(item, "tester"));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class PurchaseInvoicesItemsTests
             SalesInvoiceItemKey = originKey,
         };
 
-        await new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+        await new PurchaseInvoicesItemsUpdateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db))
             .ExecuteAsync(item.Key!.Value, incoming, "tester");
 
         var reloaded = await _db.Context.PurchaseInvoicesItems.AsNoTracking()
@@ -148,7 +148,7 @@ public class PurchaseInvoicesItemsTests
 
         // A porta dos fundos: PATCH direto na linha não passa pelo Update do cabeçalho.
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+            () => new PurchaseInvoicesItemsUpdateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db))
                 .ExecuteAsync(item.Key!.Value, new PurchaseInvoiceItem { Quantity = 99m }, "tester"));
     }
 
@@ -234,7 +234,7 @@ public class PurchaseInvoicesItemsTests
             Quantity = 10m,
         };
 
-        await new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+        await new PurchaseInvoicesItemsUpdateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db))
             .ExecuteAsync(lineKey, patched, "tester");
 
         var reloaded = await _db.Context.PurchaseInvoicesItems
@@ -271,7 +271,7 @@ public class PurchaseInvoicesItemsTests
             Quantity = 25m,
         };
 
-        await new PurchaseInvoicesItemsUpdateService(_db, Catalog())
+        await new PurchaseInvoicesItemsUpdateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db))
             .ExecuteAsync(lineKey, patched, "tester");
 
         var reloaded = await _db.Context.PurchaseInvoicesItems

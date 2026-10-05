@@ -24,7 +24,8 @@ public class PurchaseInvoicesCreateTests
             new FakeBusinessPartnerService(
                 names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(
-                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }));
+                names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
+            TaxTestServices.InactivePurchaseApply(db));
 
     private static PurchaseInvoice NewInvoice(string? chave = Chave)
     {
