@@ -127,6 +127,10 @@ public class PurchaseInvoicesUpdateService(
         // coleção pelo fixup do EF.
         await taxApply.ApplyAsync(existing, existing.Items);
 
+        // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
+        if (PurchaseInvoiceDeclaredTotal.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
+            PurchaseInvoiceDeclaredTotal.Apply(existing, existing.Items);
+
         await db.SaveChangesAsync();
     }
 
