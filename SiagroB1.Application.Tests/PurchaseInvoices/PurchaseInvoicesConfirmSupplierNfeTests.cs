@@ -68,6 +68,8 @@ public class PurchaseInvoicesConfirmSupplierNfeTests
     [InlineData(155, "A NF-e do fornecedor está cancelada na SEFAZ.")]
     [InlineData(110, "A NF-e do fornecedor teve o uso denegado na SEFAZ.")]
     [InlineData(301, "A NF-e do fornecedor teve o uso denegado na SEFAZ.")]
+    [InlineData(302, "A NF-e do fornecedor teve o uso denegado na SEFAZ.")]
+    [InlineData(303, "A NF-e do fornecedor teve o uso denegado na SEFAZ.")]
     [InlineData(217, "A chave de acesso não consta na SEFAZ.")]
     [InlineData(999, "A SEFAZ não confirmou a NF-e do fornecedor (999 – Rejeição: teste). Tente novamente.")]
     public async Task Unauthorized_key_is_refused_and_the_document_stays_pending(int status, string message)
@@ -89,6 +91,19 @@ public class PurchaseInvoicesConfirmSupplierNfeTests
         var (db, doc) = await SeedAsync();
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(FakeNfeSefazClient.NoResponse);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => ConfirmAsync(db, doc, sefaz));
+
+        Assert.Equal("A SEFAZ não respondeu. Tente novamente.", e.Message);
+        Assert.Equal(InvoiceStatus.Pending, (await LoadAsync(db, doc)).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Any_failure_while_consulting_is_a_retry_refusal_and_not_a_server_error()
+    {
+        var (db, doc) = await SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(_ => throw new InvalidOperationException("certificado inválido"));
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => ConfirmAsync(db, doc, sefaz));
 

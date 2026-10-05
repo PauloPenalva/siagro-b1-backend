@@ -71,25 +71,60 @@ public class PurchaseInvoiceTaxDocumentKindTests
             (saved.TaxDocumentKind, saved.SupplierNfeProtocol, saved.SupplierNfeCheckedAt));
     }
 
-    [Fact]
-    public async Task Update_changes_the_kind_and_keeps_the_stored_authorization()
+    private static readonly DateTime StoredCheckedAt = new(2026, 10, 5, 10, 0, 0);
+
+    private static async Task<PurchaseInvoice> StoredWithAuthorizationAsync(UnitOfWork db)
     {
-        var db = TestDb.CreateUnitOfWork();
-        var invoice = Invoice(DocumentIssuerType.ThirdParty, TaxDocumentKind.Nfe);
-        await Create(db).ExecuteAsync(invoice, "tester");
+        await Create(db).ExecuteAsync(Invoice(DocumentIssuerType.ThirdParty, TaxDocumentKind.Nfe), "tester");
         var stored = await db.Context.PurchaseInvoices.SingleAsync();
-        (stored.SupplierNfeProtocol, stored.SupplierNfeCheckedAt) = ("135260000000001", new DateTime(2026, 10, 5, 10, 0, 0));
+        (stored.SupplierNfeProtocol, stored.SupplierNfeCheckedAt) = ("135260000000001", StoredCheckedAt);
         await db.SaveChangesAsync();
         db.Context.ChangeTracker.Clear();
-        var changed = await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
+        return await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync();
+    }
+
+    [Fact]
+    public async Task Update_changing_the_kind_clears_the_stored_authorization()
+    {
+        // A consulta da SEFAZ vale para a chave e o tipo de quando foi feita: mudou o tipo, a autorização é velha.
+        var db = TestDb.CreateUnitOfWork();
+        var changed = await StoredWithAuthorizationAsync(db);
         changed.TaxDocumentKind = TaxDocumentKind.Other;
+        (changed.SupplierNfeProtocol, changed.SupplierNfeCheckedAt) = ("FORJADO", DateTime.Now);
+
+        await Update(db).ExecuteAsync(changed.Key, changed, "tester");
+
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal((TaxDocumentKind.Other, (string?)null, (DateTime?)null),
+            (saved.TaxDocumentKind, saved.SupplierNfeProtocol, saved.SupplierNfeCheckedAt));
+    }
+
+    [Fact]
+    public async Task Update_changing_the_issuer_type_clears_the_stored_authorization()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var changed = await StoredWithAuthorizationAsync(db);
+        changed.IssuerType = DocumentIssuerType.Own;
+
+        await Update(db).ExecuteAsync(changed.Key, changed, "tester");
+
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(((string?)null, (DateTime?)null), (saved.SupplierNfeProtocol, saved.SupplierNfeCheckedAt));
+    }
+
+    [Fact]
+    public async Task Update_that_changes_nothing_relevant_keeps_the_stored_authorization()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var changed = await StoredWithAuthorizationAsync(db);
+        changed.Comments = "conferido";
         (changed.SupplierNfeProtocol, changed.SupplierNfeCheckedAt) = ("FORJADO", null);
 
         await Update(db).ExecuteAsync(changed.Key, changed, "tester");
 
         var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
-        Assert.Equal((TaxDocumentKind.Other, "135260000000001"), (saved.TaxDocumentKind, saved.SupplierNfeProtocol));
-        Assert.NotNull(saved.SupplierNfeCheckedAt);
+        Assert.Equal(("conferido", "135260000000001", (DateTime?)StoredCheckedAt),
+            (saved.Comments, saved.SupplierNfeProtocol, saved.SupplierNfeCheckedAt));
     }
 
     [Fact]

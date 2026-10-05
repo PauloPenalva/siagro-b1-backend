@@ -152,4 +152,25 @@ public class PurchaseInvoiceThirdPartyTaxationTests
         var line = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.ItemCode == "MILHO" && i.PurchaseInvoiceKey == invoice.Key);
         Assert.Equal(("1102", (int?)null), (line.Cfop, line.NfeItemNumber));
     }
+
+    [Fact]
+    public async Task Line_added_to_a_customer_return_keeps_what_was_posted()
+    {
+        // A devolução do cliente (De terceiro + Devolução) não é calculada, nem na inclusão de linha.
+        var db = (await PurchaseNfeTestSeed.SeedAsync()).Db;
+        var invoice = ThirdParty(null);
+        invoice.InvoiceType = PurchaseInvoiceType.Return;
+        await Create(db).ExecuteAsync(invoice, "tester");
+        var added = new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "MILHO", UnitOfMeasureCode = "KG",
+            Quantity = 10m, UnitPrice = 1m, CstIcms = "00", NfeItemNumber = 5,
+        };
+
+        await new PurchaseInvoicesItemsCreateService(db, new FakeItemService(),
+            TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners())).ExecuteAsync(added, "tester");
+
+        var line = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.ItemCode == "MILHO" && i.PurchaseInvoiceKey == invoice.Key);
+        Assert.Equal(("00", (string?)null, (int?)5), (line.CstIcms, line.Cfop, line.NfeItemNumber));
+    }
 }

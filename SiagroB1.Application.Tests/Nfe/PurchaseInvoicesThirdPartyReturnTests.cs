@@ -81,6 +81,20 @@ public class PurchaseInvoicesThirdPartyReturnTests
     }
 
     [Fact]
+    public async Task Third_party_entry_of_another_document_kind_is_refused()
+    {
+        // Só a NF-e do fornecedor é referenciada pela devolução; "outro documento" não tem chave de NF-e.
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+        (await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == origin.Key)).TaxDocumentKind = TaxDocumentKind.Other;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 1m, null)), "tester"));
+
+        Assert.Equal("A devolução de entrada de terceiro parte de um documento Normal, confirmado e com a chave da NF-e do fornecedor (44 dígitos).", e.Message);
+    }
+
+    [Fact]
     public async Task Total_return_creates_both_lines_with_the_branch_usage()
     {
         var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();

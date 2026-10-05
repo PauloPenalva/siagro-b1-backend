@@ -122,7 +122,7 @@ public class PurchaseInvoicesNfeReturnCreateService(
         if (origin.IssuerType == DocumentIssuerType.ThirdParty)
         {
             if (origin.InvoiceType != PurchaseInvoiceType.Normal || origin.InvoiceStatus != InvoiceStatus.Confirmed ||
-                origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsAsciiDigit))
+                origin.TaxDocumentKind != TaxDocumentKind.Nfe || origin.ChaveNFe is not { Length: 44 } key || !key.All(char.IsAsciiDigit))
                 throw new DefaultException(
                     "A devolução de entrada de terceiro parte de um documento Normal, confirmado e com a chave da NF-e do fornecedor (44 dígitos).");
 

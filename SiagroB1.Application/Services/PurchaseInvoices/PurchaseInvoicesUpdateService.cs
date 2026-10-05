@@ -36,6 +36,9 @@ public class PurchaseInvoicesUpdateService(
             throw new DefaultException(
                 "Somente documento pendente pode ser alterado. Estorne a confirmação antes.");
 
+        // Capturado ANTES da cópia do corpo: é com isto que se sabe se a autorização da SEFAZ ficou velha.
+        var storedAuthorizationScope = (Key: NormalizeKey(existing.ChaveNFe), existing.TaxDocumentKind, existing.IssuerType);
+
         existing.InvoiceType = entity.InvoiceType;
         existing.IssuerType = entity.IssuerType;
         existing.TaxDocumentKind = existing.IssuerType == DocumentIssuerType.Own ? TaxDocumentKind.Nfe : entity.TaxDocumentKind;
@@ -99,6 +102,14 @@ public class PurchaseInvoicesUpdateService(
         if (SupplierNfeKeyGuard.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
             SupplierNfeKeyGuard.Ensure(existing, (await businessPartnerService.GetByIdAsync(existing.CardCode))?.TaxId);
 
+        // A consulta à SEFAZ vale para a chave, o tipo e o emitente de quando foi feita (spec terceiro-chave §8): se
+        // algum mudou, o protocolo gravado é de outra nota e o confirmar precisa consultar de novo.
+        if ((NormalizeKey(existing.ChaveNFe), existing.TaxDocumentKind, existing.IssuerType) != storedAuthorizationScope)
+        {
+            existing.SupplierNfeProtocol = null;
+            existing.SupplierNfeCheckedAt = null;
+        }
+
         await PurchaseInvoiceChaveNFe.EnsureFreeAsync(db, existing.ChaveNFe, existing.Key);
 
         await SyncItemsAsync(existing, entity);
@@ -118,6 +129,9 @@ public class PurchaseInvoicesUpdateService(
 
         await db.SaveChangesAsync();
     }
+
+    /// <summary>Chave sem espaços (a colada do DANFE vem em grupos de 4); em branco e nula são a mesma coisa.</summary>
+    private static string NormalizeKey(string? key) => string.Concat((key ?? string.Empty).Where(c => !char.IsWhiteSpace(c)));
 
     /// <summary>
     /// Reconcilia a coleção pela chave da linha: casa atualiza, sobra no entrante insere, sobra no

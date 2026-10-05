@@ -43,14 +43,19 @@ public class SupplierNfeAuthorizationService(IUnitOfWork db, BranchNfeSettingsSe
         if (!States.TryGetValue(key[..2], out var state))
             throw new DefaultException($"Chave de acesso inválida: UF {key[..2]} desconhecida.");
 
-        using var context = await settingsService.OpenAsync(invoice.BranchCode!);
-
+        // Certificado ausente/inválido e qualquer falha de rede ou de leitura da resposta são, para quem confirma, a
+        // mesma coisa: a SEFAZ não respondeu. Só a recusa de negócio (DefaultException) passa como veio.
         NfeSefazResult result;
         try
         {
+            using var context = await settingsService.OpenAsync(invoice.BranchCode!);
             result = await sefaz.ConsultProtocolAsync(key, context.Settings with { IssuerState = state });
         }
-        catch (NfeCommunicationException)
+        catch (DefaultException)
+        {
+            throw;
+        }
+        catch (Exception)
         {
             throw new DefaultException("A SEFAZ não respondeu. Tente novamente.");
         }

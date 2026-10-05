@@ -190,4 +190,77 @@ public class SupplierNfeKeyGuardTests
 
         Assert.Equal($"Já existe documento de entrada com a chave de NF-e {SupplierNfeXml.AccessKey}.", e.Message);
     }
+
+    private static PurchaseInvoicesUpdateService Update(UnitOfWork db) =>
+        new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners()));
+
+    private static async Task<PurchaseInvoice> StoredAsync(UnitOfWork db, int usage)
+    {
+        var doc = Saved(SupplierNfeXml.AccessKey);
+        doc.Items.Single().UsageCode = usage;
+        await Create(db).ExecuteAsync(doc, "tester");
+        db.Context.ChangeTracker.Clear();
+        return await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == doc.Key);
+    }
+
+    [Fact]
+    public async Task Create_stores_the_normalized_key()
+    {
+        var (db, usage) = await ActiveAsync();
+        var doc = Saved("3526 1000 0529 9822 4725 5500 1000 0004 5611 2345 6782");
+        doc.Items.Single().UsageCode = usage;
+
+        await Create(db).ExecuteAsync(doc, "tester");
+
+        Assert.Equal(SupplierNfeXml.AccessKey, (await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(i => i.Key == doc.Key)).ChaveNFe);
+    }
+
+    [Fact]
+    public async Task Update_refuses_a_key_with_a_wrong_check_digit()
+    {
+        var (db, usage) = await ActiveAsync();
+        var changed = await StoredAsync(db, usage);
+        changed.ChaveNFe = "35261000052998224725550010000004561123456781";
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Update(db).ExecuteAsync(changed.Key, changed, "tester"));
+
+        Assert.Equal("Chave de acesso inválida: o dígito verificador não confere.", e.Message);
+    }
+
+    [Fact]
+    public async Task Update_changing_the_key_clears_the_stored_authorization()
+    {
+        var (db, usage) = await ActiveAsync();
+        var changed = await StoredAsync(db, usage);
+        var stored = await db.Context.PurchaseInvoices.SingleAsync(i => i.Key == changed.Key);
+        (stored.SupplierNfeProtocol, stored.SupplierNfeCheckedAt) = ("135260000000001", new DateTime(2026, 10, 5, 10, 0, 0));
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        // Chave de outro número/série do mesmo fornecedor: o documento passa a apontar para outra NF-e.
+        changed.ChaveNFe = "35261000052998224725550010000004571123456780";
+        changed.TaxDocumentNumber = "457";
+
+        await Update(db).ExecuteAsync(changed.Key, changed, "tester");
+
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(i => i.Key == changed.Key);
+        Assert.Equal(("35261000052998224725550010000004571123456780", (string?)null, (DateTime?)null),
+            (saved.ChaveNFe, saved.SupplierNfeProtocol, saved.SupplierNfeCheckedAt));
+    }
+
+    [Fact]
+    public async Task Update_resending_the_key_with_spaces_keeps_the_stored_authorization()
+    {
+        var (db, usage) = await ActiveAsync();
+        var changed = await StoredAsync(db, usage);
+        var stored = await db.Context.PurchaseInvoices.SingleAsync(i => i.Key == changed.Key);
+        (stored.SupplierNfeProtocol, stored.SupplierNfeCheckedAt) = ("135260000000001", new DateTime(2026, 10, 5, 10, 0, 0));
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        changed.ChaveNFe = "3526 1000 0529 9822 4725 5500 1000 0004 5611 2345 6782";
+
+        await Update(db).ExecuteAsync(changed.Key, changed, "tester");
+
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(i => i.Key == changed.Key);
+        Assert.Equal((SupplierNfeXml.AccessKey, "135260000000001"), (saved.ChaveNFe, saved.SupplierNfeProtocol));
+    }
 }

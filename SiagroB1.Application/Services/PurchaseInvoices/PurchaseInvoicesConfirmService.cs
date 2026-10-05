@@ -36,7 +36,7 @@ public class PurchaseInvoicesConfirmService(
             throw new DefaultException("Somente documento pendente pode ser confirmado.");
 
         // Emitir é o que confirma (spec D3): na filial com a regra ativa, o documento de emissão própria só
-        // confirma com a NF-e autorizada — é o que a emissão chama. Documento de terceiro confirma como hoje.
+        // confirma com a NF-e autorizada — é o que a emissão chama. O de terceiro tem a conferência própria logo abaixo.
         if (invoice.IssuerType == DocumentIssuerType.Own && invoice.NfeStatus != NfeStatus.Authorized &&
             await gate.IsActiveAsync(invoice.BranchCode))
             throw new DefaultException("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.");
