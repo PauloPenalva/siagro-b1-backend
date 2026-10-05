@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Infra;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
@@ -21,6 +22,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         }
 
         ValidateNfeIssuance(entity);
+        await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
 
         await context.Branchs.AddAsync(entity);
@@ -59,6 +61,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     public async Task<Branch?> UpdateAsync(string key, Branch entity)
     {
         ValidateNfeIssuance(entity);
+        await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
 
         context.Entry(entity).State = EntityState.Modified;
@@ -87,6 +90,17 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     /// enquanto a chave está ligada (não só na virada), para ninguém apagar o CRT depois.
     /// Só em STANDALONE: em SAPB1 a chave nem aparece na tela.
     /// </summary>
+    private async Task ValidateThirdPartyReturnUsageAsync(Branch entity)
+    {
+        if (entity.ThirdPartyPurchaseReturnUsageCode is not { } code)
+            return;
+
+        var usage = await context.Usages.AsNoTracking().FirstOrDefaultAsync(u => u.Code == code);
+
+        if (usage is null || usage.Inactive || usage.Direction != UsageDirection.Outgoing)
+            throw new DefaultException("A natureza de devolução de compra de terceiro precisa ser de Saída e ativa.");
+    }
+
     private void ValidateNfeIssuance(Branch entity)
     {
         if (!entity.IssuesNfe || !ErpMode.IsStandalone(configuration))
