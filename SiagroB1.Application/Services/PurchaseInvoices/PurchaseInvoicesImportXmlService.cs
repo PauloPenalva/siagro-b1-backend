@@ -84,8 +84,12 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
 
         var digits = Digits(cnpj);
 
+        // O EF (SQL Server) não traduz o Digits: traz só CardCode/TaxId e compara os dígitos em memória.
         var partner = businessPartnerService.QueryAll()
-            .FirstOrDefault(p => p.TaxId != null && Digits(p.TaxId) == digits);
+            .Where(p => p.TaxId != null)
+            .Select(p => new { p.CardCode, p.TaxId })
+            .AsEnumerable()
+            .FirstOrDefault(p => Digits(p.TaxId!) == digits);
 
         return partner?.CardCode
                ?? throw new DefaultException(
