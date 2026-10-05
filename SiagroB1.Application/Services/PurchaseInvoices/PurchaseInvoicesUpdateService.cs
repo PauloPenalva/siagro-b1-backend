@@ -38,6 +38,7 @@ public class PurchaseInvoicesUpdateService(
 
         existing.InvoiceType = entity.InvoiceType;
         existing.IssuerType = entity.IssuerType;
+        existing.TaxDocumentKind = existing.IssuerType == DocumentIssuerType.Own ? TaxDocumentKind.Nfe : entity.TaxDocumentKind;
 
         // O emitente é editável enquanto o documento está pendente. Sem estas linhas a troca era
         // descartada em silêncio — a tela gravava sem erro e voltava com o emitente antigo.

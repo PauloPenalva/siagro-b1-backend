@@ -28,6 +28,12 @@ public class PurchaseInvoicesCreateService(
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
 
+        // A autorização da NF-e do fornecedor só o confirmar grava; emissão própria é sempre NF-e.
+        invoice.SupplierNfeProtocol = null;
+        invoice.SupplierNfeCheckedAt = null;
+        if (invoice.IssuerType == DocumentIssuerType.Own)
+            invoice.TaxDocumentKind = TaxDocumentKind.Nfe;
+
         // Só o "Devolver" (PurchaseInvoicesNfeReturnCreateService) marca a devolução de compra; o corpo da
         // API nunca — senão um POST tiraria a nota da confirmação pela emissão.
         invoice.IsNfeReturn = nfeReturn && invoice.InvoiceType == PurchaseInvoiceType.Return;
