@@ -100,7 +100,8 @@ public static class NfeIssueInputAssembler
     {
         var items = view.Lines;
         var returnOrigin = view.ReturnOrigin;
-        var total = items.Sum(i => i.Total);
+        // O total geral (itens + frete + seguro + outras despesas − desconto) é o vNF: é ele que se parcela.
+        var total = items.Sum(i => i.GrandTotal);
         var firstUsage = items.Select(i => i.UsageCode).FirstOrDefault(c => c is not null) is { } code
                          && context.Usages.TryGetValue(code, out var usage)
             ? usage
@@ -222,6 +223,10 @@ public static class NfeIssueInputAssembler
         Quantity = item.Quantity,
         UnitPrice = item.UnitPrice,
         Total = item.Total,
+        FreightValue = item.FreightValue,
+        InsuranceValue = item.InsuranceValue,
+        DiscountValue = item.DiscountValue,
+        OtherExpensesValue = item.OtherExpensesValue,
         GoodsOrigin = item.GoodsOrigin ?? 0,
         BenefitCode = item.IcmsBenefitCode,
         IcmsCode = item.CstIcms!,

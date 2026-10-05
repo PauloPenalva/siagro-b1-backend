@@ -601,4 +601,61 @@ public class NfeXmlBuilderTests
 
         Assert.Equal(ConsumidorFinal.cfNao, Build(input).infNFe.ide.indFinal);
     }
+
+    // --- Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §7) ---
+
+    /// <summary>60.000,00 de produtos + frete 1.000,00 + seguro 100,00 + outras 400,00 − desconto 500,00 = 61.000,00.</summary>
+    private static NfeIssueInput InputWithCharges(decimal paid = 61000m) => NfeTestData.Input() with
+    {
+        Items = [NfeTestData.Item() with { FreightValue = 1000m, InsuranceValue = 100m, DiscountValue = 500m, OtherExpensesValue = 400m }],
+        Payment = PaymentInstallmentCalculator.Calculate("30,60", PaymentStartRule.IssueDate, "15", paid, new DateOnly(2026, 10, 2)),
+    };
+
+    [Fact]
+    public void Line_charges_go_to_det_prod()
+    {
+        var prod = Build(InputWithCharges()).infNFe.det.Single().prod;
+
+        Assert.Equal((60000m, (decimal?)1000m, (decimal?)100m, (decimal?)500m, (decimal?)400m),
+            (prod.vProd, prod.vFrete, prod.vSeg, prod.vDesc, prod.vOutro));
+    }
+
+    [Fact]
+    public void Totals_carry_the_charges_and_vNF_is_the_grand_total()
+    {
+        var total = Build(InputWithCharges()).infNFe.total.ICMSTot;
+
+        Assert.Equal((60000m, 1000m, 100m, 500m, 400m, 61000m),
+            (total.vProd, total.vFrete, total.vSeg, total.vDesc, total.vOutro, total.vNF));
+    }
+
+    [Fact]
+    public void Billing_and_payment_use_the_grand_total()
+    {
+        var nfe = Build(InputWithCharges());
+
+        Assert.Equal(((decimal?)61000m, (decimal?)61000m), (nfe.infNFe.cobr.fat.vOrig, nfe.infNFe.cobr.fat.vLiq));
+        Assert.Equal(61000m, nfe.infNFe.cobr.dup.Sum(d => d.vDup));
+        Assert.Equal(61000m, nfe.infNFe.pag.Single().detPag.Single().vPag);
+    }
+
+    [Fact]
+    public void Payment_of_the_products_only_is_refused_when_the_line_has_charges()
+    {
+        var e = Assert.Throws<SiagroB1.Domain.Exceptions.DefaultException>(() => Build(InputWithCharges(paid: 60000m)));
+
+        Assert.Equal("O total do pagamento não confere com o valor da nota.", e.Message);
+    }
+
+    [Fact]
+    public void Line_without_charges_omits_them_and_keeps_the_totals_of_today()
+    {
+        // Review Focus 3: toda nota de hoje (os quatro valores em 0) sai como saía.
+        var nfe = Build(NfeTestData.Input());
+
+        var prod = nfe.infNFe.det.Single().prod;
+        Assert.Equal(((decimal?)null, (decimal?)null, (decimal?)null, (decimal?)null), (prod.vFrete, prod.vSeg, prod.vDesc, prod.vOutro));
+        var total = nfe.infNFe.total.ICMSTot;
+        Assert.Equal((0m, 0m, 0m, 0m, 60000m), (total.vFrete, total.vSeg, total.vDesc, total.vOutro, total.vNF));
+    }
 }

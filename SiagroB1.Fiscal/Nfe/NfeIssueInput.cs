@@ -101,6 +101,15 @@ public sealed record NfeItem
     public required decimal Quantity { get; init; }
     public required decimal UnitPrice { get; init; }
     public required decimal Total { get; init; }
+
+    /// <summary>Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §7); 0 = omitido no <c>det/prod</c>.</summary>
+    public decimal FreightValue { get; init; }
+    public decimal InsuranceValue { get; init; }
+    public decimal DiscountValue { get; init; }
+    public decimal OtherExpensesValue { get; init; }
+
+    /// <summary>vProd + vFrete + vSeg + vOutro − vDesc: a parte da linha no vNF, no pagamento e na fatura.</summary>
+    public decimal GrandTotal => Total + FreightValue + InsuranceValue + OtherExpensesValue - DiscountValue;
     public required byte GoodsOrigin { get; init; }
     public string? BenefitCode { get; init; }
 

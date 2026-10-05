@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Xml.Linq;
 using System.Security.Cryptography.X509Certificates;
 using DFe.Utils;
 using SiagroB1.Domain.Enums;
@@ -140,5 +142,43 @@ public class NfeSignerTests
         Assert.DoesNotContain("<NFref>", signed.Xml);
         Assert.Contains($"<DFeReferenciado><chaveAcesso>{NfeTestData.EntryAccessKey}</chaveAcesso><nItem>2</nItem></DFeReferenciado>", signed.Xml);
         Assert.Contains("<tPag>90</tPag>", signed.Xml);
+    }
+
+    private static readonly XNamespace Ns = "http://www.portalfiscal.inf.br/nfe";
+
+    private static decimal Number(XElement? element) => decimal.Parse(element!.Value, CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void Line_charges_validate_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+        var input = NfeTestData.Input() with
+        {
+            Items = [NfeTestData.Item() with { FreightValue = 1000m, InsuranceValue = 100m, DiscountValue = 500m, OtherExpensesValue = 400m }],
+            Payment = PaymentInstallmentCalculator.Calculate("30,60", PaymentStartRule.IssueDate, "15", 61000m,
+                DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var xml = XDocument.Parse(NfeSigner.BuildSignAndValidate(input, Settings(certificate)).Xml);
+
+        var prod = xml.Descendants(Ns + "det").Single().Element(Ns + "prod")!;
+        Assert.Equal((1000m, 100m, 500m, 400m),
+            (Number(prod.Element(Ns + "vFrete")), Number(prod.Element(Ns + "vSeg")), Number(prod.Element(Ns + "vDesc")),
+                Number(prod.Element(Ns + "vOutro"))));
+        Assert.Equal(61000m, Number(xml.Descendants(Ns + "ICMSTot").Single().Element(Ns + "vNF")));
+        Assert.Equal(61000m, Number(xml.Descendants(Ns + "vPag").Single()));
+    }
+
+    [Fact]
+    public void Line_without_charges_signs_without_the_optional_prod_values()
+    {
+        // Review Focus 3: o det/prod não ganha vFrete/vSeg/vDesc/vOutro zerados.
+        using var certificate = Certificate();
+
+        var xml = XDocument.Parse(NfeSigner.BuildSignAndValidate(NfeTestData.Input(), Settings(certificate)).Xml);
+
+        var prod = xml.Descendants(Ns + "det").Single().Element(Ns + "prod")!;
+        Assert.Empty(prod.Elements().Where(e => e.Name.LocalName is "vFrete" or "vSeg" or "vDesc" or "vOutro"));
+        Assert.Equal(60000m, Number(xml.Descendants(Ns + "ICMSTot").Single().Element(Ns + "vNF")));
     }
 }
