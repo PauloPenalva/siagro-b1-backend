@@ -10,9 +10,9 @@ namespace SiagroB1.Web.Actions.Nfe;
 /// "Devolver": cria a devolução própria Pendente e devolve a chave dela. <c>Quantities</c> é um array
 /// PARALELO a <c>OriginItemKeys</c> (contagens diferentes = erro de montagem, recusado aqui).
 /// </summary>
-public class SalesInvoicesCreateNfeReturnController(SalesInvoicesNfeReturnCreateService service) : ODataController
+public class PurchaseInvoicesCreateNfeReturnController(PurchaseInvoicesNfeReturnCreateService service) : ODataController
 {
-    [HttpPost("odata/SalesInvoicesCreateNfeReturn")]
+    [HttpPost("odata/PurchaseInvoicesCreateNfeReturn")]
     public async Task<IActionResult> PostAsync([FromBody] ODataActionParameters parameters)
     {
         // ⚠️ ODataActionParameters chega NULO quando falta um parâmetro declarado no EDM.
@@ -36,8 +36,8 @@ public class SalesInvoicesCreateNfeReturnController(SalesInvoicesNfeReturnCreate
         try
         {
             var created = await service.ExecuteAsync(
-                new SalesInvoiceNfeReturnRequest(
-                    key, itemKeys.Select((itemKey, i) => new SalesInvoiceNfeReturnItem(itemKey, quantities[i])).ToList(), reason),
+                new PurchaseInvoiceNfeReturnRequest(
+                    key, itemKeys.Select((itemKey, i) => new PurchaseInvoiceNfeReturnItem(itemKey, quantities[i])).ToList(), reason),
                 User.Identity?.Name ?? "Unknown");
 
             return Ok(created.Key);

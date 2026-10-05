@@ -29,6 +29,8 @@ public class PurchaseInvoicesNfeIssueService(
     : NfeIssueServiceBase<PurchaseInvoice>(
         db, gate, new PurchaseInvoiceNfeStore(db), settingsService, reservation, sefaz, resultHandler, options, logger, clock, storageZone)
 {
+    private readonly IUnitOfWork _db = db;
+
     protected override void EnsureIssuableType(PurchaseInvoice invoice)
     {
         if (invoice.IssuerType != DocumentIssuerType.Own)
@@ -37,6 +39,14 @@ public class PurchaseInvoicesNfeIssueService(
         if (invoice.InvoiceType != PurchaseInvoiceType.Normal && !PurchaseInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             throw new DefaultException(
                 "Só a entrada Normal e a devolução criada pelo Devolver são emitidas como NF-e por aqui.");
+    }
+
+    // Devolução de compra: o saldo da entrada ANTES de reservar o número — a SEFAZ autorizaria uma devolução
+    // maior que a compra.
+    protected override async Task EnsureBeforeReservationAsync(PurchaseInvoice invoice)
+    {
+        if (invoice.IsNfeReturn)
+            await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(_db.Context, invoice, invoice.Items);
     }
 
     protected override DateTime? DocumentDate(PurchaseInvoice invoice) => invoice.IssueDate;

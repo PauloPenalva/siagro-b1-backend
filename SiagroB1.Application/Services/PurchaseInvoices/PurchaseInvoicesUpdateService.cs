@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Nfe;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -93,6 +94,9 @@ public class PurchaseInvoicesUpdateService(
         PurchaseInvoiceAccessKey.EnsureValidReference(existing);
 
         await SyncItemsAsync(existing, entity);
+
+        if (existing.IsNfeReturn)
+            await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, existing, existing.Items);
 
         // O PATCH do cabeçalho traz todas as linhas (o controller carrega com Include e aplica o Delta),
         // então toda alteração passa por aqui: recalcula o documento inteiro — data, fornecedor e filial

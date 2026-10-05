@@ -125,6 +125,18 @@ public static class ODataConfigurations
         salesInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         salesInvoicesNfeReturnableItems.ReturnsCollection<SalesInvoiceNfeReturnableItemDto>();
 
+        // Devolução de compra (spec 2026-10-05): cria a devolução a partir da entrada própria autorizada.
+        var purchaseInvoicesCreateNfeReturn = modelBuilder.Action("PurchaseInvoicesCreateNfeReturn");
+        purchaseInvoicesCreateNfeReturn.Parameter<Guid>("Key");
+        purchaseInvoicesCreateNfeReturn.CollectionParameter<Guid>("OriginItemKeys");
+        purchaseInvoicesCreateNfeReturn.CollectionParameter<double>("Quantities");
+        purchaseInvoicesCreateNfeReturn.Parameter<string>("Reason");
+        purchaseInvoicesCreateNfeReturn.Returns<Guid>();
+
+        var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
+        purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
+        purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");

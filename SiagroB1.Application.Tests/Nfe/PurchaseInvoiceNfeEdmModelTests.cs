@@ -32,4 +32,23 @@ public class PurchaseInvoiceNfeEdmModelTests
 
         Assert.Equal("Edm.Guid", function.Parameters.Single(p => p.Name == "Key").Type.FullName());
     }
+
+    [Fact]
+    public void Create_nfe_return_is_an_action_with_parallel_double_quantities()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "PurchaseInvoicesCreateNfeReturn");
+
+        Assert.Equal("Collection(Edm.Guid)", action.Parameters.Single(p => p.Name == "OriginItemKeys").Type.FullName());
+        Assert.Equal("Collection(Edm.Double)", action.Parameters.Single(p => p.Name == "Quantities").Type.FullName());
+        Assert.Equal("Edm.String", action.Parameters.Single(p => p.Name == "Reason").Type.FullName());
+        Assert.Equal("Edm.Guid", action.ReturnType.FullName());
+    }
+
+    [Fact]
+    public void Returnable_items_is_a_collection_function()
+    {
+        var function = Model().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "PurchaseInvoicesNfeReturnableItems");
+
+        Assert.True(function.ReturnType.IsCollection());
+    }
 }

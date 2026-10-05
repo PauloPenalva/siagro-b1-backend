@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -71,6 +72,9 @@ public class PurchaseInvoicesItemsUpdateService(
         if (invoice.IsNfeReturn)
             PurchaseInvoiceNfeLock.RestoreReturnLine(entry);
         PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
+
+        if (invoice.IsNfeReturn)
+            await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [existing]);
 
         await taxApply.ApplyAsync(invoice, [existing]);
 
