@@ -40,10 +40,21 @@ public class PurchaseInvoicesThirdPartyReturnTests
         Assert.StartsWith("Devolução da NF-e 456 série 1. Motivo: grão fora do padrão", saved.Comments);
     }
 
-    [Fact]
-    public async Task Branch_without_the_usage_is_refused()
+    [Theory]
+    [InlineData("absent")]
+    [InlineData("inactive")]
+    [InlineData("incoming")]
+    public async Task Branch_without_a_valid_usage_is_refused(string kind)
     {
-        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync(configureUsage: false);
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync(configureUsage: kind != "absent");
+        var context = scenario.Db.Context;
+        if (kind == "inactive")
+            (await context.Usages.SingleAsync(u => u.Code == scenario.ReturnUsage)).Inactive = true;
+        else if (kind == "incoming")
+            (await context.Branchs.SingleAsync(b => b.Code == "01")).ThirdPartyPurchaseReturnUsageCode =
+                (await context.Usages.FirstAsync(u => u.Direction == UsageDirection.Incoming)).Code;
+        await scenario.Db.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 1m, null)), "tester"));
 
@@ -67,6 +78,19 @@ public class PurchaseInvoicesThirdPartyReturnTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 1m, null)), "tester"));
 
         Assert.Equal("A devolução de entrada de terceiro parte de um documento Normal, confirmado e com a chave da NF-e do fornecedor (44 dígitos).", e.Message);
+    }
+
+    [Fact]
+    public async Task Total_return_creates_both_lines_with_the_branch_usage()
+    {
+        var (scenario, origin) = await ThirdPartyPurchaseSeed.SeedAsync();
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, ("TRIGO", 1000m, null), ("MILHO", 500m, null)), "tester");
+
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        Assert.Equal(2, saved.Items.Count);
+        Assert.Equal(new[] { 1000m, 500m }, saved.Items.Select(i => i.Quantity).OrderByDescending(q => q).ToArray());
+        Assert.All(saved.Items, i => Assert.Equal(scenario.ReturnUsage, i.UsageCode));
     }
 
     [Fact]
