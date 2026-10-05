@@ -93,6 +93,10 @@ public class PurchaseInvoicesCreateService(
         // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
         await taxApply.ApplyAsync(invoice, invoice.Items);
 
+        // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
+        if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            PurchaseInvoiceDeclaredTotal.Apply(invoice, invoice.Items);
+
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();
     }

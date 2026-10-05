@@ -164,7 +164,7 @@ public class PurchaseInvoicesItemsTests
         _db.Context.PurchaseInvoicesItems.Add(item);
         await _db.Context.SaveChangesAsync();
 
-        await new PurchaseInvoicesItemsDeleteService(_db).ExecuteAsync(item.Key!.Value);
+        await new PurchaseInvoicesItemsDeleteService(_db, TaxTestServices.Gate(_db, "SAPB1")).ExecuteAsync(item.Key!.Value);
 
         Assert.Empty(_db.Context.PurchaseInvoicesItems);
     }
@@ -182,14 +182,14 @@ public class PurchaseInvoicesItemsTests
         await _db.Context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesItemsDeleteService(_db).ExecuteAsync(item.Key!.Value));
+            () => new PurchaseInvoicesItemsDeleteService(_db, TaxTestServices.Gate(_db, "SAPB1")).ExecuteAsync(item.Key!.Value));
     }
 
     [Fact]
     public async Task Unknown_line_throws_not_found()
     {
         await Assert.ThrowsAsync<NotFoundException>(
-            () => new PurchaseInvoicesItemsDeleteService(_db).ExecuteAsync(Guid.NewGuid()));
+            () => new PurchaseInvoicesItemsDeleteService(_db, TaxTestServices.Gate(_db, "SAPB1")).ExecuteAsync(Guid.NewGuid()));
     }
 
     [Fact]

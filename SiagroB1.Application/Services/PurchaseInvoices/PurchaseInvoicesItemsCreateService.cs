@@ -43,6 +43,10 @@ public class PurchaseInvoicesItemsCreateService(
         // Tributos pela natureza (no-op com a regra inativa, devolução do cliente ou documento confirmado).
         await taxApply.ApplyAsync(invoice, [item]);
 
+        // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
+        if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            await PurchaseInvoiceDeclaredTotal.ApplyAsync(db, invoice, item.Key, item);
+
         await db.Context.PurchaseInvoicesItems.AddAsync(item);
         await db.SaveChangesAsync();
     }

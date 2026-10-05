@@ -83,6 +83,10 @@ public class PurchaseInvoicesItemsUpdateService(
 
         await taxApply.ApplyAsync(invoice, [existing]);
 
+        // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
+        if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+            await PurchaseInvoiceDeclaredTotal.ApplyAsync(db, invoice, existing.Key, existing);
+
         await db.SaveChangesAsync();
     }
 }
