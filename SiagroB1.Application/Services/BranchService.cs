@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Infra;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra.Context;
@@ -21,6 +22,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         }
 
         ValidateNfeIssuance(entity);
+        await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
 
         await context.Branchs.AddAsync(entity);
@@ -59,6 +61,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     public async Task<Branch?> UpdateAsync(string key, Branch entity)
     {
         ValidateNfeIssuance(entity);
+        await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
 
         context.Entry(entity).State = EntityState.Modified;
@@ -95,6 +98,20 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         if (entity.TaxRegime is null || string.IsNullOrWhiteSpace(entity.StateCode))
             throw new DefaultException(
                 "Para emitir NF-e pelo Siagro, informe o regime tributário e a UF da filial.");
+    }
+
+    /// <summary>
+    /// Natureza de devolução de compra de terceiro: precisa ser de Saída e ativa.
+    /// </summary>
+    private async Task ValidateThirdPartyReturnUsageAsync(Branch entity)
+    {
+        if (entity.ThirdPartyPurchaseReturnUsageCode is not { } code)
+            return;
+
+        var usage = await context.Usages.AsNoTracking().FirstOrDefaultAsync(u => u.Code == code);
+
+        if (usage is null || usage.Inactive || usage.Direction != UsageDirection.Outgoing)
+            throw new DefaultException("A natureza de devolução de compra de terceiro precisa ser de Saída e ativa.");
     }
 
     /// <summary>

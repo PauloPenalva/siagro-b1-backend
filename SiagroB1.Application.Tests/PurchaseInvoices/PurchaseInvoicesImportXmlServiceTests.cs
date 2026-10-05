@@ -1,4 +1,9 @@
 using System.Text;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Commons.Resources;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Exceptions;
@@ -43,6 +48,53 @@ public class PurchaseInvoicesImportXmlServiceTests
             taxIds: new Dictionary<string, string> { [cardCode] = taxId }));
 
     private static byte[] Bytes(string xml) => Encoding.UTF8.GetBytes(xml);
+
+    private sealed class PassthroughLocalizer : IStringLocalizer<Resource>
+    {
+        public LocalizedString this[string name] => new(name, name);
+        public LocalizedString this[string name, params object[] arguments] => new(name, name);
+        public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
+    }
+
+    /// <summary>Serviço REAL sobre o banco EF — é o que roda em STANDALONE (o Fake é em memória).</summary>
+    private static async Task<PurchaseInvoicesImportXmlService> RealServiceAsync(string? maskedTaxId)
+    {
+        var db = SiagroB1.Application.Tests.Support.TestDb.CreateUnitOfWork();
+        if (maskedTaxId != null)
+        {
+            db.Context.BusinessPartners.Add(new BusinessPartner
+            {
+                CardCode = "F0009", CardName = "FORNECEDOR REAL", TaxId = maskedTaxId
+            });
+            await db.Context.SaveChangesAsync();
+        }
+        var partners = new BusinessPartnerService(
+            db, NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer());
+        return new PurchaseInvoicesImportXmlService(partners);
+    }
+
+    private static string NfeFor(string cnpj) => Nfe.Replace("12345678000199", cnpj);
+
+    [Fact]
+    public async Task Issuer_is_found_by_digits_when_registry_is_masked_through_the_real_service()
+    {
+        var service = await RealServiceAsync("11.222.333/0001-81");
+
+        var draft = await service.ExecuteAsync(Bytes(NfeFor("11222333000181")), "nfe.xml");
+
+        Assert.Equal("F0009", draft.CardCode);
+    }
+
+    [Fact]
+    public async Task Unregistered_issuer_is_a_business_error_through_the_real_service()
+    {
+        var service = await RealServiceAsync("99.999.999/0001-99");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(
+            () => service.ExecuteAsync(Bytes(NfeFor("11222333000181")), "nfe.xml"));
+
+        Assert.StartsWith("Nenhum parceiro cadastrado", ex.Message);
+    }
 
     [Fact]
     public async Task Header_is_read_from_the_xml()
@@ -143,5 +195,23 @@ public class PurchaseInvoicesImportXmlServiceTests
 
         await Assert.ThrowsAsync<DefaultException>(
             () => Service().ExecuteAsync(Bytes(noItems), "nfe.xml"));
+    }
+
+    [Fact]
+    public async Task Draft_lines_carry_the_supplier_item_number_in_xml_order()
+    {
+        var partners = new FakeBusinessPartnerService(
+            names: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "PRODUTOR RURAL TESTE" },
+            taxIds: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "529.982.247-25" });
+        var xml = SupplierNfeXml.Build(
+            SupplierNfeXml.Det(1, "TRG", "TRIGO", 1000m, 1.5m, SupplierNfeXml.Icms51(1500m)),
+            SupplierNfeXml.Det(2, "MLH", "MILHO", 500m, 1m, SupplierNfeXml.Icms51(500m)));
+
+        var draft = await new PurchaseInvoicesImportXmlService(partners).ExecuteAsync(SupplierNfeXml.Bytes(xml), "nota.xml");
+
+        Assert.Equal(PurchaseNfeTestSeed.Supplier, draft.CardCode);
+        Assert.Equal(SupplierNfeXml.AccessKey, draft.ChaveNFe);
+        Assert.Equal(new[] { (1, "TRG", 1000m), (2, "MLH", 500m) },
+            draft.Items.Select(i => (i.NfeItemNumber!.Value, i.ItemCode!, i.Quantity)).ToArray());
     }
 }

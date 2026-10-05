@@ -40,6 +40,7 @@ public class PurchaseInvoiceNfeEdmModelTests
 
         Assert.Equal("Collection(Edm.Guid)", action.Parameters.Single(p => p.Name == "OriginItemKeys").Type.FullName());
         Assert.Equal("Collection(Edm.Double)", action.Parameters.Single(p => p.Name == "Quantities").Type.FullName());
+        Assert.Equal("Collection(Edm.Int32)", action.Parameters.Single(p => p.Name == "ItemNumbers").Type.FullName());
         Assert.Equal("Edm.String", action.Parameters.Single(p => p.Name == "Reason").Type.FullName());
         Assert.Equal("Edm.Guid", action.ReturnType.FullName());
     }
