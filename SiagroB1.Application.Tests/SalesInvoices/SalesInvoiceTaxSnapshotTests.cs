@@ -7,7 +7,7 @@ using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Application.Tests.SalesInvoices;
 
-public class SalesInvoiceTaxSnapshotTests
+public class TaxSnapshotTests
 {
     private static readonly TaxCalculationResult Result = new(
         "51", 1000m, 18m, 10m, 162m, 100m, 162m, 0m, "SP800001",
@@ -23,7 +23,7 @@ public class SalesInvoiceTaxSnapshotTests
     public void Write_copies_every_value()
     {
         var item = Item();
-        SalesInvoiceTaxSnapshot.Write(item, Result);
+        TaxSnapshot.Write(item, Result);
 
         Assert.Equal("51", item.CstIcms);
         Assert.Equal(1000m, item.IcmsBase);
@@ -52,7 +52,7 @@ public class SalesInvoiceTaxSnapshotTests
     {
         var db = TestDb.CreateUnitOfWork();
         var item = Item();
-        SalesInvoiceTaxSnapshot.Write(item, Result);
+        TaxSnapshot.Write(item, Result);
         db.Context.SalesInvoicesItems.Add(item);
         await db.SaveChangesAsync();
 
@@ -60,7 +60,7 @@ public class SalesInvoiceTaxSnapshotTests
         item.Cfop = "9999";
         item.CostCenterCode = "CC01";
 
-        SalesInvoiceTaxSnapshot.RestoreLocked(db.Context.Entry(item));
+        TaxSnapshot.RestoreLocked(db.Context.Entry(item));
 
         Assert.Equal(0m, item.IcmsValue);
         Assert.Null(item.Cfop);
@@ -71,8 +71,8 @@ public class SalesInvoiceTaxSnapshotTests
     [Fact]
     public void Invoice_total_ibs_cbs_sums_the_lines()
     {
-        var a = Item(); SalesInvoiceTaxSnapshot.Write(a, Result);
-        var b = Item(); SalesInvoiceTaxSnapshot.Write(b, Result);
+        var a = Item(); TaxSnapshot.Write(a, Result);
+        var b = Item(); TaxSnapshot.Write(b, Result);
         var invoice = new SalesInvoice { CardCode = "C1", Items = [a, b] };
 
         Assert.Equal(18.16m, invoice.TotalInvoiceIbsCbs);

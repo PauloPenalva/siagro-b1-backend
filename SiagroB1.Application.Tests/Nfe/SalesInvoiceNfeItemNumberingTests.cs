@@ -4,7 +4,7 @@ using SiagroB1.Domain.Entities;
 namespace SiagroB1.Application.Tests.Nfe;
 
 /// <summary><c>det/@nItem</c> fixo (spec §8.2): gravado na emissão, 1..n sem buracos, ordem estável.</summary>
-public class SalesInvoiceNfeItemNumberingTests
+public class NfeItemNumberingTests
 {
     private static SalesInvoiceItem Line(string key, int? number = null) => new()
     {
@@ -17,7 +17,7 @@ public class SalesInvoiceNfeItemNumberingTests
         var b = Line("00000000-0000-0000-0000-000000000002");
         var a = Line("00000000-0000-0000-0000-000000000001");
 
-        SalesInvoiceNfeItemNumbering.Renumber([b, a]);
+        NfeItemNumbering.Renumber([b, a]);
 
         Assert.Equal(1, a.NfeItemNumber);
         Assert.Equal(2, b.NfeItemNumber);
@@ -30,7 +30,7 @@ public class SalesInvoiceNfeItemNumberingTests
         var first = Line("00000000-0000-0000-0000-000000000009", 1);
         var added = Line("00000000-0000-0000-0000-000000000005");
 
-        SalesInvoiceNfeItemNumbering.Renumber([third, first, added]);
+        NfeItemNumbering.Renumber([third, first, added]);
 
         Assert.Equal(1, first.NfeItemNumber);
         Assert.Equal(2, third.NfeItemNumber);
@@ -40,18 +40,18 @@ public class SalesInvoiceNfeItemNumberingTests
     [Fact]
     public void Legacy_sale_with_a_single_line_counts_as_item_1()
     {
-        Assert.Equal(1, SalesInvoiceNfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001"), 1));
+        Assert.Equal(1, NfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001"), 1));
     }
 
     [Fact]
     public void Legacy_sale_with_several_lines_has_no_known_number()
     {
-        Assert.Null(SalesInvoiceNfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001"), 2));
+        Assert.Null(NfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001"), 2));
     }
 
     [Fact]
     public void Numbered_sale_line_returns_its_number()
     {
-        Assert.Equal(2, SalesInvoiceNfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001", 2), 3));
+        Assert.Equal(2, NfeItemNumbering.OriginNumber(Line("00000000-0000-0000-0000-000000000001", 2), 3));
     }
 }

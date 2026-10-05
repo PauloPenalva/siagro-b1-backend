@@ -70,7 +70,7 @@ public class SalesInvoicesNfeIssueService(
 
         // nItem fixo e gravado junto com o XML assinado (o SaveChanges do "Em processamento" ou da
         // rejeição local leva os números): a devolução referencia o item da venda por ele.
-        SalesInvoiceNfeItemNumbering.Renumber(invoice.Items);
+        NfeItemNumbering.Renumber(invoice.Items);
 
         var input = NfeIssueInputAssembler.Build(
             invoice, context, _now(), options.TechnicalResponsible);

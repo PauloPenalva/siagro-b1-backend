@@ -41,7 +41,7 @@ public static class NfeIssueInputAssembler
     public static NfeIssueInput Build(
         SalesInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
     {
-        var items = SalesInvoiceNfeItemNumbering.Ordered(invoice.Items);
+        var items = NfeItemNumbering.Ordered(invoice.Items);
         var returnOrigin = invoice.IsNfeReturn
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a venda de origem.")
             : null;

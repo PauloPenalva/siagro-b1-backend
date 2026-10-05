@@ -1,36 +1,36 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Fiscal.Taxes;
-using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Interfaces;
 
-namespace SiagroB1.Application.Services.SalesInvoices;
+namespace SiagroB1.Application.Services.Taxes;
 
 /// <summary>
 /// A fotografia dos tributos na linha: o que o cálculo grava e o que fica TRAVADO com a regra
-/// ativa. A lista de campos travados mora aqui para a trava e a escrita não divergirem.
+/// ativa — comum à linha de saída e à de entrada. A lista de campos travados mora aqui para a trava e a
+/// escrita não divergirem.
 /// </summary>
-public static class SalesInvoiceTaxSnapshot
+public static class TaxSnapshot
 {
     public static readonly IReadOnlyList<string> LockedProperties =
     [
-        nameof(SalesInvoiceItem.Cfop), nameof(SalesInvoiceItem.Ncm), nameof(SalesInvoiceItem.GoodsOrigin),
-        nameof(SalesInvoiceItem.CstIcms), nameof(SalesInvoiceItem.IcmsBase), nameof(SalesInvoiceItem.IcmsRate),
-        nameof(SalesInvoiceItem.IcmsValue), nameof(SalesInvoiceItem.IcmsBaseReduction),
-        nameof(SalesInvoiceItem.IcmsDeferral), nameof(SalesInvoiceItem.IcmsOperationValue),
-        nameof(SalesInvoiceItem.IcmsDeferredValue), nameof(SalesInvoiceItem.IcmsBenefitCode),
-        nameof(SalesInvoiceItem.CstPis), nameof(SalesInvoiceItem.PisBase), nameof(SalesInvoiceItem.PisRate),
-        nameof(SalesInvoiceItem.PisValue), nameof(SalesInvoiceItem.CstCofins), nameof(SalesInvoiceItem.CofinsBase),
-        nameof(SalesInvoiceItem.CofinsRate), nameof(SalesInvoiceItem.CofinsValue),
-        nameof(SalesInvoiceItem.IbsCbsCst), nameof(SalesInvoiceItem.IbsCbsClassCode),
-        nameof(SalesInvoiceItem.IbsCbsBase), nameof(SalesInvoiceItem.CbsRate),
-        nameof(SalesInvoiceItem.CbsRateReduction), nameof(SalesInvoiceItem.CbsValue),
-        nameof(SalesInvoiceItem.IbsStateRate), nameof(SalesInvoiceItem.IbsMunicipalRate),
-        nameof(SalesInvoiceItem.IbsRateReduction), nameof(SalesInvoiceItem.IbsStateValue),
-        nameof(SalesInvoiceItem.IbsMunicipalValue), nameof(SalesInvoiceItem.MovesFiscalInventory),
-        nameof(SalesInvoiceItem.CreatesFinancialDocument),
+        nameof(INfeTaxedLine.Cfop), nameof(INfeTaxedLine.Ncm), nameof(INfeTaxedLine.GoodsOrigin),
+        nameof(INfeTaxedLine.CstIcms), nameof(INfeTaxedLine.IcmsBase), nameof(INfeTaxedLine.IcmsRate),
+        nameof(INfeTaxedLine.IcmsValue), nameof(INfeTaxedLine.IcmsBaseReduction),
+        nameof(INfeTaxedLine.IcmsDeferral), nameof(INfeTaxedLine.IcmsOperationValue),
+        nameof(INfeTaxedLine.IcmsDeferredValue), nameof(INfeTaxedLine.IcmsBenefitCode),
+        nameof(INfeTaxedLine.CstPis), nameof(INfeTaxedLine.PisBase), nameof(INfeTaxedLine.PisRate),
+        nameof(INfeTaxedLine.PisValue), nameof(INfeTaxedLine.CstCofins), nameof(INfeTaxedLine.CofinsBase),
+        nameof(INfeTaxedLine.CofinsRate), nameof(INfeTaxedLine.CofinsValue),
+        nameof(INfeTaxedLine.IbsCbsCst), nameof(INfeTaxedLine.IbsCbsClassCode),
+        nameof(INfeTaxedLine.IbsCbsBase), nameof(INfeTaxedLine.CbsRate),
+        nameof(INfeTaxedLine.CbsRateReduction), nameof(INfeTaxedLine.CbsValue),
+        nameof(INfeTaxedLine.IbsStateRate), nameof(INfeTaxedLine.IbsMunicipalRate),
+        nameof(INfeTaxedLine.IbsRateReduction), nameof(INfeTaxedLine.IbsStateValue),
+        nameof(INfeTaxedLine.IbsMunicipalValue), nameof(INfeTaxedLine.MovesFiscalInventory),
+        nameof(INfeTaxedLine.CreatesFinancialDocument),
     ];
 
-    public static void Write(SalesInvoiceItem item, TaxCalculationResult r)
+    public static void Write(INfeTaxedLine item, TaxCalculationResult r)
     {
         item.CstIcms = r.IcmsCode;
         item.IcmsBase = r.IcmsBase;
@@ -68,7 +68,7 @@ public static class SalesInvoiceTaxSnapshot
     /// Documento que não está mais Pendente (ex.: a Conferência de entregas editando um item
     /// Confirmado): os campos travados voltam ao que está gravado, venha o que vier no corpo.
     /// </summary>
-    public static void RestoreLocked(EntityEntry<SalesInvoiceItem> entry)
+    public static void RestoreLocked(EntityEntry entry)
     {
         foreach (var name in LockedProperties)
         {

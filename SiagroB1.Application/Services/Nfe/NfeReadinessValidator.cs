@@ -187,7 +187,7 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         foreach (var item in invoice.Items)
         {
             var sold = origin.Items.FirstOrDefault(o => o.Key == item.SalesInvoiceItemOriginKey);
-            var number = sold is null ? null : SalesInvoiceNfeItemNumbering.OriginNumber(sold, origin.Items.Count);
+            var number = sold is null ? null : NfeItemNumbering.OriginNumber(sold, origin.Items.Count);
 
             if (number is null)
                 problems.Add($"Item {item.ItemCode}: sem o item correspondente da NF-e de venda");
