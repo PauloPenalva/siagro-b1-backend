@@ -12,7 +12,8 @@ namespace SiagroB1.Fiscal.Nfe;
 /// <summary>
 /// Resposta da SEFAZ sem tipos da Zeus. <see cref="ProtocolXml"/> é o <c>protNFe</c> serializado
 /// (entra no procNFe); só vem quando há protocolo. <see cref="CancellationEvent"/> só vem na consulta
-/// de NF-e cancelada (cStat 101) que trouxe o evento.
+/// de NF-e cancelada (cStat 101) que trouxe o evento. <see cref="Corrections"/> são as CC-e
+/// registradas (135/155) que vieram na consulta, em ordem de sequência.
 /// </summary>
 public sealed record NfeSefazResult(
     int StatusCode,
@@ -20,7 +21,12 @@ public sealed record NfeSefazResult(
     string? Protocol = null,
     DateTimeOffset? ReceivedAt = null,
     string? ProtocolXml = null,
-    NfeEventResult? CancellationEvent = null);
+    NfeEventResult? CancellationEvent = null,
+    IReadOnlyList<NfeEventResult>? Corrections = null);
+
+/// <summary>Pedido de CC-e (evento 110110). <see cref="EventAt"/> em Brasília; <see cref="Text"/> já normalizado.</summary>
+public sealed record NfeCorrectionRequest(
+    string AccessKey, int Sequence, string Text, string IssuerDocument, DateTimeOffset EventAt);
 
 /// <summary>Pedido de cancelamento (evento 110111). <see cref="EventAt"/> em Brasília.</summary>
 public sealed record NfeCancelRequest(
@@ -29,6 +35,7 @@ public sealed record NfeCancelRequest(
 /// <summary>
 /// Retorno de um evento: o status é o do <c>retEvento</c> (o do lote vem 128 quando processado).
 /// <see cref="ProcEventXml"/> é o <c>procEventoNFe</c> (evento assinado + retorno), guardado com o documento.
+/// <see cref="Sequence"/> e <see cref="CorrectionText"/> só se aplicam à CC-e.
 /// </summary>
 public sealed record NfeEventResult(
     int StatusCode,
@@ -36,7 +43,9 @@ public sealed record NfeEventResult(
     string? Protocol = null,
     DateTimeOffset? RegisteredAt = null,
     string? ProcEventXml = null,
-    string? Justification = null);
+    string? Justification = null,
+    int? Sequence = null,
+    string? CorrectionText = null);
 
 /// <summary>Sem resposta da SEFAZ (rede, tempo esgotado): a situação real é desconhecida.</summary>
 public sealed class NfeCommunicationException(string message, Exception? inner = null) : Exception(message, inner);
@@ -65,8 +74,10 @@ public static class NfeStatusCodes
     /// <summary>573: o evento já está registrado na SEFAZ — resolver pela consulta.</summary>
     public const int DuplicateEvent = 573;
 
-    /// <summary>135: evento registrado e vinculado; 155: cancelamento homologado fora de prazo.</summary>
-    public static bool IsCancellationRegistered(int code) => code is 135 or 155;
+    /// <summary>Evento registrado (135) ou registrado fora de prazo (155): vale para cancelamento e CC-e.</summary>
+    public static bool IsEventRegistered(int code) => code is 135 or 155;
+
+    public static bool IsCancellationRegistered(int code) => IsEventRegistered(code);
 }
 
 /// <summary>Ponto de simulação nos testes da Application. Implementação real: <see cref="ZeusNfeSefazClient"/>.</summary>
@@ -79,6 +90,9 @@ public interface INfeSefazClient
     Task<NfeSefazResult> ServiceStatusAsync(NfeServiceSettings settings, CancellationToken cancellationToken = default);
 
     Task<NfeEventResult> CancelAsync(NfeCancelRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>Envia a CC-e (110110). O <see cref="NfeEventResult.Sequence"/> volta preenchido.</summary>
+    Task<NfeEventResult> SendCorrectionAsync(NfeCorrectionRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
 }
 
 internal static class NfeSefazResponseMapper
@@ -95,9 +109,16 @@ internal static class NfeSefazResponseMapper
     /// </summary>
     public static NfeSefazResult FromConsult(retConsSitNFe response)
     {
+        var corrections = response.procEventoNFe?
+            .Where(e => e.evento?.infEvento?.tpEvento == NFeTipoEvento.TeNfeCartaCorrecao
+                        && e.retEvento?.infEvento is { } info && NfeStatusCodes.IsEventRegistered(info.cStat))
+            .Select(FromProcEvent)
+            .OrderBy(e => e.Sequence)
+            .ToList();
+
         if (response.protNFe?.infProt is not null
             && (NfeStatusCodes.IsAuthorized(response.cStat) || NfeStatusCodes.IsDenied(response.cStat)))
-            return FromProtocol(response.protNFe);
+            return FromProtocol(response.protNFe) with { Corrections = corrections };
 
         var cancellation = NfeStatusCodes.IsCancelledConsult(response.cStat)
             ? response.procEventoNFe?
@@ -107,7 +128,8 @@ internal static class NfeSefazResponseMapper
                 .FirstOrDefault()
             : null;
 
-        return new NfeSefazResult(response.cStat, response.xMotivo ?? string.Empty, CancellationEvent: cancellation);
+        return new NfeSefazResult(response.cStat, response.xMotivo ?? string.Empty,
+            CancellationEvent: cancellation, Corrections: corrections);
     }
 
     /// <summary>Retorno do envio do evento: vale o <c>retEvento</c>; sem ele, o status do lote.</summary>
@@ -129,10 +151,12 @@ internal static class NfeSefazResponseMapper
     private static NfeEventResult FromProcEvent(NFe.Classes.Servicos.Consulta.procEventoNFe proc)
     {
         var info = proc.retEvento.infEvento;
+        var sent = proc.evento?.infEvento;
 
         return new NfeEventResult(
             info.cStat, info.xMotivo ?? string.Empty, info.nProt, RegisteredAt(info),
-            FuncoesXml.ClasseParaXmlString(proc), proc.evento?.infEvento?.detEvento?.xJust);
+            FuncoesXml.ClasseParaXmlString(proc), sent?.detEvento?.xJust,
+            sent?.nSeqEvento, sent?.detEvento?.xCorrecao);
     }
 
     /// <summary>

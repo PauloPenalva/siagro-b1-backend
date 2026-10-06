@@ -47,6 +47,24 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
             return NfeSefazResponseMapper.FromEvent(response.Retorno, response.ProcEventosNFe);
         }, cancellationToken);
 
+    public Task<NfeEventResult> SendCorrectionAsync(
+        NfeCorrectionRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services =>
+        {
+            // Lote de um evento só (idLote 1); a sequência é a da carta (1–20).
+            var response = services.RecepcaoEventoCartaCorrecao(
+                1, request.Sequence, request.AccessKey, request.Text, request.IssuerDocument, request.EventAt);
+
+            var result = NfeSefazResponseMapper.FromEvent(response.Retorno, response.ProcEventosNFe);
+
+            // Sem o procEvento casado, o mapper não sabe a sequência nem o texto: valem os do pedido.
+            return result with
+            {
+                Sequence = result.Sequence ?? request.Sequence,
+                CorrectionText = result.CorrectionText ?? request.Text,
+            };
+        }, cancellationToken);
+
     private static Task<T> RunAsync<T>(
         NfeServiceSettings settings, Func<ServicosNFe, T> call, CancellationToken cancellationToken) =>
         Task.Run(() =>
