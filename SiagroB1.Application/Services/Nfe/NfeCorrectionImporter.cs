@@ -12,8 +12,11 @@ public static class NfeCorrectionImporter
     /// <summary>Autor gravado nas cartas que vieram da consulta.</summary>
     public const string ConsultUser = "Consulta SEFAZ";
 
+    /// <param name="sentByUser">Quais cartas o usuário acabou de enviar (levam <paramref name="userName"/>); as outras
+    /// levam <see cref="ConsultUser"/>. Sem o predicado, todas levam <paramref name="userName"/>.</param>
     public static async Task<int> ImportAsync<TDocument>(
-        INfeDocumentStore<TDocument> store, TDocument document, IReadOnlyList<NfeEventResult>? corrections, string userName)
+        INfeDocumentStore<TDocument> store, TDocument document, IReadOnlyList<NfeEventResult>? corrections, string userName,
+        Func<NfeEventResult, bool>? sentByUser = null)
         where TDocument : class, INfeDocument
     {
         if (corrections is null || corrections.Count == 0)
@@ -27,7 +30,8 @@ public static class NfeCorrectionImporter
             if (!existing.Add(correction.Sequence!.Value))
                 continue;
 
-            store.AddCorrection(document, correction.Sequence.Value, correction.CorrectionText ?? string.Empty, correction, userName);
+            store.AddCorrection(document, correction.Sequence.Value, correction.CorrectionText ?? string.Empty, correction,
+                sentByUser is null || sentByUser(correction) ? userName : ConsultUser);
             imported++;
         }
 

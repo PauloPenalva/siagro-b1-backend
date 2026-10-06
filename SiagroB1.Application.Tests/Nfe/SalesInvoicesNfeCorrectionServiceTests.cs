@@ -251,6 +251,7 @@ public class SalesInvoicesNfeCorrectionServiceTests
         var row = await scenario.Db.Context.SalesInvoiceNfeCorrections.AsNoTracking().SingleAsync();
         Assert.Equal(1, row.Sequence);
         Assert.Equal("Texto que entrou antes", row.Text);
+        Assert.Equal("Consulta SEFAZ", row.CreatedBy);
     }
 
     [Fact]
@@ -266,7 +267,22 @@ public class SalesInvoicesNfeCorrectionServiceTests
         var outcome = await SalesCorrection(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Text, "tester");
 
         Assert.Equal(1, outcome.Sequence);
-        Assert.Single(await scenario.Db.Context.SalesInvoiceNfeCorrections.AsNoTracking().ToListAsync());
+        var row = Assert.Single(await scenario.Db.Context.SalesInvoiceNfeCorrections.AsNoTracking().ToListAsync());
+        Assert.Equal("tester", row.CreatedBy);
+    }
+
+    [Fact]
+    public async Task Duplicate_event_consult_failure_is_a_refusal_with_the_technical_detail_and_saves_nothing()
+    {
+        var (scenario, sefaz) = await AuthorizedAsync();
+        sefaz.CorrectionResponses.Enqueue(_ => new NfeEventResult(573, "Rejeição: Duplicidade de evento"));
+        sefaz.ConsultResponses.Enqueue(_ => throw new InvalidOperationException("retorno ilegível"));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            SalesCorrection(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Text, "tester"));
+
+        Assert.Contains("detalhe técnico: retorno ilegível", ex.Message);
+        Assert.False(await scenario.Db.Context.SalesInvoiceNfeCorrections.AnyAsync());
     }
 
     [Fact]

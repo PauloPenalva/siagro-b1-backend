@@ -112,13 +112,22 @@ public abstract class NfeCorrectionServiceBase<TDocument>(
         {
             throw new DefaultException(NoAnswerMessage);
         }
+        catch (Exception e) when (e is not DefaultException)
+        {
+            // A SEFAZ já registrou a sequência (573): sem a consulta, a situação real fica desconhecida.
+            logger.LogError(e, "Falha inesperada ao consultar a carta de correção duplicada da NF-e do documento {InvoiceKey}.", invoice.Key);
+            throw new DefaultException(NfeStatusText.Truncate($"{NoAnswerMessage} (detalhe técnico: {e.Message})"));
+        }
 
         var registered = consult.Corrections?.FirstOrDefault(c => c.Sequence == sequence);
         if (registered is null)
             throw new DefaultException(
                 $"A SEFAZ informou evento duplicado, mas a consulta não trouxe a carta nº {sequence}: {consult.StatusCode} - {consult.Reason}");
 
-        await NfeCorrectionImporter.ImportAsync(store, invoice, consult.Corrections, userName);
+        // Só a carta enviada agora (mesma sequência e mesmo texto) é do usuário; as demais vieram da SEFAZ.
+        await NfeCorrectionImporter.ImportAsync(
+            store, invoice, consult.Corrections, userName,
+            c => c.Sequence == sequence && c.CorrectionText == correction);
         await SaveAsync(invoice.Key);
 
         if (registered.CorrectionText != correction)

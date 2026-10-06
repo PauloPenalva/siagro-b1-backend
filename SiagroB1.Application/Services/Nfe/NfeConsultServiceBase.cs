@@ -106,7 +106,18 @@ public abstract class NfeConsultServiceBase<TDocument>(
         }
 
         if (imported > 0)
-            await db.SaveChangesAsync();
+        {
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Falha ao gravar as cartas de correção importadas da SEFAZ do documento {InvoiceKey}.", invoice.Key);
+                db.Context.ChangeTracker.Clear();
+                throw new DefaultException("As cartas de correção da SEFAZ não foram gravadas: tente Consultar situação de novo.");
+            }
+        }
 
         var outcome = NfeIssueOutcomeDto.From(invoice);
         outcome.StatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
