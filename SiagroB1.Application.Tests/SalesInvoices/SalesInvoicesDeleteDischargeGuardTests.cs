@@ -34,7 +34,7 @@ public class SalesInvoicesDeleteDischargeGuardTests
         NullLogger<SalesInvoicesDeleteService>.Instance);
 
     private SalesInvoicesItemsDeleteService ItemDeleteService() => new(
-        _db, NullLogger<SalesInvoicesItemsDeleteService>.Instance);
+        _db, TaxTestServices.InactiveApply((UnitOfWork)_db), NullLogger<SalesInvoicesItemsDeleteService>.Instance);
 
     private ShipmentLoad _load = null!;
     private SalesInvoice _invoice = null!;

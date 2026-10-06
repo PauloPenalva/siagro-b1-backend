@@ -1,12 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
-public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoicesItemsDeleteService> logger)
+public class SalesInvoicesItemsDeleteService(
+    IUnitOfWork db,
+    SalesInvoicesTaxApplyService taxApply,
+    ILogger<SalesInvoicesItemsDeleteService> logger)
 {
     public async Task<bool> ExecuteAsync(Guid key)
     {
@@ -36,10 +40,16 @@ public class SalesInvoicesItemsDeleteService(IUnitOfWork db, ILogger<SalesInvoic
 
             var salesInvoiceKey = entity.SalesInvoiceKey;
 
-            SalesInvoiceNfeLock.EnsureLinesChangeable(await db.Context.SalesInvoices.AsNoTracking()
+            // Pelo gravado, como a trava da NF-e: nenhuma linha sai do documento confirmado que vai
+            // para o XML (ver SalesInvoiceNfeLock.IsConfirmedFrozen).
+            var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == salesInvoiceKey)
-                .Select(i => i.NfeStatus)
-                .FirstOrDefaultAsync());
+                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode })
+                .FirstOrDefaultAsync();
+            SalesInvoiceNfeLock.EnsureLinesChangeable(
+                stored?.NfeStatus ?? NfeStatus.None,
+                stored is not null && SalesInvoiceNfeLock.IsConfirmedFrozen(
+                    stored.InvoiceStatus, stored.InvoiceType, await taxApply.IsBranchActiveAsync(stored.BranchCode)));
 
             // GAC-1171: a FK de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a linha da
             // nota é NoAction, de propósito — o ticket de descarga é a evidência física que libera

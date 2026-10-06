@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
@@ -28,10 +29,17 @@ public class SalesInvoicesUpdateService(
                 !Equals(original[nameof(SalesInvoice.CardCode)], entity.CardCode) ||
                 !Equals(original[nameof(SalesInvoice.BranchCode)], entity.BranchCode);
 
+            // Pelo GRAVADO: no PATCH a instância já chega mutada, e um corpo trocando situação, tipo ou filial não pode
+            // escapar da trava do documento confirmado.
+            var confirmedFrozen = SalesInvoiceNfeLock.IsConfirmedFrozen(
+                (InvoiceStatus?)original[nameof(SalesInvoice.InvoiceStatus)],
+                (SalesInvoiceType)original[nameof(SalesInvoice.InvoiceType)]!,
+                await taxApply.IsBranchActiveAsync((string?)original[nameof(SalesInvoice.BranchCode)]));
+
             var entry = db.Context.Entry(existingEntity);
             entry.CurrentValues.SetValues(entity);
 
-            SalesInvoiceNfeLock.EnsureHeaderEditable(entry);
+            SalesInvoiceNfeLock.EnsureHeaderEditable(entry, confirmedFrozen);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
             SalesInvoiceNfeReturnLock.RestoreHeader(entry);
 

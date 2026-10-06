@@ -251,7 +251,7 @@ public class SalesInvoiceNfeLockTests
         var item = await db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync();
 
         await Assert.ThrowsAsync<DefaultException>(() =>
-            new SalesInvoicesItemsDeleteService(db, NullLogger<SalesInvoicesItemsDeleteService>.Instance).ExecuteAsync(item.Key!.Value));
+            new SalesInvoicesItemsDeleteService(db, TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesItemsDeleteService>.Instance).ExecuteAsync(item.Key!.Value));
     }
 
     [Theory]

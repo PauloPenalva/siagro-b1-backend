@@ -75,7 +75,7 @@ public class SalesInvoicesReturnWeightTests
         new(_db, Items(), TaxTestServices.InactiveApply(_db), NullLogger<SalesInvoicesItemsCreateService>.Instance);
 
     private SalesInvoicesItemsDeleteService ItemsDeleteService() =>
-        new(_db, NullLogger<SalesInvoicesItemsDeleteService>.Instance);
+        new(_db, TaxTestServices.InactiveApply(_db), NullLogger<SalesInvoicesItemsDeleteService>.Instance);
 
     // ─── Seed ───
 
