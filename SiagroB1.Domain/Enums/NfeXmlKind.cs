@@ -7,4 +7,6 @@ public enum NfeXmlKind
     Authorized = 2,
     /// <summary>procNFe da NF-e denegada: o emitente guarda o XML denegado.</summary>
     Denied = 3,
+    /// <summary>procEventoNFe do cancelamento (evento assinado + retorno da SEFAZ).</summary>
+    CancellationEvent = 4,
 }

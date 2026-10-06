@@ -35,7 +35,12 @@ public class PurchaseInvoicesNfeFinalReviewTests
         var sefaz = new FakeNfeSefazClient();
         sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
         await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
-        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(scenario.InvoiceKey, "tester");
+        // O estado vem de uma confirmação que falhou depois da autorização (o Estornar não aceita mais NF-e autorizada).
+        var invoice = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == scenario.InvoiceKey);
+        invoice.InvoiceStatus = InvoiceStatus.Pending;
+        invoice.ApprovedAt = null;
+        invoice.ApprovedBy = null;
+        await scenario.Db.SaveChangesAsync();
         scenario.Db.Context.ChangeTracker.Clear();
         return scenario;
     }

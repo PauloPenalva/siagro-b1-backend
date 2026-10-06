@@ -38,6 +38,8 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.NfeStatus), nameof(SalesInvoice.NfeEnvironment), nameof(SalesInvoice.NfeRandomCode),
         nameof(SalesInvoice.NfeProtocol), nameof(SalesInvoice.NfeAuthorizedAt), nameof(SalesInvoice.NfeStatusCode),
         nameof(SalesInvoice.NfeStatusReason), nameof(SalesInvoice.NfeConfirmationError),
+        nameof(SalesInvoice.NfeCancellationProtocol), nameof(SalesInvoice.NfeCancelledAt),
+        nameof(SalesInvoice.NfeCancellationReason), nameof(SalesInvoice.NfeCancellationError),
     ];
 
     /// <summary>Número, série e chave: depois da primeira emissão, também só a emissão escreve.</summary>
@@ -54,8 +56,8 @@ public static class SalesInvoiceNfeLock
         if (status == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (status == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
+            throw new DefaultException(NfeLockRules.FrozenMessage(status));
     }
 
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>
@@ -83,6 +85,10 @@ public static class SalesInvoiceNfeLock
         invoice.NfeStatusCode = null;
         invoice.NfeStatusReason = null;
         invoice.NfeConfirmationError = null;
+        invoice.NfeCancellationProtocol = null;
+        invoice.NfeCancelledAt = null;
+        invoice.NfeCancellationReason = null;
+        invoice.NfeCancellationError = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha.</summary>
@@ -91,8 +97,8 @@ public static class SalesInvoiceNfeLock
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (invoiceStatus == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(invoiceStatus) && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
+            throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
     }
 
     /// <summary>Incluir ou excluir linha.</summary>
@@ -101,25 +107,28 @@ public static class SalesInvoiceNfeLock
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (invoiceStatus == NfeStatus.Authorized)
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(invoiceStatus))
+            throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
     }
 
     public static void EnsureDeletable(SalesInvoice invoice)
     {
-        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied)
+        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied or NfeStatus.Cancelled)
             throw new DefaultException(
-                "Documento com NF-e em processamento, autorizada ou denegada não pode ser excluído.");
+                "Documento com NF-e em processamento, autorizada, denegada ou cancelada não pode ser excluído.");
     }
 
     public static void EnsureCancellable(SalesInvoice invoice)
     {
-        if (invoice.NfeStatus == NfeStatus.Processing)
-            throw new DefaultException(NfeLockRules.ProcessingMessage);
-
-        if (invoice.NfeStatus == NfeStatus.Authorized)
-            throw new DefaultException(
-                "A NF-e deste documento está autorizada: o cancelamento precisa ser feito na SEFAZ, recurso da próxima etapa.");
+        switch (invoice.NfeStatus)
+        {
+            case NfeStatus.Processing:
+                throw new DefaultException(NfeLockRules.ProcessingMessage);
+            case NfeStatus.Authorized:
+                throw new DefaultException(NfeLockRules.AuthorizedCancelMessage);
+            case NfeStatus.Cancelled:
+                throw new DefaultException(NfeLockRules.CancelledPendingMessage);
+        }
     }
 
     public static void EnsureManualTaxDocument(SalesInvoice invoice)

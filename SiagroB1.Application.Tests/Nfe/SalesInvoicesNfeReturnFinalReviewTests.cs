@@ -156,7 +156,7 @@ public class SalesInvoicesNfeReturnFinalReviewTests
         var ex = await Assert.ThrowsAsync<DefaultException>(() => ReverseConfirm(s.Sale.Db).ExecuteAsync(created.Key, "tester"));
 
         Assert.Equal(
-            "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e de devolução, recurso da próxima etapa.",
+            "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e (botão Cancelar do documento).",
             ex.Message);
         var saved = await context.StorageTransactions.AsNoTracking().SingleAsync(t => t.Key == orphan.Key);
         Assert.Null(saved.SalesInvoiceKey);

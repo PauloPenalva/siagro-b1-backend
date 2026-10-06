@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Nfe;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Tests.Support;
@@ -176,6 +177,25 @@ public class PurchaseInvoiceNfeLockTests
     }
 
     [Fact]
+    public async Task Patch_cannot_write_the_cancellation_fields()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.NfeCancellationProtocol = "999";
+        changed.NfeCancelledAt = DateTime.Now;
+        changed.NfeCancellationReason = "escrito pela API indevidamente";
+        changed.NfeCancellationError = "x";
+
+        await Update(db).ExecuteAsync(invoice.Key, changed, "tester");
+
+        var saved = await LoadAsync(db, invoice.Key);
+        Assert.Null(saved.NfeCancellationProtocol);
+        Assert.Null(saved.NfeCancelledAt);
+        Assert.Null(saved.NfeCancellationReason);
+        Assert.Null(saved.NfeCancellationError);
+    }
+
+    [Fact]
     public async Task Document_without_a_reserved_number_still_accepts_a_branch_change()
     {
         var (db, invoice) = await SeedAsync(NfeStatus.None);
@@ -259,7 +279,7 @@ public class PurchaseInvoiceNfeLockTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesDeleteService(db).ExecuteAsync(invoice.Key));
 
-        Assert.Equal("Documento com NF-e em processamento, autorizada ou denegada não pode ser excluído.", e.Message);
+        Assert.Equal("Documento com NF-e em processamento, autorizada, denegada ou cancelada não pode ser excluído.", e.Message);
     }
 
     [Fact]
@@ -287,7 +307,7 @@ public class PurchaseInvoiceNfeLockTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal(
-            "A NF-e deste documento está autorizada: o cancelamento precisa ser feito na SEFAZ, recurso da próxima etapa.",
+            NfeLockRules.AuthorizedCancelMessage,
             e.Message);
     }
 
@@ -407,5 +427,39 @@ public class PurchaseInvoiceNfeLockTests
 
         var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
         Assert.Equal((15m, 2m, 1.5m), (saved.FreightValue, saved.DiscountValue, saved.UnitPrice));
+    }
+
+    [Fact]
+    public void Cancelled_nfe_document_cannot_be_deleted()
+    {
+        var ex = Assert.Throws<DefaultException>(() =>
+            PurchaseInvoiceNfeLock.EnsureDeletable(new PurchaseInvoice { CardCode = "F-SP", NfeStatus = NfeStatus.Cancelled }));
+
+        Assert.Contains("cancelada", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(NfeStatus.Authorized, "justificativa")]
+    [InlineData(NfeStatus.Cancelled, "Concluir cancelamento")]
+    public void Common_cancel_of_emitted_nfe_points_to_the_right_path(NfeStatus status, string expected)
+    {
+        var ex = Assert.Throws<DefaultException>(() =>
+            PurchaseInvoiceNfeLock.EnsureCancellable(new PurchaseInvoice { CardCode = "F-SP", NfeStatus = status }));
+
+        Assert.Contains(expected, ex.Message);
+    }
+
+    [Theory]
+    [InlineData(NfeStatus.Processing)]
+    [InlineData(NfeStatus.Authorized)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Reverse_is_refused_for_emitted_nfe(NfeStatus status)
+    {
+        var (db, invoice) = await SeedAsync(status, InvoiceStatus.Confirmed);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal(NfeLockRules.EmittedReverseMessage, ex.Message);
     }
 }

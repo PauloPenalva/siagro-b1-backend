@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -35,8 +36,13 @@ public class SalesInvoicesReverseConfirmService(
         if (invoice.IsNfeReturn)
         {
             throw new DefaultException(
-                "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e de devolução, recurso da próxima etapa.");
+                "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e (botão Cancelar do documento).");
         }
+
+        // NF-e emitida continua valendo na SEFAZ: desfazer saldo e alocação dela deixaria a nota
+        // sem efeito no sistema. O caminho é o cancelamento da NF-e.
+        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Cancelled)
+            throw new DefaultException(NfeLockRules.EmittedReverseMessage);
 
         if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
         {

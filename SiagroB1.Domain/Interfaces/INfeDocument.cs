@@ -25,4 +25,8 @@ public interface INfeDocument
     string? NfeStatusCode { get; set; }
     string? NfeStatusReason { get; set; }
     string? NfeConfirmationError { get; set; }
+    string? NfeCancellationProtocol { get; set; }
+    DateTime? NfeCancelledAt { get; set; }
+    string? NfeCancellationReason { get; set; }
+    string? NfeCancellationError { get; set; }
 }

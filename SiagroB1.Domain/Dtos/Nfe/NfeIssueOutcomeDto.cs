@@ -15,6 +15,7 @@ public class NfeIssueOutcomeDto
     public string? Reason { get; set; }
     public string? AccessKey { get; set; }
     public string? ConfirmationError { get; set; }
+    public string? CancellationError { get; set; }
 
     public static NfeIssueOutcomeDto From(INfeDocument invoice) => new()
     {
@@ -24,5 +25,6 @@ public class NfeIssueOutcomeDto
         Reason = invoice.NfeStatusReason,
         AccessKey = invoice.ChaveNFe,
         ConfirmationError = invoice.NfeConfirmationError,
+        CancellationError = invoice.NfeCancellationError,
     };
 }

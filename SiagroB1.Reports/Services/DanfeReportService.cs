@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using NFe.Classes;
 using NFe.Danfe.Base.NFe;
 using NFe.Danfe.OpenFast.NFe;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Nfe;
 
@@ -35,24 +37,29 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
     public async Task<(byte[] Pdf, string FileName)> GeneratePdfAsync(Guid invoiceKey)
     {
         var xml = await db.Context.SalesInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
-        return Render(xml);
+        var cancelled = await db.Context.SalesInvoices.AsNoTracking()
+            .AnyAsync(x => x.Key == invoiceKey && x.NfeStatus == NfeStatus.Cancelled);
+        return Render(xml, cancelled);
     }
 
     /// <summary>DANFE da NF-e do documento de entrada (entrada própria ou devolução de compra).</summary>
     public async Task<(byte[] Pdf, string FileName)> GeneratePurchasePdfAsync(Guid invoiceKey)
     {
         var xml = await db.Context.PurchaseInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
-        return Render(xml);
+        var cancelled = await db.Context.PurchaseInvoices.AsNoTracking()
+            .AnyAsync(x => x.Key == invoiceKey && x.NfeStatus == NfeStatus.Cancelled);
+        return Render(xml, cancelled);
     }
 
-    private (byte[] Pdf, string FileName) Render(string xml)
+    private (byte[] Pdf, string FileName) Render(string xml, bool cancelled)
     {
         var proc = new nfeProc().CarregarDeXmlString(xml);
         var template = Path.Combine(env.ContentRootPath, "ThirdParty", "Zeus-LGPL", "NFe.Danfe.Base", "NFe", "NFeRetrato.frx");
 
         FastReport.Utils.Config.WebMode = true;
 
-        var danfe = new DanfeFrNfe(proc, new ConfiguracaoDanfeNfe(header.LogoBytes()),
+        // NF-e cancelada: a Zeus estampa "DOCUMENTO CANCELADO" no layout.
+        var danfe = new DanfeFrNfe(proc, new ConfiguracaoDanfeNfe(header.LogoBytes(), documentoCancelado: cancelled),
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
         using var report = danfe.Relatorio;
 

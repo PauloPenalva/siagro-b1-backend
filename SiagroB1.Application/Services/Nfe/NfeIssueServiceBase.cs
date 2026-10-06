@@ -204,6 +204,8 @@ public abstract class NfeIssueServiceBase<TDocument>(
                 throw new DefaultException("A NF-e deste documento já foi autorizada.");
             case NfeStatus.Denied:
                 throw new DefaultException("A NF-e deste documento foi denegada: o número não pode ser reutilizado.");
+            case NfeStatus.Cancelled:
+                throw new DefaultException("A NF-e deste documento foi cancelada: o número não pode ser reutilizado.");
         }
 
         // A NF-e leva a data de HOJE (dhEmi); o documento de outro dia teria data e impostos

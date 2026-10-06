@@ -52,6 +52,33 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
     public Task<NfeSefazResult> ServiceStatusAsync(NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
         Task.FromResult(StatusResponse);
 
+    public Queue<Func<NfeCancelRequest, NfeEventResult>> CancelResponses { get; } = new();
+    public List<NfeCancelRequest> CancelRequests { get; } = [];
+    public List<NfeServiceSettings> CancelSettings { get; } = [];
+
+    public Task<NfeEventResult> CancelAsync(
+        NfeCancelRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        CancelRequests.Add(request);
+        CancelSettings.Add(settings);
+        return Task.FromResult(CancelResponses.Dequeue()(request));
+    }
+
+    public const string CancellationProtocol = "135260000000099";
+
+    public static readonly DateTimeOffset CancelledAt = new(2026, 10, 2, 15, 30, 0, TimeSpan.FromHours(-3));
+
+    public static NfeEventResult CancellationRegistered(string accessKey, int status = 135) => new(
+        status, "Evento registrado e vinculado a NF-e", CancellationProtocol, CancelledAt,
+        $"<procEventoNFe versao=\"1.00\"><evento><infEvento><chNFe>{accessKey}</chNFe><tpEvento>110111</tpEvento></infEvento></evento>" +
+        $"<retEvento><infEvento><cStat>{status}</cStat><nProt>{CancellationProtocol}</nProt></infEvento></retEvento></procEventoNFe>");
+
+    public static NfeSefazResult ConsultCancelled(string accessKey, bool withEvent = true, int status = 101) => new(
+        status, status == 151 ? "Cancelamento de NF-e homologado fora de prazo" : "Cancelamento de NF-e homologado",
+        CancellationEvent: withEvent
+            ? CancellationRegistered(accessKey) with { Justification = "Cancelada direto no portal da SEFAZ" }
+            : null);
+
     public static NfeSefazResult Authorized(string accessKey, int status = 100, string digVal = MatchingDigest) => new(
         status, "Autorizado o uso da NF-e", "135260000000001", new DateTimeOffset(2026, 10, 2, 10, 0, 5, TimeSpan.FromHours(-3)),
         FuncoesXml.ClasseParaXmlString(new protNFe

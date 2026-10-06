@@ -81,4 +81,32 @@ public class DanfeReportServiceTests
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
         Assert.Equal($"{signed.AccessKey}-danfe.pdf", fileName);
     }
+
+    [Fact]
+    public async Task Cancelled_nfe_danfe_is_generated()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password);
+        var settings = new NfeServiceSettings(NfeEnvironment.Homologation, "SP", certificate, NfeServiceSettings.DefaultSchemasDirectory);
+        var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input(), settings);
+        var invoiceKey = Guid.NewGuid();
+        db.Context.SalesInvoices.Add(new SalesInvoice { Key = invoiceKey, CardCode = "C1", NfeStatus = NfeStatus.Cancelled });
+        db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = NfeXmlKind.Authorized, CreatedAt = DateTime.Now,
+            Xml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!),
+        });
+        await db.SaveChangesAsync();
+
+        var contentRoot = Path.Combine(AppContext.BaseDirectory, "ReportsContentRoot");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
+            .Build();
+        var environment = new TestWebHostEnvironment(contentRoot);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+
+        var (pdf, _) = await new DanfeReportService(db, environment, header).GeneratePdfAsync(invoiceKey);
+
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
+    }
 }

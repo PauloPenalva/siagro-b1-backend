@@ -1,9 +1,13 @@
+using DFe.Classes.Entidades;
 using DFe.Classes.Flags;
 using NFe.Classes.Protocolo;
 using NFe.Classes.Servicos.Consulta;
+using NFe.Classes.Servicos.Evento;
+using NFe.Classes.Servicos.Tipos;
 using NFe.Classes.Servicos.Recepcao;
 using NFe.Classes.Servicos.Status;
 using SiagroB1.Fiscal.Nfe;
+using ConsultaEvento = NFe.Classes.Servicos.Consulta.procEventoNFe;
 
 namespace SiagroB1.Fiscal.Tests.Nfe;
 
@@ -129,5 +133,117 @@ public class NfeSefazResponseMapperTests
         Assert.Equal(authorized, NfeStatusCodes.IsAuthorized(code));
         Assert.Equal(denied, NfeStatusCodes.IsDenied(code));
         Assert.Equal(duplicate, NfeStatusCodes.IsDuplicate(code));
+    }
+
+    private static infEventoRet EventReturn(int status, string reason, string? protocol = "135260000000099") => new()
+    {
+        cOrgao = Estado.SP, tpAmb = TipoAmbiente.Homologacao, cStat = status, xMotivo = reason, chNFe = Key,
+        tpEvento = NFeTipoEvento.TeNfeCancelamento, nSeqEvento = 1, nProt = protocol,
+        ProxydhRegEvento = "2026-10-05T10:00:05-03:00",
+    };
+
+    private static ConsultaEvento CancellationEvent(int status = 135) => new()
+    {
+        versao = "1.00",
+        evento = new evento
+        {
+            versao = "1.00",
+            infEvento = new infEventoEnv
+            {
+                cOrgao = Estado.SP, tpAmb = TipoAmbiente.Homologacao, chNFe = Key, tpEvento = NFeTipoEvento.TeNfeCancelamento, nSeqEvento = 1,
+                verEvento = "1.00", detEvento = new detEvento { versao = "1.00", descEvento = "Cancelamento", nProt = "135260000000001", xJust = "Venda desfeita pelo cliente" },
+            },
+        },
+        retEvento = new retEvento { versao = "1.00", infEvento = EventReturn(status, "Evento registrado e vinculado a NF-e") },
+    };
+
+    [Fact]
+    public void Registered_event_uses_the_event_status_not_the_batch_status()
+    {
+        var result = NfeSefazResponseMapper.FromEvent(
+            new retEnvEvento { cStat = 128, xMotivo = "Lote de Evento Processado",
+                retEvento = [new retEvento { infEvento = EventReturn(135, "Evento registrado e vinculado a NF-e") }] },
+            [CancellationEvent()]);
+
+        Assert.Equal(135, result.StatusCode);
+        Assert.True(NfeStatusCodes.IsCancellationRegistered(result.StatusCode));
+        Assert.Equal("135260000000099", result.Protocol);
+        Assert.Equal(new DateTimeOffset(2026, 10, 5, 10, 0, 5, TimeSpan.FromHours(-3)), result.RegisteredAt);
+        Assert.Contains("<procEventoNFe", result.ProcEventXml);
+        Assert.Contains("<xJust>Venda desfeita pelo cliente</xJust>", result.ProcEventXml);
+    }
+
+    [Fact]
+    public void Out_of_time_registration_155_is_also_registered()
+    {
+        Assert.True(NfeStatusCodes.IsCancellationRegistered(155));
+        Assert.False(NfeStatusCodes.IsCancellationRegistered(573));
+    }
+
+    [Fact]
+    public void Rejected_event_has_no_protocol_or_xml()
+    {
+        var result = NfeSefazResponseMapper.FromEvent(
+            new retEnvEvento { cStat = 128, xMotivo = "Lote de Evento Processado",
+                retEvento = [new retEvento { infEvento = EventReturn(501, "Rejeição: Prazo de cancelamento superior ao previsto na Legislação", protocol: null) }] },
+            []);
+
+        Assert.Equal(501, result.StatusCode);
+        Assert.Contains("Prazo de cancelamento", result.Reason);
+        Assert.Null(result.Protocol);
+        Assert.Null(result.ProcEventXml);
+    }
+
+    [Fact]
+    public void Batch_level_rejection_of_the_event_keeps_the_batch_status()
+    {
+        var result = NfeSefazResponseMapper.FromEvent(new retEnvEvento { cStat = 215, xMotivo = "Rejeição: Falha no schema XML" }, null);
+
+        Assert.Equal(215, result.StatusCode);
+        Assert.Null(result.Protocol);
+    }
+
+    [Fact]
+    public void Consult_of_cancelled_nfe_returns_101_with_the_cancellation_event()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 101, xMotivo = "Cancelamento de NF-e homologado", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+            procEventoNFe = [CancellationEvent()],
+        });
+
+        Assert.Equal(NfeStatusCodes.Cancelled, result.StatusCode);
+        Assert.Null(result.ProtocolXml);
+        Assert.NotNull(result.CancellationEvent);
+        Assert.Equal("135260000000099", result.CancellationEvent!.Protocol);
+        Assert.Equal("Venda desfeita pelo cliente", result.CancellationEvent.Justification);
+        Assert.Contains("<procEventoNFe", result.CancellationEvent.ProcEventXml);
+    }
+
+    [Fact]
+    public void Consult_of_cancelled_nfe_without_the_event_has_no_cancellation_event()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe { cStat = 101, xMotivo = "Cancelamento de NF-e homologado" });
+
+        Assert.Equal(101, result.StatusCode);
+        Assert.Null(result.CancellationEvent);
+    }
+
+    [Fact]
+    public void Consult_of_out_of_time_cancelled_nfe_151_returns_the_cancellation_event()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 151, xMotivo = "Cancelamento de NF-e homologado fora de prazo", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+            procEventoNFe = [CancellationEvent(155)],
+        });
+
+        Assert.Equal(151, result.StatusCode);
+        Assert.True(NfeStatusCodes.IsCancelledConsult(result.StatusCode));
+        Assert.True(NfeStatusCodes.IsCancelledConsult(101));
+        Assert.False(NfeStatusCodes.IsCancelledConsult(100));
+        Assert.NotNull(result.CancellationEvent);
+        Assert.Equal("135260000000099", result.CancellationEvent!.Protocol);
+        Assert.Equal("Venda desfeita pelo cliente", result.CancellationEvent.Justification);
     }
 }

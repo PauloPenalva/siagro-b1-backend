@@ -34,4 +34,11 @@ public sealed class SalesInvoiceNfeStore(IUnitOfWork db) : INfeDocumentStore<Sal
             .ToListAsync();
 
     public Task<string> LatestAuthorizedXmlAsync(Guid key) => db.Context.SalesInvoiceNfeXmls.LatestAuthorizedXmlAsync(key);
+
+    public Task<string?> LatestXmlAsync(Guid key, NfeXmlKind kind) =>
+        db.Context.SalesInvoiceNfeXmls.AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == key && x.Kind == kind)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => x.Xml)
+            .FirstOrDefaultAsync();
 }

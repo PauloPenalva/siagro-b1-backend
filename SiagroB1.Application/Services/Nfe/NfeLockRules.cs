@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -10,6 +11,24 @@ public static class NfeLockRules
 
     public const string AuthorizedMessage =
         "A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.";
+
+    public const string CancelledMessage =
+        "A NF-e deste documento foi cancelada na SEFAZ: o documento não pode mudar.";
+
+    public const string EmittedReverseMessage =
+        "Documento com NF-e emitida não pode ser estornado; use o cancelamento.";
+
+    public const string AuthorizedCancelMessage =
+        "NF-e autorizada: cancele pela SEFAZ informando a justificativa.";
+
+    public const string CancelledPendingMessage =
+        "NF-e já cancelada na SEFAZ: use Concluir cancelamento.";
+
+    /// <summary>Autorizada ou cancelada: o que foi para a nota não muda mais.</summary>
+    public static bool IsFrozen(NfeStatus status) => status is NfeStatus.Authorized or NfeStatus.Cancelled;
+
+    public static string FrozenMessage(NfeStatus status) =>
+        status == NfeStatus.Cancelled ? CancelledMessage : AuthorizedMessage;
 
     public static bool AnyChanged(EntityEntry entry, IEnumerable<string> properties) =>
         properties.Any(p => !Equals(entry.OriginalValues[p], entry.CurrentValues[p]));

@@ -29,4 +29,7 @@ public interface INfeDocumentStore<TDocument> where TDocument : class, INfeDocum
 
     /// <summary>procNFe autorizado mais recente; sem ele, <c>NotFoundException</c>.</summary>
     Task<string> LatestAuthorizedXmlAsync(Guid key);
+
+    /// <summary>XML mais recente do tipo pedido; nulo quando não há.</summary>
+    Task<string?> LatestXmlAsync(Guid key, NfeXmlKind kind);
 }

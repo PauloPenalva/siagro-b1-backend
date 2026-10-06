@@ -42,10 +42,11 @@ public class PurchaseInvoicesTaxApplyService(
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
             return;
 
-        // Pendente com NF-e Autorizada (estorno ou confirmação que falhou) ou Em processamento: o que foi ao
+        // Pendente com NF-e Autorizada (estorno ou confirmação que falhou), Cancelada (cancelamento local que
+        // falhou) ou Em processamento: o que foi ao
         // XML não se recalcula — alíquota ou natureza novas descolariam a linha da nota, e a devolução seria
         // conferida contra valores que não são os autorizados.
-        if (invoice.NfeStatus is NfeStatus.Authorized or NfeStatus.Processing)
+        if (invoice.NfeStatus is NfeStatus.Authorized or NfeStatus.Cancelled or NfeStatus.Processing)
             return;
 
         if (!await IsActiveForAsync(invoice))

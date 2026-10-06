@@ -2404,6 +2404,18 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<DateTime?>("NfeAuthorizedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("NfeCancellationError")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("NfeCancellationProtocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("NfeCancellationReason")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<DateTime?>("NfeCancelledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("NfeConfirmationError")
                         .HasColumnType("VARCHAR(500)");
 
@@ -3334,6 +3346,18 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("decimal(18,3) DEFAULT 0");
 
                     b.Property<DateTime?>("NfeAuthorizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NfeCancellationError")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("NfeCancellationProtocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("NfeCancellationReason")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<DateTime?>("NfeCancelledAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("NfeConfirmationError")
