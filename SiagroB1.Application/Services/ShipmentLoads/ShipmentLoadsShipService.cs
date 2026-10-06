@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Domain.Entities;
@@ -33,7 +34,8 @@ public class ShipmentLoadsShipService(
     IUnitOfWork db,
     ShippingTransactionsCreateService shippingCreate,
     ShipmentLoadsAttachTransactionsService attach,
-    ShipmentReleasesRecalculateShippedService recalcShipped)
+    ShipmentReleasesRecalculateShippedService recalcShipped,
+    ILogger<ShipmentLoadsShipService> logger)
 {
     public async Task<ShipmentLoadShipResult> ExecuteAsync(ShipmentLoadShipRequest request, string userName)
     {
@@ -83,25 +85,36 @@ public class ShipmentLoadsShipService(
             Comments = request.Comments,
         };
 
+        StorageTransaction exit;
         try
         {
             await db.BeginTransactionAsync();
 
             var shipping = await shippingCreate.ExecuteAsync(purchaseContractKey, purchase, userName, CommitMode.Deferred);
-            var exit = shipping.SalesStorageTransaction!;
+            exit = shipping.SalesStorageTransaction!;
 
             await attach.ExecuteAsync(load.Key, [exit.Key], transshipmentKey: null, userName, CommitMode.Deferred);
 
             await db.CommitAsync();
-
-            await recalcShipped.RecalculateAsync(release.Key);
-
-            return new ShipmentLoadShipResult(load.Key, exit.Key, exit.Code);
         }
         catch
         {
             await db.RollbackAsync();
             throw;
         }
+
+        // O recálculo é idempotente e a expedição já está commitada: falhar aqui convidaria o operador a expedir de novo.
+        try
+        {
+            await recalcShipped.RecalculateAsync(release.Key);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e,
+                "Romaneio {Code} expedido na carga {LoadCode}, mas o saldo da liberação {ReleaseKey} não foi recalculado: {Message}",
+                exit.Code, load.Code, release.Key, e.Message);
+        }
+
+        return new ShipmentLoadShipResult(load.Key, exit.Key, exit.Code);
     }
 }

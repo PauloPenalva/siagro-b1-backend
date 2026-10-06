@@ -106,7 +106,7 @@ public class ShipmentReleasesRecalculateShippedService(AppDbContext context)
                 : -t.NetWeight);
     }
 
-    public async Task RecalculateAsync(Guid shipmentReleaseKey)
+    public virtual async Task RecalculateAsync(Guid shipmentReleaseKey)
     {
         var release = await context.ShipmentReleases
             .FirstOrDefaultAsync(x => x.Key == shipmentReleaseKey);

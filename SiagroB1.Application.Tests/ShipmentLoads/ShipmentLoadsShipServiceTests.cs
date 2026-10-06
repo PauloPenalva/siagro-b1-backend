@@ -20,7 +20,8 @@ public class ShipmentLoadsShipServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private (ShipmentLoadsShipService Service, CountingUnitOfWork Counting) Build(
-        ShipmentLoadsAttachTransactionsService? attachOverride = null)
+        ShipmentLoadsAttachTransactionsService? attachOverride = null,
+        ShipmentReleasesRecalculateShippedService? recalcOverride = null)
     {
         var counting = new CountingUnitOfWork(_db);
         var recalc = new ShipmentReleasesRecalculateShippedService(_db.Context);
@@ -39,7 +40,8 @@ public class ShipmentLoadsShipServiceTests
             _db, storageCreate, storageConfirmed, storageCopy, allocation, recalc, new FakeStorageAddressBalanceReader(100_000m));
         var attach = attachOverride ?? new ShipmentLoadsAttachTransactionsService(_db, new ShipmentLoadsMovementLogService(_db.Context));
 
-        return (new ShipmentLoadsShipService(counting, shipping, attach, recalc), counting);
+        return (new ShipmentLoadsShipService(
+            counting, shipping, attach, recalcOverride ?? recalc, NullLogger<ShipmentLoadsShipService>.Instance), counting);
     }
 
     private async Task<(ShipmentLoad Load, PurchaseContract Contract, ShipmentRelease Release)> SeedAsync(
@@ -165,6 +167,27 @@ public class ShipmentLoadsShipServiceTests
         Assert.Equal(1, counting.Begins);
         Assert.Equal(0, counting.Commits);
         Assert.Equal(1, counting.Rollbacks);
+    }
+
+    /// <summary>O recálculo roda depois do commit: se falhar, a expedição já gravada não pode virar erro (convidaria a expedir de novo).</summary>
+    [Fact]
+    public async Task Recalculation_failure_after_commit_does_not_fail_the_shipment()
+    {
+        var (load, _, release) = await SeedAsync();
+        var (service, counting) = Build(recalcOverride: new ThrowingRecalc(_db));
+
+        var result = await service.ExecuteAsync(Request(load, release), "tester");
+
+        var exit = await _db.Context.StorageTransactions.AsNoTracking().SingleAsync(x => x.Key == result.StorageTransactionKey);
+        Assert.Equal(load.Key, exit.ShipmentLoadKey);
+        Assert.Equal(1, counting.Commits);
+        Assert.Equal(0, counting.Rollbacks);
+    }
+
+    private sealed class ThrowingRecalc(UnitOfWork db) : ShipmentReleasesRecalculateShippedService(db.Context)
+    {
+        public override Task RecalculateAsync(Guid shipmentReleaseKey) =>
+            throw new TimeoutException("timeout simulado");
     }
 
     private sealed class ThrowingAttach(UnitOfWork db)
