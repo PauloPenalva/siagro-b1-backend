@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Exceptions;
 
@@ -49,6 +50,12 @@ public class ShipmentLoadsShipController(ShipmentLoadsShipService shipService) :
         {
             if (e is KeyNotFoundException or NotFoundException)
                 return NotFound();
+
+            // A carga tem RowVersion: um faturamento/expedição concorrente derruba esta chamada.
+            // O serviço relança como veio, mas o EF pode chegar embrulhado em InnerException.
+            for (var inner = e; inner != null; inner = inner.InnerException)
+                if (inner is DbUpdateConcurrencyException)
+                    return BadRequest("A carga foi alterada por outro usuário. Atualize e tente novamente.");
 
             return BadRequest(e.Message);
         }
