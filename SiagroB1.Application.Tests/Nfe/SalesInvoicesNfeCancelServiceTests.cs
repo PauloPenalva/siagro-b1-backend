@@ -312,6 +312,33 @@ public class SalesInvoicesNfeCancelServiceTests
     }
 
     [Fact]
+    public async Task Cancelling_a_confirmed_nfe_return_recalculates_the_origin_returned_quantity()
+    {
+        var returnScenario = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(returnScenario, 10m);
+        var db = returnScenario.Sale.Db;
+        var originKey = returnScenario.Sale.InvoiceKey;
+
+        // Pré-condição: devolução confirmada → a origem carrega a quantidade devolvida.
+        await AuthorizeSaleAsync(db, created.Key);
+        await SalesInvoicesRecalculateReturnedService.RecalculateAsync(db.Context, originKey);
+        await db.SaveChangesAsync();
+        var before = await db.Context.SalesInvoices.AsNoTracking().Include(x => x.Items).SingleAsync(x => x.Key == originKey);
+        Assert.True(before.ReturnedQuantity > 0);
+        Assert.All(before.Items, i => Assert.True(i.ReturnedQuantity > 0));
+
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.CancelResponses.Enqueue(r => FakeNfeSefazClient.CancellationRegistered(r.AccessKey));
+
+        var outcome = await SalesCancel(db, sefaz).ExecuteAsync(created.Key, Reason, "tester");
+
+        Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
+        var origin = await db.Context.SalesInvoices.AsNoTracking().Include(x => x.Items).SingleAsync(x => x.Key == originKey);
+        Assert.Equal(0m, origin.ReturnedQuantity);
+        Assert.All(origin.Items, i => Assert.Equal(0m, i.ReturnedQuantity));
+    }
+
+    [Fact]
     public async Task Pending_document_with_authorized_nfe_is_cancelled_too()
     {
         var scenario = await NfeTestSeed.SeedAsync();

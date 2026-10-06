@@ -103,6 +103,13 @@ public class SalesInvoicesCancelService(
             await SalesInvoicesReturnOriginRestoreService.ExecuteAsync(
                 db.Context, existingInvoice, userName);
 
+            // A devolução cancelada deixa de contar na quantidade devolvida da origem. Só a NF-e
+            // própria CONFIRMADA chega aqui com valor a tirar (cancelamento da NF-e). Depois da troca
+            // de status, que o serviço lê em memória, e antes do SaveChanges que a persiste.
+            if (existingInvoice.InvoiceType == SalesInvoiceType.Return)
+                await SalesInvoicesRecalculateReturnedService.RecalculateAsync(
+                    db.Context, existingInvoice.SalesInvoiceOriginKey);
+
             await db.SaveChangesAsync();
 
             // Romaneios voltaram a Confirmed e perderam a chave → o saldo liberado é restaurado.

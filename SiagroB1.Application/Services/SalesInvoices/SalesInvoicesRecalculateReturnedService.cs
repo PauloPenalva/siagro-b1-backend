@@ -19,9 +19,9 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 /// enxerga a troca — mesma defesa de <c>ShipmentLoadsRecalculateInvoicedService.EvaluateClosureAsync</c>.
 /// </para>
 /// <para>
-/// Cancelar e excluir uma devolução não chamam este serviço, e não precisam: os dois só alcançam
-/// devolução NÃO confirmada (<c>SalesInvoicesCancelService</c> recusa retorno confirmado), que não
-/// entra na soma.
+/// Cancelar uma devolução chama este serviço: o cancelamento da NF-e (<c>CancelAfterNfeAsync</c>)
+/// pode cancelar uma devolução própria CONFIRMADA, e a quantidade devolvida da origem precisa cair.
+/// Excluir ainda não precisa: só alcança devolução NÃO confirmada, que não entra na soma.
 /// </para>
 /// </remarks>
 public static class SalesInvoicesRecalculateReturnedService
