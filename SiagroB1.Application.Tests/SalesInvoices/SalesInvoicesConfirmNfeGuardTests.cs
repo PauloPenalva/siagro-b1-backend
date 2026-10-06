@@ -104,6 +104,17 @@ public class SalesInvoicesConfirmNfeGuardTests
         Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
 
+    /// <summary>Devolução não-própria confirma diretamente: a guarda só vale para a devolução própria (IsNfeReturn=true).</summary>
+    [Fact]
+    public async Task Rule_active_still_confirms_a_return_directly()
+    {
+        var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return);
+
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
+
     [Fact]
     public async Task Rule_active_confirms_with_authorized_nfe()
     {
