@@ -164,4 +164,30 @@ public class SalesInvoicesConfirmNfeGuardTests
 
         Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
+
+    /// <summary>Linha legada: NF-e denegada ou cancelada não sai mais — confirmar baixaria o contrato por uma nota morta.</summary>
+    [Theory]
+    [InlineData(NfeStatus.Denied)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Rule_active_refuses_confirming_a_normal_document_with_a_dead_nfe(NfeStatus nfe)
+    {
+        var (db, invoice) = await SeedAsync(nfe: nfe);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("A NF-e deste documento foi denegada ou cancelada: cancele o documento.", ex.Message);
+        Assert.Equal(InvoiceStatus.Pending, await StatusAsync(db, invoice.Key));
+    }
+
+    [Theory]
+    [InlineData(NfeStatus.Denied)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Sapb1_confirms_regardless_of_the_nfe_status(NfeStatus nfe)
+    {
+        var (db, invoice) = await SeedAsync(nfe: nfe);
+
+        await Confirm(db, "SAPB1").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
 }

@@ -88,6 +88,16 @@ public class SalesInvoicesConfirmService(
             throw new DefaultException("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.");
         }
 
+        // Documento legado (de antes do confirmar-e-transmitir) que ficou Pendente com a NF-e denegada ou cancelada: essa
+        // nota não sai mais, e confirmar baixaria o contrato por ela. O caminho é cancelar o documento.
+        if (gate is not null &&
+            invoice.InvoiceType == SalesInvoiceType.Normal &&
+            invoice.NfeStatus is NfeStatus.Denied or NfeStatus.Cancelled &&
+            await gate.IsActiveAsync(invoice.BranchCode))
+        {
+            throw new DefaultException("A NF-e deste documento foi denegada ou cancelada: cancele o documento.");
+        }
+
         // Antes de abrir a transação: uma devolução cujo peso de cabeçalho discorda das linhas
         // devolveria ao contrato a quantidade das LINHAS, calada, enquanto o operador lê o peso
         // que digitou. O peso já nasce derivado e se mantém assim a cada edição de item — este
