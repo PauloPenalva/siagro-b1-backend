@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.SalesInvoices;
@@ -186,5 +187,31 @@ public class SalesInvoicesCreateTaxationTests
         await Create(db).ExecuteAsync(invoice, "tester");
 
         Assert.Equal(5m, invoice.Items.Single().IcmsValue);
+    }
+
+    [Fact]
+    public async Task Normal_document_keeps_the_document_kind_from_the_body()
+    {
+        var db = await Seed();
+        var invoice = Invoice();
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal(TaxDocumentKind.Other,
+            (await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key)).TaxDocumentKind);
+    }
+
+    /// <summary>O tipo só vale para o Normal: a devolução própria é NF-e e a do cliente não usa o campo.</summary>
+    [Fact]
+    public async Task Return_document_is_always_nfe()
+    {
+        var db = await Seed();
+        var invoice = Invoice(SalesInvoiceType.Return);
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal(TaxDocumentKind.Nfe, invoice.TaxDocumentKind);
     }
 }

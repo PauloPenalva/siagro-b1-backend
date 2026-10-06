@@ -40,6 +40,10 @@ public class SalesInvoicesCreateService(
         // o corpo da API nunca — senão um POST tiraria a nota da confirmação direta.
         salesInvoice.IsNfeReturn = nfeReturn && salesInvoice.InvoiceType == SalesInvoiceType.Return;
 
+        // O tipo só vale para o documento Normal: a devolução própria é NF-e, a do cliente não usa o campo.
+        if (salesInvoice.InvoiceType != SalesInvoiceType.Normal)
+            salesInvoice.TaxDocumentKind = TaxDocumentKind.Nfe;
+
         // Natureza de operação e CFOP são resolvidos ANTES de qualquer gravação: os dois
         // rejeitam com mensagem de negócio, e não faz sentido numerar um documento que não
         // vai nascer. Vale para o documento avulso e para o faturamento de romaneio — o

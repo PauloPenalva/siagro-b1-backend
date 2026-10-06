@@ -21,7 +21,7 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.TruckCode), nameof(SalesInvoice.FreightTerms), nameof(SalesInvoice.PaymentConditionCode),
         nameof(SalesInvoice.GrossWeight), nameof(SalesInvoice.NetWeight), nameof(SalesInvoice.TaxPayerComments),
         nameof(SalesInvoice.TaxComments), nameof(SalesInvoice.VolumeQuantity), nameof(SalesInvoice.VolumeSpecies),
-        nameof(SalesInvoice.VolumeBrand), nameof(SalesInvoice.VolumeNumbering),
+        nameof(SalesInvoice.VolumeBrand), nameof(SalesInvoice.VolumeNumbering), nameof(SalesInvoice.TaxDocumentKind),
     ];
 
     /// <summary>Campos da linha que vão para o XML (a Conferência de entregas mexe em outros).</summary>
@@ -58,6 +58,12 @@ public static class SalesInvoiceNfeLock
 
         if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
             throw new DefaultException(NfeLockRules.FrozenMessage(status));
+
+        // Número já reservado pela emissão (ex.: NF-e rejeitada): o documento é NF-e. Virar "Outro" deixaria o número
+        // da série sem nota.
+        if (entry.OriginalValues[nameof(SalesInvoice.NfeRandomCode)] is not null
+            && NfeLockRules.AnyChanged(entry, [nameof(SalesInvoice.TaxDocumentKind)]))
+            throw new DefaultException("Este documento já tem número de NF-e reservado: o tipo de documento não pode mudar.");
     }
 
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>
