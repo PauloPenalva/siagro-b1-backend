@@ -1,15 +1,18 @@
+using DFe.Utils;
 using Microsoft.EntityFrameworkCore;
 using NFe.Classes;
+using NFe.Classes.Servicos.Consulta;
 using NFe.Danfe.Base.NFe;
 using NFe.Danfe.OpenFast.NFe;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Nfe;
 
 namespace SiagroB1.Reports.Services;
 
 /// <summary>
-/// DANFE da NF-e autorizada, a partir do procNFe gravado, com o layout FastReport da Zeus
+/// DANFE da NF-e autorizada e PDF da carta de correção (CC-e), a partir do procNFe gravado, com o layout FastReport da Zeus
 /// (ThirdParty/Zeus-LGPL, DLL própria NFe.Danfe.Base, sem alteração). Homologação sai com a marca
 /// "sem valor fiscal" do próprio layout. ⚠️ O caminho padrão do .frx na Zeus usa barra invertida e
 /// falha no Linux: o caminho vai absoluto. ⚠️ O script do .frx usa <c>Environment.NewLine</c>: exige
@@ -49,6 +52,43 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
         var cancelled = await db.Context.PurchaseInvoices.AsNoTracking()
             .AnyAsync(x => x.Key == invoiceKey && x.NfeStatus == NfeStatus.Cancelled);
         return Render(xml, cancelled);
+    }
+
+    /// <summary>PDF de uma CC-e do documento de saída: procNFe autorizado + procEventoNFe da carta (NFeEvento.frx da Zeus).</summary>
+    public async Task<(byte[] Pdf, string FileName)> GenerateCorrectionPdfAsync(Guid invoiceKey, int sequence)
+    {
+        var eventXml = await db.Context.SalesInvoiceNfeCorrections.AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == invoiceKey && x.Sequence == sequence)
+            .Select(x => x.ProcEventXml)
+            .FirstOrDefaultAsync() ?? throw new NotFoundException("Carta de correção não encontrada ou sem o XML do evento.");
+        var xml = await db.Context.SalesInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
+        return RenderCorrection(xml, eventXml, sequence);
+    }
+
+    /// <summary>PDF de uma CC-e do documento de entrada.</summary>
+    public async Task<(byte[] Pdf, string FileName)> GeneratePurchaseCorrectionPdfAsync(Guid invoiceKey, int sequence)
+    {
+        var eventXml = await db.Context.PurchaseInvoiceNfeCorrections.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == invoiceKey && x.Sequence == sequence)
+            .Select(x => x.ProcEventXml)
+            .FirstOrDefaultAsync() ?? throw new NotFoundException("Carta de correção não encontrada ou sem o XML do evento.");
+        var xml = await db.Context.PurchaseInvoiceNfeXmls.LatestAuthorizedXmlAsync(invoiceKey);
+        return RenderCorrection(xml, eventXml, sequence);
+    }
+
+    private (byte[] Pdf, string FileName) RenderCorrection(string xml, string eventXml, int sequence)
+    {
+        var proc = new nfeProc().CarregarDeXmlString(xml);
+        var procEvent = FuncoesXml.XmlStringParaClasse<procEventoNFe>(eventXml);
+        var template = Path.Combine(env.ContentRootPath, "ThirdParty", "Zeus-LGPL", "NFe.Danfe.Base", "NFe", "NFeEvento.frx");
+
+        FastReport.Utils.Config.WebMode = true;
+
+        var report = new DanfeFrEvento(proc, procEvent, new ConfiguracaoDanfeNfe(header.LogoBytes()),
+            desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
+        using var relatorio = report.Relatorio;
+
+        return (report.ExportarPdf(), $"{proc.protNFe.infProt.chNFe}-cce-{sequence}.pdf");
     }
 
     private (byte[] Pdf, string FileName) Render(string xml, bool cancelled)
