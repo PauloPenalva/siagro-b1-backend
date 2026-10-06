@@ -186,6 +186,9 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// Log de alterações do documento. Hoje só recebe as linhas de comentário.
     /// </summary>
     public ICollection<SalesInvoiceChangeLog> ChangeLogs { get; set; } = [];
+
+    /// <summary>CC-e registradas da NF-e (somente leitura; rota declarada no SalesInvoicesNfeCorrectionsController).</summary>
+    public ICollection<SalesInvoiceNfeCorrection> NfeCorrections { get; set; } = [];
     
     /// <summary>
     /// Carga que este documento consome. No cabeçalho porque uma nota consome de UMA carga.

@@ -1,5 +1,6 @@
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Fiscal.Nfe;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -32,4 +33,13 @@ public interface INfeDocumentStore<TDocument> where TDocument : class, INfeDocum
 
     /// <summary>XML mais recente do tipo pedido; nulo quando não há.</summary>
     Task<string?> LatestXmlAsync(Guid key, NfeXmlKind kind);
+
+    /// <summary>Sequências das CC-e registradas do documento.</summary>
+    Task<IReadOnlyList<int>> CorrectionSequencesAsync(Guid key);
+
+    /// <summary>Acrescenta uma CC-e registrada; grava no próximo <c>SaveChanges</c>.</summary>
+    void AddCorrection(TDocument document, int sequence, string text, NfeEventResult registered, string userName);
+
+    /// <summary>procEventoNFe da CC-e; nulo quando a carta não existe ou veio sem XML.</summary>
+    Task<string?> CorrectionXmlAsync(Guid key, int sequence);
 }

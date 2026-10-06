@@ -57,6 +57,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SalesInvoiceItem> SalesInvoicesItems { get; set; }
     public DbSet<SalesInvoiceNfeXml> SalesInvoiceNfeXmls { get; set; }
     public DbSet<PurchaseInvoiceNfeXml> PurchaseInvoiceNfeXmls { get; set; }
+    public DbSet<SalesInvoiceNfeCorrection> SalesInvoiceNfeCorrections { get; set; }
+    public DbSet<PurchaseInvoiceNfeCorrection> PurchaseInvoiceNfeCorrections { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
     public DbSet<SalesInvoiceComment> SalesInvoicesComments { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
@@ -190,6 +192,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<PurchaseInvoiceNfeXml>()
             .HasIndex(x => new { x.PurchaseInvoiceKey, x.Kind });
+
+        // CC-e: uma sequência por documento. Restrict: documento com NF-e autorizada nunca é apagado
+        // (NfeLock.EnsureDeletable), então o apagar do rascunho nunca encontra cartas.
+        modelBuilder.Entity<SalesInvoiceNfeCorrection>()
+            .HasIndex(x => new { x.SalesInvoiceKey, x.Sequence })
+            .IsUnique();
+        modelBuilder.Entity<SalesInvoiceNfeCorrection>()
+            .HasOne(x => x.SalesInvoice)
+            .WithMany(x => x.NfeCorrections)
+            .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceNfeCorrection>()
+            .HasIndex(x => new { x.PurchaseInvoiceKey, x.Sequence })
+            .IsUnique();
+        modelBuilder.Entity<PurchaseInvoiceNfeCorrection>()
+            .HasOne(x => x.PurchaseInvoice)
+            .WithMany(x => x.NfeCorrections)
+            .HasForeignKey(x => x.PurchaseInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Auto-relação: a NF de remessa aponta a NF de venda futura que a antecipou. Restrict, e
         // não Cascade — apagar a nota futura não pode levar as remessas junto.

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Nfe;
 
@@ -40,5 +41,28 @@ public sealed class SalesInvoiceNfeStore(IUnitOfWork db) : INfeDocumentStore<Sal
             .Where(x => x.SalesInvoiceKey == key && x.Kind == kind)
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => x.Xml)
+            .FirstOrDefaultAsync();
+
+    public async Task<IReadOnlyList<int>> CorrectionSequencesAsync(Guid key) =>
+        await db.Context.SalesInvoiceNfeCorrections.AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == key)
+            .OrderBy(x => x.Sequence)
+            .Select(x => x.Sequence)
+            .ToListAsync();
+
+    public void AddCorrection(SalesInvoice document, int sequence, string text, NfeEventResult registered, string userName) =>
+        db.Context.SalesInvoiceNfeCorrections.Add(new SalesInvoiceNfeCorrection
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = document.Key, Sequence = sequence, Text = text,
+            Protocol = registered.Protocol, RegisteredAt = registered.RegisteredAt?.DateTime,
+            // Reason é VARCHAR(255); NfeStatusText.Truncate corta em 500, então o corte é explícito.
+            StatusCode = registered.StatusCode, Reason = registered.Reason[..Math.Min(255, registered.Reason.Length)],
+            ProcEventXml = registered.ProcEventXml, CreatedAt = DateTime.Now, CreatedBy = userName,
+        });
+
+    public Task<string?> CorrectionXmlAsync(Guid key, int sequence) =>
+        db.Context.SalesInvoiceNfeCorrections.AsNoTracking()
+            .Where(x => x.SalesInvoiceKey == key && x.Sequence == sequence)
+            .Select(x => x.ProcEventXml)
             .FirstOrDefaultAsync();
 }
