@@ -76,11 +76,12 @@ public class SalesInvoicesConfirmService(
                 "Invoice is not pending.");
         }
 
-        // NF-e STANDALONE: na filial com a regra ativa, o documento Normal e a devolução própria só
-        // confirmam com a NF-e autorizada — é a emissão que chama esta confirmação. As demais
-        // devoluções seguem como sempre. Sem o gate (os testes antigos constroem o serviço sem ele) a regra fica inativa.
+        // NF-e STANDALONE: na filial com a regra ativa, a devolução própria só confirma com a NF-e autorizada — é a
+        // emissão que chama esta confirmação. O documento Normal confirma aqui e transmite a NF-e depois (spec
+        // 2026-10-06 D1); as demais devoluções seguem como sempre. Sem o gate (os testes antigos constroem o serviço
+        // sem ele) a regra fica inativa.
         if (gate is not null &&
-            (invoice.InvoiceType == SalesInvoiceType.Normal || invoice.IsNfeReturn) &&
+            invoice.IsNfeReturn &&
             invoice.NfeStatus != NfeStatus.Authorized &&
             await gate.IsActiveAsync(invoice.BranchCode))
         {

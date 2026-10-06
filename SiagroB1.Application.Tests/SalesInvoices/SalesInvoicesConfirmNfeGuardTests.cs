@@ -17,8 +17,8 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.SalesInvoices;
 
 /// <summary>
-/// Com a regra ativa, o documento Normal só confirma com a NF-e autorizada (é a emissão que chama
-/// a confirmação). SAPB1 e STANDALONE sem a chave confirmam como sempre.
+/// Com a regra ativa, o documento Normal confirma pelo Confirmar e transmite a NF-e depois (spec 2026-10-06 D1); só a
+/// devolução própria confirma com a NF-e autorizada. SAPB1 e STANDALONE sem a chave confirmam como sempre.
 /// </summary>
 public class SalesInvoicesConfirmNfeGuardTests
 {
@@ -83,20 +83,21 @@ public class SalesInvoicesConfirmNfeGuardTests
         (await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == key)).InvoiceStatus;
 
     [Fact]
-    public async Task Rule_active_refuses_direct_confirmation()
+    public async Task Rule_active_confirms_a_normal_document_directly()
     {
         var (db, invoice) = await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 
-        Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", ex.Message);
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
 
-    /// <summary>Devolução não emite NF-e por este fluxo: a guarda só vale para o documento Normal.</summary>
     [Fact]
-    public async Task Rule_active_still_confirms_a_return_directly()
+    public async Task Rule_active_confirms_a_document_of_kind_other()
     {
-        var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return);
+        var (db, invoice) = await SeedAsync();
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+        await db.SaveChangesAsync();
 
         await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 
