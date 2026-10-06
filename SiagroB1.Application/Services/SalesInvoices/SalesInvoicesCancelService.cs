@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
 
@@ -17,7 +18,21 @@ public class SalesInvoicesCancelService(
     ShipmentLoadsBalanceHookService loadHook,
     ILogger<SalesInvoicesCancelService> logger)
 {
-    public async Task ExecuteAsync(Guid key, string userName)
+    public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
+
+    /// <summary>Fase 2 do cancelamento da NF-e: a SEFAZ já cancelou; a trava da NF-e não se aplica.</summary>
+    public virtual Task CancelAfterNfeAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: true);
+
+    /// <summary>Ensaio antes de falar com a SEFAZ: só as regras de negócio, nada é alterado.</summary>
+    public async Task EnsureCanCancelAsync(Guid key)
+    {
+        var invoice = await db.Context.SalesInvoices.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key)
+                      ?? throw new NotFoundException("Documento de saída não encontrado.");
+
+        EnsureBusinessRules(invoice);
+    }
+
+    private async Task CancelAsync(Guid key, string userName, bool afterNfe)
     {
         var existingInvoice = await db.Context.SalesInvoices
                                   .Include(e => e.SalesTransactions)
@@ -25,16 +40,20 @@ public class SalesInvoicesCancelService(
                                     throw new KeyNotFoundException($"Key {key} not found");
 
         if (existingInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
-            throw new ApplicationException("Documento já está cancelado.");
+            throw new DefaultException("Documento já está cancelado.");
 
-        SalesInvoiceNfeLock.EnsureCancellable(existingInvoice);
-        
-        if (existingInvoice.InvoiceType == SalesInvoiceType.Return && existingInvoice.InvoiceStatus == InvoiceStatus.Confirmed)
-            throw new ApplicationException("Documento do tipo retorno já está confirmado. Não é possivel cancelar.");
-        
-        if (HasReturn(existingInvoice))
-            throw  new ApplicationException("Documento de saída possui retorno.");
-        
+        if (afterNfe)
+        {
+            if (existingInvoice.NfeStatus != NfeStatus.Cancelled)
+                throw new DefaultException("A NF-e deste documento não está cancelada na SEFAZ.");
+        }
+        else
+        {
+            SalesInvoiceNfeLock.EnsureCancellable(existingInvoice);
+        }
+
+        EnsureBusinessRules(existingInvoice);
+
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
             .ToList() ?? [];
         
@@ -71,6 +90,8 @@ public class SalesInvoicesCancelService(
             }
 
             existingInvoice.InvoiceStatus = InvoiceStatus.Cancelled;
+            existingInvoice.CanceledAt = DateTime.Now;
+            existingInvoice.CanceledBy = userName;
 
             // Ledger: remove as alocações da nota (inclui pares de realocação) e recalcula
             // contratos e liberações derivado-da-soma, na mesma transação.
@@ -109,6 +130,20 @@ public class SalesInvoicesCancelService(
             throw new ApplicationException(e.Message);
         }
         
+    }
+
+    private void EnsureBusinessRules(SalesInvoice invoice)
+    {
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+            throw new DefaultException("Documento já está cancelado.");
+
+        // A devolução com NF-e confirmada só sai pelo cancelamento da NF-e — que é justamente o caminho afterNfe.
+        if (invoice.InvoiceType == SalesInvoiceType.Return && invoice.InvoiceStatus == InvoiceStatus.Confirmed
+            && !invoice.IsNfeReturn)
+            throw new DefaultException("Documento do tipo retorno já está confirmado. Não é possivel cancelar.");
+
+        if (HasReturn(invoice))
+            throw new DefaultException("Documento de saída possui retorno.");
     }
 
     private bool HasReturn(SalesInvoice salesInvoice)
