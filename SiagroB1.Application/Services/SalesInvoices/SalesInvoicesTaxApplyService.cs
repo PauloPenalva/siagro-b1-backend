@@ -33,6 +33,9 @@ public class SalesInvoicesTaxApplyService(
         (invoice.InvoiceType == SalesInvoiceType.Normal || IsOwnNfeReturn(invoice))
         && await gate.IsActiveAsync(invoice.BranchCode);
 
+    /// <summary>Só a regra da filial, sem olhar o tipo do documento — para quem decide pelo valor GRAVADO.</summary>
+    public Task<bool> IsBranchActiveAsync(string? branchCode) => gate.IsActiveAsync(branchCode);
+
     /// <summary>Devolução criada pelo "Devolver" da venda: sai com NF-e própria de entrada (spec §7).</summary>
     public static bool IsOwnNfeReturn(SalesInvoice invoice) =>
         invoice.InvoiceType == SalesInvoiceType.Return && invoice.IsNfeReturn;

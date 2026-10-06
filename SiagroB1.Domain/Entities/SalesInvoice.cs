@@ -158,6 +158,14 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// da API nunca.
     /// </summary>
     public bool IsNfeReturn { get; set; }
+
+    /// <summary>
+    /// Tipo do documento fiscal (spec 2026-10-06 D3). Só tem efeito no documento Normal da filial que emite NF-e pelo
+    /// Siagro: <see cref="TaxDocumentKind.Nfe"/> sai pelo "Transmitir NF-e" depois de confirmado;
+    /// <see cref="TaxDocumentKind.Other"/> (papel/talão) termina no Confirmar, com número e série digitados.
+    /// Devolução é sempre <see cref="TaxDocumentKind.Nfe"/>.
+    /// </summary>
+    public TaxDocumentKind TaxDocumentKind { get; set; } = TaxDocumentKind.Nfe;
     
     public SalesInvoiceDeliveryStatus DeliveryStatus { get; set; } = SalesInvoiceDeliveryStatus.Open;
     

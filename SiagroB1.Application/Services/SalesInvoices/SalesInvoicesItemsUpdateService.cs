@@ -67,11 +67,14 @@ public class SalesInvoicesItemsUpdateService(
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
             existingEntity.NfeItemNumber = storedNfeItemNumber;
 
-            var invoiceNfeStatus = await db.Context.SalesInvoices.AsNoTracking()
+            var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == existingEntity.SalesInvoiceKey)
-                .Select(i => i.NfeStatus)
+                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode })
                 .FirstOrDefaultAsync();
-            SalesInvoiceNfeLock.EnsureItemEditable(invoiceNfeStatus, db.Context.Entry(existingEntity));
+            var confirmedFrozen = stored is not null && SalesInvoiceNfeLock.IsConfirmedFrozen(
+                stored.InvoiceStatus, stored.InvoiceType, await taxApply.IsBranchActiveAsync(stored.BranchCode));
+            SalesInvoiceNfeLock.EnsureItemEditable(
+                stored?.NfeStatus ?? NfeStatus.None, db.Context.Entry(existingEntity), confirmedFrozen);
 
             await ApplyTaxLockAsync(existingEntity);
 

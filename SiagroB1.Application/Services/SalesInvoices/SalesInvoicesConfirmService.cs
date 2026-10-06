@@ -76,15 +76,26 @@ public class SalesInvoicesConfirmService(
                 "Invoice is not pending.");
         }
 
-        // NF-e STANDALONE: na filial com a regra ativa, o documento Normal e a devolução própria só
-        // confirmam com a NF-e autorizada — é a emissão que chama esta confirmação. As demais
-        // devoluções seguem como sempre. Sem o gate (os testes antigos constroem o serviço sem ele) a regra fica inativa.
+        // NF-e STANDALONE: na filial com a regra ativa, a devolução própria só confirma com a NF-e autorizada — é a
+        // emissão que chama esta confirmação. O documento Normal confirma aqui e transmite a NF-e depois (spec
+        // 2026-10-06 D1); as demais devoluções seguem como sempre. Sem o gate (os testes antigos constroem o serviço
+        // sem ele) a regra fica inativa.
         if (gate is not null &&
-            (invoice.InvoiceType == SalesInvoiceType.Normal || invoice.IsNfeReturn) &&
+            invoice.IsNfeReturn &&
             invoice.NfeStatus != NfeStatus.Authorized &&
             await gate.IsActiveAsync(invoice.BranchCode))
         {
             throw new DefaultException("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.");
+        }
+
+        // Documento legado (de antes do confirmar-e-transmitir) que ficou Pendente com a NF-e denegada ou cancelada: essa
+        // nota não sai mais, e confirmar baixaria o contrato por ela. O caminho é cancelar o documento.
+        if (gate is not null &&
+            invoice.InvoiceType == SalesInvoiceType.Normal &&
+            invoice.NfeStatus is NfeStatus.Denied or NfeStatus.Cancelled &&
+            await gate.IsActiveAsync(invoice.BranchCode))
+        {
+            throw new DefaultException("A NF-e deste documento foi denegada ou cancelada: cancele o documento.");
         }
 
         // Antes de abrir a transação: uma devolução cujo peso de cabeçalho discorda das linhas

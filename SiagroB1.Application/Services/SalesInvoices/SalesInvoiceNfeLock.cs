@@ -21,7 +21,7 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.TruckCode), nameof(SalesInvoice.FreightTerms), nameof(SalesInvoice.PaymentConditionCode),
         nameof(SalesInvoice.GrossWeight), nameof(SalesInvoice.NetWeight), nameof(SalesInvoice.TaxPayerComments),
         nameof(SalesInvoice.TaxComments), nameof(SalesInvoice.VolumeQuantity), nameof(SalesInvoice.VolumeSpecies),
-        nameof(SalesInvoice.VolumeBrand), nameof(SalesInvoice.VolumeNumbering),
+        nameof(SalesInvoice.VolumeBrand), nameof(SalesInvoice.VolumeNumbering), nameof(SalesInvoice.TaxDocumentKind),
     ];
 
     /// <summary>Campos da linha que vão para o XML (a Conferência de entregas mexe em outros).</summary>
@@ -48,8 +48,21 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.TaxDocumentNumber), nameof(SalesInvoice.TaxDocumentSeries), nameof(SalesInvoice.ChaveNFe),
     ];
 
+    public const string ConfirmedMessage = "Documento confirmado: estorne a confirmação para alterar.";
+
+    /// <summary>
+    /// Confirmar e depois transmitir (spec 2026-10-06): com a regra da NF-e ativa, o documento Normal GRAVADO como
+    /// Confirmado já baixou o contrato e é dele que a NF-e sai — até a transmissão, o que vai para o XML só muda
+    /// estornando a confirmação. A devolução própria fica Pendente até autorizar, então nunca cai aqui.
+    /// <paramref name="gateActive"/> é a regra da filial gravada: false na Yokotobi (SAPB1) e na MH Agro, que seguem
+    /// editando o confirmado como antes.
+    /// </summary>
+    public static bool IsConfirmedFrozen(InvoiceStatus? storedStatus, SalesInvoiceType storedType, bool gateActive) =>
+        gateActive && storedStatus == InvoiceStatus.Confirmed && storedType == SalesInvoiceType.Normal;
+
     /// <summary>Chamado DEPOIS do SetValues: compara o gravado com o que chegou.</summary>
-    public static void EnsureHeaderEditable(EntityEntry<SalesInvoice> entry)
+    /// <param name="confirmedFrozen">Ver <see cref="IsConfirmedFrozen"/>.</param>
+    public static void EnsureHeaderEditable(EntityEntry<SalesInvoice> entry, bool confirmedFrozen = false)
     {
         var status = (NfeStatus)entry.OriginalValues[nameof(SalesInvoice.NfeStatus)]!;
 
@@ -58,6 +71,15 @@ public static class SalesInvoiceNfeLock
 
         if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
             throw new DefaultException(NfeLockRules.FrozenMessage(status));
+
+        // Número já reservado pela emissão (ex.: NF-e rejeitada): o documento é NF-e. Virar "Outro" deixaria o número
+        // da série sem nota.
+        if (entry.OriginalValues[nameof(SalesInvoice.NfeRandomCode)] is not null
+            && NfeLockRules.AnyChanged(entry, [nameof(SalesInvoice.TaxDocumentKind)]))
+            throw new DefaultException("Este documento já tem número de NF-e reservado: o tipo de documento não pode mudar.");
+
+        if (confirmedFrozen && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
+            throw new DefaultException(ConfirmedMessage);
     }
 
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>
@@ -91,24 +113,32 @@ public static class SalesInvoiceNfeLock
         invoice.NfeCancellationError = null;
     }
 
-    /// <summary>Chamado DEPOIS do SetValues da linha.</summary>
-    public static void EnsureItemEditable(NfeStatus invoiceStatus, EntityEntry<SalesInvoiceItem> entry)
+    /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>
+    /// <param name="confirmedFrozen">Ver <see cref="IsConfirmedFrozen"/>.</param>
+    public static void EnsureItemEditable(NfeStatus invoiceStatus, EntityEntry<SalesInvoiceItem> entry, bool confirmedFrozen = false)
     {
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
         if (NfeLockRules.IsFrozen(invoiceStatus) && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
             throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
+
+        if (confirmedFrozen && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
+            throw new DefaultException(ConfirmedMessage);
     }
 
     /// <summary>Incluir ou excluir linha.</summary>
-    public static void EnsureLinesChangeable(NfeStatus invoiceStatus)
+    /// <param name="confirmedFrozen">Ver <see cref="IsConfirmedFrozen"/>.</param>
+    public static void EnsureLinesChangeable(NfeStatus invoiceStatus, bool confirmedFrozen = false)
     {
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
         if (NfeLockRules.IsFrozen(invoiceStatus))
             throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
+
+        if (confirmedFrozen)
+            throw new DefaultException(ConfirmedMessage);
     }
 
     public static void EnsureDeletable(SalesInvoice invoice)

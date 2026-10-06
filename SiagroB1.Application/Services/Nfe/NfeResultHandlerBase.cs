@@ -102,6 +102,11 @@ public abstract class NfeResultHandlerBase<TDocument>(IUnitOfWork db, INfeDocume
             // continua registrada como autorizada.
             await db.SaveChangesAsync();
 
+            // Só confirma o documento que ainda está Pendente (spec 2026-10-06 T3): o documento de saída Normal foi
+            // confirmado antes de transmitir, e confirmar de novo duplicaria a alocação no contrato.
+            if (invoice.InvoiceStatus != InvoiceStatus.Pending)
+                return NfeIssueOutcomeDto.From(invoice);
+
             return await ConfirmAsync(invoice.Key, userName);
         }
 

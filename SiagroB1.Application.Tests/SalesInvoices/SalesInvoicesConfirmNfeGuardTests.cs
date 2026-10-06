@@ -17,8 +17,8 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Tests.SalesInvoices;
 
 /// <summary>
-/// Com a regra ativa, o documento Normal só confirma com a NF-e autorizada (é a emissão que chama
-/// a confirmação). SAPB1 e STANDALONE sem a chave confirmam como sempre.
+/// Com a regra ativa, o documento Normal confirma pelo Confirmar e transmite a NF-e depois (spec 2026-10-06 D1); só a
+/// devolução própria confirma com a NF-e autorizada. SAPB1 e STANDALONE sem a chave confirmam como sempre.
 /// </summary>
 public class SalesInvoicesConfirmNfeGuardTests
 {
@@ -83,16 +83,28 @@ public class SalesInvoicesConfirmNfeGuardTests
         (await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == key)).InvoiceStatus;
 
     [Fact]
-    public async Task Rule_active_refuses_direct_confirmation()
+    public async Task Rule_active_confirms_a_normal_document_directly()
     {
         var (db, invoice) = await SeedAsync();
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
 
-        Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", ex.Message);
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
 
-    /// <summary>Devolução não emite NF-e por este fluxo: a guarda só vale para o documento Normal.</summary>
+    [Fact]
+    public async Task Rule_active_confirms_a_document_of_kind_other()
+    {
+        var (db, invoice) = await SeedAsync();
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+        await db.SaveChangesAsync();
+
+        await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
+
+    /// <summary>Devolução não-própria confirma diretamente: a guarda só vale para a devolução própria (IsNfeReturn=true).</summary>
     [Fact]
     public async Task Rule_active_still_confirms_a_return_directly()
     {
@@ -149,6 +161,32 @@ public class SalesInvoicesConfirmNfeGuardTests
         var (db, invoice) = await SeedAsync(type: SalesInvoiceType.Return, nfeReturn: true, nfe: NfeStatus.Authorized);
 
         await Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
+
+    /// <summary>Linha legada: NF-e denegada ou cancelada não sai mais — confirmar baixaria o contrato por uma nota morta.</summary>
+    [Theory]
+    [InlineData(NfeStatus.Denied)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Rule_active_refuses_confirming_a_normal_document_with_a_dead_nfe(NfeStatus nfe)
+    {
+        var (db, invoice) = await SeedAsync(nfe: nfe);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("A NF-e deste documento foi denegada ou cancelada: cancele o documento.", ex.Message);
+        Assert.Equal(InvoiceStatus.Pending, await StatusAsync(db, invoice.Key));
+    }
+
+    [Theory]
+    [InlineData(NfeStatus.Denied)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Sapb1_confirms_regardless_of_the_nfe_status(NfeStatus nfe)
+    {
+        var (db, invoice) = await SeedAsync(nfe: nfe);
+
+        await Confirm(db, "SAPB1").ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }

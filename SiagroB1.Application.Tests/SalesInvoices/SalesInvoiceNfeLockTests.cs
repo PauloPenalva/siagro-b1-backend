@@ -251,7 +251,7 @@ public class SalesInvoiceNfeLockTests
         var item = await db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync();
 
         await Assert.ThrowsAsync<DefaultException>(() =>
-            new SalesInvoicesItemsDeleteService(db, NullLogger<SalesInvoicesItemsDeleteService>.Instance).ExecuteAsync(item.Key!.Value));
+            new SalesInvoicesItemsDeleteService(db, TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesItemsDeleteService>.Instance).ExecuteAsync(item.Key!.Value));
     }
 
     [Theory]
@@ -431,5 +431,42 @@ public class SalesInvoiceNfeLockTests
             .ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal(NfeLockRules.EmittedReverseMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Authorized_document_cannot_change_the_document_kind()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester"));
+
+        Assert.Contains("autorizada", ex.Message);
+    }
+
+    /// <summary>Rejeitada com número reservado: virar "Outro" deixaria o número da série sem nota.</summary>
+    [Fact]
+    public async Task Document_with_a_reserved_number_cannot_change_the_document_kind()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Rejected);
+        invoice.NfeRandomCode = "12345678";
+        await db.SaveChangesAsync();
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester"));
+
+        Assert.Equal("Este documento já tem número de NF-e reservado: o tipo de documento não pode mudar.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Document_never_issued_can_change_the_document_kind()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.None);
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        await HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester");
+
+        Assert.Equal(TaxDocumentKind.Other,
+            (await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key)).TaxDocumentKind);
     }
 }

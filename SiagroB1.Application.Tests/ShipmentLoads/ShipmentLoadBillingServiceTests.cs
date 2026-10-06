@@ -177,6 +177,24 @@ public class ShipmentLoadBillingServiceTests
         Assert.Equal(InvoiceStatus.Confirmed, savedInvoice.InvoiceStatus);
     }
 
+    /// <summary>
+    /// Spec 2026-10-06 §8: o faturamento da carga grava o tipo escolhido no diálogo — o "Outro" (talão, nota de papel)
+    /// não pode virar NF-e no caminho e cair na fila de transmissão.
+    /// </summary>
+    [Fact]
+    public async Task Billing_keeps_the_tax_document_kind_chosen_in_the_payload()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.TaxDocumentKind = TaxDocumentKind.Other;
+
+        await Service().ExecuteAsync(invoice, "tester");
+
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(TaxDocumentKind.Other, saved.TaxDocumentKind);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+    }
+
     [Fact]
     public async Task Billing_the_rest_closes_the_load_and_the_shipments()
     {
