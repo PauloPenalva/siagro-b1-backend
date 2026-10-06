@@ -12,7 +12,7 @@ namespace SiagroB1.Application.Services.Nfe;
 /// <summary>
 /// "Consultar situação" (spec §9.3), comum aos documentos. Consulta pela chave, no ambiente da
 /// EMISSÃO. Em processamento, monta o procNFe a partir do XML assinado gravado antes do envio;
-/// autorizada, só descobre um cancelamento (cStat 101) feito por fora ou sem resposta.
+/// autorizada, importa as CC-e que faltam e descobre um cancelamento (cStat 101) feito por fora ou sem resposta.
 /// </summary>
 public abstract class NfeConsultServiceBase<TDocument>(
     IUnitOfWork db,
@@ -92,13 +92,26 @@ public abstract class NfeConsultServiceBase<TDocument>(
             throw new DefaultException("Sem resposta da SEFAZ na consulta — tente de novo em instantes.");
         }
 
+        // CC-e registradas na SEFAZ que o banco não tem (resposta perdida, carta emitida por fora).
+        var imported = await NfeCorrectionImporter.ImportAsync(
+            store, invoice, result.Corrections, NfeCorrectionImporter.ConsultUser);
+
         if (NfeStatusCodes.IsCancelledConsult(result.StatusCode))
-            return await cancellationHandler.ApplyRegisteredAsync(
+        {
+            // O handler salva a fase 1: as cartas importadas vão no mesmo SaveChanges.
+            var cancelled = await cancellationHandler.ApplyRegisteredAsync(
                 invoice, result.CancellationEvent ?? new NfeEventResult(result.StatusCode, result.Reason), null, userName);
+            cancelled.ImportedCorrections = imported;
+            return cancelled;
+        }
+
+        if (imported > 0)
+            await db.SaveChangesAsync();
 
         var outcome = NfeIssueOutcomeDto.From(invoice);
         outcome.StatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
         outcome.Reason = result.Reason;
+        outcome.ImportedCorrections = imported;
         return outcome;
     }
 }

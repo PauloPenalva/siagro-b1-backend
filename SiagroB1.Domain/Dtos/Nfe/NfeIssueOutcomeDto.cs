@@ -16,6 +16,8 @@ public class NfeIssueOutcomeDto
     public string? AccessKey { get; set; }
     public string? ConfirmationError { get; set; }
     public string? CancellationError { get; set; }
+    /// <summary>CC-e registradas na SEFAZ e gravadas agora pela consulta (só a consulta preenche).</summary>
+    public int ImportedCorrections { get; set; }
 
     public static NfeIssueOutcomeDto From(INfeDocument invoice) => new()
     {
