@@ -62,6 +62,28 @@ public class SalesInvoicesNfeConsultServiceTests
         Assert.Contains(signed.Xml[signed.Xml.IndexOf("<NFe", StringComparison.Ordinal)..].Trim(), proc.Xml);
     }
 
+    /// <summary>
+    /// Documento legado (de antes do confirmar-e-transmitir): Pendente com a NF-e em processamento. A autorização pela
+    /// consulta ainda é quem o confirma — uma vez só.
+    /// </summary>
+    [Fact]
+    public async Task Consult_authorizing_a_legacy_pending_document_confirms_it_once()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var (sefaz, confirm, consult) = await ProcessingAsync(scenario);
+        // A emissão hoje exige o documento confirmado: o legado Pendente em processamento só se monta voltando a situação.
+        (await scenario.Db.Context.SalesInvoices.SingleAsync(i => i.Key == scenario.InvoiceKey)).InvoiceStatus = InvoiceStatus.Pending;
+        await scenario.Db.SaveChangesAsync();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        Assert.Equal(1, confirm.Calls);
+        Assert.Equal(InvoiceStatus.Confirmed,
+            (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == scenario.InvoiceKey)).InvoiceStatus);
+    }
+
     [Fact]
     public async Task Not_found_at_sefaz_becomes_rejected_and_can_be_resent()
     {
