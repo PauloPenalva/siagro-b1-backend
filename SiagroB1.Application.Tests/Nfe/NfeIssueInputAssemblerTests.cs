@@ -187,4 +187,22 @@ public class NfeIssueInputAssemblerTests
         Assert.Equal(30500m, input.GrossWeight);
         Assert.Equal(30000m, input.NetWeight);
     }
+
+    [Fact]
+    public async Task Line_charges_reach_the_item_and_the_payment_uses_the_grand_total()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+
+        var input = await BuildAsync(scenario, invoice =>
+        {
+            var item = invoice.Items.Single();
+            (item.FreightValue, item.InsuranceValue, item.DiscountValue, item.OtherExpensesValue) = (1000m, 100m, 500m, 400m);
+        });
+
+        var line = input.Items.Single();
+        Assert.Equal((1000m, 100m, 500m, 400m, 61000m),
+            (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue, line.GrandTotal));
+        Assert.Equal(61000m, input.Payment.PaidAmount);
+        Assert.Equal(61000m, input.Payment.Installments.Sum(i => i.Amount));
+    }
 }

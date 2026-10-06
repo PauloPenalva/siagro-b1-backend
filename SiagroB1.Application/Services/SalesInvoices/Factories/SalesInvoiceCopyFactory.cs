@@ -49,6 +49,10 @@ public static class SalesInvoiceCopyFactory
                 UnitPrice = item.UnitPrice,
                 UnitOfMeasureCode  = item.UnitOfMeasureCode,
                 SalesContractKey =  item.SalesContractKey,
+                FreightValue = item.FreightValue,
+                InsuranceValue = item.InsuranceValue,
+                DiscountValue = item.DiscountValue,
+                OtherExpensesValue = item.OtherExpensesValue,
             });    
         }
         

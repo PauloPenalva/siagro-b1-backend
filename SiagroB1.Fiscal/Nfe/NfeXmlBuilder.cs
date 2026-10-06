@@ -55,7 +55,7 @@ public static class NfeXmlBuilder
 
     public static ZeusNFe Build(NfeIssueInput input)
     {
-        var noteTotal = input.Items.Sum(i => i.Total);
+        var noteTotal = input.Items.Sum(i => i.GrandTotal);
 
         if (input.Payment.PaymentMeans != PaymentMeansCodes.NoPayment
             && (input.Payment.PaidAmount != noteTotal || input.Payment.Installments.Sum(i => i.Amount) != noteTotal))
@@ -264,6 +264,12 @@ public static class NfeXmlBuilder
             uTrib = Truncate(item.UnitOfMeasure, 6),
             qTrib = item.Quantity,
             vUnTrib = item.UnitPrice,
+            // Frete, seguro, desconto e outras despesas da linha: omitidos quando 0 (o leiaute permite, e a nota sem eles
+            // sai idêntica à de antes).
+            vFrete = Charge(item.FreightValue),
+            vSeg = Charge(item.InsuranceValue),
+            vDesc = Charge(item.DiscountValue),
+            vOutro = Charge(item.OtherExpensesValue),
             indTot = IndicadorTotal.ValorDoItemCompoeTotalNF,
         },
         imposto = new imposto
@@ -278,6 +284,9 @@ public static class NfeXmlBuilder
             ? new DFeReferenciado { chaveAcesso = reference.AccessKey, nItem = reference.ItemNumber }
             : null,
     };
+
+    /// <summary>Valor da linha no <c>det/prod</c>: nulo (não serializado) quando zero.</summary>
+    private static decimal? Charge(decimal value) => value == 0m ? null : value;
 
     private static ICMSBasico BuildIcms(NfeItem item)
     {
@@ -417,6 +426,10 @@ public static class NfeXmlBuilder
     private static total BuildTotal(IReadOnlyList<NfeItem> items)
     {
         var products = items.Sum(i => i.Total);
+        var freight = items.Sum(i => i.FreightValue);
+        var insurance = items.Sum(i => i.InsuranceValue);
+        var discount = items.Sum(i => i.DiscountValue);
+        var otherExpenses = items.Sum(i => i.OtherExpensesValue);
         var withIcms = items.Where(i => IcmsCarriesValues(i.IcmsCode)).ToList();
         var withIbsCbs = items.Where(i => IbsCbsCarriesValues(i.IbsCbsCst)).ToList();
 
@@ -433,16 +446,18 @@ public static class NfeXmlBuilder
                 vFCPST = 0,
                 vFCPSTRet = 0,
                 vProd = products,
-                vFrete = 0,
-                vSeg = 0,
-                vDesc = 0,
+                vFrete = freight,
+                vSeg = insurance,
+                vDesc = discount,
                 vII = 0,
                 vIPI = 0,
                 vIPIDevol = 0,
                 vPIS = items.Where(i => PisCofinsCarriesValues(i.PisCst)).Sum(i => i.PisValue),
                 vCOFINS = items.Where(i => PisCofinsCarriesValues(i.CofinsCst)).Sum(i => i.CofinsValue),
-                vOutro = 0,
-                vNF = products,
+                vOutro = otherExpenses,
+                // W16: vNF = vProd − vDesc + vFrete + vSeg + vOutro (sem ST, IPI, II e serviços, que o Siagro não trata).
+                // Soma do total da linha, a MESMA fórmula da trava de pagamento e do vPag: um termo novo entra num lugar só.
+                vNF = items.Sum(i => i.GrandTotal),
             },
             IBSCBSTot = items.Any(i => i.IbsCbsCst is not null)
                 ? new IBSCBSTot
@@ -527,7 +542,7 @@ public static class NfeXmlBuilder
         if (input.Payment.PaymentIndicator == 0)
             return null;
 
-        var total = input.Items.Sum(i => i.Total);
+        var total = input.Items.Sum(i => i.GrandTotal);
 
         return new cobr
         {

@@ -378,4 +378,34 @@ public class PurchaseInvoiceNfeLockTests
 
         Assert.Equal("1101", (await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == lineKey)).Cfop);
     }
+
+    [Fact]
+    public async Task Authorized_line_cannot_change_the_discount()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        var changed = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == invoice.Items.Single().Key);
+        changed.DiscountValue = 10m;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsUpdateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
+                .ExecuteAsync(changed.Key!.Value, changed, "tester"));
+
+        Assert.Equal("A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.", e.Message);
+    }
+
+    [Fact]
+    public async Task Purchase_return_line_keeps_the_edited_charges()
+    {
+        // Review Focus 5: na devolução Pendente os quatro valores são editáveis (spec D4); a trava volta preço e produto.
+        var (db, invoice) = await SeedAsync(NfeStatus.None, nfeReturn: true);
+        var line = invoice.Items.Single();
+        var changed = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
+        (changed.FreightValue, changed.DiscountValue, changed.UnitPrice) = (15m, 2m, 9m);
+
+        await new PurchaseInvoicesItemsUpdateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
+            .ExecuteAsync(line.Key!.Value, changed, "tester");
+
+        var saved = await db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
+        Assert.Equal((15m, 2m, 1.5m), (saved.FreightValue, saved.DiscountValue, saved.UnitPrice));
+    }
 }

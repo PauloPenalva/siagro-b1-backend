@@ -29,11 +29,11 @@ public static class SupplierNfeXml
             .Replace("</NFe></nfeProc>", "</NFe>");
 
     public static string Det(int nItem, string code, string name, decimal quantity, decimal unitPrice, string icms,
-        string? ibsCbs = null, string? ipi = null, string cfop = "5102", string ncm = "10019900", string? benefitCode = "SP053521") =>
+        string? ibsCbs = null, string? ipi = null, string cfop = "5102", string ncm = "10019900", string? benefitCode = "SP053521", string? charges = null) =>
         $"<det nItem=\"{nItem}\"><prod><cProd>{code}</cProd><cEAN>SEM GTIN</cEAN><xProd>{name}</xProd><NCM>{ncm}</NCM>" +
         (benefitCode is null ? string.Empty : $"<cBenef>{benefitCode}</cBenef>") +
         $"<CFOP>{cfop}</CFOP><uCom>KG</uCom><qCom>{F4(quantity)}</qCom><vUnCom>{unitPrice.ToString("0.0000000000", CultureInfo.InvariantCulture)}</vUnCom>" +
-        $"<vProd>{F2(quantity * unitPrice)}</vProd></prod><imposto><ICMS>{icms}</ICMS>{ipi}" +
+        $"<vProd>{F2(quantity * unitPrice)}</vProd>{charges}</prod><imposto><ICMS>{icms}</ICMS>{ipi}" +
         "<PIS><PISOutr><CST>49</CST><vBC>0.00</vBC><pPIS>0.0000</pPIS><vPIS>0.00</vPIS></PISOutr></PIS>" +
         "<COFINS><COFINSOutr><CST>49</CST><vBC>0.00</vBC><pCOFINS>0.0000</pCOFINS><vCOFINS>0.00</vCOFINS></COFINSOutr></COFINS>" +
         $"{ibsCbs}</imposto></det>";
@@ -70,4 +70,11 @@ public static class SupplierNfeXml
         "</gIBSCBS></IBSCBS>";
 
     public static byte[] Bytes(string xml) => Encoding.UTF8.GetBytes(xml);
+
+    /// <summary>Frete, seguro, desconto e outras despesas do det/prod, na ordem do leiaute; zero fica de fora (o leiaute permite).</summary>
+    public static string Charges(decimal freight = 0m, decimal insurance = 0m, decimal discount = 0m, decimal other = 0m) =>
+        (freight > 0 ? $"<vFrete>{F2(freight)}</vFrete>" : string.Empty) +
+        (insurance > 0 ? $"<vSeg>{F2(insurance)}</vSeg>" : string.Empty) +
+        (discount > 0 ? $"<vDesc>{F2(discount)}</vDesc>" : string.Empty) +
+        (other > 0 ? $"<vOutro>{F2(other)}</vOutro>" : string.Empty);
 }

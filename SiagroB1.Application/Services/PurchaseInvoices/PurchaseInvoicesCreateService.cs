@@ -24,6 +24,10 @@ public class PurchaseInvoicesCreateService(
         if (invoice.Items.Count == 0)
             throw new DefaultException("Informe ao menos um item no documento de entrada.");
 
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): em toda filial.
+        foreach (var item in invoice.Items)
+            InvoiceLineChargeRules.Ensure(item);
+
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
 

@@ -103,6 +103,21 @@ public class SalesInvoicesNfeReturnLockTests
     }
 
     [Fact]
+    public async Task Own_return_line_discount_is_checked_against_the_restored_price()
+    {
+        // Revisão final M2: o preço enviado (9) é descartado pela trava; o desconto que só cabe nele não pode passar.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        line.UnitPrice = 9m;
+        line.DiscountValue = 100000m;
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester"));
+
+        Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", ex.Message);
+    }
+
+    [Fact]
     public async Task Own_return_line_above_the_balance_is_refused()
     {
         var s = await NfeReturnTestSeed.SeedAsync();
@@ -199,5 +214,34 @@ public class SalesInvoicesNfeReturnLockTests
             new RefusalRequest(Guid.NewGuid(), [new RefusalLine(s.Sale.InvoiceKey, 1m)], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
 
         Assert.Equal("Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Own_return_line_keeps_the_edited_charges()
+    {
+        // Review Focus 5: na devolução Pendente os quatro valores são editáveis (spec D4); a trava volta só preço/produto/natureza.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        (line.FreightValue, line.DiscountValue, line.UnitPrice) = (150m, 20m, 9m);
+
+        await ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester");
+
+        var saved = await s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
+        Assert.Equal((150m, 20m, 2m), (saved.FreightValue, saved.DiscountValue, saved.UnitPrice));
+    }
+
+    [Fact]
+    public async Task Own_return_line_tax_base_follows_the_edited_charges()
+    {
+        // Review Focus 5 + D3: o frete editado na devolução Pendente entra na base (60.000 + 150 − 20).
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+        var line = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.SalesInvoiceKey == created.Key);
+        (line.FreightValue, line.DiscountValue) = (150m, 20m);
+
+        await ItemUpdate(s.Sale.Db).ExecuteAsync(line.Key!.Value, line, "tester");
+
+        Assert.Equal(60130m, (await s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key)).IcmsBase);
     }
 }

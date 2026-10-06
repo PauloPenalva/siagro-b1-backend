@@ -290,4 +290,36 @@ public class PurchaseInvoicesTaxApplyTests
             "Item TRIGO: a natureza de devolução DEVOLUCAO DE COMPRA não reproduz a tributação da compra — cBenef: compra SP053521, devolução SP070010.",
             e.Message);
     }
+
+    // --- Frete, seguro, desconto e outras despesas na base (spec 2026-10-05 D3) ---
+
+    private static PurchaseInvoice OwnEntryWithCharges(int usageCode)
+    {
+        var invoice = OwnEntry(usageCode);
+        var item = invoice.Items.Single();
+        (item.FreightValue, item.InsuranceValue, item.DiscountValue, item.OtherExpensesValue) = (100m, 20m, 50m, 30m);
+        return invoice;
+    }
+
+    [Fact]
+    public async Task Line_charges_enter_the_icms_base_of_the_entry()
+    {
+        var seed = await SeedAsync();
+
+        await Create(seed).ExecuteAsync(OwnEntryWithCharges(seed.PurchaseUsage), "tester");
+
+        var line = await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
+        Assert.Equal((1600m, 288.00m, 288.00m, 0m), (line.IcmsBase, line.IcmsOperationValue, line.IcmsDeferredValue, line.IcmsValue));
+    }
+
+    [Fact]
+    public async Task Branch_without_the_rule_only_keeps_the_charges()
+    {
+        var seed = await SeedAsync();
+
+        await Create(seed, "SAPB1").ExecuteAsync(OwnEntryWithCharges(seed.PurchaseUsage), "tester");
+
+        var line = await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
+        Assert.Equal((100m, (string?)null, 0m), (line.FreightValue, line.Cfop, line.IcmsBase));
+    }
 }

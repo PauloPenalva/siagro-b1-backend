@@ -253,6 +253,18 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceTaxes)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInvoiceIbsCbs)));
+        // Frete, seguro, desconto e outras despesas (spec 2026-10-05 §4.2): calculadas, entram no EDM à mão como o
+        // TotalInvoiceItems — sem estas linhas o $select devolve 400.
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalFreight)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalInsurance)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalOtherExpenses)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.TotalDiscount)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+            .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.GrandTotal)));
         // Contrato de venda do documento, derivado das linhas (ver SalesInvoice). Sem estas
         // linhas as propriedades não entram no EDM e o $select da tela da carga devolve 400.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
@@ -268,6 +280,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalTaxes)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.TotalIbsCbs)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
+            .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.GrandTotal)));
         // Precisa ser explícito mesmo sendo coluna mapeada: o setter é privado (quem escreve
         // é o SQL Server) e a convenção do ODataConventionModelBuilder pula propriedade sem
         // setter público — sem esta linha ela não entra no EDM e o $select devolve 400.
@@ -307,6 +321,18 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalTaxes)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalIbsCbs)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.GrandTotal)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalFreight)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInsurance)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalOtherExpenses)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalDiscount)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.GrandTotal)));
 
         var purchaseInvoicesImportXml = modelBuilder.Action("PurchaseInvoicesImportXml");
         purchaseInvoicesImportXml.Parameter<string>("XmlContent");

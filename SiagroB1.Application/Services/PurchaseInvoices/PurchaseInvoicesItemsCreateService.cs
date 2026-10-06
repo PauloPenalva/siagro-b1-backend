@@ -19,6 +19,9 @@ public class PurchaseInvoicesItemsCreateService(
 {
     public async Task ExecuteAsync(PurchaseInvoiceItem item, string userName)
     {
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
+        InvoiceLineChargeRules.Ensure(item);
+
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, item.PurchaseInvoiceKey);
 
         item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(

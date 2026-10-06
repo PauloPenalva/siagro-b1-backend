@@ -230,6 +230,42 @@ public class PurchaseInvoicesNfeReturnTests
     }
 
     [Fact]
+    public async Task Editing_the_return_checks_the_discount_against_the_restored_price()
+    {
+        // Revisão final M2: o preço enviado (50) é descartado pela trava; o desconto que só cabe nele não pode passar.
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+        var line = await scenario.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync(i => i.PurchaseInvoiceKey == created.Key);
+        line.UnitPrice = 50m;
+        line.DiscountValue = 10000m;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsUpdateService(scenario.Db, new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
+                .ExecuteAsync(line.Key!.Value, line, "tester"));
+
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
+    }
+
+    [Fact]
+    public async Task Editing_the_return_through_the_document_checks_the_discount_against_the_restored_price()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        var line = saved.Items.Single();
+        line.UnitPrice = 50m;
+        line.DiscountValue = 10000m;
+        var incoming = new PurchaseInvoice { CardCode = saved.CardCode };
+        incoming.AddItem(line);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesUpdateService(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()))
+                .ExecuteAsync(created.Key, incoming, "tester"));
+
+        Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
+    }
+
+    [Fact]
     public async Task Returnable_items_show_purchased_returned_and_balance()
     {
         var (scenario, origin) = await AuthorizedOriginAsync();
@@ -262,5 +298,81 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Contains("Entrada de origem", e.Message);
         Assert.Contains("não está confirmada", e.Message);
         Assert.Equal(0, reservation.Calls);
+    }
+
+    // --- Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4) ---
+
+    /// <summary>A entrada do cenário com os quatro valores na linha, autorizada e confirmada pela emissão.</summary>
+    private static async Task<(PurchaseNfeScenario Scenario, PurchaseInvoice Origin)> AuthorizedOriginWithChargesAsync(
+        decimal freight, decimal insurance, decimal discount, decimal other)
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var line = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.PurchaseInvoiceKey == scenario.InvoiceKey);
+        (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue) = (freight, insurance, discount, other);
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        return (scenario, await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario));
+    }
+
+    [Fact]
+    public async Task Partial_purchase_return_brings_the_charges_in_proportion_and_taxes_them()
+    {
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(90m, 0.05m, 30m, 0m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal((36m, 0.02m, 12m, 0m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
+        // Base = 600,00 + 36,00 + 0,02 − 12,00 (D3 na devolução).
+        Assert.Equal(624.02m, line.IcmsBase);
+    }
+
+    [Fact]
+    public async Task Proportional_discount_never_passes_the_ceiling_of_the_return_line()
+    {
+        // Revisão final I1: ver o teste equivalente da devolução de venda (3 x 150,125, desconto 450,38, volta 1).
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+        // Valores gravados depois da emissão: uma nota inteira bonificada não autoriza no teste (total 0 com pagamento).
+        var seeded = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.PurchaseInvoiceKey == scenario.InvoiceKey);
+        (seeded.Quantity, seeded.UnitPrice, seeded.DiscountValue) = (3m, 150.125m, 450.38m);
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        var origin = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 1m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal(150.12m, line.Total);
+        Assert.Equal(150.12m, line.DiscountValue);
+    }
+
+    [Fact]
+    public async Task Half_cent_of_the_purchase_return_proportion_rounds_away_from_zero()
+    {
+        // Review Focus 2.
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(0m, 0.05m, 0m, 0m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 500m), "tester");
+
+        Assert.Equal(0.03m, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single().InsuranceValue);
+    }
+
+    [Fact]
+    public async Task Total_purchase_return_brings_exactly_the_charges_of_the_entry()
+    {
+        var (scenario, origin) = await AuthorizedOriginWithChargesAsync(90m, 0.05m, 30m, 7m);
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 1000m), "tester");
+
+        var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
+        Assert.Equal((90m, 0.05m, 30m, 7m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
     }
 }

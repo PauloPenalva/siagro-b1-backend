@@ -200,4 +200,72 @@ public class SalesInvoicesNfeReturnCreateServiceTests
         Assert.Equal(10000d, row.ReturnedQuantity);
         Assert.Equal(20000d, row.Returnable);
     }
+
+    // --- Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4) ---
+
+    private static async Task SetSaleChargesAsync(NfeReturnScenario s, decimal freight, decimal insurance, decimal discount, decimal other)
+    {
+        var item = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.Key == s.SaleItemKey);
+        (item.FreightValue, item.InsuranceValue, item.DiscountValue, item.OtherExpensesValue) = (freight, insurance, discount, other);
+        await s.Sale.Db.SaveChangesAsync();
+    }
+
+    private static Task<SalesInvoiceItem> ReturnLineAsync(NfeReturnScenario s, Guid returnKey) =>
+        s.Sale.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.SalesInvoiceKey == returnKey);
+
+    [Fact]
+    public async Task Partial_return_brings_the_charges_in_proportion_and_taxes_them()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        await SetSaleChargesAsync(s, 100m, 10m, 50m, 0.05m);
+
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 10000m);
+
+        var line = await ReturnLineAsync(s, created.Key);
+        Assert.Equal((33.33m, 3.33m, 16.67m, 0.02m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
+        // Base = 20.000,00 + 33,33 + 3,33 + 0,02 − 16,67 (D3 na devolução).
+        Assert.Equal(20020.01m, line.IcmsBase);
+    }
+
+    [Fact]
+    public async Task Proportional_discount_never_passes_the_ceiling_of_the_return_line()
+    {
+        // Revisão final I1: 3 x 150,125 = 450,38 (ToEven) e desconto 450,38 (bonificação) passa na origem; devolvendo 1,
+        // a linha vale 150,12 (ToEven) e 450,38 / 3 = 150,1266 arredondaria para 150,13, acima do valor do produto da própria linha.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var item = await s.Sale.Db.Context.SalesInvoicesItems.SingleAsync(i => i.Key == s.SaleItemKey);
+        (item.Quantity, item.UnitPrice, item.DiscountValue) = (3m, 150.125m, 450.38m);
+        await s.Sale.Db.SaveChangesAsync();
+
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 1m);
+
+        var line = await ReturnLineAsync(s, created.Key);
+        Assert.Equal(150.12m, line.Total);
+        Assert.Equal(150.12m, line.DiscountValue);
+    }
+
+    [Fact]
+    public async Task Half_cent_of_the_proportion_rounds_away_from_zero()
+    {
+        // Review Focus 2: 0,05 na metade = 0,025 → 0,03 (e não 0,02); 0,01 na metade = 0,005 → 0,01.
+        var s = await NfeReturnTestSeed.SeedAsync();
+        await SetSaleChargesAsync(s, 0m, 0m, 0.01m, 0.05m);
+
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 15000m);
+
+        var line = await ReturnLineAsync(s, created.Key);
+        Assert.Equal((0.01m, 0.03m), (line.DiscountValue, line.OtherExpensesValue));
+    }
+
+    [Fact]
+    public async Task Total_return_brings_exactly_the_charges_of_the_sale()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        await SetSaleChargesAsync(s, 100m, 10m, 50m, 0.05m);
+
+        var created = await NfeReturnTestSeed.CreateReturnAsync(s, 30000m);
+
+        var line = await ReturnLineAsync(s, created.Key);
+        Assert.Equal((100m, 10m, 50m, 0.05m), (line.FreightValue, line.InsuranceValue, line.DiscountValue, line.OtherExpensesValue));
+    }
 }

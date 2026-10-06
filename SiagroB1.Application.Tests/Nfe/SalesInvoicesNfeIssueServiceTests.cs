@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
@@ -555,5 +557,32 @@ public class SalesInvoicesNfeIssueServiceTests
         var item = await TestDb.CreateUnitOfWork(scenario.DatabaseName).Context.SalesInvoicesItems.AsNoTracking()
             .SingleAsync(i => i.SalesInvoiceKey == scenario.InvoiceKey);
         Assert.Equal(1, item.NfeItemNumber);
+    }
+
+    [Fact]
+    public async Task Line_charges_are_issued_with_the_grand_total()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var item = await scenario.Db.Context.SalesInvoicesItems.SingleAsync();
+        (item.FreightValue, item.InsuranceValue, item.DiscountValue, item.OtherExpensesValue) = (1000m, 100m, 500m, 400m);
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        var outcome = await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db)).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        XNamespace ns = "http://www.portalfiscal.inf.br/nfe";
+        decimal N(XElement? e) => decimal.Parse(e!.Value, CultureInfo.InvariantCulture);
+        var xml = XDocument.Parse(Assert.Single(sefaz.Sent).Xml);
+        var prod = xml.Descendants(ns + "det").Single().Element(ns + "prod")!;
+        Assert.Equal((1000m, 100m, 500m, 400m),
+            (N(prod.Element(ns + "vFrete")), N(prod.Element(ns + "vSeg")), N(prod.Element(ns + "vDesc")), N(prod.Element(ns + "vOutro"))));
+        var total = xml.Descendants(ns + "ICMSTot").Single();
+        Assert.Equal((60000m, 61000m), (N(total.Element(ns + "vProd")), N(total.Element(ns + "vNF"))));
+        var fat = xml.Descendants(ns + "fat").Single();
+        Assert.Equal((61000m, 61000m), (N(fat.Element(ns + "vOrig")), N(fat.Element(ns + "vLiq"))));
+        Assert.Equal(61000m, xml.Descendants(ns + "vDup").Sum(N));
+        Assert.Equal(61000m, N(xml.Descendants(ns + "vPag").Single()));
     }
 }

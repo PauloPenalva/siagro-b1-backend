@@ -27,6 +27,11 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
 
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): recusa antes de qualquer gravação,
+        // em toda filial.
+        foreach (var item in salesInvoice.Items)
+            InvoiceLineChargeRules.Ensure(item);
+
         // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
         // da confirmação direta.
         SalesInvoiceNfeLock.ResetIssuanceFields(salesInvoice);

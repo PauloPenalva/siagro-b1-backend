@@ -156,6 +156,10 @@ public class PurchaseInvoicesUpdateService(
     {
         var incoming = entity.Items.ToList();
 
+        // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): antes de qualquer cópia.
+        foreach (var line in incoming)
+            InvoiceLineChargeRules.Ensure(line);
+
         var removed = existing.Items
             .Where(current => incoming.All(i => i.Key != current.Key))
             .ToList();
@@ -200,6 +204,10 @@ public class PurchaseInvoicesUpdateService(
                     PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey,
                     PurchaseContractKey = line.PurchaseContractKey,
                     UsageCode = line.UsageCode,
+                    FreightValue = line.FreightValue,
+                    InsuranceValue = line.InsuranceValue,
+                    DiscountValue = line.DiscountValue,
+                    OtherExpensesValue = line.OtherExpensesValue,
                 });
 
                 continue;
@@ -221,11 +229,19 @@ public class PurchaseInvoicesUpdateService(
             current.PurchaseInvoiceItemOriginKey = line.PurchaseInvoiceItemOriginKey;
             current.PurchaseContractKey = line.PurchaseContractKey;
             current.UsageCode = line.UsageCode;
+            current.FreightValue = line.FreightValue;
+            current.InsuranceValue = line.InsuranceValue;
+            current.DiscountValue = line.DiscountValue;
+            current.OtherExpensesValue = line.OtherExpensesValue;
 
-            // Na devolução de compra só a quantidade muda (a descrição re-resolvida também volta).
+            // Na devolução de compra só a quantidade e os quatro valores da linha mudam (a descrição re-resolvida também volta).
             var lineEntry = db.Context.Entry(current);
             if (existing.IsNfeReturn)
+            {
                 PurchaseInvoiceNfeLock.RestoreReturnLine(lineEntry);
+                // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+                InvoiceLineChargeRules.Ensure(current);
+            }
             PurchaseInvoiceNfeLock.EnsureItemEditable(existing.NfeStatus, lineEntry);
 
             if (existing.IsNfeReturn && current.Quantity <= 0)

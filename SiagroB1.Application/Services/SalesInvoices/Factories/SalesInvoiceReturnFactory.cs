@@ -56,7 +56,7 @@ public static class SalesInvoiceReturnFactory
             if (quantity <= decimal.Zero)
                 continue;
 
-            returnInvoice.AddItem(new SalesInvoiceItem
+            var returnItem = new SalesInvoiceItem
             {
                 ItemCode = item.ItemCode,
                 ItemName = item.ItemName,
@@ -65,7 +65,12 @@ public static class SalesInvoiceReturnFactory
                 UnitOfMeasureCode = item.UnitOfMeasureCode,
                 SalesInvoiceItemOriginKey = item.Key,
                 SalesContractKey = item.SalesContractKey,
-            });
+            };
+
+            // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
+            // enquanto a devolução está Pendente.
+            InvoiceLineChargeRules.ApplyProportional(returnItem, item);
+            returnInvoice.AddItem(returnItem);
         }
 
         if (returnInvoice.Items.Count == 0)

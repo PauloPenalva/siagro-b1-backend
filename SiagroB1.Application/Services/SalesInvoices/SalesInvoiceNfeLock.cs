@@ -28,7 +28,8 @@ public static class SalesInvoiceNfeLock
     private static readonly string[] ItemFiscalFields =
     [
         nameof(SalesInvoiceItem.ItemCode), nameof(SalesInvoiceItem.UnitOfMeasureCode), nameof(SalesInvoiceItem.Quantity),
-        nameof(SalesInvoiceItem.UnitPrice), nameof(SalesInvoiceItem.UsageCode),
+        nameof(SalesInvoiceItem.UnitPrice), nameof(SalesInvoiceItem.UsageCode), nameof(SalesInvoiceItem.FreightValue),
+        nameof(SalesInvoiceItem.InsuranceValue), nameof(SalesInvoiceItem.DiscountValue), nameof(SalesInvoiceItem.OtherExpensesValue),
     ];
 
     /// <summary>Campos que só a emissão escreve.</summary>

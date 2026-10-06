@@ -196,6 +196,26 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// <summary>IBS + CBS do documento. Informativo em 2026 — fora de <see cref="TotalInvoiceTaxes"/>.</summary>
     [NotMapped]
     public decimal TotalInvoiceIbsCbs => Items.Sum(i => i.TotalIbsCbs);
+
+    /// <summary>Soma do frete das linhas (spec 2026-10-05 §4.2). Derivado, como <see cref="TotalInvoiceItems"/>.</summary>
+    [NotMapped]
+    public decimal TotalFreight => Items.Sum(i => i.FreightValue);
+
+    /// <summary>Soma do seguro das linhas.</summary>
+    [NotMapped]
+    public decimal TotalInsurance => Items.Sum(i => i.InsuranceValue);
+
+    /// <summary>Soma das outras despesas das linhas.</summary>
+    [NotMapped]
+    public decimal TotalOtherExpenses => Items.Sum(i => i.OtherExpensesValue);
+
+    /// <summary>Soma do desconto das linhas.</summary>
+    [NotMapped]
+    public decimal TotalDiscount => Items.Sum(i => i.DiscountValue);
+
+    /// <summary>Total geral do documento (spec D2): Σ total geral das linhas — o vNF da NF-e.</summary>
+    [NotMapped]
+    public decimal GrandTotal => Items.Sum(i => i.GrandTotal);
     
 
     /// <summary>

@@ -348,4 +348,16 @@ public class SalesInvoiceNfeLockTests
             new SalesInvoicesSetDocumentNumberService(db, new SalesInvoicesChangeLogService(db.Context))
                 .ExecuteAsync(invoice.Key, "000000010", "1", null, "tester"));
     }
+
+    [Fact]
+    public async Task Authorized_line_cannot_change_the_freight()
+    {
+        var (db, _) = await SeedAsync(NfeStatus.Authorized, InvoiceStatus.Confirmed);
+        var item = await db.Context.SalesInvoicesItems.SingleAsync();
+        item.FreightValue = 10m;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => ItemUpdate(db).ExecuteAsync(item.Key!.Value, item, "tester"));
+
+        Assert.Equal("A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.", e.Message);
+    }
 }

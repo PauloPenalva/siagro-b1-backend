@@ -30,6 +30,9 @@ public class SalesInvoicesItemsUpdateService(
         {
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
 
+            // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
+            InvoiceLineChargeRules.Ensure(entity);
+
             // No PATCH a entidade chega JÁ rastreada e mutada — o controller a carrega e
             // aplica o Delta nela no MESMO DbContext, então o FirstOrDefault acima devolve
             // essa mesma instância (identity map) e comparar existingEntity com entity
@@ -144,6 +147,8 @@ public class SalesInvoicesItemsUpdateService(
             if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             {
                 SalesInvoiceNfeReturnLock.RestoreLine(db.Context.Entry(item));
+                // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+                InvoiceLineChargeRules.Ensure(item);
 
                 if (item.Quantity <= 0)
                     throw new DefaultException($"Item {item.ItemCode}: informe a quantidade a devolver.");

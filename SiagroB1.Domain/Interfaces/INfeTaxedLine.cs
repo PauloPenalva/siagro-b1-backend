@@ -14,6 +14,15 @@ public interface INfeTaxedLine
     decimal UnitPrice { get; }
     decimal Total { get; }
 
+    /// <summary>Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 D1); padrão 0.</summary>
+    decimal FreightValue { get; set; }
+    decimal InsuranceValue { get; set; }
+    decimal DiscountValue { get; set; }
+    decimal OtherExpensesValue { get; set; }
+
+    /// <summary><see cref="Total"/> + frete + seguro + outras despesas − desconto: base dos tributos e parte da linha no vNF.</summary>
+    decimal GrandTotal { get; }
+
     int? UsageCode { get; set; }
     string? UsageName { get; set; }
     string? Cfop { get; set; }
