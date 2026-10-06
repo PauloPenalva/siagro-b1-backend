@@ -106,8 +106,8 @@ public static class PurchaseInvoiceNfeLock
         if (status == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (status == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(status) && NfeLockRules.AnyChanged(entry, HeaderFiscalFields))
+            throw new DefaultException(NfeLockRules.FrozenMessage(status));
     }
 
     public static void RestoreReturnHeader(EntityEntry<PurchaseInvoice> entry)
@@ -122,8 +122,8 @@ public static class PurchaseInvoiceNfeLock
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (invoiceStatus == NfeStatus.Authorized && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(invoiceStatus) && NfeLockRules.AnyChanged(entry, ItemFiscalFields))
+            throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
     }
 
     public static void RestoreReturnLine(EntityEntry<PurchaseInvoiceItem> entry) =>
@@ -135,8 +135,8 @@ public static class PurchaseInvoiceNfeLock
         if (invoiceStatus == NfeStatus.Processing)
             throw new DefaultException(NfeLockRules.ProcessingMessage);
 
-        if (invoiceStatus == NfeStatus.Authorized)
-            throw new DefaultException(NfeLockRules.AuthorizedMessage);
+        if (NfeLockRules.IsFrozen(invoiceStatus))
+            throw new DefaultException(NfeLockRules.FrozenMessage(invoiceStatus));
     }
 
     public static void EnsureLineCanBeAdded(PurchaseInvoice invoice)
@@ -150,18 +150,21 @@ public static class PurchaseInvoiceNfeLock
 
     public static void EnsureDeletable(PurchaseInvoice invoice)
     {
-        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied)
+        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied or NfeStatus.Cancelled)
             throw new DefaultException(
-                "Documento com NF-e em processamento, autorizada ou denegada não pode ser excluído.");
+                "Documento com NF-e em processamento, autorizada, denegada ou cancelada não pode ser excluído.");
     }
 
     public static void EnsureCancellable(PurchaseInvoice invoice)
     {
-        if (invoice.NfeStatus == NfeStatus.Processing)
-            throw new DefaultException(NfeLockRules.ProcessingMessage);
-
-        if (invoice.NfeStatus == NfeStatus.Authorized)
-            throw new DefaultException(
-                "A NF-e deste documento está autorizada: o cancelamento precisa ser feito na SEFAZ, recurso da próxima etapa.");
+        switch (invoice.NfeStatus)
+        {
+            case NfeStatus.Processing:
+                throw new DefaultException(NfeLockRules.ProcessingMessage);
+            case NfeStatus.Authorized:
+                throw new DefaultException(NfeLockRules.AuthorizedCancelMessage);
+            case NfeStatus.Cancelled:
+                throw new DefaultException(NfeLockRules.CancelledPendingMessage);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -19,6 +20,11 @@ public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db)
         var invoice = await db.Context.PurchaseInvoices
                           .FirstOrDefaultAsync(x => x.Key == key)
                       ?? throw new NotFoundException("Documento de entrada não encontrado.");
+
+        // NF-e emitida continua valendo na SEFAZ: desfazer a confirmação deixaria a nota
+        // sem efeito no sistema. O caminho é o cancelamento da NF-e.
+        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Cancelled)
+            throw new DefaultException(NfeLockRules.EmittedReverseMessage);
 
         if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
             throw new DefaultException("Somente documento confirmado pode ser estornado.");

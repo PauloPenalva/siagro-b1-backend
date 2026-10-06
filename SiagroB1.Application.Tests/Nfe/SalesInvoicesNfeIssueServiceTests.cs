@@ -585,4 +585,20 @@ public class SalesInvoicesNfeIssueServiceTests
         Assert.Equal(61000m, xml.Descendants(ns + "vDup").Sum(N));
         Assert.Equal(61000m, N(xml.Descendants(ns + "vPag").Single()));
     }
+
+    [Fact]
+    public async Task Cancelled_nfe_cannot_be_issued_again()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var invoice = await scenario.Db.Context.SalesInvoices.SingleAsync();
+        invoice.NfeStatus = NfeStatus.Cancelled;
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db)).ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("A NF-e deste documento foi cancelada: o número não pode ser reutilizado.", ex.Message);
+        Assert.Empty(sefaz.Sent);
+    }
 }
