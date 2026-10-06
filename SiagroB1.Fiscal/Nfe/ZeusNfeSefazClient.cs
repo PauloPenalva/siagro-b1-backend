@@ -35,8 +35,20 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
         RunAsync(settings, services => NfeSefazResponseMapper.FromStatus(services.NfeStatusServico().Retorno),
             cancellationToken);
 
-    private static Task<NfeSefazResult> RunAsync(
-        NfeServiceSettings settings, Func<ServicosNFe, NfeSefazResult> call, CancellationToken cancellationToken) =>
+    public Task<NfeEventResult> CancelAsync(
+        NfeCancelRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services =>
+        {
+            // Lote de um evento só; cancelamento é evento único por NF-e (nSeqEvento 1).
+            var response = services.RecepcaoEventoCancelamento(
+                1, 1, request.AuthorizationProtocol, request.AccessKey, request.Justification, request.IssuerDocument,
+                request.EventAt);
+
+            return NfeSefazResponseMapper.FromEvent(response.Retorno, response.ProcEventosNFe);
+        }, cancellationToken);
+
+    private static Task<T> RunAsync<T>(
+        NfeServiceSettings settings, Func<ServicosNFe, T> call, CancellationToken cancellationToken) =>
         Task.Run(() =>
         {
             // Estático da biblioteca (caminho .NET Core): mesma escolha da configuração.
