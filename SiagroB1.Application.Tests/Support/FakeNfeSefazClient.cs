@@ -64,6 +64,29 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         return Task.FromResult(CancelResponses.Dequeue()(request));
     }
 
+    public Queue<Func<NfeCorrectionRequest, NfeEventResult>> CorrectionResponses { get; } = new();
+    public List<NfeCorrectionRequest> CorrectionRequests { get; } = [];
+    public List<NfeServiceSettings> CorrectionSettings { get; } = [];
+
+    public Task<NfeEventResult> SendCorrectionAsync(
+        NfeCorrectionRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        CorrectionRequests.Add(request);
+        CorrectionSettings.Add(settings);
+        return Task.FromResult(CorrectionResponses.Dequeue()(request));
+    }
+
+    public static string CorrectionProtocol(int sequence) => $"1352600000002{sequence:D2}";
+
+    public static readonly DateTimeOffset CorrectionRegisteredAt = new(2026, 10, 6, 9, 15, 0, TimeSpan.FromHours(-3));
+
+    public static NfeEventResult CorrectionRegistered(int sequence, string text, int status = 135) => new(
+        status, "Evento registrado e vinculado a NF-e", CorrectionProtocol(sequence), CorrectionRegisteredAt,
+        $"<procEventoNFe versao=\"1.00\"><evento><infEvento><tpEvento>110110</tpEvento><nSeqEvento>{sequence}</nSeqEvento>" +
+        $"<detEvento><xCorrecao>{text}</xCorrecao></detEvento></infEvento></evento>" +
+        $"<retEvento><infEvento><cStat>{status}</cStat><nProt>{CorrectionProtocol(sequence)}</nProt></infEvento></retEvento></procEventoNFe>",
+        Sequence: sequence, CorrectionText: text);
+
     public const string CancellationProtocol = "135260000000099";
 
     public static readonly DateTimeOffset CancelledAt = new(2026, 10, 2, 15, 30, 0, TimeSpan.FromHours(-3));

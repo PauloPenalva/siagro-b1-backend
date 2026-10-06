@@ -208,6 +208,9 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     /// <summary>Log de alterações do documento. Hoje só recebe as linhas de comentário.</summary>
     public ICollection<PurchaseInvoiceChangeLog> ChangeLogs { get; set; } = [];
 
+    /// <summary>CC-e registradas da NF-e (somente leitura; rota declarada no PurchaseInvoicesNfeCorrectionsController).</summary>
+    public ICollection<PurchaseInvoiceNfeCorrection> NfeCorrections { get; set; } = [];
+
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);
 

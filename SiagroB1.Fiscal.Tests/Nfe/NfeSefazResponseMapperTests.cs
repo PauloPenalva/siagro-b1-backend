@@ -246,4 +246,79 @@ public class NfeSefazResponseMapperTests
         Assert.Equal("135260000000099", result.CancellationEvent!.Protocol);
         Assert.Equal("Venda desfeita pelo cliente", result.CancellationEvent.Justification);
     }
+
+    private static ConsultaEvento CorrectionEvent(int sequence, string text, int status = 135) => new()
+    {
+        versao = "1.00",
+        evento = new evento
+        {
+            versao = "1.00",
+            infEvento = new infEventoEnv
+            {
+                cOrgao = Estado.SP, tpAmb = TipoAmbiente.Homologacao, chNFe = Key,
+                tpEvento = NFeTipoEvento.TeNfeCartaCorrecao, nSeqEvento = sequence, verEvento = "1.00",
+                detEvento = new detEvento { versao = "1.00", xCorrecao = text },
+            },
+        },
+        retEvento = new retEvento
+        {
+            versao = "1.00",
+            infEvento = EventReturn(status, "Evento registrado e vinculado a NF-e", $"13526000000020{sequence}"),
+        },
+    };
+
+    [Fact]
+    public void Registered_correction_carries_sequence_and_text()
+    {
+        var proc = CorrectionEvent(2, "Placa correta XYZ9K87");
+        var result = NfeSefazResponseMapper.FromEvent(
+            new retEnvEvento { cStat = 128, xMotivo = "Lote de evento processado", retEvento = [proc.retEvento] }, [proc]);
+
+        Assert.Equal(135, result.StatusCode);
+        Assert.Equal(2, result.Sequence);
+        Assert.Equal("Placa correta XYZ9K87", result.CorrectionText);
+        Assert.Equal("135260000000202", result.Protocol);
+        Assert.Contains("<procEventoNFe", result.ProcEventXml);
+        Assert.True(NfeStatusCodes.IsEventRegistered(result.StatusCode));
+    }
+
+    [Fact]
+    public void Consult_of_authorized_note_returns_the_registered_corrections()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 100, xMotivo = "Autorizado o uso da NF-e", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+            procEventoNFe = [CorrectionEvent(1, "Primeira correcao do texto"), CorrectionEvent(2, "Segunda correcao do texto"),
+                CorrectionEvent(3, "Recusada pela SEFAZ aqui", status: 573)],
+        });
+
+        Assert.Equal(100, result.StatusCode);
+        Assert.Equal("135260000000001", result.Protocol);
+        Assert.Equal([1, 2], result.Corrections!.Select(c => c.Sequence!.Value));
+        Assert.Equal("Segunda correcao do texto", result.Corrections![1].CorrectionText);
+    }
+
+    [Fact]
+    public void Consult_of_cancelled_note_returns_cancellation_and_corrections()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 101, xMotivo = "Cancelamento de NF-e homologado",
+            procEventoNFe = [CorrectionEvent(1, "Correcao antes de cancelar"), CancellationEvent()],
+        });
+
+        Assert.NotNull(result.CancellationEvent);
+        Assert.Single(result.Corrections!);
+    }
+
+    [Fact]
+    public void Consult_without_events_has_no_corrections()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 100, xMotivo = "Autorizado o uso da NF-e", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+        });
+
+        Assert.Empty(result.Corrections ?? []);
+    }
 }

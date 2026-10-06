@@ -122,6 +122,12 @@ public static class ODataConfigurations
             var completeCancellation = modelBuilder.Action($"{prefix}CompleteNfeCancellation");
             completeCancellation.Parameter<Guid>("Key");
             completeCancellation.Returns<NfeIssueOutcomeDto>();
+
+            // CC-e (spec 2026-10-06): evento 110110 com o texto da correção.
+            var sendCorrection = modelBuilder.Action($"{prefix}SendNfeCorrection");
+            sendCorrection.Parameter<Guid>("Key");
+            sendCorrection.Parameter<string>("Text");
+            sendCorrection.Returns<NfeCorrectionOutcomeDto>();
         }
 
         // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
@@ -306,6 +312,9 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.AssessedShortage)));
 
         modelBuilder.EntitySet<SalesInvoiceChangeLog>("SalesInvoicesChangeLogs");
+        // Histórico de CC-e: somente leitura; o XML do evento sai do EDM (download pela function).
+        modelBuilder.EntitySet<SalesInvoiceNfeCorrection>("SalesInvoicesNfeCorrections");
+        modelBuilder.EntityType<SalesInvoiceNfeCorrection>().Ignore(x => x.ProcEventXml);
         modelBuilder.EntitySet<SalesInvoiceComment>("SalesInvoicesComments");
 
         // Documento de ENTRADA: NF de fornecedor, venda futura do produtor e suas remessas,
@@ -314,6 +323,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseInvoiceItem>("PurchaseInvoicesItems");
         modelBuilder.EntitySet<PurchaseInvoiceComment>("PurchaseInvoicesComments");
         modelBuilder.EntitySet<PurchaseInvoiceChangeLog>("PurchaseInvoicesChangeLogs");
+        modelBuilder.EntitySet<PurchaseInvoiceNfeCorrection>("PurchaseInvoicesNfeCorrections");
+        modelBuilder.EntityType<PurchaseInvoiceNfeCorrection>().Ignore(x => x.ProcEventXml);
 
         // Calculadas: a convenção do ODataConventionModelBuilder não as inclui sozinha, e sem
         // estas linhas o $select devolve 400.
@@ -1447,6 +1458,14 @@ public static class ODataConfigurations
         var purchaseInvoicesNfeCancellationXml = modelBuilder.Function("PurchaseInvoicesNfeCancellationXml");
         purchaseInvoicesNfeCancellationXml.Parameter<Guid>("Key");
         purchaseInvoicesNfeCancellationXml.Returns<IActionResult>();
+
+        foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
+        {
+            var correctionXml = modelBuilder.Function($"{prefix}NfeCorrectionXml");
+            correctionXml.Parameter<Guid>("Key");
+            correctionXml.Parameter<int>("Sequence");
+            correctionXml.Returns<IActionResult>();
+        }
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");

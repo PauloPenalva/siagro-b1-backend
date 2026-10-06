@@ -16,6 +16,14 @@ public class DanfeController(DanfeReportService service) : ControllerBase
     public async Task<IActionResult> PurchaseReport(Guid key) =>
         await ExecuteReportAsync(() => service.GeneratePurchasePdfAsync(key));
 
+    [HttpPost("{key:guid}/cce/{sequence:int}/print")]
+    public async Task<IActionResult> CorrectionReport(Guid key, int sequence) =>
+        await ExecuteReportAsync(() => service.GenerateCorrectionPdfAsync(key, sequence));
+
+    [HttpPost("purchase-invoices/{key:guid}/cce/{sequence:int}/print")]
+    public async Task<IActionResult> PurchaseCorrectionReport(Guid key, int sequence) =>
+        await ExecuteReportAsync(() => service.GeneratePurchaseCorrectionPdfAsync(key, sequence));
+
     private async Task<IActionResult> ExecuteReportAsync(Func<Task<(byte[], string)>> generateReport)
     {
         try
