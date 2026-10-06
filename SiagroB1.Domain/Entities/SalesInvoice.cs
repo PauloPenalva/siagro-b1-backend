@@ -137,6 +137,21 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     [Column(TypeName = "VARCHAR(500)")]
     public string? NfeConfirmationError { get; set; }
 
+    /// <summary>Protocolo do evento de cancelamento (evento 110111).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? NfeCancellationProtocol { get; set; }
+
+    /// <summary><c>dhRegEvento</c> do cancelamento, hora de Brasília.</summary>
+    public DateTime? NfeCancelledAt { get; set; }
+
+    /// <summary>Justificativa (<c>xJust</c>) do cancelamento, 15 a 255 caracteres.</summary>
+    [Column(TypeName = "VARCHAR(255)")]
+    public string? NfeCancellationReason { get; set; }
+
+    /// <summary>NF-e cancelada na SEFAZ, mas o cancelamento do documento falhou — "Concluir cancelamento" refaz.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeCancellationError { get; set; }
+
     /// <summary>
     /// Devolução criada pelo "Devolver" de uma venda autorizada: sai com NF-e PRÓPRIA de entrada
     /// (finalidade 4). Só <c>SalesInvoicesNfeReturnCreateService</c> grava <c>true</c>; create e PATCH

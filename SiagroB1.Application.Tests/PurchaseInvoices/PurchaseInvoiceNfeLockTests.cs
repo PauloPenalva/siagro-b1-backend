@@ -176,6 +176,25 @@ public class PurchaseInvoiceNfeLockTests
     }
 
     [Fact]
+    public async Task Patch_cannot_write_the_cancellation_fields()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        var changed = await LoadAsync(db, invoice.Key);
+        changed.NfeCancellationProtocol = "999";
+        changed.NfeCancelledAt = DateTime.Now;
+        changed.NfeCancellationReason = "escrito pela API indevidamente";
+        changed.NfeCancellationError = "x";
+
+        await Update(db).ExecuteAsync(invoice.Key, changed, "tester");
+
+        var saved = await LoadAsync(db, invoice.Key);
+        Assert.Null(saved.NfeCancellationProtocol);
+        Assert.Null(saved.NfeCancelledAt);
+        Assert.Null(saved.NfeCancellationReason);
+        Assert.Null(saved.NfeCancellationError);
+    }
+
+    [Fact]
     public async Task Document_without_a_reserved_number_still_accepts_a_branch_change()
     {
         var (db, invoice) = await SeedAsync(NfeStatus.None);

@@ -35,6 +35,8 @@ public static class PurchaseInvoiceNfeLock
         nameof(PurchaseInvoice.NfeStatus), nameof(PurchaseInvoice.NfeEnvironment), nameof(PurchaseInvoice.NfeRandomCode),
         nameof(PurchaseInvoice.NfeProtocol), nameof(PurchaseInvoice.NfeAuthorizedAt), nameof(PurchaseInvoice.NfeStatusCode),
         nameof(PurchaseInvoice.NfeStatusReason), nameof(PurchaseInvoice.NfeConfirmationError),
+        nameof(PurchaseInvoice.NfeCancellationProtocol), nameof(PurchaseInvoice.NfeCancelledAt),
+        nameof(PurchaseInvoice.NfeCancellationReason), nameof(PurchaseInvoice.NfeCancellationError),
     ];
 
     /// <summary>Número, série, chave e o vNF: depois da primeira emissão, só a emissão escreve.</summary>
@@ -71,6 +73,10 @@ public static class PurchaseInvoiceNfeLock
         invoice.NfeStatusCode = null;
         invoice.NfeStatusReason = null;
         invoice.NfeConfirmationError = null;
+        invoice.NfeCancellationProtocol = null;
+        invoice.NfeCancelledAt = null;
+        invoice.NfeCancellationReason = null;
+        invoice.NfeCancellationError = null;
     }
 
     /// <summary>O PATCH/PUT não escreve situação, protocolo, retorno — nem número/série/chave depois de emitir.</summary>

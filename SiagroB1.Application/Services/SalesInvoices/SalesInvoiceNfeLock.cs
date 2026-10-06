@@ -38,6 +38,8 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoice.NfeStatus), nameof(SalesInvoice.NfeEnvironment), nameof(SalesInvoice.NfeRandomCode),
         nameof(SalesInvoice.NfeProtocol), nameof(SalesInvoice.NfeAuthorizedAt), nameof(SalesInvoice.NfeStatusCode),
         nameof(SalesInvoice.NfeStatusReason), nameof(SalesInvoice.NfeConfirmationError),
+        nameof(SalesInvoice.NfeCancellationProtocol), nameof(SalesInvoice.NfeCancelledAt),
+        nameof(SalesInvoice.NfeCancellationReason), nameof(SalesInvoice.NfeCancellationError),
     ];
 
     /// <summary>Número, série e chave: depois da primeira emissão, também só a emissão escreve.</summary>
@@ -83,6 +85,10 @@ public static class SalesInvoiceNfeLock
         invoice.NfeStatusCode = null;
         invoice.NfeStatusReason = null;
         invoice.NfeConfirmationError = null;
+        invoice.NfeCancellationProtocol = null;
+        invoice.NfeCancelledAt = null;
+        invoice.NfeCancellationReason = null;
+        invoice.NfeCancellationError = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha.</summary>

@@ -164,6 +164,21 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     [Column(TypeName = "VARCHAR(500)")]
     public string? NfeConfirmationError { get; set; }
 
+    /// <summary>Protocolo do evento de cancelamento (evento 110111).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? NfeCancellationProtocol { get; set; }
+
+    /// <summary><c>dhRegEvento</c> do cancelamento, hora de Brasília.</summary>
+    public DateTime? NfeCancelledAt { get; set; }
+
+    /// <summary>Justificativa (<c>xJust</c>) do cancelamento, 15 a 255 caracteres.</summary>
+    [Column(TypeName = "VARCHAR(255)")]
+    public string? NfeCancellationReason { get; set; }
+
+    /// <summary>NF-e cancelada na SEFAZ, mas o cancelamento do documento falhou — "Concluir cancelamento" refaz.</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? NfeCancellationError { get; set; }
+
     /// <summary>O status desta entidade não é anulável; a interface comum o lê como na saída.</summary>
     InvoiceStatus? INfeDocument.InvoiceStatus => InvoiceStatus;
 

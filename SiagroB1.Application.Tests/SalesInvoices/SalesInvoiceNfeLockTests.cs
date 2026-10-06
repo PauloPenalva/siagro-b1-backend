@@ -106,6 +106,24 @@ public class SalesInvoiceNfeLockTests
         Assert.Null(saved.NfeProtocol);
     }
 
+    [Fact]
+    public async Task Patch_cannot_write_the_cancellation_fields()
+    {
+        var (db, invoice) = await SeedAsync(NfeStatus.Authorized);
+        invoice.NfeCancellationProtocol = "999";
+        invoice.NfeCancelledAt = DateTime.Now;
+        invoice.NfeCancellationReason = "escrito pela API indevidamente";
+        invoice.NfeCancellationError = "x";
+
+        await HeaderUpdate(db).ExecuteAsync(invoice.Key, invoice, "tester");
+
+        var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Null(saved.NfeCancellationProtocol);
+        Assert.Null(saved.NfeCancelledAt);
+        Assert.Null(saved.NfeCancellationReason);
+        Assert.Null(saved.NfeCancellationError);
+    }
+
     /// <summary>Pelo serviço de criação: um corpo "Autorizada" passaria pela guarda da confirmação direta.</summary>
     [Fact]
     public async Task Create_ignores_issuance_fields_in_the_body()
