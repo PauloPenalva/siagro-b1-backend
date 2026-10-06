@@ -111,6 +111,19 @@ public static class ODataConfigurations
         purchaseInvoicesCompleteNfeConfirmation.Parameter<Guid>("Key");
         purchaseInvoicesCompleteNfeConfirmation.Returns<NfeIssueOutcomeDto>();
 
+        // Cancelamento da NF-e (spec 2026-10-05): evento 110111 com justificativa + conclusão da fase local.
+        foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
+        {
+            var cancelNfe = modelBuilder.Action($"{prefix}CancelNfe");
+            cancelNfe.Parameter<Guid>("Key");
+            cancelNfe.Parameter<string>("Justification");
+            cancelNfe.Returns<NfeIssueOutcomeDto>();
+
+            var completeCancellation = modelBuilder.Action($"{prefix}CompleteNfeCancellation");
+            completeCancellation.Parameter<Guid>("Key");
+            completeCancellation.Returns<NfeIssueOutcomeDto>();
+        }
+
         // NF-e de devolução (spec 2026-10-04): cria a devolução própria a partir da venda autorizada.
         // ⚠️ Quantities em double, paralelo a OriginItemKeys, como no SalesInvoicesReturn: o UI5
         // serializa Edm.Decimal como string e o 400 não nomeia o campo.
@@ -1426,6 +1439,14 @@ public static class ODataConfigurations
         var purchaseInvoicesNfeXml = modelBuilder.Function("PurchaseInvoicesNfeXml");
         purchaseInvoicesNfeXml.Parameter<Guid>("Key");
         purchaseInvoicesNfeXml.Returns<IActionResult>();
+
+        var salesInvoicesNfeCancellationXml = modelBuilder.Function("SalesInvoicesNfeCancellationXml");
+        salesInvoicesNfeCancellationXml.Parameter<Guid>("Key");
+        salesInvoicesNfeCancellationXml.Returns<IActionResult>();
+
+        var purchaseInvoicesNfeCancellationXml = modelBuilder.Function("PurchaseInvoicesNfeCancellationXml");
+        purchaseInvoicesNfeCancellationXml.Parameter<Guid>("Key");
+        purchaseInvoicesNfeCancellationXml.Returns<IActionResult>();
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");
         financialByContract.Parameter<string>("ContractType");
