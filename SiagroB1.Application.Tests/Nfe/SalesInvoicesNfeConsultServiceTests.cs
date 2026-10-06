@@ -29,7 +29,8 @@ public class SalesInvoicesNfeConsultServiceTests
                 new NfeReadinessValidator(scenario.Db, options), settings, reservation, sefaz, handler, options,
                 NullLogger<SalesInvoicesNfeIssueService>.Instance, NfeTestSeed.Clock),
             new SalesInvoicesNfeConsultService(
-                scenario.Db, settings, sefaz, handler, reservation, NullLogger<SalesInvoicesNfeConsultService>.Instance));
+                scenario.Db, settings, sefaz, handler, NfeCancelTestServices.SalesHandler(scenario.Db), reservation,
+                NullLogger<SalesInvoicesNfeConsultService>.Instance));
     }
 
     /// <summary>Emite sem resposta: o documento fica em processamento com o XML assinado gravado.</summary>
@@ -155,5 +156,74 @@ public class SalesInvoicesNfeConsultServiceTests
         var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
         Assert.Null(saved.NfeStatusCode);
         Assert.Contains("(detalhe técnico: XML ilegível)", saved.NfeStatusReason);
+    }
+
+    [Fact]
+    public async Task Consult_of_authorized_nfe_cancelled_at_sefaz_cancels_the_document()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key));
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Cancelled, outcome.NfeStatus);
+        Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("Cancelada direto no portal da SEFAZ", saved.NfeCancellationReason);
+        Assert.Equal(FakeNfeSefazClient.CancellationProtocol, saved.NfeCancellationProtocol);
+    }
+
+    [Fact]
+    public async Task Consult_of_cancelled_nfe_without_the_event_records_the_unknown_reason()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, withEvent: false));
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
+
+        await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(NfeStatus.Cancelled, saved.NfeStatus);
+        Assert.Equal(NfeCancellationHandlerBase<SalesInvoice>.UnknownReason, saved.NfeCancellationReason);
+        Assert.Null(saved.NfeCancellationProtocol);
+        Assert.Equal("101", saved.NfeStatusCode);
+    }
+
+    [Fact]
+    public async Task Consult_of_authorized_nfe_still_authorized_changes_nothing()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        Assert.Equal("100", outcome.StatusCode);
+        Assert.False(await scenario.Db.Context.SalesInvoiceNfeXmls.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Consult_of_authorized_nfe_without_answer_keeps_the_last_return()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(_ => throw new NfeCommunicationException("Tempo esgotado."));
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => consult.ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("Sem resposta da SEFAZ na consulta — tente de novo em instantes.", ex.Message);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("100", saved.NfeStatusCode);
+        Assert.Equal("Autorizado o uso da NF-e", saved.NfeStatusReason);
     }
 }

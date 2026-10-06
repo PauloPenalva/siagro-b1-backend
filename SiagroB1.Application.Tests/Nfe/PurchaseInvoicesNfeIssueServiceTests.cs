@@ -217,7 +217,8 @@ public class PurchaseInvoicesNfeIssueServiceTests
 
         var outcome = await new PurchaseInvoicesNfeConsultService(
                 scenario.Db, new BranchNfeSettingsService(scenario.Db, new NfeOptions(NfeTestSeed.Config()), sefaz), sefaz,
-                Handler(scenario), new FakeNfeNumberReservationService(), NullLogger<PurchaseInvoicesNfeConsultService>.Instance)
+                Handler(scenario), NfeCancelTestServices.PurchaseHandler(scenario.Db), new FakeNfeNumberReservationService(),
+                NullLogger<PurchaseInvoicesNfeConsultService>.Instance)
             .ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
