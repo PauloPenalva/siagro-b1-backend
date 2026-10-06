@@ -71,10 +71,10 @@ caminho de hoje. A trava nova do Estornar (D6) também só morde documentos com 
 
 | Coluna | Tipo | Conteúdo |
 |---|---|---|
-| `NfeCancellationProtocol` | VARCHAR(15) NULL | `nProt` do evento |
-| `NfeCancelledAt` | DATETIME2 NULL | `dhRegEvento` devolvido pela SEFAZ |
-| `NfeCancellationReason` | NVARCHAR(255) NULL | justificativa (`xJust`), 15–255 caracteres após trim |
-| `NfeCancellationError` | NVARCHAR(500) NULL | erro da fase local; não nulo = "Concluir cancelamento" disponível |
+| `NfeCancellationProtocol` | VARCHAR(20) NULL | `nProt` do evento (mesmo tipo de `NfeProtocol`) |
+| `NfeCancelledAt` | DATETIME2 NULL | `dhRegEvento` devolvido pela SEFAZ (hora de Brasília) |
+| `NfeCancellationReason` | VARCHAR(255) NULL | justificativa (`xJust`), 15–255 caracteres após trim (VARCHAR como as demais colunas da NF-e; a collation Latin1 guarda os acentos) |
+| `NfeCancellationError` | VARCHAR(500) NULL | erro da fase local; não nulo = "Concluir cancelamento" disponível |
 
 `CanceledAt`/`CanceledBy` (já no `BaseEntity`) registram quem e quando cancelou o documento; a entrada já os
 preenche, a saída passa a preencher.
@@ -136,9 +136,9 @@ Ajustes de regra:
 6. Resultado:
    - **135/155** → fase 1 (§7.3) e fase 2.
    - **573** → consulta (§7.4); se ela confirmar o cancelamento (101 com evento), fase 1 e fase 2.
-   - **Outro** → nada muda no documento; a resposta leva cStat e motivo ("Rejeição 501: …").
-   - **`NfeCommunicationException`** → nada muda; mensagem "Sem resposta da SEFAZ; consulte a situação antes de
-     tentar de novo." (a consulta resolve se o evento entrou).
+   - **Outro** → nada muda no documento; 400 com "Cancelamento recusado pela SEFAZ: {cStat} - {motivo}".
+   - **`NfeCommunicationException`** → nada muda; 400 com "Sem resposta da SEFAZ no cancelamento: use Consultar
+     situação antes de tentar de novo." (a consulta resolve se o evento entrou).
 7. Retorno: `NfeIssueOutcomeDto` (mesmo DTO da emissão; o frontend usa `nfeOutcomeMessage`).
 
 ### 7.3 Fase 1 (fiscal) e fase 2 (local)
@@ -148,15 +148,18 @@ Ajustes de regra:
   do evento; `SaveChanges`. Fica gravada mesmo que a fase 2 falhe.
 - **Fase 2:** `CancelCoreAsync(doc, userName)`. Sucesso → `NfeCancellationError = NULL`. Exceção → mensagem em
   `NfeCancellationError` (500 caracteres), `SaveChanges`, e a resposta diz "NF-e cancelada na SEFAZ; o estorno
-  local falhou: … Use Concluir cancelamento." A fase 2 **não** roda o ensaio de novo para recusar: se uma regra
-  local mudou entre as fases, o erro aparece aqui e o usuário resolve e conclui.
+  local falhou: … Use Concluir cancelamento." A fase 2 roda as mesmas checagens de negócio do ensaio (é o
+  cancelamento comum sem a trava da NF-e): se uma regra mudou entre as fases, a recusa vira o erro da fase 2 e o
+  usuário resolve e conclui.
 
 ### 7.4 Consulta reconhece o cancelamento
 
-`NfeConsultServiceBase`: documento com `NfeStatus = Authorized` (ou `Cancelled` com documento ativo) e consulta com
-cStat **101** → fase 1 com o `procEventoNFe` da resposta (sem ele: só status, código e motivo; protocolo e data
-ficam nulos e a justificativa recebe "Cancelada fora do Siagro") e fase 2. É o caminho para timeout no envio e
-para nota cancelada por fora.
+`NfeConsultServiceBase`: passa a aceitar também `NfeStatus = Authorized` ("Consultar situação" aparece para a NF-e
+autorizada). cStat **101** → fase 1 com o `procEventoNFe` da resposta (sem ele: protocolo e data nulos; a
+justificativa vem do `xJust` do evento ou recebe "Cancelada fora do Siagro") e fase 2. Outro retorno → nada é
+gravado; a resposta mostra o cStat e o motivo. Falha de comunicação numa autorizada → 400, nada gravado (o
+"último retorno" da autorização não é sobrescrito). `Cancelled` com documento ativo não é consultado: o caminho é
+"Concluir cancelamento". É o caminho para timeout no envio e para nota cancelada por fora.
 
 ### 7.5 "Concluir cancelamento"
 
@@ -169,6 +172,8 @@ a trava `nfe:{key}`.
   `Authorized` e `Cancelled` — "Documento com NF-e emitida não pode ser estornado; use o cancelamento."
 - `SalesInvoiceNfeLock`/`PurchaseInvoiceNfeLock`: `Cancelled` congela como `Authorized` (cabeçalho, linhas, campos
   fiscais) e `EnsureDeletable` recusa.
+- Emissão (`NfeIssueServiceBase`): `Cancelled` recusado — "A NF-e deste documento foi cancelada: o número não pode
+  ser reutilizado."
 - Guardas existentes que testam `Authorized` (devolução, recusa de carga, aplicar tributação, itens,
   `NfeCompleteConfirmation`) continuam recusando `Cancelled` porque testam igualdade com `Authorized` — conferir
   cada um no plano.
@@ -181,8 +186,9 @@ Ações no padrão de `Web/Actions/Nfe/` (`DefaultException` → 400, `NotFoundE
 
 - `SalesInvoicesCancelNfe(Key, Justification)` / `PurchaseInvoicesCancelNfe(Key, Justification)`.
 - `SalesInvoicesCompleteNfeCancellation(Key)` / `PurchaseInvoicesCompleteNfeCancellation(Key)`.
-- Download de XML (`*NfeXmlController`): parâmetro de tipo (`Authorized` padrão, `CancellationEvent`); arquivo
-  `{chave}-procEventoNFe.xml`.
+- Download do XML do evento: functions novas `SalesInvoicesNfeCancellationXml(Key)` /
+  `PurchaseInvoicesNfeCancellationXml(Key)` (as do procNFe ficam como estão — mudar a assinatura de uma function
+  OData muda a rota); arquivo `{chave}-procEventoNFe.xml`.
 
 Reports: `DanfeReportService` passa `documentoCancelado = true` quando `NfeStatus = Cancelled`.
 
