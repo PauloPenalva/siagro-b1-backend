@@ -4,6 +4,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
 
@@ -418,4 +419,19 @@ public class ShipmentLoadsAttachTransactionsServiceTests
         Assert.Null((await _db.Context.StorageTransactions.SingleAsync()).ShipmentLoadKey);
     }
 
+    [Fact]
+    public async Task Deferred_mode_attaches_without_touching_the_transaction()
+    {
+        var load = Load();
+        var shipment = Shipment("ROM-DEF");
+        await _db.SaveChangesAsync();
+        var counting = new CountingUnitOfWork((UnitOfWork)_db);
+
+        await new ShipmentLoadsAttachTransactionsService(counting, new ShipmentLoadsMovementLogService(_db.Context))
+            .ExecuteAsync(load.Key, [shipment.Key], null, "tester", CommitMode.Deferred);
+
+        Assert.Equal(0, counting.Begins);
+        Assert.Equal(0, counting.Commits);
+        Assert.Equal(load.Key, (await _db.Context.StorageTransactions.AsNoTracking().SingleAsync(x => x.Key == shipment.Key)).ShipmentLoadKey);
+    }
 }

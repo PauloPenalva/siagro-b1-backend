@@ -41,7 +41,13 @@ public class ShippingTransactionsCreateService(
     ShipmentReleasesRecalculateShippedService recalcShipped,
     IStorageAddressBalanceReader balanceReader)
 {
-    public async Task<ShippingTransaction> ExecuteAsync(Guid? purchaseContractKey, StorageTransaction purchase, string userName)
+    /// <param name="commitMode">
+    /// <c>Auto</c> (telas atuais): abre, confirma e desfaz a própria transação e recalcula a liberação depois do commit.
+    /// <c>Deferred</c>: quem chama é o dono da transação — nada de Begin/Commit/Rollback aqui, e o recálculo da
+    /// liberação (<see cref="ShipmentReleasesRecalculateShippedService"/>) fica com quem chama, DEPOIS do commit dele.
+    /// </param>
+    public async Task<ShippingTransaction> ExecuteAsync(
+        Guid? purchaseContractKey, StorageTransaction purchase, string userName, CommitMode commitMode = CommitMode.Auto)
     {
         var release = await ResolveReleaseAsync(purchase);
         var lot = await ShipmentReleaseLotRules.ResolveAsync(
@@ -56,9 +62,11 @@ public class ShippingTransactionsCreateService(
         if (!embarqueSemPernaDeCompra && !purchaseContractKey.HasValue)
             throw new ApplicationException("Contrato de compra é obrigatório para este embarque.");
 
+        var ownsTransaction = commitMode == CommitMode.Auto;
+
         try
         {
-            await unitOfWork.BeginTransactionAsync();
+            if (ownsTransaction) await unitOfWork.BeginTransactionAsync();
 
             StorageTransaction salesCreated;
 
@@ -116,6 +124,9 @@ public class ShippingTransactionsCreateService(
 
             await unitOfWork.SaveChangesAsync();
 
+            if (!ownsTransaction)
+                return shipping;
+
             await unitOfWork.CommitAsync();
 
             // Fora da transação e explícito: os hooks de ShippedQuantity em
@@ -131,7 +142,7 @@ public class ShippingTransactionsCreateService(
         }
         catch (Exception e)
         {
-            await unitOfWork.RollbackAsync();
+            if (ownsTransaction) await unitOfWork.RollbackAsync();
             throw new ApplicationException(e.Message);
         }
     }
