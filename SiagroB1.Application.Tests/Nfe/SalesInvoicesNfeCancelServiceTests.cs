@@ -323,4 +323,63 @@ public class SalesInvoicesNfeCancelServiceTests
 
         Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
     }
+
+    [Fact]
+    public async Task Duplicate_event_resolved_by_an_out_of_time_consult_151_cancels()
+    {
+        var (scenario, sefaz) = await AuthorizedAsync();
+        sefaz.CancelResponses.Enqueue(_ => new NfeEventResult(573, "Rejeição: Duplicidade de evento"));
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, status: 151));
+
+        var outcome = await SalesCancel(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester");
+
+        Assert.Equal(NfeStatus.Cancelled, outcome.NfeStatus);
+        Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
+        Assert.Equal(FakeNfeSefazClient.CancellationProtocol,
+            (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync()).NfeCancellationProtocol);
+    }
+
+    [Fact]
+    public async Task Duplicate_event_resolved_by_a_consult_without_the_event_keeps_the_typed_justification()
+    {
+        var (scenario, sefaz) = await AuthorizedAsync();
+        sefaz.CancelResponses.Enqueue(_ => new NfeEventResult(573, "Rejeição: Duplicidade de evento"));
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, withEvent: false));
+
+        await SalesCancel(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester");
+
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(NfeStatus.Cancelled, saved.NfeStatus);
+        Assert.Equal(Reason, saved.NfeCancellationReason);
+    }
+
+    [Fact]
+    public async Task Failure_saving_the_registered_cancellation_asks_to_consult_and_keeps_the_nfe_authorized()
+    {
+        var (scenario, sefaz) = await AuthorizedAsync();
+        sefaz.CancelResponses.Enqueue(r => FakeNfeSefazClient.CancellationRegistered(r.AccessKey));
+        var failingDb = TestDb.CreateUnitOfWork(scenario.DatabaseName, new ThrowOnSaveInterceptor(
+            e => e.Entity is Domain.Entities.SalesInvoiceNfeXml && e.State == EntityState.Added));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            SalesCancel(failingDb, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester"));
+
+        Assert.Equal("A SEFAZ pode ter registrado o cancelamento, mas ele não foi gravado: use Consultar situação.", ex.Message);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(NfeStatus.Authorized, saved.NfeStatus);
+        Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Unexpected_failure_sending_the_event_asks_to_consult_and_changes_nothing()
+    {
+        var (scenario, sefaz) = await AuthorizedAsync();
+        sefaz.CancelResponses.Enqueue(_ => throw new InvalidOperationException("Falha de TLS."));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            SalesCancel(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester"));
+
+        Assert.Equal("Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.", ex.Message);
+        Assert.Equal(NfeStatus.Authorized, (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync()).NfeStatus);
+    }
 }

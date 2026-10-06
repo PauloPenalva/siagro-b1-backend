@@ -228,4 +228,22 @@ public class NfeSefazResponseMapperTests
         Assert.Equal(101, result.StatusCode);
         Assert.Null(result.CancellationEvent);
     }
+
+    [Fact]
+    public void Consult_of_out_of_time_cancelled_nfe_151_returns_the_cancellation_event()
+    {
+        var result = NfeSefazResponseMapper.FromConsult(new retConsSitNFe
+        {
+            cStat = 151, xMotivo = "Cancelamento de NF-e homologado fora de prazo", protNFe = Protocol(100, "Autorizado o uso da NF-e"),
+            procEventoNFe = [CancellationEvent(155)],
+        });
+
+        Assert.Equal(151, result.StatusCode);
+        Assert.True(NfeStatusCodes.IsCancelledConsult(result.StatusCode));
+        Assert.True(NfeStatusCodes.IsCancelledConsult(101));
+        Assert.False(NfeStatusCodes.IsCancelledConsult(100));
+        Assert.NotNull(result.CancellationEvent);
+        Assert.Equal("135260000000099", result.CancellationEvent!.Protocol);
+        Assert.Equal("Venda desfeita pelo cliente", result.CancellationEvent.Justification);
+    }
 }

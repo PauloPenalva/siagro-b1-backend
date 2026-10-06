@@ -12,6 +12,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
+using SiagroB1.Application.Services.Nfe;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
@@ -92,8 +93,12 @@ public class SalesInvoicesReturnService(
     /// </summary>
     private async Task EnsureNotIssuedBySiagroAsync(SalesInvoice origin)
     {
-        if (gate is not null && origin.NfeStatus == NfeStatus.Authorized && await gate.IsActiveAsync(origin.BranchCode))
+        if (gate is not null && NfeLockRules.IsFrozen(origin.NfeStatus) && await gate.IsActiveAsync(origin.BranchCode))
         {
+            // NF-e cancelada (cancelamento local pendente): não há o que devolver.
+            if (origin.NfeStatus == NfeStatus.Cancelled)
+                throw new DefaultException(NfeLockRules.CancelledMessage);
+
             // Sem romaneio nem carga o botão certo é o Devolver (NF-e de devolução), não este.
             if (origin.SalesTransactions.Count == 0 && origin.ShipmentLoadKey == null)
                 throw new DefaultException(

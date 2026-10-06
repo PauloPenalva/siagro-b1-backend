@@ -48,17 +48,23 @@ public static class NfeCancelTestServices
     public static SalesInvoiceNfeCancellationHandler SalesHandler(UnitOfWork db, SalesInvoicesCancelService? cancel = null) =>
         new(db, cancel ?? SalesInvoicesCancelServiceTests.Service(db), NullLogger<SalesInvoiceNfeCancellationHandler>.Instance);
 
-    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(UnitOfWork db) =>
-        new(db, new PurchaseInvoicesCancelService(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
+    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(UnitOfWork db, PurchaseInvoicesCancelService? cancel = null) =>
+        new(db, cancel ?? new PurchaseInvoicesCancelService(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
 
     public static SalesInvoicesNfeCancelService SalesCancel(
         UnitOfWork db, FakeNfeSefazClient sefaz, SalesInvoicesCancelService? cancel = null,
         FakeNfeNumberReservationService? reservation = null) =>
-        new(db, Settings(db, sefaz), sefaz, SalesHandler(db, cancel), reservation ?? new FakeNfeNumberReservationService());
+        new(db, Settings(db, sefaz), sefaz, SalesHandler(db, cancel), reservation ?? new FakeNfeNumberReservationService(),
+            NullLogger<SalesInvoicesNfeCancelService>.Instance);
 
     public static SalesInvoicesNfeCompleteCancellationService SalesComplete(UnitOfWork db, SalesInvoicesCancelService? cancel = null) =>
         new(db, SalesHandler(db, cancel), new FakeNfeNumberReservationService());
 
-    public static PurchaseInvoicesNfeCancelService PurchaseCancel(UnitOfWork db, FakeNfeSefazClient sefaz) =>
-        new(db, Settings(db, sefaz), sefaz, PurchaseHandler(db), new FakeNfeNumberReservationService());
+    public static PurchaseInvoicesNfeCancelService PurchaseCancel(
+        UnitOfWork db, FakeNfeSefazClient sefaz, PurchaseInvoicesCancelService? cancel = null) =>
+        new(db, Settings(db, sefaz), sefaz, PurchaseHandler(db, cancel), new FakeNfeNumberReservationService(),
+            NullLogger<PurchaseInvoicesNfeCancelService>.Instance);
+
+    public static PurchaseInvoicesNfeCompleteCancellationService PurchaseComplete(UnitOfWork db, PurchaseInvoicesCancelService? cancel = null) =>
+        new(db, PurchaseHandler(db, cancel), new FakeNfeNumberReservationService());
 }

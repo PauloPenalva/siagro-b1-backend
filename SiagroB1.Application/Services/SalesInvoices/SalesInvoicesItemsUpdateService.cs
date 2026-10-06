@@ -140,9 +140,10 @@ public class SalesInvoicesItemsUpdateService(
         if (invoice is null || !await taxApply.IsActiveForAsync(invoice))
             return;
 
-        // Pendente com NF-e autorizada (a confirmação falhou ou foi estornada): o que foi ao XML
-        // não se recalcula — um recálculo com alíquota ou natureza novas descolaria a linha da nota.
-        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending && invoice.NfeStatus != NfeStatus.Authorized)
+        // Pendente com NF-e autorizada (a confirmação falhou ou foi estornada) ou cancelada (o cancelamento
+        // local falhou): o que foi ao XML não se recalcula — um recálculo com alíquota ou natureza novas
+        // descolaria a linha da nota.
+        if (invoice.InvoiceStatus is null or InvoiceStatus.Pending && !NfeLockRules.IsFrozen(invoice.NfeStatus))
         {
             if (SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             {

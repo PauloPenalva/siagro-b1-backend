@@ -21,22 +21,35 @@ public abstract class NfeCancellationHandlerBase<TDocument>(IUnitOfWork db, INfe
     /// <summary>Justificativa gravada quando a nota foi cancelada fora do Siagro e a consulta não trouxe o evento.</summary>
     public const string UnknownReason = "Cancelada fora do Siagro";
 
+    public const string NotSavedMessage =
+        "A SEFAZ pode ter registrado o cancelamento, mas ele não foi gravado: use Consultar situação.";
+
     public async Task<NfeIssueOutcomeDto> ApplyRegisteredAsync(
         TDocument document, NfeEventResult result, string? justification, string userName)
     {
-        if (result.ProcEventXml is not null)
-            store.AddXml(document, NfeXmlKind.CancellationEvent, result.ProcEventXml);
+        try
+        {
+            if (result.ProcEventXml is not null)
+                store.AddXml(document, NfeXmlKind.CancellationEvent, result.ProcEventXml);
 
-        document.NfeStatus = NfeStatus.Cancelled;
-        document.NfeCancellationProtocol = result.Protocol;
-        document.NfeCancelledAt = result.RegisteredAt?.DateTime;
-        document.NfeCancellationReason = justification ?? result.Justification ?? UnknownReason;
-        document.NfeStatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
-        document.NfeStatusReason = NfeStatusText.Truncate(result.Reason);
-        document.NfeCancellationError = null;
+            document.NfeStatus = NfeStatus.Cancelled;
+            document.NfeCancellationProtocol = result.Protocol;
+            document.NfeCancelledAt = result.RegisteredAt?.DateTime;
+            document.NfeCancellationReason = justification ?? result.Justification ?? UnknownReason;
+            document.NfeStatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
+            document.NfeStatusReason = NfeStatusText.Truncate(result.Reason);
+            document.NfeCancellationError = null;
 
-        // A NF-e cancelada vai para o banco ANTES do cancelamento do documento.
-        await db.SaveChangesAsync();
+            // A NF-e cancelada vai para o banco ANTES do cancelamento do documento.
+            await db.SaveChangesAsync();
+        }
+        catch (Exception e)
+        {
+            // A SEFAZ já registrou, mas o banco não: nada foi gravado, e a consulta refaz a fase 1.
+            logger.LogError(e, "Falha ao gravar o cancelamento registrado na SEFAZ do documento {InvoiceKey}.", document.Key);
+            db.Context.ChangeTracker.Clear();
+            throw new DefaultException(NotSavedMessage);
+        }
 
         return await CompleteLocalAsync(document.Key, userName);
     }

@@ -322,4 +322,17 @@ public class PurchaseInvoicesTaxApplyTests
         var line = await seed.Db.Context.PurchaseInvoicesItems.AsNoTracking().SingleAsync();
         Assert.Equal((100m, (string?)null, 0m), (line.FreightValue, line.Cfop, line.IcmsBase));
     }
+
+    [Fact]
+    public async Task Pending_entry_with_cancelled_nfe_is_not_recalculated()
+    {
+        var seed = await SeedAsync();
+        var invoice = OwnEntry(seed.PurchaseUsage);
+        invoice.InvoiceStatus = InvoiceStatus.Pending;
+        invoice.NfeStatus = NfeStatus.Cancelled;
+
+        await TaxTestServices.PurchaseApply(seed.Db, seed.Partners).ApplyAsync(invoice, invoice.Items);
+
+        Assert.Null(invoice.Items.Single().Cfop);
+    }
 }

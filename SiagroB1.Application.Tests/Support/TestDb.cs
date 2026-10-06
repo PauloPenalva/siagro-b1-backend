@@ -34,10 +34,13 @@ public static class TestDb
     /// <c>SaveChanges</c> falhas que o provider InMemory não reproduz sozinho (ex.: violação de
     /// índice único), já que ele não aplica constraints de banco real.
     /// </summary>
-    public static UnitOfWork CreateUnitOfWork(IInterceptor interceptor)
+    public static UnitOfWork CreateUnitOfWork(IInterceptor interceptor) => CreateUnitOfWork(Guid.NewGuid().ToString(), interceptor);
+
+    /// <summary>A base InMemory nomeada (a de um cenário já semeado), com um <see cref="IInterceptor"/> plugado.</summary>
+    public static UnitOfWork CreateUnitOfWork(string databaseName, IInterceptor interceptor)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName)
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .AddInterceptors(interceptor)
             .Options;

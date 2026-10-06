@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -12,8 +13,9 @@ public class PurchaseInvoicesNfeCancelService(
     BranchNfeSettingsService settingsService,
     INfeSefazClient sefaz,
     PurchaseInvoiceNfeCancellationHandler handler,
-    NfeNumberReservationService reservation)
-    : NfeCancelServiceBase<PurchaseInvoice>(new PurchaseInvoiceNfeStore(db), settingsService, sefaz, handler, reservation)
+    NfeNumberReservationService reservation,
+    ILogger<PurchaseInvoicesNfeCancelService> logger)
+    : NfeCancelServiceBase<PurchaseInvoice>(new PurchaseInvoiceNfeStore(db), settingsService, sefaz, handler, reservation, logger)
 {
     protected override void EnsureIssuer(PurchaseInvoice document)
     {

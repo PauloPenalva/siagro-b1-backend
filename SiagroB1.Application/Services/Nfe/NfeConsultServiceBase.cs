@@ -33,7 +33,7 @@ public abstract class NfeConsultServiceBase<TDocument>(
         var invoice = await store.FindAsync(key) ?? throw new NotFoundException(store.NotFoundMessage);
 
         // Autorizada: a consulta só serve para descobrir um cancelamento feito por fora ou cujo
-        // envio ficou sem resposta (cStat 101). Nada mais é gravado.
+        // envio ficou sem resposta (cStat 101 ou 151). Nada mais é gravado.
         if (invoice.NfeStatus == NfeStatus.Authorized)
             return await ConsultAuthorizedAsync(invoice, userName);
 
@@ -92,7 +92,7 @@ public abstract class NfeConsultServiceBase<TDocument>(
             throw new DefaultException("Sem resposta da SEFAZ na consulta — tente de novo em instantes.");
         }
 
-        if (result.StatusCode == NfeStatusCodes.Cancelled)
+        if (NfeStatusCodes.IsCancelledConsult(result.StatusCode))
             return await cancellationHandler.ApplyRegisteredAsync(
                 invoice, result.CancellationEvent ?? new NfeEventResult(result.StatusCode, result.Reason), null, userName);
 

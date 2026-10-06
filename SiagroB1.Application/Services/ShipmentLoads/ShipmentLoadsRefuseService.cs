@@ -11,6 +11,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
+using SiagroB1.Application.Services.Nfe;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
@@ -84,17 +85,23 @@ public class ShipmentLoadsRefuseService(
             return;
 
         var keys = request.Lines.Select(l => l.SalesInvoiceKey).ToList();
-        var branches = await db.Context.SalesInvoices.AsNoTracking()
-            .Where(i => keys.Contains(i.Key) && i.NfeStatus == NfeStatus.Authorized)
-            .Select(i => i.BranchCode)
+        // Autorizada ou cancelada (NfeLockRules.IsFrozen) — escrito por extenso para o EF traduzir.
+        var issued = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(i => keys.Contains(i.Key) && (i.NfeStatus == NfeStatus.Authorized || i.NfeStatus == NfeStatus.Cancelled))
+            .Select(i => new { i.BranchCode, i.NfeStatus })
             .Distinct()
             .ToListAsync();
 
-        foreach (var branch in branches)
+        foreach (var invoice in issued)
         {
-            if (await gate.IsActiveAsync(branch))
-                throw new DefaultException(
-                    "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
+            if (!await gate.IsActiveAsync(invoice.BranchCode))
+                continue;
+
+            if (invoice.NfeStatus == NfeStatus.Cancelled)
+                throw new DefaultException(NfeLockRules.CancelledMessage);
+
+            throw new DefaultException(
+                "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
         }
     }
 

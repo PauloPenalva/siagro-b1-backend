@@ -59,6 +59,9 @@ public static class NfeStatusCodes
     /// <summary>Consulta: NF-e cancelada (o topo é 101; o protNFe ainda traz a autorização original).</summary>
     public const int Cancelled = 101;
 
+    /// <summary>Consulta: NF-e cancelada — 101, ou 151 (cancelamento homologado fora de prazo).</summary>
+    public static bool IsCancelledConsult(int code) => code is Cancelled or 151;
+
     /// <summary>573: o evento já está registrado na SEFAZ — resolver pela consulta.</summary>
     public const int DuplicateEvent = 573;
 
@@ -96,7 +99,7 @@ internal static class NfeSefazResponseMapper
             && (NfeStatusCodes.IsAuthorized(response.cStat) || NfeStatusCodes.IsDenied(response.cStat)))
             return FromProtocol(response.protNFe);
 
-        var cancellation = response.cStat == NfeStatusCodes.Cancelled
+        var cancellation = NfeStatusCodes.IsCancelledConsult(response.cStat)
             ? response.procEventoNFe?
                 .Where(e => e.evento?.infEvento?.tpEvento == NFeTipoEvento.TeNfeCancelamento
                             && e.retEvento?.infEvento is { } info && NfeStatusCodes.IsCancellationRegistered(info.cStat))

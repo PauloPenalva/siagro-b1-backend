@@ -226,4 +226,21 @@ public class SalesInvoicesNfeConsultServiceTests
         Assert.Equal("100", saved.NfeStatusCode);
         Assert.Equal("Autorizado o uso da NF-e", saved.NfeStatusReason);
     }
+
+    [Fact]
+    public async Task Consult_of_authorized_nfe_cancelled_out_of_time_151_cancels_the_document()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, status: 151));
+        var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
+
+        var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Cancelled, outcome.NfeStatus);
+        Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
+        var saved = await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(FakeNfeSefazClient.CancellationProtocol, saved.NfeCancellationProtocol);
+    }
 }

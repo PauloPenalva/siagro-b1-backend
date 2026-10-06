@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -16,11 +17,15 @@ public abstract class NfeCancelServiceBase<TDocument>(
     BranchNfeSettingsService settingsService,
     INfeSefazClient sefaz,
     NfeCancellationHandlerBase<TDocument> handler,
-    NfeNumberReservationService reservation)
+    NfeNumberReservationService reservation,
+    ILogger logger)
     where TDocument : class, INfeDocument
 {
     public const int MinJustificationLength = 15;
     public const int MaxJustificationLength = 255;
+
+    public const string NoAnswerMessage =
+        "Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.";
 
     public async Task<NfeIssueOutcomeDto> ExecuteAsync(Guid key, string? justification, string userName)
     {
@@ -70,7 +75,13 @@ public abstract class NfeCancelServiceBase<TDocument>(
         }
         catch (NfeCommunicationException)
         {
-            throw new DefaultException("Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.");
+            throw new DefaultException(NoAnswerMessage);
+        }
+        catch (Exception e) when (e is not DefaultException)
+        {
+            // Certificado, TLS, retorno ilegível: a situação real na SEFAZ é desconhecida, como no "sem resposta".
+            logger.LogError(e, "Falha inesperada ao enviar o cancelamento da NF-e do documento {InvoiceKey}.", key);
+            throw new DefaultException(NoAnswerMessage);
         }
 
         if (NfeStatusCodes.IsCancellationRegistered(result.StatusCode))
@@ -86,12 +97,14 @@ public abstract class NfeCancelServiceBase<TDocument>(
             }
             catch (NfeCommunicationException)
             {
-                throw new DefaultException("Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.");
+                throw new DefaultException(NoAnswerMessage);
             }
 
-            if (consult.StatusCode == NfeStatusCodes.Cancelled)
+            // Com o evento vale o xJust da SEFAZ; sem ele, a justificativa que o usuário digitou.
+            if (NfeStatusCodes.IsCancelledConsult(consult.StatusCode))
                 return await handler.ApplyRegisteredAsync(
-                    invoice, consult.CancellationEvent ?? new NfeEventResult(consult.StatusCode, consult.Reason), null, userName);
+                    invoice, consult.CancellationEvent ?? new NfeEventResult(consult.StatusCode, consult.Reason),
+                    consult.CancellationEvent is null ? reason : null, userName);
 
             throw new DefaultException(
                 $"A SEFAZ informou evento duplicado, mas a consulta não confirmou o cancelamento: {consult.StatusCode} - {consult.Reason}");

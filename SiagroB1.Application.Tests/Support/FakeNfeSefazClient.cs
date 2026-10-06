@@ -73,8 +73,8 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         $"<procEventoNFe versao=\"1.00\"><evento><infEvento><chNFe>{accessKey}</chNFe><tpEvento>110111</tpEvento></infEvento></evento>" +
         $"<retEvento><infEvento><cStat>{status}</cStat><nProt>{CancellationProtocol}</nProt></infEvento></retEvento></procEventoNFe>");
 
-    public static NfeSefazResult ConsultCancelled(string accessKey, bool withEvent = true) => new(
-        101, "Cancelamento de NF-e homologado",
+    public static NfeSefazResult ConsultCancelled(string accessKey, bool withEvent = true, int status = 101) => new(
+        status, status == 151 ? "Cancelamento de NF-e homologado fora de prazo" : "Cancelamento de NF-e homologado",
         CancellationEvent: withEvent
             ? CancellationRegistered(accessKey) with { Justification = "Cancelada direto no portal da SEFAZ" }
             : null);

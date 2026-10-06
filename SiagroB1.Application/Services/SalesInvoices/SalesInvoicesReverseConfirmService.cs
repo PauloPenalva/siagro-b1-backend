@@ -36,7 +36,7 @@ public class SalesInvoicesReverseConfirmService(
         if (invoice.IsNfeReturn)
         {
             throw new DefaultException(
-                "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e de devolução, recurso da próxima etapa.");
+                "A devolução com NF-e não pode ser estornada: ela só sai pelo cancelamento da NF-e (botão Cancelar do documento).");
         }
 
         // NF-e emitida continua valendo na SEFAZ: desfazer saldo e alocação dela deixaria a nota

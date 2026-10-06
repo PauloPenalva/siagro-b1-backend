@@ -226,6 +226,27 @@ public class PurchaseInvoicesNfeIssueServiceTests
     }
 
     [Fact]
+    public async Task Consult_of_authorized_entry_cancelled_at_sefaz_cancels_the_document()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await NfeCancelTestServices.AuthorizePurchaseAsync(scenario.Db, scenario.InvoiceKey);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key));
+
+        var outcome = await new PurchaseInvoicesNfeConsultService(
+                scenario.Db, new BranchNfeSettingsService(scenario.Db, new NfeOptions(NfeTestSeed.Config()), sefaz), sefaz,
+                Handler(scenario), NfeCancelTestServices.PurchaseHandler(scenario.Db), new FakeNfeNumberReservationService(),
+                NullLogger<PurchaseInvoicesNfeConsultService>.Instance)
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Cancelled, outcome.NfeStatus);
+        Assert.Equal(InvoiceStatus.Cancelled, outcome.InvoiceStatus);
+        var saved = await ReloadAsync(scenario);
+        Assert.Equal("Cancelada direto no portal da SEFAZ", saved.NfeCancellationReason);
+        Assert.Equal(FakeNfeSefazClient.CancellationProtocol, saved.NfeCancellationProtocol);
+    }
+
+    [Fact]
     public async Task Authorized_entry_xml_is_downloaded()
     {
         var scenario = await PurchaseNfeTestSeed.SeedAsync();
