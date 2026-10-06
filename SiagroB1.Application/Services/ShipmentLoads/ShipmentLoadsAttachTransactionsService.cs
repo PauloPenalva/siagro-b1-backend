@@ -31,7 +31,7 @@ public class ShipmentLoadsAttachTransactionsService(
     /// <c>Auto</c>: abre, confirma e desfaz a própria transação. <c>Deferred</c>: quem chama é o dono da
     /// transação — nada de Begin/Commit/Rollback aqui (os SaveChanges continuam).
     /// </param>
-    public async Task<ShipmentLoad> ExecuteAsync(
+    public virtual async Task<ShipmentLoad> ExecuteAsync(
         Guid shipmentLoadKey,
         ICollection<Guid> storageTransactionKeys,
         Guid? transshipmentKey,

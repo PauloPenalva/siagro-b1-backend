@@ -469,6 +469,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsUpdateService>();
         services.AddScoped<ShipmentLoadsDeleteService>();
         services.AddScoped<ShipmentLoadsAttachTransactionsService>();
+        services.AddScoped<ShipmentLoadsShipService>();
         services.AddScoped<ShipmentLoadsDetachTransactionsService>();
         // GAC-1175 — carga de remoção
         services.AddScoped<ShipmentLoadsCompleteService>();
