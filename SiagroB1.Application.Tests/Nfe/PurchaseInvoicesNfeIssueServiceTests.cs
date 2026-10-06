@@ -113,6 +113,9 @@ public class PurchaseInvoicesNfeIssueServiceTests
             new SalesInvoiceNfeResultHandler(scenario.Db, new RecordingConfirmService(scenario.Db), NullLogger<SalesInvoiceNfeResultHandler>.Instance),
             options, NullLogger<SalesInvoicesNfeIssueService>.Instance, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
 
+        // O documento de saída Normal é transmitido já Confirmado (spec 2026-10-06 D1).
+        (await scenario.Db.Context.SalesInvoices.SingleAsync(i => i.Key == scenario.SaleKey)).InvoiceStatus = InvoiceStatus.Confirmed;
+        await scenario.Db.SaveChangesAsync();
         await saleIssue.ExecuteAsync(scenario.SaleKey, "tester");
         await Issue(scenario, sefaz, reservation).ExecuteAsync(scenario.InvoiceKey, "tester");
 

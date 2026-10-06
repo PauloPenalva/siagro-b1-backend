@@ -37,7 +37,11 @@ public static class NfeTestSeed
             ["Nfe:TechnicalResponsible:Phone"] = "1533334444",
         }).Build();
 
-    public static async Task<NfeScenario> SeedAsync()
+    /// <param name="status">
+    /// Situação do documento de saída. O documento Normal é transmitido já Confirmado (spec 2026-10-06 D1); o padrão
+    /// Pendente fica para quem testa o que vem antes da confirmação (cancelamento, conclusão de confirmação, travas).
+    /// </param>
+    public static async Task<NfeScenario> SeedAsync(InvoiceStatus status = InvoiceStatus.Pending)
     {
         var name = Guid.NewGuid().ToString();
         var db = TestDb.CreateUnitOfWork(name);
@@ -111,7 +115,7 @@ public static class NfeTestSeed
         var invoice = new SalesInvoice
         {
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = CardCode, CardName = "CLIENTE BA LTDA",
-            InvoiceType = SalesInvoiceType.Normal, InvoiceStatus = InvoiceStatus.Pending, InvoiceNumber = "000002388",
+            InvoiceType = SalesInvoiceType.Normal, InvoiceStatus = status, InvoiceNumber = "000002388",
             InvoiceDate = new DateTime(2026, 10, 2), GrossWeight = 30500m, NetWeight = 30000m,
             TruckingCompanyCode = "T-001", TruckCode = "ABC-1D23", FreightTerms = FreightTerms.Cif,
             PaymentConditionCode = condition.Code, TaxPayerComments = "Pedido do cliente 77",

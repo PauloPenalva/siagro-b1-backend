@@ -47,14 +47,16 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_after_no_response_authorizes_from_the_saved_signed_xml()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, confirm, consult) = await ProcessingAsync(scenario);
         sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
 
         var outcome = await consult.ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
-        Assert.Equal(1, confirm.Calls);
+        Assert.Equal(0, confirm.Calls);
+        Assert.Equal(InvoiceStatus.Confirmed,
+            (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == scenario.InvoiceKey)).InvoiceStatus);
         var signed = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == NfeXmlKind.Signed);
         var proc = await scenario.Db.Context.SalesInvoiceNfeXmls.AsNoTracking().SingleAsync(x => x.Kind == NfeXmlKind.Authorized);
         Assert.Contains(signed.Xml[signed.Xml.IndexOf("<NFe", StringComparison.Ordinal)..].Trim(), proc.Xml);
@@ -63,7 +65,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Not_found_at_sefaz_becomes_rejected_and_can_be_resent()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, _, consult) = await ProcessingAsync(scenario);
         sefaz.ConsultResponses.Enqueue(_ => new NfeSefazResult(217, "Rejeição: NF-e não consta na base de dados da SEFAZ"));
 
@@ -75,7 +77,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Other_answers_keep_processing_with_the_reason()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, _, consult) = await ProcessingAsync(scenario);
         sefaz.ConsultResponses.Enqueue(_ => new NfeSefazResult(656, "Rejeição: Consumo Indevido"));
 
@@ -88,7 +90,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Only_processing_documents_are_consulted()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var sefaz = new FakeNfeSefazClient();
         var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db));
 
@@ -111,7 +113,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_while_an_emission_is_in_progress_is_refused_without_calling_sefaz()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, _, _) = await ProcessingAsync(scenario);
         var reservation = new FakeNfeNumberReservationService { EmissionBusy = true };
         var (_, consult) = Services(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation);
@@ -125,7 +127,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Communication_failure_keeps_processing_and_clears_the_stale_status_code()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, _, consult) = await ProcessingAsync(scenario);
         (await scenario.Db.Context.SalesInvoices.SingleAsync()).NfeStatusCode = "656";
         await scenario.Db.SaveChangesAsync();
@@ -144,7 +146,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Unexpected_failure_keeps_processing_with_the_technical_detail()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         var (sefaz, _, consult) = await ProcessingAsync(scenario);
         (await scenario.Db.Context.SalesInvoices.SingleAsync()).NfeStatusCode = "656";
         await scenario.Db.SaveChangesAsync();
@@ -161,7 +163,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_of_authorized_nfe_cancelled_at_sefaz_cancels_the_document()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key));
@@ -179,7 +181,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_of_cancelled_nfe_without_the_event_records_the_unknown_reason()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, withEvent: false));
@@ -197,7 +199,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_of_authorized_nfe_still_authorized_changes_nothing()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
@@ -213,7 +215,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_of_authorized_nfe_without_answer_keeps_the_last_return()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(_ => throw new NfeCommunicationException("Tempo esgotado."));
@@ -230,7 +232,7 @@ public class SalesInvoicesNfeConsultServiceTests
     [Fact]
     public async Task Consult_of_authorized_nfe_cancelled_out_of_time_151_cancels_the_document()
     {
-        var scenario = await NfeTestSeed.SeedAsync();
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
         await NfeCancelTestServices.AuthorizeSaleAsync(scenario.Db, scenario.InvoiceKey);
         var sefaz = new FakeNfeSefazClient();
         sefaz.ConsultResponses.Enqueue(key => FakeNfeSefazClient.ConsultCancelled(key, status: 151));

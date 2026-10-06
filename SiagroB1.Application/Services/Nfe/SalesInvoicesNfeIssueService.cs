@@ -11,9 +11,10 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Nfe;
 
 /// <summary>
-/// "Emitir NF-e" (spec §9.2). Na filial com a regra ativa, emitir é o que confirma o documento.
-/// Ordem que não pode mudar: reservar o número e SALVAR; assinar e validar; gravar
-/// "Em processamento" + XML assinado e SALVAR; só então enviar.
+/// "Transmitir NF-e" do documento de saída (spec 2026-10-02 §9.2; spec 2026-10-06). O documento Normal é transmitido
+/// já Confirmado e com tipo NF-e; a devolução própria continua Pendente — nela, emitir é o que confirma.
+/// Ordem que não pode mudar: reservar o número e SALVAR; assinar e validar; gravar "Em processamento" + XML assinado e
+/// SALVAR; só então enviar.
 /// </summary>
 public class SalesInvoicesNfeIssueService(
     IUnitOfWork db,
@@ -37,7 +38,17 @@ public class SalesInvoicesNfeIssueService(
         if (invoice.InvoiceType != SalesInvoiceType.Normal && !SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             throw new DefaultException(
                 "Só o documento Normal e a devolução criada pelo Devolver são emitidos como NF-e por aqui.");
+
+        if (!invoice.IsNfeReturn && invoice.TaxDocumentKind != TaxDocumentKind.Nfe)
+            throw new DefaultException("Documento do tipo Outro não é transmitido como NF-e.");
     }
+
+    protected override InvoiceStatus RequiredStatus(SalesInvoice invoice) =>
+        invoice.IsNfeReturn ? InvoiceStatus.Pending : InvoiceStatus.Confirmed;
+
+    protected override string DateFixHint(SalesInvoice invoice) => invoice.IsNfeReturn
+        ? "altere a data e salve (os impostos são recalculados)."
+        : "estorne a confirmação, altere a data e salve (os impostos são recalculados).";
 
     protected override DateTime? DocumentDate(SalesInvoice invoice) => invoice.InvoiceDate;
 

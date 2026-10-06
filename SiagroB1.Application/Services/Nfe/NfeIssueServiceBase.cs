@@ -186,6 +186,15 @@ public abstract class NfeIssueServiceBase<TDocument>(
     /// <summary>Depois da numeração dos itens e antes da montagem/assinatura; grava no próximo SaveChanges.</summary>
     protected virtual void BeforeSigning(TDocument document) { }
 
+    /// <summary>
+    /// Situação que o documento precisa ter para emitir. Padrão: Pendente — "emitir é o que confirma". O documento de
+    /// saída Normal é transmitido já Confirmado (spec 2026-10-06 D1).
+    /// </summary>
+    protected virtual InvoiceStatus RequiredStatus(TDocument document) => InvoiceStatus.Pending;
+
+    /// <summary>O que o operador faz para corrigir a data do documento; vai na recusa da data.</summary>
+    protected virtual string DateFixHint(TDocument document) => "altere a data e salve (os impostos são recalculados).";
+
     private async Task EnsurePreconditionsAsync(TDocument invoice)
     {
         if (!await gate.IsActiveAsync(invoice.BranchCode))
@@ -193,8 +202,11 @@ public abstract class NfeIssueServiceBase<TDocument>(
 
         EnsureIssuableType(invoice);
 
-        if (invoice.InvoiceStatus != InvoiceStatus.Pending)
-            throw new DefaultException("Só documento Pendente pode ser emitido.");
+        var requiredStatus = RequiredStatus(invoice);
+        if (invoice.InvoiceStatus != requiredStatus)
+            throw new DefaultException(requiredStatus == InvoiceStatus.Confirmed
+                ? "Só documento Confirmado pode ter a NF-e transmitida: confirme o documento antes."
+                : "Só documento Pendente pode ser emitido.");
 
         switch (invoice.NfeStatus)
         {
@@ -221,7 +233,7 @@ public abstract class NfeIssueServiceBase<TDocument>(
         if (invoiceDay != today)
             throw new DefaultException(
                 $"A data do documento ({invoiceDay:dd/MM/yyyy}) precisa ser a de hoje para emitir a NF-e: " +
-                "altere a data e salve (os impostos são recalculados).");
+                DateFixHint(invoice));
 
         var lines = Lines(invoice);
         if (lines.Count == 0)
