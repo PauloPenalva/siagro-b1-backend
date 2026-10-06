@@ -367,6 +367,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseInvoicesNfeCancelService>();
         services.AddScoped<PurchaseInvoicesNfeCompleteCancellationService>();
         services.AddScoped<PurchaseInvoicesNfeCancellationXmlDownloadService>();
+        services.AddScoped<SalesInvoicesNfeCorrectionService>();
+        services.AddScoped<PurchaseInvoicesNfeCorrectionService>();
+        services.AddScoped<SalesInvoicesNfeCorrectionXmlDownloadService>();
+        services.AddScoped<PurchaseInvoicesNfeCorrectionXmlDownloadService>();
+        services.AddScoped<SalesInvoicesNfeCorrectionsGetService>();
+        services.AddScoped<PurchaseInvoicesNfeCorrectionsGetService>();
         // Sem estado: uma instância serve a todos (a configuração da Zeus é criada por chamada).
         services.AddSingleton<INfeSefazClient, ZeusNfeSefazClient>();
         services.AddScoped<TaxCalculationGate>();
