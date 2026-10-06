@@ -379,7 +379,9 @@ public class SalesInvoicesNfeCancelServiceTests
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
             SalesCancel(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester"));
 
-        Assert.Equal("Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.", ex.Message);
+        // A falha pode ser local (XSD ausente, certificado): o detalhe técnico vai junto da orientação.
+        Assert.StartsWith("Sem resposta da SEFAZ no cancelamento: use Consultar situação antes de tentar de novo.", ex.Message);
+        Assert.Contains("detalhe técnico", ex.Message);
         Assert.Equal(NfeStatus.Authorized, (await scenario.Db.Context.SalesInvoices.AsNoTracking().SingleAsync()).NfeStatus);
     }
 }

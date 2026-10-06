@@ -80,8 +80,9 @@ public abstract class NfeCancelServiceBase<TDocument>(
         catch (Exception e) when (e is not DefaultException)
         {
             // Certificado, TLS, retorno ilegível: a situação real na SEFAZ é desconhecida, como no "sem resposta".
+            // A falha pode ser local (ex.: XSD ausente): o detalhe técnico vai junto, como na consulta.
             logger.LogError(e, "Falha inesperada ao enviar o cancelamento da NF-e do documento {InvoiceKey}.", key);
-            throw new DefaultException(NoAnswerMessage);
+            throw new DefaultException(NfeStatusText.Truncate($"{NoAnswerMessage} (detalhe técnico: {e.Message})"));
         }
 
         if (NfeStatusCodes.IsCancellationRegistered(result.StatusCode))
