@@ -43,7 +43,7 @@ public class SalesInvoiceNfeLockTests
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db) =>
         new(db, new FakeBusinessPartnerService(names: new() { ["C1"] = "CLIENTE", ["C2"] = "OUTRO" }),
-            TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),

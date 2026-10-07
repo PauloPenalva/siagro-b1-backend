@@ -106,6 +106,10 @@ public class SalesInvoicesFiscalComplementWiringTests
             TaxTestServices.Apply(db, Partners()), TaxTestServices.FiscalComplement(db),
             NullLogger<SalesInvoicesUpdateService>.Instance);
 
+    private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db, string erp = "STANDALONE") =>
+        new(db, Partners(), TaxTestServices.Apply(db, Partners(), erp), TaxTestServices.FiscalComplement(db, erp),
+            NullLogger<SalesInvoicesUpdateService>.Instance);
+
     private static SalesInvoice Invoice(Guid? contractKey, int? usageCode) => new()
     {
         Key = Guid.NewGuid(),
@@ -301,5 +305,61 @@ public class SalesInvoicesFiscalComplementWiringTests
             ItemsUpdate(s.Db).ExecuteAsync(line.Key!.Value, line, "tester"));
 
         Assert.Equal("Os contratos deste documento têm condições de pagamento diferentes no complemento fiscal.", e.Message);
+    }
+
+    // ---------------------------------------------------------------- cabeçalho
+
+    /// <summary>
+    /// D6 também na edição do cabeçalho: o PATCH reenvia a entidade inteira, então a condição e o texto do contrato
+    /// voltam em silêncio (sem recusa) quando o documento tem linha de contrato.
+    /// </summary>
+    [Fact]
+    public async Task Header_patch_restores_the_condition_and_the_contract_text()
+    {
+        var s = await SeedAsync();
+        var invoice = await PendingInvoiceAsync(s.Db, paymentCondition: null);
+        await ItemsCreate(s.Db).ExecuteAsync(Line(invoice.Key, s.Contract.Key, s.DefaultUsage), "tester");
+
+        var tracked = await s.Db.Context.SalesInvoices.SingleAsync();
+        tracked.PaymentConditionCode = 5;
+        tracked.TaxPayerComments = "Placa XYZ";
+        await HeaderUpdate(s.Db).ExecuteAsync(tracked.Key, tracked, "tester");
+
+        var stored = await s.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(11, stored.PaymentConditionCode);
+        Assert.Equal("Pedido 77 | Placa XYZ", stored.TaxPayerComments);
+    }
+
+    [Fact]
+    public async Task Header_patch_in_sapb1_mode_keeps_the_new_condition()
+    {
+        var s = await SeedAsync();
+        var invoice = await PendingInvoiceAsync(s.Db, paymentCondition: 11);
+        s.Db.Context.SalesInvoicesItems.Add(Line(invoice.Key, s.Contract.Key, s.DefaultUsage));
+        await s.Db.SaveChangesAsync();
+
+        var tracked = await s.Db.Context.SalesInvoices.SingleAsync();
+        tracked.PaymentConditionCode = 5;
+        await HeaderUpdate(s.Db, "SAPB1").ExecuteAsync(tracked.Key, tracked, "tester");
+
+        var stored = await s.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(5, stored.PaymentConditionCode);
+        Assert.Null(stored.TaxPayerComments);
+    }
+
+    [Fact]
+    public async Task Header_patch_on_a_document_without_contract_lines_keeps_the_new_condition()
+    {
+        var s = await SeedAsync();
+        var invoice = await PendingInvoiceAsync(s.Db, paymentCondition: 11);
+        await ItemsCreate(s.Db).ExecuteAsync(Line(invoice.Key, contractKey: null, s.DefaultUsage), "tester");
+
+        var tracked = await s.Db.Context.SalesInvoices.SingleAsync();
+        tracked.PaymentConditionCode = 5;
+        await HeaderUpdate(s.Db).ExecuteAsync(tracked.Key, tracked, "tester");
+
+        var stored = await s.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(5, stored.PaymentConditionCode);
+        Assert.Null(stored.TaxPayerComments);
     }
 }

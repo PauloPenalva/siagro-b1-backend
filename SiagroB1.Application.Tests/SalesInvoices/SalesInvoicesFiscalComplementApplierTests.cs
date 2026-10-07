@@ -134,6 +134,39 @@ public class SalesInvoicesFiscalComplementApplierTests
         Assert.Equal("Pedido 77", invoice.TaxPayerComments);
     }
 
+    /// <summary>Vários contratos: os textos na ordem em que os contratos aparecem nas linhas, depois o do operador.</summary>
+    [Fact]
+    public async Task Contract_texts_keep_the_line_order_before_the_operator_text()
+    {
+        var first = await SeedAsync(complement: Complete(info: "A"));
+        var second = await SeedAsync(code: "CT0002", complement: Complete(info: "B"));
+        var (invoice, _) = Invoice(first.Key);
+        SalesContractsAllocationTestSupport.NewItem(invoice, second.Key, releaseKey: null, 50m);
+        invoice.TaxPayerComments = "operador";
+
+        await Applier().ApplyToDocumentAsync(invoice);
+        Assert.Equal("A | B | operador", invoice.TaxPayerComments);
+
+        await Applier().ApplyToDocumentAsync(invoice);
+        Assert.Equal("A | B | operador", invoice.TaxPayerComments);
+    }
+
+    /// <summary>Spec §4.2 item 3: a regra reaplicada na alteração/inclusão de linha também leva o texto, sem repetir.</summary>
+    [Fact]
+    public async Task Line_path_prepends_the_contract_text_once()
+    {
+        var contract = await SeedAsync(complement: Complete(info: "Pedido 77"));
+        var (invoice, item) = Invoice(contract.Key);
+        invoice.PaymentConditionCode = null;
+        invoice.TaxPayerComments = "Placa ABC";
+
+        await Applier().ApplyToLineAsync(invoice, item);
+        Assert.Equal("Pedido 77 | Placa ABC", invoice.TaxPayerComments);
+
+        await Applier().ApplyToLineAsync(invoice, item);
+        Assert.Equal("Pedido 77 | Placa ABC", invoice.TaxPayerComments);
+    }
+
     [Fact]
     public async Task Two_contracts_with_different_conditions_are_refused()
     {

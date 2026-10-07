@@ -20,7 +20,7 @@ public class SalesInvoicesNfeReturnLockTests
         states: new() { [NfeTestSeed.CardCode] = "BA", ["C2"] = "SP" });
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db) =>
-        new(db, Partners(), TaxTestServices.Apply(db, Partners()), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(db, Partners(), TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),

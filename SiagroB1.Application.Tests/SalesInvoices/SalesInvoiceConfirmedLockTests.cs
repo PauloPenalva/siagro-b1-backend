@@ -44,7 +44,7 @@ public class SalesInvoiceConfirmedLockTests
     private static SalesInvoicesTaxApplyService Apply(UnitOfWork db, string erp) => TaxTestServices.Apply(db, Partners(), erp);
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db, string erp = "STANDALONE") =>
-        new(db, Partners(), Apply(db, erp), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(db, Partners(), Apply(db, erp), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),

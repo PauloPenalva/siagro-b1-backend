@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -21,44 +22,98 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
 
     public async Task ApplyToDocumentAsync(SalesInvoice invoice)
     {
-        var complements = await ResolveAsync(invoice, invoice.Items);
-        if (complements is null) return;
+        var resolved = await ResolveAsync(invoice, ContractKeys(invoice.Items));
+        if (resolved is null) return;
 
         foreach (var item in invoice.Items)
-            if (item.SalesContractKey is { } key) ApplyLine(item, complements[key]);
+            if (item.SalesContractKey is { } key) ApplyLine(item, resolved[key]);
 
-        var conditions = complements.Values.Select(c => c.PaymentConditionCode).Distinct().ToList();
-        if (conditions.Count > 1)
-            throw new DefaultException(DifferentConditions);
-        invoice.PaymentConditionCode = conditions[0];
-
-        // Texto do contrato ANTES do texto do operador; reaplicar não repete.
-        foreach (var text in complements.Values.Select(c => c.AdditionalInfo).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct())
-            if (invoice.TaxPayerComments?.Contains(text!) != true)
-                invoice.TaxPayerComments = string.IsNullOrWhiteSpace(invoice.TaxPayerComments) ? text : text + Separator + invoice.TaxPayerComments;
+        ApplyHeader(invoice, resolved.Ordered);
     }
 
     public async Task ApplyToLineAsync(SalesInvoice invoice, SalesInvoiceItem item)
     {
-        var complements = await ResolveAsync(invoice, [item]);
-        if (complements is null || item.SalesContractKey is not { } key) return;
+        var resolved = await ResolveAsync(invoice, ContractKeys([item]));
+        if (resolved is null || item.SalesContractKey is not { } key) return;
 
-        var complement = complements[key];
+        var complement = resolved[key];
         ApplyLine(item, complement);
 
         if (invoice.PaymentConditionCode is null)
             invoice.PaymentConditionCode = complement.PaymentConditionCode;
         else if (invoice.PaymentConditionCode != complement.PaymentConditionCode)
             throw new DefaultException(DifferentConditions);
+
+        // Regra reaplicada na linha também leva o texto do contrato, sem repetir (spec §4.2 item 3).
+        PrependText(invoice, [complement]);
+    }
+
+    /// <summary>
+    /// Edição do cabeçalho: o PATCH reenvia a entidade inteira, então condição e texto do contrato voltam em silêncio
+    /// (sem recusa) a partir das linhas GRAVADAS. Só em documento Pendente e com NF-e não emitida — depois disso o que
+    /// foi para a nota não muda.
+    /// </summary>
+    public async Task ApplyToHeaderAsync(SalesInvoice invoice)
+    {
+        if (!Applies(invoice) || invoice.InvoiceStatus is not (null or InvoiceStatus.Pending)
+            || NfeLockRules.IsFrozen(invoice.NfeStatus))
+            return;
+
+        var keys = await db.Context.SalesInvoicesItems.AsNoTracking()
+            .Where(i => i.SalesInvoiceKey == invoice.Key && i.SalesContractKey != null)
+            .Select(i => i.SalesContractKey!.Value)
+            .ToListAsync();
+
+        var resolved = await ResolveAsync(invoice, keys.Distinct().ToList());
+        if (resolved is null) return;
+
+        ApplyHeader(invoice, resolved.Ordered);
+    }
+
+    private static bool Applies(SalesInvoice invoice) =>
+        invoice.InvoiceType == SalesInvoiceType.Normal && !invoice.IsNfeReturn;
+
+    private static List<Guid> ContractKeys(IEnumerable<SalesInvoiceItem> items) =>
+        items.Where(i => i.SalesContractKey.HasValue).Select(i => i.SalesContractKey!.Value).Distinct().ToList();
+
+    private static void ApplyHeader(SalesInvoice invoice, IReadOnlyList<SalesContractFiscalComplement> complements)
+    {
+        var conditions = complements.Select(c => c.PaymentConditionCode).Distinct().ToList();
+        if (conditions.Count > 1)
+            throw new DefaultException(DifferentConditions);
+        invoice.PaymentConditionCode = conditions[0];
+
+        PrependText(invoice, complements);
+    }
+
+    /// <summary>
+    /// Textos dos contratos na ordem em que aparecem nas linhas, depois o texto do operador (A | B | operador).
+    /// O texto que já está no campo não se repete — é isso que deixa a regra ser reaplicada.
+    /// </summary>
+    private static void PrependText(SalesInvoice invoice, IEnumerable<SalesContractFiscalComplement> complements)
+    {
+        var current = invoice.TaxPayerComments;
+        var missing = complements.Select(c => c.AdditionalInfo)
+            .Where(t => !string.IsNullOrWhiteSpace(t) && current?.Contains(t!) != true)
+            .Distinct()
+            .ToList();
+
+        if (missing.Count == 0) return;
+
+        var contractText = string.Join(Separator, missing);
+        invoice.TaxPayerComments = string.IsNullOrWhiteSpace(current) ? contractText : contractText + Separator + current;
+    }
+
+    private sealed class Resolved(Dictionary<Guid, SalesContractFiscalComplement> byKey, List<Guid> keys)
+    {
+        public SalesContractFiscalComplement this[Guid key] => byKey[key];
+        public IReadOnlyList<SalesContractFiscalComplement> Ordered { get; } = keys.Select(k => byKey[k]).ToList();
     }
 
     /// <summary>Null = regra não se aplica. Recusa contrato sem complemento completo, antes de qualquer gravação.</summary>
-    private async Task<Dictionary<Guid, SalesContractFiscalComplement>?> ResolveAsync(
-        SalesInvoice invoice, IEnumerable<SalesInvoiceItem> items)
+    private async Task<Resolved?> ResolveAsync(SalesInvoice invoice, List<Guid> keys)
     {
-        if (invoice.InvoiceType != SalesInvoiceType.Normal || invoice.IsNfeReturn) return null;
-
-        var keys = items.Where(i => i.SalesContractKey.HasValue).Select(i => i.SalesContractKey!.Value).Distinct().ToList();
+        if (!Applies(invoice)) return null;
         if (keys.Count == 0 || !await gate.IsActiveAsync(invoice.BranchCode)) return null;
 
         var complements = await db.Context.SalesContractFiscalComplements.AsNoTracking()
@@ -73,7 +128,7 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
                 $"O contrato {code} não tem complemento fiscal com natureza de operação e condição de pagamento. Peça ao fiscal para completá-lo.");
         }
 
-        return complements;
+        return new Resolved(complements, keys);
     }
 
     private static void ApplyLine(SalesInvoiceItem item, SalesContractFiscalComplement complement)
