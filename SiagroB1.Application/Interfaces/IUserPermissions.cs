@@ -5,6 +5,9 @@ public static class PermissionCodes
 {
     /// <summary>Digitar o peso manualmente na pesagem, em vez de capturá-lo da balança.</summary>
     public const string WeighingManualEntry = "WEIGHING_MANUAL_ENTRY";
+
+    /// <summary>Editar o complemento fiscal do contrato de venda.</summary>
+    public const string SalesContractFiscalEdit = "SALES_CONTRACT_FISCAL_EDIT";
 }
 
 public interface IUserPermissions

@@ -116,6 +116,10 @@ public sealed record NfeItem
     /// <summary>CEST (7 dígitos) do cadastro do produto; vazio = a NF-e não leva CEST.</summary>
     public string? Cest { get; init; }
 
+    /// <summary>Pedido do cliente (xPed, até 15) e item (nItemPed, 1-6 dígitos); vazios = omitidos.</summary>
+    public string? OrderNumber { get; init; }
+    public string? OrderItem { get; init; }
+
     /// <summary>Na devolução, o item da venda devolvido; nulo na venda.</summary>
     public NfeItemReference? Reference { get; init; }
 

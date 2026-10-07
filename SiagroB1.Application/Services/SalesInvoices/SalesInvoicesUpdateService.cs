@@ -12,6 +12,7 @@ public class SalesInvoicesUpdateService(
     IUnitOfWork db, 
     IBusinessPartnerService businessPartnerService,
     SalesInvoicesTaxApplyService taxApply,
+    SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoice?> ExecuteAsync(Guid key, SalesInvoice entity, string userName)
@@ -42,6 +43,10 @@ public class SalesInvoicesUpdateService(
             SalesInvoiceNfeLock.EnsureHeaderEditable(entry, confirmedFrozen);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
             SalesInvoiceNfeReturnLock.RestoreHeader(entry);
+
+            // Complemento fiscal do contrato (spec 2026-10-07 D6): o PATCH reenvia o cabeçalho inteiro, então a
+            // condição e o texto do contrato voltam em silêncio. No-op fora da regra e sem linha de contrato.
+            await fiscalComplement.ApplyToHeaderAsync(existingEntity);
 
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;

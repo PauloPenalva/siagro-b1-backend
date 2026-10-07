@@ -436,6 +436,41 @@ public class NfeXmlBuilderTests
     }
 
     [Fact]
+    public void Item_with_customer_order_sends_xped_and_nitemped()
+    {
+        var item = NfeTestData.Item() with { OrderNumber = "PO-77", OrderItem = "1" };
+
+        var prod = Build(NfeTestData.Input() with { Items = [item] }).infNFe.det[0].prod;
+
+        Assert.Equal("PO-77", prod.xPed);
+        Assert.Equal("1", prod.nItemPed.ToString());
+    }
+
+    [Theory]
+    [InlineData("A1")]
+    [InlineData("0")]
+    [InlineData("000")]
+    [InlineData("1234567")]
+    public void Invalid_order_item_omits_nitemped_without_failing(string value)
+    {
+        var item = NfeTestData.Item() with { OrderNumber = "PO-77", OrderItem = value };
+
+        var prod = Build(NfeTestData.Input() with { Items = [item] }).infNFe.det[0].prod;
+
+        Assert.Null(prod.nItemPed);
+        Assert.Equal("PO-77", prod.xPed);
+    }
+
+    [Fact]
+    public void Item_without_customer_order_omits_xped_and_nitemped()
+    {
+        var prod = Build(NfeTestData.Input()).infNFe.det[0].prod;
+
+        Assert.Null(prod.xPed);
+        Assert.Null(prod.nItemPed);
+    }
+
+    [Fact]
     public void Volume_data_go_to_the_vol_group_with_the_weights()
     {
         var input = NfeTestData.Input() with { Volume = new NfeVolume(40, "SACO", "CEAGUI", "1 A 40") };

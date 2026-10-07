@@ -76,15 +76,15 @@ public class SalesInvoicesTaxLockTests
     }
 
     private static SalesInvoicesItemsCreateService ItemsCreate(UnitOfWork db) =>
-        new(db, Items(), TaxTestServices.Apply(db, Partners()), NullLogger<SalesInvoicesItemsCreateService>.Instance);
+        new(db, Items(), TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesItemsCreateService>.Instance);
 
     private static SalesInvoicesItemsUpdateService ItemsUpdate(UnitOfWork db) =>
         new(db, Items(),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.Apply(db, Partners()), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db) =>
-        new(db, Partners(), TaxTestServices.Apply(db, Partners()), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(db, Partners(), TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     [Fact]
     public async Task Adding_a_line_with_rule_active_calculates_it()

@@ -64,6 +64,20 @@ public class NfeSignerTests
     }
 
     [Fact]
+    public void Customer_order_validates_against_the_official_schema()
+    {
+        using var certificate = Certificate();
+        var input = NfeTestData.Input() with
+        {
+            Items = [NfeTestData.Item() with { OrderNumber = "PO-77", OrderItem = "1" }],
+        };
+
+        var signed = NfeSigner.BuildSignAndValidate(input, Settings(certificate));
+
+        Assert.Contains("<xPed>PO-77</xPed><nItemPed>1</nItemPed>", signed.Xml);
+    }
+
+    [Fact]
     public void Access_key_is_valid_and_reflects_the_document()
     {
         using var certificate = Certificate();

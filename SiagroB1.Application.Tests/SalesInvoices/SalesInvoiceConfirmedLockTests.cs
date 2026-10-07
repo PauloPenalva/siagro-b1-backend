@@ -44,16 +44,16 @@ public class SalesInvoiceConfirmedLockTests
     private static SalesInvoicesTaxApplyService Apply(UnitOfWork db, string erp) => TaxTestServices.Apply(db, Partners(), erp);
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db, string erp = "STANDALONE") =>
-        new(db, Partners(), Apply(db, erp), NullLogger<SalesInvoicesUpdateService>.Instance);
+        new(db, Partners(), Apply(db, erp), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            Apply(db, erp), NullLogger<SalesInvoicesUpdateService>.Instance);
+            Apply(db, erp), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsCreateService ItemCreate(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }), Apply(db, erp),
-            NullLogger<SalesInvoicesItemsCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesItemsCreateService>.Instance);
 
     private static SalesInvoicesItemsDeleteService ItemDelete(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, Apply(db, erp), NullLogger<SalesInvoicesItemsDeleteService>.Instance);

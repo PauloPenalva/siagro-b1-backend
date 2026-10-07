@@ -25,7 +25,7 @@ public class SalesInvoicesItemsUpdateLoadClosureTests
         new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
         new ShipmentLoadsClosureHookService(_db.Context, new ShipmentLoadsChangeLogService(_db.Context)),
         TaxTestServices.InactiveApply(_db),
-        new TestLogger<SalesInvoicesUpdateService>());
+        TaxTestServices.InactiveFiscalComplement(_db), new TestLogger<SalesInvoicesUpdateService>());
 
     /// <summary>Carga Faturada de 100 t com uma nota confirmada de dois itens de 50 t.</summary>
     private async Task<(ShipmentLoad Load, SalesInvoiceItem First, SalesInvoiceItem Second)> SeedAsync(

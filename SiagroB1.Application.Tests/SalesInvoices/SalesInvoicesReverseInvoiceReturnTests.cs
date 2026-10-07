@@ -64,7 +64,7 @@ public class SalesInvoicesReverseInvoiceReturnTests
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(_db, usages, partners),
             TaxTestServices.InactiveApply(_db),
-            NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(_db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private SalesInvoicesConfirmService ConfirmService() =>

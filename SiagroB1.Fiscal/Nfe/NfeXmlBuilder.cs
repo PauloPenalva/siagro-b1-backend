@@ -271,6 +271,10 @@ public static class NfeXmlBuilder
             vDesc = Charge(item.DiscountValue),
             vOutro = Charge(item.OtherExpensesValue),
             indTot = IndicadorTotal.ValorDoItemCompoeTotalNF,
+            xPed = TruncateOrNull(item.OrderNumber, 15),
+            // TNItemPed = [1-9][0-9]{0,5}: valor fora disso (letra, zero, mais de 6 dígitos) omite a tag, que é opcional.
+            nItemPed = int.TryParse(item.OrderItem?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var orderItem)
+                && orderItem is >= 1 and <= 999999 ? orderItem : null,
         },
         imposto = new imposto
         {

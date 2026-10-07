@@ -265,6 +265,7 @@ public static class ServiceCollectionExtensions
 
         // sales contracts
         services.AddScoped<SalesContractsApprovalService>();
+        services.AddScoped<SalesContractFiscalComplementService>();
         services.AddScoped<SalesContractsCopyService>();
         services.AddScoped<SalesContractsCreateService>();
         services.AddScoped<SalesContractsDeleteService>();
@@ -377,6 +378,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INfeSefazClient, ZeusNfeSefazClient>();
         services.AddScoped<TaxCalculationGate>();
         services.AddScoped<SalesInvoicesTaxApplyService>();
+        services.AddScoped<SalesInvoicesFiscalComplementApplier>();
         services.AddScoped<PurchaseInvoicesTaxApplyService>();
         services.AddScoped<SalesInvoicesCreateService>();
         services.AddScoped<SalesInvoicesDeleteService>();

@@ -66,7 +66,7 @@ public class SalesInvoicesCreateTaxationTests
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(db, usages, partners),
             TaxTestServices.Apply(db, partners),
-            NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private static SalesInvoice Invoice(SalesInvoiceType type = SalesInvoiceType.Normal) => new()

@@ -19,6 +19,7 @@ public class SalesInvoicesItemsUpdateService(
     IItemService itemService,
     ShipmentLoadsClosureHookService loadClosureHook,
     SalesInvoicesTaxApplyService taxApply,
+    SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesUpdateService> logger)
 {
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -32,6 +33,7 @@ public class SalesInvoicesItemsUpdateService(
 
             // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
             InvoiceLineChargeRules.Ensure(entity);
+            CustomerOrderRules.Ensure(entity);
 
             // No PATCH a entidade chega JÁ rastreada e mutada — o controller a carrega e
             // aplica o Delta nela no MESMO DbContext, então o FirstOrDefault acima devolve
@@ -160,6 +162,11 @@ public class SalesInvoicesItemsUpdateService(
                 await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [item]);
             }
 
+            // Complemento fiscal do contrato (spec 2026-10-07 §4.2): aqui, e não antes do SetValues, porque só o ramo
+            // que recalcula pode trocar a natureza — o PATCH reenvia a linha inteira, então a natureza do corpo volta
+            // à do complemento antes do imposto. No ramo travado abaixo a linha já foi ao XML/confirmação e fica como
+            // está gravada. No-op fora da regra, em devolução e em linha sem contrato.
+            await fiscalComplement.ApplyToLineAsync(invoice, item);
             await taxApply.ApplyAsync(invoice, [item]);
             return;
         }

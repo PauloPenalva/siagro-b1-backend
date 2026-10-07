@@ -181,7 +181,7 @@ public class SalesInvoicesNfeReturnCreateServiceTests
                 db, partners, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
                 new FakeDocNumberSequenceService(), new SalesInvoicesUsageGuardService(usages),
                 new SalesInvoicesCfopResolveService(db, usages, partners), TaxTestServices.InactiveApply(db),
-                NullLogger<SalesInvoicesCreateService>.Instance)
+                TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance)
             .ExecuteAsync(body, "tester");
 
         Assert.False((await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == body.Key)).IsNfeReturn);

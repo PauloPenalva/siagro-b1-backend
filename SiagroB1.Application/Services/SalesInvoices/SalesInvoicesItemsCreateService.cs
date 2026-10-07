@@ -11,12 +11,14 @@ public class SalesInvoicesItemsCreateService(
     IUnitOfWork db,
     IItemService itemService,
     SalesInvoicesTaxApplyService taxApply,
+    SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesItemsCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoiceItem salesInvoiceItem, string userName)
     {
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5). Fora do try: 400 com a mensagem.
         InvoiceLineChargeRules.Ensure(salesInvoiceItem);
+        CustomerOrderRules.Ensure(salesInvoiceItem);
 
         // Tributação da NF-e STANDALONE: calcula a linha nova antes de gravar. Fora do try para a
         // guarda chegar à tela como 400, e não embrulhada em ApplicationException. No-op com a
@@ -32,6 +34,10 @@ public class SalesInvoicesItemsCreateService(
 
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus, SalesInvoiceNfeLock.IsConfirmedFrozen(
                 invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)));
+
+            // Complemento fiscal do contrato antes do imposto: a natureza dele é a que o cálculo usa (spec 2026-10-07
+            // §4.2). Pode preencher a condição do documento rastreado — o SaveChanges abaixo a grava junto.
+            await fiscalComplement.ApplyToLineAsync(invoice, salesInvoiceItem);
             await taxApply.ApplyAsync(invoice, [salesInvoiceItem]);
         }
 
