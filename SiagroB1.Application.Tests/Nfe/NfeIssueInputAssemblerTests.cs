@@ -205,4 +205,18 @@ public class NfeIssueInputAssemblerTests
         Assert.Equal(61000m, input.Payment.PaidAmount);
         Assert.Equal(61000m, input.Payment.Installments.Sum(i => i.Amount));
     }
+
+    [Fact]
+    public async Task Customer_order_of_the_line_goes_to_the_nfe_item()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+
+        var input = await BuildAsync(scenario, invoice =>
+        {
+            var item = invoice.Items.Single();
+            (item.CustomerOrderNumber, item.CustomerOrderItem) = ("PO-77", "10");
+        });
+
+        Assert.Equal(("PO-77", "10"), (input.Items[0].OrderNumber, input.Items[0].OrderItem));
+    }
 }

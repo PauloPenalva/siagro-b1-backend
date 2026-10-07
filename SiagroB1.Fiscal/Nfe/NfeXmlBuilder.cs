@@ -271,6 +271,8 @@ public static class NfeXmlBuilder
             vDesc = Charge(item.DiscountValue),
             vOutro = Charge(item.OtherExpensesValue),
             indTot = IndicadorTotal.ValorDoItemCompoeTotalNF,
+            xPed = TruncateOrNull(item.OrderNumber, 15),
+            nItemPed = Blank(item.OrderItem) is { } orderItem ? int.Parse(orderItem, CultureInfo.InvariantCulture) : null,
         },
         imposto = new imposto
         {

@@ -157,6 +157,9 @@ public static class NfeIssueInputAssembler
             Items = items.Select((item, index) => ToItem(item, item.NfeItemNumber ?? index + 1) with
             {
                 Cest = context.ItemCests.GetValueOrDefault(item.ItemCode!),
+                // Pedido do cliente só existe na saída; a linha de compra devolve nulo no cast.
+                OrderNumber = (item as SalesInvoiceItem)?.CustomerOrderNumber,
+                OrderItem = (item as SalesInvoiceItem)?.CustomerOrderItem,
                 // VC02-14: o número do item NA OPERAÇÃO ORIGINAL, não a posição na devolução.
                 Reference = returnOrigin is null
                     ? null
