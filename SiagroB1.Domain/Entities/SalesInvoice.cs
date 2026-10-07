@@ -93,9 +93,9 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     public bool WithoutTaxDocument { get; set; }
 
     /// <summary>
-    /// Informações do Contribuinte
+    /// Informações do Contribuinte (5000 = limite do infCpl da NF-e; comporta o texto do complemento fiscal do contrato)
     /// </summary>
-    [Column(TypeName = "VARCHAR(500) DEFAULT ''")]
+    [Column(TypeName = "VARCHAR(5000) DEFAULT ''")]
     public string? TaxPayerComments { get; set; }
     
     /// <summary>

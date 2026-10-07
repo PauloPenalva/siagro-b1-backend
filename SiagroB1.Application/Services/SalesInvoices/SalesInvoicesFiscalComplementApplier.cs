@@ -16,6 +16,7 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculationGate gate)
 {
     private const string Separator = " | ";
+    private const int TaxPayerCommentsMaxLength = 5000;
 
     private const string DifferentConditions =
         "Os contratos deste documento têm condições de pagamento diferentes no complemento fiscal.";
@@ -28,7 +29,7 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
         foreach (var item in invoice.Items)
             if (item.SalesContractKey is { } key) ApplyLine(item, resolved[key]);
 
-        ApplyHeader(invoice, resolved.Ordered);
+        await ApplyHeaderAsync(invoice, resolved.Ordered);
     }
 
     public async Task ApplyToLineAsync(SalesInvoice invoice, SalesInvoiceItem item)
@@ -45,7 +46,7 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
             throw new DefaultException(DifferentConditions);
 
         // Regra reaplicada na linha também leva o texto do contrato, sem repetir (spec §4.2 item 3).
-        PrependText(invoice, [complement]);
+        await PrependTextAsync(invoice, [complement]);
     }
 
     /// <summary>
@@ -67,7 +68,7 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
         var resolved = await ResolveAsync(invoice, keys.Distinct().ToList());
         if (resolved is null) return;
 
-        ApplyHeader(invoice, resolved.Ordered);
+        await ApplyHeaderAsync(invoice, resolved.Ordered);
     }
 
     private static bool Applies(SalesInvoice invoice) =>
@@ -76,32 +77,43 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
     private static List<Guid> ContractKeys(IEnumerable<SalesInvoiceItem> items) =>
         items.Where(i => i.SalesContractKey.HasValue).Select(i => i.SalesContractKey!.Value).Distinct().ToList();
 
-    private static void ApplyHeader(SalesInvoice invoice, IReadOnlyList<SalesContractFiscalComplement> complements)
+    private async Task ApplyHeaderAsync(SalesInvoice invoice, IReadOnlyList<SalesContractFiscalComplement> complements)
     {
         var conditions = complements.Select(c => c.PaymentConditionCode).Distinct().ToList();
         if (conditions.Count > 1)
             throw new DefaultException(DifferentConditions);
         invoice.PaymentConditionCode = conditions[0];
 
-        PrependText(invoice, complements);
+        await PrependTextAsync(invoice, complements);
     }
 
     /// <summary>
     /// Textos dos contratos na ordem em que aparecem nas linhas, depois o texto do operador (A | B | operador).
     /// O texto que já está no campo não se repete — é isso que deixa a regra ser reaplicada.
     /// </summary>
-    private static void PrependText(SalesInvoice invoice, IEnumerable<SalesContractFiscalComplement> complements)
+    private async Task PrependTextAsync(SalesInvoice invoice, IEnumerable<SalesContractFiscalComplement> complements)
     {
         var current = invoice.TaxPayerComments;
-        var missing = complements.Select(c => c.AdditionalInfo)
-            .Where(t => !string.IsNullOrWhiteSpace(t) && current?.Contains(t!) != true)
-            .Distinct()
+        var missing = complements
+            .Where(c => !string.IsNullOrWhiteSpace(c.AdditionalInfo) && current?.Contains(c.AdditionalInfo!) != true)
+            .DistinctBy(c => c.AdditionalInfo)
             .ToList();
 
         if (missing.Count == 0) return;
 
-        var contractText = string.Join(Separator, missing);
-        invoice.TaxPayerComments = string.IsNullOrWhiteSpace(current) ? contractText : contractText + Separator + current;
+        var contractText = string.Join(Separator, missing.Select(c => c.AdditionalInfo));
+        var combined = string.IsNullOrWhiteSpace(current) ? contractText : contractText + Separator + current;
+
+        // O campo do documento comporta 5000 caracteres, o mesmo limite do infCpl da NF-e.
+        if (combined.Length > TaxPayerCommentsMaxLength)
+        {
+            var code = await db.Context.SalesContracts.AsNoTracking()
+                .Where(x => x.Key == missing[0].SalesContractKey).Select(x => x.Code).FirstOrDefaultAsync();
+            throw new DefaultException(
+                $"As informações adicionais do documento passariam de {TaxPayerCommentsMaxLength} caracteres com o texto do complemento fiscal do contrato {code}. Reduza o texto.");
+        }
+
+        invoice.TaxPayerComments = combined;
     }
 
     private sealed class Resolved(Dictionary<Guid, SalesContractFiscalComplement> byKey, List<Guid> keys)

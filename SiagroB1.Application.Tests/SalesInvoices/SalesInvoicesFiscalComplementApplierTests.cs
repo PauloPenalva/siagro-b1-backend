@@ -275,4 +275,30 @@ public class SalesInvoicesFiscalComplementApplierTests
 
         Assert.Contains("CT0099", e.Message);
     }
+
+    [Fact]
+    public async Task Contract_text_is_accepted_when_the_total_fits_in_5000_characters()
+    {
+        var contract = await SeedAsync(complement: Complete(info: new string('a', 600)));
+        var (invoice, _) = Invoice(contract.Key);
+        invoice.TaxPayerComments = new string('b', 500);
+
+        await Applier().ApplyToDocumentAsync(invoice);
+
+        Assert.Equal(600 + 3 + 500, invoice.TaxPayerComments!.Length);
+    }
+
+    [Fact]
+    public async Task Contract_text_over_5000_characters_combined_is_refused()
+    {
+        var contract = await SeedAsync(complement: Complete(info: new string('a', 2000)));
+        var (invoice, _) = Invoice(contract.Key);
+        invoice.TaxPayerComments = new string('b', 3000);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Applier().ApplyToDocumentAsync(invoice));
+
+        Assert.Equal(
+            "As informações adicionais do documento passariam de 5000 caracteres com o texto do complemento fiscal do contrato CT0001. Reduza o texto.",
+            e.Message);
+    }
 }
