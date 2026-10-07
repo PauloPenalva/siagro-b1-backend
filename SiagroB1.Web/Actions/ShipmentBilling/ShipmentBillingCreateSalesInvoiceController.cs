@@ -30,8 +30,10 @@ public class ShipmentBillingCreateSalesInvoiceController(
             var salesInvoice = (SalesInvoice) salesInvoiceObj;
             
             await service.ExecuteAsync(salesInvoice, userName);
-            
-            return Ok();
+
+            // A chave do documento criado: o detalhe da carga leva o usuário direto a ele, onde está o
+            // "Transmitir NF-e". camelCase, como as demais respostas Ok(new { … }) deste projeto.
+            return Ok(new { key = salesInvoice.Key, invoiceNumber = salesInvoice.InvoiceNumber });
         }
         catch (Exception e)
         {

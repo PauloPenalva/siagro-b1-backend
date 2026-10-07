@@ -195,6 +195,33 @@ public class ShipmentLoadBillingServiceTests
         Assert.Equal(InvoiceStatus.Confirmed, saved.InvoiceStatus);
     }
 
+    /// <summary>
+    /// A action devolve a chave e o número do documento criado: o detalhe da carga leva o usuário direto a ele.
+    /// </summary>
+    [Fact]
+    public async Task The_billing_action_returns_the_created_document_key_and_number()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var controller = new SiagroB1.Web.Actions.ShipmentBilling.ShipmentBillingCreateSalesInvoiceController(Service())
+        {
+            ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext(),
+            },
+        };
+
+        var result = await controller.PostAsync(new Microsoft.AspNetCore.OData.Formatter.ODataActionParameters
+        {
+            ["SalesInvoice"] = InvoiceFor(load, contract, release, 40_000m),
+        });
+
+        var ok = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
+        var saved = await _db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        var body = ok.Value!;
+        Assert.Equal(saved.Key, body.GetType().GetProperty("key")!.GetValue(body));
+        Assert.Equal(saved.InvoiceNumber, body.GetType().GetProperty("invoiceNumber")!.GetValue(body));
+    }
+
     [Fact]
     public async Task Billing_the_rest_closes_the_load_and_the_shipments()
     {
