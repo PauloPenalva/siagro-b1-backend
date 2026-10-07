@@ -43,6 +43,23 @@ public class BusinessPartnerServiceAddressesTests
         Assert.Contains(stored, a => a is { AdresType: "S", State: "SP" });
     }
 
+    /// <summary>
+    /// O CardCode faz parte da chave do endereço no EDM (AddressName, AdresType, CardCode). A lista (QueryAll) o deixava
+    /// nulo, e o value help de clientes — que expande só os endereços de entrega (S) — devolvia 500 assim que algum
+    /// cliente tinha um: "The property 'CardCode[Nullable=False]' … has a null value".
+    /// </summary>
+    [Fact]
+    public async Task QueryAll_fills_the_card_code_of_every_address()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        await Service(db).CreateAsync(Partner(Address("FATURAMENTO", "B", "PR"), Address("ENTREGA", "S", "SP")));
+
+        var partner = await Service(db).QueryAll().SingleAsync(p => p.CardCode == "C90001");
+
+        Assert.Equal(2, partner.Addresses.Count);
+        Assert.All(partner.Addresses, a => Assert.Equal("C90001", a.CardCode));
+    }
+
     [Fact]
     public async Task Create_without_addresses_still_works()
     {

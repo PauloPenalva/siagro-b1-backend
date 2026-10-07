@@ -204,6 +204,8 @@ public class BusinessPartnerService(
                     .Where(a => a.CardCode == x.CardCode)
                     .Select(a => new AddressModel()
                     {
+                        // Parte da chave do endereço no EDM: nulo aqui derrubava com 500 todo $expand de Addresses.
+                        CardCode = a.CardCode,
                         AddressName = a.AddressName,
                         AdresType = a.AdresType,
                         Block = a.Block,
