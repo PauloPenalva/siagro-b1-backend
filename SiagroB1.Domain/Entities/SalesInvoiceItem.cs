@@ -172,6 +172,14 @@ public class SalesInvoiceItem : INfeTaxedLine
     /// </summary>
     public int? UsageCode { get; set; }
 
+    /// <summary>Pedido do cliente (<c>xPed</c>), copiado do complemento fiscal do contrato na criação da linha.</summary>
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? CustomerOrderNumber { get; set; }
+
+    /// <summary>Item do pedido do cliente (<c>nItemPed</c>).</summary>
+    [Column(TypeName = "VARCHAR(6)")]
+    public string? CustomerOrderItem { get; set; }
+
     /// <summary>
     /// Nome da natureza, desnormalizado como <see cref="ItemName"/> — é o que a grade e os
     /// relatórios mostram sem depender do cadastro (que em SAPB1 nem é local). Quem manda é

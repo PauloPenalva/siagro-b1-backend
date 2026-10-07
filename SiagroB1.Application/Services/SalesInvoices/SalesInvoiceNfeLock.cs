@@ -30,6 +30,7 @@ public static class SalesInvoiceNfeLock
         nameof(SalesInvoiceItem.ItemCode), nameof(SalesInvoiceItem.UnitOfMeasureCode), nameof(SalesInvoiceItem.Quantity),
         nameof(SalesInvoiceItem.UnitPrice), nameof(SalesInvoiceItem.UsageCode), nameof(SalesInvoiceItem.FreightValue),
         nameof(SalesInvoiceItem.InsuranceValue), nameof(SalesInvoiceItem.DiscountValue), nameof(SalesInvoiceItem.OtherExpensesValue),
+        nameof(SalesInvoiceItem.CustomerOrderNumber), nameof(SalesInvoiceItem.CustomerOrderItem),
     ];
 
     /// <summary>Campos que só a emissão escreve.</summary>

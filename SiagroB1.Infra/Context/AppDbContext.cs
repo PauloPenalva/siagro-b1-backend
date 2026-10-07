@@ -102,6 +102,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Item> Items { get; set; }
 
     public DbSet<ItemComplement> ItemComplements { get; set; }
+    public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
@@ -249,6 +250,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<ItemComplement>()
             .HasKey(x => x.ItemCode);
+
+        // 1:1 com o contrato; excluir o contrato exclui o complemento (tabela filha não pode quebrar o delete do pai).
+        modelBuilder.Entity<SalesContractFiscalComplement>(e =>
+        {
+            e.HasKey(x => x.SalesContractKey);
+            e.HasOne(x => x.SalesContract).WithOne()
+                .HasForeignKey<SalesContractFiscalComplement>(x => x.SalesContractKey)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<WarehouseComplement>()
             .HasKey(x => x.WarehouseCode);
