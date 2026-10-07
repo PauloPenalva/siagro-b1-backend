@@ -265,6 +265,7 @@ public static class ServiceCollectionExtensions
 
         // sales contracts
         services.AddScoped<SalesContractsApprovalService>();
+        services.AddScoped<SalesContractFiscalComplementService>();
         services.AddScoped<SalesContractsCopyService>();
         services.AddScoped<SalesContractsCreateService>();
         services.AddScoped<SalesContractsDeleteService>();
