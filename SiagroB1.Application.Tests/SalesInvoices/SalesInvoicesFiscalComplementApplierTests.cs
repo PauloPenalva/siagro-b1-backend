@@ -240,7 +240,7 @@ public class SalesInvoicesFiscalComplementApplierTests
     }
 
     [Fact]
-    public async Task Line_path_sets_condition_only_when_header_is_empty_and_refuses_a_different_one()
+    public async Task Line_path_overwrites_the_condition_when_no_other_contract_is_stored()
     {
         var contract = await SeedAsync(complement: Complete(condition: 11));
 
@@ -252,28 +252,47 @@ public class SalesInvoicesFiscalComplementApplierTests
         Assert.Equal(3, emptyItem.UsageCode);
         Assert.Equal("PED-123", emptyItem.CustomerOrderNumber);
 
-        // Mesma condição: segue.
-        var (same, sameItem) = Invoice(contract.Key);
-        same.PaymentConditionCode = 11;
-        await Applier().ApplyToLineAsync(same, sameItem);
-        Assert.Equal(11, same.PaymentConditionCode);
-
-        // Condição diferente no cabeçalho: recusa.
+        // Condição diferente no cabeçalho e nenhuma outra linha de contrato gravada: o complemento sobrescreve (D6).
         var (other, otherItem) = Invoice(contract.Key);
         other.PaymentConditionCode = 5;
-        var e = await Assert.ThrowsAsync<DefaultException>(() => Applier().ApplyToLineAsync(other, otherItem));
+        await Applier().ApplyToLineAsync(other, otherItem);
+        Assert.Equal(11, other.PaymentConditionCode);
+    }
+
+    [Fact]
+    public async Task Line_path_refuses_when_another_stored_contract_line_has_a_different_condition()
+    {
+        var first = await SeedAsync(complement: Complete(condition: 11));
+        var second = await SeedAsync(code: "CT0002", complement: Complete(condition: 12));
+        var (invoice, _) = Invoice(first.Key);
+        _db.Context.SalesInvoices.Add(invoice);
+        await _db.SaveChangesAsync();
+
+        // Nova linha do segundo contrato, ainda não gravada.
+        var newItem = SalesContractsAllocationTestSupport.NewItem(invoice, second.Key, releaseKey: null, 50m);
+        invoice.Items.Remove(newItem);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Applier().ApplyToLineAsync(invoice, newItem));
+
         Assert.Equal("Os contratos deste documento têm condições de pagamento diferentes no complemento fiscal.", e.Message);
     }
 
     [Fact]
-    public async Task Line_path_refuses_a_contract_without_complement()
+    public async Task Line_path_accepts_another_stored_contract_line_with_the_same_condition()
     {
-        var contract = await SeedAsync(code: "CT0099");
-        var (invoice, item) = Invoice(contract.Key);
+        var first = await SeedAsync(complement: Complete(condition: 11));
+        var second = await SeedAsync(code: "CT0002", complement: Complete(condition: 11));
+        var (invoice, _) = Invoice(first.Key);
+        _db.Context.SalesInvoices.Add(invoice);
+        await _db.SaveChangesAsync();
 
-        var e = await Assert.ThrowsAsync<DefaultException>(() => Applier().ApplyToLineAsync(invoice, item));
+        var newItem = SalesContractsAllocationTestSupport.NewItem(invoice, second.Key, releaseKey: null, 50m);
+        invoice.Items.Remove(newItem);
+        invoice.PaymentConditionCode = 5;
 
-        Assert.Contains("CT0099", e.Message);
+        await Applier().ApplyToLineAsync(invoice, newItem);
+
+        Assert.Equal(11, invoice.PaymentConditionCode);
     }
 
     [Fact]
@@ -300,5 +319,16 @@ public class SalesInvoicesFiscalComplementApplierTests
         Assert.Equal(
             "As informações adicionais do documento passariam de 5000 caracteres com o texto do complemento fiscal do contrato CT0001. Reduza o texto.",
             e.Message);
+    }
+
+    [Fact]
+    public async Task Line_path_refuses_a_contract_without_complement()
+    {
+        var contract = await SeedAsync(code: "CT0099");
+        var (invoice, item) = Invoice(contract.Key);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Applier().ApplyToLineAsync(invoice, item));
+
+        Assert.Contains("CT0099", e.Message);
     }
 }

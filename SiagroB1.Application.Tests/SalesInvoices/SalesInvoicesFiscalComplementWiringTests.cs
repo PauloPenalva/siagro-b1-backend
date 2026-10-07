@@ -289,7 +289,7 @@ public class SalesInvoicesFiscalComplementWiringTests
     }
 
     [Fact]
-    public async Task Patch_on_a_document_with_another_condition_is_refused()
+    public async Task Patch_on_a_document_with_another_condition_overwrites_it_when_no_other_contract_is_stored()
     {
         var s = await SeedAsync();
         var invoice = await PendingInvoiceAsync(s.Db, paymentCondition: 11);
@@ -301,10 +301,11 @@ public class SalesInvoicesFiscalComplementWiringTests
         await s.Db.SaveChangesAsync();
 
         line.Quantity = 500m;
-        var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            ItemsUpdate(s.Db).ExecuteAsync(line.Key!.Value, line, "tester"));
+        await ItemsUpdate(s.Db).ExecuteAsync(line.Key!.Value, line, "tester");
 
-        Assert.Equal("Os contratos deste documento têm condições de pagamento diferentes no complemento fiscal.", e.Message);
+        // D6: o complemento manda; só há esta linha de contrato gravada, então não há conflito a recusar.
+        var stored = await s.Db.Context.SalesInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(11, stored.PaymentConditionCode);
     }
 
     // ---------------------------------------------------------------- cabeçalho

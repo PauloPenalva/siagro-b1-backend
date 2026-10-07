@@ -40,10 +40,27 @@ public class SalesInvoicesFiscalComplementApplier(IUnitOfWork db, TaxCalculation
         var complement = resolved[key];
         ApplyLine(item, complement);
 
-        if (invoice.PaymentConditionCode is null)
-            invoice.PaymentConditionCode = complement.PaymentConditionCode;
-        else if (invoice.PaymentConditionCode != complement.PaymentConditionCode)
-            throw new DefaultException(DifferentConditions);
+        // A condição do complemento sobrescreve a do documento (D6); só se recusa quando OUTRA linha gravada, de outro
+        // contrato, tem complemento com condição diferente — aí não há uma condição única para o documento.
+        var storedKeys = await db.Context.SalesInvoicesItems.AsNoTracking()
+            .Where(i => i.SalesInvoiceKey == invoice.Key && i.Key != item.Key && i.SalesContractKey != null)
+            .Select(i => i.SalesContractKey!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        if (storedKeys.Count > 0)
+        {
+            var otherConditions = await db.Context.SalesContractFiscalComplements.AsNoTracking()
+                .Where(c => storedKeys.Contains(c.SalesContractKey) && c.PaymentConditionCode != null)
+                .Select(c => c.PaymentConditionCode)
+                .Distinct()
+                .ToListAsync();
+
+            if (otherConditions.Any(c => c != complement.PaymentConditionCode))
+                throw new DefaultException(DifferentConditions);
+        }
+
+        invoice.PaymentConditionCode = complement.PaymentConditionCode;
 
         // Regra reaplicada na linha também leva o texto do contrato, sem repetir (spec §4.2 item 3).
         await PrependTextAsync(invoice, [complement]);
