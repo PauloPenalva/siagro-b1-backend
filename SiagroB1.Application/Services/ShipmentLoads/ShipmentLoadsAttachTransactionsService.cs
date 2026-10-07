@@ -3,6 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.ShipmentLoads;
 
@@ -26,11 +27,16 @@ public class ShipmentLoadsAttachTransactionsService(
     IUnitOfWork db,
     ShipmentLoadsMovementLogService movementLog)
 {
-    public async Task<ShipmentLoad> ExecuteAsync(
+    /// <param name="commitMode">
+    /// <c>Auto</c>: abre, confirma e desfaz a própria transação. <c>Deferred</c>: quem chama é o dono da
+    /// transação — nada de Begin/Commit/Rollback aqui (os SaveChanges continuam).
+    /// </param>
+    public virtual async Task<ShipmentLoad> ExecuteAsync(
         Guid shipmentLoadKey,
         ICollection<Guid> storageTransactionKeys,
         Guid? transshipmentKey,
-        string userName)
+        string userName,
+        CommitMode commitMode = CommitMode.Auto)
     {
         if (storageTransactionKeys.Count == 0)
             throw new ApplicationException("Selecione ao menos um romaneio de embarque para vincular.");
@@ -63,9 +69,11 @@ public class ShipmentLoadsAttachTransactionsService(
         var attachedQuantity = decimal.Round(
             shipments.Sum(x => x.GrossWeight), 3, MidpointRounding.ToEven);
 
+        var ownsTransaction = commitMode == CommitMode.Auto;
+
         try
         {
-            await db.BeginTransactionAsync();
+            if (ownsTransaction) await db.BeginTransactionAsync();
 
             foreach (var shipment in shipments)
             {
@@ -96,11 +104,11 @@ public class ShipmentLoadsAttachTransactionsService(
 
             await db.SaveChangesAsync();
 
-            await db.CommitAsync();
+            if (ownsTransaction) await db.CommitAsync();
         }
         catch
         {
-            await db.RollbackAsync();
+            if (ownsTransaction) await db.RollbackAsync();
             throw;
         }
 

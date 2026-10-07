@@ -10,6 +10,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Tests.ShippingTransactions;
 
@@ -25,7 +26,7 @@ public class ShippingTransactionsCreateServiceTests
 
     private ShipmentReleasesRecalculateShippedService Recalc() => new(_db.Context);
 
-    private ShippingTransactionsCreateService CreateService(decimal lotBalance = 100_000m)
+    private ShippingTransactionsCreateService CreateService(decimal lotBalance = 100_000m, IUnitOfWork? top = null)
     {
         var recalc = Recalc();
         var guard = new ShipmentReleaseMovementGuardService(_db.Context);
@@ -56,7 +57,7 @@ public class ShippingTransactionsCreateServiceTests
                 _db, NullLogger<StorageTransactionsGetService>.Instance));
 
         return new ShippingTransactionsCreateService(
-            _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc,
+            top ?? _db, storageCreate, storageConfirmed, storageCopy, allocationCreate, recalc,
             new FakeStorageAddressBalanceReader(lotBalance));
     }
 
@@ -181,5 +182,39 @@ public class ShippingTransactionsCreateServiceTests
         var shipping = await CreateService().ExecuteAsync(contract.Key, purchase, "tester");
 
         Assert.NotEqual(Guid.Empty, shipping.Key);
+    }
+
+    [Fact]
+    public async Task Auto_mode_owns_the_transaction_as_today()
+    {
+        var (contract, release) = await SeedAsync();
+        var counting = new CountingUnitOfWork(_db);
+
+        await CreateService(top: counting).ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+
+        Assert.Equal(1, counting.Begins);
+        Assert.Equal(1, counting.Commits);
+    }
+
+    /// <summary>
+    /// Deferred: quem chama é o dono da transação. O par é gravado (SaveChanges), mas a liberação
+    /// NÃO é recalculada — o recálculo antes do commit contaria a cópia de venda (ver o comentário do
+    /// serviço), então ele fica com quem chama, depois do commit dele.
+    /// </summary>
+    [Fact]
+    public async Task Deferred_mode_does_not_touch_the_transaction_nor_recalculate_the_release()
+    {
+        var (contract, release) = await SeedAsync();
+        var counting = new CountingUnitOfWork(_db);
+
+        var shipping = await CreateService(top: counting)
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester", CommitMode.Deferred);
+
+        Assert.Equal(0, counting.Begins);
+        Assert.Equal(0, counting.Commits);
+        Assert.Equal(0, counting.Rollbacks);
+        Assert.NotNull(await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Key == shipping.SalesStorageTransaction!.Key));
+        Assert.Equal(0m, (await _db.Context.ShipmentReleases.AsNoTracking().SingleAsync(x => x.Key == release.Key)).ShippedQuantity);
     }
 }

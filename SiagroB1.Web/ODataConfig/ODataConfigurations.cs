@@ -828,6 +828,18 @@ public static class ODataConfigurations
         shipmentLoadsAttach.Parameter<Guid?>("TransshipmentKey").Optional();
         shipmentLoadsAttach.Returns<IActionResult>();
 
+        // Peça 2 (2026-10-06): "Expedir" no detalhe da carga — expedição + vínculo numa transação só.
+        // ⚠️ Edm.Double no peso, nunca Edm.Decimal (o cliente serializaria como string e o 400 não nomeia o campo).
+        var shipmentLoadsShip = modelBuilder.Action("ShipmentLoadsShip");
+        shipmentLoadsShip.Parameter<Guid>("Key");
+        shipmentLoadsShip.Parameter<Guid>("ShipmentReleaseKey");
+        shipmentLoadsShip.Parameter<string>("WarehouseCode");
+        shipmentLoadsShip.Parameter<string>("TruckDriverCode");
+        shipmentLoadsShip.Parameter<DateTimeOffset>("TransactionDate");
+        shipmentLoadsShip.Parameter<double>("GrossWeight");
+        shipmentLoadsShip.Parameter<string>("Comments").Optional();
+        shipmentLoadsShip.Returns<IActionResult>();
+
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");
         shipmentLoadsDetach.Parameter<Guid>("Key");
         shipmentLoadsDetach.CollectionParameter<Guid>("StorageTransactionKeys");

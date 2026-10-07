@@ -290,4 +290,14 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains(status.Members, m => m.Name == "Discharged");
     }
 
+    [Fact]
+    public void Ship_action_takes_the_load_release_and_weight()
+    {
+        var action = Model().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "ShipmentLoadsShip");
+
+        Assert.Equal("Edm.Guid", action.Parameters.Single(p => p.Name == "Key").Type.FullName());
+        Assert.Equal("Edm.Guid", action.Parameters.Single(p => p.Name == "ShipmentReleaseKey").Type.FullName());
+        Assert.Equal("Edm.Double", action.Parameters.Single(p => p.Name == "GrossWeight").Type.FullName());
+        Assert.Equal("Edm.DateTimeOffset", action.Parameters.Single(p => p.Name == "TransactionDate").Type.FullName());
+    }
 }
