@@ -29,6 +29,14 @@ public static class TaxTestServices
     public static SalesInvoicesTaxApplyService InactiveApply(UnitOfWork db) =>
         Apply(db, new FakeBusinessPartnerService(), "SAPB1");
 
+    /// <summary>Complemento fiscal do contrato aplicado no faturamento (spec 2026-10-07 §4.2).</summary>
+    public static SalesInvoicesFiscalComplementApplier FiscalComplement(UnitOfWork db, string? erp = "STANDALONE") =>
+        new(db, Gate(db, erp));
+
+    /// <summary>Complemento fiscal sempre inativo (modo SAPB1) — para os testes que não exercitam o complemento.</summary>
+    public static SalesInvoicesFiscalComplementApplier InactiveFiscalComplement(UnitOfWork db) =>
+        FiscalComplement(db, "SAPB1");
+
     public static PurchaseInvoicesTaxApplyService PurchaseApply(
         UnitOfWork db, IBusinessPartnerService partners, string? erp = "STANDALONE") =>
         new(db, Gate(db, erp), new UsageService(db, NullLogger<UsageService>.Instance), partners,

@@ -48,7 +48,7 @@ public class SalesInvoiceNfeLockTests
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     [Fact]
     public async Task Processing_document_header_cannot_be_edited()
@@ -161,7 +161,7 @@ public class SalesInvoiceNfeLockTests
                 new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
                 new FakeDocNumberSequenceService(), new SalesInvoicesUsageGuardService(usages),
                 new SalesInvoicesCfopResolveService(db, usages, partners), TaxTestServices.InactiveApply(db),
-                NullLogger<SalesInvoicesCreateService>.Instance)
+                TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance)
             .ExecuteAsync(invoice, "tester");
 
         var saved = await db.Context.SalesInvoices.AsNoTracking().SingleAsync(x => x.Key == invoice.Key);
@@ -237,7 +237,7 @@ public class SalesInvoiceNfeLockTests
 
         await Assert.ThrowsAsync<DefaultException>(() =>
             new SalesInvoicesItemsCreateService(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
-                    TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesItemsCreateService>.Instance)
+                    TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesItemsCreateService>.Instance)
                 .ExecuteAsync(new SalesInvoiceItem
                 {
                     Key = Guid.NewGuid(), SalesInvoiceKey = invoice.Key, ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m,

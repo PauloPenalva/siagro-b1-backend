@@ -378,6 +378,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INfeSefazClient, ZeusNfeSefazClient>();
         services.AddScoped<TaxCalculationGate>();
         services.AddScoped<SalesInvoicesTaxApplyService>();
+        services.AddScoped<SalesInvoicesFiscalComplementApplier>();
         services.AddScoped<PurchaseInvoicesTaxApplyService>();
         services.AddScoped<SalesInvoicesCreateService>();
         services.AddScoped<SalesInvoicesDeleteService>();

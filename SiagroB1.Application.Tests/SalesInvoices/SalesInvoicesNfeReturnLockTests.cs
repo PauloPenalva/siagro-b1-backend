@@ -25,7 +25,7 @@ public class SalesInvoicesNfeReturnLockTests
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.Apply(db, Partners()), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     [Fact]
     public async Task Informar_nota_fiscal_is_refused_for_an_own_return()
@@ -151,7 +151,7 @@ public class SalesInvoicesNfeReturnLockTests
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
             new SalesInvoicesItemsCreateService(s.Sale.Db, new FakeItemService(), TaxTestServices.Apply(s.Sale.Db, Partners()),
-                    NullLogger<SalesInvoicesItemsCreateService>.Instance)
+                    TaxTestServices.InactiveFiscalComplement(s.Sale.Db), NullLogger<SalesInvoicesItemsCreateService>.Instance)
                 .ExecuteAsync(new SalesInvoiceItem { SalesInvoiceKey = created.Key, ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 2m }, "tester"));
 
         Assert.StartsWith("Na devolução com NF-e, os itens vêm da venda", ex.Message);

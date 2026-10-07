@@ -31,7 +31,7 @@ public class ShipmentLoadBillingServiceTests
             names: new Dictionary<string, string> { [CardCode] = "CLIENTE TESTE" },
             states: new Dictionary<string, string> { [CardCode] = "RS" });
 
-    private ShipmentBillingCreateSalesInvoiceService Service()
+    private ShipmentBillingCreateSalesInvoiceService Service(string complementErp = "SAPB1")
     {
         var usages = new UsageService(_db, NullLogger<UsageService>.Instance);
         var partners = Partners();
@@ -46,7 +46,7 @@ public class ShipmentLoadBillingServiceTests
                 new SalesInvoicesUsageGuardService(usages),
                 new SalesInvoicesCfopResolveService(_db, usages, partners),
                 TaxTestServices.InactiveApply(_db),
-                NullLogger<SalesInvoicesCreateService>.Instance),
+                TaxTestServices.FiscalComplement(_db, complementErp), NullLogger<SalesInvoicesCreateService>.Instance),
             new ShipmentBillingTransactionGuardService(_db.Context),
             new SalesShipmentReleaseMovementGuardService(_db.Context),
             new SalesShipmentReleasesRecalculateShippedService(_db.Context),
@@ -225,6 +225,25 @@ public class ShipmentLoadBillingServiceTests
         // Uma tentativa recusada não pode deixar rastro: o guard roda antes de qualquer escrita.
         Assert.Equal(1, await _db.Context.SalesInvoices.CountAsync());
         Assert.Equal(90_000m, (await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).InvoicedQuantity);
+    }
+
+    /// <summary>
+    /// Spec 2026-10-07 §4.2: na filial que emite NF-e, contrato sem complemento fiscal recusa o faturamento da carga
+    /// antes de qualquer gravação — nenhum documento, nenhum consumo da carga.
+    /// </summary>
+    [Fact]
+    public async Task Shipment_billing_without_complement_creates_no_document()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        (await _db.Context.Branchs.SingleAsync()).IssuesNfe = true;
+        await _db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service("STANDALONE").ExecuteAsync(InvoiceFor(load, contract, release, 40_000m), "tester"));
+
+        Assert.Contains($"O contrato {contract.Code} não tem complemento fiscal", e.Message);
+        Assert.Equal(0, await _db.Context.SalesInvoices.CountAsync());
+        Assert.Equal(0m, (await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).InvoicedQuantity);
     }
 
     [Fact]

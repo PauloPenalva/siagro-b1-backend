@@ -65,7 +65,7 @@ public static class NfeReturnTestSeed
             db, partners, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
             new FakeDocNumberSequenceService(), new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(db, usages, partners), TaxTestServices.Apply(db, partners, erp),
-            NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
 
         return new SalesInvoicesNfeReturnCreateService(
             db, TaxTestServices.Gate(db, erp), create, NullLogger<SalesInvoicesNfeReturnCreateService>.Instance,

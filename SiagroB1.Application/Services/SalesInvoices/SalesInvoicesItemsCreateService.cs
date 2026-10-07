@@ -11,6 +11,7 @@ public class SalesInvoicesItemsCreateService(
     IUnitOfWork db,
     IItemService itemService,
     SalesInvoicesTaxApplyService taxApply,
+    SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesItemsCreateService> logger)
 {
     public async Task ExecuteAsync(SalesInvoiceItem salesInvoiceItem, string userName)
@@ -32,6 +33,10 @@ public class SalesInvoicesItemsCreateService(
 
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus, SalesInvoiceNfeLock.IsConfirmedFrozen(
                 invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)));
+
+            // Complemento fiscal do contrato antes do imposto: a natureza dele é a que o cálculo usa (spec 2026-10-07
+            // §4.2). Pode preencher a condição do documento rastreado — o SaveChanges abaixo a grava junto.
+            await fiscalComplement.ApplyToLineAsync(invoice, salesInvoiceItem);
             await taxApply.ApplyAsync(invoice, [salesInvoiceItem]);
         }
 

@@ -46,13 +46,13 @@ public class InvoiceLineChargeRulesTests
         return new SalesInvoicesCreateService(
             db, partners, new FakeItemService(), new FakeDocNumberSequenceService(),
             new SalesInvoicesUsageGuardService(usages), new SalesInvoicesCfopResolveService(db, usages, partners),
-            TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private static SalesInvoicesItemsUpdateService SalesItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.InactiveApply(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static async Task<(UnitOfWork Db, SalesInvoiceItem Line)> SeedSalesAsync()
     {
@@ -160,7 +160,7 @@ public class InvoiceLineChargeRulesTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
             new SalesInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactiveApply(db),
-                NullLogger<SalesInvoicesItemsCreateService>.Instance).ExecuteAsync(SalesLine(discount: 20.01m), "tester"));
+                TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesItemsCreateService>.Instance).ExecuteAsync(SalesLine(discount: 20.01m), "tester"));
 
         Assert.Equal("Item SOJA: o desconto passa do valor do produto da linha.", e.Message);
     }

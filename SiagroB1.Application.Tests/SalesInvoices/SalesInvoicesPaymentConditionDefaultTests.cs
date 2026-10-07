@@ -44,7 +44,7 @@ public class SalesInvoicesPaymentConditionDefaultTests
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(db, usages, partners),
             TaxTestServices.InactiveApply(db),
-            NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private static SalesInvoice Invoice(int? paymentCondition = null) => new()

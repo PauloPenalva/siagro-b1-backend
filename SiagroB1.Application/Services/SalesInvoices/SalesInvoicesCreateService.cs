@@ -19,6 +19,7 @@ public class SalesInvoicesCreateService(
     SalesInvoicesUsageGuardService usageGuard,
     SalesInvoicesCfopResolveService cfopResolve,
     SalesInvoicesTaxApplyService taxApply,
+    SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesCreateService> logger)
 {
     public async Task ExecuteAsync(
@@ -55,6 +56,11 @@ public class SalesInvoicesCreateService(
         //
         // A lista vem PARCIAL quando o romaneio fatura em base sem natureza padrão: as linhas
         // ausentes ficam sem natureza e sem CFOP, de propósito.
+        //
+        // Complemento fiscal do contrato antes da natureza: na filial que emite NF-e ele decide a natureza e a
+        // condição (spec 2026-10-07 §4.2), e recusa o contrato sem complemento — também antes de numerar.
+        await fiscalComplement.ApplyToDocumentAsync(salesInvoice);
+
         var lineUsages = await usageGuard.ValidateAsync(salesInvoice);
 
         // Documento nascido de romaneio — por CARGA ou pelo caminho legado. A coleção
@@ -114,6 +120,7 @@ public class SalesInvoicesCreateService(
             // Condição de pagamento padrão do cliente quando o documento chega sem ela — inclusive
             // no faturamento de romaneio. Em SAPB1 o parceiro não tem o campo: segue nulo, como hoje.
             // A devolução própria não tem pagamento (tPag 90): a condição do cliente só confundiria.
+            // Com o complemento fiscal do contrato aplicado, a condição já veio dele e o ??= não a troca.
             if (!salesInvoice.IsNfeReturn)
                 salesInvoice.PaymentConditionCode ??= customer?.PaymentConditionCode;
             salesInvoice.TruckingCompanyName =

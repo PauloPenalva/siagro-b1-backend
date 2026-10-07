@@ -48,7 +48,7 @@ public class SalesInvoicesShipmentBillingFiscalToleranceTests
             new SalesInvoicesUsageGuardService(usages),
             new SalesInvoicesCfopResolveService(db, usages, partners),
             TaxTestServices.InactiveApply(db),
-            NullLogger<SalesInvoicesCreateService>.Instance);
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
     private static FakeBusinessPartnerService Partners(string? state = "RS") =>

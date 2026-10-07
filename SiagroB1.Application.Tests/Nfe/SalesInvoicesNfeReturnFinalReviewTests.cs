@@ -44,7 +44,7 @@ public class SalesInvoicesNfeReturnFinalReviewTests
 
         return new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.Apply(db, partners), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.Apply(db, partners), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
     }
 
     private static SalesInvoicesNfeIssueService Issue(NfeScenario scenario)
