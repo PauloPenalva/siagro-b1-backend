@@ -446,6 +446,21 @@ public class NfeXmlBuilderTests
         Assert.Equal("1", prod.nItemPed.ToString());
     }
 
+    [Theory]
+    [InlineData("A1")]
+    [InlineData("0")]
+    [InlineData("000")]
+    [InlineData("1234567")]
+    public void Invalid_order_item_omits_nitemped_without_failing(string value)
+    {
+        var item = NfeTestData.Item() with { OrderNumber = "PO-77", OrderItem = value };
+
+        var prod = Build(NfeTestData.Input() with { Items = [item] }).infNFe.det[0].prod;
+
+        Assert.Null(prod.nItemPed);
+        Assert.Equal("PO-77", prod.xPed);
+    }
+
     [Fact]
     public void Item_without_customer_order_omits_xped_and_nitemped()
     {

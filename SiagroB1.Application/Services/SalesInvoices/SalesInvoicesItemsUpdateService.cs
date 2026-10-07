@@ -33,6 +33,7 @@ public class SalesInvoicesItemsUpdateService(
 
             // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
             InvoiceLineChargeRules.Ensure(entity);
+            CustomerOrderRules.Ensure(entity);
 
             // No PATCH a entidade chega JÁ rastreada e mutada — o controller a carrega e
             // aplica o Delta nela no MESMO DbContext, então o FirstOrDefault acima devolve

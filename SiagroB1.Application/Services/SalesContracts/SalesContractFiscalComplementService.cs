@@ -63,13 +63,8 @@ public class SalesContractFiscalComplementService(IUnitOfWork db, IUsage usageSe
             !await db.Context.PaymentConditions.AnyAsync(x => x.Code == conditionCode))
             throw new DefaultException($"Condição de pagamento {conditionCode} não encontrada.");
 
-        var orderNumber = Blank(input.CustomerOrderNumber);
-        if (orderNumber is { Length: > 15 })
-            throw new DefaultException("O pedido do cliente tem no máximo 15 caracteres.");
-
-        var orderItem = Blank(input.CustomerOrderItem);
-        if (orderItem is not null && (orderItem.Length > 6 || !orderItem.All(char.IsAsciiDigit)))
-            throw new DefaultException("O item do pedido do cliente tem de 1 a 6 dígitos.");
+        var orderNumber = CustomerOrderRules.NormalizeNumber(input.CustomerOrderNumber);
+        var orderItem = CustomerOrderRules.NormalizeItem(input.CustomerOrderItem);
 
         var entity = await db.Context.SalesContractFiscalComplements.FirstOrDefaultAsync(x => x.SalesContractKey == salesContractKey);
         if (entity is null)
