@@ -44,13 +44,13 @@ Serviço `NfeInutilizacao4`, faixa de um número só:
 | Campo | Origem |
 |---|---|
 | `cUF` | UF da filial (a mesma da emissão) |
-| `ano` | "AA" da chave da tentativa rejeitada (`ChaveNFe[2..4]`); sem chave, ano corrente de Brasília |
-| `CNPJ` | CNPJ da filial |
+| `ano` | "AA" da chave da tentativa rejeitada (`ChaveNFe[2..4]`); sem chave (rejeitada na validação local, nada foi enviado), ano corrente de Brasília |
+| `CNPJ` | `Branch.TaxId` da filial do documento (só dígitos) — a rejeição local não tem chave de onde tirar |
 | `mod` | 55 |
 | `serie` | `TaxDocumentSeries` |
 | `nNFIni` = `nNFFin` | `TaxDocumentNumber` |
 | `xJust` | justificativa digitada |
-| `tpAmb` | `invoice.NfeEnvironment` — o ambiente da EMISSÃO, não o atual da filial |
+| `tpAmb` | `invoice.NfeEnvironment` — o ambiente da EMISSÃO, não o atual da filial; nulo (rejeição local) = o atual da filial |
 
 Certificado e configuração via `BranchNfeSettingsService.OpenAsync(branch, invoice.NfeEnvironment)`,
 como no cancelamento.
@@ -88,7 +88,8 @@ A `ChaveNFe` da tentativa rejeitada fica no documento (histórico); o DANFE não
     entrada de terceiro).
   - `SalesInvoicesNfeVoidNumberXmlDownloadService` e `PurchaseInvoicesNfeVoidNumberXmlDownloadService`
     — `LatestXmlAsync(key, NumberVoid)`; sem XML → `NotFoundException`
-    ("Esta inutilização não tem comprovante."). Arquivo `<cnpj><serie><numero>-procInutNFe.xml`.
+    ("Esta inutilização não tem comprovante."). Arquivo `<serie>-<numero>-procInutNFe.xml` (a tela
+    dá o mesmo nome ao baixar).
   - Retorno da action: o `NfeIssueOutcomeDto` já usado (NfeStatus, StatusCode, Reason).
 - **Web:** actions `SalesInvoicesVoidNfeNumber` e `PurchaseInvoicesVoidNfeNumber`
   (`Key: Guid`, `Justification: string`), funções de download
