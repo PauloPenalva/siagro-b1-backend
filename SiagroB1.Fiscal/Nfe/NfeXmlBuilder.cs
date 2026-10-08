@@ -312,9 +312,10 @@ public static class NfeXmlBuilder
             "40" => new ICMS40 { orig = origin, CST = Csticms.Cst40 },
             "41" => new ICMS40 { orig = origin, CST = Csticms.Cst41 },
             "50" => new ICMS40 { orig = origin, CST = Csticms.Cst50 },
+            // N12-97 (rejeição 929): o grupo do diferimento vai inteiro, pRedBC inclusive, mesmo sem redução.
             "51" => new ICMS51
             {
-                orig = origin, CST = Csticms.Cst51, modBC = DeterminacaoBaseIcms.DbiValorOperacao, pRedBC = reduction,
+                orig = origin, CST = Csticms.Cst51, modBC = DeterminacaoBaseIcms.DbiValorOperacao, pRedBC = item.IcmsBaseReduction,
                 vBC = item.IcmsBase, pICMS = item.IcmsRate, vICMSOp = item.IcmsOperationValue,
                 pDif = item.IcmsDeferral, vICMSDif = item.IcmsDeferredValue, vICMS = item.IcmsValue,
             },
