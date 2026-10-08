@@ -74,7 +74,11 @@ public class Country
 ### Validação do tipo
 
 `AdresType` precisa ser `B` ou `S`. Um helper único (`AddressTypes.EnsureValid(string, IStringLocalizer)`)
-lança `BusinessException(resource["BP_ADDRESS_INVALID_TYPE"])` e é chamado em:
+lança `DefaultException(resource["BP_ADDRESS_INVALID_TYPE"])` e é chamado em:
+
+(`DefaultException`, não `BusinessException`: `BusinessPartnersController` e
+`BusinessPartnersAddressesController` só convertem `DefaultException` em 400 — qualquer outra vira 500.)
+
 
 - `BusinessPartnerService.CreateAsync` (deep insert dos endereços);
 - `BusinessPartnerAddressService.Create`.
@@ -97,7 +101,7 @@ O `Update` não valida o tipo: `AdresType` é parte da chave
   forceSelection="false"
   required="true"
   width="100%"
-  enabled="{= ${ui>/editable} &amp;&amp; %{@$ui5.context.isTransient} !== false }">
+  enabled="{= ${ui>/editable} === true &amp;&amp; %{@$ui5.context.isTransient} === true }">
   <core:ListItem key="B" text="Cobrança" />
   <core:ListItem key="S" text="Entrega" />
 </Select>
@@ -106,6 +110,8 @@ O `Update` não valida o tipo: `AdresType` é parte da chave
 O Select fica **travado nas linhas já gravadas**: como `AdresType` é chave, trocar o tipo de um
 endereço existente no `/edit` não seria persistido. Para mudar o tipo, remove-se a linha e
 inclui-se outra. Linhas novas (transientes) ficam livres, inclusive em todo o `/new`.
+`@$ui5.context.isTransient` é `true` na linha transiente, `false` depois de gravada e
+**`undefined` na linha lida do servidor** — por isso `=== true`, e não `!== false`.
 
 ### País — value help
 
@@ -138,8 +144,8 @@ definiu (ex.: uma tela de detalhe que o põe `false` deixa o grid do parceiro so
 Backend (`SiagroB1.Application.Tests`):
 - `CountrySeedTests`: lê o recurso; contém `BR`/`1058`/`BRASIL`; ISO-2 e BACEN sem duplicata;
   todo ISO-2 com 2 letras maiúsculas e todo BACEN com 4 dígitos.
-- `BusinessPartnerAddressService.Create` com `AdresType = "X"` → `BusinessException`; com `B`/`S` grava.
-- `BusinessPartnerService.CreateAsync` com endereço de tipo inválido → `BusinessException`, nada gravado.
+- `BusinessPartnerAddressService.Create` com `AdresType = "X"` → `DefaultException`; com `B`/`S` grava.
+- `BusinessPartnerService.CreateAsync` com endereço de tipo inválido → `DefaultException`, nada gravado.
 
 Frontend: `yarn ts-typecheck` + `yarn lint` + `yarn ui5lint`.
 
