@@ -9,7 +9,30 @@ public class FastReportService(
     IConfiguration configuration,
     ReportHeaderService reportHeader) : IFastReportService
 {
-    
+    /// <summary>
+    /// Parâmetro reservado: com <c>false</c> (modo SAPB1) os objetos cujo nome começa com
+    /// "fiscal" somem do PDF — tributos e situação da NF-e não são calculados pelo Siagro nesse modo.
+    /// </summary>
+    public const string StandaloneParameter = "pStandalone";
+
+    public static void HideFiscalObjects(Report report)
+    {
+        foreach (var component in report.AllObjects.OfType<ReportComponentBase>())
+        {
+            if (component.Name.StartsWith("fiscal", StringComparison.Ordinal))
+                component.Visible = false;
+        }
+    }
+
+    private static void ApplyParameters(Report report, Dictionary<string, object> parameters)
+    {
+        foreach (var param in parameters)
+            report.SetParameterValue(param.Key, param.Value);
+
+        if (parameters.TryGetValue(StandaloneParameter, out var standalone) && standalone is false)
+            HideFiscalObjects(report);
+    }
+
     public async Task<byte[]> GeneratePdfAsync(
         string reportName,
         Dictionary<string, object> parameters)
@@ -35,10 +58,7 @@ public class FastReportService(
         sqlConn.ConnectionString =
             configuration.GetConnectionString("SiagroDB");
         
-        foreach (var param in parameters)
-        {
-            report.SetParameterValue(param.Key, param.Value);
-        }
+        ApplyParameters(report, parameters);
 
         if (!await report.PrepareAsync()) return Array.Empty<byte>();
         var pdfExport = new PDFSimpleExport();
@@ -74,10 +94,7 @@ public class FastReportService(
 
         report.GetDataSource(dataSourceName).Enabled = true;
         
-        foreach (var param in parameters)
-        {
-            report.SetParameterValue(param.Key, param.Value);
-        }
+        ApplyParameters(report, parameters);
 
         if (!await report.PrepareAsync()) return Array.Empty<byte>();
         var pdfExport = new PDFSimpleExport();
