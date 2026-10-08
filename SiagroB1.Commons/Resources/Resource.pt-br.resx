@@ -309,4 +309,7 @@
     <data name="WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED" xml:space="preserve">
         <value>O contrato de compra de uma das liberações está encerrado e não pode receber a perda.</value>
     </data>
+    <data name="BP_ADDRESS_INVALID_TYPE" xml:space="preserve">
+        <value>Tipo de endereço inválido. Use Cobrança ou Entrega.</value>
+    </data>
 </root>

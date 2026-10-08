@@ -306,4 +306,7 @@
     <data name="WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED" xml:space="preserve">
         <value>The purchase contract of a distributed release is finished and cannot receive the loss.</value>
     </data>
+    <data name="BP_ADDRESS_INVALID_TYPE" xml:space="preserve">
+        <value>Invalid address type. Use Bill-to or Ship-to.</value>
+    </data>
 </root>

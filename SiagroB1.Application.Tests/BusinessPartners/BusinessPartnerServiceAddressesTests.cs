@@ -4,6 +4,7 @@ using SiagroB1.Application.Services;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
 
@@ -80,5 +81,17 @@ public class BusinessPartnerServiceAddressesTests
         var read = await Service(db).GetByIdAsync("C90001");
 
         Assert.Equal(2, read!.Addresses.Count);
+    }
+
+    [Fact]
+    public async Task Create_rejects_an_address_type_other_than_bill_to_or_ship_to()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(db).CreateAsync(Partner(Address("FATURAMENTO", "B", "PR"), Address("OUTRO", "X", "SP"))));
+
+        Assert.Equal("BP_ADDRESS_INVALID_TYPE", ex.Message);
+        Assert.False(await db.Context.BusinessPartners.AnyAsync(p => p.CardCode == "C90001"));
     }
 }

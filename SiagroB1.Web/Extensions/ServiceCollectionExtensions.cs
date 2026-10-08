@@ -340,6 +340,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<MunicipalityService>();
+        services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
