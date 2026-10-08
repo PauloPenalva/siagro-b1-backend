@@ -10,4 +10,9 @@ public enum NfeStatus
     Denied = 4,
     /// <summary>Cancelamento (evento 110111) registrado na SEFAZ. Número e chave ficam queimados.</summary>
     Cancelled = 5,
+    /// <summary>
+    /// Numeração inutilizada na SEFAZ (NfeInutilizacao4): a NF-e rejeitada de um documento cancelado
+    /// nunca foi autorizada e o número foi queimado. Documento congelado como o cancelado.
+    /// </summary>
+    Voided = 6,
 }

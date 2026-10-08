@@ -9,4 +9,6 @@ public enum NfeXmlKind
     Denied = 3,
     /// <summary>procEventoNFe do cancelamento (evento assinado + retorno da SEFAZ).</summary>
     CancellationEvent = 4,
+    /// <summary>procInutNFe da inutilização do número (pedido assinado + retorno da SEFAZ).</summary>
+    NumberVoid = 5,
 }
