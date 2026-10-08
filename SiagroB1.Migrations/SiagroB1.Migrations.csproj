@@ -18,6 +18,7 @@
 
     <ItemGroup>
       <EmbeddedResource Include="Seeds\municipalities.txt" LogicalName="SiagroB1.Migrations.Seeds.municipalities.txt" />
+      <EmbeddedResource Include="Seeds\countries.txt" LogicalName="SiagroB1.Migrations.Seeds.countries.txt" />
     </ItemGroup>
 
     <ItemGroup>
