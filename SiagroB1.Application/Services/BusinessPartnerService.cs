@@ -88,6 +88,9 @@ public class BusinessPartnerService(
 
         ValidateNfeFields(model);
 
+        foreach (var address in model.Addresses)
+            AddressTypes.EnsureValid(address.AdresType, resource);
+
         var entity = new BusinessPartner()
         {
             CardCode = model.CardCode,

@@ -68,6 +68,8 @@ public class BusinessPartnerAddressService(
     
     public async Task<AddressModel> Create(string cardCode, AddressModel addressModel)
     {
+        AddressTypes.EnsureValid(addressModel.AdresType, resource);
+
         var existingEntity = await db.Context.BusinessPartners.FindAsync(cardCode)
                              ?? throw new NotFoundException(resource["BP_NOT_FOUND"]);
 
