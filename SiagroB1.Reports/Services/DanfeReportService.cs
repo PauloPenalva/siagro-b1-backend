@@ -99,7 +99,7 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
         FastReport.Utils.Config.WebMode = true;
 
         // NF-e cancelada: a Zeus estampa "DOCUMENTO CANCELADO" no layout.
-        var danfe = new DanfeFrNfe(proc, new ConfiguracaoDanfeNfe(header.LogoBytes(), documentoCancelado: cancelled),
+        var danfe = new DanfeFrNfe(proc, new ConfiguracaoDanfeNfe(DanfeLogo.FitToBox(header.LogoBytes()), documentoCancelado: cancelled),
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
         using var report = danfe.Relatorio;
 
