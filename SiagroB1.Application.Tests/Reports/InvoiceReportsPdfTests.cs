@@ -119,6 +119,23 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("SalesInvoiceItems", erp, pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task PurchaseInvoiceItems_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", items: [PurchaseItem(), PurchaseItem(null, "SOJA DO XML", uom: null)]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration(erp);
+        var pdf = await new PurchaseInvoiceItemsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new PurchaseInvoiceItemsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("PurchaseInvoiceItems", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
