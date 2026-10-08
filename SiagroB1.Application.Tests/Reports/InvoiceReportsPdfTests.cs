@@ -136,6 +136,28 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("PurchaseInvoiceItems", erp, pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task SalesReturns_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var originalItem = SaleItem();
+        db.Context.SalesInvoices.Add(Sale("100", new DateTime(2026, 6, 20), items: [originalItem]));
+        var own = SaleItem(quantity: 2m);
+        own.SalesInvoiceItemOriginKey = originalItem.Key;
+        db.Context.SalesInvoices.Add(Sale("101", type: SalesInvoiceType.Return, items: [own]));
+        db.Context.PurchaseInvoices.Add(Purchase("900", type: PurchaseInvoiceType.Return)); // sem vínculo
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration(erp);
+        var pdf = await new SalesReturnsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new SalesReturnsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesReturns", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
