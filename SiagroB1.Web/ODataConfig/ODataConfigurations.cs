@@ -124,6 +124,12 @@ public static class ODataConfigurations
             completeCancellation.Parameter<Guid>("Key");
             completeCancellation.Returns<NfeIssueOutcomeDto>();
 
+            // Inutilização da numeração (spec 2026-10-08): NF-e rejeitada de documento cancelado.
+            var voidNumber = modelBuilder.Action($"{prefix}VoidNfeNumber");
+            voidNumber.Parameter<Guid>("Key");
+            voidNumber.Parameter<string>("Justification");
+            voidNumber.Returns<NfeIssueOutcomeDto>();
+
             // CC-e (spec 2026-10-06): evento 110110 com o texto da correção.
             var sendCorrection = modelBuilder.Action($"{prefix}SendNfeCorrection");
             sendCorrection.Parameter<Guid>("Key");
@@ -1491,6 +1497,10 @@ public static class ODataConfigurations
             correctionXml.Parameter<Guid>("Key");
             correctionXml.Parameter<int>("Sequence");
             correctionXml.Returns<IActionResult>();
+
+            var voidNumberXml = modelBuilder.Function($"{prefix}NfeVoidNumberXml");
+            voidNumberXml.Parameter<Guid>("Key");
+            voidNumberXml.Returns<IActionResult>();
         }
 
         var financialByContract = modelBuilder.Function("FinancialDocumentsGetByContract");

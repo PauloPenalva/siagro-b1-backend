@@ -369,6 +369,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseInvoicesNfeCancelService>();
         services.AddScoped<PurchaseInvoicesNfeCompleteCancellationService>();
         services.AddScoped<PurchaseInvoicesNfeCancellationXmlDownloadService>();
+        services.AddScoped<SalesInvoicesNfeVoidNumberService>();
+        services.AddScoped<SalesInvoicesNfeVoidNumberXmlDownloadService>();
+        services.AddScoped<PurchaseInvoicesNfeVoidNumberService>();
+        services.AddScoped<PurchaseInvoicesNfeVoidNumberXmlDownloadService>();
         services.AddScoped<SalesInvoicesNfeCorrectionService>();
         services.AddScoped<PurchaseInvoicesNfeCorrectionService>();
         services.AddScoped<SalesInvoicesNfeCorrectionXmlDownloadService>();
