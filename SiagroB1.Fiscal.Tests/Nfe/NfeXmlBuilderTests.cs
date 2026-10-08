@@ -1,3 +1,4 @@
+using NFe.Utils.NFe;
 using NFe.Classes.Informacoes.Identificacao;
 using NFe.Classes.Informacoes.Destinatario;
 using NFe.Classes.Informacoes.Detalhe;
@@ -148,7 +149,25 @@ public class NfeXmlBuilderTests
         Assert.Equal(100m, icms.pDif);
         Assert.Equal(10800m, icms.vICMSDif);
         Assert.Equal(0m, icms.vICMS);
-        Assert.Null(icms.pRedBC);
+        Assert.Equal(0m, icms.pRedBC);
+    }
+
+    /// <summary>
+    /// Regra N12-97 (rejeição 929): no CST 51 a SEFAZ-SP exige o grupo inteiro, inclusive o pRedBC
+    /// sem redução — em 08/10/2026 passou a rejeitar o XML que antes autorizava sem a tag.
+    /// </summary>
+    [Fact]
+    public void Icms51_without_reduction_serializes_pRedBC_zero()
+    {
+        var item = NfeTestData.Item() with
+        {
+            IcmsCode = "51", IcmsBase = 66429m, IcmsRate = 18m, IcmsOperationValue = 11957.22m, IcmsDeferral = 100m,
+            IcmsDeferredValue = 11957.22m, IcmsValue = 0m, IcmsBaseReduction = 0m,
+        };
+
+        var xml = Build(NfeTestData.Input() with { Items = [item] }).ObterXmlString();
+
+        Assert.Contains("<modBC>3</modBC><pRedBC>0.0000</pRedBC><vBC>66429.00</vBC>", xml);
     }
 
     [Theory]
