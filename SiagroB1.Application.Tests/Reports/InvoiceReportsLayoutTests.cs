@@ -125,4 +125,22 @@ public class InvoiceReportsLayoutTests
 
         Assert.True(mismatches.Count == 0, $"{template}: " + string.Join("; ", mismatches));
     }
+
+    [Fact]
+    public void PurchaseInvoicesByPeriod_DeclaredHeaderAndNfeStatusFitTheirText()
+    {
+        using var report = Load("PurchaseInvoicesByPeriod");
+        var objects = TextObjects(report);
+        // Cabeçalho "Vl. declarado" (13 caracteres) e situação da NF-e ("Autorizada"/"Inutilizada", 11 caracteres + padding 4/2)
+        var checks = new (string Name, int Chars, float Pad)[]
+        {
+            ("hdrDeclared", 13, Padding), ("fiscalHdrNfeStatus", 9, 6f), ("fiscalNfeStatus", 11, 6f),
+        };
+        var tooNarrow = checks
+            .Select(c => (c.Name, Required: c.Chars * CharWidth + c.Pad, obj: objects.Single(o => o.Name == c.Name)))
+            .Where(c => c.Required > c.obj.Width)
+            .Select(c => $"{c.Name}: precisa {c.Required:0.#}px, tem {c.obj.Width:0.#}px");
+
+        Assert.Empty(tooNarrow);
+    }
 }
