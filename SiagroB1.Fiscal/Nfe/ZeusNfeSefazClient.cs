@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using DFe.Classes.Flags;
 using DFe.Wsdl.Common;
 using NFe.Classes.Servicos.Tipos;
 using NFe.Servicos;
@@ -63,6 +64,23 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
                 Sequence = result.Sequence ?? request.Sequence,
                 CorrectionText = result.CorrectionText ?? request.Text,
             };
+        }, cancellationToken);
+
+    public Task<NfeVoidNumberResult> VoidNumberAsync(
+        NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services =>
+        {
+            // UF, ambiente e modelo vêm da configuração; a Zeus monta, assina e valida no XSD.
+            var response = services.NfeInutilizacao(
+                request.TaxId, request.Year, ModeloDocumento.NFe, request.Series, request.Number, request.Number,
+                request.Justification);
+
+            // O comprovante usa o texto CRU (nunca re-serializado): o mapper acha o inutNFe em EnvioStr e o
+            // retInutNFe no primeiro retorno cru que o contenha, mesmo dentro de envelope SOAP.
+            var rawReturn = new[] { response.RetornoStr, response.RetornoCompletoStr }
+                .FirstOrDefault(r => r?.Contains("retInutNFe", StringComparison.Ordinal) == true);
+
+            return NfeSefazResponseMapper.FromVoidNumber(response.EnvioStr, rawReturn, response.Retorno);
         }, cancellationToken);
 
     private static Task<T> RunAsync<T>(

@@ -279,7 +279,7 @@ public class PurchaseInvoiceNfeLockTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesDeleteService(db).ExecuteAsync(invoice.Key));
 
-        Assert.Equal("Documento com NF-e em processamento, autorizada, denegada ou cancelada não pode ser excluído.", e.Message);
+        Assert.Equal("Documento com NF-e em processamento, autorizada, denegada, cancelada ou inutilizada não pode ser excluído.", e.Message);
     }
 
     [Fact]

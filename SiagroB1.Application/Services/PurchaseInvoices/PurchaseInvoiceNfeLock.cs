@@ -150,9 +150,10 @@ public static class PurchaseInvoiceNfeLock
 
     public static void EnsureDeletable(PurchaseInvoice invoice)
     {
-        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied or NfeStatus.Cancelled)
+        if (invoice.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Denied
+            or NfeStatus.Cancelled or NfeStatus.Voided)
             throw new DefaultException(
-                "Documento com NF-e em processamento, autorizada, denegada ou cancelada não pode ser excluído.");
+                "Documento com NF-e em processamento, autorizada, denegada, cancelada ou inutilizada não pode ser excluído.");
     }
 
     public static void EnsureCancellable(PurchaseInvoice invoice)

@@ -76,6 +76,25 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         return Task.FromResult(CorrectionResponses.Dequeue()(request));
     }
 
+    public Queue<Func<NfeVoidNumberRequest, NfeVoidNumberResult>> VoidNumberResponses { get; } = new();
+    public List<NfeVoidNumberRequest> VoidNumberRequests { get; } = [];
+    public List<NfeServiceSettings> VoidNumberSettings { get; } = [];
+
+    public Task<NfeVoidNumberResult> VoidNumberAsync(
+        NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        VoidNumberRequests.Add(request);
+        VoidNumberSettings.Add(settings);
+        return Task.FromResult(VoidNumberResponses.Dequeue()(request));
+    }
+
+    public const string VoidNumberProtocol = "135260000000777";
+
+    public static NfeVoidNumberResult NumberVoided(NfeVoidNumberRequest r) => new(
+        102, "Inutilização de número homologado", VoidNumberProtocol,
+        $"<procInutNFe versao=\"4.00\"><inutNFe><infInut><serie>{r.Series}</serie><nNFIni>{r.Number}</nNFIni></infInut></inutNFe>" +
+        $"<retInutNFe><infInut><cStat>102</cStat><nProt>{VoidNumberProtocol}</nProt></infInut></retInutNFe></procInutNFe>");
+
     public static string CorrectionProtocol(int sequence) => $"1352600000002{sequence:D2}";
 
     public static readonly DateTimeOffset CorrectionRegisteredAt = new(2026, 10, 6, 9, 15, 0, TimeSpan.FromHours(-3));

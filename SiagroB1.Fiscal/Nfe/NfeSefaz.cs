@@ -3,6 +3,7 @@ using DFe.Utils;
 using NFe.Classes.Protocolo;
 using NFe.Classes.Servicos.Consulta;
 using NFe.Classes.Servicos.Evento;
+using NFe.Classes.Servicos.Inutilizacao;
 using NFe.Classes.Servicos.Recepcao;
 using NFe.Classes.Servicos.Status;
 using NFe.Classes.Servicos.Tipos;
@@ -31,6 +32,15 @@ public sealed record NfeCorrectionRequest(
 /// <summary>Pedido de cancelamento (evento 110111). <see cref="EventAt"/> em Brasília.</summary>
 public sealed record NfeCancelRequest(
     string AccessKey, string AuthorizationProtocol, string Justification, string IssuerDocument, DateTimeOffset EventAt);
+
+/// <summary>
+/// Pedido de inutilização (NfeInutilizacao4) de UM número: <see cref="Year"/> com 2 dígitos,
+/// <see cref="TaxId"/> alfanumérico (CNPJ novo), como na emissão. UF, modelo e ambiente vêm da configuração do serviço.
+/// </summary>
+public sealed record NfeVoidNumberRequest(int Year, string TaxId, int Series, int Number, string Justification);
+
+/// <summary>Retorno da inutilização. <see cref="ProcXml"/> é o <c>procInutNFe</c> (pedido assinado + retorno), só na homologação (102).</summary>
+public sealed record NfeVoidNumberResult(int StatusCode, string Reason, string? Protocol = null, string? ProcXml = null);
 
 /// <summary>
 /// Retorno de um evento: o status é o do <c>retEvento</c> (o do lote vem 128 quando processado).
@@ -78,6 +88,12 @@ public static class NfeStatusCodes
     public static bool IsEventRegistered(int code) => code is 135 or 155;
 
     public static bool IsCancellationRegistered(int code) => IsEventRegistered(code);
+
+    /// <summary>Inutilização de número homologada.</summary>
+    public const int NumberVoided = 102;
+
+    /// <summary>256 = número já inutilizado na SEFAZ; 563 = pedido repetido para a mesma faixa (envio anterior sem resposta).</summary>
+    public static bool IsNumberAlreadyVoided(int code) => code is 256 or 563;
 }
 
 /// <summary>Ponto de simulação nos testes da Application. Implementação real: <see cref="ZeusNfeSefazClient"/>.</summary>
@@ -93,6 +109,9 @@ public interface INfeSefazClient
 
     /// <summary>Envia a CC-e (110110). O <see cref="NfeEventResult.Sequence"/> volta preenchido.</summary>
     Task<NfeEventResult> SendCorrectionAsync(NfeCorrectionRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>Inutiliza UM número da série (faixa inicial = final).</summary>
+    Task<NfeVoidNumberResult> VoidNumberAsync(NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
 }
 
 internal static class NfeSefazResponseMapper
@@ -168,6 +187,52 @@ internal static class NfeSefazResponseMapper
         DateTimeOffset.TryParse(info.ProxydhRegEvento, CultureInfo.InvariantCulture, DateTimeStyles.None, out var at)
             ? at
             : info.dhRegEvento == default ? null : new DateTimeOffset(info.dhRegEvento);
+
+    private const string NfeNamespace = "http://www.portalfiscal.inf.br/nfe";
+
+    /// <summary>
+    /// Com 102 o comprovante é o <c>procInutNFe</c>: o pedido ASSINADO que foi enviado + o retorno, ambos
+    /// com o texto original (OuterXml dos nós crus). Nunca re-serializa: o <c>dhRecbto</c> é DateTime e
+    /// seria reescrito com o fuso do servidor, quebrando a assinatura do comprovante.
+    /// Nó não encontrado ou XML ilegível não impede a homologação — só fica sem comprovante.
+    /// </summary>
+    public static NfeVoidNumberResult FromVoidNumber(string? requestXml, string? rawReturnXml, retInutNFe response)
+    {
+        var info = response.infInut;
+        var code = info?.cStat ?? 0;
+        var reason = info?.xMotivo ?? string.Empty;
+
+        if (code != NfeStatusCodes.NumberVoided)
+            return new NfeVoidNumberResult(code, reason);
+
+        var request = FindElementXml(requestXml, "inutNFe");
+        var returned = FindElementXml(rawReturnXml, "retInutNFe");
+        var proc = request is null || returned is null
+            ? null
+            : $"<procInutNFe versao=\"4.00\" xmlns=\"{NfeNamespace}\">{request}{returned}</procInutNFe>";
+
+        return new NfeVoidNumberResult(code, reason, info!.nProt, proc);
+    }
+
+    /// <summary>OuterXml verbatim do primeiro elemento de nome local <paramref name="localName"/> no namespace da NF-e.</summary>
+    private static string? FindElementXml(string? xml, string localName)
+    {
+        if (string.IsNullOrWhiteSpace(xml))
+            return null;
+
+        try
+        {
+            var document = new System.Xml.XmlDocument { PreserveWhitespace = true, XmlResolver = null };
+            document.LoadXml(xml);
+
+            return document.GetElementsByTagName("*").Cast<System.Xml.XmlElement>()
+                .FirstOrDefault(e => e.LocalName == localName && e.NamespaceURI == NfeNamespace)?.OuterXml;
+        }
+        catch (System.Xml.XmlException)
+        {
+            return null;
+        }
+    }
 
     public static NfeSefazResult FromStatus(retConsStatServ response) =>
         new(response.cStat, response.xMotivo ?? string.Empty);
