@@ -54,4 +54,8 @@ public static class NfeVoidNumberTestServices
     public static SalesInvoicesNfeVoidNumberService SalesVoid(UnitOfWork db, FakeNfeSefazClient sefaz) =>
         new(db, Settings(db, sefaz), sefaz, new FakeNfeNumberReservationService(),
             NullLogger<SalesInvoicesNfeVoidNumberService>.Instance);
+
+    public static PurchaseInvoicesNfeVoidNumberService PurchaseVoid(UnitOfWork db, FakeNfeSefazClient sefaz) =>
+        new(db, Settings(db, sefaz), sefaz, new FakeNfeNumberReservationService(),
+            NullLogger<PurchaseInvoicesNfeVoidNumberService>.Instance);
 }
