@@ -10,7 +10,7 @@ namespace SiagroB1.Application.Tests.Reports;
 /// </summary>
 public class InvoiceReportsLayoutTests
 {
-    private const float CharWidth = 5.2f; // 5,13 medido + folga
+    private const float CharWidth = 5.2f; // a 7pt: 5,13 medido + folga
     private const float Padding = 4f;
     private const float PageWidth = 1084f;
 
@@ -64,7 +64,7 @@ public class InvoiceReportsLayoutTests
         {
             if (Budget(obj.Name) is not { } chars) continue;
             checkedCount++;
-            var required = chars * CharWidth + Padding;
+            var required = chars * CharWidth * obj.Font.Size / 7f + Padding; // 5,2 px/char a 7pt, proporcional ao corpo
             if (required > obj.Width)
                 tooNarrow.Add($"{obj.Name}: precisa {required:0.#}px, tem {obj.Width:0.#}px");
         }

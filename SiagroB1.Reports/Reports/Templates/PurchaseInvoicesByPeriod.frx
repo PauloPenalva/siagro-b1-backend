@@ -47,16 +47,16 @@
       <TextObject Name="hdrDocumentNumber" Left="117" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrIssueDate" Left="199" Width="64" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrPostingDate" Left="263" Width="64" Height="17" Text="Entrada" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssuer" Left="327" Width="139" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrType" Left="466" Width="55" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssuerType" Left="521" Width="62" Height="17" Text="Emitida por" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrStatus" Left="583" Width="62" Height="17" Text="Situação" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDeclared" Left="645" Width="68" Height="17" Text="Vl. declarado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrProducts" Left="713" Width="68" Height="17" Text="Produtos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrFreight" Left="781" Width="58" Height="17" Text="Frete" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDiscount" Left="839" Width="58" Height="17" Text="Desconto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrGrandTotal" Left="897" Width="68" Height="17" Text="Total geral" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="fiscalHdrTaxes" Left="965" Width="58" Height="17" Text="Tributos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssuer" Left="327" Width="109" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrType" Left="436" Width="55" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssuerType" Left="491" Width="62" Height="17" Text="Emitida por" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="553" Width="62" Height="17" Text="Situação" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeclared" Left="615" Width="68" Height="17" Text="Vl. declarado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrProducts" Left="683" Width="68" Height="17" Text="Produtos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrFreight" Left="751" Width="68" Height="17" Text="Frete" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDiscount" Left="819" Width="68" Height="17" Text="Desconto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrGrandTotal" Left="887" Width="68" Height="17" Text="Total geral" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="fiscalHdrTaxes" Left="955" Width="68" Height="17" Text="Tributos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="fiscalHdrNfeStatus" Left="1023" Width="61" Height="17" Text="Sit. NF-e" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
     <DataBand Name="Data1" Top="136.8" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="PurchaseInvoicesByPeriod">
@@ -65,28 +65,28 @@
         <TextObject Name="txtDocumentNumber" Left="117" Width="82" Height="17" Text="[PurchaseInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtIssueDate" Left="199" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtPostingDate" Left="263" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.PostingDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssuer" Left="327" Width="139" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtType" Left="466" Width="55" Height="17" Text="[PurchaseInvoicesByPeriod.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssuerType" Left="521" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.IssuerType]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtStatus" Left="583" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDeclared" Left="645" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.DeclaredValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtProducts" Left="713" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.ProductsTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtFreight" Left="781" Width="58" Height="17" Text="[PurchaseInvoicesByPeriod.Freight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDiscount" Left="839" Width="58" Height="17" Text="[PurchaseInvoicesByPeriod.Discount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtGrandTotal" Left="897" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.GrandTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="fiscalTaxes" Left="965" Width="58" Height="17" Text="[PurchaseInvoicesByPeriod.Taxes]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssuer" Left="327" Width="109" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtType" Left="436" Width="55" Height="17" Text="[PurchaseInvoicesByPeriod.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssuerType" Left="491" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.IssuerType]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtStatus" Left="553" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDeclared" Left="615" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.DeclaredValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtProducts" Left="683" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.ProductsTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtFreight" Left="751" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.Freight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDiscount" Left="819" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.Discount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtGrandTotal" Left="887" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.GrandTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="fiscalTaxes" Left="955" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.Taxes]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="fiscalNfeStatus" Left="1023" Width="61" Height="17" Text="[PurchaseInvoicesByPeriod.NfeStatus]" Padding="4, 0, 2, 0" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
     </DataBand>
-    <ReportSummaryBand Name="ReportSummary1" Top="157" Width="1084" Height="62">
+    <ReportSummaryBand Name="ReportSummary1" Top="157" Width="1084" Height="48">
       <TextObject Name="txtSumLabel" Left="0" Top="4" Width="120" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       <TextObject Name="txtSumCount" Left="120" Top="4" Width="100" Height="17" Text="[TotalCountAll] doc." HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtSumDeclaredValue" Left="635" Top="4" Width="78" Height="17" Text="[TotalDeclaredValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtSumProductsTotal" Left="703" Top="22" Width="78" Height="17" Text="[TotalProductsTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtSumFreight" Left="761" Top="4" Width="78" Height="17" Text="[TotalFreight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtSumDiscount" Left="819" Top="22" Width="78" Height="17" Text="[TotalDiscount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtSumGrandTotal" Left="887" Top="4" Width="78" Height="17" Text="[TotalGrandTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="fiscalSumTaxes" Left="945" Top="22" Width="78" Height="17" Text="[TotalTaxes]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="txtEmpty" Left="0" Top="40" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="txtSumDeclaredValue" Left="615" Top="4" Width="68" Height="17" Text="[TotalDeclaredValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumProductsTotal" Left="683" Top="4" Width="68" Height="17" Text="[TotalProductsTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumFreight" Left="751" Top="4" Width="68" Height="17" Text="[TotalFreight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumDiscount" Left="819" Top="4" Width="68" Height="17" Text="[TotalDiscount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumGrandTotal" Left="887" Top="4" Width="68" Height="17" Text="[TotalGrandTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="fiscalSumTaxes" Left="955" Top="4" Width="68" Height="17" Text="[TotalTaxes]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter1" Top="208" Width="1084" Height="26">
       <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
