@@ -328,6 +328,14 @@ public class NfeSefazResponseMapperTests
         "<tpAmb>2</tpAmb><xServ>INUTILIZAR</xServ><cUF>35</cUF><ano>26</ano><CNPJ>12345678000195</CNPJ><mod>55</mod>" +
         "<serie>1</serie><nNFIni>233</nNFIni><nNFFin>233</nNFFin><xJust>NF-e rejeitada e documento cancelado</xJust></infInut></inutNFe>";
 
+    private const string VoidReturnNode =
+        "<retInutNFe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infInut><tpAmb>2</tpAmb><verAplic>SP_NFE_PL009</verAplic>" +
+        "<cStat>102</cStat><xMotivo>Inutilização de número homologado</xMotivo><cUF>35</cUF><ano>26</ano><CNPJ>12345678000195</CNPJ>" +
+        "<mod>55</mod><serie>1</serie><nNFIni>233</nNFIni><nNFFin>233</nNFFin><dhRecbto>2026-10-08T15:30:00-03:00</dhRecbto>" +
+        "<nProt>135260000000777</nProt></infInut><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><Reference URI=\"\"><DigestValue>abc=</DigestValue></Reference></SignedInfo></Signature></retInutNFe>";
+
+    private const string VoidReturnXml = VoidReturnNode;
+
     private static retInutNFe VoidResponse(int status, string? protocol) => new()
     {
         versao = "4.00",
@@ -342,7 +350,7 @@ public class NfeSefazResponseMapperTests
     [Fact]
     public void Homologated_void_number_carries_protocol_and_proc_xml()
     {
-        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidResponse(102, "135260000000777"));
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidReturnXml, VoidResponse(102, "135260000000777"));
 
         Assert.Equal(102, result.StatusCode);
         Assert.Equal("135260000000777", result.Protocol);
@@ -354,7 +362,7 @@ public class NfeSefazResponseMapperTests
     [Fact]
     public void Void_number_refusal_has_no_proc_xml()
     {
-        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidResponse(256, null));
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidReturnXml, VoidResponse(256, null));
 
         Assert.Equal(256, result.StatusCode);
         Assert.Null(result.Protocol);
@@ -368,4 +376,56 @@ public class NfeSefazResponseMapperTests
     [InlineData(241, false)]
     public void Already_voided_codes(int code, bool expected) =>
         Assert.Equal(expected, NfeStatusCodes.IsNumberAlreadyVoided(code));
+
+    [Fact]
+    public void Proc_xml_keeps_raw_return_and_request_byte_for_byte()
+    {
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidReturnXml, VoidResponse(102, "135260000000777"));
+
+        Assert.Contains(VoidReturnNode, result.ProcXml);
+        Assert.Contains("<dhRecbto>2026-10-08T15:30:00-03:00</dhRecbto>", result.ProcXml);
+        Assert.Contains(VoidRequestXml, result.ProcXml);
+        Assert.StartsWith("<procInutNFe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\">", result.ProcXml);
+        Assert.EndsWith("</procInutNFe>", result.ProcXml);
+    }
+
+    [Fact]
+    public void Raw_return_inside_soap_envelope_is_still_found()
+    {
+        var soap = "<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\"><soap:Body>" +
+                   "<nfeResultMsg xmlns=\"http://www.portalfiscal.inf.br/nfe/wsdl/NFeInutilizacao4\">" + VoidReturnNode +
+                   "</nfeResultMsg></soap:Body></soap:Envelope>";
+
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, soap, VoidResponse(102, "135260000000777"));
+
+        Assert.Contains("<dhRecbto>2026-10-08T15:30:00-03:00</dhRecbto>", result.ProcXml);
+        Assert.Contains("<Signature", result.ProcXml);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("<<garbage")]
+    [InlineData("<outro xmlns=\"http://www.portalfiscal.inf.br/nfe\"/>")]
+    public void Unusable_raw_return_leaves_proc_xml_null_but_keeps_homologation(string? raw)
+    {
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, raw, VoidResponse(102, "135260000000777"));
+
+        Assert.Equal(102, result.StatusCode);
+        Assert.Equal("135260000000777", result.Protocol);
+        Assert.Null(result.ProcXml);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("<<garbage")]
+    [InlineData("<outro xmlns=\"http://www.portalfiscal.inf.br/nfe\"/>")]
+    public void Unusable_request_leaves_proc_xml_null_but_keeps_homologation(string? request)
+    {
+        var result = NfeSefazResponseMapper.FromVoidNumber(request, VoidReturnXml, VoidResponse(102, "135260000000777"));
+
+        Assert.Equal(102, result.StatusCode);
+        Assert.Equal("135260000000777", result.Protocol);
+        Assert.Null(result.ProcXml);
+    }
 }

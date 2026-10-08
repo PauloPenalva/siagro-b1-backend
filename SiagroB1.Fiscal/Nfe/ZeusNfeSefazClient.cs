@@ -75,9 +75,12 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
                 request.TaxId, request.Year, ModeloDocumento.NFe, request.Series, request.Number, request.Number,
                 request.Justification);
 
-            // ⚠️ EnvioStr = o inutNFe assinado que foi enviado (vira o procInutNFe). Se o E2E mostrar que é o
-            // envelope SOAP, extraia o nó <inutNFe> antes de passar — o mapper só perde o comprovante, não a homologação.
-            return NfeSefazResponseMapper.FromVoidNumber(response.EnvioStr, response.Retorno);
+            // O comprovante usa o texto CRU (nunca re-serializado): o mapper acha o inutNFe em EnvioStr e o
+            // retInutNFe no primeiro retorno cru que o contenha, mesmo dentro de envelope SOAP.
+            var rawReturn = new[] { response.RetornoStr, response.RetornoCompletoStr }
+                .FirstOrDefault(r => r?.Contains("retInutNFe", StringComparison.Ordinal) == true);
+
+            return NfeSefazResponseMapper.FromVoidNumber(response.EnvioStr, rawReturn, response.Retorno);
         }, cancellationToken);
 
     private static Task<T> RunAsync<T>(
