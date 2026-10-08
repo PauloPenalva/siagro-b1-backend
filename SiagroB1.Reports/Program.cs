@@ -80,6 +80,8 @@ FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDat
 // precisam sair porque declaram um System.Environment vazio e o script do DANFE da Zeus (NFeRetrato.frx)
 // usa Environment.NewLine. Armadilha: nunca carregue um modelo de fora do repositório sem restaurar a validação.
 SiagroB1.Reports.Services.DanfeReportService.DisableScriptStubs();
+// Linux: sem substitutos o FastReport troca Times New Roman/Arial/Tahoma por DejaVu Sans e o texto estoura.
+SiagroB1.Reports.Services.ReportFonts.RegisterSubstitutes();
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddReportServices();
