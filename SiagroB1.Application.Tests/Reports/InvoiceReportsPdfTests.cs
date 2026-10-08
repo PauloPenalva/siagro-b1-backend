@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
@@ -157,6 +158,101 @@ public class InvoiceReportsPdfTests : IDisposable
             .ExecuteAsync(new SalesReturnsRequest { FromDate = Jul01, ToDate = Jul31 });
 
         Keep("SalesReturns", erp, pdf);
+    }
+
+    // Valores grandes: exercitam a largura dos campos numéricos (ver InvoiceReportsLayoutTests).
+    [Fact]
+    public async Task SalesInvoicesByPeriod_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sale("1", items: [SaleItem(quantity: 5_000_000m, unitPrice: 1.5m)]));
+        db.Context.SalesInvoices.Add(Sale("2", items: [SaleItem(quantity: 3_000_000m, unitPrice: 1.5m)]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration("STANDALONE");
+        var pdf = await new SalesInvoicesByPeriodReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new SalesInvoicesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesInvoicesByPeriod-large", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task PurchaseInvoicesByPeriod_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", items: [PurchaseItem(quantity: 5_000_000m, unitPrice: 1.5m)]));
+        db.Context.PurchaseInvoices.Add(Purchase("2", items: [PurchaseItem(quantity: 3_000_000m, unitPrice: 1.5m)]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration("STANDALONE");
+        var pdf = await new PurchaseInvoicesByPeriodReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new PurchaseInvoicesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("PurchaseInvoicesByPeriod-large", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task SalesInvoiceItems_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        SalesInvoiceItem Big(decimal quantity)
+        {
+            var item = SaleItem(quantity: quantity, unitPrice: 1.25m);
+            item.IcmsValue = 10_800m;
+            item.PisValue = 99_999.99m;
+            item.CofinsValue = 999_999.99m;
+            return item;
+        }
+        db.Context.SalesInvoices.Add(Sale("1", items: [Big(3_000_000m), Big(3_000_000m), Big(2_225_167m)]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration("STANDALONE");
+        var pdf = await new SalesInvoiceItemsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new SalesInvoiceItemsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesInvoiceItems-large", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task PurchaseInvoiceItems_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", items:
+        [
+            PurchaseItem(quantity: 3_000_000m, unitPrice: 1.25m),
+            PurchaseItem(quantity: 3_000_000m, unitPrice: 1.25m),
+            PurchaseItem(quantity: 2_225_167m, unitPrice: 1.25m),
+        ]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration("STANDALONE");
+        var pdf = await new PurchaseInvoiceItemsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new PurchaseInvoiceItemsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("PurchaseInvoiceItems-large", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task SalesReturns_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var originalItem = SaleItem(quantity: 9_000_000m);
+        db.Context.SalesInvoices.Add(Sale("100", new DateTime(2026, 6, 20), items: [originalItem]));
+        var own = SaleItem(quantity: 8_225_167m, unitPrice: 1.25m);
+        own.SalesInvoiceItemOriginKey = originalItem.Key;
+        db.Context.SalesInvoices.Add(Sale("101", type: SalesInvoiceType.Return, items: [own]));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration("STANDALONE");
+        var pdf = await new SalesReturnsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new SalesReturnsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesReturns-large", "STANDALONE", pdf);
     }
 
     private FastReportService FastReport(IConfiguration configuration)
