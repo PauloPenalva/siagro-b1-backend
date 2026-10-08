@@ -53,6 +53,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<Municipality>("Municipalities");
+        modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
 
         // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
