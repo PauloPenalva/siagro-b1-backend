@@ -21,8 +21,21 @@ public class BusinessPartnersAddressesController(
     /// <c>BusinessPartners('C90001')/Addresses</c> o <c>{key}</c> captura <c>'C90001'</c>
     /// COM as aspas, e a busca pelo parceiro nunca acha nada. O sintoma era mudo na
     /// leitura (lista de endereços sempre vazia) e um 500 seco na gravação.
+    ///
+    /// Dentro do <c>$batch</c> o segmento chega ainda codificado (<c>'END%20TESTE'</c>): sem
+    /// decodificar, endereço com espaço no nome não era achado. O apóstrofo vem dobrado no literal
+    /// do OData (<c>'D''AGUA'</c>).
     /// </summary>
-    private static string Unquote(string key) => key.Trim('\'');
+    private static string Unquote(string key)
+    {
+        var value = Uri.UnescapeDataString(key);
+
+        // Uma aspa de cada ponta, não Trim: nome que termina em apóstrofo ('OLHO D''') o perdia.
+        if (value.Length >= 2 && value[0] == '\'' && value[^1] == '\'')
+            value = value[1..^1];
+
+        return value.Replace("''", "'");
+    }
 
     [HttpPost("odata/BusinessPartners({key})/Addresses")]
     public async Task<ActionResult<AddressModel>> PostAsync(
@@ -34,9 +47,13 @@ public class BusinessPartnersAddressesController(
             return BadRequest(ModelState);
         }
             
+        // A tela não manda o CardCode no corpo (vem da URL). É chave não anulável no EDM: sem ele
+        // a resposta estourava na serialização depois de gravar — 500 dentro do $batch do /edit.
+        model.CardCode = Unquote(key);
+
         try
         {
-            await service.Create(Unquote(key), model);
+            await service.Create(model.CardCode, model);
 
             // Created monta o Location a partir do entity set, e esta rota de atributo não tem
             // entity set (EdmUnknownEntitySet): o endereço gravava e a resposta estourava 500
