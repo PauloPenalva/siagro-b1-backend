@@ -3,6 +3,7 @@ using DFe.Classes.Flags;
 using NFe.Classes.Protocolo;
 using NFe.Classes.Servicos.Consulta;
 using NFe.Classes.Servicos.Evento;
+using NFe.Classes.Servicos.Inutilizacao;
 using NFe.Classes.Servicos.Tipos;
 using NFe.Classes.Servicos.Recepcao;
 using NFe.Classes.Servicos.Status;
@@ -321,4 +322,50 @@ public class NfeSefazResponseMapperTests
 
         Assert.Empty(result.Corrections ?? []);
     }
+
+    private const string VoidRequestXml =
+        "<inutNFe versao=\"4.00\" xmlns=\"http://www.portalfiscal.inf.br/nfe\"><infInut Id=\"ID35261234567800019555001000000233000000233\">" +
+        "<tpAmb>2</tpAmb><xServ>INUTILIZAR</xServ><cUF>35</cUF><ano>26</ano><CNPJ>12345678000195</CNPJ><mod>55</mod>" +
+        "<serie>1</serie><nNFIni>233</nNFIni><nNFFin>233</nNFFin><xJust>NF-e rejeitada e documento cancelado</xJust></infInut></inutNFe>";
+
+    private static retInutNFe VoidResponse(int status, string? protocol) => new()
+    {
+        versao = "4.00",
+        infInut = new infInutRet
+        {
+            tpAmb = TipoAmbiente.Homologacao, verAplic = "SP_NFE_PL009", cStat = status,
+            xMotivo = status == 102 ? "Inutilização de número homologado" : "Rejeição: NF-e já está inutilizada na Base de dados da SEFAZ",
+            nProt = protocol,
+        },
+    };
+
+    [Fact]
+    public void Homologated_void_number_carries_protocol_and_proc_xml()
+    {
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidResponse(102, "135260000000777"));
+
+        Assert.Equal(102, result.StatusCode);
+        Assert.Equal("135260000000777", result.Protocol);
+        Assert.Contains("<procInutNFe", result.ProcXml);
+        Assert.Contains("<nNFIni>233</nNFIni>", result.ProcXml);
+        Assert.Contains("<nProt>135260000000777</nProt>", result.ProcXml);
+    }
+
+    [Fact]
+    public void Void_number_refusal_has_no_proc_xml()
+    {
+        var result = NfeSefazResponseMapper.FromVoidNumber(VoidRequestXml, VoidResponse(256, null));
+
+        Assert.Equal(256, result.StatusCode);
+        Assert.Null(result.Protocol);
+        Assert.Null(result.ProcXml);
+    }
+
+    [Theory]
+    [InlineData(256, true)]
+    [InlineData(563, true)]
+    [InlineData(102, false)]
+    [InlineData(241, false)]
+    public void Already_voided_codes(int code, bool expected) =>
+        Assert.Equal(expected, NfeStatusCodes.IsNumberAlreadyVoided(code));
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using DFe.Classes.Flags;
 using DFe.Wsdl.Common;
 using NFe.Classes.Servicos.Tipos;
 using NFe.Servicos;
@@ -63,6 +64,20 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
                 Sequence = result.Sequence ?? request.Sequence,
                 CorrectionText = result.CorrectionText ?? request.Text,
             };
+        }, cancellationToken);
+
+    public Task<NfeVoidNumberResult> VoidNumberAsync(
+        NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services =>
+        {
+            // UF, ambiente e modelo vêm da configuração; a Zeus monta, assina e valida no XSD.
+            var response = services.NfeInutilizacao(
+                request.TaxId, request.Year, ModeloDocumento.NFe, request.Series, request.Number, request.Number,
+                request.Justification);
+
+            // ⚠️ EnvioStr = o inutNFe assinado que foi enviado (vira o procInutNFe). Se o E2E mostrar que é o
+            // envelope SOAP, extraia o nó <inutNFe> antes de passar — o mapper só perde o comprovante, não a homologação.
+            return NfeSefazResponseMapper.FromVoidNumber(response.EnvioStr, response.Retorno);
         }, cancellationToken);
 
     private static Task<T> RunAsync<T>(
