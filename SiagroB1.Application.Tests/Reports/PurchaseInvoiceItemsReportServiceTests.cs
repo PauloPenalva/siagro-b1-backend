@@ -11,6 +11,46 @@ namespace SiagroB1.Application.Tests.Reports;
 public class PurchaseInvoiceItemsReportServiceTests
 {
     [Fact]
+    public async Task BuildRows_NullNameAndNamedLinesOfSameCodeFormOneGroup()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", new DateTime(2026, 7, 10), items: [PurchaseItem("1", null)]));
+        db.Context.PurchaseInvoices.Add(Purchase("2", new DateTime(2026, 7, 11), items: [PurchaseItem("1", "TRIGO EM GRÃOS")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { "TRIGO EM GRÃOS (1) - TN", "TRIGO EM GRÃOS (1) - TN" }, rows.Select(r => r.Group));
+    }
+
+    [Fact]
+    public async Task BuildRows_DifferentSpellingsOfSameCodeUseTheMostFrequentName()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", new DateTime(2026, 7, 10), items: [PurchaseItem("1", "TRIGO EM GRAOS")]));
+        db.Context.PurchaseInvoices.Add(Purchase("2", new DateTime(2026, 7, 11), items: [PurchaseItem("1", "TRIGO EM GRÃOS"), PurchaseItem("1", "TRIGO EM GRÃOS")]));
+        db.Context.PurchaseInvoices.Add(Purchase("3", new DateTime(2026, 7, 12), items: [PurchaseItem("1", "TRIGO EM GRAOS TIPO 1")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(4, rows.Count);
+        Assert.All(rows, r => Assert.Equal("TRIGO EM GRÃOS (1) - TN", r.Group));
+    }
+
+    [Fact]
+    public async Task BuildRows_SameCodeDifferentUnitFormTwoGroups()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1", new DateTime(2026, 7, 10), items: [PurchaseItem("1", "TRIGO", uom: "KG"), PurchaseItem("1", null, uom: "TN")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { "TRIGO (1) - KG", "TRIGO (1) - TN" }, rows.Select(r => r.Group));
+    }
+
+    [Fact]
     public async Task BuildRows_ItemWithoutProductGoesToItsOwnGroup()
     {
         var db = TestDb.CreateUnitOfWork();
@@ -68,7 +108,7 @@ public class PurchaseInvoiceItemsReportServiceTests
         var db = TestDb.CreateUnitOfWork();
         var item = PurchaseItem(quantity: 4m, unitPrice: 25m);
         item.Cfop = "1101";
-        item.UsageName = "COMPRA PARA COMERCIALIZAÇÃO";
+        item.UsageCode = 17;
         item.IcmsValue = 3m;
         db.Context.PurchaseInvoices.Add(Purchase("8", items: [item]));
         await Save(db);
@@ -77,7 +117,7 @@ public class PurchaseInvoiceItemsReportServiceTests
 
         Assert.Equal("(F001) PRODUTOR RURAL", row.Partner);
         Assert.Equal("1101", row.Cfop);
-        Assert.Equal("COMPRA PARA COMERCIALIZAÇÃO", row.Usage);
+        Assert.Equal("17", row.Usage);
         Assert.Equal(100m, row.Total);
         Assert.Equal(3m, row.Icms);
         Assert.Equal("", row.Contract);

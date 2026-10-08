@@ -42,7 +42,7 @@ public static class InvoiceReportSeed
 
     public static SalesInvoiceItem SaleItem(
         string itemCode = "10001",
-        string itemName = "SOJA EM GRÃOS",
+        string? itemName = "SOJA EM GRÃOS",
         decimal quantity = 10m,
         decimal unitPrice = 100m,
         string uom = "TN") => new()

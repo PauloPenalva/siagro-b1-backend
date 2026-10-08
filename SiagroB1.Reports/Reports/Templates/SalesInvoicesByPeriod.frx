@@ -44,9 +44,9 @@
     <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
       <TextObject Name="hdrBranch" Left="0" Width="70" Height="17" Text="Filial" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrInternalNumber" Left="70" Width="60" Height="17" Text="Nº interno" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDocumentNumber" Left="130" Width="70" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssueDate" Left="200" Width="60" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrCustomer" Left="260" Width="170" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocumentNumber" Left="130" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssueDate" Left="212" Width="60" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCustomer" Left="272" Width="158" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrType" Left="430" Width="55" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrStatus" Left="485" Width="65" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrNetWeight" Left="550" Width="70" Height="17" Text="Peso líquido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -61,9 +61,9 @@
     <DataBand Name="Data1" Top="136.8" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="SalesInvoicesByPeriod">
         <TextObject Name="txtBranch" Left="0" Width="70" Height="17" Text="[SalesInvoicesByPeriod.Branch]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtInternalNumber" Left="70" Width="60" Height="17" Text="[SalesInvoicesByPeriod.InternalNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDocumentNumber" Left="130" Width="70" Height="17" Text="[SalesInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssueDate" Left="200" Width="60" Height="17" Text="[SalesInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtCustomer" Left="260" Width="170" Height="17" Text="[SalesInvoicesByPeriod.Customer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDocumentNumber" Left="130" Width="82" Height="17" Text="[SalesInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssueDate" Left="212" Width="60" Height="17" Text="[SalesInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtCustomer" Left="272" Width="158" Height="17" Text="[SalesInvoicesByPeriod.Customer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtType" Left="430" Width="55" Height="17" Text="[SalesInvoicesByPeriod.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtStatus" Left="485" Width="65" Height="17" Text="[SalesInvoicesByPeriod.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtNetWeight" Left="550" Width="70" Height="17" Text="[SalesInvoicesByPeriod.NetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>

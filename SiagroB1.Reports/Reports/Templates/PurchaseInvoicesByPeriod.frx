@@ -44,10 +44,10 @@
     <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
       <TextObject Name="hdrBranch" Left="0" Width="55" Height="17" Text="Filial" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrInternalNumber" Left="55" Width="62" Height="17" Text="Nº interno" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDocumentNumber" Left="117" Width="65" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssueDate" Left="182" Width="64" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrPostingDate" Left="246" Width="64" Height="17" Text="Entrada" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssuer" Left="310" Width="139" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocumentNumber" Left="117" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssueDate" Left="199" Width="64" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPostingDate" Left="263" Width="64" Height="17" Text="Entrada" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssuer" Left="327" Width="122" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrType" Left="449" Width="55" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrIssuerType" Left="504" Width="62" Height="17" Text="Emitida por" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrStatus" Left="566" Width="62" Height="17" Text="Situação" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -62,10 +62,10 @@
     <DataBand Name="Data1" Top="136.8" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="PurchaseInvoicesByPeriod">
         <TextObject Name="txtBranch" Left="0" Width="55" Height="17" Text="[PurchaseInvoicesByPeriod.Branch]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtInternalNumber" Left="55" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.InternalNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDocumentNumber" Left="117" Width="65" Height="17" Text="[PurchaseInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssueDate" Left="182" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtPostingDate" Left="246" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.PostingDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssuer" Left="310" Width="139" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDocumentNumber" Left="117" Width="82" Height="17" Text="[PurchaseInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssueDate" Left="199" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtPostingDate" Left="263" Width="64" Height="17" Text="[PurchaseInvoicesByPeriod.PostingDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssuer" Left="327" Width="122" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtType" Left="449" Width="55" Height="17" Text="[PurchaseInvoicesByPeriod.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtIssuerType" Left="504" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.IssuerType]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtStatus" Left="566" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>

@@ -11,6 +11,46 @@ namespace SiagroB1.Application.Tests.Reports;
 public class SalesInvoiceItemsReportServiceTests
 {
     [Fact]
+    public async Task BuildRows_NullNameAndNamedLinesOfSameCodeFormOneGroup()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sale("1", new DateTime(2026, 7, 10), items: [SaleItem("1", null)]));
+        db.Context.SalesInvoices.Add(Sale("2", new DateTime(2026, 7, 11), items: [SaleItem("1", "TRIGO EM GRÃOS")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { "TRIGO EM GRÃOS (1) - TN", "TRIGO EM GRÃOS (1) - TN" }, rows.Select(r => r.Group));
+    }
+
+    [Fact]
+    public async Task BuildRows_DifferentSpellingsOfSameCodeUseTheMostFrequentName()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sale("1", new DateTime(2026, 7, 10), items: [SaleItem("1", "TRIGO EM GRAOS")]));
+        db.Context.SalesInvoices.Add(Sale("2", new DateTime(2026, 7, 11), items: [SaleItem("1", "TRIGO EM GRÃOS"), SaleItem("1", "TRIGO EM GRÃOS")]));
+        db.Context.SalesInvoices.Add(Sale("3", new DateTime(2026, 7, 12), items: [SaleItem("1", "TRIGO EM GRAOS TIPO 1")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(4, rows.Count);
+        Assert.All(rows, r => Assert.Equal("TRIGO EM GRÃOS (1) - TN", r.Group));
+    }
+
+    [Fact]
+    public async Task BuildRows_SameCodeDifferentUnitFormTwoGroups()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sale("1", new DateTime(2026, 7, 10), items: [SaleItem("1", "TRIGO", uom: "KG"), SaleItem("1", null, uom: "TN")]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { "TRIGO (1) - KG", "TRIGO (1) - TN" }, rows.Select(r => r.Group));
+    }
+
+    [Fact]
     public async Task BuildRows_OneRowPerItemGroupedByProductAndUnit()
     {
         var db = TestDb.CreateUnitOfWork();
@@ -91,7 +131,7 @@ public class SalesInvoiceItemsReportServiceTests
         db.Context.SalesContracts.Add(contract);
         var item = SaleItem(quantity: 10m, unitPrice: 100m);
         item.Cfop = "5101";
-        item.UsageName = "VENDA DE PRODUÇÃO";
+        item.UsageCode = 21;
         item.FreightValue = 10m;
         item.IcmsValue = 12m;
         item.PisValue = 1m;
@@ -109,7 +149,7 @@ public class SalesInvoiceItemsReportServiceTests
         Assert.Equal("321/1", row.DocumentNumber);
         Assert.Equal("(C001) COOPERATIVA CENTRAL", row.Partner);
         Assert.Equal("5101", row.Cfop);
-        Assert.Equal("VENDA DE PRODUÇÃO", row.Usage);
+        Assert.Equal("21", row.Usage);
         Assert.Equal(10m, row.Quantity);
         Assert.Equal("TN", row.UnitOfMeasure);
         Assert.Equal(100m, row.UnitPrice);

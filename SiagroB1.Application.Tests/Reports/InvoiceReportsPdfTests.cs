@@ -101,6 +101,7 @@ public class InvoiceReportsPdfTests : IDisposable
         var db = TestDb.CreateUnitOfWork();
         var taxed = SaleItem("10001", "SOJA");
         taxed.Cfop = "5101";
+        taxed.UsageCode = 21;
         taxed.UsageName = "VENDA DE PRODUÇÃO";
         taxed.IcmsValue = 12m;
         taxed.PisValue = 1.65m;

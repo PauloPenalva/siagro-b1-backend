@@ -59,11 +59,13 @@ public class SalesInvoiceItemsReportService(
 
         var items = await query.ToListAsync();
 
+        var groupOf = InvoiceItemGrouping.BuildGroupResolver(items, i => i.ItemCode, i => i.ItemName, i => i.UnitOfMeasureCode);
+
         return items
-            .OrderBy(i => GroupOf(i), StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(i => groupOf(i), StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(i => i.SalesInvoice!.InvoiceDate)
             .ThenBy(i => i.SalesInvoice!.InvoiceNumber ?? "", StringComparer.Ordinal)
-            .Select(ToRow)
+            .Select(i => ToRow(i, groupOf(i)))
             .ToList();
     }
 
@@ -92,18 +94,15 @@ public class SalesInvoiceItemsReportService(
             "SalesInvoiceItems.frx", rows, "InvoiceItems", "InvoiceItems", parameters);
     }
 
-    private static string GroupOf(SalesInvoiceItem i) =>
-        $"{InvoiceReportText.Product(i.ItemCode, i.ItemName)} - {i.UnitOfMeasureCode}";
-
-    private static InvoiceItemRowDto ToRow(SalesInvoiceItem i) => new()
+    private static InvoiceItemRowDto ToRow(SalesInvoiceItem i, string group) => new()
     {
-        Group = GroupOf(i),
+        Group = group,
         IssueDate = InvoiceReportText.Date(i.SalesInvoice!.InvoiceDate),
         InternalNumber = i.SalesInvoice.InvoiceNumber ?? "",
         DocumentNumber = InvoiceReportText.DocumentNumber(i.SalesInvoice.TaxDocumentNumber, i.SalesInvoice.TaxDocumentSeries),
         Partner = InvoiceReportText.Partner(i.SalesInvoice.CardCode, i.SalesInvoice.CardName),
         Cfop = i.Cfop ?? "",
-        Usage = i.UsageName ?? "",
+        Usage = i.UsageCode?.ToString() ?? "",
         Quantity = i.Quantity,
         UnitOfMeasure = i.UnitOfMeasureCode,
         UnitPrice = i.UnitPrice,

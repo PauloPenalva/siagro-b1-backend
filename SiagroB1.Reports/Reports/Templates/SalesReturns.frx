@@ -35,24 +35,24 @@
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
       <TextObject Name="hdrDate" Left="0" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrSource" Left="62" Width="55" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrSource" Left="62" Width="55" Height="17" Text="Origem" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrInternalNumber" Left="117" Width="60" Height="17" Text="Nº interno" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDocumentNumber" Left="177" Width="75" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrOrigin" Left="252" Width="140" Height="17" Text="Nota original" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocumentNumber" Left="177" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrOrigin" Left="259" Width="133" Height="17" Text="Nota original" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrProduct" Left="392" Width="260" Height="17" Text="Produto" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrQuantity" Left="652" Width="85" Height="17" Text="Qtd devolvida" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrUom" Left="737" Width="35" Height="17" Text="UM" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrValue" Left="772" Width="95" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrStatus" Left="867" Width="75" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
-    <GroupHeaderBand Name="GroupHeader1" Top="136.7" Width="1084" Height="20" Condition="[SalesReturns.Customer]">
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[SalesReturns.Customer]">
       <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[SalesReturns.Customer]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
       <DataBand Name="Data1" Top="159.75" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="SalesReturns">
         <TextObject Name="txtDate" Left="0" Width="62" Height="17" Text="[SalesReturns.Date]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtSource" Left="62" Width="55" Height="17" Text="[SalesReturns.Source]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtInternalNumber" Left="117" Width="60" Height="17" Text="[SalesReturns.InternalNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDocumentNumber" Left="177" Width="75" Height="17" Text="[SalesReturns.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtOrigin" Left="252" Width="140" Height="17" Text="[SalesReturns.Origin]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDocumentNumber" Left="177" Width="82" Height="17" Text="[SalesReturns.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtOrigin" Left="259" Width="133" Height="17" Text="[SalesReturns.Origin]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtProduct" Left="392" Width="260" Height="17" Text="[SalesReturns.Product]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtQuantity" Left="652" Width="85" Height="17" Text="[SalesReturns.Quantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtUom" Left="737" Width="35" Height="17" Text="[SalesReturns.UnitOfMeasure]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
