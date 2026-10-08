@@ -49,8 +49,8 @@ public class SalesReturnsReportService(
 
         var extra = request.Source switch
         {
-            SalesReturnSource.Own => new[] { "Emissão: Própria" },
-            SalesReturnSource.Customer => ["Emissão: Cliente"],
+            SalesReturnSource.Own => new[] { "Origem: Própria" },
+            SalesReturnSource.Customer => ["Origem: Cliente"],
             _ => [],
         };
 
@@ -78,6 +78,12 @@ public class SalesReturnsReportService(
             .Where(i => i.SalesInvoice != null && i.SalesInvoice.InvoiceType == SalesInvoiceType.Return)
             .Where(i => i.SalesInvoice!.InvoiceDate >= from && i.SalesInvoice.InvoiceDate < toExclusive)
             .Where(i => statuses.Contains(i.SalesInvoice!.InvoiceStatus ?? InvoiceStatus.Pending));
+
+        if (Standalone && request.NfeStatuses is { Count: > 0 })
+        {
+            var nfe = request.NfeStatuses.Distinct().ToArray();
+            query = query.Where(i => nfe.Contains(i.SalesInvoice!.NfeStatus));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.BranchCode))
             query = query.Where(i => i.SalesInvoice!.BranchCode == request.BranchCode);
@@ -121,6 +127,12 @@ public class SalesReturnsReportService(
             .Where(i => i.PurchaseInvoice!.IssueDate >= from && i.PurchaseInvoice.IssueDate < toExclusive)
             .Where(i => statuses.Contains(i.PurchaseInvoice!.InvoiceStatus));
 
+        if (Standalone && request.NfeStatuses is { Count: > 0 })
+        {
+            var nfe = request.NfeStatuses.Distinct().ToArray();
+            query = query.Where(i => nfe.Contains(i.PurchaseInvoice!.NfeStatus));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.BranchCode))
             query = query.Where(i => i.PurchaseInvoice!.BranchCode == request.BranchCode);
         if (!string.IsNullOrWhiteSpace(request.CardCode))
@@ -159,6 +171,8 @@ public class SalesReturnsReportService(
         if (number.Length == 0)
             number = original.InvoiceNumber ?? InvoiceReportText.NoOrigin;
 
-        return $"{number} de {InvoiceReportText.Date(original.InvoiceDate)}";
+        return original.InvoiceDate is null
+            ? number
+            : $"{number} de {InvoiceReportText.Date(original.InvoiceDate)}";
     }
 }

@@ -117,7 +117,7 @@ public static class InvoiceReportText
         parts.Add("Situação: " + string.Join(", ", EffectiveStatuses(request.Statuses).Select(s => Status(s))));
 
         if (standalone && request.NfeStatuses is { Count: > 0 } nfe)
-            parts.Add("Situação NF-e: " + string.Join(", ", nfe.Distinct().Select(Nfe)));
+            parts.Add("Situação NF-e: " + string.Join(", ", nfe.Distinct().Select(s => s == NfeStatus.None ? "Não emitida" : Nfe(s))));
 
         parts.AddRange(extra);
 

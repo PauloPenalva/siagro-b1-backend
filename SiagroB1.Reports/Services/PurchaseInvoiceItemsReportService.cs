@@ -79,7 +79,7 @@ public class PurchaseInvoiceItemsReportService(
         if (request.InvoiceType is { } type)
             extra.Add($"Tipo: {PurchaseInvoicesByPeriodReportService.DescribeType(type)}");
         if (request.IssuerType is { } issuer)
-            extra.Add($"Emissão: {PurchaseInvoicesByPeriodReportService.DescribeIssuer(issuer)}");
+            extra.Add($"Emitida por: {PurchaseInvoicesByPeriodReportService.DescribeIssuer(issuer)}");
         if (!string.IsNullOrWhiteSpace(request.ContractCode))
             extra.Add($"Contrato: {request.ContractCode}");
         if (!string.IsNullOrWhiteSpace(request.Cfop))
@@ -88,12 +88,22 @@ public class PurchaseInvoiceItemsReportService(
         var parameters = new Dictionary<string, object>
         {
             ["pFilters"] = InvoiceReportText.BuildFilters(
-                request, standalone, "Emitente", first?.Partner, null, null, extra),
+                request, standalone, "Emitente", first?.Partner, ProductName(first), null, extra),
             [FastReportService.StandaloneParameter] = standalone,
         };
 
         return await reportService.GeneratePdfAsync(
             "PurchaseInvoiceItems.frx", rows, "InvoiceItems", "InvoiceItems", parameters);
+    }
+
+    /// <summary>Nome do produto filtrado, sem o sufixo " - UM" do grupo.</summary>
+    private static string? ProductName(InvoiceItemRowDto? row)
+    {
+        if (row is null)
+            return null;
+
+        var cut = row.Group.LastIndexOf(" - ", StringComparison.Ordinal);
+        return cut > 0 ? row.Group[..cut] : row.Group;
     }
 
     private static string GroupOf(PurchaseInvoiceItem i)

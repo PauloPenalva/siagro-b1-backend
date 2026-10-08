@@ -109,6 +109,47 @@ public class SalesReturnsReportServiceTests
         Assert.Equal(new[] { "A1", "B1", "B2" }, rows.Select(r => r.InternalNumber));
     }
 
+    [Fact]
+    public async Task BuildRows_NfeFilterAppliesInStandaloneOnBothSourcesAndIsIgnoredInSapB1()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var ownAuthorized = Sale("OWN-AUT", type: SalesInvoiceType.Return);
+        ownAuthorized.NfeStatus = NfeStatus.Authorized;
+        db.Context.SalesInvoices.Add(ownAuthorized);
+        db.Context.SalesInvoices.Add(Sale("OWN-NONE", type: SalesInvoiceType.Return));
+        var customerAuthorized = Purchase("CUS-AUT", type: PurchaseInvoiceType.Return);
+        customerAuthorized.NfeStatus = NfeStatus.Authorized;
+        db.Context.PurchaseInvoices.Add(customerAuthorized);
+        db.Context.PurchaseInvoices.Add(Purchase("CUS-NONE", type: PurchaseInvoiceType.Return));
+        await Save(db);
+
+        var request = Request();
+        request.NfeStatuses = [NfeStatus.Authorized];
+
+        var standalone = await Service(db, "STANDALONE").BuildRowsAsync(request);
+        Assert.Equal(new[] { "CUS-AUT", "OWN-AUT" }, standalone.Select(r => r.InternalNumber).Order());
+        Assert.Equal(4, (await Service(db, "SAPB1").BuildRowsAsync(request)).Count);
+    }
+
+    [Fact]
+    public async Task BuildRows_OriginWithoutDateHasNoTrailingDe()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var originalItem = SaleItem(quantity: 30m);
+        var original = Sale("100", items: [originalItem]);
+        original.InvoiceDate = null;
+        original.TaxDocumentNumber = "5000";
+        db.Context.SalesInvoices.Add(original);
+        var ownItem = SaleItem(quantity: 5m);
+        ownItem.SalesInvoiceItemOriginKey = originalItem.Key;
+        db.Context.SalesInvoices.Add(Sale("101", type: SalesInvoiceType.Return, items: [ownItem]));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal("5000", rows.Single().Origin);
+    }
+
     [Theory]
     [InlineData("STANDALONE", true)]
     [InlineData("SAPB1", false)]
@@ -123,8 +164,8 @@ public class SalesReturnsReportServiceTests
         Assert.Equal(standalone, recorder.LastParameters![FastReportService.StandaloneParameter]);
     }
 
-    private static SalesReturnsReportService Service(IUnitOfWork db) =>
-        new(db, new RecordingFastReportService(), TestConfiguration.Erp("STANDALONE"));
+    private static SalesReturnsReportService Service(IUnitOfWork db, string erp = "STANDALONE") =>
+        new(db, new RecordingFastReportService(), TestConfiguration.Erp(erp));
 
     private static SalesReturnsRequest Request() => new() { FromDate = Jul01, ToDate = Jul31 };
 

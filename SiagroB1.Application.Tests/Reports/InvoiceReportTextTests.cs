@@ -120,6 +120,21 @@ public class InvoiceReportTextTests
     }
 
     [Fact]
+    public void BuildFilters_LabelsNoneAsNotIssued()
+    {
+        var request = new Request
+        {
+            FromDate = new DateTime(2026, 7, 1),
+            ToDate = new DateTime(2026, 7, 31),
+            NfeStatuses = [NfeStatus.None, NfeStatus.Authorized],
+        };
+
+        var text = InvoiceReportText.BuildFilters(request, standalone: true, "Cliente", null, null, null, []);
+
+        Assert.EndsWith("Situação NF-e: Não emitida, Autorizada", text);
+    }
+
+    [Fact]
     public void BuildFilters_InSapB1_OmitsTheNfeFilter()
     {
         var request = new Request

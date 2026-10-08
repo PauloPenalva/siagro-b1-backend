@@ -71,7 +71,7 @@ public class PurchaseInvoicesByPeriodReportService(
         if (request.InvoiceType is { } type)
             extra.Add($"Tipo: {DescribeType(type)}");
         if (request.IssuerType is { } issuer)
-            extra.Add($"Emissão: {DescribeIssuer(issuer)}");
+            extra.Add($"Emitida por: {DescribeIssuer(issuer)}");
 
         var parameters = new Dictionary<string, object>
         {

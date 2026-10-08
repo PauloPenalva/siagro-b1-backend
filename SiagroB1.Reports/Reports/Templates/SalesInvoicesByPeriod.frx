@@ -56,7 +56,7 @@
       <TextObject Name="hdrGrandTotal" Left="815" Width="80" Height="17" Text="Total geral" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="fiscalHdrTaxes" Left="895" Width="65" Height="17" Text="Tributos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="fiscalHdrIbsCbs" Left="960" Width="60" Height="17" Text="IBS/CBS" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="fiscalHdrNfeStatus" Left="1020" Width="64" Height="17" Text="Sit. NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="fiscalHdrNfeStatus" Left="1020" Width="64" Height="17" Text="Sit. NF-e" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
     <DataBand Name="Data1" Top="136.8" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="SalesInvoicesByPeriod">
         <TextObject Name="txtBranch" Left="0" Width="70" Height="17" Text="[SalesInvoicesByPeriod.Branch]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
@@ -73,7 +73,7 @@
         <TextObject Name="txtGrandTotal" Left="815" Width="80" Height="17" Text="[SalesInvoicesByPeriod.GrandTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="fiscalTaxes" Left="895" Width="65" Height="17" Text="[SalesInvoicesByPeriod.Taxes]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="fiscalIbsCbs" Left="960" Width="60" Height="17" Text="[SalesInvoicesByPeriod.IbsCbs]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="fiscalNfeStatus" Left="1020" Width="64" Height="17" Text="[SalesInvoicesByPeriod.NfeStatus]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="fiscalNfeStatus" Left="1020" Width="64" Height="17" Text="[SalesInvoicesByPeriod.NfeStatus]" Padding="4, 0, 2, 0" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
     </DataBand>
     <ReportSummaryBand Name="ReportSummary1" Top="157" Width="1084" Height="48">
       <TextObject Name="txtSumLabel" Left="0" Top="4" Width="130" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
