@@ -45,7 +45,7 @@ Serviço `NfeInutilizacao4`, faixa de um número só:
 |---|---|
 | `cUF` | UF da filial (a mesma da emissão) |
 | `ano` | "AA" da chave da tentativa rejeitada (`ChaveNFe[2..4]`); sem chave (rejeitada na validação local, nada foi enviado), ano corrente de Brasília |
-| `CNPJ` | `Branch.TaxId` da filial do documento (só dígitos) — a rejeição local não tem chave de onde tirar |
+| `CNPJ` | `Branch.TaxId` da filial do documento (alfanumérico, como na emissão) — a rejeição local não tem chave de onde tirar |
 | `mod` | 55 |
 | `serie` | `TaxDocumentSeries` |
 | `nNFIni` = `nNFFin` | `TaxDocumentNumber` |

@@ -68,7 +68,7 @@ public abstract class NfeVoidNumberServiceBase<TDocument>(
         // Ambiente da EMISSÃO; nulo (rejeição local) = o atual da filial.
         using var service = await settingsService.OpenAsync(invoice.BranchCode!, invoice.NfeEnvironment);
 
-        var request = new NfeVoidNumberRequest(year, NfeText.Digits(branch.TaxId), series, number, reason);
+        var request = new NfeVoidNumberRequest(year, NfeText.AlphaNumeric(branch.TaxId), series, number, reason);
 
         NfeVoidNumberResult result;
         try
@@ -88,6 +88,11 @@ public abstract class NfeVoidNumberServiceBase<TDocument>(
         var homologated = result.StatusCode == NfeStatusCodes.NumberVoided;
         if (!homologated && !NfeStatusCodes.IsNumberAlreadyVoided(result.StatusCode))
             throw new DefaultException($"Inutilização recusada pela SEFAZ: {result.StatusCode} - {result.Reason}");
+
+        // Antes de gravar: se o save falhar, o protocolo da SEFAZ continua no log.
+        logger.LogInformation(
+            "SEFAZ respondeu à inutilização {Series}/{Number}: status {StatusCode}, protocolo {Protocol}.",
+            series, number, result.StatusCode, result.Protocol);
 
         if (homologated && result.ProcXml is not null)
             store.AddXml(invoice, NfeXmlKind.NumberVoid, result.ProcXml);

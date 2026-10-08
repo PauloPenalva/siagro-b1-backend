@@ -64,6 +64,21 @@ public class SalesInvoicesNfeVoidNumberServiceTests
         var year = TimeZoneInfo.ConvertTime(DateTimeOffset.Now, NfeIssueInputAssembler.BrasiliaZone).Year % 100;
         Assert.Equal(year, request.Year);
         Assert.Equal("12345678000195", request.TaxId);
+        Assert.Equal(NfeEnvironment.Homologation, Assert.Single(sefaz.VoidNumberSettings).Environment);
+    }
+
+    [Fact]
+    public async Task Alphanumeric_branch_tax_id_keeps_its_letters_like_the_emission()
+    {
+        var (scenario, sefaz) = await RejectedAsync();
+        var branch = await scenario.Db.Context.Branchs.SingleAsync();
+        branch.TaxId = "12.ABC.345/01DE-35";
+        await scenario.Db.Context.SaveChangesAsync();
+        sefaz.VoidNumberResponses.Enqueue(FakeNfeSefazClient.NumberVoided);
+
+        await SalesVoid(scenario.Db, sefaz).ExecuteAsync(scenario.InvoiceKey, Reason, "tester");
+
+        Assert.Equal("12ABC34501DE35", Assert.Single(sefaz.VoidNumberRequests).TaxId);
     }
 
     [Theory]

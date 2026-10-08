@@ -35,7 +35,7 @@ public sealed record NfeCancelRequest(
 
 /// <summary>
 /// Pedido de inutilização (NfeInutilizacao4) de UM número: <see cref="Year"/> com 2 dígitos,
-/// <see cref="TaxId"/> só dígitos. UF, modelo e ambiente vêm da configuração do serviço.
+/// <see cref="TaxId"/> alfanumérico (CNPJ novo), como na emissão. UF, modelo e ambiente vêm da configuração do serviço.
 /// </summary>
 public sealed record NfeVoidNumberRequest(int Year, string TaxId, int Series, int Number, string Justification);
 
