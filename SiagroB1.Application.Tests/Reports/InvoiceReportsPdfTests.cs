@@ -75,6 +75,24 @@ public class InvoiceReportsPdfTests : IDisposable
         Assert.NotEmpty(pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task PurchaseInvoicesByPeriod_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("1"));
+        db.Context.PurchaseInvoices.Add(Purchase("2", issuer: DocumentIssuerType.Own, type: PurchaseInvoiceType.Return));
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration(erp);
+        var pdf = await new PurchaseInvoicesByPeriodReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new PurchaseInvoicesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("PurchaseInvoicesByPeriod", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
