@@ -93,6 +93,32 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("PurchaseInvoicesByPeriod", erp, pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task SalesInvoiceItems_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var taxed = SaleItem("10001", "SOJA");
+        taxed.Cfop = "5101";
+        taxed.UsageName = "VENDA DE PRODUÇÃO";
+        taxed.IcmsValue = 12m;
+        taxed.PisValue = 1.65m;
+        taxed.CofinsValue = 7.6m;
+        var invoice = Sale("1", items: [taxed, SaleItem("10002", "MILHO", uom: "KG")]);
+        invoice.TaxDocumentNumber = "000123";
+        invoice.TaxDocumentSeries = "1";
+        db.Context.SalesInvoices.Add(invoice);
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration(erp);
+        var pdf = await new SalesInvoiceItemsReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new SalesInvoiceItemsRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesInvoiceItems", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
