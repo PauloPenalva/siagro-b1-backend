@@ -62,17 +62,26 @@ Segue o padrão já usado em `SalesContractsByItem` (controller fino + serviço 
   filial "Emite NF-e pelo Siagro" (`TaxCalculationGate`). Em SAPB1 esses campos ficam zerados /
   `NfeStatus.None`. Portanto:
   - o serviço lê `ErpMode.IsStandalone(configuration)` e passa `pStandalone` (bool) ao `.frx`;
-  - no `.frx`, as colunas **ICMS, PIS, COFINS, IBS/CBS, Tributos e Situação NF-e** ficam com
-    `Visible = [pStandalone]` e as colunas vizinhas absorvem a largura (layout testado nos dois
-    estados);
+  - no `.frx`, as colunas **ICMS, PIS, COFINS, IBS/CBS, Tributos e Situação NF-e** ficam na
+    **ponta direita** e todos os objetos delas (cabeçalho, dado, subtotal, total) têm nome
+    iniciado por `fiscal`. O `FastReportService`, ao receber `pStandalone = false`, esconde esses
+    objetos (`Visible = false`) antes do `Prepare` — sem script no `.frx`. Em SAPB1 sobra espaço
+    em branco à direita;
   - no frontend, o filtro "Situação NF-e" fica invisível quando `getSystemInfo().erp === "SAPB1"`
     (inicializado como `false`, ver `usages/Main.controller.ts`), e o serviço ignora o filtro em
     SAPB1;
   - número e série da NF (`TaxDocumentNumber/Series`) aparecem nos dois modos.
-- Verificação dos dados reais da Yokotobi (somente leitura, `IDX_SIAGRO_HOM`) antes da
-  implementação, mediante confirmação do usuário: confirmar que tributos estão zerados nas saídas
-  e se as entradas importadas de XML trazem tributos. Se as entradas trouxerem tributos em SAPB1,
-  o relatório 4 mostra as colunas fiscais também em SAPB1 (decisão registrada no plano).
+- Dados conferidos em 08/10 (somente leitura, bases **dev** por decisão do usuário):
+  - `IDX_SIAGRO_DEV` (Yokotobi, SAPB1): 2.385 saídas, 31 devoluções próprias, todas com
+    `SalesInvoiceItemOriginKey`; só ~46% com número de NF; 7 entradas. A base está parada na
+    migration `20261002032155` — sem colunas de tributo/NF-e; verificar SAPB1 exige atualizá-la
+    antes (escrita, pedir autorização).
+  - `CEAGUI_SIAGRO_DEV` (STANDALONE): 169 saídas (tributo em só 3 itens), 18 entradas; as 3
+    importadas de XML **não trazem tributos** ⇒ a regra de ocultar em SAPB1 vale também para o
+    relatório 4.
+  - Nenhuma das bases tem devolução emitida pelo cliente: o caminho é coberto por testes, e a
+    verificação manual exige lançar uma na CEAGUI dev (pedir autorização).
+  - NF/Série em branco é caso comum (saídas sem número) e não pode quebrar o layout.
 
 ### Totais
 
@@ -119,8 +128,8 @@ passa no InMemory e falha no SQL Server.
 
 ### 3. Itens dos Documentos de Saída
 
-- Filtros próprios: Tipo, Contrato (`SalesContractKey` via código do contrato), CFOP, Natureza
-  (`UsageCode`).
+- Filtros próprios: Tipo, Contrato (código do contrato, texto), CFOP (texto). Sem filtro de
+  natureza: não há value help de natureza reaproveitável e o CFOP cobre o recorte fiscal.
 - Linha = item. **Agrupado por produto** (`ItemName (ItemCode)`), ordem dentro do grupo: emissão,
   NF.
 - Colunas: Emissão · NF/Série · Cliente · CFOP · Natureza · Qtd · UM · Preço · Total · ICMS* ·
@@ -156,7 +165,7 @@ Une duas fontes, por item devolvido:
 
 - Telas `webapp/controller/reports/<nome>/Main.controller.ts` + `webapp/view/reports/<nome>/Main.view.xml`,
   no padrão de `reports/salesContractsByItem` (JSONModel `params`, Form, value helps de Filial,
-  Parceiro, Produto, Contrato, Natureza; `validateForm`; `fetch` POST → blob → nova aba).
+  Parceiro, Produto; Contrato e CFOP como texto; `validateForm`; `fetch` POST → blob → nova aba).
   Situação e Situação NF-e com `MultiComboBox` + defaults.
 - Rotas/targets no `manifest.json` (a rota `salesInvoicesReport` é reaproveitada), entradas em
   `model/ServerRoutes.ts`, textos pt-BR no i18n.
