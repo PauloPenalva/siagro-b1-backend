@@ -21,6 +21,7 @@ public class LogisticsReportsLayoutTests
     public static TheoryData<string> Templates => new()
     {
         "ShipmentLoadsByPeriod",
+        "SalesShipmentReleasesByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
@@ -33,6 +34,13 @@ public class LogisticsReportsLayoutTests
             ["txtType"] = 7,      // Remoção
             ["txtStatus"] = 16,   // Faturada Parcial
             ["txtTruck"] = 8,     // ABC-1D23
+        },
+        ["SalesShipmentReleasesByPeriod"] = new()
+        {
+            ["txtReleaseDate"] = 10,      // 31/12/2026
+            ["txtDeliveryDeadline"] = 10, // 31/12/2026
+            ["txtContract"] = 12,         // CV2026000123
+            ["txtStatus"] = 10,           // Finalizado
         },
     };
 

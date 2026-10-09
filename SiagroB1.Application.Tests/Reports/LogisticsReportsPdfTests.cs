@@ -147,6 +147,56 @@ public class LogisticsReportsPdfTests : IDisposable
             new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>()));
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task SalesShipmentReleasesByPeriod_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.LogisticRegions.Add(Region());
+        var soja = SalesContract("CV000001");
+        var milho = SalesContract("CV000002", itemCode: "20001", itemName: "MILHO", agentName: null);
+        db.Context.SalesContracts.AddRange(soja, milho);
+        db.Context.SalesShipmentReleases.Add(SalesRelease(soja, released: 1_000m, shipped: 400m));
+        db.Context.SalesShipmentReleases.Add(SalesRelease(soja, released: 1_000m, shipped: 1_200m, status: ReleaseStatus.Completed));
+        db.Context.SalesShipmentReleases.Add(SalesRelease(milho, deliveryLocationName: null));
+        await Save(db);
+
+        var pdf = await new SalesShipmentReleasesByPeriodReportService(db, FastReport(Configuration(erp)))
+            .ExecuteAsync(new SalesShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesShipmentReleasesByPeriod", erp, pdf);
+    }
+
+    [Fact]
+    public async Task SalesShipmentReleasesByPeriod_EmptyResultStillProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var pdf = await new SalesShipmentReleasesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new SalesShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Assert.NotEmpty(pdf);
+    }
+
+    [Fact]
+    public async Task SalesShipmentReleasesByPeriod_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var contract = SalesContract("CV2026000123",
+            cardName: "COOPERATIVA AGROINDUSTRIAL DOS PRODUTORES DO NORTE DO PARANÁ");
+        db.Context.SalesContracts.Add(contract);
+        db.Context.SalesShipmentReleases.Add(SalesRelease(contract, released: 99_999_999.999m, shipped: 11_111_111.111m,
+            deliveryLocationName: "TERMINAL PORTUÁRIO DE PARANAGUÁ - CORREDOR DE EXPORTAÇÃO"));
+        db.Context.SalesShipmentReleases.Add(SalesRelease(contract, released: 99_999_999.999m, shipped: 11_111_111.111m));
+        await Save(db);
+
+        var pdf = await new SalesShipmentReleasesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new SalesShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesShipmentReleasesByPeriod-large", "STANDALONE", pdf);
+    }
+
     private static IConfiguration Configuration(string erp) =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
