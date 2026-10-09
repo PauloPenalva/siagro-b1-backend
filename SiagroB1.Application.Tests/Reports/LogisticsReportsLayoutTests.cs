@@ -107,6 +107,12 @@ public class LogisticsReportsLayoutTests
         ["ShipmentLoadsByPeriod", "SalesShipmentReleasesByPeriod", "ShipmentReleasesByPeriod"];
 
     /// <summary>
+    /// Medido no PDF em 08/10: "-10.000.000,000" (15 car.) a 7pt saiu cortado com 86 px
+    /// (a conta dá 86,0 — a regra fica no limite) e coube com 88.
+    /// </summary>
+    private const float NegativeBalanceAt7pt = 88f;
+
+    /// <summary>
     /// O Saldo pode ser negativo (sem clamp): "-10.000.000,000" tem 15 caracteres e precisa caber
     /// no dado, no subtotal e no total, sem reticências.
     /// </summary>
@@ -121,9 +127,12 @@ public class LogisticsReportsLayoutTests
         var balances = TextObjects(report)
             .Where(o => o.Name.EndsWith("BalanceQuantity", StringComparison.Ordinal))
             .ToList();
+        float Need(TextObject o) => Math.Abs(o.Font.Size - 7f) < 0.01f
+            ? Math.Max(Required(15, 7f), NegativeBalanceAt7pt)
+            : Required(15, o.Font.Size);
         var problems = balances
-            .Where(o => Required(15, o.Font.Size) > o.Width)
-            .Select(o => $"{o.Name}: precisa {Required(15, o.Font.Size):0.#}px, tem {o.Width:0.#}px")
+            .Where(o => Need(o) > o.Width)
+            .Select(o => $"{o.Name}: precisa {Need(o):0.#}px, tem {o.Width:0.#}px")
             .ToList();
 
         Assert.True(balances.Count >= 4, $"{template}: faltam objetos de Saldo (dado, subtotal e total).");
