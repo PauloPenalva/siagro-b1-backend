@@ -19,14 +19,14 @@ public class PurchaseInvoicesCreateTests
 {
     private const string Chave = "35260800000000000000550010000000011000000017";
 
-    private static PurchaseInvoicesCreateService Service(UnitOfWork db) =>
+    private static PurchaseInvoicesCreateService Service(UnitOfWork db, FakeDocNumberSequenceService? numbering = null) =>
         new(db,
             new FakeBusinessPartnerService(
                 names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(
                 names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
             TaxTestServices.InactivePurchaseApply(db),
-            new FakeDocNumberSequenceService(DocKey));
+            numbering ?? new FakeDocNumberSequenceService(DocKey));
 
     private static readonly Guid DocKey = Guid.NewGuid();
 
@@ -62,6 +62,32 @@ public class PurchaseInvoicesCreateTests
         var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
         Assert.Equal("ST-0001", saved.InvoiceNumber);
         Assert.Equal(DocKey, saved.DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Internal_number_uses_the_purchase_invoice_sequence_and_replaces_a_body_key()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var numbering = new FakeDocNumberSequenceService(DocKey);
+
+        var invoice = NewInvoice(chave: null);
+        invoice.DocNumberKey = Guid.NewGuid();
+        await Service(db, numbering).ExecuteAsync(invoice, "tester");
+
+        Assert.Equal([TransactionCode.PurchaseInvoice], numbering.RequestedCodes);
+        Assert.Equal(DocKey, (await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync()).DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Refused_document_does_not_consume_a_number()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var numbering = new FakeDocNumberSequenceService(DocKey);
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(db, numbering).ExecuteAsync(new PurchaseInvoice { CardCode = "F0001" }, "tester"));
+
+        Assert.Equal(0, numbering.NumberCalls);
     }
 
     [Fact]

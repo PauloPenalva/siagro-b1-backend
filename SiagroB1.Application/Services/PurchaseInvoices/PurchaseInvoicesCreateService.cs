@@ -105,7 +105,7 @@ public class PurchaseInvoicesCreateService(
 
         // Número interno sequencial (DE000001) para toda entrada, de qualquer tipo. Nasce aqui — por último, depois de todas as recusas, para não abrir buraco na sequência — e nunca muda;
         // o que vier no corpo é descartado (o update também não o copia).
-        invoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.PurchaseInvoice);
+        invoice.DocNumberKey = await numberSequenceService.GetKeyByTransactionCode(TransactionCode.PurchaseInvoice);
         invoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) invoice.DocNumberKey);
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
