@@ -23,6 +23,10 @@ public class SalesInvoicesCancelService(
     /// <summary>Fase 2 do cancelamento da NF-e: a SEFAZ já cancelou; a trava da NF-e não se aplica.</summary>
     public virtual Task CancelAfterNfeAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: true);
 
+    /// <summary>Cancelamento da devolução pendente pela recusa de carga (spec 2026-10-09 §5.4), na transação dela.</summary>
+    public Task CancelForRefusalAsync(Guid key, string userName) =>
+        CancelAsync(key, userName, afterNfe: false, CommitMode.Deferred, fromRefusal: true);
+
     /// <summary>Ensaio antes de falar com a SEFAZ: só as regras de negócio, nada é alterado.</summary>
     public async Task EnsureCanCancelAsync(Guid key)
     {
@@ -32,7 +36,8 @@ public class SalesInvoicesCancelService(
         EnsureBusinessRules(invoice);
     }
 
-    private async Task CancelAsync(Guid key, string userName, bool afterNfe)
+    private async Task CancelAsync(Guid key, string userName, bool afterNfe,
+        CommitMode commitMode = CommitMode.Auto, bool fromRefusal = false)
     {
         var existingInvoice = await db.Context.SalesInvoices
                                   .Include(e => e.SalesTransactions)
@@ -54,6 +59,10 @@ public class SalesInvoicesCancelService(
 
         EnsureBusinessRules(existingInvoice);
 
+        // Pós-SEFAZ (2b) passa: a NF-e já foi cancelada e o documento precisa acompanhar (Review Focus 3).
+        if (!afterNfe && !fromRefusal)
+            await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, existingInvoice);
+
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
             .ToList() ?? [];
         
@@ -64,7 +73,8 @@ public class SalesInvoicesCancelService(
 
         try
         {
-            await db.BeginTransactionAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.BeginTransactionAsync();
 
             foreach (var salesTransactionsKey in salesTransactionsKeys)
             {
@@ -128,10 +138,15 @@ public class SalesInvoicesCancelService(
 
             await db.SaveChangesAsync();
 
-            await db.CommitAsync();
+            if (commitMode == CommitMode.Auto)
+                await db.CommitAsync();
         }
         catch (Exception e)
         {
+            // Diferido: quem abriu a transação desfaz; a exceção sobe sem embrulho.
+            if (commitMode != CommitMode.Auto)
+                throw;
+
             await db.RollbackAsync();
             logger.LogError(e.Message);
             throw new ApplicationException(e.Message);

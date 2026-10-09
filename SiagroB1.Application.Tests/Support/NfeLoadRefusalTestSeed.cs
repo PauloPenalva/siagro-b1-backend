@@ -150,6 +150,19 @@ public static class NfeLoadRefusalTestSeed
             TaxTestServices.Gate(db, erp),
             new SalesInvoiceNfeReturnBuilder(db, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone));
 
+    /// <summary>Cancelamento do documento de saída com as dependências reais do banco.</summary>
+    public static SalesInvoicesCancelService CancelService(UnitOfWork db) =>
+        new(db,
+            new SalesShipmentReleasesRecalculateShippedService(db.Context),
+            new SalesContractsAllocationDeleteForInvoiceService(db),
+            new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
+            NullLogger<SalesInvoicesCancelService>.Instance);
+
+    /// <summary>"Cancelar recusa" (spec 2026-10-09 §5.4).</summary>
+    public static ShipmentLoadsCancelRefusalService CancelRefusalService(UnitOfWork db) =>
+        new(db, CancelService(db), new ShipmentLoadsMovementLogService(db.Context),
+            NullLogger<ShipmentLoadsCancelRefusalService>.Instance);
+
     /// <summary>O que o retorno da SEFAZ faz: grava Autorizada e confirma em transação própria (Auto).</summary>
     /// <param name="confirm">Padrão: <see cref="ConfirmService"/> do mesmo banco.</param>
     public static async Task AuthorizeAndConfirmAsync(UnitOfWork db, Guid returnKey, SalesInvoicesConfirmService? confirm = null)
