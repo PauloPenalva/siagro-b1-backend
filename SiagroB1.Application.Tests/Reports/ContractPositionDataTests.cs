@@ -20,7 +20,7 @@ public class ContractPositionDataTests
 {
     private sealed class Request : ContractPositionReportRequest;
 
-    // Review Focus 1 e 2: devolução negativa, washout em todos os status, persistido defasado.
+    // Devolução negativa, washout em todos os status, persistido defasado.
     [Fact]
     public async Task PurchaseBalance_EqualsTheDomainAfterARecalc()
     {
@@ -67,7 +67,7 @@ public class ContractPositionDataTests
         Assert.Equal(-200m, positions.Single(p => p.Code == "PC000005").Balance);
     }
 
-    // Review Focus 3: quebra de entrega só da linha dona e só com o item conferido.
+    // Quebra de entrega só da linha dona e só com o item conferido.
     [Fact]
     public async Task SalesBalance_EqualsTheDomainAfterARecalc()
     {
@@ -191,7 +191,7 @@ public class ContractPositionDataTests
         Assert.Equal(new[] { "CV000001" }, await SalesCodes(db, request));
     }
 
-    // Review Focus 4: sem prazo não "termina até" data nenhuma.
+    // Sem prazo não "termina até" data nenhuma.
     [Fact]
     public async Task Query_DeliveryEndUntilLeavesContractsWithoutDeadlineOut()
     {
@@ -241,6 +241,9 @@ public class ContractPositionDataTests
         };
 
         Assert.All(sql[2..], s => Assert.Contains("GROUP BY", s, StringComparison.OrdinalIgnoreCase));
+        // O tradutor quebra a linha depois do "IN (": aceita espaço em branco antes do SELECT.
+        Assert.All(sql[2..], s => Assert.Matches(@"IN \(\s*SELECT", s));
+        Assert.Contains("IS NULL", sql[0], StringComparison.OrdinalIgnoreCase); // Draft = situação nula
         Assert.Contains("[SALES_INVOICES_ITEMS]", sql[5]);
         Assert.DoesNotContain(sql, s => s.Contains("[BUSINESS_PARTNERS]") || s.Contains("[ITEMS]"));
     }

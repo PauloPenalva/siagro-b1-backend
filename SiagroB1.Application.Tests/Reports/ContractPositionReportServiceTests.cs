@@ -34,6 +34,23 @@ public class ContractPositionReportServiceTests
     }
 
     [Fact]
+    public async Task BuildRows_UomCaseAndTrailingSpaceDoNotSplitTheGroup()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseContracts.AddRange(
+            Purchase("PC000001", total: 100m, uom: "KG"),
+            Purchase("PC000002", total: 50m, uom: "kg "));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(new ContractPositionRequest());
+
+        Assert.Equal(2, rows.Count);
+        Assert.Single(rows.Select(r => r.Group).Distinct());
+        Assert.All(rows, r => Assert.Equal("KG", r.UnitOfMeasure));
+        Assert.Equal(150m, rows.Sum(r => r.SignedBalanceQuantity)); // um saldo geral só
+    }
+
+    [Fact]
     public async Task BuildRows_OrdersBySectionCashFlowThenDeadlineThenCode()
     {
         var db = TestDb.CreateUnitOfWork();

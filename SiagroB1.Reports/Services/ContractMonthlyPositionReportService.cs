@@ -61,11 +61,15 @@ public class ContractMonthlyPositionReportService(IUnitOfWork db, IFastReportSer
         var productOf = InvoiceItemGrouping.BuildGroupResolver(positions, p => p.ItemCode, p => p.ItemName, _ => null);
 
         return positions
-            .GroupBy(p => $"{productOf(p)} - Safra {p.HarvestSeasonCode} - {p.UnitOfMeasureCode}")
+            .GroupBy(p => $"{productOf(p)} - Safra {p.HarvestSeasonCode?.Trim()} - {Uom(p.UnitOfMeasureCode)}")
             .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
             .SelectMany(g => GroupRows(g.Key, g.ToList(), today))
             .ToList();
     }
+
+    /// <summary>"KG" e "kg " são a mesma UM: o snapshot do contrato pode vir com caixa/espaço diferente.</summary>
+    private static string? Uom(string? code) => code?.Trim().ToUpperInvariant();
 
     private static IEnumerable<ContractMonthlyPositionRowDto> GroupRows(
         string group, List<ContractPosition> positions, DateTime today)
@@ -105,7 +109,7 @@ public class ContractMonthlyPositionReportService(IUnitOfWork db, IFastReportSer
             yield return new ContractMonthlyPositionRowDto
             {
                 Group = group,
-                UnitOfMeasure = positions[0].UnitOfMeasureCode,
+                UnitOfMeasure = Uom(positions[0].UnitOfMeasureCode),
                 Bucket = label,
                 ContractedPurchase = contractedPurchase,
                 ContractedSales = contractedSales,

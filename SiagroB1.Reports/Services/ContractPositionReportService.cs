@@ -67,15 +67,19 @@ public class ContractPositionReportService(IUnitOfWork db, IFastReportService re
     private static List<ContractPositionRowDto> ToRows(List<ContractPosition> positions, ContractPositionSide side)
     {
         var groupOf = InvoiceItemGrouping.BuildGroupResolver(
-            positions, p => p.ItemCode, p => p.ItemName, p => p.UnitOfMeasureCode);
+            positions, p => p.ItemCode, p => p.ItemName, p => Uom(p.UnitOfMeasureCode));
 
         return positions
             .GroupBy(p => (Group: groupOf(p), p.Side))
             .OrderBy(g => g.Key.Group, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(g => g.Key.Group, StringComparer.Ordinal) // desempate: Compras/Vendas do grupo ficam contíguas
             .ThenBy(g => g.Key.Side) // Compras antes de Vendas
             .SelectMany(g => ContractPositionText.InSectionOrder(g).Select(p => ToRow(p, g.Key.Group, side)))
             .ToList();
     }
+
+    /// <summary>"KG" e "kg " são a mesma UM: o snapshot do contrato pode vir com caixa/espaço diferente.</summary>
+    private static string? Uom(string? code) => code?.Trim().ToUpperInvariant();
 
     private static ContractPositionRowDto ToRow(ContractPosition p, string group, ContractPositionSide side) => new()
     {
@@ -89,7 +93,7 @@ public class ContractPositionReportService(IUnitOfWork db, IFastReportService re
         CashFlowDate = ReportText.Date(p.StandardCashFlowDate),
         DeliveryEndDate = ContractPositionText.DeliveryEnd(p.DeliveryEndDate),
         Status = ContractPositionText.StatusText(p.Status),
-        UnitOfMeasure = p.UnitOfMeasureCode,
+        UnitOfMeasure = Uom(p.UnitOfMeasureCode),
         Price = p.Price,
         ContractedQuantity = p.Contracted,
         DeliveredQuantity = p.Delivered,

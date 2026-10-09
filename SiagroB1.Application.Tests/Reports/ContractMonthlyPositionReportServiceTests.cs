@@ -35,6 +35,38 @@ public class ContractMonthlyPositionReportServiceTests
         Assert.Equal(new[] { 9_000m, 11_000m, 14_500m, 14_200m, 30_200m }, rows.Select(r => r.AccumulatedQuantity));
     }
 
+    // Contratos inseridos FORA da ordem dos meses: só o OrderBy do serviço coloca 11/2026 antes de 12/2026 e 01/2027.
+    [Fact]
+    public async Task BuildRows_MonthsComeOutInDateOrderWhateverTheInsertionOrder()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseContracts.AddRange(
+            Purchase("PC000001", total: 100m, deliveryEnd: new DateTime(2027, 1, 15)),
+            Purchase("PC000002", total: 200m, deliveryEnd: new DateTime(2026, 12, 15)),
+            Purchase("PC000003", total: 400m, deliveryEnd: new DateTime(2026, 11, 15)));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(new ContractMonthlyPositionRequest(), Today);
+
+        Assert.Equal(new[] { "Vencido", "11/2026", "12/2026", "01/2027" }, rows.Select(r => r.Bucket));
+        Assert.Equal(new[] { 0m, 400m, 600m, 700m }, rows.Select(r => r.AccumulatedQuantity));
+    }
+
+    [Fact]
+    public async Task BuildRows_UomCaseAndTrailingSpaceDoNotSplitTheGroup()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseContracts.AddRange(
+            Purchase("PC000001", total: 100m, uom: "KG", deliveryEnd: new DateTime(2026, 11, 15)),
+            Purchase("PC000002", total: 50m, uom: "kg ", deliveryEnd: new DateTime(2026, 11, 20)));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(new ContractMonthlyPositionRequest(), Today);
+
+        Assert.Single(rows.Select(r => r.Group).Distinct());
+        Assert.Equal(150m, rows.Single(r => r.Bucket == "11/2026").PurchaseQuantity);
+    }
+
     [Fact]
     public async Task BuildRows_OverdueRowAlwaysOpensTheGroup()
     {

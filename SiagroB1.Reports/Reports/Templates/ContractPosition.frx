@@ -40,7 +40,7 @@
       <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
       <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
       <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
-      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Contratos — Compra x Venda" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Contratos - Compra x Venda" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
       <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
