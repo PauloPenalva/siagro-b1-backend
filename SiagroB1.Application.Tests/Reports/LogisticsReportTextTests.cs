@@ -60,7 +60,7 @@ public class LogisticsReportTextTests
     public void EffectiveStatuses_EmptyMeansEverythingButCancelled()
     {
         var loads = LogisticsReportText.EffectiveLoadStatuses(null);
-        Assert.Equal(8, loads.Length);
+        Assert.Equal(9, loads.Length);
         Assert.DoesNotContain(ShipmentLoadStatus.Cancelled, loads);
 
         Assert.Equal(

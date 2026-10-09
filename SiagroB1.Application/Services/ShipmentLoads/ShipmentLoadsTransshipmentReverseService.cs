@@ -91,6 +91,9 @@ public class ShipmentLoadsTransshipmentReverseService(
                    throw new NotFoundException(
                        $"Shipment load not found key {transshipment.ShipmentLoadKey}");
 
+        // Spec 2026-10-09: a carga com recusa aguardando NF-e está travada para saldo, ticket e transbordo.
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
+
         // TODA a validação antes de qualquer escrita: um estorno recusado não pode deixar efeito
         // no banco.
         var lastSequence = await db.Context.ShipmentLoadsTransshipments

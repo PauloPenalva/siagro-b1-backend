@@ -7,6 +7,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
@@ -305,6 +306,24 @@ public class ShipmentLoadsTransshipmentReverseServiceTests
         // ambígua depois que a fase 2 criou uma SEGUNDA saída (a do lote) que não fecha o
         // transbordo — só a Expedição de venda (o SalesShipment, 7) fecha.
         Assert.Contains("Expedição de venda vinculada", error.Message);
+    }
+
+    [Fact]
+    public async Task Reverse_RefusesWhileTheLoadHasAPendingRefusal()
+    {
+        // Spec 2026-10-09: a carga travada pela recusa aguardando NF-e não estorna transbordo.
+        var (load, transshipment, _, _) = await SeedThirdPartyEntryRegisteredAsync(outgoing: 30_000);
+        load.Status = ShipmentLoadStatus.RefusalPending;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<DefaultException>(
+            () => Service().ExecuteAsync(transshipment.Key!.Value, null, "tester"));
+
+        Assert.Equal(
+            "A carga CG000001 tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa.",
+            error.Message);
+        Assert.Single(await _db.Context.ShipmentLoadsTransshipments.AsNoTracking()
+            .Where(x => x.ShipmentLoadKey == load.Key).ToListAsync());
     }
 
     [Fact]

@@ -58,6 +58,8 @@ public static class ShipmentLoadTransshipmentRules
             throw new ApplicationException(
                 $"A carga {load.Code} é do tipo Remoção e não tem transbordo.");
 
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
+
         // Completed e Discharged: a carga Normal chega a eles pelo GAC-1171. A mercadoria já foi
         // entregue no destino, e não há o que transbordar. A Descarregada tem frase própria porque
         // tem caminho de volta próprio: excluir o ticket de descarga.

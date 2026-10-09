@@ -21,7 +21,7 @@ public static class LogisticsReportText
     [
         ShipmentLoadStatus.Open, ShipmentLoadStatus.PartiallyInvoiced, ShipmentLoadStatus.Invoiced,
         ShipmentLoadStatus.Planned, ShipmentLoadStatus.Returned, ShipmentLoadStatus.Completed,
-        ShipmentLoadStatus.InTransshipment, ShipmentLoadStatus.Discharged,
+        ShipmentLoadStatus.InTransshipment, ShipmentLoadStatus.Discharged, ShipmentLoadStatus.RefusalPending,
     ];
 
     private static readonly ReleaseStatus[] DefaultReleaseStatuses =
@@ -60,6 +60,7 @@ public static class LogisticsReportText
         ShipmentLoadStatus.Completed => "Concluída",
         ShipmentLoadStatus.InTransshipment => "Em Transbordo",
         ShipmentLoadStatus.Discharged => "Descarregada",
+        ShipmentLoadStatus.RefusalPending => "Recusa aguardando NF-e",
         _ => status.ToString(),
     };
 

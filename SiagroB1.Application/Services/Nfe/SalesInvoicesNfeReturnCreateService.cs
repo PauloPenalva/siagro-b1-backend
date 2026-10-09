@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
-using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -26,17 +25,10 @@ public class SalesInvoicesNfeReturnCreateService(
     IUnitOfWork db,
     TaxCalculationGate gate,
     SalesInvoicesCreateService createService,
-    ILogger<SalesInvoicesNfeReturnCreateService> logger,
-    Func<DateTimeOffset>? clock = null,
-    TimeZoneInfo? storageZone = null)
+    SalesInvoiceNfeReturnBuilder builder,
+    ILogger<SalesInvoicesNfeReturnCreateService> logger)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
-
-    private readonly Func<DateTimeOffset> _now = clock ?? NfeIssueInputAssembler.BrasiliaNow;
-
-    // Mesmo fuso em que o OData grava o InvoiceDate (o do servidor): a emissão o converte de volta
-    // para Brasília antes de exigir "hoje".
-    private readonly TimeZoneInfo _storageZone = storageZone ?? TimeZoneInfo.Local;
 
     public async Task<SalesInvoice> ExecuteAsync(SalesInvoiceNfeReturnRequest request, string userName)
     {
@@ -53,27 +45,10 @@ public class SalesInvoicesNfeReturnCreateService(
             throw new DefaultException("Informe o motivo da devolução.");
 
         var quantities = await ResolveQuantitiesAsync(origin, request.Items);
-        var returnUsages = await ResolveReturnUsagesAsync(origin, quantities.Keys);
-        EnsureSaleItemNumbers(origin, quantities.Keys);
-
-        var returnInvoice = SalesInvoiceReturnFactory.CreateFrom(origin, userName, quantities);
-        returnInvoice.InvoiceDate = TimeZoneInfo.ConvertTime(_now(), _storageZone).DateTime;
-        returnInvoice.PaymentConditionCode = null;
-        // A devolução volta ao remetente: não leva o local de entrega da venda (sem <entrega> no XML).
-        returnInvoice.DeliveryCardCode = null;
-        returnInvoice.DeliveryCardName = null;
-        returnInvoice.TaxPayerComments = null;
-        returnInvoice.TaxComments = null;
-        returnInvoice.VolumeQuantity = origin.VolumeQuantity;
-        returnInvoice.VolumeSpecies = origin.VolumeSpecies;
-        returnInvoice.VolumeBrand = origin.VolumeBrand;
-        returnInvoice.VolumeNumbering = origin.VolumeNumbering;
-        returnInvoice.Comments =
-            $"Devolução da NF-e {NumberText(origin.TaxDocumentNumber)} série {origin.TaxDocumentSeries} " +
-            $"(doc.saída {origin.InvoiceNumber}). Motivo: {request.Reason.Trim()}";
-
-        foreach (var item in returnInvoice.Items)
-            item.UsageCode = returnUsages[item.SalesInvoiceItemOriginKey!.Value];
+        var returnInvoice = await builder.BuildAsync(
+            origin, quantities,
+            $"{SalesInvoiceNfeReturnBuilder.ReferenceText(origin)} Motivo: {request.Reason.Trim()}",
+            userName);
 
         try
         {
@@ -102,14 +77,7 @@ public class SalesInvoicesNfeReturnCreateService(
         if (origin.InvoiceType != SalesInvoiceType.Normal)
             throw new DefaultException("Só um documento de venda (Normal) pode ser devolvido por aqui.");
 
-        if (origin.InvoiceStatus == InvoiceStatus.Returned)
-            throw new DefaultException($"O documento {origin.InvoiceNumber} já foi devolvido por inteiro.");
-
-        if (origin.InvoiceStatus != InvoiceStatus.Confirmed || origin.NfeStatus != NfeStatus.Authorized ||
-            origin.ChaveNFe is not { Length: 44 })
-            throw new DefaultException(
-                $"O documento {origin.InvoiceNumber} não tem NF-e autorizada pelo Siagro: " +
-                "a devolução com NF-e parte de uma venda autorizada.");
+        SalesInvoiceNfeReturnBuilder.EnsureOriginAuthorized(origin);
 
         if (origin.ShipmentLoadKey != null || origin.SalesTransactions.Count > 0)
             throw new DefaultException("Documento com romaneio/carga: a devolução com NF-e ainda não é suportada.");
@@ -142,41 +110,4 @@ public class SalesInvoicesNfeReturnCreateService(
             ? throw new DefaultException("Informe a quantidade a devolver de ao menos um item.")
             : result;
     }
-
-    private async Task<Dictionary<Guid, int>> ResolveReturnUsagesAsync(SalesInvoice origin, IEnumerable<Guid> originItemKeys)
-    {
-        var result = new Dictionary<Guid, int>();
-
-        foreach (var key in originItemKeys)
-        {
-            var sold = origin.Items.First(i => i.Key == key);
-            var usage = sold.UsageCode is { } code
-                ? await db.Context.Usages.AsNoTracking().FirstOrDefaultAsync(u => u.Code == code)
-                : null;
-
-            if (usage?.ReturnUsageCode is not { } returnCode)
-                throw new DefaultException(usage is null
-                    ? $"O item {sold.ItemCode} da venda está sem natureza de operação."
-                    : $"A natureza {usage.Code} {usage.Name} da venda não tem natureza de devolução cadastrada.");
-
-            result[key] = returnCode;
-        }
-
-        return result;
-    }
-
-    private static void EnsureSaleItemNumbers(SalesInvoice origin, IEnumerable<Guid> originItemKeys)
-    {
-        foreach (var key in originItemKeys)
-        {
-            if (NfeItemNumbering.OriginNumber(origin.Items.First(i => i.Key == key), origin.Items.Count) is null)
-                throw new DefaultException(
-                    "A NF-e de venda foi emitida antes da numeração dos itens; a devolução com NF-e não está disponível para ela.");
-        }
-    }
-
-    private static string? NumberText(string? number) =>
-        long.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
-            ? value.ToString(CultureInfo.InvariantCulture)
-            : number;
 }

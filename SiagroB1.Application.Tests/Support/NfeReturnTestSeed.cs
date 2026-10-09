@@ -68,8 +68,9 @@ public static class NfeReturnTestSeed
             TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
 
         return new SalesInvoicesNfeReturnCreateService(
-            db, TaxTestServices.Gate(db, erp), create, NullLogger<SalesInvoicesNfeReturnCreateService>.Instance,
-            NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
+            db, TaxTestServices.Gate(db, erp), create,
+            new SalesInvoiceNfeReturnBuilder(db, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone),
+            NullLogger<SalesInvoicesNfeReturnCreateService>.Instance);
     }
 
     public static Task<SalesInvoice> CreateReturnAsync(NfeReturnScenario scenario, decimal quantity, string reason = "Carga recusada") =>

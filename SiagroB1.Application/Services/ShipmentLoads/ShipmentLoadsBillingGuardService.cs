@@ -58,6 +58,8 @@ public class ShipmentLoadsBillingGuardService(AppDbContext context)
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException($"A carga {load.Code} está cancelada e não pode ser faturada.");
 
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
+
         // GAC-1175: a carga de REMOÇÃO existe para dar documento ao frete de retirada e não tem
         // documento de saída nenhum. Recusada por TIPO e logo no começo: ela não tem
         // transportadora obrigatória, e o ramo abaixo daria a mensagem errada.

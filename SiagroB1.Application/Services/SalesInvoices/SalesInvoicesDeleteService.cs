@@ -21,6 +21,7 @@ public class SalesInvoicesDeleteService(
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
 
             SalesInvoiceNfeLock.EnsureDeletable(entity);
+            await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, entity);
 
             // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a nota e
             // para a linha da nota são NoAction, de propósito — o ticket de descarga é a evidência

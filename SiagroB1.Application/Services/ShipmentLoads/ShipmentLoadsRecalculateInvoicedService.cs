@@ -133,7 +133,11 @@ public class ShipmentLoadsRecalculateInvoicedService(
         var hasOpenTransshipment = await ShipmentLoadsRecalculateTransshippedService
             .HasOpenTransshipmentAsync(context, shipmentLoadKey);
 
-        var baseStatus = ResolveStatus(load.TotalQuantity, invoiced, returned, transshipped, hasOpenTransshipment);
+        var hasPendingRefusal = await context.ShipmentLoadRefusals
+            .AnyAsync(x => x.ShipmentLoadKey == shipmentLoadKey && x.Status == ShipmentLoadRefusalStatus.Pending);
+
+        var baseStatus = ResolveStatus(
+            load.TotalQuantity, invoiced, returned, transshipped, hasOpenTransshipment, hasPendingRefusal);
 
         // Só o ramo Faturada usa a Conferência e os tickets: fora dele a consulta seria trabalho à toa.
         var closure = baseStatus == ShipmentLoadStatus.Invoiced
@@ -151,8 +155,10 @@ public class ShipmentLoadsRecalculateInvoicedService(
         // saiu, por venda ou por devolução, e o romaneio não pode reaparecer como disponível
         // para outra carga. Sem Discharged/Completed aqui, marcar a carga como descarregada
         // devolveria os romaneios à Montagem.
+        // RefusalPending (spec 2026-10-09): a carga está faturada e a mercadoria saiu; devolver o romaneio a
+        // Confirmed o ofereceria à Montagem enquanto a recusa aguarda NF-e.
         var shipmentStatus = load.Status is ShipmentLoadStatus.Invoiced or ShipmentLoadStatus.Returned
-            or ShipmentLoadStatus.Discharged or ShipmentLoadStatus.Completed
+            or ShipmentLoadStatus.Discharged or ShipmentLoadStatus.Completed or ShipmentLoadStatus.RefusalPending
             ? StorageTransactionsStatus.Invoiced
             : StorageTransactionsStatus.Confirmed;
 
@@ -255,14 +261,23 @@ public class ShipmentLoadsRecalculateInvoicedService(
     /// duas ramificações intermediárias nunca se sobrepõem porque o ramo <c>Planned</c> já
     /// garantiu <c>total &gt; Tolerance</c> antes de chegar aqui.
     /// </para>
+    /// <para>
+    /// <c>hasPendingRefusal</c> (recusa com NF-e de entrada pendente) vence qualquer outra situação.
+    /// </para>
     /// </remarks>
     public static ShipmentLoadStatus ResolveStatus(
         decimal totalQuantity,
         decimal invoicedQuantity,
         decimal returnedToWarehouseQuantity,
         decimal transshippedQuantity,
-        bool hasOpenTransshipment)
+        bool hasOpenTransshipment,
+        bool hasPendingRefusal = false)
     {
+        // Spec 2026-10-09: a recusa aguardando NF-e vence tudo — a carga fica travada até concluir ou cancelar.
+        // Não colide com o transbordo: a recusa para Transbordo exige que não haja transbordo aberto.
+        if (hasPendingRefusal)
+            return ShipmentLoadStatus.RefusalPending;
+
         if (hasOpenTransshipment)
             return ShipmentLoadStatus.InTransshipment;
 

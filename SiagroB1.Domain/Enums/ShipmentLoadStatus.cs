@@ -29,5 +29,12 @@ public enum ShipmentLoadStatus
     Returned = 5,           // Mercadoria recusada e devolvida a armazém — encerrada, sem saldo
     Completed = 6,          // Remoção: encerrada à mão. Normal: toda a conferência de entrega encerrada (GAC-1171)
     InTransshipment = 7,    // Descarregada em armazém intermediário, aguardando a saída (GAC-1181)
-    Discharged = 8          // Faturada e com peso de ticket em toda linha entregue (GAC-1171)
+    Discharged = 8,         // Faturada e com peso de ticket em toda linha entregue (GAC-1171)
+
+    /// <summary>
+    /// Recusa registrada na filial que emite NF-e pelo Siagro, aguardando as NF-e de entrada das devoluções
+    /// (spec 2026-10-09). Vence todas as outras situações no recálculo e trava faturar, nova recusa, ticket,
+    /// transbordo e campos fiscais.
+    /// </summary>
+    RefusalPending = 9
 }

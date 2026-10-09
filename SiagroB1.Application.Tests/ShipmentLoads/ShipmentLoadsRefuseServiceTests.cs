@@ -102,14 +102,19 @@ public class ShipmentLoadsRefuseServiceTests
             new ShipmentReleaseMovementGuardService(_db.Context),
             NullLogger<StorageTransactionsConfirmedService>.Instance);
 
+    internal ShipmentLoadRefusalEffectsService Effects(IWarehouseService? warehouses = null) =>
+        new(_db,
+            StorageCreate(warehouses),
+            StorageConfirm(),
+            new ShipmentLoadsMovementLogService(_db.Context),
+            new ShipmentReleasesFromReturnService(_db.Context));
+
     internal ShipmentLoadsRefuseService Service(IWarehouseService? warehouses = null) =>
         new(_db,
             CreateService(),
             ConfirmService(),
-            StorageCreate(warehouses),
-            StorageConfirm(),
+            Effects(warehouses),
             new ShipmentLoadsMovementLogService(_db.Context),
-            new ShipmentReleasesFromReturnService(_db.Context),
             warehouses ?? Warehouses(),
             NullLogger<ShipmentLoadsRefuseService>.Instance);
 
@@ -240,6 +245,21 @@ public class ShipmentLoadsRefuseServiceTests
         _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == key);
 
     // ─── Destino: o caminhão segue para outro destino (refaturamento) ───
+
+    [Fact]
+    public async Task A_second_refusal_is_refused_while_one_is_pending()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        (await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key)).Status = ShipmentLoadStatus.RefusalPending;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 1m), "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa.",
+            ex.Message);
+    }
 
     /// <summary>
     /// Recusa TOTAL para refaturamento: o saldo inteiro volta e a carga reaparece disponível.

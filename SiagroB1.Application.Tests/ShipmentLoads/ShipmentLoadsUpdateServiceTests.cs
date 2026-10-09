@@ -225,6 +225,22 @@ public class ShipmentLoadsUpdateServiceTests
     }
 
     /// <summary>
+    /// Recusa aguardando NF-e: as notas seguem emitidas, os campos fiscais continuam travados.
+    /// </summary>
+    [Fact]
+    public async Task Fiscal_fields_are_locked_while_the_refusal_is_pending()
+    {
+        var load = Load(ShipmentLoadStatus.RefusalPending);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(
+                Input(load.Key, unitOfMeasureCode: "TON"), "tester"));
+
+        Assert.Contains("unidade", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// GAC-1171 (melhorias): a Concluída da carga Normal vem depois da Descarregada, e as notas
     /// dela continuam emitidas. Os campos fiscais seguem travados.
     /// </summary>

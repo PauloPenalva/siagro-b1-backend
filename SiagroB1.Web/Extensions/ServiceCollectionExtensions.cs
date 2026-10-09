@@ -352,6 +352,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesNfeConsultService>();
         services.AddScoped<SalesInvoicesNfeXmlDownloadService>();
         services.AddScoped<SalesInvoicesNfeCompleteConfirmationService>();
+        services.AddScoped<SalesInvoiceNfeReturnBuilder>();
         services.AddScoped<SalesInvoicesNfeReturnCreateService>();
         services.AddScoped<SalesInvoicesNfeReturnableItemsService>();
         services.AddScoped<PurchaseInvoicesNfeReturnCreateService>();
@@ -481,8 +482,12 @@ public static class ServiceCollectionExtensions
         // GAC-1175 — carga de remoção
         services.AddScoped<ShipmentLoadsCompleteService>();
         services.AddScoped<ShipmentLoadsReopenService>();
+        services.AddScoped<ShipmentLoadRefusalEffectsService>();
+        services.AddScoped<ShipmentLoadRefusalCompleteService>();
         services.AddScoped<ShipmentLoadsRefuseService>();
+        services.AddScoped<ShipmentLoadsCancelRefusalService>();
         services.AddScoped<ShipmentLoadsRefusableDocumentsService>();
+        services.AddScoped<ShipmentLoadsPendingRefusalService>();
         services.AddScoped<ShipmentLoadsCompositionGuardService>();
         services.AddScoped<ShipmentLoadsChangeLogService>();
         services.AddScoped<ShipmentLoadsChangeLogsGetService>();

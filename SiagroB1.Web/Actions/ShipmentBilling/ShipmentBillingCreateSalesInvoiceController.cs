@@ -42,7 +42,7 @@ public class ShipmentBillingCreateSalesInvoiceController(
                 return NotFound(e.Message);
             }
 
-            if (e is ApplicationException)
+            if (e is DefaultException or ApplicationException)
             {
                 return BadRequest(e.Message);
             }
