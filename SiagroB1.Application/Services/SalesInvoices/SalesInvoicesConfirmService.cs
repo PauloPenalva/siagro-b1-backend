@@ -23,7 +23,8 @@ public class SalesInvoicesConfirmService(
     ShipmentLoadsBalanceHookService loadHook,
     ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource,
-    TaxCalculationGate? gate = null)
+    TaxCalculationGate? gate = null,
+    ShipmentLoadRefusalCompleteService? refusalComplete = null)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
@@ -190,6 +191,11 @@ public class SalesInvoicesConfirmService(
                     $"Devolução {invoice.InvoiceNumber} confirmada: saldo devolvido à carga.");
 
                 await db.SaveChangesAsync();
+
+                // Spec 2026-10-09: a última devolução de uma recusa aguardando NF-e conclui a recusa, na mesma
+                // transação — falhar aqui desfaz a confirmação.
+                if (refusalComplete is not null)
+                    await refusalComplete.ApplyAsync(invoice, userName);
             }
             // GAC-1171 (melhorias): a SITUAÇÃO da carga muda, mesmo com o saldo igual. Uma nota
             // Normal Pendente impede a Concluída, e o estorno de confirmação não reabre os itens:

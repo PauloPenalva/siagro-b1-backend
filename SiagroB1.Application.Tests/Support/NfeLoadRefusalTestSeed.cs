@@ -15,7 +15,8 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.Support;
 
-public sealed record NfeLoadRefusalScenario(UnitOfWork Db, ShipmentLoad Load, IReadOnlyList<Guid> SaleKeys);
+/// <param name="DatabaseName">A base InMemory do cenário — para abrir um segundo contexto com interceptor de falha.</param>
+public sealed record NfeLoadRefusalScenario(UnitOfWork Db, ShipmentLoad Load, IReadOnlyList<Guid> SaleKeys, string DatabaseName);
 
 /// <summary>
 /// Carga faturada na CEAGUI (filial com NF-e pelo Siagro): a venda AUTORIZADA do <see cref="NfeReturnTestSeed"/>
@@ -84,7 +85,7 @@ public static class NfeLoadRefusalTestSeed
         await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(context, load.Key, excludedInvoiceKeys: null);
         await db.SaveChangesAsync();
 
-        return new NfeLoadRefusalScenario(db, load, keys);
+        return new NfeLoadRefusalScenario(db, load, keys, s.Sale.DatabaseName);
     }
 
     private static FakeBusinessPartnerService Partners() =>
@@ -107,7 +108,7 @@ public static class NfeLoadRefusalTestSeed
             TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesCreateService>.Instance);
     }
 
-    public static ShipmentLoadRefusalEffectsService Effects(UnitOfWork db) =>
+    public static ShipmentLoadRefusalEffectsService Effects(IUnitOfWork db) =>
         new(db,
             new StorageTransactionsCreateService(
                 db, new FakeDocNumberSequenceService(), Partners(), Items(), Warehouses(),
@@ -119,8 +120,13 @@ public static class NfeLoadRefusalTestSeed
             new ShipmentLoadsMovementLogService(db.Context),
             new ShipmentReleasesFromReturnService(db.Context));
 
-    // A Task 7 acrescenta o parâmetro da conclusão da recusa (ShipmentLoadRefusalCompleteService).
-    public static SalesInvoicesConfirmService ConfirmService(UnitOfWork db) =>
+    /// <summary>Segundo tempo da recusa (spec 2026-10-09 §5.3), com os efeitos reais do destino.</summary>
+    public static ShipmentLoadRefusalCompleteService Complete(IUnitOfWork db) => new(db, Effects(db));
+
+    /// <param name="complete">
+    /// Conclusão da recusa. <c>null</c> (padrão) é a confirmação do fluxo síncrono, a que <see cref="RefuseService"/> usa.
+    /// </param>
+    public static SalesInvoicesConfirmService ConfirmService(IUnitOfWork db, ShipmentLoadRefusalCompleteService? complete = null) =>
         new(db,
             new SalesShipmentReleasesRecalculateShippedService(db.Context),
             new SalesContractsAllocationCreateService(db, new SalesContractsFixedVolumeService(db.Context)),
@@ -130,7 +136,8 @@ public static class NfeLoadRefusalTestSeed
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             new FakeStringLocalizer<Resource>(),
-            TaxTestServices.Gate(db, "STANDALONE"));
+            TaxTestServices.Gate(db, "STANDALONE"),
+            complete);
 
     public static ShipmentLoadsRefuseService RefuseService(UnitOfWork db, string erp = "STANDALONE") =>
         new(db,

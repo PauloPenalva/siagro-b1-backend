@@ -18,7 +18,7 @@ public static class TaxTestServices
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Erp"] = erp })
             .Build();
 
-    public static TaxCalculationGate Gate(UnitOfWork db, string? erp) => new(db, Config(erp));
+    public static TaxCalculationGate Gate(IUnitOfWork db, string? erp) => new(db, Config(erp));
 
     public static SalesInvoicesTaxApplyService Apply(
         UnitOfWork db, IBusinessPartnerService partners, string? erp = "STANDALONE") =>
