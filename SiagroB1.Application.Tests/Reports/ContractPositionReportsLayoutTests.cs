@@ -21,6 +21,7 @@ public class ContractPositionReportsLayoutTests
     public static TheoryData<string> Templates => new()
     {
         "ContractPosition",
+        "ContractMonthlyPosition",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
@@ -35,6 +36,10 @@ public class ContractPositionReportsLayoutTests
             ["txtCashFlowDate"] = 10,    // 31/12/2026
             ["txtDeliveryEndDate"] = 10, // 31/12/2026
             ["txtStatus"] = 12,          // Em Aprovação
+        },
+        ["ContractMonthlyPosition"] = new()
+        {
+            ["txtBucket"] = 9,           // Sem prazo
         },
     };
 
@@ -106,6 +111,20 @@ public class ContractPositionReportsLayoutTests
 
         Assert.True(balances.Count >= 5, "ContractPosition: faltam objetos de Saldo (cabeçalho, dado, seção, bloco e total).");
         Assert.True(problems.Count == 0, "ContractPosition: " + string.Join("; ", problems));
+    }
+
+    /// <summary>Na posição mensal TODA quantidade pode ser negativa: "-999.999.999,999" (16) cabe.</summary>
+    [Fact]
+    public void ContractMonthlyPosition_EveryQuantityFitsANegativeTotal()
+    {
+        using var report = Load("ContractMonthlyPosition");
+        var problems = TextObjects(report)
+            .Where(o => o.Format is NumberFormat)
+            .Where(o => Required(16, o.Font.Size) > o.Width)
+            .Select(o => $"{o.Name}: precisa {Required(16, o.Font.Size):0.#}px, tem {o.Width:0.#}px")
+            .ToList();
+
+        Assert.True(problems.Count == 0, "ContractMonthlyPosition: " + string.Join("; ", problems));
     }
 
     [Theory]

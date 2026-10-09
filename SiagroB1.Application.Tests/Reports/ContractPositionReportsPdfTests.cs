@@ -88,6 +88,43 @@ public class ContractPositionReportsPdfTests : IDisposable
         Keep("ContractPosition-large", "STANDALONE", pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task ContractMonthlyPosition_ProducesAPdf(string erp)
+    {
+        var db = await SeedMixedAsync();
+
+        var pdf = await new ContractMonthlyPositionReportService(db, FastReport(Configuration(erp)))
+            .ExecuteAsync(new ContractMonthlyPositionRequest(), Today);
+
+        Keep("ContractMonthlyPosition", erp, pdf);
+    }
+
+    [Fact]
+    public async Task ContractMonthlyPosition_EmptyResultStillProducesAPdf()
+    {
+        var pdf = await new ContractMonthlyPositionReportService(TestDb.CreateUnitOfWork(), FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new ContractMonthlyPositionRequest(), Today);
+
+        Assert.NotEmpty(pdf);
+    }
+
+    [Fact]
+    public async Task ContractMonthlyPosition_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        foreach (var (code, month) in new[] { ("PC000001", 10), ("PC000002", 11), ("PC000003", 12) })
+            db.Context.PurchaseContracts.Add(Purchase(code, total: 99_999_999.999m, deliveryEnd: new DateTime(2026, month, 28)));
+        db.Context.SalesContracts.Add(Sales("CV000001", total: 99_999_999.999m, deliveryEnd: new DateTime(2026, 9, 30)));
+        await Save(db);
+
+        var pdf = await new ContractMonthlyPositionReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new ContractMonthlyPositionRequest(), Today);
+
+        Keep("ContractMonthlyPosition-large", "STANDALONE", pdf);
+    }
+
     /// <summary>Soja KG (compra com washout e venda com quebra), milho TN, um contrato sem prazo.</summary>
     private static async Task<IUnitOfWork> SeedMixedAsync()
     {
