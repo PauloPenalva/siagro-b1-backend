@@ -122,7 +122,7 @@ public class LogisticsReportTextTests
         var planned = Load("CG000001", plannedCardCode: "C009", plannedCardName: "FAZENDA BOA VISTA");
         planned.Invoices.Add(LoadInvoice(planned, "000000104", "C003", "CLIENTE CANCELADO", status: InvoiceStatus.Cancelled));
 
-        Assert.Equal("FAZENDA BOA VISTA (planejado)", LogisticsReportText.LoadCustomers(planned));
+        Assert.Equal("(planejado) FAZENDA BOA VISTA", LogisticsReportText.LoadCustomers(planned));
         Assert.Equal("", LogisticsReportText.LoadCustomers(Load("CG000002")));
         Assert.Equal("", LogisticsReportText.LoadCustomers(null));
     }

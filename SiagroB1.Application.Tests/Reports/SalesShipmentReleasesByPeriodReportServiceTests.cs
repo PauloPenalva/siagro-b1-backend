@@ -120,7 +120,28 @@ public class SalesShipmentReleasesByPeriodReportServiceTests
         Assert.All(rows, r => Assert.Equal("R01", r.Region));
     }
 
-    // Review Focus 3: saldo pela regra do domínio (cancelada = 0; sem clamp de negativo).
+    [Fact]
+    public async Task BuildRows_OrderIsStableWhenEverySortKeyTies()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var contract = SalesContract();
+        db.Context.SalesContracts.Add(contract);
+        // Liberações idênticas na data, contrato e local: desempata pela quantidade liberada e,
+        // por fim, pela chave. Inseridas fora de ordem; o consumido só identifica cada uma.
+        var small = SalesRelease(contract, released: 500m, shipped: 1m);
+        var keyHigh = SalesRelease(contract, released: 1_000m, shipped: 2m);
+        var keyLow = SalesRelease(contract, released: 1_000m, shipped: 3m);
+        keyHigh.Key = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        keyLow.Key = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        db.Context.SalesShipmentReleases.AddRange(keyHigh, keyLow, small);
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { 1m, 3m, 2m }, rows.Select(r => r.ConsumedQuantity));
+    }
+
+    // saldo pela regra do domínio (cancelada = 0; sem clamp de negativo).
     [Fact]
     public async Task BuildRows_BalanceFollowsTheDomainRule()
     {
@@ -143,7 +164,6 @@ public class SalesShipmentReleasesByPeriodReportServiceTests
         Assert.Equal(new[] { 0m, 1_000m, -200m }, rows.Select(r => r.BalanceQuantity));
     }
 
-    // Review Focus 5.
     [Fact]
     public async Task BuildRows_GroupsByProductAndUnit()
     {

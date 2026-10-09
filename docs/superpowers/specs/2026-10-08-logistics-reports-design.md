@@ -95,7 +95,7 @@ Mesmo padrão do pacote 1:
   (`SalesInvoice.ShipmentLoadKey`; viva = `InvoiceStatus` ≠ Cancelado, nulo conta como Pendente),
   distintos, em ordem ordinal, separados por ", ".
 - Carga sem nota viva: `CardName` do planejamento (`ShipmentLoad.CardName`, fallback
-  `CardCode`) com o sufixo " (planejado)"; sem planejamento, vazio.
+  `CardCode`) com o prefixo "(planejado) " (à frente do nome, para que o reticências da célula nunca o esconda); sem planejamento, vazio.
 - Romaneio sem carga: Cliente vazio.
 - Filtro de Cliente (`CardCode`) usa o mesmo critério: casa com o código de alguma nota viva; se a
   carga não tem nota viva, casa com o código do planejamento. Romaneio sem carga nunca casa.

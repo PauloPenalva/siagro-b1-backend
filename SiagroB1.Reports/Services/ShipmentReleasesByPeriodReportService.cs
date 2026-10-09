@@ -55,6 +55,8 @@ public class ShipmentReleasesByPeriodReportService(IUnitOfWork db, IFastReportSe
             .ThenBy(r => r.ReleaseDate)
             .ThenBy(r => r.PurchaseContract!.Code ?? "", StringComparer.Ordinal)
             .ThenBy(r => r.DeliveryLocationCode, StringComparer.Ordinal)
+            .ThenBy(r => r.ReleasedQuantity)
+            .ThenBy(r => r.Key)
             .Select(r => ToRow(r, groupOf(r)))
             .ToList();
     }

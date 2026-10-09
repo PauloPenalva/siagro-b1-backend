@@ -86,7 +86,7 @@ public class ShipmentLoadsByPeriodReportServiceTests
         Assert.Equal(new[] { "CG000001" }, rows.Select(r => r.Code));
     }
 
-    // Review Focus 1: várias notas, cliente repetido, nota cancelada, status nulo.
+    // várias notas, cliente repetido, nota cancelada, status nulo.
     [Fact]
     public async Task BuildRows_CustomersComeFromTheLiveInvoicesOfTheLoad()
     {
@@ -104,7 +104,7 @@ public class ShipmentLoadsByPeriodReportServiceTests
         Assert.Equal("AGRO NORTE, COOPERATIVA CENTRAL", row.Customers);
     }
 
-    // Review Focus 2: carga sem nota.
+    // carga sem nota.
     [Fact]
     public async Task BuildRows_LoadWithoutInvoiceShowsThePlannedCustomer()
     {
@@ -116,10 +116,10 @@ public class ShipmentLoadsByPeriodReportServiceTests
 
         var rows = await Service(db).BuildRowsAsync(Request());
 
-        Assert.Equal(new[] { "FAZENDA BOA VISTA (planejado)", "" }, rows.Select(r => r.Customers));
+        Assert.Equal(new[] { "(planejado) FAZENDA BOA VISTA", "" }, rows.Select(r => r.Customers));
     }
 
-    // Review Focus 2: o filtro de Cliente segue a mesma regra (nota viva primeiro, planejado só sem nota).
+    // o filtro de Cliente segue a mesma regra (nota viva primeiro, planejado só sem nota).
     [Fact]
     public async Task BuildRows_CustomerFilterUsesTheInvoicesThenThePlan()
     {
@@ -189,7 +189,7 @@ public class ShipmentLoadsByPeriodReportServiceTests
         Assert.Equal("T001", row.Carrier);
     }
 
-    // Review Focus 5: UM mista não se mistura.
+    // UM mista não se mistura.
     [Fact]
     public async Task BuildRows_GroupsByProductAndUnit()
     {
@@ -221,7 +221,7 @@ public class ShipmentLoadsByPeriodReportServiceTests
         Assert.Equal(new[] { "CG000003", "CG000001", "CG000002" }, rows.Select(r => r.Code));
     }
 
-    // Review Focus 5: total geral de quantidade só com uma UM.
+    // total geral de quantidade só com uma UM.
     [Theory]
     [InlineData(false, true)]
     [InlineData(true, false)]

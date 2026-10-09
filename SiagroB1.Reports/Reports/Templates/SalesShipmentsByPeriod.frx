@@ -46,11 +46,11 @@
       <TextObject Name="hdrTruck" Left="174" Width="50" Height="17" Text="Placa" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrSupplier" Left="224" Width="176" Height="17" Text="Fornecedor (origem)" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrCustomers" Left="400" Width="176" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrWarehouse" Left="576" Width="122" Height="17" Text="Armazém" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrGrossWeight" Left="698" Width="82" Height="17" Text="Peso bruto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDiscountWeight" Left="780" Width="82" Height="17" Text="Descontos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrNetWeight" Left="862" Width="82" Height="17" Text="Peso líquido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrInvoiceNumber" Left="944" Width="78" Height="17" Text="NF fornecedor" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrWarehouse" Left="576" Width="118" Height="17" Text="Armazém" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrGrossWeight" Left="694" Width="82" Height="17" Text="Peso bruto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDiscountWeight" Left="776" Width="82" Height="17" Text="Descontos" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNetWeight" Left="858" Width="82" Height="17" Text="Peso líquido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInvoiceNumber" Left="940" Width="82" Height="17" Text="NF fornecedor" Padding="6, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrStatus" Left="1022" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
     <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[SalesShipments.Group]">
@@ -62,27 +62,27 @@
         <TextObject Name="txtTruck" Left="174" Width="50" Height="17" Text="[SalesShipments.Truck]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtSupplier" Left="224" Width="176" Height="17" Text="[SalesShipments.Supplier]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtCustomers" Left="400" Width="176" Height="17" Text="[SalesShipments.Customers]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtWarehouse" Left="576" Width="122" Height="17" Text="[SalesShipments.Warehouse]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtGrossWeight" Left="698" Width="82" Height="17" Text="[SalesShipments.GrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDiscountWeight" Left="780" Width="82" Height="17" Text="[SalesShipments.DiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtNetWeight" Left="862" Width="82" Height="17" Text="[SalesShipments.NetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtInvoiceNumber" Left="944" Width="78" Height="17" Text="[SalesShipments.InvoiceNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtWarehouse" Left="576" Width="118" Height="17" Text="[SalesShipments.Warehouse]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtGrossWeight" Left="694" Width="82" Height="17" Text="[SalesShipments.GrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDiscountWeight" Left="776" Width="82" Height="17" Text="[SalesShipments.DiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtNetWeight" Left="858" Width="82" Height="17" Text="[SalesShipments.NetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtInvoiceNumber" Left="940" Width="82" Height="17" Text="[SalesShipments.InvoiceNumber]" Padding="6, 0, 2, 0" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtStatus" Left="1022" Width="62" Height="17" Text="[SalesShipments.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       </DataBand>
       <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
-        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="698" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpGrossWeight" Left="698" Top="2" Width="82" Height="17" Text="[TotalGrpGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpDiscountWeight" Left="780" Top="2" Width="82" Height="17" Text="[TotalGrpDiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpNetWeight" Left="862" Top="2" Width="82" Height="17" Text="[TotalGrpNetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="694" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpGrossWeight" Left="694" Top="2" Width="82" Height="17" Text="[TotalGrpGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpDiscountWeight" Left="776" Top="2" Width="82" Height="17" Text="[TotalGrpDiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpNetWeight" Left="858" Top="2" Width="82" Height="17" Text="[TotalGrpNetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
       </GroupFooterBand>
     </GroupHeaderBand>
     <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="48">
       <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       <TextObject Name="txtSumCount" Left="100" Top="4" Width="130" Height="17" Text="[TotalCountAll] romaneio(s)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="uomMixedNote" Left="232" Top="4" Width="466" Height="17" Text="UMs diferentes: quantidades só nos subtotais." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
-      <TextObject Name="uomSumGrossWeight" Left="698" Top="4" Width="82" Height="17" Text="[TotalSumGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
-      <TextObject Name="uomSumDiscountWeight" Left="780" Top="4" Width="82" Height="17" Text="[TotalSumDiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
-      <TextObject Name="uomSumNetWeight" Left="862" Top="4" Width="82" Height="17" Text="[TotalSumNetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomMixedNote" Left="232" Top="4" Width="462" Height="17" Text="UMs diferentes: quantidades só nos subtotais." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="uomSumGrossWeight" Left="694" Top="4" Width="82" Height="17" Text="[TotalSumGrossWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumDiscountWeight" Left="776" Top="4" Width="82" Height="17" Text="[TotalSumDiscountWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumNetWeight" Left="858" Top="4" Width="82" Height="17" Text="[TotalSumNetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
       <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter1" Top="254" Width="1084" Height="26">

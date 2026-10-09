@@ -186,7 +186,7 @@ public class SalesShipmentsByPeriodReportServiceTests
         var rows = await Service(db).BuildRowsAsync(request);
 
         Assert.Equal(new[] { "RO000001", "RO000002" }, rows.Select(r => r.Code));
-        Assert.Equal("COOPERATIVA CENTRAL (planejado)", rows[1].Customers);
+        Assert.Equal("(planejado) COOPERATIVA CENTRAL", rows[1].Customers);
     }
 
     // Agrupamento por produto + UM.

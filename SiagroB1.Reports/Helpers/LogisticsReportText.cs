@@ -14,7 +14,7 @@ namespace SiagroB1.Reports.Helpers;
 public static class LogisticsReportText
 {
     public const string MissingPeriod = "Informe o período.";
-    public const string PlannedSuffix = " (planejado)";
+    public const string PlannedPrefix = "(planejado) ";
 
     // Arrays (e não listas) para o EF traduzir o Contains em IN.
     private static readonly ShipmentLoadStatus[] DefaultLoadStatuses =
@@ -115,7 +115,7 @@ public static class LogisticsReportText
 
     /// <summary>
     /// Cliente(s) da carga: nomes distintos das notas de saída VIVAS (cancelada não conta; status
-    /// nulo é Pendente). Sem nota viva, o cliente do planejamento com " (planejado)" — campo
+    /// nulo é Pendente). Sem nota viva, o cliente do planejamento com o prefixo "(planejado) " (à frente, para o reticências da célula não esconder) — campo
     /// informativo da Logística, ver <see cref="ShipmentLoad.CardCode"/>. Sem carga, vazio.
     /// </summary>
     public static string LoadCustomers(ShipmentLoad? load)
@@ -128,7 +128,7 @@ public static class LogisticsReportText
             return ReportText.JoinDistinct(live.Select(i => ReportText.NameOrCode(i.CardCode, i.CardName)));
 
         var planned = ReportText.NameOrCode(load.CardCode, load.CardName);
-        return planned.Length == 0 ? "" : planned + PlannedSuffix;
+        return planned.Length == 0 ? "" : PlannedPrefix + planned;
     }
 
     /// <summary>Mesmo critério de <see cref="LoadCustomers"/>, para o filtro de Cliente.</summary>

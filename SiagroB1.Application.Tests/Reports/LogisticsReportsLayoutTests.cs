@@ -103,6 +103,33 @@ public class LogisticsReportsLayoutTests
         Assert.True(problems.Count == 0, $"{template}: " + string.Join("; ", problems));
     }
 
+    private static readonly string[] BalanceTemplates =
+        ["ShipmentLoadsByPeriod", "SalesShipmentReleasesByPeriod", "ShipmentReleasesByPeriod"];
+
+    /// <summary>
+    /// O Saldo pode ser negativo (sem clamp): "-10.000.000,000" tem 15 caracteres e precisa caber
+    /// no dado, no subtotal e no total, sem reticências.
+    /// </summary>
+    [Theory]
+    [InlineData("ShipmentLoadsByPeriod")]
+    [InlineData("SalesShipmentReleasesByPeriod")]
+    [InlineData("ShipmentReleasesByPeriod")]
+    public void BalanceObjects_FitANegative15CharValue(string template)
+    {
+        Assert.Contains(template, BalanceTemplates);
+        using var report = Load(template);
+        var balances = TextObjects(report)
+            .Where(o => o.Name.EndsWith("BalanceQuantity", StringComparison.Ordinal))
+            .ToList();
+        var problems = balances
+            .Where(o => Required(15, o.Font.Size) > o.Width)
+            .Select(o => $"{o.Name}: precisa {Required(15, o.Font.Size):0.#}px, tem {o.Width:0.#}px")
+            .ToList();
+
+        Assert.True(balances.Count >= 4, $"{template}: faltam objetos de Saldo (dado, subtotal e total).");
+        Assert.True(problems.Count == 0, $"{template}: " + string.Join("; ", problems));
+    }
+
     [Theory]
     [MemberData(nameof(Templates))]
     public void Headers_FitTheirText(string template)
