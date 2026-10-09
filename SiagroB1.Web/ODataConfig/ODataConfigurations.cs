@@ -922,6 +922,11 @@ public static class ODataConfigurations
         shipmentLoadsRefuse.Parameter<string>("Reason");
         shipmentLoadsRefuse.Returns<IActionResult>();
 
+        // Recusa em dois tempos (spec 2026-10-09).
+        var shipmentLoadsCancelRefusal = modelBuilder.Action("ShipmentLoadsCancelRefusal");
+        shipmentLoadsCancelRefusal.Parameter<Guid>("Key");
+        shipmentLoadsCancelRefusal.Returns<IActionResult>();
+
         // Tickets de descarga e anexos da carga (GAC-1171).
         //
         // ⚠️ DischargeDate como string e Quantity como double de propósito: Edm.Date e
@@ -1031,6 +1036,10 @@ public static class ODataConfigurations
         var shipmentLoadsGetRefusableDocuments = modelBuilder.Function("ShipmentLoadsGetRefusableDocuments");
         shipmentLoadsGetRefusableDocuments.Parameter<Guid>("Key");
         shipmentLoadsGetRefusableDocuments.ReturnsCollection<ShipmentLoadRefusableDocumentDto>();
+
+        var shipmentLoadsGetPendingRefusal = modelBuilder.Function("ShipmentLoadsGetPendingRefusal");
+        shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");
+        shipmentLoadsGetPendingRefusal.ReturnsCollection<ShipmentLoadPendingRefusalReturnDto>();
 
         var salesShipmentReleasesCancelation = modelBuilder.Action("SalesShipmentReleasesCancelation");
         salesShipmentReleasesCancelation.Parameter<Guid>("Key");
