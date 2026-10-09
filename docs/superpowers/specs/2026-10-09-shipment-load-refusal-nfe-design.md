@@ -80,7 +80,11 @@ documento via `ShipmentLoadsBalanceHookService`, `ReturnedToWarehouse` / `Transs
 ### 5.1 Registrar (`ShipmentLoadsRefuseService`, filial com a regra ativa)
 
 `EnsureNotIssuedBySiagroAsync` deixa de recusar e passa a **decidir o modo**: se a filial da carga tem a regra
-ativa, o fluxo é diferido; senão, o síncrono de hoje. No modo diferido:
+ativa, o fluxo é diferido; senão, o síncrono de hoje. Com a regra ativa, o modo sai dos **documentos recusados**
+(depois de `ResolveLinesAsync`): todos `TaxDocumentKind.Nfe` → diferido; todos `TaxDocumentKind.Other`
+(papel/talão, que nunca teve NF-e pelo Siagro) → síncrono, como antes desta spec (a devolução síncrona não é
+`IsNfeReturn` e passa pela guarda da confirmação); a mistura é recusada: "Recuse separadamente os documentos com
+NF-e e os documentos de outro tipo." No modo diferido:
 
 1. Validação de hoje (`Validate`, `ResolveLinesAsync`, transbordo) e mais, por documento recusado:
    - `NfeStatus = Authorized` com chave de 44 posições (NF-e cancelada mantém a mensagem de `NfeLockRules`;
@@ -115,7 +119,8 @@ devolução, **depois** do hook de saldo da carga e dentro da mesma transação,
 - se ainda houver devolução da recusa não confirmada (e não cancelada), não faz nada;
 - senão executa os efeitos do destino, com a quantidade = soma das devoluções da recusa:
   - Armazém: romaneio `SalesShipmentReturn` confirmado + liberações + movimento;
-  - Transbordo: rechecagem de `EnsureLoadAcceptsTransshipment`/`EnsureIsLastAsync` e abertura do transbordo;
+  - Transbordo: rechecagem só de `EnsureIsLastAsync` (a carga está em `RefusalPending`, e
+    `EnsureLoadAcceptsTransshipment` a recusaria) e abertura do transbordo;
   - Refaturamento: nada além do saldo;
 - marca a recusa `Completed` e recalcula a carga (sai de `RefusalPending`).
 
@@ -130,12 +135,28 @@ Falha na conclusão desfaz a confirmação inteira; `NfeResultHandlerBase` mant�
 Ordem dentro do recálculo: enquanto a recusa estiver `Pending`, a confirmação da 1ª devolução recalcula a
 carga e ela continua `RefusalPending` (o saldo já reflete aquele documento, mas as travas seguem).
 
+**Cancelamento da NF-e de uma devolução da recusa pendente (2b).** A conclusão também é chamável pela chave da
+recusa (`ShipmentLoadRefusalCompleteService.TryCompleteAsync`), e `SalesInvoicesCancelService` a chama no
+cancelamento pós-SEFAZ (`CancelAfterNfeAsync`), na mesma transação, depois de gravar o documento como cancelado.
+Com a recusa `Pending`, considerando só as devoluções não canceladas:
+- nenhuma viva → a recusa vira `Cancelled` (`CancelledAt`/`CancelledBy`), a carga é recalculada e registra-se
+  `RefusalCancelled`;
+- todas as vivas confirmadas → conclui como acima, com a quantidade das confirmadas;
+- senão, nada.
+
+**Recusa concluída não se desfaz pelo 2b.** Cancelar a NF-e de uma devolução cuja recusa está `Completed`
+deixaria para trás a entrada no armazém, as liberações e o transbordo: é barrado antes da SEFAZ
+(`EnsureCanCancelAsync`) e no cancelamento do documento — "Esta devolução concluiu a recusa da carga X: a NF-e
+não pode ser cancelada pelo Siagro." (`SalesInvoicesRefusalLink`).
+
+O painel da recusa pendente (`ShipmentLoadsPendingRefusalService`) não lista devoluções canceladas.
+
 ### 5.4 Cancelar recusa
 
 Serviço/action novos `ShipmentLoadsCancelRefusal(Key)`:
 - recusa `Pending` obrigatória;
 - recusado se alguma devolução da recusa estiver `Authorized` ou `Processing`: "A NF-e de entrada do documento
-  X já foi autorizada: cancele a NF-e antes de cancelar a recusa.";
+  X já foi autorizada ou está em processamento: cancele a NF-e ou aguarde o retorno antes de cancelar a recusa.";
 - cancela as devoluções pendentes pelo `SalesInvoicesCancelService` em modo diferido (acrescentar `CommitMode`
   se ainda não houver — ver a armadilha de `CommitAsync` não aninhável), marca a recusa `Cancelled`, registra
   `RefusalCancelled`, recalcula a carga.
@@ -152,6 +173,7 @@ Cancelar ou excluir, pela tela/API do documento, uma devolução ligada a recusa
 | Nova recusa | `ShipmentLoadsRefuseService.Validate` |
 | Ticket de descarga (criar/alterar/excluir) | `ShipmentLoadDischargeRules.EnsureLoadAcceptsChanges` |
 | Transbordo (iniciar, entrada, saída do lote) | `ShipmentLoadTransshipmentRules.EnsureLoadAcceptsTransshipment` |
+| Estornar transbordo | `ShipmentLoadsTransshipmentReverseService` (`ShipmentLoadRefusalRules.EnsureNoPendingRefusal`) |
 | Alterar campos fiscais | `ShipmentLoadsUpdateService` (lista de situações com campos fiscais travados) |
 
 Mensagem comum: "A carga X tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa."
