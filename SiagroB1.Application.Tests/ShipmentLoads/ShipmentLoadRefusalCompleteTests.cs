@@ -3,6 +3,7 @@ using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
 
@@ -207,5 +208,20 @@ public class ShipmentLoadRefusalCompleteTests
         Assert.Contains(await s.Db.Context.ShipmentLoadMovements.AsNoTracking().ToListAsync(),
             m => m.MovementType == ShipmentLoadMovementType.RefusalCancelled);
         Assert.False(await s.Db.Context.StorageTransactions.AnyAsync(t => t.TransactionType == StorageTransactionType.SalesShipmentReturn));
+    }
+
+    [Fact]
+    public async Task Nfe_cancellation_of_a_return_that_completed_the_refusal_is_refused_before_sefaz()
+    {
+        // Concluída, a recusa já gerou entrada no armazém/liberações/transbordo: cancelar a NF-e deixaria tudo para trás.
+        var (s, returns) = await RefuseAsync(1, 10_000m, RefusalDestination.Rebilling);
+        await ConfirmAsync(s, returns[0]);
+        s.Db.Context.ChangeTracker.Clear();
+        Assert.Equal(ShipmentLoadRefusalStatus.Completed, (await RefusalAsync(s)).Status);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            NfeLoadRefusalTestSeed.CancelService(s.Db).EnsureCanCancelAsync(returns[0]));
+
+        Assert.Equal("Esta devolução concluiu a recusa da carga CG000001: a NF-e não pode ser cancelada pelo Siagro.", ex.Message);
     }
 }

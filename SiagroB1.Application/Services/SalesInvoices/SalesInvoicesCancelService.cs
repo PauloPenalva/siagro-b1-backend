@@ -35,6 +35,7 @@ public class SalesInvoicesCancelService(
                       ?? throw new NotFoundException("Documento de saída não encontrado.");
 
         EnsureBusinessRules(invoice);
+        await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, invoice);
     }
 
     private async Task CancelAsync(Guid key, string userName, bool afterNfe,
@@ -63,6 +64,10 @@ public class SalesInvoicesCancelService(
         // Pós-SEFAZ (2b) passa: a NF-e já foi cancelada e o documento precisa acompanhar (Review Focus 3).
         if (!afterNfe && !fromRefusal)
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, existingInvoice);
+
+        // A recusa concluída não se desfaz pelo cancelamento da devolução (barrada também no ensaio pré-SEFAZ).
+        if (!fromRefusal)
+            await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, existingInvoice);
 
         var salesTransactionsKeys = existingInvoice.SalesTransactions?.Select(x => x.Key)
             .ToList() ?? [];

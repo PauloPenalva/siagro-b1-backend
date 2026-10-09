@@ -26,4 +26,23 @@ public static class SalesInvoicesRefusalLink
             throw new DefaultException(
                 $"Esta devolução pertence à recusa da carga {loadCode}: cancele a recusa na Montagem de Carga.");
     }
+
+    /// <summary>
+    /// A devolução que concluiu a recusa já gerou os efeitos do destino (entrada no armazém, liberações, transbordo):
+    /// cancelar a NF-e dela pelo Siagro deixaria esses efeitos para trás. Barrada antes de falar com a SEFAZ.
+    /// </summary>
+    public static async Task EnsureNotInCompletedRefusalAsync(AppDbContext context, SalesInvoice invoice)
+    {
+        if (invoice.ShipmentLoadRefusalKey is not { } refusalKey)
+            return;
+
+        var loadCode = await context.ShipmentLoadRefusals.AsNoTracking()
+            .Where(r => r.Key == refusalKey && r.Status == ShipmentLoadRefusalStatus.Completed)
+            .Select(r => r.ShipmentLoad!.Code)
+            .FirstOrDefaultAsync();
+
+        if (loadCode is not null)
+            throw new DefaultException(
+                $"Esta devolução concluiu a recusa da carga {loadCode}: a NF-e não pode ser cancelada pelo Siagro.");
+    }
 }
