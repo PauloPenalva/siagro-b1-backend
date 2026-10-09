@@ -5,12 +5,14 @@ namespace SiagroB1.Application.Tests.Reports;
 
 /// <summary>
 /// Confere, sem renderizar, que cada campo numérico dos relatórios fiscais cabe no maior valor
-/// previsto (Consolas 7pt ≈ 5,13 px por caractere + 4 px de padding) e que nada passa da banda (1084 px)
-/// nem se sobrepõe a outro objeto da mesma banda.
+/// previsto — mesma regra dos relatórios de logística: (5,2 px/char + 4 px de margem de reticência) a 7pt,
+/// proporcional ao corpo, + 4 px de padding (medido no PDF: 14 caracteres cortam em 80 px) — que os
+/// cabeçalhos não cortam e que nada passa da banda (1084 px) nem se sobrepõe a outro objeto da mesma banda.
 /// </summary>
 public class InvoiceReportsLayoutTests
 {
-    private const float CharWidth = 5.2f; // a 7pt: 5,13 medido + folga
+    private const float CharWidth = 5.2f; // Consolas 7pt
+    private const float TrimMargin = 4f;  // GDI+ ao aparar com reticências, a 7pt (medido)
     private const float Padding = 4f;
     private const float PageWidth = 1084f;
 
@@ -33,6 +35,7 @@ public class InvoiceReportsLayoutTests
 
         return name switch
         {
+            "txtIssueDate" or "txtPostingDate" => 10,                    // 31/12/2026
             "txtQuantity" or "txtNetWeight" => 14,                       // 99.999.999,999
             "txtProducts" or "txtDeclared" or "txtTotal" or "txtGrandTotal" or "txtValue" => 12, // 9.999.999,99
             "txtFreight" or "txtDiscount" or "fiscalTaxes" or "fiscalIcms" or "fiscalPis"
@@ -40,6 +43,9 @@ public class InvoiceReportsLayoutTests
             _ => null,
         };
     }
+
+    private static float Required(int chars, float fontSize, float padding = Padding) =>
+        (chars * CharWidth + TrimMargin) * fontSize / 7f + padding;
 
     private static Report Load(string template)
     {
@@ -64,13 +70,27 @@ public class InvoiceReportsLayoutTests
         {
             if (Budget(obj.Name) is not { } chars) continue;
             checkedCount++;
-            var required = chars * CharWidth * obj.Font.Size / 7f + Padding; // 5,2 px/char a 7pt, proporcional ao corpo
+            var required = Required(chars, obj.Font.Size);
             if (required > obj.Width)
                 tooNarrow.Add($"{obj.Name}: precisa {required:0.#}px, tem {obj.Width:0.#}px");
         }
 
         Assert.True(checkedCount >= 3, $"{template}: nenhum campo numérico encontrado.");
         Assert.True(tooNarrow.Count == 0, $"{template}: " + string.Join("; ", tooNarrow));
+    }
+
+    [Theory]
+    [MemberData(nameof(Templates))]
+    public void Headers_FitTheirText(string template)
+    {
+        using var report = Load(template);
+        var tooNarrow = TextObjects(report)
+            .Where(o => o.Name.StartsWith("hdr") || o.Name.StartsWith("fiscalHdr"))
+            .Select(o => (Obj: o, Required: Required(o.Text.Length, o.Font.Size, o.Padding.Left + o.Padding.Right)))
+            .Where(x => x.Required > x.Obj.Width)
+            .Select(x => $"{x.Obj.Name}: precisa {x.Required:0.#}px, tem {x.Obj.Width:0.#}px");
+
+        Assert.Empty(tooNarrow);
     }
 
     [Theory]
@@ -137,7 +157,7 @@ public class InvoiceReportsLayoutTests
             ("hdrDeclared", 13, Padding), ("fiscalHdrNfeStatus", 9, 6f), ("fiscalNfeStatus", 11, 6f),
         };
         var tooNarrow = checks
-            .Select(c => (c.Name, Required: c.Chars * CharWidth + c.Pad, obj: objects.Single(o => o.Name == c.Name)))
+            .Select(c => (c.Name, Required: Required(c.Chars, 7f, c.Pad), obj: objects.Single(o => o.Name == c.Name)))
             .Where(c => c.Required > c.obj.Width)
             .Select(c => $"{c.Name}: precisa {c.Required:0.#}px, tem {c.obj.Width:0.#}px");
 
