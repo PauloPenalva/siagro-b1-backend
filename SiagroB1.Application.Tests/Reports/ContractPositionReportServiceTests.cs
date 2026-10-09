@@ -131,7 +131,37 @@ public class ContractPositionReportServiceTests
         Assert.Equal(110m, row.DeliveredQuantity);
         Assert.Equal(-10m, row.BalanceQuantity);
         Assert.Equal(0m, row.WashedOutQuantity);
-        Assert.Equal(10m, row.SignedBalanceQuantity); // ambos os lados: venda subtrai
+        // Saldo negativo aparece na linha, mas não entra nos totais nem no saldo geral.
+        Assert.Equal(0m, row.SummedBalanceQuantity);
+        Assert.Equal(0m, row.SignedBalanceQuantity);
+    }
+
+    // Os totais (seção e saldo geral) somam só saldos positivos, dos dois lados.
+    [Fact]
+    public async Task BuildRows_NegativeBalancesAreShownButLeftOutOfTheTotals()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var openPurchase = Purchase("PC000001", total: 100m);
+        var overPurchase = Purchase("PC000002", total: 50m);
+        var openSale = Sales("CV000001", total: 80m);
+        var overSale = Sales("CV000002", total: 20m);
+        var openItem = SalesItem(30m);
+        var overItem = SalesItem(25m);
+        db.Context.PurchaseContracts.AddRange(openPurchase, overPurchase);
+        db.Context.SalesContracts.AddRange(openSale, overSale);
+        db.Context.SalesInvoicesItems.AddRange(openItem, overItem);
+        db.Context.PurchaseContractsAllocations.Add(PurchaseAllocation(overPurchase, 70m));
+        db.Context.SalesContractsAllocations.AddRange(
+            SalesAllocation(openSale, openItem, 30m),
+            SalesAllocation(overSale, overItem, 25m));
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(new ContractPositionRequest());
+
+        Assert.Equal(new[] { "PC000001", "PC000002", "CV000001", "CV000002" }, rows.Select(r => r.Code));
+        Assert.Equal(new[] { 100m, -20m, 50m, -5m }, rows.Select(r => r.BalanceQuantity));
+        Assert.Equal(new[] { 100m, 0m, 50m, 0m }, rows.Select(r => r.SummedBalanceQuantity));
+        Assert.Equal(50m, rows.Sum(r => r.SignedBalanceQuantity)); // 100 − 50
     }
 
     [Theory]

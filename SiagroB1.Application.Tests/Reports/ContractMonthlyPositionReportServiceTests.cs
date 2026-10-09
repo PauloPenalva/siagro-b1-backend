@@ -138,22 +138,28 @@ public class ContractMonthlyPositionReportServiceTests
             rows.Select(r => r.Group).Distinct());
     }
 
-    // Saldo negativo entra como está e reduz o mês.
+    // Saldo negativo (entregue além do contratado) não entra no mês: só saldos positivos somam.
     [Fact]
-    public async Task BuildRows_NegativeBalanceReducesTheMonth()
+    public async Task BuildRows_NegativeBalanceIsLeftOutOfTheMonth()
     {
         var db = TestDb.CreateUnitOfWork();
         var sale = Sales("CV000001", total: 100m, deliveryEnd: new DateTime(2026, 11, 30));
         var item = SalesItem(130m);
+        var purchase = Purchase("PC000001", total: 40m, deliveryEnd: new DateTime(2026, 11, 30));
         db.Context.SalesContracts.AddRange(sale, Sales("CV000002", total: 50m, deliveryEnd: new DateTime(2026, 11, 15)));
+        db.Context.PurchaseContracts.AddRange(purchase,
+            Purchase("PC000002", total: 70m, deliveryEnd: new DateTime(2026, 11, 20)));
         db.Context.SalesInvoicesItems.Add(item);
         db.Context.SalesContractsAllocations.Add(SalesAllocation(sale, item, 130m));
+        db.Context.PurchaseContractsAllocations.Add(PurchaseAllocation(purchase, 60m));
         await Save(db);
 
         var november = (await Service(db).BuildRowsAsync(new ContractMonthlyPositionRequest(), Today))
             .Single(r => r.Bucket == "11/2026");
 
-        Assert.Equal(20m, november.SalesQuantity); // −30 + 50
+        Assert.Equal(50m, november.SalesQuantity); // −30 fica de fora
+        Assert.Equal(70m, november.PurchaseQuantity); // −20 fica de fora
+        Assert.Equal(20m, november.NetQuantity);
     }
 
     // Finalizado conta no contratado e no entregue, mas não tem mais o que entregar.

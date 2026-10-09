@@ -9,7 +9,7 @@ namespace SiagroB1.Reports.Services;
 /// "Posição Comprado x Vendido por Mês": por produto + safra + UM, o contratado, o entregue e o
 /// washout no cabeçalho do grupo, e o saldo a entregar distribuído pelo término da entrega:
 /// Vencido (término antes de hoje), um mês por linha a partir do mês atual, e Sem prazo. O líquido
-/// acumulado começa no Vencido. Saldo negativo entra como está (reduz o mês); contrato Finalizado,
+/// acumulado começa no Vencido. Saldo negativo fica de fora (não reduz o mês); contrato Finalizado,
 /// Cancelado ou Rejeitado não tem mais o que entregar (<see cref="ContractPosition.ToDeliver"/>).
 /// </summary>
 public class ContractMonthlyPositionReportService(IUnitOfWork db, IFastReportService reportService)

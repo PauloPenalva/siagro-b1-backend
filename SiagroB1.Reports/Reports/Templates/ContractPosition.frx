@@ -21,6 +21,7 @@
       <Column Name="DeliveredQuantity" DataType="System.Decimal"/>
       <Column Name="WashedOutQuantity" DataType="System.Decimal"/>
       <Column Name="BalanceQuantity" DataType="System.Decimal"/>
+      <Column Name="SummedBalanceQuantity" DataType="System.Decimal"/>
       <Column Name="SignedBalanceQuantity" DataType="System.Decimal"/>
     </BusinessObjectDataSource>
     <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
@@ -30,7 +31,7 @@
     <Total Name="TotalSecContractedQuantity" Expression="[ContractPositions.ContractedQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
     <Total Name="TotalSecDeliveredQuantity" Expression="[ContractPositions.DeliveredQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
     <Total Name="TotalSecWashedOutQuantity" Expression="[ContractPositions.WashedOutQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
-    <Total Name="TotalSecBalanceQuantity" Expression="[ContractPositions.BalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
+    <Total Name="TotalSecBalanceQuantity" Expression="[ContractPositions.SummedBalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
     <Total Name="TotalGrpSignedBalanceQuantity" Expression="[ContractPositions.SignedBalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
     <Total Name="TotalSumSignedBalanceQuantity" Expression="[ContractPositions.SignedBalanceQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
     <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>

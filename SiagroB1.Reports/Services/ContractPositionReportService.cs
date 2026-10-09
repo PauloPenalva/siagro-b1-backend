@@ -99,9 +99,13 @@ public class ContractPositionReportService(IUnitOfWork db, IFastReportService re
         DeliveredQuantity = p.Delivered,
         WashedOutQuantity = p.WashedOut,
         BalanceQuantity = p.Balance,
+        SummedBalanceQuantity = Summed(p.Balance),
         // Saldo geral = compra − venda; com um lado só, o próprio saldo daquele lado.
         SignedBalanceQuantity = side == ContractPositionSide.Both && p.Side == ContractPositionSide.Sales
-            ? -p.Balance
-            : p.Balance,
+            ? -Summed(p.Balance)
+            : Summed(p.Balance),
     };
+
+    /// <summary>Saldo negativo (entregue além do contratado) aparece na linha, mas não entra nas somas.</summary>
+    private static decimal Summed(decimal balance) => Math.Max(balance, 0m);
 }
