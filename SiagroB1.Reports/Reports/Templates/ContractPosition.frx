@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/08/2026 12:00:00" ReportInfo.Modified="10/08/2026 12:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Styles>
+    <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
+  </Styles>
+  <Dictionary>
+    <BusinessObjectDataSource Name="ContractPositions" ReferenceName="ContractPositions" DataType="System.Int32" Enabled="true">
+      <Column Name="Group" DataType="System.String"/>
+      <Column Name="Section" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="CreationDate" DataType="System.String"/>
+      <Column Name="Partner" DataType="System.String"/>
+      <Column Name="HarvestSeason" DataType="System.String"/>
+      <Column Name="Type" DataType="System.String"/>
+      <Column Name="CashFlowDate" DataType="System.String"/>
+      <Column Name="DeliveryEndDate" DataType="System.String"/>
+      <Column Name="Status" DataType="System.String"/>
+      <Column Name="UnitOfMeasure" DataType="System.String"/>
+      <Column Name="Price" DataType="System.Decimal"/>
+      <Column Name="ContractedQuantity" DataType="System.Decimal"/>
+      <Column Name="DeliveredQuantity" DataType="System.Decimal"/>
+      <Column Name="WashedOutQuantity" DataType="System.Decimal"/>
+      <Column Name="BalanceQuantity" DataType="System.Decimal"/>
+      <Column Name="SignedBalanceQuantity" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pGeneralLabel" DataType="System.String" AsString="Saldo geral (compra - venda):"/>
+    <Parameter Name="pSingleUom" DataType="System.Boolean" AsString="true"/>
+    <Total Name="TotalSecContractedQuantity" Expression="[ContractPositions.ContractedQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
+    <Total Name="TotalSecDeliveredQuantity" Expression="[ContractPositions.DeliveredQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
+    <Total Name="TotalSecWashedOutQuantity" Expression="[ContractPositions.WashedOutQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
+    <Total Name="TotalSecBalanceQuantity" Expression="[ContractPositions.BalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter2"/>
+    <Total Name="TotalGrpSignedBalanceQuantity" Expression="[ContractPositions.SignedBalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalSumSignedBalanceQuantity" Expression="[ContractPositions.SignedBalanceQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Contratos - Compra x Venda" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hdrCode" Left="0" Width="72" Height="17" Text="Código" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCreationDate" Left="72" Width="62" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPartner" Left="134" Width="250" Height="17" Text="Fornecedor / Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrHarvestSeason" Left="384" Width="60" Height="17" Text="Safra" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrType" Left="444" Width="30" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCashFlowDate" Left="474" Width="66" Height="17" Text="Prev. pagto" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeliveryEndDate" Left="540" Width="66" Height="17" Text="Entrega até" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPrice" Left="606" Width="72" Height="17" Text="Preço" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrContractedQuantity" Left="678" Width="82" Height="17" Text="Contratado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeliveredQuantity" Left="760" Width="82" Height="17" Text="Entregue" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrWashedOutQuantity" Left="842" Width="82" Height="17" Text="Washout" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBalanceQuantity" Left="924" Width="88" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="1012" Width="72" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[ContractPositions.Group]">
+      <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[ContractPositions.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <GroupHeaderBand Name="GroupHeader2" SortOrder="None" Top="159.75" Width="1084" Height="17" Condition="[ContractPositions.Section]">
+        <TextObject Name="txtSection" Left="0" Width="300" Height="17" Text="[ContractPositions.Section]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold, Italic"/>
+        <DataBand Name="Data1" Top="179.85" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="ContractPositions">
+          <TextObject Name="txtCode" Left="0" Width="72" Height="17" Text="[ContractPositions.Code]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtCreationDate" Left="72" Width="62" Height="17" Text="[ContractPositions.CreationDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtPartner" Left="134" Width="250" Height="17" Text="[ContractPositions.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtHarvestSeason" Left="384" Width="60" Height="17" Text="[ContractPositions.HarvestSeason]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtType" Left="444" Width="30" Height="17" Text="[ContractPositions.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtCashFlowDate" Left="474" Width="66" Height="17" Text="[ContractPositions.CashFlowDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtDeliveryEndDate" Left="540" Width="66" Height="17" Text="[ContractPositions.DeliveryEndDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtPrice" Left="606" Width="72" Height="17" Text="[ContractPositions.Price]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtContractedQuantity" Left="678" Width="82" Height="17" Text="[ContractPositions.ContractedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtDeliveredQuantity" Left="760" Width="82" Height="17" Text="[ContractPositions.DeliveredQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtWashedOutQuantity" Left="842" Width="82" Height="17" Text="[ContractPositions.WashedOutQuantity]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtBalanceQuantity" Left="924" Width="88" Height="17" Text="[ContractPositions.BalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+          <TextObject Name="txtStatus" Left="1012" Width="72" Height="17" Text="[ContractPositions.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        </DataBand>
+        <GroupFooterBand Name="GroupFooter2" Top="200" Width="1084" Height="20">
+          <TextObject Name="txtSecLabel" Left="0" Top="2" Width="678" Height="17" Text="Total [ContractPositions.Section]:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+          <TextObject Name="txtSecContractedQuantity" Left="678" Top="2" Width="82" Height="17" Text="[TotalSecContractedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+          <TextObject Name="txtSecDeliveredQuantity" Left="760" Top="2" Width="82" Height="17" Text="[TotalSecDeliveredQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+          <TextObject Name="txtSecWashedOutQuantity" Left="842" Top="2" Width="82" Height="17" Text="[TotalSecWashedOutQuantity]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+          <TextObject Name="txtSecBalanceQuantity" Left="924" Top="2" Width="88" Height="17" Text="[TotalSecBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        </GroupFooterBand>
+      </GroupHeaderBand>
+      <GroupFooterBand Name="GroupFooter1" Top="223" Width="1084" Height="22">
+        <TextObject Name="txtGrpLabel" Left="0" Top="3" Width="924" Height="17" Text="[pGeneralLabel]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtGrpSignedBalanceQuantity" Left="924" Top="3" Width="88" Height="17" Text="[TotalGrpSignedBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="248" Width="1084" Height="48">
+      <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtSumCount" Left="100" Top="4" Width="130" Height="17" Text="[TotalCountAll] contrato(s)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="uomMixedNote" Left="232" Top="4" Width="400" Height="17" Text="UMs diferentes: saldo geral só por produto/UM." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="uomSumLabel" Left="630" Top="4" Width="294" Height="17" Text="[pGeneralLabel]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="uomSumSignedBalanceQuantity" Left="924" Top="4" Width="88" Height="17" Text="[TotalSumSignedBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="299" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

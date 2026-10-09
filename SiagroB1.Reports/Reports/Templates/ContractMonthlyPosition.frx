@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/08/2026 12:00:00" ReportInfo.Modified="10/08/2026 12:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Styles>
+    <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
+  </Styles>
+  <Dictionary>
+    <BusinessObjectDataSource Name="ContractMonthlyPositions" ReferenceName="ContractMonthlyPositions" DataType="System.Int32" Enabled="true">
+      <Column Name="Group" DataType="System.String"/>
+      <Column Name="UnitOfMeasure" DataType="System.String"/>
+      <Column Name="Bucket" DataType="System.String"/>
+      <Column Name="ContractedPurchase" DataType="System.Decimal"/>
+      <Column Name="ContractedSales" DataType="System.Decimal"/>
+      <Column Name="ContractedNet" DataType="System.Decimal"/>
+      <Column Name="DeliveredPurchase" DataType="System.Decimal"/>
+      <Column Name="DeliveredSales" DataType="System.Decimal"/>
+      <Column Name="DeliveredNet" DataType="System.Decimal"/>
+      <Column Name="WashedOutPurchase" DataType="System.Decimal"/>
+      <Column Name="PurchaseQuantity" DataType="System.Decimal"/>
+      <Column Name="SalesQuantity" DataType="System.Decimal"/>
+      <Column Name="NetQuantity" DataType="System.Decimal"/>
+      <Column Name="AccumulatedQuantity" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pContractCount" DataType="System.Int32" AsString="0"/>
+    <Parameter Name="pSingleUom" DataType="System.Boolean" AsString="true"/>
+    <Total Name="TotalGrpPurchaseQuantity" Expression="[ContractMonthlyPositions.PurchaseQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpSalesQuantity" Expression="[ContractMonthlyPositions.SalesQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpNetQuantity" Expression="[ContractMonthlyPositions.NetQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalSumPurchaseQuantity" Expression="[ContractMonthlyPositions.PurchaseQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumSalesQuantity" Expression="[ContractMonthlyPositions.SalesQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumNetQuantity" Expression="[ContractMonthlyPositions.NetQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Posição Comprado x Vendido por Mês" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hdrBucket" Left="0" Width="244" Height="17" Text="Prazo de entrega" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPurchaseQuantity" Left="244" Width="210" Height="17" Text="Compra" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrSalesQuantity" Left="454" Width="210" Height="17" Text="Venda" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNetQuantity" Left="664" Width="210" Height="17" Text="Líquido (compra - venda)" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAccumulatedQuantity" Left="874" Width="210" Height="17" Text="Líquido acumulado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" KeepWithData="true" Top="136.7" Width="1084" Height="70" Condition="[ContractMonthlyPositions.Group]">
+      <TextObject Name="txtGroup" Left="0" Top="2" Width="1084" Height="17" Text="[ContractMonthlyPositions.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtContractedLabel" Left="0" Top="20" Width="244" Height="15" Text="Contratado" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtContractedPurchase" Left="244" Top="20" Width="210" Height="15" Text="[ContractMonthlyPositions.ContractedPurchase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtContractedSales" Left="454" Top="20" Width="210" Height="15" Text="[ContractMonthlyPositions.ContractedSales]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtContractedNet" Left="664" Top="20" Width="210" Height="15" Text="[ContractMonthlyPositions.ContractedNet]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtDeliveredLabel" Left="0" Top="35" Width="244" Height="15" Text="Entregue" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtDeliveredPurchase" Left="244" Top="35" Width="210" Height="15" Text="[ContractMonthlyPositions.DeliveredPurchase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtDeliveredSales" Left="454" Top="35" Width="210" Height="15" Text="[ContractMonthlyPositions.DeliveredSales]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtDeliveredNet" Left="664" Top="35" Width="210" Height="15" Text="[ContractMonthlyPositions.DeliveredNet]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtWashedOutLabel" Left="0" Top="50" Width="244" Height="15" Text="Washout (compra)" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtWashedOutPurchase" Left="244" Top="50" Width="210" Height="15" Text="[ContractMonthlyPositions.WashedOutPurchase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtWashedOutNet" Left="664" Top="50" Width="210" Height="15" Text="[ContractMonthlyPositions.WashedOutPurchase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <DataBand Name="Data1" Top="209.9" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="ContractMonthlyPositions">
+        <TextObject Name="txtBucket" Left="0" Width="244" Height="17" Text="[ContractMonthlyPositions.Bucket]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtPurchaseQuantity" Left="244" Width="210" Height="17" Text="[ContractMonthlyPositions.PurchaseQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtSalesQuantity" Left="454" Width="210" Height="17" Text="[ContractMonthlyPositions.SalesQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtNetQuantity" Left="664" Width="210" Height="17" Text="[ContractMonthlyPositions.NetQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtAccumulatedQuantity" Left="874" Width="210" Height="17" Text="[ContractMonthlyPositions.AccumulatedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="230" Width="1084" Height="22">
+        <TextObject Name="txtGrpLabel" Left="0" Top="3" Width="244" Height="17" Text="Saldo a entregar:" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpPurchaseQuantity" Left="244" Top="3" Width="210" Height="17" Text="[TotalGrpPurchaseQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpSalesQuantity" Left="454" Top="3" Width="210" Height="17" Text="[TotalGrpSalesQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpNetQuantity" Left="664" Top="3" Width="210" Height="17" Text="[TotalGrpNetQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="255" Width="1084" Height="48">
+      <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtSumCount" Left="100" Top="4" Width="140" Height="17" Text="[pContractCount] contrato(s)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="uomMixedNote" Left="244" Top="4" Width="630" Height="17" Text="UMs diferentes: saldo a entregar só por produto/safra/UM." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="uomSumPurchaseQuantity" Left="244" Top="4" Width="210" Height="17" Text="[TotalSumPurchaseQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumSalesQuantity" Left="454" Top="4" Width="210" Height="17" Text="[TotalSumSalesQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumNetQuantity" Left="664" Top="4" Width="210" Height="17" Text="[TotalSumNetQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="306" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

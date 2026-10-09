@@ -5,13 +5,13 @@ using FastReport.Utils;
 namespace SiagroB1.Application.Tests.Reports;
 
 /// <summary>
-/// Confere, sem renderizar, a geometria dos relatórios de logística: número cabe no maior valor
-/// previsto ((5,2 px/char + 4 px de margem de reticência) a 7pt, proporcional ao corpo, + 4 px
-/// de padding — medido no PDF: 14 caracteres cortam em 80 px), cabeçalho não corta,
-/// campos curtos (data, código, placa, situação) cabem no maior valor real, totais em 6pt numa
-/// linha só, nada passa de 1084 px nem se sobrepõe, e o grupo não é reordenado pelo FastReport.
+/// Geometria dos relatórios de posição de contratos, sem renderizar — mesmas regras de
+/// <see cref="LogisticsReportsLayoutTests"/> (medidas no PDF em 08/10): (5,2 px/char + 4 px de
+/// margem de reticência) a 7pt, proporcional ao corpo, + 4 px de padding; cabeçalho não corta;
+/// campos curtos cabem no maior valor real; totais em 6pt numa linha só; nada passa de 1084 px nem
+/// se sobrepõe; grupos não são reordenados pelo FastReport. Aqui os saldos podem ser negativos.
 /// </summary>
-public class LogisticsReportsLayoutTests
+public class ContractPositionReportsLayoutTests
 {
     private const float CharWidth = 5.2f;  // Consolas 7pt
     private const float TrimMargin = 4f;   // GDI+ ao aparar com reticências, a 7pt (medido)
@@ -20,45 +20,26 @@ public class LogisticsReportsLayoutTests
 
     public static TheoryData<string> Templates => new()
     {
-        "ShipmentLoadsByPeriod",
-        "SalesShipmentReleasesByPeriod",
-        "ShipmentReleasesByPeriod",
-        "SalesShipmentsByPeriod",
+        "ContractPosition",
+        "ContractMonthlyPosition",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
     private static readonly Dictionary<string, Dictionary<string, int>> LongestText = new()
     {
-        ["ShipmentLoadsByPeriod"] = new()
+        ["ContractPosition"] = new()
         {
-            ["txtCode"] = 8,      // CG000051
-            ["txtLoadDate"] = 10, // 31/12/2026
-            ["txtType"] = 7,      // Remoção
-            ["txtStatus"] = 16,   // Faturada Parcial
-            ["txtTruck"] = 8,     // ABC-1D23
+            ["txtCode"] = 12,            // PC2026000123
+            ["txtCreationDate"] = 10,    // 31/12/2026
+            ["txtHarvestSeason"] = 10,   // VARCHAR(10): 2025/2026
+            ["txtType"] = 3,             // FIX / PAF
+            ["txtCashFlowDate"] = 10,    // 31/12/2026
+            ["txtDeliveryEndDate"] = 10, // 31/12/2026
+            ["txtStatus"] = 12,          // Em Aprovação
         },
-        ["SalesShipmentReleasesByPeriod"] = new()
+        ["ContractMonthlyPosition"] = new()
         {
-            ["txtReleaseDate"] = 10,      // 31/12/2026
-            ["txtDeliveryDeadline"] = 10, // 31/12/2026
-            ["txtContract"] = 12,         // CV2026000123
-            ["txtStatus"] = 10,           // Finalizado
-        },
-        ["ShipmentReleasesByPeriod"] = new()
-        {
-            ["txtReleaseDate"] = 10, // 31/12/2026
-            ["txtContract"] = 12,    // PC2026000123
-            ["txtOrigin"] = 13,      // Transferência
-            ["txtStatus"] = 10,      // Finalizado
-        },
-        ["SalesShipmentsByPeriod"] = new()
-        {
-            ["txtTransactionDate"] = 10, // 31/12/2026
-            ["txtCode"] = 10,            // RO00000123
-            ["txtLoad"] = 8,             // CG000051
-            ["txtTruck"] = 8,            // ABC-1D23
-            ["txtInvoiceNumber"] = 13,   // 000123456/001
-            ["txtStatus"] = 10,          // Confirmado
+            ["txtBucket"] = 9,           // Sem prazo
         },
     };
 
@@ -103,27 +84,20 @@ public class LogisticsReportsLayoutTests
         Assert.True(problems.Count == 0, $"{template}: " + string.Join("; ", problems));
     }
 
-    private static readonly string[] BalanceTemplates =
-        ["ShipmentLoadsByPeriod", "SalesShipmentReleasesByPeriod", "ShipmentReleasesByPeriod"];
-
     /// <summary>
-    /// Medido no PDF em 08/10: "-10.000.000,000" (15 car.) a 7pt saiu cortado com 86 px
+    /// Medido no PDF em 08/10: "-10.000.000,000" (15 car.) a 7pt saiu "-10.000.000,0…" com 86 px
     /// (a conta dá 86,0 — a regra fica no limite) e coube com 88.
     /// </summary>
     private const float NegativeBalanceAt7pt = 88f;
 
     /// <summary>
-    /// O Saldo pode ser negativo (sem clamp): "-10.000.000,000" tem 15 caracteres e precisa caber
-    /// no dado, no subtotal e no total, sem reticências.
+    /// Saldo pode ser negativo (sem clamp): "-10.000.000,000" tem 15 caracteres e precisa caber no
+    /// dado, no subtotal da seção, no saldo geral do bloco e no total.
     /// </summary>
-    [Theory]
-    [InlineData("ShipmentLoadsByPeriod")]
-    [InlineData("SalesShipmentReleasesByPeriod")]
-    [InlineData("ShipmentReleasesByPeriod")]
-    public void BalanceObjects_FitANegative15CharValue(string template)
+    [Fact]
+    public void ContractPosition_BalanceObjectsFitANegative15CharValue()
     {
-        Assert.Contains(template, BalanceTemplates);
-        using var report = Load(template);
+        using var report = Load("ContractPosition");
         var balances = TextObjects(report)
             .Where(o => o.Name.EndsWith("BalanceQuantity", StringComparison.Ordinal))
             .ToList();
@@ -135,8 +109,22 @@ public class LogisticsReportsLayoutTests
             .Select(o => $"{o.Name}: precisa {Need(o):0.#}px, tem {o.Width:0.#}px")
             .ToList();
 
-        Assert.True(balances.Count >= 4, $"{template}: faltam objetos de Saldo (dado, subtotal e total).");
-        Assert.True(problems.Count == 0, $"{template}: " + string.Join("; ", problems));
+        Assert.True(balances.Count >= 5, "ContractPosition: faltam objetos de Saldo (cabeçalho, dado, seção, bloco e total).");
+        Assert.True(problems.Count == 0, "ContractPosition: " + string.Join("; ", problems));
+    }
+
+    /// <summary>Na posição mensal TODA quantidade pode ser negativa: "-999.999.999,999" (16) cabe.</summary>
+    [Fact]
+    public void ContractMonthlyPosition_EveryQuantityFitsANegativeTotal()
+    {
+        using var report = Load("ContractMonthlyPosition");
+        var problems = TextObjects(report)
+            .Where(o => o.Format is NumberFormat)
+            .Where(o => Required(16, o.Font.Size) > o.Width)
+            .Select(o => $"{o.Name}: precisa {Required(16, o.Font.Size):0.#}px, tem {o.Width:0.#}px")
+            .ToList();
+
+        Assert.True(problems.Count == 0, "ContractMonthlyPosition: " + string.Join("; ", problems));
     }
 
     [Theory]
@@ -255,5 +243,18 @@ public class LogisticsReportsLayoutTests
 
         Assert.NotEmpty(groups);
         Assert.All(groups, g => Assert.Equal(SortOrder.None, g.SortOrder));
+    }
+
+    /// <summary>Washout é só da compra: zero (venda, ou compra sem washout) sai em branco, não "0,000".</summary>
+    [Fact]
+    public void ContractPosition_WashoutHidesZeros()
+    {
+        using var report = Load("ContractPosition");
+        var washouts = TextObjects(report)
+            .Where(o => o.Name.EndsWith("WashedOutQuantity", StringComparison.Ordinal) && o.Format is NumberFormat)
+            .ToList();
+
+        Assert.Equal(2, washouts.Count);
+        Assert.All(washouts, o => Assert.True(o.HideZeros, $"{o.Name} sem HideZeros"));
     }
 }

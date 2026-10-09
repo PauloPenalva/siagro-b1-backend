@@ -42,14 +42,14 @@
       <TextObject Name="hdrReleaseDate" Left="0" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrDeliveryDeadline" Left="62" Width="66" Height="17" Text="Entrega até" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrContract" Left="128" Width="72" Height="17" Text="Contrato" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrCustomer" Left="200" Width="196" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrAgent" Left="396" Width="100" Height="17" Text="Vendedor" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDeliveryLocation" Left="496" Width="166" Height="17" Text="Local de entrega" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrRegion" Left="662" Width="110" Height="17" Text="Região" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrStatus" Left="772" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrReleasedQuantity" Left="834" Width="82" Height="17" Text="Liberado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrConsumedQuantity" Left="916" Width="82" Height="17" Text="Consumido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrBalanceQuantity" Left="998" Width="86" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCustomer" Left="200" Width="194" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAgent" Left="394" Width="100" Height="17" Text="Vendedor" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeliveryLocation" Left="494" Width="166" Height="17" Text="Local de entrega" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrRegion" Left="660" Width="110" Height="17" Text="Região" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="770" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrReleasedQuantity" Left="832" Width="82" Height="17" Text="Liberado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrConsumedQuantity" Left="914" Width="82" Height="17" Text="Consumido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBalanceQuantity" Left="996" Width="88" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
     <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[SalesShipmentReleases.Group]">
       <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[SalesShipmentReleases.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
@@ -57,29 +57,29 @@
         <TextObject Name="txtReleaseDate" Left="0" Width="62" Height="17" Text="[SalesShipmentReleases.ReleaseDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtDeliveryDeadline" Left="62" Width="66" Height="17" Text="[SalesShipmentReleases.DeliveryDeadline]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtContract" Left="128" Width="72" Height="17" Text="[SalesShipmentReleases.Contract]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtCustomer" Left="200" Width="196" Height="17" Text="[SalesShipmentReleases.Customer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtAgent" Left="396" Width="100" Height="17" Text="[SalesShipmentReleases.Agent]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtDeliveryLocation" Left="496" Width="166" Height="17" Text="[SalesShipmentReleases.DeliveryLocation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRegion" Left="662" Width="110" Height="17" Text="[SalesShipmentReleases.Region]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtStatus" Left="772" Width="62" Height="17" Text="[SalesShipmentReleases.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtReleasedQuantity" Left="834" Width="82" Height="17" Text="[SalesShipmentReleases.ReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtConsumedQuantity" Left="916" Width="82" Height="17" Text="[SalesShipmentReleases.ConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtBalanceQuantity" Left="998" Width="86" Height="17" Text="[SalesShipmentReleases.BalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtCustomer" Left="200" Width="194" Height="17" Text="[SalesShipmentReleases.Customer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtAgent" Left="394" Width="100" Height="17" Text="[SalesShipmentReleases.Agent]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDeliveryLocation" Left="494" Width="166" Height="17" Text="[SalesShipmentReleases.DeliveryLocation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRegion" Left="660" Width="110" Height="17" Text="[SalesShipmentReleases.Region]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtStatus" Left="770" Width="62" Height="17" Text="[SalesShipmentReleases.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtReleasedQuantity" Left="832" Width="82" Height="17" Text="[SalesShipmentReleases.ReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtConsumedQuantity" Left="914" Width="82" Height="17" Text="[SalesShipmentReleases.ConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtBalanceQuantity" Left="996" Width="88" Height="17" Text="[SalesShipmentReleases.BalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       </DataBand>
       <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
-        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="834" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpReleasedQuantity" Left="834" Top="2" Width="82" Height="17" Text="[TotalGrpReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpConsumedQuantity" Left="916" Top="2" Width="82" Height="17" Text="[TotalGrpConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
-        <TextObject Name="txtGrpBalanceQuantity" Left="998" Top="2" Width="86" Height="17" Text="[TotalGrpBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="832" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpReleasedQuantity" Left="832" Top="2" Width="82" Height="17" Text="[TotalGrpReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpConsumedQuantity" Left="914" Top="2" Width="82" Height="17" Text="[TotalGrpConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpBalanceQuantity" Left="996" Top="2" Width="88" Height="17" Text="[TotalGrpBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
       </GroupFooterBand>
     </GroupHeaderBand>
     <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="48">
       <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       <TextObject Name="txtSumCount" Left="100" Top="4" Width="130" Height="17" Text="[TotalCountAll] liberação(ões)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-      <TextObject Name="uomMixedNote" Left="228" Top="4" Width="606" Height="17" Text="UMs diferentes: quantidades só nos subtotais." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
-      <TextObject Name="uomSumReleasedQuantity" Left="834" Top="4" Width="82" Height="17" Text="[TotalSumReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
-      <TextObject Name="uomSumConsumedQuantity" Left="916" Top="4" Width="82" Height="17" Text="[TotalSumConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
-      <TextObject Name="uomSumBalanceQuantity" Left="998" Top="4" Width="86" Height="17" Text="[TotalSumBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomMixedNote" Left="228" Top="4" Width="604" Height="17" Text="UMs diferentes: quantidades só nos subtotais." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="uomSumReleasedQuantity" Left="832" Top="4" Width="82" Height="17" Text="[TotalSumReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumConsumedQuantity" Left="914" Top="4" Width="82" Height="17" Text="[TotalSumConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumBalanceQuantity" Left="996" Top="4" Width="88" Height="17" Text="[TotalSumBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
       <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter1" Top="254" Width="1084" Height="26">
