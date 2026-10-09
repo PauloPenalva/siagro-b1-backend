@@ -445,6 +445,8 @@ public class ShipmentLoadsRefuseService(
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new ApplicationException($"A carga {load.Code} está cancelada e não pode ser recusada.");
 
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
+
         if (load.Status == ShipmentLoadStatus.Planned)
             throw new ApplicationException(
                 $"A carga {load.Code} ainda está apenas planejada — não há faturamento a recusar.");

@@ -201,6 +201,8 @@ public class ShippingTransactionsChangeReleaseService(
 
         var load = await db.Context.ShipmentLoads.FirstAsync(x => x.Key == sales.ShipmentLoadKey);
 
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
+
         // Completed (Remoção, ou Normal com a conferência encerrada) e Discharged (GAC-1171): a
         // composição de uma carga entregue não muda. A Descarregada tem frase própria porque tem
         // caminho de volta próprio: excluir o ticket de descarga.

@@ -1068,6 +1068,23 @@ public class ShippingTransactionsChangeReleaseServiceTests
     }
 
     [Fact]
+    public async Task Rejects_WhenLoadHasARefusalPending()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0002");
+        var (shipping, load) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        load.Status = ShipmentLoadStatus.RefusalPending;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(() => Service().ExecuteAsync(
+            [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
+
+        Assert.Equal(
+            "A carga CG000001 tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa.",
+            ex.Message);
+    }
+
+    [Fact]
     public async Task Rejects_WhenLoadIsCompleted_SaysItIsClosed()
     {
         var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");

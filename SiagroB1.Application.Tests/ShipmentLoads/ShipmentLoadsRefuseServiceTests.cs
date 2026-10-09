@@ -241,6 +241,21 @@ public class ShipmentLoadsRefuseServiceTests
 
     // ─── Destino: o caminhão segue para outro destino (refaturamento) ───
 
+    [Fact]
+    public async Task A_second_refusal_is_refused_while_one_is_pending()
+    {
+        var (load, invoice) = await BilledLoadAsync();
+        (await _db.Context.ShipmentLoads.SingleAsync(x => x.Key == load.Key)).Status = ShipmentLoadStatus.RefusalPending;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
+            () => Service().ExecuteAsync(Request(load, invoice, 1m), "tester"));
+
+        Assert.Equal(
+            "A carga CG000007 tem uma recusa aguardando NF-e de entrada: emita as NF-e ou cancele a recusa.",
+            ex.Message);
+    }
+
     /// <summary>
     /// Recusa TOTAL para refaturamento: o saldo inteiro volta e a carga reaparece disponível.
     /// É o caminho que faz "disponibilizar a carga para faturamento" acontecer.

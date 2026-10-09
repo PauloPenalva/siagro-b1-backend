@@ -55,7 +55,7 @@ public class ShipmentLoadsUpdateService(
         // fiscais seguem travados.
         var fiscalFieldsLocked = load.Status is ShipmentLoadStatus.PartiallyInvoiced
             or ShipmentLoadStatus.Invoiced or ShipmentLoadStatus.Discharged
-            or ShipmentLoadStatus.Completed;
+            or ShipmentLoadStatus.Completed or ShipmentLoadStatus.RefusalPending;
 
         if (fiscalFieldsLocked)
             EnsureFiscalFieldsUnchanged(load, input);

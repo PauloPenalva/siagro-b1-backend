@@ -96,6 +96,8 @@ public static class ShipmentLoadDischargeRules
     {
         if (load.Status == ShipmentLoadStatus.Cancelled)
             throw new DefaultException("Carga cancelada não aceita registro de descarga.");
+
+        ShipmentLoadRefusalRules.EnsureNoPendingRefusal(load);
     }
 
     /// <summary>
