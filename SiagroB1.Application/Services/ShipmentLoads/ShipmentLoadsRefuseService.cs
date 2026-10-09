@@ -91,10 +91,6 @@ public class ShipmentLoadsRefuseService(
         // efeito no banco, nem meia devolução criada.
         Validate(load, request);
 
-        // Spec 2026-10-09: na filial que emite NF-e pelo Siagro a devolução só confirma com a NF-e de entrada
-        // autorizada — a recusa vira dois tempos. Fora dela, o fluxo síncrono de sempre.
-        var deferred = gate is not null && await gate.IsActiveAsync(load.BranchCode);
-
         if (request.Destination == RefusalDestination.Transshipment)
         {
             // GAC-1181: a MESMA invariante que ShipmentLoadsTransshipmentStartService usa para
@@ -108,6 +104,11 @@ public class ShipmentLoadsRefuseService(
 
         var warehouse = await ResolveWarehouseAsync(request);
         var lines = await ResolveLinesAsync(load, request);
+
+        // Spec 2026-10-09: na filial que emite NF-e pelo Siagro a devolução de documento com NF-e só confirma com a
+        // NF-e de entrada autorizada — a recusa vira dois tempos. Fora dela, e para o documento de outro tipo
+        // (papel/talão, que nunca teve NF-e pelo Siagro), o fluxo síncrono de sempre.
+        var deferred = gate is not null && await gate.IsActiveAsync(load.BranchCode) && IsNfeRefusal(lines);
 
         if (deferred)
             return new RefusalResult(load, await RegisterDeferredAsync(load, request, warehouse, lines, userName));
@@ -275,6 +276,20 @@ public class ShipmentLoadsRefuseService(
         await confirmService.ExecuteAsync(returnInvoice.Key, userName, CommitMode.Deferred);
 
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Na filial com a regra ativa, decide o modo pelos documentos recusados: todos NF-e → dois tempos; todos de
+    /// outro tipo → síncrono. A mistura não tem um modo só (metade esperaria NF-e, metade confirmaria já) e é recusada.
+    /// </summary>
+    private static bool IsNfeRefusal(IReadOnlyList<ResolvedLine> lines)
+    {
+        var nfeCount = lines.Count(l => l.Invoice.TaxDocumentKind == TaxDocumentKind.Nfe);
+
+        if (nfeCount > 0 && nfeCount < lines.Count)
+            throw new DefaultException("Recuse separadamente os documentos com NF-e e os documentos de outro tipo.");
+
+        return nfeCount == lines.Count;
     }
 
     private static void Validate(ShipmentLoad load, RefusalRequest request)

@@ -105,6 +105,50 @@ public class ShipmentLoadsDeferredRefusalTests
         Assert.False(await s.Db.Context.SalesInvoices.AnyAsync(i => i.InvoiceType == SalesInvoiceType.Return));
     }
 
+    private static async Task MarkAsOtherDocumentAsync(NfeLoadRefusalScenario s, Guid saleKey)
+    {
+        // Documento de papel/talão: termina no Confirmar, nunca teve NF-e pelo Siagro.
+        var sale = await s.Db.Context.SalesInvoices.SingleAsync(i => i.Key == saleKey);
+        sale.TaxDocumentKind = TaxDocumentKind.Other;
+        sale.NfeStatus = NfeStatus.None;
+        sale.ChaveNFe = null;
+        await s.Db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Paper_billed_load_on_the_nfe_branch_refuses_synchronously()
+    {
+        var s = await NfeLoadRefusalTestSeed.SeedAsync();
+        await MarkAsOtherDocumentAsync(s, s.SaleKeys[0]);
+
+        var result = await NfeLoadRefusalTestSeed.RefuseService(s.Db).ExecuteAsync(Request(s, 10_000m), "tester");
+
+        Assert.Null(result.RefusalKey);
+        Assert.False(await s.Db.Context.ShipmentLoadRefusals.AnyAsync());
+        var load = await s.Db.Context.ShipmentLoads.AsNoTracking().SingleAsync();
+        Assert.NotEqual(ShipmentLoadStatus.RefusalPending, load.Status);
+        Assert.Equal(ShipmentLoadStatus.PartiallyInvoiced, load.Status);
+        // A devolução síncrona não é NF-e própria: passa pela guarda da confirmação na filial com a regra ativa.
+        var returned = await s.Db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.InvoiceType == SalesInvoiceType.Return);
+        Assert.False(returned.IsNfeReturn);
+        Assert.Equal(InvoiceStatus.Confirmed, returned.InvoiceStatus);
+        Assert.Null(returned.ShipmentLoadRefusalKey);
+    }
+
+    [Fact]
+    public async Task Mixing_nfe_and_other_documents_is_refused_without_writing()
+    {
+        var s = await NfeLoadRefusalTestSeed.SeedAsync(documents: 2);
+        await MarkAsOtherDocumentAsync(s, s.SaleKeys[1]);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            NfeLoadRefusalTestSeed.RefuseService(s.Db).ExecuteAsync(Request(s, 1_000m), "tester"));
+
+        Assert.Equal("Recuse separadamente os documentos com NF-e e os documentos de outro tipo.", ex.Message);
+        Assert.False(await s.Db.Context.ShipmentLoadRefusals.AnyAsync());
+        Assert.False(await s.Db.Context.SalesInvoices.AnyAsync(i => i.InvoiceType == SalesInvoiceType.Return));
+    }
+
     [Fact]
     public async Task Outside_the_rule_the_refusal_stays_synchronous()
     {
