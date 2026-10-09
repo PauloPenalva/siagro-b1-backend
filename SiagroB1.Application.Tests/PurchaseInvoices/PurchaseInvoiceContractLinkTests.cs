@@ -109,7 +109,8 @@ public class PurchaseInvoiceContractLinkTests
                 names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(
                 names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
-            TaxTestServices.InactivePurchaseApply(_db));
+            TaxTestServices.InactivePurchaseApply(_db),
+            new FakeDocNumberSequenceService());
 
     [Fact]
     public async Task Contract_of_another_supplier_is_refused()

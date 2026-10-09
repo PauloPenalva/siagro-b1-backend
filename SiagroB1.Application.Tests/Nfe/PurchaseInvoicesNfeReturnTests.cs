@@ -17,7 +17,8 @@ public class PurchaseInvoicesNfeReturnTests
         states: new Dictionary<string, string> { [PurchaseNfeTestSeed.Supplier] = "SP" });
 
     private static PurchaseInvoicesCreateService CreateService(PurchaseNfeScenario scenario) =>
-        new(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()));
+        new(scenario.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, Partners()),
+            new FakeDocNumberSequenceService());
 
     private static PurchaseInvoicesNfeReturnCreateService Returns(PurchaseNfeScenario scenario, string erp = "STANDALONE") =>
         new(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config(erp)), CreateService(scenario),
@@ -60,6 +61,18 @@ public class PurchaseInvoicesNfeReturnTests
         Assert.Equal(scenario.ReturnUsage, line.UsageCode);
         Assert.Equal("5202", line.Cfop);
         Assert.StartsWith($"Devolução da NF-e 1 série 1. Motivo: grão fora do padrão", saved.Comments);
+    }
+
+    [Fact]
+    public async Task Return_receives_an_internal_number_from_the_sequence()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        Assert.Equal("ST-0001", saved.InvoiceNumber);
+        Assert.NotNull(saved.DocNumberKey);
     }
 
     [Fact]

@@ -35,7 +35,7 @@ public class PurchaseInvoiceDeclaredTotalTests
         TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners(), erp);
 
     private static PurchaseInvoicesCreateService Create(UnitOfWork db, string erp = "STANDALONE") =>
-        new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), Apply(db, erp));
+        new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), Apply(db, erp), new FakeDocNumberSequenceService());
 
     private static Task<decimal> DeclaredAsync(UnitOfWork db, Guid key) =>
         db.Context.PurchaseInvoices.AsNoTracking().Where(i => i.Key == key).Select(i => i.TotalDocumentValue).SingleAsync();

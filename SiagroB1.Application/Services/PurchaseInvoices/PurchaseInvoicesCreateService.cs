@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -17,7 +18,8 @@ public class PurchaseInvoicesCreateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
-    PurchaseInvoicesTaxApplyService taxApply)
+    PurchaseInvoicesTaxApplyService taxApply,
+    DocNumberSequenceService numberSequenceService)
 {
     public async Task ExecuteAsync(PurchaseInvoice invoice, string userName, bool nfeReturn = false)
     {
@@ -100,6 +102,11 @@ public class PurchaseInvoicesCreateService(
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             PurchaseInvoiceDeclaredTotal.Apply(invoice, invoice.Items);
+
+        // Número interno sequencial (DE000001) para toda entrada, de qualquer tipo. Nasce aqui — por último, depois de todas as recusas, para não abrir buraco na sequência — e nunca muda;
+        // o que vier no corpo é descartado (o update também não o copia).
+        invoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.PurchaseInvoice);
+        invoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) invoice.DocNumberKey);
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();

@@ -68,7 +68,7 @@ public class PurchaseInvoicesTaxApplyTests
 
     private static PurchaseInvoicesCreateService Create(Seed seed, string erp = "STANDALONE") =>
         new(seed.Db, seed.Partners, new FakeItemService(names: new Dictionary<string, string> { ["TRIGO"] = "TRIGO EM GRAOS" }),
-            TaxTestServices.PurchaseApply(seed.Db, seed.Partners, erp));
+            TaxTestServices.PurchaseApply(seed.Db, seed.Partners, erp), new FakeDocNumberSequenceService());
 
     [Fact]
     public async Task Own_entry_is_calculated_with_the_incoming_usage()
@@ -150,7 +150,7 @@ public class PurchaseInvoicesTaxApplyTests
         var seed = await SeedAsync();
         var partners = new FakeBusinessPartnerService(names: new Dictionary<string, string> { [Supplier] = "PRODUTOR TESTE" });
         var create = new PurchaseInvoicesCreateService(seed.Db, partners, new FakeItemService(),
-            TaxTestServices.PurchaseApply(seed.Db, partners));
+            TaxTestServices.PurchaseApply(seed.Db, partners), new FakeDocNumberSequenceService());
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => create.ExecuteAsync(OwnEntry(seed.PurchaseUsage), "tester"));
 

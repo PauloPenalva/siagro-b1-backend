@@ -25,7 +25,10 @@ public class PurchaseInvoicesCreateTests
                 names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR TESTE" }),
             new FakeItemService(
                 names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
-            TaxTestServices.InactivePurchaseApply(db));
+            TaxTestServices.InactivePurchaseApply(db),
+            new FakeDocNumberSequenceService(DocKey));
+
+    private static readonly Guid DocKey = Guid.NewGuid();
 
     private static PurchaseInvoice NewInvoice(string? chave = Chave)
     {
@@ -42,6 +45,23 @@ public class PurchaseInvoicesCreateTests
         var empty = new PurchaseInvoice { CardCode = "F0001" };
 
         await Assert.ThrowsAsync<DefaultException>(() => Service(db).ExecuteAsync(empty, "tester"));
+    }
+
+    [Theory]
+    [InlineData(DocumentIssuerType.ThirdParty)]
+    [InlineData(DocumentIssuerType.Own)]
+    public async Task Internal_number_comes_from_the_sequence_and_the_body_value_is_ignored(DocumentIssuerType issuer)
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var invoice = NewInvoice(chave: null);
+        invoice.IssuerType = issuer;
+        invoice.InvoiceNumber = "DIGITADO";
+        await Service(db).ExecuteAsync(invoice, "tester");
+
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("ST-0001", saved.InvoiceNumber);
+        Assert.Equal(DocKey, saved.DocNumberKey);
     }
 
     [Fact]

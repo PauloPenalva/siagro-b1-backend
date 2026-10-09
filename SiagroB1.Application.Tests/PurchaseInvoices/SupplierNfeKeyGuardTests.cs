@@ -134,7 +134,7 @@ public class SupplierNfeKeyGuardTests
     }
 
     private static PurchaseInvoicesCreateService Create(UnitOfWork db, string erp = "STANDALONE") =>
-        new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners(), erp));
+        new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners(), erp), new FakeDocNumberSequenceService());
 
     [Fact]
     public async Task Create_refuses_a_key_with_a_wrong_check_digit()

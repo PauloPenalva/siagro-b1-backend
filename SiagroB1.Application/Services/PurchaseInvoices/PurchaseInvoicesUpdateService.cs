@@ -59,7 +59,6 @@ public class PurchaseInvoicesUpdateService(
             existing.CardName =
                 (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName
                 ?? entity.CardName;
-        existing.InvoiceNumber = entity.InvoiceNumber;
         existing.TaxDocumentNumber = entity.TaxDocumentNumber;
         existing.TaxDocumentSeries = entity.TaxDocumentSeries;
         existing.ChaveNFe = entity.ChaveNFe;
