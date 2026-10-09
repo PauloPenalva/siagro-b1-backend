@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
-using SiagroB1.Application.Services.SalesInvoices.Factories;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
