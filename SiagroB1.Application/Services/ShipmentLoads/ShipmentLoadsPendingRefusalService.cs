@@ -18,7 +18,8 @@ public class ShipmentLoadsPendingRefusalService(IUnitOfWork db)
 
         var returns = await db.Context.SalesInvoices.AsNoTracking()
             .Include(i => i.Items)
-            .Where(i => i.ShipmentLoadRefusalKey == refusal.Key)
+            // A devolução cancelada (NF-e cancelada pelo 2b) não é mais pendência da recusa.
+            .Where(i => i.ShipmentLoadRefusalKey == refusal.Key && i.InvoiceStatus != InvoiceStatus.Cancelled)
             .OrderBy(i => i.InvoiceNumber)
             .ToListAsync();
 

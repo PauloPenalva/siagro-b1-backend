@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Services.ShipmentLoads;
@@ -30,6 +31,26 @@ public class ShipmentLoadPendingRefusalTests
             Assert.Equal("Pending", r.InvoiceStatus);
             Assert.Equal("None", r.NfeStatus);
         });
+    }
+
+    [Fact]
+    public async Task Cancelled_returns_are_left_out()
+    {
+        // O 2b cancelou a NF-e de uma das devoluções; a outra segue pendente e a recusa também.
+        var s = await NfeLoadRefusalTestSeed.SeedAsync(documents: 2);
+        await NfeLoadRefusalTestSeed.RefuseService(s.Db).ExecuteAsync(
+            new RefusalRequest(s.Load.Key, s.SaleKeys.Select(k => new RefusalLine(k, 5_000m)).ToList(),
+                RefusalDestination.Rebilling, null, "Recusado"),
+            "tester");
+        var cancelled = await s.Db.Context.SalesInvoices
+            .Where(i => i.InvoiceType == SalesInvoiceType.Return).OrderBy(i => i.InvoiceNumber).FirstAsync();
+        cancelled.InvoiceStatus = InvoiceStatus.Cancelled;
+        await s.Db.SaveChangesAsync();
+
+        var rows = await new ShipmentLoadsPendingRefusalService(s.Db).ExecuteAsync(s.Load.Key);
+
+        Assert.Single(rows);
+        Assert.NotEqual(cancelled.Key.ToString(), rows[0].SalesInvoiceKey);
     }
 
     [Fact]
