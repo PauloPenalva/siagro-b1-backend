@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
@@ -103,6 +104,36 @@ public class ShipmentLoadsDeferredRefusalTests
         Assert.Contains("não tem natureza de devolução cadastrada", ex.Message);
         Assert.False(await s.Db.Context.ShipmentLoadRefusals.AnyAsync());
         Assert.False(await s.Db.Context.SalesInvoices.AnyAsync(i => i.InvoiceType == SalesInvoiceType.Return));
+    }
+
+    [Fact]
+    public async Task Sale_item_without_nfe_item_number_is_refused_without_writing()
+    {
+        // Spec §9: venda autorizada antes da numeração dos itens. Com um item só ele é o 1 (NfeItemNumbering.OriginNumber);
+        // com dois sem número não há como referenciar o nItem da venda.
+        var s = await NfeLoadRefusalTestSeed.SeedAsync();
+        var sale = await s.Db.Context.SalesInvoices.Include(i => i.Items).SingleAsync(i => i.Key == s.SaleKeys[0]);
+        var item = sale.Items.Single();
+        item.NfeItemNumber = null;
+        var second = new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(), ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", UnitOfMeasureCode = "KG",
+            Quantity = 1_000m, UnitPrice = 2m, UsageCode = item.UsageCode, UsageName = item.UsageName,
+            Cfop = item.Cfop, Ncm = item.Ncm, NfeItemNumber = null,
+        };
+        sale.AddItem(second);
+        s.Db.Context.Entry(second).State = EntityState.Added; // chave já preenchida: sem isso o EF a trata como Modified
+        await s.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            NfeLoadRefusalTestSeed.RefuseService(s.Db).ExecuteAsync(Request(s, 1_000m), "tester"));
+
+        Assert.Equal(
+            "A NF-e de venda foi emitida antes da numeração dos itens; a devolução com NF-e não está disponível para ela.",
+            ex.Message);
+        Assert.False(await s.Db.Context.ShipmentLoadRefusals.AnyAsync());
+        Assert.False(await s.Db.Context.SalesInvoices.AnyAsync(i => i.InvoiceType == SalesInvoiceType.Return));
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await s.Db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).Status);
     }
 
     private static async Task MarkAsOtherDocumentAsync(NfeLoadRefusalScenario s, Guid saleKey)
