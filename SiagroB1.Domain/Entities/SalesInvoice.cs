@@ -160,6 +160,13 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     public bool IsNfeReturn { get; set; }
 
     /// <summary>
+    /// Recusa de carga que gerou esta devolução (spec 2026-10-09). Só a recusa em dois tempos grava; a criação
+    /// pela API zera e o PATCH restaura (<c>SalesInvoiceNfeLock</c>). Sem navegação de propósito: não expõe a
+    /// recusa no EDM do documento.
+    /// </summary>
+    public Guid? ShipmentLoadRefusalKey { get; set; }
+
+    /// <summary>
     /// Tipo do documento fiscal (spec 2026-10-06 D3). Só tem efeito no documento Normal da filial que emite NF-e pelo
     /// Siagro: <see cref="TaxDocumentKind.Nfe"/> sai pelo "Transmitir NF-e" depois de confirmado;
     /// <see cref="TaxDocumentKind.Other"/> (papel/talão) termina no Confirmar, com número e série digitados.

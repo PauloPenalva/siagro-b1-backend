@@ -95,6 +95,10 @@ public static class SalesInvoiceNfeLock
 
         // A marca da devolução própria nasce no Devolver e nunca muda pela API.
         entry.Property(nameof(SalesInvoice.IsNfeReturn)).CurrentValue = entry.OriginalValues[nameof(SalesInvoice.IsNfeReturn)];
+
+        // O vínculo com a recusa de carga nasce na recusa e nunca muda pela API.
+        entry.Property(nameof(SalesInvoice.ShipmentLoadRefusalKey)).CurrentValue =
+            entry.OriginalValues[nameof(SalesInvoice.ShipmentLoadRefusalKey)];
     }
 
     /// <summary>A criação nunca nasce emitida, venha o que vier no corpo.</summary>
@@ -112,6 +116,7 @@ public static class SalesInvoiceNfeLock
         invoice.NfeCancelledAt = null;
         invoice.NfeCancellationReason = null;
         invoice.NfeCancellationError = null;
+        invoice.ShipmentLoadRefusalKey = null;
     }
 
     /// <summary>Chamado DEPOIS do SetValues da linha. A Conferência de entregas mexe em campos fora do XML e passa.</summary>

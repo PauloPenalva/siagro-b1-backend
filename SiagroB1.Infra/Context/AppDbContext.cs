@@ -82,6 +82,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadDischarge> ShipmentLoadsDischarges { get; set; }
     public DbSet<ShipmentLoadDischargeItem> ShipmentLoadsDischargesItems { get; set; }
     public DbSet<ShipmentLoadTransshipment> ShipmentLoadsTransshipments { get; set; }
+    public DbSet<ShipmentLoadRefusal> ShipmentLoadRefusals { get; set; }
     public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
     public DbSet<SalesContractAttachment>  SalesContractAttachments { get; set; }
@@ -384,6 +385,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => x.LotExitStorageTransactionKey)
             .IsUnique()
             .HasFilter("[LotExitStorageTransactionKey] IS NOT NULL");
+
+        // Recusa em dois tempos (spec 2026-10-09). NoAction nas duas FKs: a recusa é histórico da carga e das
+        // devoluções. Índice único FILTRADO: no máximo uma recusa Pendente por carga — a trava de situação da carga
+        // é a primeira linha, este índice a segunda. ⚠️ índice filtrado exige QUOTED_IDENTIFIER ON no sqlcmd (-I).
+        modelBuilder.Entity<ShipmentLoadRefusal>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadRefusal>()
+            .HasIndex(x => x.ShipmentLoadKey)
+            .IsUnique()
+            .HasFilter($"[Status] = {(int)ShipmentLoadRefusalStatus.Pending}");
+
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne<ShipmentLoadRefusal>()
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentLoadRefusalKey)
+            .OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<StorageTransaction>()
             .HasOne(x => x.ShipmentLoadTransshipment)
