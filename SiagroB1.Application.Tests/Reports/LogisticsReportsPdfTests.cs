@@ -220,4 +220,53 @@ public class LogisticsReportsPdfTests : IDisposable
         Directory.CreateDirectory(folder);
         File.WriteAllBytes(Path.Combine(folder, $"{report}-{erp}.pdf"), pdf);
     }
+
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task ShipmentReleasesByPeriod_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var soja = PurchaseContract("PC000001");
+        var sojaTn = PurchaseContract("PC000002", uom: "TN");
+        db.Context.PurchaseContracts.AddRange(soja, sojaTn);
+        db.Context.ShipmentReleases.Add(PurchaseRelease(soja, released: 1_000m, shipped: 250m));
+        db.Context.ShipmentReleases.Add(PurchaseRelease(soja, origin: ReleaseOrigin.OwnershipTransfer, deliveryLocationCode: "ARM02"));
+        db.Context.ShipmentReleases.Add(PurchaseRelease(sojaTn, released: 30m, origin: ReleaseOrigin.Transshipment));
+        await Save(db);
+
+        var pdf = await new ShipmentReleasesByPeriodReportService(db, FastReport(Configuration(erp)))
+            .ExecuteAsync(new ShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("ShipmentReleasesByPeriod", erp, pdf);
+    }
+
+    [Fact]
+    public async Task ShipmentReleasesByPeriod_EmptyResultStillProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var pdf = await new ShipmentReleasesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new ShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Assert.NotEmpty(pdf);
+    }
+
+    [Fact]
+    public async Task ShipmentReleasesByPeriod_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var contract = PurchaseContract("PC2026000123", cardName: "AGROPECUÁRIA DOS PRODUTORES RURAIS DO VALE DO RIO GRANDE LTDA");
+        db.Context.PurchaseContracts.Add(contract);
+        db.Context.ShipmentReleases.Add(PurchaseRelease(contract, released: 99_999_999.999m, shipped: 11_111_111.111m,
+            origin: ReleaseOrigin.OwnershipTransfer,
+            deliveryLocationName: "ARMAZÉM GERAL DE GRÃOS DA COOPERATIVA AGROINDUSTRIAL - UNIDADE 12"));
+        db.Context.ShipmentReleases.Add(PurchaseRelease(contract, released: 99_999_999.999m, shipped: 11_111_111.111m));
+        await Save(db);
+
+        var pdf = await new ShipmentReleasesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new ShipmentReleasesByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("ShipmentReleasesByPeriod-large", "STANDALONE", pdf);
+    }
 }

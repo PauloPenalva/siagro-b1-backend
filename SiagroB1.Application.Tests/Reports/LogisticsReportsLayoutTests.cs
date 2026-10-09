@@ -22,6 +22,7 @@ public class LogisticsReportsLayoutTests
     {
         "ShipmentLoadsByPeriod",
         "SalesShipmentReleasesByPeriod",
+        "ShipmentReleasesByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
@@ -41,6 +42,13 @@ public class LogisticsReportsLayoutTests
             ["txtDeliveryDeadline"] = 10, // 31/12/2026
             ["txtContract"] = 12,         // CV2026000123
             ["txtStatus"] = 10,           // Finalizado
+        },
+        ["ShipmentReleasesByPeriod"] = new()
+        {
+            ["txtReleaseDate"] = 10, // 31/12/2026
+            ["txtContract"] = 12,    // PC2026000123
+            ["txtOrigin"] = 13,      // Transferência
+            ["txtStatus"] = 10,      // Finalizado
         },
     };
 
