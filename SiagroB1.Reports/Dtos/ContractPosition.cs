@@ -39,8 +39,11 @@ public class ContractPosition
 
     /// <summary>
     /// Saldo que ainda vai ser entregue: o próprio saldo, ou 0 para contrato Finalizado (encerrar é
-    /// abrir mão do não entregue), Cancelado ou Rejeitado.
+    /// abrir mão do não entregue), Cancelado ou Rejeitado. Saldo negativo (entregue além do
+    /// contratado) também vira 0: não há o que entregar, e o excesso não abate outros contratos.
     /// </summary>
     public decimal ToDeliver =>
-        Status is ContractStatus.Finished or ContractStatus.Canceled or ContractStatus.Rejected ? 0m : Balance;
+        Status is ContractStatus.Finished or ContractStatus.Canceled or ContractStatus.Rejected
+            ? 0m
+            : Math.Max(Balance, 0m);
 }
