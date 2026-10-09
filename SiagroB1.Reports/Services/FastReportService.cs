@@ -15,11 +15,25 @@ public class FastReportService(
     /// </summary>
     public const string StandaloneParameter = "pStandalone";
 
-    public static void HideFiscalObjects(Report report)
+    /// <summary>
+    /// Parâmetro reservado dos relatórios agrupados por produto + UM: com <c>true</c> (uma só UM no
+    /// resultado) some a nota "UMs diferentes" (<c>uomMixed*</c>); com <c>false</c> somem os totais
+    /// gerais de quantidade (<c>uomSum*</c>) — KG e TN não se somam. Ausente, nada muda.
+    /// </summary>
+    public const string SingleUomParameter = "pSingleUom";
+    public const string UomTotalsPrefix = "uomSum";
+    public const string MixedUomNotePrefix = "uomMixed";
+
+    public static void HideFiscalObjects(Report report) => HideObjectsWithPrefix(report, "fiscal");
+
+    public static void ApplySingleUom(Report report, bool singleUom) =>
+        HideObjectsWithPrefix(report, singleUom ? MixedUomNotePrefix : UomTotalsPrefix);
+
+    private static void HideObjectsWithPrefix(Report report, string prefix)
     {
         foreach (var component in report.AllObjects.OfType<ReportComponentBase>())
         {
-            if (component.Name.StartsWith("fiscal", StringComparison.Ordinal))
+            if (component.Name.StartsWith(prefix, StringComparison.Ordinal))
                 component.Visible = false;
         }
     }
@@ -31,6 +45,9 @@ public class FastReportService(
 
         if (parameters.TryGetValue(StandaloneParameter, out var standalone) && standalone is false)
             HideFiscalObjects(report);
+
+        if (parameters.TryGetValue(SingleUomParameter, out var single) && single is bool singleUom)
+            ApplySingleUom(report, singleUom);
     }
 
     public async Task<byte[]> GeneratePdfAsync(

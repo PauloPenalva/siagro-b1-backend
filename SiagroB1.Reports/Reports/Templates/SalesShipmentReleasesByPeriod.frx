@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/08/2026 10:00:00" ReportInfo.Modified="10/08/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Styles>
+    <Style Name="EvenRows" Fill.Color="Gainsboro" Font="Arial, 10pt"/>
+  </Styles>
+  <Dictionary>
+    <BusinessObjectDataSource Name="SalesShipmentReleases" ReferenceName="SalesShipmentReleases" DataType="System.Int32" Enabled="true">
+      <Column Name="Group" DataType="System.String"/>
+      <Column Name="ReleaseDate" DataType="System.String"/>
+      <Column Name="DeliveryDeadline" DataType="System.String"/>
+      <Column Name="Contract" DataType="System.String"/>
+      <Column Name="Customer" DataType="System.String"/>
+      <Column Name="Agent" DataType="System.String"/>
+      <Column Name="DeliveryLocation" DataType="System.String"/>
+      <Column Name="Region" DataType="System.String"/>
+      <Column Name="Status" DataType="System.String"/>
+      <Column Name="ReleasedQuantity" DataType="System.Decimal"/>
+      <Column Name="ConsumedQuantity" DataType="System.Decimal"/>
+      <Column Name="BalanceQuantity" DataType="System.Decimal"/>
+      <Column Name="UnitOfMeasure" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pSingleUom" DataType="System.Boolean" AsString="true"/>
+    <Total Name="TotalGrpReleasedQuantity" Expression="[SalesShipmentReleases.ReleasedQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpConsumedQuantity" Expression="[SalesShipmentReleases.ConsumedQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpBalanceQuantity" Expression="[SalesShipmentReleases.BalanceQuantity]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalSumReleasedQuantity" Expression="[SalesShipmentReleases.ReleasedQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumConsumedQuantity" Expression="[SalesShipmentReleases.ConsumedQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumBalanceQuantity" Expression="[SalesShipmentReleases.BalanceQuantity]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Liberações de Venda" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hdrReleaseDate" Left="0" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeliveryDeadline" Left="62" Width="66" Height="17" Text="Entrega até" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrContract" Left="128" Width="72" Height="17" Text="Contrato" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCustomer" Left="200" Width="196" Height="17" Text="Cliente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAgent" Left="396" Width="100" Height="17" Text="Vendedor" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDeliveryLocation" Left="496" Width="166" Height="17" Text="Local de entrega" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrRegion" Left="662" Width="110" Height="17" Text="Região" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="772" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrReleasedQuantity" Left="834" Width="82" Height="17" Text="Liberado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrConsumedQuantity" Left="916" Width="82" Height="17" Text="Consumido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBalanceQuantity" Left="998" Width="86" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[SalesShipmentReleases.Group]">
+      <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[SalesShipmentReleases.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <DataBand Name="Data1" Top="159.75" Width="1084" Height="17" CanGrow="true" EvenStyle="EvenRows" DataSource="SalesShipmentReleases">
+        <TextObject Name="txtReleaseDate" Left="0" Width="62" Height="17" Text="[SalesShipmentReleases.ReleaseDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDeliveryDeadline" Left="62" Width="66" Height="17" Text="[SalesShipmentReleases.DeliveryDeadline]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtContract" Left="128" Width="72" Height="17" Text="[SalesShipmentReleases.Contract]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtCustomer" Left="200" Width="196" Height="17" Text="[SalesShipmentReleases.Customer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtAgent" Left="396" Width="100" Height="17" Text="[SalesShipmentReleases.Agent]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDeliveryLocation" Left="496" Width="166" Height="17" Text="[SalesShipmentReleases.DeliveryLocation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRegion" Left="662" Width="110" Height="17" Text="[SalesShipmentReleases.Region]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtStatus" Left="772" Width="62" Height="17" Text="[SalesShipmentReleases.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtReleasedQuantity" Left="834" Width="82" Height="17" Text="[SalesShipmentReleases.ReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtConsumedQuantity" Left="916" Width="82" Height="17" Text="[SalesShipmentReleases.ConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtBalanceQuantity" Left="998" Width="86" Height="17" Text="[SalesShipmentReleases.BalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
+        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="834" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpReleasedQuantity" Left="834" Top="2" Width="82" Height="17" Text="[TotalGrpReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpConsumedQuantity" Left="916" Top="2" Width="82" Height="17" Text="[TotalGrpConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpBalanceQuantity" Left="998" Top="2" Width="86" Height="17" Text="[TotalGrpBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="48">
+      <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtSumCount" Left="100" Top="4" Width="130" Height="17" Text="[TotalCountAll] liberação(ões)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="uomMixedNote" Left="228" Top="4" Width="606" Height="17" Text="UMs diferentes: quantidades só nos subtotais." VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="uomSumReleasedQuantity" Left="834" Top="4" Width="82" Height="17" Text="[TotalSumReleasedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumConsumedQuantity" Left="916" Top="4" Width="82" Height="17" Text="[TotalSumConsumedQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="uomSumBalanceQuantity" Left="998" Top="4" Width="86" Height="17" Text="[TotalSumBalanceQuantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="254" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
