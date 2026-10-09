@@ -4,7 +4,8 @@ namespace SiagroB1.Reports.Dtos;
 /// Linha de "Contratos — Compra x Venda": um contrato. <see cref="Group"/> = produto + UM;
 /// <see cref="Section"/> = "Compras" ou "Vendas". <see cref="SignedBalanceQuantity"/> alimenta o
 /// saldo geral do bloco: com os dois lados, compra soma e venda subtrai; com um lado só, é o
-/// próprio saldo.
+/// próprio saldo. Saldo negativo aparece em <see cref="BalanceQuantity"/>, mas não soma: os totais
+/// usam <see cref="SummedBalanceQuantity"/> e <see cref="SignedBalanceQuantity"/>, que o zeram.
 /// </summary>
 public class ContractPositionRowDto
 {
@@ -24,5 +25,6 @@ public class ContractPositionRowDto
     public decimal DeliveredQuantity { get; set; }
     public decimal WashedOutQuantity { get; set; }
     public decimal BalanceQuantity { get; set; }
+    public decimal SummedBalanceQuantity { get; set; }
     public decimal SignedBalanceQuantity { get; set; }
 }
