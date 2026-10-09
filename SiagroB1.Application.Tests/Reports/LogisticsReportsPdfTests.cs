@@ -269,4 +269,57 @@ public class LogisticsReportsPdfTests : IDisposable
 
         Keep("ShipmentReleasesByPeriod-large", "STANDALONE", pdf);
     }
+
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task SalesShipmentsByPeriod_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = Load("CG000051");
+        db.Context.ShipmentLoads.Add(load);
+        db.Context.SalesInvoices.Add(LoadInvoice(load, "000000101", "C001", "COOPERATIVA CENTRAL"));
+        db.Context.SalesInvoices.Add(LoadInvoice(load, "000000102", "C002", "AGRO NORTE"));
+        db.Context.StorageTransactions.Add(SalesShipment("RO000001", load: load, drying: 300m, cleaning: 150m, others: 50m));
+        db.Context.StorageTransactions.Add(SalesShipment("RO000002")); // sem carga: Carga e Cliente vazios
+        db.Context.StorageTransactions.Add(SalesShipment("RO000003", itemCode: "20001", itemName: "MILHO", uom: "TN", gross: 30m));
+        await Save(db);
+
+        var pdf = await new SalesShipmentsByPeriodReportService(db, FastReport(Configuration(erp)))
+            .ExecuteAsync(new SalesShipmentsByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesShipmentsByPeriod", erp, pdf);
+    }
+
+    [Fact]
+    public async Task SalesShipmentsByPeriod_EmptyResultStillProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var pdf = await new SalesShipmentsByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new SalesShipmentsByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Assert.NotEmpty(pdf);
+    }
+
+    [Fact]
+    public async Task SalesShipmentsByPeriod_LargeValuesProduceAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        foreach (var code in new[] { "RO00000123", "RO00000124" })
+        {
+            var shipment = SalesShipment(code, gross: 99_999_999.999m, drying: 9_999_999.999m,
+                cleaning: 1_111_111.111m, others: 1_111_111.111m,
+                cardName: "COOPERATIVA AGROINDUSTRIAL DOS PRODUTORES DO NORTE DO PARANÁ");
+            shipment.InvoiceNumber = "000123456";
+            shipment.InvoiceSerie = "001";
+            db.Context.StorageTransactions.Add(shipment);
+        }
+        await Save(db);
+
+        var pdf = await new SalesShipmentsByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new SalesShipmentsByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("SalesShipmentsByPeriod-large", "STANDALONE", pdf);
+    }
 }

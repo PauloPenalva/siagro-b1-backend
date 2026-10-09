@@ -23,6 +23,7 @@ public class LogisticsReportsLayoutTests
         "ShipmentLoadsByPeriod",
         "SalesShipmentReleasesByPeriod",
         "ShipmentReleasesByPeriod",
+        "SalesShipmentsByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
@@ -49,6 +50,15 @@ public class LogisticsReportsLayoutTests
             ["txtContract"] = 12,    // PC2026000123
             ["txtOrigin"] = 13,      // Transferência
             ["txtStatus"] = 10,      // Finalizado
+        },
+        ["SalesShipmentsByPeriod"] = new()
+        {
+            ["txtTransactionDate"] = 10, // 31/12/2026
+            ["txtCode"] = 10,            // RO00000123
+            ["txtLoad"] = 8,             // CG000051
+            ["txtTruck"] = 8,            // ABC-1D23
+            ["txtInvoiceNumber"] = 13,   // 000123456/001
+            ["txtStatus"] = 10,          // Confirmado
         },
     };
 
