@@ -79,7 +79,8 @@ public class ShipmentLoadsRefuseController(
 
             var userName = User.Identity?.Name ?? "Unknown";
 
-            var load = await refuseService.ExecuteAsync(request, userName);
+            var result = await refuseService.ExecuteAsync(request, userName);
+            var load = result.Load;
 
             return Ok(new
             {
@@ -90,6 +91,8 @@ public class ShipmentLoadsRefuseController(
                 load.InvoicedQuantity,
                 load.ReturnedToWarehouseQuantity,
                 load.AvailableQuantity,
+                // Só na filial que emite NF-e pelo Siagro: a recusa fica Pendente até as NF-e de entrada.
+                RefusalKey = result.RefusalKey,
             });
         }
         catch (DbUpdateConcurrencyException)

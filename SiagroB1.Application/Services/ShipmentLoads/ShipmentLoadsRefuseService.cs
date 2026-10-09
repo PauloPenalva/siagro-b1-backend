@@ -25,6 +25,9 @@ public sealed record RefusalRequest(
     string? DestinationWarehouseCode,
     string Reason);
 
+/// <summary>Resultado da recusa. <c>RefusalKey</c> só no modo em dois tempos (filial que emite NF-e pelo Siagro).</summary>
+public sealed record RefusalResult(ShipmentLoad Load, Guid? RefusalKey);
+
 /// <summary>
 /// Recusa/devolução de uma carga já faturada: devolve os documentos escolhidos (total ou
 /// parcialmente) e, conforme o destino, deixa a carga pronta para refaturamento ou devolve a
@@ -73,41 +76,13 @@ public class ShipmentLoadsRefuseService(
     ShipmentLoadsMovementLogService movementLog,
     IWarehouseService warehouseService,
     ILogger<ShipmentLoadsRefuseService> logger,
-    TaxCalculationGate? gate = null)
+    TaxCalculationGate? gate = null,
+    SalesInvoiceNfeReturnBuilder? nfeReturnBuilder = null)
 {
     private const decimal Tolerance = 0.001m;
 
-    /// <summary>Mesma regra de <c>SalesInvoicesReturnService</c>: nota autorizada pelo Siagro não volta sem NF-e.</summary>
-    private async Task EnsureNotIssuedBySiagroAsync(RefusalRequest request)
+    public async Task<RefusalResult> ExecuteAsync(RefusalRequest request, string userName)
     {
-        if (gate is null)
-            return;
-
-        var keys = request.Lines.Select(l => l.SalesInvoiceKey).ToList();
-        // Autorizada ou cancelada (NfeLockRules.IsFrozen) — escrito por extenso para o EF traduzir.
-        var issued = await db.Context.SalesInvoices.AsNoTracking()
-            .Where(i => keys.Contains(i.Key) && (i.NfeStatus == NfeStatus.Authorized || i.NfeStatus == NfeStatus.Cancelled))
-            .Select(i => new { i.BranchCode, i.NfeStatus })
-            .Distinct()
-            .ToListAsync();
-
-        foreach (var invoice in issued)
-        {
-            if (!await gate.IsActiveAsync(invoice.BranchCode))
-                continue;
-
-            if (invoice.NfeStatus == NfeStatus.Cancelled)
-                throw new DefaultException(NfeLockRules.CancelledMessage);
-
-            throw new DefaultException(
-                "Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.");
-        }
-    }
-
-    public async Task<ShipmentLoad> ExecuteAsync(RefusalRequest request, string userName)
-    {
-        await EnsureNotIssuedBySiagroAsync(request);
-
         var load = await db.Context.ShipmentLoads
                        .FirstOrDefaultAsync(x => x.Key == request.ShipmentLoadKey) ??
                    throw new NotFoundException($"Shipment load not found key {request.ShipmentLoadKey}");
@@ -115,6 +90,10 @@ public class ShipmentLoadsRefuseService(
         // TODA a validação antes de qualquer escrita: uma recusa recusada não pode deixar
         // efeito no banco, nem meia devolução criada.
         Validate(load, request);
+
+        // Spec 2026-10-09: na filial que emite NF-e pelo Siagro a devolução só confirma com a NF-e de entrada
+        // autorizada — a recusa vira dois tempos. Fora dela, o fluxo síncrono de sempre.
+        var deferred = gate is not null && await gate.IsActiveAsync(load.BranchCode);
 
         if (request.Destination == RefusalDestination.Transshipment)
         {
@@ -129,6 +108,9 @@ public class ShipmentLoadsRefuseService(
 
         var warehouse = await ResolveWarehouseAsync(request);
         var lines = await ResolveLinesAsync(load, request);
+
+        if (deferred)
+            return new RefusalResult(load, await RegisterDeferredAsync(load, request, warehouse, lines, userName));
 
         var totalQuantity = decimal.Round(lines.Sum(l => l.Quantity), 3, MidpointRounding.ToEven);
         var firstInvoice = lines[0].Invoice;
@@ -175,7 +157,99 @@ public class ShipmentLoadsRefuseService(
             throw;
         }
 
-        return load;
+        return new RefusalResult(load, null);
+    }
+
+    /// <summary>
+    /// Primeiro tempo da recusa na filial que emite NF-e pelo Siagro (spec 2026-10-09 §5.1): grava a recusa
+    /// Pendente e uma devolução Pendente com NF-e própria por documento. Não confirma, não mexe no saldo, não cria
+    /// romaneio nem transbordo — isso é da conclusão (<c>ShipmentLoadRefusalCompleteService</c>), quando a última
+    /// NF-e for autorizada.
+    /// </summary>
+    private async Task<Guid> RegisterDeferredAsync(
+        ShipmentLoad load, RefusalRequest request, WarehouseTarget? warehouse,
+        IReadOnlyList<ResolvedLine> lines, string userName)
+    {
+        var builder = nfeReturnBuilder
+                      ?? throw new InvalidOperationException("SalesInvoiceNfeReturnBuilder não registrado.");
+
+        // Antes de qualquer escrita: cada origem com NF-e autorizada e a devolução montável (natureza de
+        // devolução, numeração de itens). Montar aqui, fora da transação, é o que valida.
+        var built = new List<SalesInvoice>();
+
+        foreach (var line in lines)
+        {
+            if (line.Invoice.NfeStatus == NfeStatus.Cancelled)
+                throw new DefaultException(NfeLockRules.CancelledMessage);
+
+            if (line.Invoice.NfeStatus != NfeStatus.Authorized || line.Invoice.ChaveNFe is not { Length: 44 })
+                throw new DefaultException(
+                    $"O documento {line.Invoice.InvoiceNumber} não tem NF-e autorizada: " +
+                    "transmita a NF-e ou cancele o documento.");
+
+            built.Add(await builder.BuildAsync(
+                line.Invoice,
+                line.QuantitiesByOriginItemKey,
+                $"Recusa da carga {load.Code}. {SalesInvoiceNfeReturnBuilder.ReferenceText(line.Invoice)} " +
+                $"Motivo: {request.Reason.Trim()}",
+                userName));
+        }
+
+        var refusal = new ShipmentLoadRefusal
+        {
+            ShipmentLoadKey = load.Key,
+            Destination = request.Destination,
+            DestinationWarehouseCode = warehouse?.Code,
+            DestinationWarehouseName = warehouse?.Name,
+            Reason = request.Reason.Trim(),
+            CreatedBy = userName,
+        };
+
+        try
+        {
+            await db.BeginTransactionAsync();
+
+            db.Context.ShipmentLoadRefusals.Add(refusal);
+            await db.SaveChangesAsync();
+
+            foreach (var returnInvoice in built)
+            {
+                await createService.ExecuteAsync(returnInvoice, userName, CommitMode.Deferred, nfeReturn: true);
+
+                // DEPOIS da criação: ela zera o vínculo vindo do corpo (SalesInvoiceNfeLock.ResetIssuanceFields).
+                returnInvoice.ShipmentLoadRefusalKey = refusal.Key;
+                await db.SaveChangesAsync();
+            }
+
+            var totalQuantity = decimal.Round(lines.Sum(l => l.Quantity), 3, MidpointRounding.ToEven);
+
+            movementLog.Register(
+                load.Key,
+                ShipmentLoadMovementType.Refused,
+                decimal.Zero,
+                load.AvailableQuantity,
+                $"Recusa registrada em {lines.Count} documento(s) de saída, aguardando NF-e de entrada: " +
+                $"{totalQuantity:N3}. Documentos: {string.Join(", ", lines.Select(l => l.Invoice.InvoiceNumber))}.",
+                userName,
+                movementContext: ShipmentLoadMovementContext.FromInvoice(lines[0].Invoice, request.Reason));
+
+            await db.SaveChangesAsync();
+
+            await ShipmentLoadsRecalculateInvoicedService.RecalculateAsync(db.Context, load.Key, excludedInvoiceKeys: null);
+            load.UpdatedAt = DateTime.Now;
+            load.UpdatedBy = userName;
+
+            await db.SaveChangesAsync();
+            await db.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await db.RollbackAsync();
+            logger.LogError(e, "Erro ao registrar a recusa da carga {Code}", load.Code);
+            throw;
+        }
+
+        return refusal.Key!.Value;
     }
 
     /// <summary>

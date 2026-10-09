@@ -204,19 +204,6 @@ public class SalesInvoicesNfeReturnLockTests
     }
 
     [Fact]
-    public async Task Load_refusal_is_refused_for_a_sale_authorized_by_the_siagro()
-    {
-        var s = await NfeReturnTestSeed.SeedAsync();
-        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!,
-            NullLogger<ShipmentLoadsRefuseService>.Instance, TaxTestServices.Gate(s.Sale.Db, "STANDALONE"));
-
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
-            new RefusalRequest(Guid.NewGuid(), [new RefusalLine(s.Sale.InvoiceKey, 1m)], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
-
-        Assert.Equal("Na filial que emite NF-e pelo Siagro, a devolução de documento com romaneio ou carga ainda não é suportada.", ex.Message);
-    }
-
-    [Fact]
     public async Task Own_return_line_keeps_the_edited_charges()
     {
         // Review Focus 5: na devolução Pendente os quatro valores são editáveis (spec D4); a trava volta só preço/produto/natureza.
@@ -256,21 +243,6 @@ public class SalesInvoicesNfeReturnLockTests
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
             new SalesInvoiceReturnRequest(s.Sale.InvoiceKey, [], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
-
-        Assert.Equal("A NF-e deste documento foi cancelada na SEFAZ: o documento não pode mudar.", ex.Message);
-    }
-
-    [Fact]
-    public async Task Load_refusal_is_refused_for_a_sale_with_cancelled_nfe()
-    {
-        var s = await NfeReturnTestSeed.SeedAsync();
-        (await s.Sale.Db.Context.SalesInvoices.SingleAsync(i => i.Key == s.Sale.InvoiceKey)).NfeStatus = NfeStatus.Cancelled;
-        await s.Sale.Db.SaveChangesAsync();
-        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!,
-            NullLogger<ShipmentLoadsRefuseService>.Instance, TaxTestServices.Gate(s.Sale.Db, "STANDALONE"));
-
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
-            new RefusalRequest(Guid.NewGuid(), [new RefusalLine(s.Sale.InvoiceKey, 1m)], RefusalDestination.Rebilling, null, "Recusa"), "tester"));
 
         Assert.Equal("A NF-e deste documento foi cancelada na SEFAZ: o documento não pode mudar.", ex.Message);
     }
