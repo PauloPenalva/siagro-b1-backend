@@ -150,4 +150,62 @@ public class ShipmentLoadRefusalCompleteTests
         Assert.Equal(ShipmentLoadRefusalStatus.Pending, (await RefusalAsync(s)).Status);
         Assert.Equal(ShipmentLoadStatus.RefusalPending, (await LoadAsync(s)).Status);
     }
+
+    private static async Task CancelNfeAsync(NfeLoadRefusalScenario s, Guid returnKey)
+    {
+        // O que o 2b faz: a SEFAZ cancelou a NF-e, e o documento acompanha (CancelAfterNfeAsync, transação própria).
+        var invoice = await s.Db.Context.SalesInvoices.SingleAsync(i => i.Key == returnKey);
+        invoice.NfeStatus = NfeStatus.Cancelled;
+        await s.Db.SaveChangesAsync();
+        s.Db.Context.ChangeTracker.Clear();
+
+        await NfeLoadRefusalTestSeed.CancelService(s.Db, NfeLoadRefusalTestSeed.Complete(s.Db))
+            .CancelAfterNfeAsync(returnKey, "tester");
+    }
+
+    [Fact]
+    public async Task Nfe_cancellation_of_the_open_return_completes_with_the_confirmed_ones()
+    {
+        // A confirmada; B autorizada mas sem confirmação (falhou ou ainda não veio) e cancelada pelo 2b.
+        var (s, returns) = await RefuseAsync(2, 10_000m, RefusalDestination.Warehouse, NfeLoadRefusalTestSeed.DestinationWarehouse);
+        await ConfirmAsync(s, returns[0]);
+        s.Db.Context.ChangeTracker.Clear();
+        (await s.Db.Context.SalesInvoices.SingleAsync(i => i.Key == returns[1])).NfeStatus = NfeStatus.Authorized;
+        await s.Db.SaveChangesAsync();
+        s.Db.Context.ChangeTracker.Clear();
+
+        await CancelNfeAsync(s, returns[1]);
+
+        var refusal = await RefusalAsync(s);
+        Assert.Equal(ShipmentLoadRefusalStatus.Completed, refusal.Status);
+        Assert.Equal("tester", refusal.CompletedBy);
+
+        var entry = await s.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(t => t.TransactionType == StorageTransactionType.SalesShipmentReturn);
+        Assert.Equal(10_000m, entry.NetWeight); // só a devolução confirmada (A)
+
+        var load = await LoadAsync(s);
+        Assert.NotEqual(ShipmentLoadStatus.RefusalPending, load.Status);
+        Assert.Equal(10_000m, load.ReturnedToWarehouseQuantity);
+    }
+
+    [Fact]
+    public async Task Nfe_cancellation_of_the_only_return_cancels_the_refusal()
+    {
+        var (s, returns) = await RefuseAsync(1, 10_000m, RefusalDestination.Rebilling);
+        (await s.Db.Context.SalesInvoices.SingleAsync(i => i.Key == returns[0])).NfeStatus = NfeStatus.Authorized;
+        await s.Db.SaveChangesAsync();
+        s.Db.Context.ChangeTracker.Clear();
+
+        await CancelNfeAsync(s, returns[0]);
+
+        var refusal = await RefusalAsync(s);
+        Assert.Equal(ShipmentLoadRefusalStatus.Cancelled, refusal.Status);
+        Assert.Equal("tester", refusal.CancelledBy);
+        Assert.NotNull(refusal.CancelledAt);
+        Assert.Equal(ShipmentLoadStatus.Invoiced, (await LoadAsync(s)).Status);
+        Assert.Contains(await s.Db.Context.ShipmentLoadMovements.AsNoTracking().ToListAsync(),
+            m => m.MovementType == ShipmentLoadMovementType.RefusalCancelled);
+        Assert.False(await s.Db.Context.StorageTransactions.AnyAsync(t => t.TransactionType == StorageTransactionType.SalesShipmentReturn));
+    }
 }

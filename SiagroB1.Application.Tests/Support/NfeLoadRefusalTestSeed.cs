@@ -121,7 +121,8 @@ public static class NfeLoadRefusalTestSeed
             new ShipmentReleasesFromReturnService(db.Context));
 
     /// <summary>Segundo tempo da recusa (spec 2026-10-09 §5.3), com os efeitos reais do destino.</summary>
-    public static ShipmentLoadRefusalCompleteService Complete(IUnitOfWork db) => new(db, Effects(db));
+    public static ShipmentLoadRefusalCompleteService Complete(IUnitOfWork db) =>
+        new(db, Effects(db), new ShipmentLoadsMovementLogService(db.Context));
 
     /// <param name="complete">
     /// Conclusão da recusa. <c>null</c> (padrão) é a confirmação do fluxo síncrono, a que <see cref="RefuseService"/> usa.
@@ -151,12 +152,14 @@ public static class NfeLoadRefusalTestSeed
             new SalesInvoiceNfeReturnBuilder(db, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone));
 
     /// <summary>Cancelamento do documento de saída com as dependências reais do banco.</summary>
-    public static SalesInvoicesCancelService CancelService(UnitOfWork db) =>
+    /// <param name="complete">Reavaliação da recusa no cancelamento pós-SEFAZ (2b). <c>null</c> (padrão): sem ela.</param>
+    public static SalesInvoicesCancelService CancelService(UnitOfWork db, ShipmentLoadRefusalCompleteService? complete = null) =>
         new(db,
             new SalesShipmentReleasesRecalculateShippedService(db.Context),
             new SalesContractsAllocationDeleteForInvoiceService(db),
             new ShipmentLoadsBalanceHookService(db.Context, new ShipmentLoadsMovementLogService(db.Context)),
-            NullLogger<SalesInvoicesCancelService>.Instance);
+            NullLogger<SalesInvoicesCancelService>.Instance,
+            complete);
 
     /// <summary>"Cancelar recusa" (spec 2026-10-09 §5.4).</summary>
     public static ShipmentLoadsCancelRefusalService CancelRefusalService(UnitOfWork db) =>

@@ -16,7 +16,8 @@ public class SalesInvoicesCancelService(
     SalesShipmentReleasesRecalculateShippedService recalcShipped,
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
     ShipmentLoadsBalanceHookService loadHook,
-    ILogger<SalesInvoicesCancelService> logger)
+    ILogger<SalesInvoicesCancelService> logger,
+    ShipmentLoadRefusalCompleteService? refusalComplete = null)
 {
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
@@ -137,6 +138,15 @@ public class SalesInvoicesCancelService(
                 $"Documento de saída {existingInvoice.InvoiceNumber} cancelado.");
 
             await db.SaveChangesAsync();
+
+            // Spec 2026-10-09: o 2b cancelou a NF-e de uma devolução de recusa pendente. Sem reavaliar aqui, nada
+            // concluiria (as demais já confirmadas) nem cancelaria (era a única viva) a recusa — carga travada para
+            // sempre. DEPOIS do cancelamento gravado: a reavaliação lê as devoluções vivas do banco. Mesma transação.
+            if (afterNfe && refusalComplete is not null && existingInvoice.ShipmentLoadRefusalKey is { } refusalKey)
+            {
+                await refusalComplete.TryCompleteAsync(refusalKey, userName);
+                await db.SaveChangesAsync();
+            }
 
             if (commitMode == CommitMode.Auto)
                 await db.CommitAsync();
