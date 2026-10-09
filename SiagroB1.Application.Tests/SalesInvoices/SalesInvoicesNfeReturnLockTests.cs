@@ -207,7 +207,7 @@ public class SalesInvoicesNfeReturnLockTests
     public async Task Load_refusal_is_refused_for_a_sale_authorized_by_the_siagro()
     {
         var s = await NfeReturnTestSeed.SeedAsync();
-        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!, null!, null!,
+        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!,
             NullLogger<ShipmentLoadsRefuseService>.Instance, TaxTestServices.Gate(s.Sale.Db, "STANDALONE"));
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
@@ -266,7 +266,7 @@ public class SalesInvoicesNfeReturnLockTests
         var s = await NfeReturnTestSeed.SeedAsync();
         (await s.Sale.Db.Context.SalesInvoices.SingleAsync(i => i.Key == s.Sale.InvoiceKey)).NfeStatus = NfeStatus.Cancelled;
         await s.Sale.Db.SaveChangesAsync();
-        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!, null!, null!,
+        var service = new ShipmentLoadsRefuseService(s.Sale.Db, null!, null!, null!, null!, null!,
             NullLogger<ShipmentLoadsRefuseService>.Instance, TaxTestServices.Gate(s.Sale.Db, "STANDALONE"));
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(

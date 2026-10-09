@@ -102,14 +102,19 @@ public class ShipmentLoadsRefuseServiceTests
             new ShipmentReleaseMovementGuardService(_db.Context),
             NullLogger<StorageTransactionsConfirmedService>.Instance);
 
+    internal ShipmentLoadRefusalEffectsService Effects(IWarehouseService? warehouses = null) =>
+        new(_db,
+            StorageCreate(warehouses),
+            StorageConfirm(),
+            new ShipmentLoadsMovementLogService(_db.Context),
+            new ShipmentReleasesFromReturnService(_db.Context));
+
     internal ShipmentLoadsRefuseService Service(IWarehouseService? warehouses = null) =>
         new(_db,
             CreateService(),
             ConfirmService(),
-            StorageCreate(warehouses),
-            StorageConfirm(),
+            Effects(warehouses),
             new ShipmentLoadsMovementLogService(_db.Context),
-            new ShipmentReleasesFromReturnService(_db.Context),
             warehouses ?? Warehouses(),
             NullLogger<ShipmentLoadsRefuseService>.Instance);
 

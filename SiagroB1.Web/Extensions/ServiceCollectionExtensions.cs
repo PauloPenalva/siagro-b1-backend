@@ -482,6 +482,7 @@ public static class ServiceCollectionExtensions
         // GAC-1175 — carga de remoção
         services.AddScoped<ShipmentLoadsCompleteService>();
         services.AddScoped<ShipmentLoadsReopenService>();
+        services.AddScoped<ShipmentLoadRefusalEffectsService>();
         services.AddScoped<ShipmentLoadsRefuseService>();
         services.AddScoped<ShipmentLoadsRefusableDocumentsService>();
         services.AddScoped<ShipmentLoadsCompositionGuardService>();
