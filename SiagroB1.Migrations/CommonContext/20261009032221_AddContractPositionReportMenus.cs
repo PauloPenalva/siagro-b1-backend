@@ -19,7 +19,7 @@ namespace SiagroB1.Migrations.CommonContext
                 columns: ["Key", "Title", "Icon", "Enabled", "Expanded", "Order", "ParentKey", "StandaloneOnly"],
                 values: new object[,]
                 {
-                    { "contractPositionReport", "Contratos — Compra x Venda", "sap-icon://folder-blank", true, false, 16, "reports", false },
+                    { "contractPositionReport", "Contratos - Compra x Venda", "sap-icon://folder-blank", true, false, 16, "reports", false },
                     { "contractMonthlyPositionReport", "Posição Comprado x Vendido por Mês", "sap-icon://folder-blank", true, false, 17, "reports", false },
                 });
 
