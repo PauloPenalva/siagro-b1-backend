@@ -26,6 +26,7 @@ public class PurchaseInvoicesUpdateTests
             Key = Guid.NewGuid(),
             CardCode = "F0001",
             TaxDocumentNumber = "1",
+            InvoiceNumber = "DE000007",
         };
         invoice.AddItem(new PurchaseInvoiceItem
         {
@@ -89,6 +90,20 @@ public class PurchaseInvoicesUpdateTests
         Assert.Equal("2", reloaded.TaxDocumentSeries);
         Assert.Equal(1234.56m, reloaded.TotalDocumentValue);
         Assert.Equal("tester", reloaded.UpdatedBy);
+    }
+
+    [Fact]
+    public async Task Internal_number_is_never_changed_by_the_update()
+    {
+        var (db, saved) = await SeedAsync();
+
+        var incoming = Incoming(saved.Items.First().Key);
+        incoming.InvoiceNumber = "OUTRO";
+
+        await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
+
+        var reloaded = await db.Context.PurchaseInvoices.AsNoTracking().FirstAsync(x => x.Key == saved.Key);
+        Assert.Equal("DE000007", reloaded.InvoiceNumber);
     }
 
     [Fact]

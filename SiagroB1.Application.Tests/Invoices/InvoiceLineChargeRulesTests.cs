@@ -210,7 +210,7 @@ public class InvoiceLineChargeRulesTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
             new PurchaseInvoicesCreateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
-                TaxTestServices.InactivePurchaseApply(db)).ExecuteAsync(invoice, "tester"));
+                TaxTestServices.InactivePurchaseApply(db), new FakeDocNumberSequenceService()).ExecuteAsync(invoice, "tester"));
 
         Assert.Equal("Item TRIGO: o desconto passa do valor do produto da linha.", e.Message);
     }

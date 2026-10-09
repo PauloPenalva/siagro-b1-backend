@@ -28,8 +28,8 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     public InvoiceStatus InvoiceStatus { get; set; } = InvoiceStatus.Pending;
 
     /// <summary>
-    /// Número INTERNO do documento. Nulo em documento de terceiro nesta fase; digitado à mão na
-    /// emissão própria. A Fase 3 o preenche pelo numerador <c>DocNumbers</c>.
+    /// Número INTERNO do documento (DE000001), gerado pelo numerador <c>DocNumbers</c>
+    /// (<c>TransactionCode.PurchaseInvoice</c>) na criação, para todo tipo de entrada. Nunca muda depois.
     /// </summary>
     [Column(TypeName = "VARCHAR(9)")]
     public string? InvoiceNumber { get; set; }

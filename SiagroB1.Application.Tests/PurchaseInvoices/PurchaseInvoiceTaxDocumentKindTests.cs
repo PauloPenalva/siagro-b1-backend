@@ -31,7 +31,7 @@ public class PurchaseInvoiceTaxDocumentKindTests
     }
 
     private static PurchaseInvoicesCreateService Create(UnitOfWork db) =>
-        new(db, new FakeBusinessPartnerService(), new FakeItemService(), TaxTestServices.InactivePurchaseApply(db));
+        new(db, new FakeBusinessPartnerService(), new FakeItemService(), TaxTestServices.InactivePurchaseApply(db), new FakeDocNumberSequenceService());
 
     private static PurchaseInvoicesUpdateService Update(UnitOfWork db) =>
         new(db, new FakeBusinessPartnerService(), new FakeItemService(), TaxTestServices.InactivePurchaseApply(db));

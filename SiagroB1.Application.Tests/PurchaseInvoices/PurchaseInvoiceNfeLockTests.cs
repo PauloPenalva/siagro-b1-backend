@@ -72,7 +72,7 @@ public class PurchaseInvoiceNfeLockTests
         invoice.AddItem(new PurchaseInvoiceItem { ItemCode = "TRIGO", Quantity = 1m, UnitPrice = 1m });
 
         await new PurchaseInvoicesCreateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
-            TaxTestServices.InactivePurchaseApply(db)).ExecuteAsync(invoice, "tester");
+            TaxTestServices.InactivePurchaseApply(db), new FakeDocNumberSequenceService()).ExecuteAsync(invoice, "tester");
 
         Assert.Equal(NfeStatus.None, invoice.NfeStatus);
         Assert.Null(invoice.NfeProtocol);

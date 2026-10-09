@@ -18,7 +18,7 @@ public class PurchaseInvoicesThirdPartyReturnTests
 
     internal static PurchaseInvoicesNfeReturnCreateService Returns(PurchaseNfeScenario scenario, FakeBusinessPartnerService? partners = null) =>
         new(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()),
-            new PurchaseInvoicesCreateService(scenario.Db, partners ?? Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, partners ?? Partners())),
+            new PurchaseInvoicesCreateService(scenario.Db, partners ?? Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(scenario.Db, partners ?? Partners()), new FakeDocNumberSequenceService()),
             NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
 
     private static PurchaseInvoiceNfeReturnRequest Request(PurchaseInvoice origin, params (string Code, decimal Quantity, int? ItemNumber)[] lines) =>

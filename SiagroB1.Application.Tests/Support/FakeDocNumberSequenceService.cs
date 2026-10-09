@@ -15,9 +15,18 @@ public sealed class FakeDocNumberSequenceService(Guid? docNumberKey = null)
     private readonly Guid _docNumberKey = docNumberKey ?? Guid.NewGuid();
     private int _next = 1;
 
-    public override Task<string> GetDocNumber(Guid key) =>
-        Task.FromResult($"ST-{_next++:0000}");
+    /// <summary>Códigos de transação pedidos, em ordem (para provar QUAL numeração foi usada).</summary>
+    public List<TransactionCode> RequestedCodes { get; } = [];
 
-    public override Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode) =>
-        Task.FromResult(_docNumberKey);
+    /// <summary>Quantas vezes um número foi consumido.</summary>
+    public int NumberCalls { get; private set; }
+
+    public override Task<string> GetDocNumber(Guid key) =>
+        Task.FromResult($"ST-{(NumberCalls++, _next++).Item2:0000}");
+
+    public override Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
+    {
+        RequestedCodes.Add(transactionCode);
+        return Task.FromResult(_docNumberKey);
+    }
 }

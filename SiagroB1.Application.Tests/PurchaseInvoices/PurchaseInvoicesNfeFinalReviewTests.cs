@@ -25,7 +25,7 @@ public class PurchaseInvoicesNfeFinalReviewTests
 
     private static PurchaseInvoicesNfeReturnCreateService Returns(PurchaseNfeScenario s) =>
         new(s.Db, new TaxCalculationGate(s.Db, NfeTestSeed.Config()),
-            new PurchaseInvoicesCreateService(s.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(s.Db, Partners())),
+            new PurchaseInvoicesCreateService(s.Db, Partners(), new FakeItemService(), TaxTestServices.PurchaseApply(s.Db, Partners()), new FakeDocNumberSequenceService()),
             NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
 
     /// <summary>Entrada emitida e autorizada pela emissão, depois estornada (Pendente com NF-e Autorizada).</summary>

@@ -34,7 +34,7 @@ public class PurchaseInvoiceThirdPartyTaxationTests
 
     private static PurchaseInvoicesCreateService Create(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(),
-            TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners(), erp));
+            TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners(), erp), new FakeDocNumberSequenceService());
 
     private static PurchaseInvoicesUpdateService Update(UnitOfWork db) =>
         new(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(),
