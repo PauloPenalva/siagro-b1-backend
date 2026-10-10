@@ -2467,6 +2467,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<DateTime?>("PostingDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("ProducerInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PurchaseInvoiceOriginKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -2539,6 +2542,8 @@ namespace SiagroB1.Migrations.AppContext
                         .HasFilter("[ChaveNFe] IS NOT NULL AND [InvoiceStatus] <> 2");
 
                     b.HasIndex("DocNumberKey");
+
+                    b.HasIndex("ProducerInvoiceKey");
 
                     b.HasIndex("PurchaseInvoiceOriginKey");
 
@@ -2750,6 +2755,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("PisValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<Guid?>("ProducerInvoiceItemKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -2778,6 +2786,8 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(200)");
 
                     b.HasKey("Key");
+
+                    b.HasIndex("ProducerInvoiceItemKey");
 
                     b.HasIndex("PurchaseContractKey");
 
@@ -5844,6 +5854,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Code"));
 
+                    b.Property<bool>("AllowsCounterNote")
+                        .HasColumnType("bit");
+
                     b.Property<decimal?>("CbsRateReduction")
                         .HasColumnType("DECIMAL(7,4)");
 
@@ -6937,6 +6950,11 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("DocNumberKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "ProducerInvoice")
+                        .WithMany()
+                        .HasForeignKey("ProducerInvoiceKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "PurchaseInvoiceOrigin")
                         .WithMany()
                         .HasForeignKey("PurchaseInvoiceOriginKey")
@@ -6945,6 +6963,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
+
+                    b.Navigation("ProducerInvoice");
 
                     b.Navigation("PurchaseInvoiceOrigin");
                 });
@@ -6971,6 +6991,11 @@ namespace SiagroB1.Migrations.AppContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceItem", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoiceItem", "ProducerInvoiceItem")
+                        .WithMany()
+                        .HasForeignKey("ProducerInvoiceItemKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
                         .WithMany()
                         .HasForeignKey("PurchaseContractKey")
@@ -6990,6 +7015,8 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany()
                         .HasForeignKey("SalesInvoiceItemKey")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ProducerInvoiceItem");
 
                     b.Navigation("PurchaseContract");
 

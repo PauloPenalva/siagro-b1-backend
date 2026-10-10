@@ -70,6 +70,10 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     public Guid? PurchaseInvoiceItemOriginKey { get; set; }
     public virtual PurchaseInvoiceItem? PurchaseInvoiceItemOrigin { get; set; }
 
+    /// <summary>Na contra-nota, a linha da escrituração do produtor que esta linha reproduz (spec 2026-10-10 §4).</summary>
+    public Guid? ProducerInvoiceItemKey { get; set; }
+    public virtual PurchaseInvoiceItem? ProducerInvoiceItem { get; set; }
+
     /// <summary>
     /// Natureza de operação da LINHA (<c>Usage</c>), como no SAP: cada item tem a sua,
     /// resolve o próprio CFOP e produz o próprio efeito no contrato. Um documento pode

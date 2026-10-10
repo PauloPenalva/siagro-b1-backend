@@ -121,4 +121,10 @@ public class Usage
 
     [ForeignKey(nameof(ReturnUsageCode))]
     public Usage? ReturnUsage { get; set; }
+
+    /// <summary>
+    /// Permite gerar a contra-nota a partir da escrituração da NF-e do produtor (spec 2026-10-10 D4). Só natureza de
+    /// Entrada; a contra-nota usa esta MESMA natureza e os mesmos tributos da escrituração (D5).
+    /// </summary>
+    public bool AllowsCounterNote { get; set; }
 }

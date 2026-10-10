@@ -93,4 +93,17 @@ public class PurchaseInvoiceNfeSchemaTests
         Assert.Equal(13m, invoice.TotalInvoiceTaxes);
         Assert.Equal(3.5m, invoice.TotalInvoiceIbsCbs);
     }
+
+    /// <summary>A contra-nota aponta a escrituração do produtor (spec 2026-10-10 §4); a tela lê o vínculo e expande o número.</summary>
+    [Fact]
+    public void Counter_note_link_is_exposed()
+    {
+        var model = Model();
+        var invoice = model.SchemaElements.OfType<IEdmEntityType>().Single(t => t.Name == nameof(PurchaseInvoice));
+        var item = model.SchemaElements.OfType<IEdmEntityType>().Single(t => t.Name == nameof(PurchaseInvoiceItem));
+
+        Assert.NotNull(invoice.FindProperty("ProducerInvoiceKey"));
+        Assert.NotNull(invoice.FindProperty("ProducerInvoice"));
+        Assert.NotNull(item.FindProperty("ProducerInvoiceItemKey"));
+    }
 }

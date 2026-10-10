@@ -232,6 +232,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.PurchaseInvoiceItemOriginKey)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Contra-nota → escrituração do produtor (spec 2026-10-10 D12). Restrict como as auto-relações acima: a
+        // escrituração confirmada não é excluída, e a contra-nota (dependente) some sem levar nada junto.
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne(x => x.ProducerInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.ProducerInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.ProducerInvoiceItem)
+            .WithMany()
+            .HasForeignKey(x => x.ProducerInvoiceItemKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // FK OPCIONAL de propósito: entrada NORMAL não tem origem de saída, e uma FK obrigatória
         // viraria INNER JOIN zerando a coleção inteira.
         modelBuilder.Entity<PurchaseInvoiceItem>()
