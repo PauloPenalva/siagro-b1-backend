@@ -33,9 +33,11 @@ Decisões do usuário (brainstorming 10/10/2026):
 - **Escopo por produto**: indicador no **complemento do produto** (`ITEM_COMPLEMENTS`).
 
 Fora do escopo: integração automática com o ITS, valor em R$/cobrança do produtor, saldo de crédito
-do produtor, contratos de compra. O bug da chave `"Conventinal"` no Select de "Tipo Tecnologia" do
-contrato de compra (não bate com `TechnologyType.Conventional`) é tratado à parte, se o usuário
-quiser.
+do produtor, royalties nos contratos de compra.
+
+Entra junto (pedido do usuário): correção do bug da chave `"Conventinal"` no Select de "Tipo
+Tecnologia" do contrato de compra, que não bate com `TechnologyType.Conventional` — escolher
+"Convencional" falhava ao gravar. Ver seção 5.
 
 ## 2. Modelo de dados
 
@@ -173,6 +175,10 @@ Mensagens (pt-BR):
 - **Diálogo "Registrar baixa ITS"**: cabeçalho (Data, ID do ITS, CPF/CNPJ, Nome, Observações);
   linhas pré-preenchidas com peso = saldo, editáveis para baixa parcial; total no rodapé. Seleção com
   situações diferentes é recusada antes de abrir.
+- **Contrato de compra — correção**: em `PurchaseContractForm.fragment.xml`, a chave do item
+  "Convencional" passa de `Conventinal` para `Conventional`. O enum é gravado como INT, então não
+  há dado a sanear; commit próprio (`fix(purchase-contract)`), separado do recurso. Verificação:
+  criar/editar um contrato com "Convencional", gravar e reabrir mostrando o valor.
 
 ## 6. Testes e verificação
 
