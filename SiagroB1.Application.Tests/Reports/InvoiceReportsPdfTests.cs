@@ -290,6 +290,51 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("FunruralWithholding", erp, pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task RoyaltyPending_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "R1", CardCode = "P0001", CardName = "Produtor", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = StorageTransactionType.Receipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, TransactionDate = Jul01,
+            NetWeight = 31_234.567m, RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-1",
+            RoyaltyOriginCode = "P0001", RoyaltyOriginName = "Produtor",
+        });
+        StorageTransaction Extra(string code, decimal net) => db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = code, CardCode = "P0001", CardName = "Produtor", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = StorageTransactionType.Receipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, TransactionDate = Jul01,
+            NetWeight = net, RoyaltySituation = RoyaltySituation.Tested, RoyaltyOriginCode = "P0001",
+            RoyaltyOriginName = "Produtor",
+        }).Entity;
+        void WriteOff(string its, StorageTransaction st, decimal weight, DateTime date) =>
+            db.Context.RoyaltyWriteOffs.Add(new RoyaltyWriteOff
+            {
+                ItsId = its, TaxId = "12345678909", Name = "Produtor de Teste", Situation = RoyaltySituation.Tested,
+                WriteOffDate = date,
+                Lines = [new RoyaltyWriteOffLine { StorageTransactionKey = st.Key, Weight = weight }],
+            });
+        var partial = db.Context.StorageTransactions.Local.Single(x => x.Code == "R1");   // parcial, 1 baixa
+        var settled = Extra("R2", 20_000m);                                               // total, 2 baixas
+        WriteOff("ITS-0001", partial, 10_000.5m, Jul01);
+        WriteOff("ITS-0002", settled, 12_000m, Jul01);
+        WriteOff("ITS-0003", settled, 8_000m, Jul01.AddDays(1));
+        Extra("R3", 5_000m);                                                              // pendente, sem baixa
+        await db.SaveChangesAsync();
+        var configuration = Configuration(erp);
+
+        var pdf = await new RoyaltyPendingReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31, Scope = "All" });
+
+        Keep("RoyaltyPending", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);

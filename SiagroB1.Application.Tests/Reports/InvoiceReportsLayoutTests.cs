@@ -19,7 +19,7 @@ public class InvoiceReportsLayoutTests
     public static TheoryData<string> Templates => new()
     {
         "SalesInvoicesByPeriod", "PurchaseInvoicesByPeriod", "SalesInvoiceItems",
-        "PurchaseInvoiceItems", "SalesReturns", "FunruralWithholding",
+        "PurchaseInvoiceItems", "SalesReturns", "FunruralWithholding", "RoyaltyPending",
     };
 
     /// <summary>Quantidade de caracteres do maior valor previsto, ou null se o objeto não é numérico.</summary>
@@ -36,8 +36,9 @@ public class InvoiceReportsLayoutTests
 
         return name switch
         {
-            "txtIssueDate" or "txtPostingDate" => 10,                    // 31/12/2026
+            "txtIssueDate" or "txtPostingDate" or "txtTransactionDate" => 10,                    // 31/12/2026
             "txtQuantity" or "txtNetWeight" => 14,                       // 99.999.999,999
+            "txtWrittenOff" or "txtBalance" => 14,                       // 99.999.999,999
             "txtProducts" or "txtDeclared" or "txtTotal" or "txtGrandTotal" or "txtValue" => 12, // 9.999.999,99
             "txtBase" => 13,                                             // -9.999.999,99 (devolução)
             "txtInssValue" or "txtRatValue" or "txtSenarValue" => 11,    // -999.999,99

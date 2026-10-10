@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Commons.Resources;
@@ -21,6 +22,8 @@ public class StorageTransactionsReverseService(
         var doc = await db.Context.StorageTransactions
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException(resource["EXCEPTION_00007"].Value);
+
+        await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, doc.Key);
 
         // Romaneio montado em carga não é cancelável/estornável por aqui: durante o
         // faturamento PARCIAL ele ainda está Confirmed, então um guard por status deixaria

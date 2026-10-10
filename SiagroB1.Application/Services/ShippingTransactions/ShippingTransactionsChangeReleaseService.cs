@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -62,6 +63,8 @@ public class ShippingTransactionsChangeReleaseService(
 
     private sealed class Plan
     {
+        /// <summary>Chave do documento da troca, reservada antes para a perna de compra nova.</summary>
+        public Guid ChangeKey { get; } = Guid.NewGuid();
         public required ShippingTransaction Shipping { get; init; }
         public required StorageTransaction Sales { get; init; }
         public StorageTransaction? Purchase { get; init; }
@@ -94,6 +97,11 @@ public class ShippingTransactionsChangeReleaseService(
         var plans = new List<Plan>();
         foreach (var item in items)
             plans.Add(await BuildPlanAsync(item));
+
+        // A compra original sai de cena na troca: com baixa ITS ativa os royalties ficariam
+        // apontando para um romaneio estornado.
+        foreach (var plan in plans.Where(p => p.Purchase != null))
+            await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, plan.Purchase!.Key);
 
         foreach (var plan in plans)
             plan.NewQuantity = await ResolveNewQuantityAsync(plan, items.Count);
@@ -490,6 +498,10 @@ public class ShippingTransactionsChangeReleaseService(
                 purchase.QualityInspections.Add(
                     StorageTransactionQualityInspectionCopyFactory.CreateFrom(inspection, purchase));
             purchase.ProcessingCostCode = plan.Purchase.ProcessingCostCode;
+            purchase.RoyaltySituation = plan.Purchase.RoyaltySituation;
+            purchase.RoyaltyTestCode = plan.Purchase.RoyaltyTestCode;
+            purchase.RoyaltyOriginCode = plan.Purchase.RoyaltyOriginCode;
+            purchase.RoyaltyOriginName = plan.Purchase.RoyaltyOriginName;
         }
 
         purchase.TransactionType = StorageTransactionType.Purchase;
@@ -504,7 +516,13 @@ public class ShippingTransactionsChangeReleaseService(
 
         await storageCreateService.ExecuteAsync(
             purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
+        // A trava de royalty isenta a compra gerada por troca cuja original não tem situação
+        // (embarque anterior ao controle). O vínculo é definitivo em RegisterChange; aqui vale só
+        // durante a confirmação e sai antes de qualquer SaveChanges, para não referenciar uma
+        // troca ainda não gravada.
+        purchase.ShippingReleaseChangeKey = plan.ChangeKey;
         await storageConfirmedService.ExecuteAsync(purchase, userName, CommitMode.Deferred, true);
+        purchase.ShippingReleaseChangeKey = null;
         KeepNames(purchase, contract.CardName, plan.Target.DeliveryLocationName);
         // As tarifas de serviço já estão na 8 original: precificar de novo dobraria a soma
         // dos relatórios de serviço.
@@ -531,7 +549,7 @@ public class ShippingTransactionsChangeReleaseService(
     {
         var change = new ShippingReleaseChange
         {
-            Key = Guid.NewGuid(),
+            Key = plan.ChangeKey,
             ShipmentLoadKey = plan.Load.Key,
             OperationGroupKey = operationGroupKey,
             OriginalSalesStorageTransactionKey = plan.Sales.Key,

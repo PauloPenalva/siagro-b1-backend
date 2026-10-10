@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/10/2026 10:00:00" ReportInfo.Modified="10/10/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="RoyaltyRows" ReferenceName="RoyaltyRows" DataType="System.Int32" Enabled="true">
+      <Column Name="Kind" DataType="System.Int32"/>
+      <Column Name="IsSubtotal" DataType="System.Boolean"/>
+      <Column Name="IsWriteOff" DataType="System.Boolean"/>
+      <Column Name="Detail" DataType="System.String"/>
+      <Column Name="Situation" DataType="System.String"/>
+      <Column Name="Type" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="Date" DataType="System.String"/>
+      <Column Name="Partner" DataType="System.String"/>
+      <Column Name="Origin" DataType="System.String"/>
+      <Column Name="TestCode" DataType="System.String"/>
+      <Column Name="NetWeight" DataType="System.Decimal"/>
+      <Column Name="WrittenOff" DataType="System.Decimal"/>
+      <Column Name="Balance" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTitle" DataType="System.String" AsString="Royalties ITS — Pendentes de Baixa"/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pItemCount" DataType="System.Int32" AsString="0"/>
+    <Parameter Name="pTotalNetWeight" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pTotalWrittenOff" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pTotalBalance" DataType="System.Decimal" AsString="0"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="[pTitle]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="20" Border.Lines="Bottom">
+      <TextObject Name="hdrSituation" Left="0" Width="110" Height="18" Text="Situação" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCode" Left="110" Width="90" Height="18" Text="Romaneio" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrTransactionDate" Left="200" Width="62" Height="18" Text="Data" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrType" Left="262" Width="70" Height="18" Text="Tipo" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPartner" Left="332" Width="195" Height="18" Text="Parceiro" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrOrigin" Left="527" Width="195" Height="18" Text="Origem" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrTestCode" Left="722" Width="80" Height="18" Text="Cód. Teste" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNetWeight" Left="802" Width="94" Height="18" Text="Peso Líquido" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrWrittenOff" Left="896" Width="94" Height="18" Text="Baixado" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBalance" Left="990" Width="94" Height="18" Text="Saldo (kg)" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Top="139.8" Width="1084" Height="17" CanGrow="true" DataSource="RoyaltyRows">
+      <TextObject Name="txtSituation" Left="0" Width="110" Height="17" Text="[RoyaltyRows.Situation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtCode" Left="110" Width="90" Height="17" Text="[RoyaltyRows.Code]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtTransactionDate" Left="200" Width="62" Height="17" Text="[RoyaltyRows.Date]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtType" Left="262" Width="70" Height="17" Text="[RoyaltyRows.Type]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtPartner" Left="332" Width="195" Height="17" Text="[RoyaltyRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[RoyaltyRows.IsSubtotal]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtDetail" Left="332" Width="470" Height="17" Text="[RoyaltyRows.Detail]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      <TextObject Name="txtOrigin" Left="527" Width="195" Height="17" Text="[RoyaltyRows.Origin]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtTestCode" Left="722" Width="80" Height="17" Text="[RoyaltyRows.TestCode]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtNetWeight" Left="802" Width="94" Height="17" Text="[RoyaltyRows.NetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[RoyaltyRows.IsSubtotal]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtWrittenOff" Left="896" Width="94" Height="17" Text="[RoyaltyRows.WrittenOff]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[RoyaltyRows.IsSubtotal]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtBalance" Left="990" Width="94" Height="17" Text="[RoyaltyRows.Balance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[RoyaltyRows.IsSubtotal]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="160" Width="1084" Height="40" Border.Lines="Top">
+      <TextObject Name="txtSumCount" Left="0" Top="4" Width="400" Height="17" Text="[pItemCount] romaneio(s)" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumNetWeight" Left="796" Top="4" Width="100" Height="17" Text="[pTotalNetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumWrittenOff" Left="896" Top="4" Width="94" Height="17" Text="[pTotalWrittenOff]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumBalance" Left="990" Top="4" Width="94" Height="17" Text="[pTotalBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="22" Width="1084" Height="17" Text="[IIf([pItemCount] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="204" Width="1084" Height="26">
+      <TextObject Name="txtFooterNote" Width="900" Height="18.9" Text="Saldo = peso líquido do romaneio menos as baixas ITS ativas; as baixas (↳) listadas sob o romaneio são só detalhe e não entram nos totais. Conforme a abrangência, baixados e/ou a baixar. Romaneios de recebimento e de compra (carregamento em terceiro) confirmados ou faturados, de produtos que controlam royalties." VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtPage" Left="937" Width="147" Height="18.9" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

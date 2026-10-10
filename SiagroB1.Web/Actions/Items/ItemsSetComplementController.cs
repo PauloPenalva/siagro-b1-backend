@@ -34,11 +34,13 @@ public class ItemsSetComplementController(IItemComplementService service)
 
             parameters.TryGetValue("CommercialUnitOfMeasureCode", out var uomObj);
             parameters.TryGetValue("CommercialFactor", out var factorObj);
+            parameters.TryGetValue("ControlsRoyalties", out var royaltiesObj);
 
             var result = await service.SetAsync(
                 itemCodeObj.ToString()!,
                 uomObj?.ToString(),
-                factorObj is null ? null : Convert.ToDecimal(factorObj));
+                factorObj is null ? null : Convert.ToDecimal(factorObj),
+                royaltiesObj is null ? null : Convert.ToBoolean(royaltiesObj));
 
             return Ok(result);
         }

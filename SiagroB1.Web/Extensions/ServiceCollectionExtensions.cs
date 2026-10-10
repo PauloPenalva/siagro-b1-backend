@@ -34,6 +34,7 @@ using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShippingOrders;
 using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
+using SiagroB1.Application.Services.RoyaltyWriteOffs;
 using SiagroB1.Application.Services.StorageEntryTransactions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -524,7 +525,11 @@ public static class ServiceCollectionExtensions
         // storage entry transactions (entrada de compra em armazenagem própria)
         services.AddScoped<StorageEntryTransactionsCreateService>();
         services.AddScoped<StorageEntryTransactionsCancelService>();
-        
+
+        // royalties (baixas no ITS)
+        services.AddScoped<RoyaltyWriteOffsCreateService>();
+        services.AddScoped<RoyaltyWriteOffsCancelService>();
+
         // storage addresses
         services.AddScoped<StorageAddressesCreateService>();
         services.AddScoped<StorageAddressesDeleteService>();

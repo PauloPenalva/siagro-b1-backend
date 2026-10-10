@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Enums;
@@ -86,7 +87,13 @@ public class ShippingTransactionsReverseService(
         {
             throw new ApplicationException("Purchase transaction already invoiced.");
         }
-        
+
+        // O estorno cancela a perna de compra escrevendo o status direto, sem passar por
+        // StorageTransactionsCancelService: a trava de baixa ITS ativa precisa estar aqui também,
+        // senão os royalties baixados ficam apontando para um romaneio cancelado.
+        if (shipping.PurchaseStorageTransactionKey is { } purchaseKey)
+            await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, purchaseKey);
+
         try
         {
             // Embarque de liberação de transferência de titularidade não tem perna de

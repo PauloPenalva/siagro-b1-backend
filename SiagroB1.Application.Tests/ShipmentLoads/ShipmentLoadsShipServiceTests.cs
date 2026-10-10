@@ -184,6 +184,35 @@ public class ShipmentLoadsShipServiceTests
         Assert.Equal(0, counting.Rollbacks);
     }
 
+    [Fact]
+    public async Task Ship_of_a_controlled_item_from_a_farm_requires_the_royalty_situation()
+    {
+        var (load, _, release) = await SeedAsync();
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = load.ItemCode, ControlsRoyalties = true });
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() => Build().Service.ExecuteAsync(Request(load, release), "tester"));
+
+        Assert.Contains("situação de royalty", ex.Message);
+    }
+
+    [Fact]
+    public async Task Ship_records_the_royalty_situation_and_the_loading_warehouse_as_origin()
+    {
+        var (load, _, release) = await SeedAsync();
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = load.ItemCode, ControlsRoyalties = true });
+        await _db.SaveChangesAsync();
+        var request = Request(load, release) with { RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-77" };
+
+        await Build().Service.ExecuteAsync(request, "tester");
+
+        var purchase = await _db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.Purchase);
+        Assert.Equal(RoyaltySituation.Tested, purchase.RoyaltySituation);
+        Assert.Equal("T-77", purchase.RoyaltyTestCode);
+        Assert.Equal(request.WarehouseCode, purchase.RoyaltyOriginCode);
+    }
+
     private sealed class ThrowingRecalc(UnitOfWork db) : ShipmentReleasesRecalculateShippedService(db.Context)
     {
         public override Task RecalculateAsync(Guid shipmentReleaseKey) =>

@@ -18,13 +18,15 @@ public class ItemComplementService(IUnitOfWork db) : IItemComplementService
                 ItemCode = x.ItemCode,
                 CommercialUnitOfMeasureCode = x.CommercialUnitOfMeasureCode,
                 CommercialFactor = x.CommercialFactor,
+                ControlsRoyalties = x.ControlsRoyalties,
             })
             .AsNoTracking()
             .FirstOrDefaultAsync();
     }
 
     public async Task<ItemComplementDto> SetAsync(
-        string itemCode, string? commercialUnitOfMeasureCode, decimal? commercialFactor)
+        string itemCode, string? commercialUnitOfMeasureCode, decimal? commercialFactor,
+        bool? controlsRoyalties = null)
     {
         var entity = await db.Context.ItemComplements
             .FirstOrDefaultAsync(x => x.ItemCode == itemCode);
@@ -41,6 +43,9 @@ public class ItemComplementService(IUnitOfWork db) : IItemComplementService
             string.IsNullOrWhiteSpace(commercialUnitOfMeasureCode) ? null : commercialUnitOfMeasureCode;
         entity.CommercialFactor = commercialFactor;
 
+        if (controlsRoyalties.HasValue)
+            entity.ControlsRoyalties = controlsRoyalties.Value;
+
         await db.SaveChangesAsync();
 
         return new ItemComplementDto
@@ -48,6 +53,7 @@ public class ItemComplementService(IUnitOfWork db) : IItemComplementService
             ItemCode = entity.ItemCode,
             CommercialUnitOfMeasureCode = entity.CommercialUnitOfMeasureCode,
             CommercialFactor = entity.CommercialFactor,
+            ControlsRoyalties = entity.ControlsRoyalties,
         };
     }
 }

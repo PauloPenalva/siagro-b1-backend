@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -35,6 +36,18 @@ public class WeighingTicketsCompletedService(
             .FirstOrDefaultAsync(x => x.Key == key) ??
                      throw new NotFoundException("Ticket de pesagem não encontrado.");
         
+        var controlsRoyalties = await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, existingTicket.ItemCode);
+        if (controlsRoyalties && existingTicket.Type == WeighingTicketType.Receipt)
+        {
+            // Origem não informada = o próprio produtor do ticket.
+            if (string.IsNullOrWhiteSpace(existingTicket.RoyaltyOriginCode))
+                existingTicket.RoyaltyOriginCode = existingTicket.CardCode;
+            RoyaltyRules.EnsureFilled(
+                existingTicket.RoyaltySituation, existingTicket.RoyaltyOriginCode, existingTicket.RoyaltyTestCode);
+            existingTicket.RoyaltyTestCode =
+                RoyaltyRules.NormalizeTestCode(existingTicket.RoyaltySituation, existingTicket.RoyaltyTestCode);
+        }
+
         await Validate(existingTicket);
 
         if (existingTicket.StorageAddressCode == null)
@@ -52,6 +65,9 @@ public class WeighingTicketsCompletedService(
             existingTicket.Stage = WeighingTicketStage.Completed;
             existingTicket.CardName = (await businessPartnerService.GetByIdAsync(existingTicket.CardCode))?.CardName;
             existingTicket.ItemName = (await itemService.GetByIdAsync(existingTicket.ItemCode))?.ItemName;
+            existingTicket.RoyaltyOriginName = string.IsNullOrWhiteSpace(existingTicket.RoyaltyOriginCode)
+                ? null
+                : (await businessPartnerService.GetByIdAsync(existingTicket.RoyaltyOriginCode))?.CardName;
             
             await db.SaveChangesAsync();
             
@@ -78,7 +94,11 @@ public class WeighingTicketsCompletedService(
                 WarehouseCode = storageAddress.WarehouseCode,
                 BranchCode = existingTicket.BranchCode,
                 ProcessingCostCode = storageAddress.ProcessingCostCode,
-                FreightPrice = existingTicket.FreightPrice
+                FreightPrice = existingTicket.FreightPrice,
+                RoyaltySituation = existingTicket.RoyaltySituation,
+                RoyaltyTestCode = existingTicket.RoyaltyTestCode,
+                RoyaltyOriginCode = existingTicket.RoyaltyOriginCode,
+                RoyaltyOriginName = existingTicket.RoyaltyOriginName,
             };
            
             foreach (var inspection in existingTicket.QualityInspections)

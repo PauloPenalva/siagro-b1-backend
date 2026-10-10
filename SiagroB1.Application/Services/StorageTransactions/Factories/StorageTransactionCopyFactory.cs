@@ -56,6 +56,10 @@ public static class StorageTransactionCopyFactory
             WeighingTicketKey = original.WeighingTicketKey,
 
             ProcessingCostCode = original.ProcessingCostCode,
+            RoyaltySituation = original.RoyaltySituation,
+            RoyaltyTestCode = original.RoyaltyTestCode,
+            RoyaltyOriginCode = original.RoyaltyOriginCode,
+            RoyaltyOriginName = original.RoyaltyOriginName,
 
             InvoiceNumber = original.InvoiceNumber,
             InvoiceSerie = original.InvoiceSerie,

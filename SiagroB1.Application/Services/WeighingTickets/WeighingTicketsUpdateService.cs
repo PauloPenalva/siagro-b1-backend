@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -33,6 +34,12 @@ public class WeighingTicketsUpdateService(
             // ao lado do código novo na próxima leitura.
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
+            existingEntity.RoyaltyTestCode =
+                RoyaltyRules.NormalizeTestCode(existingEntity.RoyaltySituation, existingEntity.RoyaltyTestCode);
+            // O value help grava a descrição só na tela (grupo null); o nome vem sempre do código.
+            existingEntity.RoyaltyOriginName = string.IsNullOrWhiteSpace(existingEntity.RoyaltyOriginCode)
+                ? null
+                : (await businessPartnerService.GetByIdAsync(existingEntity.RoyaltyOriginCode))?.CardName;
 
             await db.SaveChangesAsync();
         }

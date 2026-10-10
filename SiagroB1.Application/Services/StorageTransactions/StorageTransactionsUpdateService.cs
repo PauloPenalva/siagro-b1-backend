@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -42,6 +43,10 @@ public class StorageTransactionsUpdateService(
             existingEntity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             existingEntity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             existingEntity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            existingEntity.RoyaltyTestCode =
+                RoyaltyRules.NormalizeTestCode(existingEntity.RoyaltySituation, existingEntity.RoyaltyTestCode);
+            existingEntity.RoyaltyOriginName = await RoyaltyRules.ResolveOriginNameAsync(
+                existingEntity, async code => (await businessPartnerService.GetByIdAsync(code))?.CardName);
 
             existingEntity.UpdatedBy = userName;
             existingEntity.UpdatedAt = DateTime.Now;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
@@ -24,6 +25,10 @@ public class ShipmentLoadsShipController(ShipmentLoadsShipService shipService) :
             parameters.TryGetValue("TransactionDate", out var dateObj);
             parameters.TryGetValue("GrossWeight", out var weightObj);
             parameters.TryGetValue("Comments", out var commentsObj);
+            parameters.TryGetValue("RoyaltySituation", out var royaltySituationObj);
+            parameters.TryGetValue("RoyaltyTestCode", out var royaltyTestCodeObj);
+            RoyaltySituation? royaltySituation =
+                Enum.TryParse<RoyaltySituation>(royaltySituationObj as string, out var rs) ? rs : null;
 
             var warehouse = warehouseObj as string;
             var driver = driverObj as string;
@@ -36,7 +41,7 @@ public class ShipmentLoadsShipController(ShipmentLoadsShipService shipService) :
             var result = await shipService.ExecuteAsync(
                 new ShipmentLoadShipRequest(
                     Guid.Parse(keyObj.ToString()!), Guid.Parse(releaseObj.ToString()!), warehouse, driver, date, weight,
-                    commentsObj as string),
+                    commentsObj as string, royaltySituation, royaltyTestCodeObj as string),
                 User.Identity?.Name ?? "Unknown");
 
             return Ok(new

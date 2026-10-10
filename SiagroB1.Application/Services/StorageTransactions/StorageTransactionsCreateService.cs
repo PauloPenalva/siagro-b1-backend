@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -63,6 +64,9 @@ public class StorageTransactionsCreateService(
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            entity.RoyaltyTestCode = RoyaltyRules.NormalizeTestCode(entity.RoyaltySituation, entity.RoyaltyTestCode);
+            entity.RoyaltyOriginName = await RoyaltyRules.ResolveOriginNameAsync(
+                entity, async code => (await businessPartnerService.GetByIdAsync(code))?.CardName);
             entity.TransactionOrigin = transactionCode;
             entity.CreatedBy = userName;
             entity.CreatedAt = DateTime.Now;

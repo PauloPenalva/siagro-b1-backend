@@ -43,6 +43,10 @@ public static class ODataConfigurations
             .AddProperty(typeof(StorageAddress).GetProperty(nameof(StorageAddress.Balance)));
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
+        var royaltyBalances = modelBuilder.EntitySet<RoyaltyBalanceRow>("RoyaltyTransactionBalances");
+        royaltyBalances.EntityType.HasKey(x => x.StorageTransactionKey);
+        modelBuilder.EntitySet<RoyaltyWriteOff>("RoyaltyWriteOffs");
+        modelBuilder.EntitySet<RoyaltyWriteOffLine>("RoyaltyWriteOffLines");
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
 
@@ -437,6 +441,18 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ItemModel>("Items");
 
+        // Parametros como string: datas yyyy-MM-dd e enum pelo nome; vazio/null = sem filtro.
+        var royaltyBalanceTotals = modelBuilder.Function("RoyaltyBalanceTotals");
+        royaltyBalanceTotals.Parameter<string>("FromDate").Optional();
+        royaltyBalanceTotals.Parameter<string>("ToDate").Optional();
+        royaltyBalanceTotals.Parameter<string>("CardCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("OriginCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("ItemCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("Situation").Optional();
+        royaltyBalanceTotals.Parameter<string>("StorageAddressCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("Scope").Optional();
+        royaltyBalanceTotals.ReturnsCollection<RoyaltyBalanceTotal>();
+
         var itemsGetComplement = modelBuilder.Function("ItemsGetComplement");
         itemsGetComplement.Parameter<string>("ItemCode");
         itemsGetComplement.Returns<ItemComplementDto>();
@@ -450,6 +466,8 @@ public static class ODataConfigurations
         // OData recusa o corpo inteiro com um 400 que nao nomeia o campo ("The parameters field
         // is required"), como se nenhum parametro tivesse chegado.
         itemsSetComplement.Parameter<double?>("CommercialFactor").Optional();
+        // Opcional: omitido, mantém o valor atual (o diálogo de faturamento não envia este campo).
+        itemsSetComplement.Parameter<bool>("ControlsRoyalties").Optional();
         itemsSetComplement.Returns<ItemComplementDto>();
 
         var salesContractsGetFiscalComplement = modelBuilder.Function("SalesContractsGetFiscalComplement");
@@ -530,6 +548,21 @@ public static class ODataConfigurations
         var storageEntryTransactionCancel = modelBuilder.Action("StorageEntryTransactionsCancel");
         storageEntryTransactionCancel.Parameter<Guid>("Key");
         storageEntryTransactionCancel.Returns<IActionResult>();
+
+        var royaltyWriteOffsCreate = modelBuilder.Action("RoyaltyWriteOffsCreate");
+        royaltyWriteOffsCreate.Parameter<string>("WriteOffDate");
+        royaltyWriteOffsCreate.Parameter<string>("ItsId");
+        royaltyWriteOffsCreate.Parameter<string>("TaxId");
+        royaltyWriteOffsCreate.Parameter<string>("Name");
+        royaltyWriteOffsCreate.Parameter<string>("Comments").Optional();
+        royaltyWriteOffsCreate.CollectionParameter<Guid>("StorageTransactionKeys");
+        // double, não decimal: o UI5 v4 serializa Edm.Decimal como string.
+        royaltyWriteOffsCreate.CollectionParameter<double>("Weights");
+        royaltyWriteOffsCreate.Returns<IActionResult>();
+
+        var royaltyWriteOffsCancel = modelBuilder.Action("RoyaltyWriteOffsCancel");
+        royaltyWriteOffsCancel.Parameter<Guid>("Key");
+        royaltyWriteOffsCancel.Returns<IActionResult>();
 
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
@@ -864,6 +897,9 @@ public static class ODataConfigurations
         shipmentLoadsShip.Parameter<DateTimeOffset>("TransactionDate");
         shipmentLoadsShip.Parameter<double>("GrossWeight");
         shipmentLoadsShip.Parameter<string>("Comments").Optional();
+        // Situação de royalty da compra (nome do enum); vazio = padrão do armazém participante.
+        shipmentLoadsShip.Parameter<string>("RoyaltySituation").Optional();
+        shipmentLoadsShip.Parameter<string>("RoyaltyTestCode").Optional();
         shipmentLoadsShip.Returns<IActionResult>();
 
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");

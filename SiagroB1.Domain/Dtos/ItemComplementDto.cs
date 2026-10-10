@@ -16,4 +16,7 @@ public class ItemComplementDto
 
     [JsonPropertyName("CommercialFactor")]
     public decimal? CommercialFactor { get; set; }
+
+    [JsonPropertyName("ControlsRoyalties")]
+    public bool ControlsRoyalties { get; set; }
 }

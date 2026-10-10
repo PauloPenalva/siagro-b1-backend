@@ -1,0 +1,162 @@
+// SiagroB1.Reports/Services/RoyaltyPendingReportService.cs
+using System.Globalization;
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
+using SiagroB1.Reports.Dtos;
+
+namespace SiagroB1.Reports.Services;
+
+public class RoyaltyPendingReportService(
+    IUnitOfWork db,
+    IFastReportService reportService,
+    IConfiguration configuration)
+{
+    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("pt-BR");
+
+    public static string Label(RoyaltySituation s) => s switch
+    {
+        RoyaltySituation.Declared => "Declarada",
+        RoyaltySituation.Tested => "Testada",
+        RoyaltySituation.Conventional => "Convencional",
+        RoyaltySituation.ParticipantWarehouse => "Armazém Participante",
+        _ => s.ToString(),
+    };
+
+    public static RoyaltyBalanceScope ParseScope(string? value) =>
+        Enum.TryParse<RoyaltyBalanceScope>(value, out var scope) && Enum.IsDefined(scope) ? scope : RoyaltyBalanceScope.Pending;
+
+    public static string Title(RoyaltyBalanceScope scope) => scope switch
+    {
+        RoyaltyBalanceScope.WrittenOff => "Royalties ITS — Baixados",
+        RoyaltyBalanceScope.All => "Royalties ITS — Baixados e a Baixar",
+        _ => "Royalties ITS — Pendentes de Baixa",
+    };
+
+    private static string ScopeLabel(RoyaltyBalanceScope scope) => scope switch
+    {
+        RoyaltyBalanceScope.WrittenOff => "Baixados",
+        RoyaltyBalanceScope.All => "Todos",
+        _ => "A baixar",
+    };
+
+    public async Task<RoyaltyPendingData> BuildAsync(RoyaltyPendingRequest request)
+    {
+        var scope = ParseScope(request.Scope);
+        var filter = new RoyaltyBalanceFilter
+        {
+            FromDate = request.FromDate, ToDate = request.ToDate,
+            CardCode = request.CardCode, OriginCode = request.OriginCode, ItemCode = request.ItemCode,
+            Situation = Enum.TryParse<RoyaltySituation>(request.Situation, out var s) ? s : null,
+            StorageAddressCode = request.StorageAddressCode,
+            Scope = scope,
+        };
+        var items = await RoyaltyBalanceQuery.Apply(RoyaltyBalanceQuery.Build(db.Context), filter).ToListAsync();
+
+        // Baixas ativas que atingiram os romaneios listados (em qualquer abrangência), numa consulta só.
+        var writeOffsByReceipt = new Dictionary<Guid, List<RoyaltyPendingRowDto>>();
+        if (items.Count > 0)
+        {
+            var keys = items.Select(x => x.StorageTransactionKey).ToList();
+            var lines = await db.Context.RoyaltyWriteOffLines.AsNoTracking()
+                .Where(l => keys.Contains(l.StorageTransactionKey) &&
+                            l.RoyaltyWriteOff!.Status == RoyaltyWriteOffStatus.Active)
+                .OrderBy(l => l.RoyaltyWriteOff!.WriteOffDate).ThenBy(l => l.RoyaltyWriteOff!.RowId)
+                .Select(l => new
+                {
+                    l.StorageTransactionKey, l.Weight,
+                    l.RoyaltyWriteOff!.WriteOffDate, l.RoyaltyWriteOff.ItsId, l.RoyaltyWriteOff.TaxId, l.RoyaltyWriteOff.Name,
+                })
+                .ToListAsync();
+            foreach (var l in lines)
+            {
+                if (!writeOffsByReceipt.TryGetValue(l.StorageTransactionKey, out var list))
+                    writeOffsByReceipt[l.StorageTransactionKey] = list = [];
+                list.Add(new RoyaltyPendingRowDto
+                {
+                    Kind = RoyaltyPendingRowKind.WriteOff,
+                    Date = l.WriteOffDate.ToString("dd/MM/yyyy", Culture),
+                    Type = "Baixa ITS",
+                    Detail = $"↳ ITS {l.ItsId} · {l.TaxId} · {l.Name}",
+                    WrittenOff = l.Weight,
+                });
+            }
+        }
+
+        var rows = new List<RoyaltyPendingRowDto>();
+        foreach (var bySituation in items.GroupBy(x => x.Situation).OrderBy(g => g.Key))
+        {
+            foreach (var byPartner in bySituation
+                         .GroupBy(x => (x.CardCode, x.CardName))
+                         .OrderBy(g => g.Key.CardName ?? g.Key.CardCode, StringComparer.CurrentCultureIgnoreCase))
+            {
+                foreach (var x in byPartner.OrderBy(x => x.TransactionDate).ThenBy(x => x.Code, StringComparer.Ordinal))
+                {
+                    rows.Add(new RoyaltyPendingRowDto
+                    {
+                        Kind = RoyaltyPendingRowKind.Item,
+                        Situation = Label(x.Situation),
+                        Type = x.TransactionType == StorageTransactionType.Purchase ? "Compra" : "Recebimento",
+                        Code = x.Code ?? "",
+                        Date = x.TransactionDate?.ToString("dd/MM/yyyy", Culture) ?? "",
+                        Partner = $"{x.CardCode} - {x.CardName}",
+                        Origin = x.RoyaltyOriginCode == null ? "" : $"{x.RoyaltyOriginCode} - {x.RoyaltyOriginName}",
+                        TestCode = x.RoyaltyTestCode ?? "",
+                        NetWeight = x.NetWeight, WrittenOff = x.WrittenOffWeight, Balance = x.Balance,
+                    });
+                    if (writeOffsByReceipt.TryGetValue(x.StorageTransactionKey, out var receiptWriteOffs))
+                        rows.AddRange(receiptWriteOffs);
+                }
+                rows.Add(Subtotal(RoyaltyPendingRowKind.Partner, $"Total {byPartner.Key.CardName ?? byPartner.Key.CardCode}", byPartner));
+            }
+            rows.Add(Subtotal(RoyaltyPendingRowKind.Situation, $"Total {Label(bySituation.Key)}", bySituation));
+        }
+
+        return new RoyaltyPendingData(rows, items.Count,
+            items.Sum(x => x.NetWeight), items.Sum(x => x.WrittenOffWeight), items.Sum(x => x.Balance));
+    }
+
+    private static RoyaltyPendingRowDto Subtotal(RoyaltyPendingRowKind kind, string label, IEnumerable<RoyaltyBalanceRow> rows)
+    {
+        var list = rows.ToList();
+        return new RoyaltyPendingRowDto
+        {
+            Kind = kind, Partner = label,
+            NetWeight = list.Sum(x => x.NetWeight), WrittenOff = list.Sum(x => x.WrittenOffWeight),
+            Balance = list.Sum(x => x.Balance),
+        };
+    }
+
+    public async Task<byte[]> ExecuteAsync(RoyaltyPendingRequest request)
+    {
+        var data = await BuildAsync(request);
+
+        var filters = new List<string>
+        {
+            $"Período: {request.FromDate:dd/MM/yyyy} a {request.ToDate:dd/MM/yyyy}",
+        };
+        var scope = ParseScope(request.Scope);
+        filters.Add($"Abrangência: {ScopeLabel(scope)}");
+        if (Enum.TryParse<RoyaltySituation>(request.Situation, out var s)) filters.Add($"Situação: {Label(s)}");
+        if (!string.IsNullOrWhiteSpace(request.CardCode)) filters.Add($"Parceiro: {request.CardCode}");
+        if (!string.IsNullOrWhiteSpace(request.OriginCode)) filters.Add($"Origem: {request.OriginCode}");
+        if (!string.IsNullOrWhiteSpace(request.ItemCode)) filters.Add($"Produto: {request.ItemCode}");
+        if (!string.IsNullOrWhiteSpace(request.StorageAddressCode)) filters.Add($"Lote: {request.StorageAddressCode}");
+
+        var parameters = new Dictionary<string, object>
+        {
+            ["pTitle"] = Title(scope),
+            ["pFilters"] = string.Join("  |  ", filters),
+            [FastReportService.StandaloneParameter] = ErpMode.IsStandalone(configuration),
+            ["pItemCount"] = data.ItemCount,
+            ["pTotalNetWeight"] = data.TotalNetWeight,
+            ["pTotalWrittenOff"] = data.TotalWrittenOff,
+            ["pTotalBalance"] = data.TotalBalance,
+        };
+
+        return await reportService.GeneratePdfAsync(
+            "RoyaltyPending.frx", data.Rows, "RoyaltyRows", "RoyaltyRows", parameters);
+    }
+}

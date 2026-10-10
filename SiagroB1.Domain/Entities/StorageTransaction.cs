@@ -237,6 +237,20 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "DECIMAL(18,2)")]
     public decimal FreightPrice { get; set; }
+
+    /// <summary>Situação de royalty (ITS). Obrigatória quando o produto controla royalties.</summary>
+    public RoyaltySituation? RoyaltySituation { get; set; }
+
+    /// <summary>Código do teste — obrigatório só na situação Testada.</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? RoyaltyTestCode { get; set; }
+
+    /// <summary>Parceiro de origem da carga (produtor, ou o armazém participante de onde veio).</summary>
+    [Column(TypeName = "VARCHAR(15)")]
+    public string? RoyaltyOriginCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(200)")]
+    public string? RoyaltyOriginName { get; set; }
     
     public Guid? ReturnInvoiceKey { get; set; }
 

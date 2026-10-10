@@ -395,4 +395,42 @@ public class ShippingTransactionsReverseServiceTests
             await _db.Context.PurchaseContractsAllocations.AsNoTracking().ToListAsync());
         Assert.Equal(1000m, allocation.Volume);
     }
+    /// <summary>
+    /// O estorno cancela a perna de COMPRA escrevendo o status direto, sem passar por
+    /// <c>StorageTransactionsCancelService</c>: a trava de baixa ITS ativa tem de morar aqui
+    /// também, senão os royalties baixados ficam apontando para um romaneio cancelado.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ComBaixaItsAtivaNaPernaDeCompra_Recusa()
+    {
+        var (contract, release) = await SeedAsync();
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+        var purchaseKey = shipping.PurchaseStorageTransactionKey!.Value;
+
+        var writeOff = new RoyaltyWriteOff
+        {
+            ItsId = "ITS-9", TaxId = "12345678909", Name = "Produtor", Situation = RoyaltySituation.Declared,
+            WriteOffDate = DateTime.Today,
+        };
+        writeOff.Lines.Add(new RoyaltyWriteOffLine { StorageTransactionKey = purchaseKey, Weight = 500m });
+        _db.Context.RoyaltyWriteOffs.Add(writeOff);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
+
+        Assert.Contains("baixa ITS ativa", error.Message);
+
+        // Nada mudou: o par segue vivo, a Expedição existe e o saldo da liberação está intocado.
+        var legs = await _db.Context.StorageTransactions.AsNoTracking()
+            .Where(x => x.Key == purchaseKey || x.Key == shipping.SalesStorageTransactionKey)
+            .ToListAsync();
+        Assert.All(legs, x => Assert.NotEqual(StorageTransactionsStatus.Cancelled, x.TransactionStatus));
+        Assert.True(await _db.Context.ShippingTransactions.AsNoTracking()
+            .AnyAsync(x => x.SalesStorageTransactionKey == shipping.SalesStorageTransactionKey));
+        var reloadedRelease = await _db.Context.ShipmentReleases
+            .AsNoTracking().SingleAsync(x => x.Key == release.Key);
+        Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
+    }
 }

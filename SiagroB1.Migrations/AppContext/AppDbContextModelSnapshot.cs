@@ -1073,6 +1073,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CommercialUnitOfMeasureCode")
                         .HasColumnType("VARCHAR(4)");
 
+                    b.Property<bool>("ControlsRoyalties")
+                        .HasColumnType("bit");
+
                     b.HasKey("ItemCode");
 
                     b.ToTable("ITEM_COMPLEMENTS");
@@ -2902,6 +2905,101 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("WeighingTicketKey");
 
                     b.ToTable("QUALITY_INSPECTIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOff", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ItsId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200) NOT NULL");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<int>("Situation")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaxId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(18) NOT NULL");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("WriteOffDate")
+                        .HasColumnType("DATE");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ItsId")
+                        .IsUnique()
+                        .HasFilter("[Status] = 0");
+
+                    b.ToTable("ROYALTY_WRITE_OFFS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOffLine", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoyaltyWriteOffKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Weight")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("RoyaltyWriteOffKey");
+
+                    b.HasIndex("StorageTransactionKey");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("StorageTransactionKey"), new[] { "Weight" });
+
+                    b.ToTable("ROYALTY_WRITE_OFF_LINES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
@@ -5428,6 +5526,18 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("RoyaltyOriginCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("RoyaltyOriginName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int?>("RoyaltySituation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RoyaltyTestCode")
+                        .HasColumnType("VARCHAR(50)");
+
                     b.Property<Guid?>("SalesInvoiceKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -6274,6 +6384,18 @@ namespace SiagroB1.Migrations.AppContext
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
+                    b.Property<string>("RoyaltyOriginCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("RoyaltyOriginName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int?>("RoyaltySituation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RoyaltyTestCode")
+                        .HasColumnType("VARCHAR(50)");
+
                     b.Property<bool>("SecondWeighCaptured")
                         .HasColumnType("bit");
 
@@ -6916,6 +7038,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("QualityAttrib");
 
                     b.Navigation("WeighingTicket");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOffLine", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.RoyaltyWriteOff", "RoyaltyWriteOff")
+                        .WithMany("Lines")
+                        .HasForeignKey("RoyaltyWriteOffKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "StorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("StorageTransactionKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RoyaltyWriteOff");
+
+                    b.Navigation("StorageTransaction");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
@@ -7854,6 +7995,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Items");
 
                     b.Navigation("NfeCorrections");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOff", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
