@@ -66,5 +66,7 @@ internal static class UsageTaxationMapper
         // A natureza de devolução vale nos dois sentidos (venda → devolução de venda, compra → devolução
         // de compra); o sentido oposto é validado pelo UsageService antes de chegar aqui.
         usage.ReturnUsageCode = model.ReturnUsageCode;
+
+        usage.AllowsCounterNote = model.AllowsCounterNote;
     }
 }

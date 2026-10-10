@@ -68,6 +68,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     FunruralSenarRate = x.usage.FunruralSenarRate,
                     ReturnUsageCode = x.usage.ReturnUsageCode,
                     ReturnUsageName = x.usage.ReturnUsage != null ? x.usage.ReturnUsage.Name : null,
+                    AllowsCounterNote = x.usage.AllowsCounterNote,
                     ContractBalanceEffect = effect != null ? effect.ContractBalanceEffect : 0,
                     ContractValueEffect = effect != null ? effect.ContractValueEffect : 0,
                     RequiresContract = effect != null && effect.RequiresContract,
@@ -256,6 +257,12 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
         {
             throw new DefaultException(
                 "Natureza de operação de entrada não pode ser a padrão do faturamento de romaneio.");
+        }
+
+        // A contra-nota é entrada própria com a mesma natureza da escrituração (spec 2026-10-10 D4/D5).
+        if (model.AllowsCounterNote && (model.Direction ?? UsageDirection.Outgoing) != UsageDirection.Incoming)
+        {
+            throw new DefaultException("Só natureza de entrada pode permitir contra-nota.");
         }
     }
 
