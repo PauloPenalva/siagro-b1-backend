@@ -88,4 +88,23 @@ public class ItemComplementServiceTests
 
         Assert.Equal("ITEM-SO-DO-SAP", result.ItemCode);
     }
+
+    [Fact]
+    public async Task SetAsync_PersistsControlsRoyalties()
+    {
+        var result = await Service().SetAsync("SOJA", null, null, controlsRoyalties: true);
+
+        Assert.True(result.ControlsRoyalties);
+        Assert.True((await Service().GetAsync("SOJA"))!.ControlsRoyalties);
+    }
+
+    [Fact]
+    public async Task SetAsync_WithoutControlsRoyalties_KeepsTheCurrentValue()
+    {
+        await Service().SetAsync("SOJA", null, null, controlsRoyalties: true);
+
+        await Service().SetAsync("SOJA", "SC", 60m);
+
+        Assert.True((await Service().GetAsync("SOJA"))!.ControlsRoyalties);
+    }
 }

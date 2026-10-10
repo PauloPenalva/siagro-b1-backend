@@ -450,6 +450,8 @@ public static class ODataConfigurations
         // OData recusa o corpo inteiro com um 400 que nao nomeia o campo ("The parameters field
         // is required"), como se nenhum parametro tivesse chegado.
         itemsSetComplement.Parameter<double?>("CommercialFactor").Optional();
+        // Opcional: omitido, mantém o valor atual (o diálogo de faturamento não envia este campo).
+        itemsSetComplement.Parameter<bool>("ControlsRoyalties").Optional();
         itemsSetComplement.Returns<ItemComplementDto>();
 
         var salesContractsGetFiscalComplement = modelBuilder.Function("SalesContractsGetFiscalComplement");
