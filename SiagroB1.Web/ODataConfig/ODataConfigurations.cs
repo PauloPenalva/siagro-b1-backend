@@ -896,6 +896,9 @@ public static class ODataConfigurations
         shipmentLoadsShip.Parameter<DateTimeOffset>("TransactionDate");
         shipmentLoadsShip.Parameter<double>("GrossWeight");
         shipmentLoadsShip.Parameter<string>("Comments").Optional();
+        // Situação de royalty da compra (nome do enum); vazio = padrão do armazém participante.
+        shipmentLoadsShip.Parameter<string>("RoyaltySituation").Optional();
+        shipmentLoadsShip.Parameter<string>("RoyaltyTestCode").Optional();
         shipmentLoadsShip.Returns<IActionResult>();
 
         var shipmentLoadsDetach = modelBuilder.Action("ShipmentLoadsDetachTransactions");

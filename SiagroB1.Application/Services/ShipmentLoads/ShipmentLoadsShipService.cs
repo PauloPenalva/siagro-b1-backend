@@ -17,7 +17,9 @@ public record ShipmentLoadShipRequest(
     string TruckDriverCode,
     DateTime TransactionDate,
     decimal GrossWeight,
-    string? Comments);
+    string? Comments,
+    RoyaltySituation? RoyaltySituation = null,
+    string? RoyaltyTestCode = null);
 
 public record ShipmentLoadShipResult(Guid ShipmentLoadKey, Guid StorageTransactionKey, string? StorageTransactionCode);
 
@@ -83,6 +85,8 @@ public class ShipmentLoadsShipService(
             GrossWeight = request.GrossWeight,
             ShipmentReleaseKey = release.Key,
             Comments = request.Comments,
+            RoyaltySituation = request.RoyaltySituation,
+            RoyaltyTestCode = request.RoyaltyTestCode,
         };
 
         StorageTransaction exit;
