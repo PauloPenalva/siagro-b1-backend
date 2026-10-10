@@ -125,6 +125,21 @@ public class StorageTransactionRoyaltyTests
     }
 
     [Fact]
+    public async Task Cancel_of_a_purchase_is_refused_while_an_active_write_off_exists()
+    {
+        var st = await SeedPurchaseAsync(participantWarehouse: true, situation: RoyaltySituation.Declared);
+        st.TransactionStatus = StorageTransactionsStatus.Confirmed;
+        await _db.SaveChangesAsync();
+        await AddActiveWriteOffAsync(st);
+        var service = new StorageTransactionsCancelService(_db, new ShipmentReleasesRecalculateShippedService(_db.Context));
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(st.Key, "tester"));
+
+        Assert.Contains("baixa ITS ativa (ITS-1)", ex.Message);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, st.TransactionStatus);
+    }
+
+    [Fact]
     public async Task Reverse_is_refused_while_an_active_write_off_exists()
     {
         var st = await SeedReceiptAsync(true, StorageTransactionsStatus.Confirmed, RoyaltySituation.Declared);
