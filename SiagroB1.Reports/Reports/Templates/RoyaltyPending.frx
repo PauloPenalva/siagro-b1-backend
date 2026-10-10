@@ -71,7 +71,7 @@
       <TextObject Name="txtEmpty" Left="0" Top="22" Width="1084" Height="17" Text="[IIf([pItemCount] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" Font="Consolas, 8pt, style=Italic"/>
     </ReportSummaryBand>
     <PageFooterBand Name="PageFooter1" Top="204" Width="1084" Height="26">
-      <TextObject Name="txtFooterNote" Width="900" Height="18.9" Text="Saldo = peso líquido do romaneio menos as baixas ITS ativas. Romaneios de recebimento confirmados de produtos que controlam royalties." VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtFooterNote" Width="900" Height="18.9" Text="Saldo = peso líquido do romaneio menos as baixas ITS ativas. Romaneios de recebimento e de compra (carregamento em terceiro) confirmados ou faturados, de produtos que controlam royalties." VertAlign="Center" Font="Tahoma, 6pt"/>
       <TextObject Name="txtPage" Left="937" Width="147" Height="18.9" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
     </PageFooterBand>
   </ReportPage>

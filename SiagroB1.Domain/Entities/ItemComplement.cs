@@ -32,8 +32,9 @@ public class ItemComplement
     public decimal? CommercialFactor { get; set; }
 
     /// <summary>
-    /// Produto sujeito ao controle de royalties (ITS): tickets e romaneios de recebimento dele exigem
-    /// situação de royalty e origem, e entram na lista de pendentes de baixa.
+    /// Produto sujeito ao controle de royalties (ITS): tickets e romaneios de recebimento e de compra
+    /// (carregamento em terceiro) dele exigem situação de royalty e origem, e entram na lista de
+    /// pendentes de baixa.
     /// </summary>
     [Column(TypeName = "bit")]
     public bool ControlsRoyalties { get; set; }

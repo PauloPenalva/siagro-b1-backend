@@ -6,7 +6,7 @@ namespace SiagroB1.Domain.Entities;
 
 /// <summary>
 /// Baixa feita no ITS (sistema da Bayer) registrada no SiagroB1. Uma baixa cobre um ou mais
-/// romaneios de recebimento, cada um com o peso baixado (pode ser parcial). Não se edita:
+/// romaneios de recebimento ou de compra (carregamento em terceiro), cada um com o peso baixado (pode ser parcial). Não se edita:
 /// errou, cancela e refaz — cancelar devolve o saldo aos romaneios.
 /// </summary>
 [Table("ROYALTY_WRITE_OFFS")]

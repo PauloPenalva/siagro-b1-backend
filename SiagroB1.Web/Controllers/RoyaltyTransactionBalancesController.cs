@@ -9,7 +9,8 @@ using SiagroB1.Infra.Queries;
 namespace SiagroB1.Web.Controllers;
 
 /// <summary>
-/// Saldo de royalties (ITS) por romaneio de recebimento — com e sem saldo; a aba Pendentes
+/// Saldo de royalties (ITS) por romaneio de recebimento e de compra (carregamento em terceiro) —
+/// com e sem saldo; a aba Pendentes
 /// filtra <c>Balance gt 0</c>. Somente leitura.
 /// </summary>
 public class RoyaltyTransactionBalancesController(IUnitOfWork unitOfWork) : ODataController

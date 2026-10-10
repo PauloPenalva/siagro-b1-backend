@@ -13,12 +13,13 @@ public class RoyaltyPendingReportServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private void Receipt(string code, string card, RoyaltySituation situation, decimal net)
+    private void Receipt(string code, string card, RoyaltySituation situation, decimal net,
+        StorageTransactionType type = StorageTransactionType.Receipt)
     {
         _db.Context.StorageTransactions.Add(new StorageTransaction
         {
             Key = Guid.NewGuid(), Code = code, CardCode = card, CardName = "Nome " + card, ItemCode = "SOJA",
-            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = StorageTransactionType.Receipt,
+            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = type,
             TransactionStatus = StorageTransactionsStatus.Confirmed, TransactionDate = new DateTime(2026, 10, 1),
             NetWeight = net, RoyaltySituation = situation, RoyaltyOriginCode = card, RoyaltyOriginName = "Nome " + card,
         });
@@ -47,5 +48,18 @@ public class RoyaltyPendingReportServiceTests
         Assert.Equal(150m, data.Rows[4].Balance);   // subtotal Declarada
         Assert.Equal(180m, data.TotalBalance);
         Assert.Equal(3, data.ItemCount);
+    }
+
+    [Fact]
+    public async Task A_purchase_row_is_labelled_as_compra()
+    {
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        Receipt("C1", "P1", RoyaltySituation.Declared, 40m, StorageTransactionType.Purchase);
+        await _db.SaveChangesAsync();
+
+        var data = await Service(_db).BuildAsync(Request());
+
+        var row = Assert.Single(data.Rows, r => r.Code == "C1");
+        Assert.Equal("Compra", row.Type);
     }
 }

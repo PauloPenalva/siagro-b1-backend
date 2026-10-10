@@ -2,7 +2,10 @@ using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Dtos;
 
-/// <summary>Romaneio de recebimento elegível ao controle de royalties, com o saldo a baixar no ITS.</summary>
+/// <summary>
+/// Romaneio de recebimento ou de compra (carregamento em terceiro) elegível ao controle de
+/// royalties, com o saldo a baixar no ITS.
+/// </summary>
 public class RoyaltyBalanceRow
 {
     public Guid StorageTransactionKey { get; set; }
