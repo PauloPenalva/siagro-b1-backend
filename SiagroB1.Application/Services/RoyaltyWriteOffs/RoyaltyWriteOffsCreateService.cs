@@ -76,7 +76,7 @@ public class RoyaltyWriteOffsCreateService(IUnitOfWork db)
             {
                 WriteOffDate = input.WriteOffDate.Date,
                 ItsId = itsId,
-                TaxId = TaxIdValidator.Digits(input.TaxId),
+                TaxId = TaxIdValidator.Normalize(input.TaxId),
                 Name = name,
                 Situation = situations[0],
                 Status = RoyaltyWriteOffStatus.Active,

@@ -203,4 +203,17 @@ public class RoyaltyWriteOffsCreateServiceTests
         var saved = await _db.Context.RoyaltyWriteOffs.Include(x => x.Lines).AsNoTracking().SingleAsync(x => x.Key == created.Key);
         Assert.Equal(2, saved.Lines.Count);
     }
+
+    [Fact]
+    public async Task Stores_an_alphanumeric_cnpj_uppercased_without_punctuation()
+    {
+        var receipt = Receipt("R1", 1_000m);
+        await _db.SaveChangesAsync();
+        var input = Input("ITS-1", (receipt.Key, 10m)) with { TaxId = "12.abc.345/01de-35" };
+
+        var created = await Service().ExecuteAsync(input, "tester");
+
+        var saved = await _db.Context.RoyaltyWriteOffs.AsNoTracking().SingleAsync(x => x.Key == created.Key);
+        Assert.Equal("12ABC34501DE35", saved.TaxId);
+    }
 }
