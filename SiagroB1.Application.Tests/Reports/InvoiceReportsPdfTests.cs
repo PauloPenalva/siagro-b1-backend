@@ -255,6 +255,41 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("SalesReturns-large", "STANDALONE", pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task FunruralWithholding_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var bought = PurchaseItem();
+        bought.FunruralBase = 1000m;
+        bought.FunruralInssRate = 1.2m;
+        bought.FunruralInssValue = 12m;
+        bought.FunruralRatRate = 0.1m;
+        bought.FunruralRatValue = 1m;
+        bought.FunruralSenarRate = 0.2m;
+        bought.FunruralSenarValue = 2m;
+        db.Context.PurchaseInvoices.Add(Purchase("1", items: [bought]));
+
+        var returned = PurchaseItem();
+        returned.PurchaseInvoiceItemOriginKey = bought.Key;
+        returned.FunruralBase = 400m;
+        returned.FunruralInssValue = 4.8m;
+        returned.FunruralRatValue = 0.4m;
+        returned.FunruralSenarValue = 0.8m;
+        var ret = Purchase("DEV", new DateTime(2026, 8, 5), type: PurchaseInvoiceType.Return, issuer: DocumentIssuerType.Own, items: [returned]);
+        ret.IsNfeReturn = true;
+        db.Context.PurchaseInvoices.Add(ret);
+        await db.Context.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var configuration = Configuration(erp);
+        var pdf = await new FunruralWithholdingReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new FunruralWithholdingRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("FunruralWithholding", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
