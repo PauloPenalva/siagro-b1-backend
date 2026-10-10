@@ -43,6 +43,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(StorageAddress).GetProperty(nameof(StorageAddress.Balance)));
         modelBuilder.EntitySet<StorageTransaction>("StorageTransactions");
         modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
+        var royaltyBalances = modelBuilder.EntitySet<RoyaltyBalanceRow>("RoyaltyTransactionBalances");
+        royaltyBalances.EntityType.HasKey(x => x.StorageTransactionKey);
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
 
@@ -436,6 +438,17 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
         modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ItemModel>("Items");
+
+        // Parametros como string: datas yyyy-MM-dd e enum pelo nome; vazio/null = sem filtro.
+        var royaltyBalanceTotals = modelBuilder.Function("RoyaltyBalanceTotals");
+        royaltyBalanceTotals.Parameter<string>("FromDate").Optional();
+        royaltyBalanceTotals.Parameter<string>("ToDate").Optional();
+        royaltyBalanceTotals.Parameter<string>("CardCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("OriginCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("ItemCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("Situation").Optional();
+        royaltyBalanceTotals.Parameter<string>("StorageAddressCode").Optional();
+        royaltyBalanceTotals.ReturnsCollection<RoyaltyBalanceTotal>();
 
         var itemsGetComplement = modelBuilder.Function("ItemsGetComplement");
         itemsGetComplement.Parameter<string>("ItemCode");
