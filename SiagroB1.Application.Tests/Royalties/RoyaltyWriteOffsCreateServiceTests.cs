@@ -155,9 +155,52 @@ public class RoyaltyWriteOffsCreateServiceTests
         var a = Receipt("R1", 1_000m);
         await _db.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(Input("ITS-1"), "tester"));
+        var empty = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(Input("ITS-1"), "tester"));
+        Assert.Equal("Selecione ao menos um romaneio.", empty.Message);
         var ex = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(Input("ITS-1", (a.Key, 0m)), "tester"));
         Assert.Contains("maior que zero", ex.Message);
+    }
+
+    [Fact]
+    public async Task Refuses_over_long_fields()
+    {
+        var a = Receipt("R1", 1_000m);
+        await _db.SaveChangesAsync();
+        var lines = new[] { new RoyaltyWriteOffLineInput(a.Key, 1m) };
+
+        var its = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            new RoyaltyWriteOffInput(DateTime.Today, new string('x', 51), ValidCpf, "Nome", null, lines), "tester"));
+        var name = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            new RoyaltyWriteOffInput(DateTime.Today, "ITS-1", ValidCpf, new string('x', 201), null, lines), "tester"));
+        var comments = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            new RoyaltyWriteOffInput(DateTime.Today, "ITS-1", ValidCpf, "Nome", new string('x', 501), lines), "tester"));
+
+        Assert.Equal("O ID do ITS deve ter no máximo 50 caracteres.", its.Message);
+        Assert.Equal("O nome deve ter no máximo 200 caracteres.", name.Message);
+        Assert.Equal("As observações devem ter no máximo 500 caracteres.", comments.Message);
+    }
+
+    [Fact]
+    public async Task Refuses_an_empty_guid_key()
+    {
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(Input("ITS-1", (Guid.Empty, 1m)), "tester"));
+
+        Assert.Equal("Selecione ao menos um romaneio.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Accepts_a_receipt_and_a_purchase_of_the_same_situation()
+    {
+        var receipt = Receipt("R1", 1_000m);
+        var purchase = Receipt("P1", 1_000m);
+        purchase.TransactionType = StorageTransactionType.Purchase;
+        await _db.SaveChangesAsync();
+
+        var created = await Service().ExecuteAsync(Input("ITS-1", (receipt.Key, 10m), (purchase.Key, 20m)), "tester");
+
+        var saved = await _db.Context.RoyaltyWriteOffs.Include(x => x.Lines).AsNoTracking().SingleAsync(x => x.Key == created.Key);
+        Assert.Equal(2, saved.Lines.Count);
     }
 }

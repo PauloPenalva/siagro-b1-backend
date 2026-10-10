@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
@@ -35,7 +36,20 @@ public class RoyaltyWriteOffsCreateController(RoyaltyWriteOffsCreateService serv
             parameters.TryGetValue("Weights", out var weightsObj);
 
             var keys = (keysObj as IEnumerable<Guid>)?.ToList() ?? [];
-            var weights = (weightsObj as IEnumerable<double>)?.ToList() ?? [];
+            var weights = new List<double>();
+            if (weightsObj is IEnumerable sequence)
+                foreach (var item in sequence)
+                    weights.Add(item switch
+                    {
+                        double d => d,
+                        decimal m => (double)m,
+                        int i => i,
+                        long l => l,
+                        float f => f,
+                        _ => double.TryParse(item?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+                            ? parsed
+                            : throw new ApplicationException($"Peso inválido: {item}"),
+                    });
             if (keys.Count != weights.Count)
                 return BadRequest("Romaneios e pesos não conferem.");
 
