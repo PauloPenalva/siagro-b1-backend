@@ -82,6 +82,13 @@ public class PurchaseInvoicesItemsUpdateService(
             // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
             InvoiceLineChargeRules.Ensure(existing);
         }
+
+        // Contra-nota: a linha é a da escrituração (spec 2026-10-10 §7) — a grade faz PATCH aqui, não no cabeçalho.
+        if (invoice.ProducerInvoiceKey is not null)
+        {
+            PurchaseInvoiceNfeLock.RestoreCounterNoteLine(entry);
+            InvoiceLineChargeRules.Ensure(existing);
+        }
         PurchaseInvoiceNfeLock.EnsureItemEditable(invoice.NfeStatus, entry);
 
         if (invoice.IsNfeReturn)

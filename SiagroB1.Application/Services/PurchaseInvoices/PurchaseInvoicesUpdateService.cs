@@ -88,6 +88,7 @@ public class PurchaseInvoicesUpdateService(
         var entry = db.Context.Entry(existing);
         PurchaseInvoiceNfeLock.RestoreIssuanceFields(entry);
         PurchaseInvoiceNfeLock.RestoreReturnHeader(entry);
+        PurchaseInvoiceNfeLock.RestoreCounterNoteHeader(entry);
         PurchaseInvoiceNfeLock.EnsureHeaderEditable(entry);
 
         // Mesma recusa do Create: sem ela o PATCH trocaria o tipo de uma entrada própria para Devolução e
@@ -170,7 +171,7 @@ public class PurchaseInvoicesUpdateService(
             .ToList();
 
         if (removed.Count > 0)
-            PurchaseInvoiceNfeLock.EnsureLinesChangeable(existing.NfeStatus);
+            PurchaseInvoiceNfeLock.EnsureLinesRemovable(existing);
 
         foreach (var line in removed)
         {
@@ -245,6 +246,13 @@ public class PurchaseInvoicesUpdateService(
             {
                 PurchaseInvoiceNfeLock.RestoreReturnLine(lineEntry);
                 // Revalida com o preço/produto que a trava restaurou: o Ensure do início viu os valores do corpo.
+                InvoiceLineChargeRules.Ensure(current);
+            }
+
+            // Contra-nota: a linha é a da escrituração (spec 2026-10-10 §7).
+            if (existing.ProducerInvoiceKey is not null)
+            {
+                PurchaseInvoiceNfeLock.RestoreCounterNoteLine(lineEntry);
                 InvoiceLineChargeRules.Ensure(current);
             }
             PurchaseInvoiceNfeLock.EnsureItemEditable(existing.NfeStatus, lineEntry);

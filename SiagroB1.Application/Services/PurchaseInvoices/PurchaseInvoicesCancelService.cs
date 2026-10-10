@@ -66,5 +66,8 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         if (await db.Context.PurchaseInvoices.AnyAsync(x =>
                 x.PurchaseInvoiceOriginKey == key && x.IsNfeReturn && x.InvoiceStatus != InvoiceStatus.Cancelled))
             throw new DefaultException("Documento de entrada possui devolução.");
+
+        // A contra-nota referencia a chave desta escrituração (spec 2026-10-10 D10).
+        await PurchaseInvoiceCounterNote.EnsureNoValidAsync(db.Context, key, "cancelar a escrituração");
     }
 }

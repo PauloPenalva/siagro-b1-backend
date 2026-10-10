@@ -62,6 +62,28 @@ public static class PurchaseInvoiceNfeLock
         nameof(PurchaseInvoiceItem.SalesInvoiceItemKey),
     ];
 
+    /// <summary>
+    /// Na contra-nota o que veio da escrituração não muda (spec 2026-10-10 §7): só transporte, pesos, volume, datas e
+    /// observações são editáveis.
+    /// </summary>
+    private static readonly string[] CounterNoteHeaderFields =
+    [
+        nameof(PurchaseInvoice.CardCode), nameof(PurchaseInvoice.CardName), nameof(PurchaseInvoice.BranchCode),
+        nameof(PurchaseInvoice.InvoiceType), nameof(PurchaseInvoice.IssuerType), nameof(PurchaseInvoice.PaymentConditionCode),
+        nameof(PurchaseInvoice.PurchaseInvoiceOriginKey), nameof(PurchaseInvoice.ProducerInvoiceKey),
+    ];
+
+    /// <summary>Na linha da contra-nota nada que veio da escrituração muda (a fotografia fiscal nem é copiada do corpo).</summary>
+    private static readonly string[] CounterNoteLineFields =
+    [
+        .. ItemFiscalFields, nameof(PurchaseInvoiceItem.ItemName), nameof(PurchaseInvoiceItem.PurchaseContractKey),
+        nameof(PurchaseInvoiceItem.SalesInvoiceItemKey), nameof(PurchaseInvoiceItem.PurchaseInvoiceItemOriginKey),
+        nameof(PurchaseInvoiceItem.ProducerInvoiceItemKey),
+    ];
+
+    private const string CounterNoteLinesMessage =
+        "A contra-nota tem os mesmos itens da escrituração: não é possível incluir nem excluir item.";
+
     /// <summary>A criação nunca nasce emitida, venha o que vier no corpo.</summary>
     public static void ResetIssuanceFields(PurchaseInvoice invoice)
     {
@@ -129,6 +151,24 @@ public static class PurchaseInvoiceNfeLock
     public static void RestoreReturnLine(EntityEntry<PurchaseInvoiceItem> entry) =>
         NfeLockRules.Restore(entry, ReturnLineFields);
 
+    public static void RestoreCounterNoteHeader(EntityEntry<PurchaseInvoice> entry)
+    {
+        if (entry.OriginalValues[nameof(PurchaseInvoice.ProducerInvoiceKey)] is not null)
+            NfeLockRules.Restore(entry, CounterNoteHeaderFields);
+    }
+
+    public static void RestoreCounterNoteLine(EntityEntry<PurchaseInvoiceItem> entry) =>
+        NfeLockRules.Restore(entry, CounterNoteLineFields);
+
+    /// <summary>Excluir linha: as travas da NF-e e a da contra-nota.</summary>
+    public static void EnsureLinesRemovable(PurchaseInvoice invoice)
+    {
+        EnsureLinesChangeable(invoice.NfeStatus);
+
+        if (invoice.ProducerInvoiceKey is not null)
+            throw new DefaultException(CounterNoteLinesMessage);
+    }
+
     /// <summary>Incluir ou excluir linha.</summary>
     public static void EnsureLinesChangeable(NfeStatus invoiceStatus)
     {
@@ -146,6 +186,9 @@ public static class PurchaseInvoiceNfeLock
         if (invoice.IsNfeReturn)
             throw new DefaultException(
                 "A devolução de compra só tem os itens que vieram da entrada: não é possível incluir item.");
+
+        if (invoice.ProducerInvoiceKey is not null)
+            throw new DefaultException(CounterNoteLinesMessage);
     }
 
     public static void EnsureDeletable(PurchaseInvoice invoice)

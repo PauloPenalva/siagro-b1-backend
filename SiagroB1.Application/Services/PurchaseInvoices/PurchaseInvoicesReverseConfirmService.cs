@@ -29,6 +29,9 @@ public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db)
         if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
             throw new DefaultException("Somente documento confirmado pode ser estornado.");
 
+        // A contra-nota referencia a chave desta escrituração (spec 2026-10-10 D10).
+        await PurchaseInvoiceCounterNote.EnsureNoValidAsync(db.Context, invoice.Key, "estornar a confirmação");
+
         invoice.InvoiceStatus = InvoiceStatus.Pending;
         invoice.ApprovedAt = null;
         invoice.ApprovedBy = null;
