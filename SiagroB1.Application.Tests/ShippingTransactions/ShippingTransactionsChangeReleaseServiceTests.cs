@@ -751,7 +751,28 @@ public class ShippingTransactionsChangeReleaseServiceTests
         var newPurchase = await Tx(change.NewPurchaseStorageTransactionKey!.Value);
         Assert.Equal(RoyaltySituation.Declared, newPurchase.RoyaltySituation);
         Assert.Equal("F0001", newPurchase.RoyaltyOriginCode);
-        Assert.Equal("Produtor Um", newPurchase.RoyaltyOriginName);
+    }
+
+    /// <summary>
+    /// Embarque anterior ao controle de royalties: o produto passou a controlar depois e a compra
+    /// original não tem situação. A troca não pode travar na confirmação da compra nova, que o
+    /// usuário não tem como preencher; ela herda o "sem situação".
+    /// </summary>
+    [Fact]
+    public async Task LegacyPurchaseWithoutRoyaltySituation_ChangeSucceedsAndNewPurchaseStaysWithoutSituation()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0001");
+        var (shipping, _) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync([new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester");
+
+        var change = await ChangeOf(shipping.SalesStorageTransactionKey);
+        var newPurchase = await Tx(change.NewPurchaseStorageTransactionKey!.Value);
+        Assert.Null(newPurchase.RoyaltySituation);
+        Assert.Equal(change.Key, newPurchase.ShippingReleaseChangeKey);
     }
 
     /// <summary>

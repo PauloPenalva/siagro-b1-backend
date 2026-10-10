@@ -63,6 +63,8 @@ public class ShippingTransactionsChangeReleaseService(
 
     private sealed class Plan
     {
+        /// <summary>Chave do documento da troca, reservada antes para a perna de compra nova.</summary>
+        public Guid ChangeKey { get; } = Guid.NewGuid();
         public required ShippingTransaction Shipping { get; init; }
         public required StorageTransaction Sales { get; init; }
         public StorageTransaction? Purchase { get; init; }
@@ -514,7 +516,13 @@ public class ShippingTransactionsChangeReleaseService(
 
         await storageCreateService.ExecuteAsync(
             purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
+        // A trava de royalty isenta a compra gerada por troca cuja original não tem situação
+        // (embarque anterior ao controle). O vínculo é definitivo em RegisterChange; aqui vale só
+        // durante a confirmação e sai antes de qualquer SaveChanges, para não referenciar uma
+        // troca ainda não gravada.
+        purchase.ShippingReleaseChangeKey = plan.ChangeKey;
         await storageConfirmedService.ExecuteAsync(purchase, userName, CommitMode.Deferred, true);
+        purchase.ShippingReleaseChangeKey = null;
         KeepNames(purchase, contract.CardName, plan.Target.DeliveryLocationName);
         // As tarifas de serviço já estão na 8 original: precificar de novo dobraria a soma
         // dos relatórios de serviço.
@@ -541,7 +549,7 @@ public class ShippingTransactionsChangeReleaseService(
     {
         var change = new ShippingReleaseChange
         {
-            Key = Guid.NewGuid(),
+            Key = plan.ChangeKey,
             ShipmentLoadKey = plan.Load.Key,
             OperationGroupKey = operationGroupKey,
             OriginalSalesStorageTransactionKey = plan.Sales.Key,

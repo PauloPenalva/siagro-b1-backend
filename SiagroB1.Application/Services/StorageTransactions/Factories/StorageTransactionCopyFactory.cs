@@ -1,5 +1,4 @@
-﻿using SiagroB1.Application.Services.Royalties;
-using SiagroB1.Domain.Entities;
+﻿using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Application.Services.StorageTransactions.Factories;

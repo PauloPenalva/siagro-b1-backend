@@ -149,7 +149,8 @@ public class StorageTransactionRoyaltyTests
         writeOff.Status = RoyaltyWriteOffStatus.Cancelled;
         await _db.SaveChangesAsync();
 
-        await Services.Royalties.RoyaltyRules.EnsureNoActiveWriteOffAsync(_db.Context, st.Key);
+        Assert.Null(await Record.ExceptionAsync(() =>
+            Services.Royalties.RoyaltyRules.EnsureNoActiveWriteOffAsync(_db.Context, st.Key)));
     }
 
     private async Task<StorageTransaction> SeedPurchaseAsync(
@@ -169,6 +170,78 @@ public class StorageTransactionRoyaltyTests
         _db.Context.StorageTransactions.Add(st);
         await _db.SaveChangesAsync();
         return st;
+    }
+
+    private static readonly Dictionary<string, string> Partners = new() { ["P0002"] = "Produtor Origem" };
+
+    private StorageTransactionsCreateService Create() => new(
+        _db,
+        new FakeDocNumberSequenceService(),
+        new FakeBusinessPartnerService(Partners),
+        new FakeItemService(new() { ["SOJA"] = "Soja" }),
+        new FakeWarehouseService(new() { ["ARM01"] = "Armazém 01" }),
+        new ShipmentReleasesRecalculateShippedService(_db.Context),
+        new ShipmentReleaseMovementGuardService(_db.Context),
+        NullLogger<StorageTransactionsCreateService>.Instance);
+
+    private StorageTransactionsUpdateService Update() => new(
+        _db.Context,
+        _db,
+        new FakeBusinessPartnerService(Partners),
+        new FakeItemService(new() { ["SOJA"] = "Soja" }),
+        new FakeWarehouseService(new() { ["ARM01"] = "Armazém 01" }),
+        NullLogger<StorageTransactionsUpdateService>.Instance);
+
+    private static StorageTransaction NewDraft(StorageTransactionType type) => new()
+    {
+        Key = Guid.NewGuid(), CardCode = "P0001", ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+        WarehouseCode = "ARM01", BranchCode = "01", TransactionType = type,
+        TransactionStatus = StorageTransactionsStatus.Pending,
+        RoyaltySituation = RoyaltySituation.Declared, RoyaltyOriginCode = "P0002",
+    };
+
+    [Fact]
+    public async Task Create_resolves_the_royalty_origin_name_from_the_partner_on_a_receipt()
+    {
+        var created = await Create().ExecuteAsync(NewDraft(StorageTransactionType.Receipt), "tester");
+
+        Assert.Equal("Produtor Origem", created.RoyaltyOriginName);
+    }
+
+    [Fact]
+    public async Task Create_uses_the_warehouse_name_as_royalty_origin_name_on_a_purchase()
+    {
+        var created = await Create().ExecuteAsync(NewDraft(StorageTransactionType.Purchase), "tester");
+
+        Assert.Equal("Armazém 01", created.RoyaltyOriginName);
+    }
+
+    [Fact]
+    public async Task Update_resolves_the_royalty_origin_name_from_the_partner_on_a_receipt()
+    {
+        var created = await Create().ExecuteAsync(NewDraft(StorageTransactionType.Receipt), "tester");
+        var edit = NewDraft(StorageTransactionType.Receipt);
+        edit.Key = created.Key;
+        edit.Code = created.Code;
+
+        await Update().ExecuteAsync(created.Key, edit, "tester");
+        var updated = _db.Context.StorageTransactions.Single(x => x.Key == created.Key);
+
+        Assert.Equal("Produtor Origem", updated.RoyaltyOriginName);
+    }
+
+    [Fact]
+    public async Task Update_uses_the_warehouse_name_as_royalty_origin_name_on_a_purchase()
+    {
+        var created = await Create().ExecuteAsync(NewDraft(StorageTransactionType.Purchase), "tester");
+        var edit = NewDraft(StorageTransactionType.Purchase);
+        edit.Key = created.Key;
+        edit.Code = created.Code;
+
+        await Update().ExecuteAsync(created.Key, edit, "tester");
+        var updated = _db.Context.StorageTransactions.Single(x => x.Key == created.Key);
+
+        Assert.Equal("Armazém 01", updated.RoyaltyOriginName);
     }
 
     [Fact]

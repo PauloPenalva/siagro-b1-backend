@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
@@ -30,12 +29,32 @@ public static class RoyaltyRules
 
     /// <summary>
     /// Romaneios que exigem a situação de royalty ao confirmar (quando o produto controla):
-    /// Recebimento e Compra. A Compra da Conferência de saldo de armazém é movimento de papel.
+    /// Recebimento e Compra. Ficam isentas: a Compra da Conferência de saldo de armazém (movimento
+    /// de papel) e a Compra gerada por troca de liberação cuja original não tem situação, isto é,
+    /// um embarque anterior ao controle de royalties — o usuário não tem como preencher uma
+    /// compra que o sistema criou, então ela herda o "sem situação" da original.
     /// </summary>
     public static bool RequiresRoyalty(StorageTransaction st) =>
         st.TransactionType == StorageTransactionType.Receipt ||
         (st.TransactionType == StorageTransactionType.Purchase &&
-         st.TransactionOrigin != TransactionCode.WarehouseReconciliation);
+         st.TransactionOrigin != TransactionCode.WarehouseReconciliation &&
+         !(st.ShippingReleaseChangeKey != null && st.RoyaltySituation == null));
+
+    /// <summary>
+    /// Nome da origem da carga: na Compra a origem é o armazém do carregamento; nos demais, o
+    /// parceiro do código (se o cadastro não o achar, mantém o nome atual).
+    /// </summary>
+    public static async Task<string?> ResolveOriginNameAsync(
+        StorageTransaction st, Func<string, Task<string?>> findPartnerName)
+    {
+        if (st.TransactionType == StorageTransactionType.Purchase)
+            return st.WarehouseName;
+
+        if (string.IsNullOrWhiteSpace(st.RoyaltyOriginCode))
+            return null;
+
+        return await findPartnerName(st.RoyaltyOriginCode) ?? st.RoyaltyOriginName;
+    }
 
     /// <summary>
     /// Na Compra (carregamento em terceiro) a origem é o armazém do carregamento, já gravado no

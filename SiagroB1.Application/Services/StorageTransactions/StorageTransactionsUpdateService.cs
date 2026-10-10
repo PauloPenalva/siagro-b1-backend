@@ -45,9 +45,8 @@ public class StorageTransactionsUpdateService(
             existingEntity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             existingEntity.RoyaltyTestCode =
                 RoyaltyRules.NormalizeTestCode(existingEntity.RoyaltySituation, existingEntity.RoyaltyTestCode);
-            existingEntity.RoyaltyOriginName = string.IsNullOrWhiteSpace(existingEntity.RoyaltyOriginCode)
-                ? null
-                : (await businessPartnerService.GetByIdAsync(existingEntity.RoyaltyOriginCode))?.CardName;
+            existingEntity.RoyaltyOriginName = await RoyaltyRules.ResolveOriginNameAsync(
+                existingEntity, async code => (await businessPartnerService.GetByIdAsync(code))?.CardName);
 
             existingEntity.UpdatedBy = userName;
             existingEntity.UpdatedAt = DateTime.Now;
