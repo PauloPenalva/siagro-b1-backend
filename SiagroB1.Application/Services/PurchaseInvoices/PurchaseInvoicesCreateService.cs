@@ -96,6 +96,11 @@ public class PurchaseInvoicesCreateService(
         if (await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             PurchaseInvoiceSupplierItemNumbers.Ensure(invoice, invoice.Items);
 
+        // Funrural é calculado, nunca digitado: o que vier no corpo sai, e o ApplyAsync grava o da natureza quando a regra
+        // está ativa (fora dela, a linha fica sem Funrural).
+        foreach (var item in invoice.Items)
+            PurchaseInvoiceFunrural.Clear(item);
+
         // Tributos pela natureza, ANTES de gravar: as guardas recusam com mensagem de negócio.
         await taxApply.ApplyAsync(invoice, invoice.Items);
 
