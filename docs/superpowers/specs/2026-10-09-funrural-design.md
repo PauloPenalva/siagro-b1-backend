@@ -47,8 +47,8 @@ Decisões do usuário (brainstorming 09/10/2026):
 | `FunruralSenarRate` | SENAR (%) |
 
 - Vazio ou zero = parcela não retida. Natureza com as três vazias/zeradas = sem Funrural.
-- Validação no salvar: cada alíquota entre 0 e 100 ("A alíquota de {parcela} do Funrural deve
-  estar entre 0 e 100.").
+- Validação no salvar: cada alíquota entre 0 e 100, no formato das demais ("Alíquota de INSS do
+  Funrural deve estar entre 0 e 100.", idem RAT e SENAR).
 - `UsageModel` (e o DTO lido por `IUsage`) carrega as três.
 - Só existe no modo STANDALONE (a natureza SAPB1 `OUSG` não tem tributação — e o cálculo nem roda,
   §4).
