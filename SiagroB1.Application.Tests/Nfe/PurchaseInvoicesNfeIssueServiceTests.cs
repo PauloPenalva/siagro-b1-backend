@@ -294,4 +294,41 @@ public class PurchaseInvoicesNfeIssueServiceTests
         var vNF = XDocument.Parse(Assert.Single(sefaz.Sent).Xml).Descendants(ns + "vNF").Single().Value;
         Assert.Equal(1600m, decimal.Parse(vNF, CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public async Task Funrural_text_goes_to_the_complementary_info_after_the_nature_text()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await ChangeAsync(scenario, invoice =>
+        {
+            invoice.TaxPayerComments = "Safra 25/26";
+            PurchaseInvoiceFunrural.Apply(invoice.Items.Single(), 1.32m, 0.11m, 0.20m);
+        });
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var infCpl = XDocument.Parse(Assert.Single(sefaz.Sent).Xml).Descendants().Single(e => e.Name.LocalName == "infCpl").Value;
+        Assert.Equal(
+            "Produtor optante pelo recolhimento pela folha de pagamento. | " +
+            "Contribuição Social denominada Funrural 1,63% = R$ 24,45 (INSS 1,32% R$ 19,80; RAT 0,11% R$ 1,65; SENAR 0,20% R$ 3,00) | " +
+            "Safra 25/26",
+            infCpl);
+    }
+
+    [Fact]
+    public async Task Funrural_does_not_change_the_note_total()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await ChangeAsync(scenario, invoice => PurchaseInvoiceFunrural.Apply(invoice.Items.Single(), 1.32m, 0.11m, 0.20m));
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await Issue(scenario, sefaz).ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var vNF = XDocument.Parse(Assert.Single(sefaz.Sent).Xml).Descendants().Single(e => e.Name.LocalName == "vNF").Value;
+        Assert.Equal(1500m, decimal.Parse(vNF, CultureInfo.InvariantCulture));
+        Assert.Equal(1500m, (await ReloadAsync(scenario)).TotalDocumentValue);
+    }
 }

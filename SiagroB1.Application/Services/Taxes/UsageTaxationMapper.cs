@@ -59,6 +59,9 @@ internal static class UsageTaxationMapper
         usage.IbsCbsClassCode = Normalize(model.IbsCbsClassCode);
         usage.IbsRateReduction = model.IbsRateReduction;
         usage.CbsRateReduction = model.CbsRateReduction;
+        usage.FunruralInssRate = model.FunruralInssRate;
+        usage.FunruralRatRate = model.FunruralRatRate;
+        usage.FunruralSenarRate = model.FunruralSenarRate;
 
         // A natureza de devolução vale nos dois sentidos (venda → devolução de venda, compra → devolução
         // de compra); o sentido oposto é validado pelo UsageService antes de chegar aqui.

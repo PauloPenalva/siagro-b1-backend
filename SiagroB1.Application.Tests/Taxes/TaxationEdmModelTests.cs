@@ -38,4 +38,17 @@ public class TaxationEdmModelTests
         Assert.Equal("Edm.String", function.Parameters.Single(p => p.Name == "BranchCode").Type.FullName());
         Assert.Equal("Edm.Boolean", function.ReturnType.FullName());
     }
+
+    [Fact]
+    public void Funrural_totals_are_exposed()
+    {
+        var model = Model();
+        var invoice = model.EntityContainer.FindEntitySet("PurchaseInvoices")!.EntityType;
+        var item = model.EntityContainer.FindEntitySet("PurchaseInvoicesItems")!.EntityType;
+
+        Assert.NotNull(invoice.FindProperty("TotalFunrural"));
+        Assert.NotNull(invoice.FindProperty("NetPayable"));
+        Assert.NotNull(item.FindProperty("FunruralValue"));
+        Assert.NotNull(item.FindProperty("FunruralSenarValue"));
+    }
 }

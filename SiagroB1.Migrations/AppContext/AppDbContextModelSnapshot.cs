@@ -2645,6 +2645,27 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("FreightValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<decimal>("FunruralBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralInssRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralInssValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralRatRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralRatValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralSenarRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("FunruralSenarValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<byte?>("GoodsOrigin")
                         .HasColumnType("TINYINT");
 
@@ -5748,6 +5769,15 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("ExcludeIcmsFromPisCofinsBase")
                         .HasColumnType("bit");
+
+                    b.Property<decimal?>("FunruralInssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("FunruralRatRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("FunruralSenarRate")
+                        .HasColumnType("DECIMAL(7,4)");
 
                     b.Property<string>("IbsCbsClassCode")
                         .HasColumnType("VARCHAR(6)");

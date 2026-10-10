@@ -43,6 +43,9 @@ public class PurchaseInvoicesItemsCreateService(
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
 
+        // Funrural é calculado, nunca digitado (ver PurchaseInvoicesCreateService).
+        PurchaseInvoiceFunrural.Clear(item);
+
         // Tributos pela natureza (no-op com a regra inativa, devolução do cliente ou documento confirmado).
         await taxApply.ApplyAsync(invoice, [item]);
 

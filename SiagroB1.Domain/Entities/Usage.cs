@@ -105,6 +105,12 @@ public class Usage
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? IbsRateReduction { get; set; }
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? CbsRateReduction { get; set; }
 
+    // Funrural (spec 2026-10-09 §2): retenção do produtor rural na compra. Vazio/zero = parcela não retida.
+    // PF, PJ (INSS e RAT combinados no INSS) e decisão judicial (só SENAR) são naturezas distintas.
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? FunruralInssRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? FunruralRatRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? FunruralSenarRate { get; set; }
+
     /// <summary>
     /// Natureza de devolução, SEMPRE da direção OPOSTA à desta (só STANDALONE): a natureza de Saída
     /// (venda) aponta a de Entrada que a devolução de venda usa; a de Entrada (compra) aponta a de

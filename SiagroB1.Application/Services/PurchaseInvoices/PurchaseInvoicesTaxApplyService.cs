@@ -92,6 +92,15 @@ public class PurchaseInvoicesTaxApplyService(
                 // antes da spec terceiro-chave): não há com o que conferir. A origem calculada pelo motor é conferida.
                 if (!string.IsNullOrWhiteSpace(origin.CstIcms))
                     NfeReturnConference.Ensure(item, origin, usage.Name, "compra");
+
+                // Funrural da devolução: as alíquotas da COMPRA, não as da natureza de devolução — quem comprou só
+                // com SENAR devolve só com SENAR, mesmo com o cadastro alterado depois (spec 2026-10-09 §5).
+                PurchaseInvoiceFunrural.Apply(item, origin.FunruralInssRate, origin.FunruralRatRate, origin.FunruralSenarRate);
+            }
+            else
+            {
+                // Funrural pela natureza da linha (spec 2026-10-09 §2): PF, PJ e decisão judicial são naturezas distintas.
+                PurchaseInvoiceFunrural.Apply(item, usage.FunruralInssRate, usage.FunruralRatRate, usage.FunruralSenarRate);
             }
         }
     }

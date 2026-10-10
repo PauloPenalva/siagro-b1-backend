@@ -348,6 +348,12 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceTaxes)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalInvoiceIbsCbs)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalFunrural)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.NetPayable)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
+            .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.FunruralValue)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.TotalTaxes)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))

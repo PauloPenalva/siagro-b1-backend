@@ -225,4 +225,34 @@ public class UsageTaxationValidatorTests
         m.IbsCbsClassCode = "510001";
         Invalid(m, "CST de IBS/CBS");
     }
+
+    [Theory]
+    [InlineData("INSS")]
+    [InlineData("RAT")]
+    [InlineData("SENAR")]
+    public void Funrural_rates_must_be_between_0_and_100(string part)
+    {
+        foreach (var value in new[] { -0.01m, 100.01m })
+        {
+            var m = Empty(UsageDirection.Incoming);
+            switch (part)
+            {
+                case "INSS": m.FunruralInssRate = value; break;
+                case "RAT": m.FunruralRatRate = value; break;
+                default: m.FunruralSenarRate = value; break;
+            }
+            Invalid(m, $"Alíquota de {part} do Funrural deve estar entre 0 e 100.");
+        }
+    }
+
+    [Fact]
+    public void Funrural_rates_are_optional_and_accept_the_current_values()
+    {
+        var m = Empty(UsageDirection.Incoming);
+        m.FunruralInssRate = 1.32m;
+        m.FunruralRatRate = 0.11m;
+        m.FunruralSenarRate = 0.20m;
+
+        UsageTaxationValidator.Validate(m);
+    }
 }
