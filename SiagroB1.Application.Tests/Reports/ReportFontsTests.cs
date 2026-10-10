@@ -14,7 +14,7 @@ public class ReportFontsTests
     {
         var templates = Directory.GetFiles(AppContext.BaseDirectory, "*.frx", SearchOption.AllDirectories);
         var used = templates
-            .SelectMany(file => Regex.Matches(File.ReadAllText(file), "Font=\"([^\",]+)").Select(m => m.Groups[1].Value))
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"\bFont=""([^"",]+)").Select(m => m.Groups[1].Value))
             .ToHashSet();
 
         Assert.NotEmpty(templates);

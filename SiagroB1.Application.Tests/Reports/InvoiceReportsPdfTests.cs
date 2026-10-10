@@ -290,6 +290,30 @@ public class InvoiceReportsPdfTests : IDisposable
         Keep("FunruralWithholding", erp, pdf);
     }
 
+    [Theory]
+    [InlineData("STANDALONE")]
+    [InlineData("SAPB1")]
+    public async Task RoyaltyPending_ProducesAPdf(string erp)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "R1", CardCode = "P0001", CardName = "Produtor", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = StorageTransactionType.Receipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, TransactionDate = Jul01,
+            NetWeight = 31_234.567m, RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-1",
+            RoyaltyOriginCode = "P0001", RoyaltyOriginName = "Produtor",
+        });
+        await db.SaveChangesAsync();
+        var configuration = Configuration(erp);
+
+        var pdf = await new RoyaltyPendingReportService(db, FastReport(configuration), configuration)
+            .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31 });
+
+        Keep("RoyaltyPending", erp, pdf);
+    }
+
     private FastReportService FastReport(IConfiguration configuration)
     {
         var env = new TestWebHostEnvironment(_contentRoot);
