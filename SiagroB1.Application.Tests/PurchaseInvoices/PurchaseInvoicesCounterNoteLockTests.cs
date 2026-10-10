@@ -166,4 +166,83 @@ public class PurchaseInvoicesCounterNoteLockTests
 
         Assert.Equal(producer.Key, created.PurchaseInvoiceOriginKey);
     }
+    private const string ProducerReferencedMessage =
+        "A escrituração tem contra-nota emitida a partir dela: cancele o documento em vez de excluí-lo.";
+
+    /// <summary>
+    /// D11: a contra-nota rejeitada é cancelada e a escrituração pode voltar a Pendente — mas a contra-nota cancelada é
+    /// registro fiscal e continua apontando para ela (FKs Restrict: no banco real o delete estouraria 547).
+    /// </summary>
+    private static async Task<(PurchaseNfeScenario Scenario, PurchaseInvoice Producer, PurchaseInvoice Note)> SeedWithCancelledNoteAsync()
+    {
+        var (scenario, producer, note) = await SeedAsync();
+        var stored = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == note.Key);
+        stored.InvoiceStatus = InvoiceStatus.Cancelled;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        return (scenario, await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key), note);
+    }
+
+    [Fact]
+    public async Task Producer_referenced_by_a_cancelled_counter_note_cannot_be_deleted()
+    {
+        var (scenario, producer, _) = await SeedWithCancelledNoteAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesDeleteService(scenario.Db).ExecuteAsync(producer.Key));
+
+        Assert.Equal(ProducerReferencedMessage, e.Message);
+    }
+
+    [Fact]
+    public async Task Producer_line_referenced_by_a_cancelled_counter_note_cannot_be_deleted()
+    {
+        var (scenario, producer, _) = await SeedWithCancelledNoteAsync();
+        var line = producer.Items.Single(i => i.ItemCode == "TRIGO");
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsDeleteService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()))
+                .ExecuteAsync(line.Key!.Value));
+
+        Assert.Equal("O item TRIGO foi reproduzido numa contra-nota e não pode ser excluído.", e.Message);
+    }
+
+    [Fact]
+    public async Task Producer_line_referenced_by_a_cancelled_counter_note_cannot_be_removed_by_the_header_patch()
+    {
+        var (scenario, producer, _) = await SeedWithCancelledNoteAsync();
+        var incoming = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key);
+        incoming.Items.Remove(incoming.Items.Single(i => i.ItemCode == "TRIGO"));
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesUpdateService(scenario.Db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), Apply(scenario))
+                .ExecuteAsync(producer.Key, incoming, "tester"));
+
+        Assert.Equal("O item TRIGO foi reproduzido numa contra-nota e não pode ser excluído.", e.Message);
+    }
+
+    [Fact]
+    public async Task Header_patch_cannot_add_and_remove_counter_note_lines()
+    {
+        var (scenario, _, note) = await SeedAsync();
+        var incoming = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, note.Key);
+        incoming.Items.Remove(incoming.Items.Single(i => i.ItemCode == "TRIGO"));
+        incoming.Items.Add(new PurchaseInvoiceItem
+        {
+            PurchaseInvoiceKey = note.Key, ItemCode = "MILHO", ItemName = "MILHO EM GRAOS", UnitOfMeasureCode = "KG",
+            Quantity = 1m, UnitPrice = 1m,
+        });
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesUpdateService(scenario.Db, PurchaseNfeTestSeed.Partners(), new FakeItemService(), Apply(scenario))
+                .ExecuteAsync(note.Key, incoming, "tester"));
+
+        Assert.Equal(LinesMessage, e.Message);
+    }
 }

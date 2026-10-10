@@ -32,6 +32,36 @@ public static class PurchaseInvoiceCounterNote
     }
 
     /// <summary>
+    /// A contra-nota guarda o vínculo com a escrituração mesmo cancelada — é registro fiscal (D11) — e as FKs são
+    /// Restrict: sem esta recusa, excluir a escrituração que voltou a Pendente estouraria 547 no banco real (o InMemory
+    /// dos testes não acusa). Vale para qualquer contra-nota, válida ou não.
+    /// </summary>
+    public static async Task EnsureNotReferencedAsync(AppDbContext context, Guid invoiceKey)
+    {
+        if (await context.PurchaseInvoices.AnyAsync(i => i.ProducerInvoiceKey == invoiceKey))
+            throw new DefaultException(
+                "A escrituração tem contra-nota emitida a partir dela: cancele o documento em vez de excluí-lo.");
+    }
+
+    /// <summary>Mesma regra para a linha: a linha da contra-nota aponta para a da escrituração (Restrict).</summary>
+    public static async Task EnsureLinesNotReferencedAsync(AppDbContext context, IEnumerable<PurchaseInvoiceItem> lines)
+    {
+        var byKey = lines.Where(l => l.Key is not null).ToDictionary(l => l.Key!.Value);
+        if (byKey.Count == 0)
+            return;
+
+        var keys = byKey.Keys.ToList();
+        var referenced = await context.PurchaseInvoicesItems
+            .Where(i => i.ProducerInvoiceItemKey != null && keys.Contains(i.ProducerInvoiceItemKey.Value))
+            .Select(i => i.ProducerInvoiceItemKey!.Value)
+            .FirstOrDefaultAsync();
+
+        if (referenced != Guid.Empty)
+            throw new DefaultException(
+                $"O item {byKey[referenced].ItemCode} foi reproduzido numa contra-nota e não pode ser excluído.");
+    }
+
+    /// <summary>
     /// A escrituração conferida na emissão da contra-nota, antes de reservar o número: precisa continuar confirmada e com
     /// a chave — é ela que vai no NFref.
     /// </summary>

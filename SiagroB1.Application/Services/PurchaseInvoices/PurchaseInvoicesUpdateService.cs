@@ -171,7 +171,10 @@ public class PurchaseInvoicesUpdateService(
             .ToList();
 
         if (removed.Count > 0)
+        {
             PurchaseInvoiceNfeLock.EnsureLinesRemovable(existing);
+            await PurchaseInvoiceCounterNote.EnsureLinesNotReferencedAsync(db.Context, removed);
+        }
 
         foreach (var line in removed)
         {
