@@ -45,6 +45,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<StorageEntryTransaction>("StorageEntryTransactions");
         var royaltyBalances = modelBuilder.EntitySet<RoyaltyBalanceRow>("RoyaltyTransactionBalances");
         royaltyBalances.EntityType.HasKey(x => x.StorageTransactionKey);
+        modelBuilder.EntitySet<RoyaltyWriteOff>("RoyaltyWriteOffs");
+        modelBuilder.EntitySet<RoyaltyWriteOffLine>("RoyaltyWriteOffLines");
         modelBuilder.EntitySet<StorageTransactionQualityInspection>("StorageTransactionsQualityInspections");
         modelBuilder.EntitySet<LogisticRegion>("LogisticRegions");
 
@@ -556,6 +558,10 @@ public static class ODataConfigurations
         // double, não decimal: o UI5 v4 serializa Edm.Decimal como string.
         royaltyWriteOffsCreate.CollectionParameter<double>("Weights");
         royaltyWriteOffsCreate.Returns<IActionResult>();
+
+        var royaltyWriteOffsCancel = modelBuilder.Action("RoyaltyWriteOffsCancel");
+        royaltyWriteOffsCancel.Parameter<Guid>("Key");
+        royaltyWriteOffsCancel.Returns<IActionResult>();
 
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");

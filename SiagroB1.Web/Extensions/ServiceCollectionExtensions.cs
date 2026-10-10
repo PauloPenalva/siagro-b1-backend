@@ -528,7 +528,8 @@ public static class ServiceCollectionExtensions
 
         // royalties (baixas no ITS)
         services.AddScoped<RoyaltyWriteOffsCreateService>();
-        
+        services.AddScoped<RoyaltyWriteOffsCancelService>();
+
         // storage addresses
         services.AddScoped<StorageAddressesCreateService>();
         services.AddScoped<StorageAddressesDeleteService>();
