@@ -119,14 +119,45 @@ public class RoyaltyBalanceQueryTests
     }
 
     [Fact]
-    public async Task Pending_only_hides_fully_written_off_receipts()
+    public async Task Pending_scope_hides_fully_written_off_receipts()
     {
         var st = Receipt("R1", 1_234.567m);
         WriteOff(st, 1_234.567m);
         await _db.SaveChangesAsync();
 
         Assert.Empty(await RunAsync());
-        Assert.Single(await RunAsync(new RoyaltyBalanceFilter { PendingOnly = false }));
+        Assert.Empty(await RunAsync(new RoyaltyBalanceFilter { Scope = RoyaltyBalanceScope.Pending }));
+    }
+
+    [Fact]
+    public async Task Written_off_scope_keeps_only_fully_written_off_receipts()
+    {
+        var full = Receipt("R1", 1_000m);
+        WriteOff(full, 1_000m);
+        var partial = Receipt("R2", 1_000m);
+        WriteOff(partial, 400m);
+        Receipt("R3", 1_000m);
+        var cancelled = Receipt("R4", 1_000m);
+        WriteOff(cancelled, 1_000m, RoyaltyWriteOffStatus.Cancelled);
+        Receipt("R5", 0m);
+        await _db.SaveChangesAsync();
+
+        var rows = await RunAsync(new RoyaltyBalanceFilter { Scope = RoyaltyBalanceScope.WrittenOff });
+
+        Assert.Equal(["R1"], rows.Select(x => x.Code));
+    }
+
+    [Fact]
+    public async Task All_scope_has_no_balance_filter()
+    {
+        var full = Receipt("R1", 1_000m);
+        WriteOff(full, 1_000m);
+        Receipt("R2", 1_000m);
+        await _db.SaveChangesAsync();
+
+        var rows = await RunAsync(new RoyaltyBalanceFilter { Scope = RoyaltyBalanceScope.All });
+
+        Assert.Equal(["R1", "R2"], rows.Select(x => x.Code));
     }
 
     [Fact]

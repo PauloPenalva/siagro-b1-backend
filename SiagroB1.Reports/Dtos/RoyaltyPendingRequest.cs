@@ -1,7 +1,7 @@
 // SiagroB1.Reports/Dtos/RoyaltyPendingRequest.cs
 namespace SiagroB1.Reports.Dtos;
 
-/// <summary>Filtros de "Royalties ITS — Pendentes de Baixa" (período = data do romaneio).</summary>
+/// <summary>Filtros de "Royalties ITS" (período = data do romaneio).</summary>
 public class RoyaltyPendingRequest
 {
     public DateTime FromDate { get; set; }
@@ -12,4 +12,6 @@ public class RoyaltyPendingRequest
     /// <summary>Nome do membro de RoyaltySituation (ex.: "Declared"); vazio = todas.</summary>
     public string? Situation { get; set; }
     public string? StorageAddressCode { get; set; }
+    /// <summary>Nome do membro de RoyaltyBalanceScope ("Pending", "WrittenOff", "All"); vazio = Pending.</summary>
+    public string? Scope { get; set; }
 }

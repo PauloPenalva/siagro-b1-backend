@@ -8,14 +8,14 @@ using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Web.Functions.Royalties;
 
-/// <summary>Totais por situação dos pendentes, com os mesmos filtros da tela.</summary>
+/// <summary>Totais por situação (abrangência: a baixar, baixados ou todos), com os mesmos filtros da tela.</summary>
 public class RoyaltyBalanceTotalsController(IUnitOfWork unitOfWork) : ODataController
 {
-    [HttpGet("odata/RoyaltyBalanceTotals(FromDate={fromDate},ToDate={toDate},CardCode={cardCode},OriginCode={originCode},ItemCode={itemCode},Situation={situation},StorageAddressCode={storageAddressCode})")]
+    [HttpGet("odata/RoyaltyBalanceTotals(FromDate={fromDate},ToDate={toDate},CardCode={cardCode},OriginCode={originCode},ItemCode={itemCode},Situation={situation},StorageAddressCode={storageAddressCode},Scope={scope})")]
     public async Task<IActionResult> Get(
         [FromODataUri] string? fromDate, [FromODataUri] string? toDate, [FromODataUri] string? cardCode,
         [FromODataUri] string? originCode, [FromODataUri] string? itemCode, [FromODataUri] string? situation,
-        [FromODataUri] string? storageAddressCode)
+        [FromODataUri] string? storageAddressCode, [FromODataUri] string? scope)
     {
         var filter = new RoyaltyBalanceFilter
         {
@@ -26,6 +26,7 @@ public class RoyaltyBalanceTotalsController(IUnitOfWork unitOfWork) : ODataContr
             ItemCode = Clean(itemCode),
             Situation = Enum.TryParse<RoyaltySituation>(Clean(situation), out var s) ? s : null,
             StorageAddressCode = Clean(storageAddressCode),
+            Scope = Enum.TryParse<RoyaltyBalanceScope>(Clean(scope), out var sc) ? sc : RoyaltyBalanceScope.Pending,
         };
 
         var totals = await RoyaltyBalanceQuery.TotalsAsync(

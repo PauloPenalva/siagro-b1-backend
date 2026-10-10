@@ -27,7 +27,7 @@ public class RoyaltyBalanceTotalsEndpointTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private const string AllNull =
-        "FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation=null,StorageAddressCode=null";
+        "FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation=null,StorageAddressCode=null,Scope=null";
 
     private async Task<(WebApplication App, HttpClient Client)> StartAsync()
     {
@@ -99,10 +99,33 @@ public class RoyaltyBalanceTotalsEndpointTests
         await using var _ = app;
 
         Assert.Single(await GetTotalsAsync(client,
-            "FromDate='2026-10-01',ToDate='2026-10-10',CardCode='P0001',OriginCode=null,ItemCode='SOJA',Situation='Tested',StorageAddressCode=null"));
+            "FromDate='2026-10-01',ToDate='2026-10-10',CardCode='P0001',OriginCode=null,ItemCode='SOJA',Situation='Tested',StorageAddressCode=null,Scope=null"));
         Assert.Empty(await GetTotalsAsync(client,
-            "FromDate='2026-10-11',ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation=null,StorageAddressCode=null"));
+            "FromDate='2026-10-11',ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation=null,StorageAddressCode=null,Scope=null"));
         Assert.Empty(await GetTotalsAsync(client,
-            "FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation='Declared',StorageAddressCode=null"));
+            "FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation='Declared',StorageAddressCode=null,Scope=null"));
+    }
+
+    [Fact]
+    public async Task Scope_selects_pending_written_off_or_all()
+    {
+        await SeedAsync();
+        var key = _db.Context.StorageTransactions.Single().Key;
+        _db.Context.RoyaltyWriteOffs.Add(new RoyaltyWriteOff
+        {
+            ItsId = "ITS1", TaxId = "12345678909", Name = "X", Situation = RoyaltySituation.Tested,
+            WriteOffDate = new DateTime(2026, 10, 10),
+            Lines = [new RoyaltyWriteOffLine { StorageTransactionKey = key, Weight = 30_000m }],
+        });
+        await _db.SaveChangesAsync();
+        var (app, client) = await StartAsync();
+        await using var _ = app;
+
+        const string none = "FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation=null,StorageAddressCode=null";
+        Assert.Empty(await GetTotalsAsync(client, none + ",Scope=null"));
+        Assert.Empty(await GetTotalsAsync(client, none + ",Scope='Pending'"));
+        var written = Assert.Single(await GetTotalsAsync(client, none + ",Scope='WrittenOff'"));
+        Assert.Equal(30_000m, written.GetProperty("WrittenOffWeight").GetDecimal());
+        Assert.Single(await GetTotalsAsync(client, none + ",Scope='All'"));
     }
 }

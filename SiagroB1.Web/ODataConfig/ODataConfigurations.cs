@@ -450,6 +450,7 @@ public static class ODataConfigurations
         royaltyBalanceTotals.Parameter<string>("ItemCode").Optional();
         royaltyBalanceTotals.Parameter<string>("Situation").Optional();
         royaltyBalanceTotals.Parameter<string>("StorageAddressCode").Optional();
+        royaltyBalanceTotals.Parameter<string>("Scope").Optional();
         royaltyBalanceTotals.ReturnsCollection<RoyaltyBalanceTotal>();
 
         var itemsGetComplement = modelBuilder.Function("ItemsGetComplement");

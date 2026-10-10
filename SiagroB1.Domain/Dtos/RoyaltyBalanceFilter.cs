@@ -12,6 +12,6 @@ public class RoyaltyBalanceFilter
     public string? ItemCode { get; set; }
     public RoyaltySituation? Situation { get; set; }
     public string? StorageAddressCode { get; set; }
-    /// <summary>Só romaneios com saldo &gt; 0 (padrão).</summary>
-    public bool PendingOnly { get; set; } = true;
+    /// <summary>Abrangência pelo saldo; padrão = só a baixar.</summary>
+    public RoyaltyBalanceScope Scope { get; set; } = RoyaltyBalanceScope.Pending;
 }

@@ -305,11 +305,18 @@ public class InvoiceReportsPdfTests : IDisposable
             NetWeight = 31_234.567m, RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-1",
             RoyaltyOriginCode = "P0001", RoyaltyOriginName = "Produtor",
         });
+        var received = db.Context.StorageTransactions.Local.Single();
+        db.Context.RoyaltyWriteOffs.Add(new RoyaltyWriteOff
+        {
+            ItsId = "ITS-0001", TaxId = "12345678909", Name = "Produtor de Teste", Situation = RoyaltySituation.Tested,
+            WriteOffDate = Jul01,
+            Lines = [new RoyaltyWriteOffLine { StorageTransactionKey = received.Key, Weight = 10_000.5m }],
+        });
         await db.SaveChangesAsync();
         var configuration = Configuration(erp);
 
         var pdf = await new RoyaltyPendingReportService(db, FastReport(configuration), configuration)
-            .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31 });
+            .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31, Scope = "All" });
 
         Keep("RoyaltyPending", erp, pdf);
     }

@@ -27,7 +27,7 @@ public class RoyaltyBalanceEdmModelTests
     {
         var function = Model().SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "RoyaltyBalanceTotals");
 
-        Assert.Equal(7, function.Parameters.Count());
+        Assert.Equal(8, function.Parameters.Count());
         Assert.All(function.Parameters, p => Assert.Equal("Edm.String", p.Type.FullName()));
         Assert.True(function.ReturnType.IsCollection());
     }

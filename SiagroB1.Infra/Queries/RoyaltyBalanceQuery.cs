@@ -57,8 +57,12 @@ public static class RoyaltyBalanceQuery
 
     public static IQueryable<RoyaltyBalanceRow> Apply(IQueryable<RoyaltyBalanceRow> query, RoyaltyBalanceFilter filter)
     {
-        if (filter.PendingOnly)
-            query = query.Where(x => x.Balance > 0);
+        query = filter.Scope switch
+        {
+            RoyaltyBalanceScope.WrittenOff => query.Where(x => x.Balance <= 0 && x.WrittenOffWeight > 0),
+            RoyaltyBalanceScope.All => query,
+            _ => query.Where(x => x.Balance > 0),
+        };
         if (filter.FromDate is { } from)
             query = query.Where(x => x.TransactionDate >= from.Date);
         if (filter.ToDate is { } to)
