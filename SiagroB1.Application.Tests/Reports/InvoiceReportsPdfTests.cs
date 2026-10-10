@@ -333,11 +333,6 @@ public class InvoiceReportsPdfTests : IDisposable
             .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31, Scope = "All" });
 
         Keep("RoyaltyPending", erp, pdf);
-        if (erp == "STANDALONE")
-        {
-            var target = Environment.GetEnvironmentVariable("ROYALTY_SCOPE_PDF");
-            if (!string.IsNullOrEmpty(target)) File.WriteAllBytes(target, pdf);
-        }
     }
 
     private FastReportService FastReport(IConfiguration configuration)

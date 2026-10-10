@@ -130,7 +130,10 @@ public class RoyaltyPendingReportServiceTests
             ["Item:R1", "WriteOff:", "WriteOff:", "Item:R2", "WriteOff:", "Item:R3", "Partner:", "Situation:"],
             data.Rows.Select(r => $"{r.Kind}:{(r.Kind == RoyaltyPendingRowKind.Item ? r.Code : "")}"));
         var writeOffs = data.Rows.Where(r => r.Kind == RoyaltyPendingRowKind.WriteOff).ToList();
-        Assert.Equal(["ITS-A", "ITS-B", "ITS-C"], writeOffs.Select(r => r.Detail.Split(' ')[2]));   // data, depois RowId
+        // ordem: data da baixa, depois RowId
+        string[] ids = ["ITS-A", "ITS-B", "ITS-C"];
+        for (var i = 0; i < ids.Length; i++)
+            Assert.Contains($"ITS {ids[i]} ", writeOffs[i].Detail);
         Assert.Equal("02/10/2026", writeOffs[0].Date);
         Assert.Contains("12345678909", writeOffs[0].Detail);
         Assert.Contains("Fulano ITS-A", writeOffs[0].Detail);
