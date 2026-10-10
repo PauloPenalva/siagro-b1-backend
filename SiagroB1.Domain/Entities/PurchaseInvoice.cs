@@ -240,6 +240,17 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     [NotMapped]
     public decimal GrandTotal => Items.Sum(i => i.GrandTotal);
 
+    /// <summary>Funrural retido das linhas (spec 2026-10-09 §3.3). Não entra no vNF.</summary>
+    [NotMapped]
+    public decimal TotalFunrural => Items.Sum(i => i.FunruralValue);
+
+    /// <summary>
+    /// Líquido a pagar ao produtor (na devolução, a receber): total geral − Funrural retido. É o que a Fase 2 do
+    /// financeiro vai usar quando o título nascer da nota.
+    /// </summary>
+    [NotMapped]
+    public decimal NetPayable => GrandTotal - TotalFunrural;
+
     public void AddItem(PurchaseInvoiceItem item)
     {
         item.PurchaseInvoice = this;

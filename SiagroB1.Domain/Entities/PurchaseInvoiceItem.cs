@@ -183,6 +183,33 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     /// </summary>
     public int? NfeItemNumber { get; set; }
 
+    // --- Funrural (spec 2026-10-09 §3.1): retido pelo comprador, fora da NF-e. Escritor único: PurchaseInvoiceFunrural. ---
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FunruralBase { get; set; }
+
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal FunruralInssRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FunruralInssValue { get; set; }
+
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal FunruralRatRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FunruralRatValue { get; set; }
+
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal FunruralSenarRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FunruralSenarValue { get; set; }
+
+    /// <summary>INSS + RAT + SENAR retidos na linha.</summary>
+    [NotMapped]
+    public decimal FunruralValue => FunruralInssValue + FunruralRatValue + FunruralSenarValue;
+
     /// <summary>ICMS + PIS + COFINS da fotografia (o IBS/CBS de 2026 é informativo e fica fora).</summary>
     [NotMapped]
     public decimal TotalTaxes => IcmsValue + PisValue + CofinsValue;
