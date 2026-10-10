@@ -97,13 +97,14 @@ public class RoyaltyPendingReportServiceTests
     }
 
     [Fact]
-    public async Task Pending_scope_by_default_has_no_write_off_rows_for_settled_receipts()
+    public async Task Pending_scope_by_default_lists_open_receipts_with_their_write_offs()
     {
         await SeedScopesAsync();
 
         var data = await Service(_db).BuildAsync(Request());
 
-        Assert.Equal(["R2", "R3"], data.Rows.Where(r => r.Kind == RoyaltyPendingRowKind.Item).Select(r => r.Code));
+        Assert.Equal(["Item:R2", "WriteOff:", "Item:R3", "Partner:", "Situation:"],
+            data.Rows.Select(r => $"{r.Kind}:{(r.Kind == RoyaltyPendingRowKind.Item ? r.Code : "")}"));
         Assert.Equal(2, data.ItemCount);
     }
 

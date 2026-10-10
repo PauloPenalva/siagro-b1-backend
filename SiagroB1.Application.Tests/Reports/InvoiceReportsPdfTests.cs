@@ -305,13 +305,27 @@ public class InvoiceReportsPdfTests : IDisposable
             NetWeight = 31_234.567m, RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-1",
             RoyaltyOriginCode = "P0001", RoyaltyOriginName = "Produtor",
         });
-        var received = db.Context.StorageTransactions.Local.Single();
-        db.Context.RoyaltyWriteOffs.Add(new RoyaltyWriteOff
+        StorageTransaction Extra(string code, decimal net) => db.Context.StorageTransactions.Add(new StorageTransaction
         {
-            ItsId = "ITS-0001", TaxId = "12345678909", Name = "Produtor de Teste", Situation = RoyaltySituation.Tested,
-            WriteOffDate = Jul01,
-            Lines = [new RoyaltyWriteOffLine { StorageTransactionKey = received.Key, Weight = 10_000.5m }],
-        });
+            Key = Guid.NewGuid(), Code = code, CardCode = "P0001", CardName = "Produtor", ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG", WarehouseCode = "ARM01", TransactionType = StorageTransactionType.Receipt,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, TransactionDate = Jul01,
+            NetWeight = net, RoyaltySituation = RoyaltySituation.Tested, RoyaltyOriginCode = "P0001",
+            RoyaltyOriginName = "Produtor",
+        }).Entity;
+        void WriteOff(string its, StorageTransaction st, decimal weight, DateTime date) =>
+            db.Context.RoyaltyWriteOffs.Add(new RoyaltyWriteOff
+            {
+                ItsId = its, TaxId = "12345678909", Name = "Produtor de Teste", Situation = RoyaltySituation.Tested,
+                WriteOffDate = date,
+                Lines = [new RoyaltyWriteOffLine { StorageTransactionKey = st.Key, Weight = weight }],
+            });
+        var partial = db.Context.StorageTransactions.Local.Single(x => x.Code == "R1");   // parcial, 1 baixa
+        var settled = Extra("R2", 20_000m);                                               // total, 2 baixas
+        WriteOff("ITS-0001", partial, 10_000.5m, Jul01);
+        WriteOff("ITS-0002", settled, 12_000m, Jul01);
+        WriteOff("ITS-0003", settled, 8_000m, Jul01.AddDays(1));
+        Extra("R3", 5_000m);                                                              // pendente, sem baixa
         await db.SaveChangesAsync();
         var configuration = Configuration(erp);
 
@@ -319,6 +333,11 @@ public class InvoiceReportsPdfTests : IDisposable
             .ExecuteAsync(new RoyaltyPendingRequest { FromDate = Jul01, ToDate = Jul31, Scope = "All" });
 
         Keep("RoyaltyPending", erp, pdf);
+        if (erp == "STANDALONE")
+        {
+            var target = Environment.GetEnvironmentVariable("ROYALTY_SCOPE_PDF");
+            if (!string.IsNullOrEmpty(target)) File.WriteAllBytes(target, pdf);
+        }
     }
 
     private FastReportService FastReport(IConfiguration configuration)

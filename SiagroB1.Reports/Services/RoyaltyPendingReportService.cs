@@ -55,10 +55,9 @@ public class RoyaltyPendingReportService(
         };
         var items = await RoyaltyBalanceQuery.Apply(RoyaltyBalanceQuery.Build(db.Context), filter).ToListAsync();
 
-        // Baixas ativas que atingiram os romaneios listados, numa consulta só (só quando a lista
-        // mostra baixados; na abrangência "a baixar" o PDF continua como era).
+        // Baixas ativas que atingiram os romaneios listados (em qualquer abrangência), numa consulta só.
         var writeOffsByReceipt = new Dictionary<Guid, List<RoyaltyPendingRowDto>>();
-        if (scope != RoyaltyBalanceScope.Pending && items.Count > 0)
+        if (items.Count > 0)
         {
             var keys = items.Select(x => x.StorageTransactionKey).ToList();
             var lines = await db.Context.RoyaltyWriteOffLines.AsNoTracking()
