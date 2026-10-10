@@ -81,27 +81,30 @@ Mesmos quatro campos nas duas tabelas:
 |---|---|---|
 | `RoyaltySituation` | `RoyaltySituation?` | obrigatório se o produto controla royalties |
 | `RoyaltyTestCode` | `VARCHAR(50)` nulo | obrigatório se situação = Testada; limpo nas demais |
-| `RoyaltyOriginCode` | `VARCHAR(10)` nulo | obrigatório se o produto controla royalties |
-| `RoyaltyOriginName` | `VARCHAR(200)` nulo | preenchido junto com o código |
+| `RoyaltyOriginCode` | `VARCHAR(15)` nulo | obrigatório se o produto controla royalties; 15 = tamanho do `CardCode` |
+| `RoyaltyOriginName` | `VARCHAR(200)` nulo | resolvido no backend a partir do código |
 
-Padrão da origem ao criar o ticket: o próprio parceiro do ticket (`CardCode/CardName`), editável.
+Padrão da origem: o próprio parceiro (`CardCode`), editável; origem vazia em produto controlado
+assume o parceiro. O **nome da origem é resolvido no backend** (o value help grava a descrição com
+grupo `null`, que não vai no PATCH): em Compra é o `WarehouseName`; nos demais, busca do parceiro,
+mantendo o nome atual se a busca não achar.
 
-Os campos acompanham o romaneio em **todos os caminhos que o constroem a partir de outro**:
-conclusão do ticket (`WeighingTicketsCompletedService`), cópia (`StorageTransactionCopyFactory`),
-entrada em armazenagem própria (`StorageEntryReceiptFactory`), estorno
-(`StorageTransactionsReverseService`) e troca de liberação
-(`ShippingTransactionsChangeReleaseService`).
+Os campos acompanham o romaneio apenas nos caminhos que **constroem um romaneio a partir de
+outro**: conclusão do ticket (`WeighingTicketsCompletedService`) e `StorageTransactionCopyFactory`.
+O estorno não cria documento (o mesmo volta a Pendente, os campos ficam). A entrada em armazenagem
+própria cria o Recebimento clonando a Compra pela `CopyFactory`, e a troca de liberação copia
+explicitamente da compra original para a compra nova.
 
 ### 2.4 Baixa ITS — `ROYALTY_WRITE_OFFS`
 
 | Propriedade | Tipo | Observação |
 |---|---|---|
-| `DocEntry` | int identity | chave |
+| `Key` / `RowId` | `Guid` / identidade | herda `BaseEntity`; o `RowId` é o número da baixa exibido na tela |
 | `WriteOffDate` | `DATE NOT NULL` | Data da baixa; padrão = hoje (data local) |
 | `ItsId` | `VARCHAR(50) NOT NULL` | ID do ITS; único entre baixas **ativas** (índice filtrado) |
 | `TaxId` | `VARCHAR(18) NOT NULL` | CPF/CNPJ usado na baixa do crédito, validado como CPF ou CNPJ |
 | `Name` | `VARCHAR(200) NOT NULL` | Nome |
-| `Situation` | `RoyaltySituation NOT NULL` | todas as linhas têm a mesma situação |
+| `Situation` | `RoyaltySituation NOT NULL` | situação comum dos romaneios escolhidos (não é parâmetro) |
 | `Status` | `RoyaltyWriteOffStatus` (`Active = 0, Cancelled = 1`) | |
 | `Comments` | `VARCHAR(500)` nulo | |
 | auditoria | padrão do projeto | criado/alterado/cancelado por e em |
@@ -112,9 +115,9 @@ entrada em armazenagem própria (`StorageEntryReceiptFactory`), estorno
 
 | Propriedade | Tipo | Observação |
 |---|---|---|
-| `DocEntry` + `LineId` | chave composta | padrão de linhas do projeto |
-| `StorageTransactionKey` | int, FK `STORAGE_TRANSACTIONS` (Restrict) | romaneio baixado |
-| `Weight` | `DECIMAL(18,2) NOT NULL` | kg; > 0 |
+| `Key` + `RoyaltyWriteOffKey` | `Guid`, FK da baixa | POCO de linha, sem `DocEntry`/`LineId` |
+| `StorageTransactionKey` | `Guid`, FK `STORAGE_TRANSACTIONS` (Restrict) | romaneio baixado |
+| `Weight` | `DECIMAL(18,3) NOT NULL` | kg; > 0; mesma escala do `NetWeight`, senão sobra 0,001 kg pendente |
 
 Índice em `StorageTransactionKey` incluindo `Weight` (o saldo é calculado por SUM).
 
@@ -147,17 +150,26 @@ Ficam de fora cancelados, estornados (`Returned`) e recebimentos de transbordo
    o backend copia o armazém do carregamento para a origem e, sem situação informada, assume
    Armazém Participante quando o armazém é participante.
 2a. **Troca de liberação**: recusada se a compra original tiver baixa ITS ativa (cancele a baixa
-   antes); a compra nova herda situação, origem e código do teste.
+   antes); a compra nova herda situação, origem e código do teste. Uma compra gerada de uma compra
+   anterior ao recurso (sem situação) fica **isenta** — mantém situação nula e fora do controle —,
+   a menos que o armazém seja participante (aí recebe Armazém Participante e a origem do armazém).
 3. **Baixa — criação**:
-   - pelo menos uma linha; peso > 0 em todas;
-   - todos os romaneios elegíveis e com a **mesma situação** da baixa;
+   - pelo menos uma linha; peso > 0 em todas; romaneio não repetido entre as linhas;
+   - todos os romaneios elegíveis e com a **mesma situação** (a da baixa);
    - por romaneio, a soma das linhas ativas (incluindo a nova) ≤ `NetWeight`;
-   - `ItsId` não usado em outra baixa ativa;
+   - `ItsId` (máx. 50), `Name` (máx. 200) e `Comments` (máx. 500) dentro do tamanho; CPF/CNPJ com
+     dígitos verificadores válidos;
+   - `ItsId` não usado em outra baixa **ativa**; o índice único filtrado é a garantia final e o
+     erro 2601/2627 é mapeado para a mesma mensagem de duplicidade (outros erros de gravação não);
    - validação e gravação na mesma transação (`BeginTransaction` explícito).
 4. **Baixa — cancelamento**: muda para `Cancelled`, devolve o saldo. Não há edição de baixa:
    errou, cancela e refaz.
-5. **Romaneio com baixa ativa** não pode ser estornado, cancelado nem ter situação, origem, código
-   do teste ou produto alterados.
+5. **Romaneio com baixa ativa** não pode ser estornado nem cancelado. Corrigir situação, origem ou
+   código do teste de um romaneio confirmado segue o caminho existente **estornar → editar →
+   confirmar** (o update só aceita Pendente), então a trava de alteração decorre do bloqueio do
+   estorno.
+6. **Situação da baixa derivada dos romaneios**: o usuário não a informa; é a situação comum dos
+   romaneios selecionados.
 
 Mensagens (pt-BR):
 
@@ -165,22 +177,29 @@ Mensagens (pt-BR):
 - "Informe o código do teste para a situação Testada."
 - "O peso baixado excede o saldo do romaneio {Code} (saldo {saldo} kg)."
 - "Selecione romaneios de uma mesma situação."
-- "ID do ITS {ItsId} já utilizado na baixa {DocEntry}."
+- "ID do ITS {ItsId} já utilizado na baixa {RowId}."
 - "Romaneio possui baixa ITS ativa ({ItsId}); cancele a baixa antes."
 - "CPF/CNPJ inválido."
 
 ## 4. Backend
 
-- `Application/Services/RoyaltyWriteOffs/`: `RoyaltyWriteOffsCreateService`,
-  `RoyaltyWriteOffsCancelService`, `RoyaltyPendingQueryService` (pendentes com saldo, filtros e
-  totais).
+- `Application/Services/RoyaltyWriteOffs/`: `RoyaltyWriteOffsCreateService` e
+  `RoyaltyWriteOffsCancelService`; regras de obrigatoriedade no helper estático `RoyaltyRules`.
+- **Consulta de saldo** única, `RoyaltyBalanceQuery` em `SiagroB1.Infra`, compartilhada pelo OData
+  (lista e totais) e pelo `SiagroB1.Reports` (PDF), que não referencia o Application.
 - Validação da situação nos serviços de conclusão do ticket e de confirmação do romaneio; trava de
-  baixa ativa nos serviços de estorno, cancelamento e update do romaneio.
-- OData: entidade `RoyaltyWriteOffs` (com `Lines`); action `Cancel`; função/endpoint de pendentes.
-  Navegações e late properties declaradas à mão quando necessário.
-- Migrations (contexto da empresa): colunas novas em `ITEM_COMPLEMENTS`, `WEIGHING_TICKETS`,
-  `STORAGE_TRANSACTIONS`; tabelas novas; índice filtrado do `ItsId` (com `QUOTED_IDENTIFIER`).
-- Migration de menu (`MENU_ITEMS` + `ROLE_MENUS`): "Royalties ITS" sob Armazenagem.
+  baixa ativa nos serviços de estorno e cancelamento do romaneio.
+- OData efetivamente implementado: entity sets `RoyaltyTransactionBalances` (pendentes com saldo),
+  `RoyaltyWriteOffs` e `RoyaltyWriteOffLines`; função `RoyaltyBalanceTotals` (parâmetros
+  `[FromODataUri]`, senão o `null` chega como `ODataNullValue`); actions `RoyaltyWriteOffsCreate` e
+  `RoyaltyWriteOffsCancel`; `ShipmentLoadsShip` ganha os parâmetros opcionais de situação e código
+  do teste; `ItemsSetComplement` aceita `ControlsRoyalties`. Navegações e late properties
+  declaradas à mão.
+- Migrations (contexto da empresa): `20261010152553_AddRoyaltyWriteOffs` — colunas novas em
+  `ITEM_COMPLEMENTS`, `WEIGHING_TICKETS`, `STORAGE_TRANSACTIONS`, tabelas novas e índice filtrado do
+  `ItsId` (com `QUOTED_IDENTIFIER`); `20261010161814_AddRoyaltyWriteOffsMenu` — `MENU_ITEMS` +
+  `ROLE_MENUS`: chave `royaltyWriteOffs`, ordem 10, "Royalties ITS" sob Armazenagem. As duas
+  precisam ser aplicadas no deploy (a Web recusa subir com migration pendente).
 - Relatório: `.frx` novo em `SiagroB1.Reports` — pendentes agrupados por situação e parceiro, com
   subtotais de peso líquido, baixado e saldo; mesmos filtros da tela.
 
