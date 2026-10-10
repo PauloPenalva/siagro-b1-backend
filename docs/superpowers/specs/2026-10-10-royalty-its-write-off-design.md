@@ -31,6 +31,16 @@ Decisões do usuário (brainstorming 10/10/2026):
 - **Origem da carga**: obrigatória em todas as situações; value help de parceiros de negócio, no
   mesmo molde do local de entrega (`DeliveryLocationCode/Name`).
 - **Escopo por produto**: indicador no **complemento do produto** (`ITEM_COMPLEMENTS`).
+- **Romaneio de Compra (carregamento em terceiro) também entra no controle** (decisão de
+  10/10/2026, depois do primeiro desenho). Majoritariamente carregamento em armazém participante,
+  às vezes em fazenda. A **origem da compra é o armazém do carregamento**, já gravado no romaneio
+  (`WarehouseCode`/`WarehouseName`) — copiada pelo backend, somente leitura na tela. Situação
+  obrigatória; padrão **Armazém Participante** quando o armazém está marcado como participante
+  (`WAREHOUSE_COMPLEMENTS.IsParticipant`). Informada na Expedição de Grãos, no "Expedir" da
+  Montagem de Carga, na Entrada em armazenagem própria e no romaneio manual de Compra.
+- **Entrada em armazenagem própria conta uma vez só, pela Compra**: o Recebimento clonado dela fica
+  fora da lista. Transferência de titularidade e Conferência de saldo de armazém (movimentos de
+  papel) ficam fora.
 
 Fora do escopo: integração automática com o ITS, valor em R$/cobrança do produtor, saldo de crédito
 do produtor, royalties nos contratos de compra.
@@ -113,16 +123,31 @@ entrada em armazenagem própria (`StorageEntryReceiptFactory`), estorno
 `Saldo = NetWeight − SUM(Weight das linhas de baixas Active)` do romaneio. Calculado, não gravado.
 Se o volume pedir, migra-se para o padrão derivado-e-persistido depois.
 
-**Romaneios elegíveis** ao controle: `TransactionType = Receipt`, `TransactionStatus` em
-`Confirmed` ou `Invoiced`, produto com `ControlsRoyalties`. Ficam de fora cancelados, estornados
-(`Returned`) e os recebimentos de transbordo (`TransshipmentReceipt`), para não contar a mesma carga
-duas vezes. Na entrada em armazenagem própria (par Compra/Recebimento) conta só o Recebimento.
+**Romaneios elegíveis** ao controle: `TransactionStatus` em `Confirmed` ou `Invoiced`, produto com
+`ControlsRoyalties`, `RoyaltySituation` preenchida (recebimentos/compras anteriores ao recurso ficam
+fora) e:
+
+- `TransactionType = Receipt`, **exceto** o Recebimento de uma Entrada em armazenagem própria
+  (`STORAGE_ENTRY_TRANSACTIONS.ReceiptStorageTransactionKey`) — a carga conta pela Compra;
+- `TransactionType = Purchase`, **exceto** a da Conferência de saldo de armazém
+  (`TransactionOrigin = WarehouseReconciliation`) e a compra original de uma Troca de liberação
+  (`SHIPPING_RELEASE_CHANGES.OriginalPurchaseStorageTransactionKey`), que é espelhada por um estorno
+  e substituída pela compra nova. A compra da Transferência de titularidade nasce sem situação e
+  fica fora pela regra geral.
+
+Ficam de fora cancelados, estornados (`Returned`) e recebimentos de transbordo
+(`TransshipmentReceipt`). Uma baixa pode misturar Compras e Recebimentos da mesma situação.
 
 ## 3. Regras de negócio
 
 1. **Ticket**: com produto que controla royalties, concluir exige situação + origem, e código do
    teste quando Testada.
 2. **Romaneio**: confirmar um Recebimento com produto que controla royalties exige o mesmo.
+   Confirmar uma **Compra** também (exceto a da Conferência de saldo de armazém): antes de validar,
+   o backend copia o armazém do carregamento para a origem e, sem situação informada, assume
+   Armazém Participante quando o armazém é participante.
+2a. **Troca de liberação**: recusada se a compra original tiver baixa ITS ativa (cancele a baixa
+   antes); a compra nova herda situação, origem e código do teste.
 3. **Baixa — criação**:
    - pelo menos uma linha; peso > 0 em todas;
    - todos os romaneios elegíveis e com a **mesma situação** da baixa;
@@ -167,7 +192,11 @@ Mensagens (pt-BR):
   quando o produto controla royalties.
 - **Romaneio** (Edit/Detail): os mesmos campos, travados se houver baixa ativa; seção "Baixas ITS"
   no Detail (peso líquido, baixado, saldo e lista: Data, ID do ITS, CPF/CNPJ, Nome, Peso).
-- **Tela "Royalties ITS"**, duas abas:
+- **Romaneio de Compra** (Expedição de Grãos, "Expedir" da Montagem de Carga, Entrada em
+  armazenagem própria, romaneio manual): Select "Situação Royalty" e "Código do Teste"; sem campo
+  de origem (é o armazém do carregamento, já na tela). Vazio = Armazém Participante quando o
+  armazém é participante.
+- **Tela "Royalties ITS"**, duas abas (Pendentes e PDF ganham a coluna **Tipo**: Recebimento/Compra):
   - **Pendentes**: filtros período, parceiro, origem, produto, situação, lote; colunas Romaneio,
     Data, Parceiro, Origem, Produto, Situação, Código do Teste, Peso Líquido, Baixado, Saldo;
     totais por situação; ações **Exportar PDF** e **Baixar selecionados**.

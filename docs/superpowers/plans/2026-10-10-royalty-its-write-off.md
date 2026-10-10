@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Apurar situação de royalty, origem e código do teste na entrada de soja (ticket → romaneio), listar o saldo a baixar no ITS (tela + PDF) e registrar as baixas feitas no site do ITS (N:N, parcial), abatendo o saldo de cada romaneio.
+**Goal:** Apurar situação de royalty, origem e código do teste na entrada de soja (ticket → romaneio de recebimento) e no romaneio de compra (carregamento em terceiro), listar o saldo a baixar no ITS (tela + PDF) e registrar as baixas feitas no site do ITS (N:N, parcial), abatendo o saldo de cada romaneio.
 
 **Architecture:** Campos novos em `WEIGHING_TICKETS`/`STORAGE_TRANSACTIONS` e um indicador em `ITEM_COMPLEMENTS`; documento novo `ROYALTY_WRITE_OFFS` + `ROYALTY_WRITE_OFF_LINES`. O saldo é **calculado** (peso líquido − soma das linhas ativas) por uma consulta única em `SiagroB1.Infra` (`RoyaltyBalanceQuery`), reaproveitada pelo OData (lista/totais) e pelo `SiagroB1.Reports` (PDF) — o Reports não referencia o Application. Regras de obrigatoriedade num helper estático (`RoyaltyRules`) chamado pela conclusão do ticket e pela confirmação do romaneio de Recebimento.
 
@@ -15,7 +15,8 @@
 - Identificadores, tabelas e colunas em **inglês**; tudo que o usuário lê (labels, mensagens de negócio, título de menu) em **pt-BR**.
 - Situações: `Declared` = "Declarada", `Tested` = "Testada", `Conventional` = "Convencional", `ParticipantWarehouse` = "Armazém Participante".
 - Base da baixa = **peso líquido** (`StorageTransaction.NetWeight`, kg). `Weight` das linhas é `DECIMAL(18,3)` (mesma escala do `NetWeight`, senão sobra 0,001 kg pendente para sempre).
-- Elegível: `TransactionType = Receipt`, `TransactionStatus ∈ {Confirmed, Invoiced}`, `RoyaltySituation != null`, produto com `ItemComplement.ControlsRoyalties`.
+- Elegível: `TransactionStatus ∈ {Confirmed, Invoiced}`, `RoyaltySituation != null`, produto com `ItemComplement.ControlsRoyalties`, e — `Receipt` que **não** seja o recebimento de uma `StorageEntryTransaction`, **ou** `Purchase` que **não** tenha `TransactionOrigin = WarehouseReconciliation` e **não** seja `OriginalPurchaseStorageTransactionKey` de uma `ShippingReleaseChange`.
+- Compra: a origem é **sempre** o armazém do carregamento (`WarehouseCode`/`WarehouseName`), copiado pelo backend; sem situação e com armazém participante (`WarehouseComplement.IsParticipant`) → `ParticipantWarehouse`.
 - Erros de negócio: `ApplicationException` (os controllers mapeiam para 400); não-encontrado: `NotFoundException`.
 - Serviços são classes concretas registradas à mão em `SiagroB1.Web/Extensions/ServiceCollectionExtensions.cs` (`services.AddScoped<X>()`).
 - Parâmetros decimais editáveis trafegam como `double` no EDM (o UI5 v4 serializa `Edm.Decimal` como string). Parâmetros de action podem chegar nulos: sempre `TryGetValue`, nunca `.ToString()` direto; `parameters` inteiro pode ser nulo.
@@ -27,14 +28,15 @@
 - Baseline de testes backend: `dotnet test SiagroB1.Application.Tests` (se estiver numa worktree, copie antes `SiagroB1.Reports/wwwroot` do repo original — os testes de PDF precisam do `logo.png`).
 - Frontend: `yarn ts-typecheck`, `yarn lint`, `yarn ui5lint` (o `yarn test` tem gate de cobertura que nunca passa — não é critério).
 
-## Desvios da spec (decididos ao ler o código; a Task 17 atualiza a spec)
+## Desvios da spec (decididos ao ler o código; a Task 18 atualiza a spec)
 
 1. Chaves: o projeto não usa `DocEntry`/`LineId`. Cabeçalho herda `BaseEntity` (`Guid Key`, `RowId` identidade, auditoria); linha é POCO com `Guid Key` + `RoyaltyWriteOffKey`. O `RowId` serve de número da baixa na tela.
 2. `Weight` vira `DECIMAL(18,3)` (ver Global Constraints).
-3. Cópia dos campos: só a conclusão do ticket e `StorageTransactionCopyFactory` constroem romaneio de recebimento a partir de outro. O estorno não cria documento (volta o mesmo para Pendente, campos ficam); a troca de liberação só mexe em romaneios de compra/venda. A **Entrada em armazenagem própria** cria o Recebimento clonando a Compra pela `CopyFactory` — então a tela de criação da entrada passa a ter os campos (Task 13), senão a soja não confirmaria.
+3. Cópia dos campos: só a conclusão do ticket e `StorageTransactionCopyFactory` constroem romaneio de recebimento a partir de outro. O estorno não cria documento (volta o mesmo para Pendente, campos ficam); a troca de liberação recria a compra pela `CopyFactory` (ver item 7). A **Entrada em armazenagem própria** cria o Recebimento clonando a Compra pela `CopyFactory` — então a tela de criação da entrada passa a ter os campos (Task 14), senão a soja não confirmaria. (Superado em parte pelo item 7: a entrada agora conta pela Compra.)
 4. Correção da situação num romaneio já confirmado: pelo caminho existente (estornar → editar → confirmar). O update de romaneio já só aceita Pendente, e estornar é bloqueado com baixa ativa — a trava "não alterar com baixa ativa" sai de graça.
 5. `RoyaltyOriginName` é resolvido **no backend** a partir do código (o value help grava a descrição com grupo `null`, que não vai no PATCH). Origem vazia em produto controlado assume o próprio parceiro (`CardCode`).
 6. A situação da baixa não é parâmetro: é a situação comum dos romaneios escolhidos.
+7. (Acréscimo aprovado em 10/10, já refletido na spec) Romaneio de **Compra** entra no controle; a Entrada em armazenagem própria passa a contar pela Compra, não pelo Recebimento. Troca de liberação: recusada com baixa ativa na compra original; a compra nova herda os campos pela `CopyFactory` (copia da saída, que copiou da compra).
 
 ## Review Focus
 
@@ -42,7 +44,7 @@
 2. **Baixa do saldo inteiro com 3 casas** — linha com peso = saldo `1234,567` precisa zerar o saldo, não deixar resíduo (teste na Task 6).
 3. **Duas linhas do mesmo romaneio na mesma baixa** — somadas não podem passar do saldo; o serviço recusa chave repetida (teste na Task 6).
 4. **ID do ITS reaproveitado depois de cancelar** — uma baixa cancelada libera o ID; ativa duplicada é recusada (testes nas Tasks 6 e 7).
-5. **Produto que deixa de controlar royalties** — romaneios dele somem da lista de pendentes, mas baixas já feitas continuam consultáveis na aba Baixas (teste na Task 5).
+5. **A mesma soja contada duas vezes** — Entrada em armazenagem própria (Compra + Recebimento clonado) e Troca de liberação (compra original + compra nova) precisam aparecer uma vez só em Pendentes (testes na Task 5).
 
 ---
 
@@ -787,10 +789,13 @@ EOF
 - Modify: `SiagroB1.Application/Services/StorageTransactions/Factories/StorageTransactionCopyFactory.cs:42-58`
 - Modify: `SiagroB1.Application/Services/StorageTransactions/StorageTransactionsCancelService.cs` (guards antes do `try`, ~linha 99)
 - Modify: `SiagroB1.Application/Services/StorageTransactions/StorageTransactionsReverseService.cs` (guards antes do `try`, ~linha 98)
+- Modify: `SiagroB1.Application/Services/Royalties/RoyaltyRules.cs` (dois métodos novos)
+- Modify: `SiagroB1.Application/Services/ShippingTransactions/ShippingTransactionsChangeReleaseService.cs` (guard no início do método público, antes de abrir a transação)
 - Test: `SiagroB1.Application.Tests/Royalties/StorageTransactionRoyaltyTests.cs`
 
 **Interfaces:**
 - Consumes: `RoyaltyRules` (Task 3), `RoyaltyWriteOff`/`RoyaltyWriteOffLine` (Task 1).
+- Produces: `RoyaltyRules.RequiresRoyalty(StorageTransaction st): bool` (Receipt, ou Purchase fora da Conferência de saldo); `RoyaltyRules.ApplyPurchaseDefaultsAsync(AppDbContext ctx, StorageTransaction st): Task` (origem = armazém; situação padrão Armazém Participante).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -948,17 +953,120 @@ public class StorageTransactionRoyaltyTests
 
         await Services.Royalties.RoyaltyRules.EnsureNoActiveWriteOffAsync(_db.Context, st.Key);
     }
+
+    private async Task<StorageTransaction> SeedPurchaseAsync(
+        bool participantWarehouse, RoyaltySituation? situation = null,
+        TransactionCode origin = TransactionCode.StorageTransaction)
+    {
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        _db.Context.WarehouseComplements.Add(new WarehouseComplement { WarehouseCode = "ARMP", IsParticipant = participantWarehouse });
+        var st = new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "C1", CardCode = "P0001", ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARMP", WarehouseName = "Armazém do carregamento", BranchCode = "01",
+            TransactionType = StorageTransactionType.Purchase, TransactionStatus = StorageTransactionsStatus.Pending,
+            TransactionOrigin = origin, GrossWeight = 30_000m, NetWeight = 30_000m,
+            RoyaltySituation = situation, RoyaltyOriginCode = "OUTRO",
+        };
+        _db.Context.StorageTransactions.Add(st);
+        await _db.SaveChangesAsync();
+        return st;
+    }
+
+    [Fact]
+    public async Task Purchase_at_a_participant_warehouse_defaults_the_situation_and_the_origin()
+    {
+        var st = await SeedPurchaseAsync(participantWarehouse: true);
+
+        await Confirmed().ExecuteAsync(st, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed, st.TransactionStatus);
+        Assert.Equal(RoyaltySituation.ParticipantWarehouse, st.RoyaltySituation);
+        Assert.Equal("ARMP", st.RoyaltyOriginCode);
+        Assert.Equal("Armazém do carregamento", st.RoyaltyOriginName);
+    }
+
+    [Fact]
+    public async Task Purchase_at_a_farm_requires_the_situation()
+    {
+        var st = await SeedPurchaseAsync(participantWarehouse: false);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Confirmed().ExecuteAsync(st, "tester"));
+
+        Assert.Contains("situação de royalty", ex.Message);
+    }
+
+    [Fact]
+    public async Task Purchase_keeps_the_informed_situation()
+    {
+        var st = await SeedPurchaseAsync(participantWarehouse: true, situation: RoyaltySituation.Declared);
+
+        await Confirmed().ExecuteAsync(st, "tester");
+
+        Assert.Equal(RoyaltySituation.Declared, st.RoyaltySituation);
+    }
+
+    [Fact]
+    public async Task Warehouse_reconciliation_purchase_is_exempt()
+    {
+        var st = await SeedPurchaseAsync(participantWarehouse: false, origin: TransactionCode.WarehouseReconciliation);
+
+        await Confirmed().ExecuteAsync(st, "tester", CommitMode.Auto, isShipmentTransaction: true);
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed, st.TransactionStatus);
+        Assert.Null(st.RoyaltySituation);
+    }
 }
 ```
+
+> `CommitMode` vem de `SiagroB1.Infra.Enums` — acrescente o `using`.
+>
+> **Troca de liberação**: além destes, acrescente um teste à classe de testes existente de
+> `ShippingTransactionsChangeReleaseService` (`grep -rln "ShippingTransactionsChangeReleaseService" SiagroB1.Application.Tests`),
+> reaproveitando o seed dela: (1) com uma baixa ITS ativa sobre a compra original
+> (`RoyaltyWriteOff` + linha apontando para `plan.Purchase`/a compra semeada), a troca lança
+> `ApplicationException` contendo "baixa ITS ativa"; (2) sem baixa, com a compra original tendo
+> `RoyaltySituation = Declared`, a compra nova (`ShippingReleaseChange.NewPurchaseStorageTransactionKey`)
+> sai com `RoyaltySituation = Declared`. Se o seed atual não usar produto com `ControlsRoyalties`,
+> o (2) continua valendo: a cópia não depende do complemento.
 
 > `StorageAddressesGetBalanceService`: confira o construtor real (`grep -n "class StorageAddressesGetBalanceService" -A6`) e ajuste a instanciação — o teste só precisa que o guard de baixa rode **antes** do `ValidateBalance`.
 
 - [ ] **Step 2: Run to verify failure**
 
 Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~StorageTransactionRoyaltyTests"`
-Expected: falham `Confirming_..._without_situation`, `Copy_carries...`, `Cancel_is_refused...`, `Reverse_is_refused...`.
+Expected: falham `Confirming_..._without_situation`, `Copy_carries...`, `Cancel_is_refused...`, `Reverse_is_refused...`, `Purchase_at_a_participant_warehouse...`, `Purchase_at_a_farm...` (e o teste novo de troca de liberação com baixa ativa).
 
 - [ ] **Step 3: Implement**
+
+`RoyaltyRules.cs` — dois métodos novos (acrescentar `using SiagroB1.Domain.Entities;`):
+
+```csharp
+    /// <summary>
+    /// Romaneios que exigem a situação de royalty ao confirmar (quando o produto controla):
+    /// Recebimento e Compra. A Compra da Conferência de saldo de armazém é movimento de papel.
+    /// </summary>
+    public static bool RequiresRoyalty(StorageTransaction st) =>
+        st.TransactionType == StorageTransactionType.Receipt ||
+        (st.TransactionType == StorageTransactionType.Purchase &&
+         st.TransactionOrigin != TransactionCode.WarehouseReconciliation);
+
+    /// <summary>
+    /// Na Compra (carregamento em terceiro) a origem é o armazém do carregamento, já gravado no
+    /// romaneio. Sem situação informada, armazém participante assume Armazém Participante.
+    /// </summary>
+    public static async Task ApplyPurchaseDefaultsAsync(AppDbContext ctx, StorageTransaction st)
+    {
+        st.RoyaltyOriginCode = st.WarehouseCode;
+        st.RoyaltyOriginName = st.WarehouseName;
+
+        if (st.RoyaltySituation is null && !string.IsNullOrWhiteSpace(st.WarehouseCode) &&
+            await ctx.WarehouseComplements.AnyAsync(w => w.WarehouseCode == st.WarehouseCode && w.IsParticipant))
+            st.RoyaltySituation = RoyaltySituation.ParticipantWarehouse;
+
+        st.RoyaltyTestCode = NormalizeTestCode(st.RoyaltySituation, st.RoyaltyTestCode);
+    }
+```
 
 `StorageTransactionsConfirmedService.ExecuteReceiptTransactionAsync`, logo depois do guard de status Pending (linha 228) e **antes** do `try`:
 
@@ -966,6 +1074,33 @@ Expected: falham `Confirming_..._without_situation`, `Copy_carries...`, `Cancel_
         if (await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
             RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
 ```
+
+`StorageTransactionsConfirmedService.ExecutePurchaseTransactionAsync`, logo depois do guard de status Pending (linha 200) e **antes** do `try`:
+
+```csharp
+        if (RoyaltyRules.RequiresRoyalty(st) && await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
+        {
+            await RoyaltyRules.ApplyPurchaseDefaultsAsync(db.Context, st);
+            RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
+        }
+```
+
+> `ExecutePurchaseTransactionAsync` é o `default` do `switch` — outros tipos caem nele. O
+> `RequiresRoyalty` restringe a Purchase; não estenda a outros tipos.
+
+`ShippingTransactionsChangeReleaseService`: no método público (o que monta o `Plan` e abre a
+transação), assim que a compra original for conhecida (`plan.Purchase`) e **antes** de qualquer
+gravação:
+
+```csharp
+        if (plan.Purchase != null)
+            await RoyaltyRules.EnsureNoActiveWriteOffAsync(unitOfWork.Context, plan.Purchase.Key);
+```
+
+(use o nome real do campo de `IUnitOfWork` do serviço). Se o teste (2) da troca mostrar que a compra
+nova sai **sem** os campos — a saída nova não foi montada pela `CopyFactory` a partir da compra —,
+copie-os explicitamente de `plan.Purchase` em `CreatePurchaseLegAsync`, logo depois do
+`StorageTransactionCopyFactory.CreateFrom(newSales, userName)`.
 
 `StorageTransactionCopyFactory.CreateFrom`, no inicializador, depois de `ProcessingCostCode = original.ProcessingCostCode,`:
 
@@ -1003,14 +1138,17 @@ Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~Storag
 - [ ] **Step 5: Commit**
 
 ```bash
-git add SiagroB1.Application/Services/StorageTransactions SiagroB1.Application.Tests/Royalties/StorageTransactionRoyaltyTests.cs
+git add SiagroB1.Application/Services/StorageTransactions SiagroB1.Application/Services/Royalties \
+  SiagroB1.Application/Services/ShippingTransactions/ShippingTransactionsChangeReleaseService.cs \
+  SiagroB1.Application.Tests/Royalties/StorageTransactionRoyaltyTests.cs SiagroB1.Application.Tests/ShippingTransactions
 git commit -F- <<'EOF'
-feat(storage): situação de royalty obrigatória no recebimento e trava de baixa ITS
+feat(storage): situação de royalty obrigatória no recebimento e na compra
 
-Romaneio de recebimento de produto controlado só confirma com situação e
-origem. Romaneio com baixa ITS ativa não pode ser cancelado nem estornado
-(e por isso também não volta a ser editado). A cópia de romaneio — usada
-pela entrada em armazenagem própria — leva os campos de royalty.
+Recebimento e compra (carregamento em terceiro) de produto controlado só
+confirmam com situação e origem; na compra a origem é o armazém do
+carregamento e o armazém participante assume a situação por padrão.
+Romaneio com baixa ITS ativa não pode ser cancelado, estornado nem ter a
+liberação trocada. A cópia de romaneio leva os campos de royalty.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_016riKPAkAjZmRzBJQVjRiPn
@@ -1036,7 +1174,7 @@ EOF
 ```csharp
 public class RoyaltyBalanceRow   // SiagroB1.Domain.Dtos
 {
-    Guid StorageTransactionKey; string? Code; DateTime? TransactionDate; string? BranchCode;
+    Guid StorageTransactionKey; string? Code; StorageTransactionType TransactionType; DateTime? TransactionDate; string? BranchCode;
     string CardCode; string? CardName; string? RoyaltyOriginCode; string? RoyaltyOriginName;
     string ItemCode; string? ItemName; string? StorageAddressCode;
     RoyaltySituation Situation; string? RoyaltyTestCode;
@@ -1137,11 +1275,47 @@ public class RoyaltyBalanceQueryTests
         Receipt("F-transshipment", 1m, type: StorageTransactionType.TransshipmentReceipt);
         Receipt("G-purchase", 1m, type: StorageTransactionType.Purchase);
         Receipt("H-corn", 1m, item: "MILHO");
+        Receipt("I-sales", 1m, type: StorageTransactionType.SalesShipment);
+        Receipt("J-reconciliation", 1m, type: StorageTransactionType.Purchase).TransactionOrigin =
+            TransactionCode.WarehouseReconciliation;
         await _db.SaveChangesAsync();
 
-        var codes = (await RunAsync()).Select(x => x.Code);
+        var rows = await RunAsync();
 
-        Assert.Equal(["A-ok", "B-invoiced"], codes);
+        Assert.Equal(["A-ok", "B-invoiced", "G-purchase"], rows.Select(x => x.Code));
+        Assert.Equal(StorageTransactionType.Purchase, rows.Single(x => x.Code == "G-purchase").TransactionType);
+    }
+
+    [Fact]
+    public async Task Storage_entry_counts_once_through_the_purchase()
+    {
+        var purchase = Receipt("C1", 1_000m, type: StorageTransactionType.Purchase);
+        var receipt = Receipt("R1", 1_000m);
+        _db.Context.StorageEntryTransactions.Add(new StorageEntryTransaction
+        {
+            Key = Guid.NewGuid(), PurchaseStorageTransactionKey = purchase.Key,
+            ReceiptStorageTransactionKey = receipt.Key, PurchaseContractKey = Guid.NewGuid(),
+            Status = StorageEntryTransactionStatus.Confirmed,
+        });
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(["C1"], (await RunAsync()).Select(x => x.Code));
+    }
+
+    [Fact]
+    public async Task Release_change_counts_only_the_new_purchase()
+    {
+        var original = Receipt("C-old", 1_000m, type: StorageTransactionType.Purchase);
+        var replacement = Receipt("C-new", 1_000m, type: StorageTransactionType.Purchase);
+        _db.Context.ShippingReleaseChanges.Add(new ShippingReleaseChange
+        {
+            Key = Guid.NewGuid(),
+            OriginalPurchaseStorageTransactionKey = original.Key,
+            NewPurchaseStorageTransactionKey = replacement.Key,
+        });
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(["C-new"], (await RunAsync()).Select(x => x.Code));
     }
 
     [Fact]
@@ -1196,6 +1370,10 @@ public class RoyaltyBalanceQueryTests
 Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~RoyaltyBalanceQueryTests"`
 Expected: build FAIL (`RoyaltyBalanceQuery` não existe).
 
+> `ShippingReleaseChange` tem outras propriedades obrigatórias (`ShipmentLoadKey`, chaves de
+> romaneio de saída, liberações) — se o InMemory recusar o `SaveChanges` por FK/required, preencha-as
+> com `Guid.NewGuid()`; o InMemory não valida FK.
+
 - [ ] **Step 3: Implement DTOs and the query**
 
 ```csharp
@@ -1209,6 +1387,8 @@ public class RoyaltyBalanceRow
 {
     public Guid StorageTransactionKey { get; set; }
     public string? Code { get; set; }
+    /// <summary>Receipt (recebimento) ou Purchase (compra — carregamento em terceiro).</summary>
+    public StorageTransactionType TransactionType { get; set; }
     public DateTime? TransactionDate { get; set; }
     public string? BranchCode { get; set; }
     public string CardCode { get; set; } = "";
@@ -1274,12 +1454,22 @@ public static class RoyaltyBalanceQuery
 {
     public static IQueryable<RoyaltyBalanceRow> Build(AppDbContext ctx) =>
         from st in ctx.StorageTransactions.AsNoTracking()
-        where st.TransactionType == StorageTransactionType.Receipt
-              && (st.TransactionStatus == StorageTransactionsStatus.Confirmed ||
-                  st.TransactionStatus == StorageTransactionsStatus.Invoiced)
-              // Recebimentos anteriores ao recurso não têm situação: ficam fora.
+        where (st.TransactionStatus == StorageTransactionsStatus.Confirmed ||
+               st.TransactionStatus == StorageTransactionsStatus.Invoiced)
+              // Romaneios anteriores ao recurso (e compras de papel, como a da transferência de
+              // titularidade) não têm situação: ficam fora.
               && st.RoyaltySituation != null
               && ctx.ItemComplements.Any(c => c.ItemCode == st.ItemCode && c.ControlsRoyalties)
+              && (
+                  // Recebimento — menos o da Entrada em armazenagem própria, que conta pela Compra.
+                  (st.TransactionType == StorageTransactionType.Receipt &&
+                   !ctx.StorageEntryTransactions.Any(e => e.ReceiptStorageTransactionKey == st.Key))
+                  ||
+                  // Compra (carregamento em terceiro) — menos a da Conferência de saldo de armazém e
+                  // a original de uma Troca de liberação (espelhada por estorno, substituída pela nova).
+                  (st.TransactionType == StorageTransactionType.Purchase &&
+                   st.TransactionOrigin != TransactionCode.WarehouseReconciliation &&
+                   !ctx.ShippingReleaseChanges.Any(c => c.OriginalPurchaseStorageTransactionKey == st.Key)))
         let writtenOff = ctx.RoyaltyWriteOffLines
             .Where(l => l.StorageTransactionKey == st.Key &&
                         l.RoyaltyWriteOff!.Status == RoyaltyWriteOffStatus.Active)
@@ -1288,6 +1478,7 @@ public static class RoyaltyBalanceQuery
         {
             StorageTransactionKey = st.Key,
             Code = st.Code,
+            TransactionType = st.TransactionType,
             TransactionDate = st.TransactionDate,
             BranchCode = st.BranchCode,
             CardCode = st.CardCode,
@@ -1345,7 +1536,7 @@ public static class RoyaltyBalanceQuery
 
 - [ ] **Step 4: Run query tests**
 
-Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~RoyaltyBalanceQueryTests"` → 5 PASS.
+Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~RoyaltyBalanceQueryTests"` → 7 PASS.
 
 - [ ] **Step 5: OData surface**
 
@@ -1448,7 +1639,7 @@ public class RoyaltyBalanceTotalsController(IUnitOfWork unitOfWork) : ODataContr
 
 - [ ] **Step 6: Smoke the endpoints**
 
-Run: `dotnet build SiagroB1.sln` → 0 erros. Subir Web e Gateway com o profile local da sua memória `run-stack-locally` (ex.: `ASPNETCORE_ENVIRONMENT=Yokotobi-Development`) **somente se o banco local já tiver a migration da Task 1 aplicada** (banco de DEV, nunca HOM/PRD); senão, adie esta verificação para a Task 17. Conferir:
+Run: `dotnet build SiagroB1.sln` → 0 erros. Subir Web e Gateway com o profile local da sua memória `run-stack-locally` (ex.: `ASPNETCORE_ENVIRONMENT=Yokotobi-Development`) **somente se o banco local já tiver a migration da Task 1 aplicada** (banco de DEV, nunca HOM/PRD); senão, adie esta verificação para a Task 18. Conferir:
 - `GET /odata/$metadata` contém `RoyaltyTransactionBalances` e `RoyaltyBalanceTotals`.
 - `GET /odata/RoyaltyTransactionBalances?$filter=Balance gt 0 and Situation eq 'Declared'&$count=true` → 200.
 - `GET /odata/RoyaltyBalanceTotals(FromDate=null,ToDate=null,CardCode=null,OriginCode=null,ItemCode=null,Situation='Declared',StorageAddressCode=null)` → 200 com array.
@@ -1466,8 +1657,10 @@ git commit -F- <<'EOF'
 feat(storage): saldo de royalties a baixar no ITS por romaneio
 
 Consulta única no Infra (Web e Reports usam a mesma regra): recebimentos
-confirmados/faturados de produto controlado, com situação apurada; saldo
-= peso líquido menos as linhas de baixas ativas.
+e compras confirmados/faturados de produto controlado, com situação
+apurada; a entrada em armazenagem própria conta pela compra e a troca de
+liberação só pela compra nova. Saldo = peso líquido menos as linhas de
+baixas ativas.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_016riKPAkAjZmRzBJQVjRiPn
@@ -2342,6 +2535,8 @@ public class RoyaltyPendingRowDto
 {
     public RoyaltyPendingRowKind Kind { get; set; }
     public string Situation { get; set; } = "";
+    /// <summary>"Recebimento" ou "Compra".</summary>
+    public string Type { get; set; } = "";
     public string Code { get; set; } = "";
     public string Date { get; set; } = "";
     public string Partner { get; set; } = "";
@@ -2407,6 +2602,7 @@ public class RoyaltyPendingReportService(
                     {
                         Kind = RoyaltyPendingRowKind.Item,
                         Situation = Label(x.Situation),
+                        Type = x.TransactionType == StorageTransactionType.Purchase ? "Compra" : "Recebimento",
                         Code = x.Code ?? "",
                         Date = x.TransactionDate?.ToString("dd/MM/yyyy", Culture) ?? "",
                         Partner = $"{x.CardCode} - {x.CardName}",
@@ -2504,6 +2700,7 @@ public class RoyaltyPendingController(RoyaltyPendingReportService service) : Con
     <BusinessObjectDataSource Name="RoyaltyRows" ReferenceName="RoyaltyRows" DataType="System.Int32" Enabled="true">
       <Column Name="Kind" DataType="System.Int32"/>
       <Column Name="Situation" DataType="System.String"/>
+      <Column Name="Type" DataType="System.String"/>
       <Column Name="Code" DataType="System.String"/>
       <Column Name="Date" DataType="System.String"/>
       <Column Name="Partner" DataType="System.String"/>
@@ -2533,8 +2730,9 @@ public class RoyaltyPendingController(RoyaltyPendingReportService service) : Con
       <TextObject Name="hdrSituation" Left="0" Width="110" Height="18" Text="Situação" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrCode" Left="110" Width="90" Height="18" Text="Romaneio" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrDate" Left="200" Width="62" Height="18" Text="Data" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrPartner" Left="262" Width="230" Height="18" Text="Parceiro" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrOrigin" Left="492" Width="230" Height="18" Text="Origem" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrType" Left="262" Width="70" Height="18" Text="Tipo" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPartner" Left="332" Width="195" Height="18" Text="Parceiro" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrOrigin" Left="527" Width="195" Height="18" Text="Origem" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrTestCode" Left="722" Width="80" Height="18" Text="Cód. Teste" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrNetWeight" Left="802" Width="94" Height="18" Text="Peso Líquido" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrWrittenOff" Left="896" Width="94" Height="18" Text="Baixado" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -2544,10 +2742,11 @@ public class RoyaltyPendingController(RoyaltyPendingReportService service) : Con
       <TextObject Name="txtSituation" Left="0" Width="110" Height="17" Text="[RoyaltyRows.Situation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       <TextObject Name="txtCode" Left="110" Width="90" Height="17" Text="[RoyaltyRows.Code]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       <TextObject Name="txtDate" Left="200" Width="62" Height="17" Text="[RoyaltyRows.Date]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-      <TextObject Name="txtPartner" Left="262" Width="230" Height="17" Text="[RoyaltyRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+      <TextObject Name="txtType" Left="262" Width="70" Height="17" Text="[RoyaltyRows.Type]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtPartner" Left="332" Width="195" Height="17" Text="[RoyaltyRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
         <Highlight><Condition Expression="[RoyaltyRows.Kind] != 0" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
       </TextObject>
-      <TextObject Name="txtOrigin" Left="492" Width="230" Height="17" Text="[RoyaltyRows.Origin]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtOrigin" Left="527" Width="195" Height="17" Text="[RoyaltyRows.Origin]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       <TextObject Name="txtTestCode" Left="722" Width="80" Height="17" Text="[RoyaltyRows.TestCode]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       <TextObject Name="txtNetWeight" Left="802" Width="94" Height="17" Text="[RoyaltyRows.NetWeight]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
         <Highlight><Condition Expression="[RoyaltyRows.Kind] != 0" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
@@ -2697,11 +2896,124 @@ EOF
 
 ---
 
+### Task 10: Situação de royalty no "Expedir" da Montagem de Carga (API)
+
+**Files:**
+- Modify: `SiagroB1.Application/Services/ShipmentLoads/ShipmentLoadsShipService.cs` (record `ShipmentLoadShipRequest`, linhas 13-20; inicializador da compra, ~linhas 69-86)
+- Modify: `SiagroB1.Web/Actions/ShipmentLoads/ShipmentLoadsShipController.cs`
+- Modify: `SiagroB1.Web/ODataConfig/ODataConfigurations.cs:859-867` (action `ShipmentLoadsShip`)
+- Test: `SiagroB1.Application.Tests/ShipmentLoads/ShipmentLoadsShipServiceTests.cs`
+
+**Interfaces:**
+- Consumes: regra de confirmação da Compra (Task 4).
+- Produces: `ShipmentLoadShipRequest(..., string? Comments, RoyaltySituation? RoyaltySituation = null, string? RoyaltyTestCode = null)`; parâmetros EDM opcionais `RoyaltySituation` (string, nome do enum) e `RoyaltyTestCode` em `ShipmentLoadsShip`.
+
+A Expedição de Grãos (`ShippingTransactionsCreate`) **não** precisa de mudança no backend: ela recebe a
+compra como `EntityParameter<StorageTransaction>`, e os campos novos da entidade (Task 1) já trafegam.
+
+- [ ] **Step 1: Write the failing tests** — em `ShipmentLoadsShipServiceTests`, copie o *arrange* do teste
+de sucesso existente (o que expede e confere o romaneio criado) para dois testes novos; no arrange,
+acrescente `db.Context.ItemComplements.Add(new ItemComplement { ItemCode = <o produto da carga do seed>, ControlsRoyalties = true });`
+e garanta que o armazém do request **não** é participante (sem `WarehouseComplement`):
+
+```csharp
+    [Fact]
+    public async Task Ship_of_a_controlled_item_from_a_farm_requires_the_royalty_situation()
+    {
+        // arrange copiado do teste de sucesso + ItemComplement ControlsRoyalties = true
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() => service.ExecuteAsync(request, "tester"));
+        Assert.Contains("situação de royalty", ex.Message);
+    }
+
+    [Fact]
+    public async Task Ship_records_the_royalty_situation_and_the_loading_warehouse_as_origin()
+    {
+        // arrange copiado do teste de sucesso + ItemComplement ControlsRoyalties = true
+        await service.ExecuteAsync(
+            request with { RoyaltySituation = RoyaltySituation.Tested, RoyaltyTestCode = "T-77" }, "tester");
+
+        var purchase = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.TransactionType == StorageTransactionType.Purchase);
+        Assert.Equal(RoyaltySituation.Tested, purchase.RoyaltySituation);
+        Assert.Equal("T-77", purchase.RoyaltyTestCode);
+        Assert.Equal(request.WarehouseCode, purchase.RoyaltyOriginCode);
+    }
+```
+
+(`service`, `db` e `request` são os nomes do teste copiado — renomeie conforme ele.)
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~ShipmentLoadsShipServiceTests"`
+Expected: build FAIL (o record não tem `RoyaltySituation`).
+
+- [ ] **Step 3: Implement**
+
+Record:
+
+```csharp
+public record ShipmentLoadShipRequest(
+    Guid ShipmentLoadKey,
+    Guid ShipmentReleaseKey,
+    string WarehouseCode,
+    string TruckDriverCode,
+    DateTime TransactionDate,
+    decimal GrossWeight,
+    string? Comments,
+    RoyaltySituation? RoyaltySituation = null,
+    string? RoyaltyTestCode = null);
+```
+
+No inicializador `var purchase = new StorageTransaction { ... }`, depois de `Comments = request.Comments,`:
+
+```csharp
+            RoyaltySituation = request.RoyaltySituation,
+            RoyaltyTestCode = request.RoyaltyTestCode,
+```
+
+Controller, junto dos outros `TryGetValue`:
+
+```csharp
+            parameters.TryGetValue("RoyaltySituation", out var royaltySituationObj);
+            parameters.TryGetValue("RoyaltyTestCode", out var royaltyTestCodeObj);
+            RoyaltySituation? royaltySituation =
+                Enum.TryParse<RoyaltySituation>(royaltySituationObj as string, out var rs) ? rs : null;
+```
+
+e passar `royaltySituation, royaltyTestCodeObj as string` como dois últimos argumentos do
+`new ShipmentLoadShipRequest(...)` (`using SiagroB1.Domain.Enums;`).
+
+EDM, depois de `shipmentLoadsShip.Parameter<string>("Comments").Optional();`:
+
+```csharp
+        // Situação de royalty da compra (nome do enum); vazio = padrão do armazém participante.
+        shipmentLoadsShip.Parameter<string>("RoyaltySituation").Optional();
+        shipmentLoadsShip.Parameter<string>("RoyaltyTestCode").Optional();
+```
+
+- [ ] **Step 4: Run tests** → `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~ShipmentLoads"` PASS; `dotnet build SiagroB1.sln` 0 erros.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add SiagroB1.Application/Services/ShipmentLoads/ShipmentLoadsShipService.cs \
+  SiagroB1.Web/Actions/ShipmentLoads/ShipmentLoadsShipController.cs SiagroB1.Web/ODataConfig/ODataConfigurations.cs \
+  SiagroB1.Application.Tests/ShipmentLoads/ShipmentLoadsShipServiceTests.cs
+git commit -F- <<'EOF'
+feat(shipment): situação de royalty no Expedir da montagem de carga
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016riKPAkAjZmRzBJQVjRiPn
+EOF
+```
+
+---
+
 ## Parte B — Frontend (`C:\Projetos\SiagroB1\siagro-b1-frontend`)
 
-Antes da Task 10: `git -C C:\Projetos\SiagroB1\siagro-b1-frontend status` limpo e `git -C ... checkout -b feature/royalty-its-write-off` a partir de `main`. Labels pt-BR direto no XML (o projeto não usa i18n nas views).
+Antes da Task 11: `git -C C:\Projetos\SiagroB1\siagro-b1-frontend status` limpo e `git -C ... checkout -b feature/royalty-its-write-off` a partir de `main`. Labels pt-BR direto no XML (o projeto não usa i18n nas views).
 
-### Task 10: Corrigir a chave "Convencional" do contrato de compra
+### Task 11: Corrigir a chave "Convencional" do contrato de compra
 
 **Files:**
 - Modify: `webapp/view/purchaseContracts/fragments/PurchaseContractForm.fragment.xml:215`
@@ -2729,11 +3041,11 @@ Claude-Session: https://claude.ai/code/session_016riKPAkAjZmRzBJQVjRiPn
 EOF
 ```
 
-A verificação no navegador (gravar contrato com Convencional e reabrir) entra na Task 17.
+A verificação no navegador (gravar contrato com Convencional e reabrir) entra na Task 18.
 
 ---
 
-### Task 11: Rotas de servidor + checkbox no complemento do produto
+### Task 12: Rotas de servidor + checkbox no complemento do produto
 
 **Files:**
 - Modify: `webapp/model/ServerRoutes.ts`
@@ -2789,7 +3101,7 @@ EOF
 
 ---
 
-### Task 12: Campos de royalty no ticket e no romaneio
+### Task 13: Campos de royalty no ticket e no romaneio
 
 **Files:**
 - Create: `webapp/view/royalties/fragments/RoyaltyFields.fragment.xml`
@@ -2800,7 +3112,7 @@ EOF
 - Modify: controllers que ligam esses forms: `controller/weighingTicket/{Edit,Confirm,Detail}.controller.ts`, `controller/weighingTicket/completed/{Edit,Detail}.controller.ts`, `controller/storageTransactions/{Add,Edit,Detail}.controller.ts`
 
 **Interfaces:**
-- Produces: `RoyaltyFieldsHelper.apply(controller: CommonController, itemCode: string | undefined, editable: boolean): Promise<void>` — seta `ui>/royaltyVisible` (produto controla) e `ui>/royaltyEditable`. `CommonController.openRoyaltyOriginValueHelp(ev)`.
+- Produces: `RoyaltyFieldsHelper.apply(controller: CommonController, itemCode: string | undefined, editable: boolean, showOrigin = true): Promise<void>` — seta `ui>/royaltyVisible` (produto controla), `ui>/royaltyEditable` e `ui>/royaltyOriginVisible` (falso na Compra: a origem é o armazém do carregamento, já na tela). `RoyaltyFieldsHelper.controls(controller, itemCode): Promise<boolean>`. `CommonController.openRoyaltyOriginValueHelp(ev)`.
 
 - [ ] **Step 1: Shared fragment** (filhos diretos do `f:content` da SimpleForm)
 
@@ -2829,9 +3141,9 @@ EOF
     maxLength="50"
     value="{RoyaltyTestCode}" />
 
-  <Label visible="{ui>/royaltyVisible}" text="Origem da Carga" required="true" />
+  <Label visible="{= ${ui>/royaltyVisible} === true &amp;&amp; ${ui>/royaltyOriginVisible} === true }" text="Origem da Carga" required="true" />
   <Input
-    visible="{ui>/royaltyVisible}"
+    visible="{= ${ui>/royaltyVisible} === true &amp;&amp; ${ui>/royaltyOriginVisible} === true }"
     editable="{ui>/royaltyEditable}"
     showValueHelp="true"
     valueHelpOnly="true"
@@ -2844,7 +3156,7 @@ EOF
       <l:GridData span="XL3 L3 M3 S8" />
     </layoutData>
   </Input>
-  <Input visible="{ui>/royaltyVisible}" value="{RoyaltyOriginName}" editable="false" />
+  <Input visible="{= ${ui>/royaltyVisible} === true &amp;&amp; ${ui>/royaltyOriginVisible} === true }" value="{RoyaltyOriginName}" editable="false" />
 </core:FragmentDefinition>
 ```
 
@@ -2872,9 +3184,12 @@ import ServerRoutes from "siagrob1/model/ServerRoutes";
  * O backend valida de qualquer forma; aqui é só para não poluir a tela de milho.
  */
 export default class RoyaltyFieldsHelper {
-	static async apply(controller: CommonController, itemCode: string | undefined, editable: boolean): Promise<void> {
+	static async apply(
+		controller: CommonController, itemCode: string | undefined, editable: boolean, showOrigin = true,
+	): Promise<void> {
 		const ui = controller.getView().getModel("ui") as JSONModel;
 		ui.setProperty("/royaltyEditable", editable);
+		ui.setProperty("/royaltyOriginVisible", showOrigin);
 		ui.setProperty("/royaltyVisible", itemCode ? await RoyaltyFieldsHelper.controls(controller, itemCode) : false);
 	}
 
@@ -2910,7 +3225,7 @@ Em cada controller listado, depois do `bindElement(sPath)` (ou do `setBindingCon
 		await RoyaltyFieldsHelper.apply(this, ctx?.getProperty("ItemCode") as string, <editable>);
 ```
 
-com `<editable>` = o mesmo valor que o controller já usa para `ui>/editable` (no ticket `Edit`/`Confirm`/`completed/Edit`: `true`; nos `Detail`: `false`). No `storageTransactions/Add`, o produto é escolhido na tela: chamar `RoyaltyFieldsHelper.apply(this, itemCode, true)` também no handler que aplica o value help de produto (procure o `openItemsValueHelp`/handler de `ItemCode` do Add e encadeie depois do `applyValueHelp`). Se o controller já tem um `routeMatched` assíncrono, coloque a chamada no fim dele.
+com `<editable>` = o mesmo valor que o controller já usa para `ui>/editable` (no ticket `Edit`/`Confirm`/`completed/Edit`: `true`; nos `Detail`: `false`). Nos controllers de **romaneio** passe o 4º argumento `ctx?.getProperty("TransactionType") !== "Purchase"` — na Compra a origem é o armazém do carregamento (o backend copia ao confirmar) e o campo some; a situação e o código do teste continuam. No `storageTransactions/Add`, o produto é escolhido na tela: chamar `RoyaltyFieldsHelper.apply(this, itemCode, true)` também no handler que aplica o value help de produto (procure o `openItemsValueHelp`/handler de `ItemCode` do Add e encadeie depois do `applyValueHelp`). Se o controller já tem um `routeMatched` assíncrono, coloque a chamada no fim dele.
 
 - [ ] **Step 5: Check** — `yarn ts-typecheck`, `yarn lint`, `yarn ui5lint` sem erros novos.
 
@@ -2933,61 +3248,124 @@ EOF
 
 ---
 
-### Task 13: Campos de royalty na Entrada em armazenagem própria
+### Task 14: Situação de royalty nas telas de Compra (Entrada própria, Expedição de Grãos, Expedir)
+
+Nas três telas a compra é montada num JSONModel e enviada por action; a origem é o armazém do
+carregamento, que a tela já mostra — **só situação e código do teste** entram. Vazio = o backend
+assume Armazém Participante quando o armazém é participante; fora disso ele responde
+"Informe a situação de royalty e a origem da carga." e a tela mostra a mensagem.
 
 **Files:**
-- Modify: `webapp/controller/storageEntryTransaction/Create.controller.ts` (tipo `StorageEntryForm` linhas 35-55; `setData` linhas 128-150; `toPayload` linhas 176-195)
-- Modify: `webapp/view/storageEntryTransaction/fragments/Form.fragment.xml` (ou `TransactionFields.fragment.xml` — o que contém os campos do romaneio de compra; inserir depois do último campo de dados do romaneio)
+- Create: `webapp/view/royalties/fragments/RoyaltyPurchaseFields.fragment.xml`
+- Modify: `webapp/controller/royalties/RoyaltyFieldsHelper.ts` (dois métodos novos)
+- Modify: `webapp/controller/storageEntryTransaction/Create.controller.ts` (tipo `StorageEntryForm` linhas 35-55; depois do `viewModel.setData`, ~linha 150; `toPayload` linhas 176-195)
+- Modify: `webapp/view/storageEntryTransaction/fragments/Form.fragment.xml` (ou `TransactionFields.fragment.xml` — o que tem os campos do romaneio de compra)
+- Modify: `webapp/controller/shippingTransaction/Create.controller.ts` (mesmos pontos: tipo, depois do `viewModel.setData` ~linhas 134-160, `toPayload` ~linha 175)
+- Modify: `webapp/view/shippingTransaction/fragments/Form.fragment.xml`
+- Modify: `webapp/controller/shipmentLoads/Detail.controller.ts` (abertura do diálogo Expedir e o confirm, ~linhas 255-290)
+- Modify: `webapp/view/shipmentLoads/fragments/ShipDialog.fragment.xml` (perto do campo de armazém, linha ~49)
 
-- [ ] **Step 1: Model** — `StorageTransaction` do tipo ganha:
+**Interfaces:**
+- Consumes: `RoyaltyFieldsHelper.controls` (Task 13); parâmetros `RoyaltySituation`/`RoyaltyTestCode` do `ShipmentLoadsShip` (Task 10).
+- Produces: `RoyaltyFieldsHelper.initPurchase(controller, itemCode): Promise<void>` (model `royalty` = `{ RoyaltySituation: "", RoyaltyTestCode: "" }` + `ui>/royaltyVisible`); `RoyaltyFieldsHelper.purchasePayload(controller): { RoyaltySituation: string | null, RoyaltyTestCode: string | null }`.
 
-```ts
-    RoyaltySituation?: string,
-    RoyaltyTestCode?: string,
-    RoyaltyOriginCode?: string,
-    RoyaltyOriginName?: string,
-```
-
-No `setData`, dentro de `StorageTransaction: { ... }`:
-
-```ts
-          RoyaltySituation: null,
-          RoyaltyTestCode: null,
-          RoyaltyOriginCode: data?.PurchaseContract?.CardCode,
-          RoyaltyOriginName: data?.PurchaseContract?.CardName,
-```
-
-e, depois do `viewModel.setData(...)`, `ui>/royaltyVisible`:
+- [ ] **Step 1: Helper**
 
 ```ts
-      const uiModel = this.getModel("ui") as JSONModel;
-      uiModel.setProperty("/royaltyVisible",
-        await RoyaltyFieldsHelper.controls(this, data?.PurchaseContract?.ItemCode as string));
+	/** Telas de Compra: situação/código num model "royalty" próprio, enviado junto da compra. */
+	static async initPurchase(controller: CommonController, itemCode: string | undefined): Promise<void> {
+		controller.getView().setModel(new JSONModel({ RoyaltySituation: "", RoyaltyTestCode: "" }), "royalty");
+		const ui = controller.getView().getModel("ui") as JSONModel;
+		ui.setProperty("/royaltyVisible", itemCode ? await RoyaltyFieldsHelper.controls(controller, itemCode) : false);
+	}
+
+	/** null explícito, nunca undefined/"" — enum vazio derruba o EntityParameter. */
+	static purchasePayload(controller: CommonController): { RoyaltySituation: string | null, RoyaltyTestCode: string | null } {
+		const data = ((controller.getView().getModel("royalty") as JSONModel)?.getData() ?? {}) as
+			{ RoyaltySituation?: string, RoyaltyTestCode?: string };
+		const situation = data.RoyaltySituation || null;
+		return {
+			RoyaltySituation: situation,
+			RoyaltyTestCode: situation === "Tested" ? (data.RoyaltyTestCode?.trim() || null) : null,
+		};
+	}
 ```
 
-No `toPayload`, remover `RoyaltyOriginName` (o backend resolve) e converter vazios:
+- [ ] **Step 2: Fragment** (pares Label/campo para `SimpleForm`)
+
+```xml
+<!-- webapp/view/royalties/fragments/RoyaltyPurchaseFields.fragment.xml -->
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+  <Label visible="{ui>/royaltyVisible}" text="Situação Royalty" />
+  <Select visible="{ui>/royaltyVisible}" forceSelection="false" selectedKey="{royalty>/RoyaltySituation}"
+    tooltip="Vazio: Armazém Participante quando o armazém do carregamento é participante">
+    <core:ListItem key="" text="(padrão do armazém)" />
+    <core:ListItem key="Declared" text="Declarada" />
+    <core:ListItem key="Tested" text="Testada" />
+    <core:ListItem key="Conventional" text="Convencional" />
+    <core:ListItem key="ParticipantWarehouse" text="Armazém Participante" />
+  </Select>
+  <Input visible="{ui>/royaltyVisible}" enabled="{= ${royalty>/RoyaltySituation} === 'Tested' }"
+    required="{= ${royalty>/RoyaltySituation} === 'Tested' }"
+    placeholder="Código do teste" maxLength="50" value="{royalty>/RoyaltyTestCode}" />
+</core:FragmentDefinition>
+```
+
+Incluir com `<core:Fragment fragmentName="siagrob1.view.royalties.fragments.RoyaltyPurchaseFields" type="XML" />`
+logo depois do campo de armazém no form da Entrada própria e em `shippingTransaction/fragments/Form.fragment.xml`
+(ambos `SimpleForm`). No `ShipDialog.fragment.xml`, se ele usar `f:Form` (FormElements), não inclua o
+fragmento: escreva um `f:FormElement label="Situação Royalty" visible="{ui>/royaltyVisible}"` com o
+mesmo `Select` e o mesmo `Input` como `f:fields`.
+
+- [ ] **Step 3: Wire the three screens**
+
+Entrada própria e Expedição de Grãos — depois do `viewModel.setData(...)` do carregamento:
 
 ```ts
-    delete oPayload.RoyaltyOriginName;
-    if (!oPayload.RoyaltySituation) { oPayload.RoyaltySituation = null; }
-    if (oPayload.RoyaltySituation !== "Tested") { oPayload.RoyaltyTestCode = null; }
+      await RoyaltyFieldsHelper.initPurchase(this, viewModel.getProperty("/StorageTransaction/ItemCode") as string);
 ```
 
-No `onSave`, antes de montar a action, se `ui>/royaltyVisible` e faltar situação/origem (ou código em Testada): `MessageBox.warning("Informe a situação de royalty e a origem da carga.")` e `return`.
+No tipo do form, `StorageTransaction` ganha `RoyaltySituation?: string | null, RoyaltyTestCode?: string | null`; no
+`toPayload`, antes do `return`:
 
-- [ ] **Step 2: View** — mesmo conteúdo do fragmento da Task 12, mas com bindings no JSONModel (`viewModel>/StorageTransaction/RoyaltySituation`, `.../RoyaltyTestCode`, `.../RoyaltyOriginCode`, `.../RoyaltyOriginName`), `editable="true"`, `visible="{ui>/royaltyVisible}"` e expressões de "Testada" usando `${viewModel>/StorageTransaction/RoyaltySituation}`. O `applyValueHelp` com JSONModel grava a descrição no caminho irmão (`/StorageTransaction/RoyaltyOriginName`) — mantenha o `descriptionProperty` igual ao da Task 12.
+```ts
+    Object.assign(oPayload, RoyaltyFieldsHelper.purchasePayload(this));
+```
 
-- [ ] **Step 3: Check** — `yarn ts-typecheck`, `yarn lint`, `yarn ui5lint`.
+Expedir (Montagem de Carga) — ao abrir o diálogo (onde o model `ship` é preenchido), com o produto
+da carga (a mesma fonte de `ItemCode` que o controller já usa para a carga aberta):
 
-- [ ] **Step 4: Commit**
+```ts
+      await RoyaltyFieldsHelper.initPurchase(this, loadItemCode);
+```
+
+e no confirm, junto dos outros `setParameter`:
+
+```ts
+      const royalty = RoyaltyFieldsHelper.purchasePayload(this);
+      action.setParameter("RoyaltySituation", royalty.RoyaltySituation);
+      action.setParameter("RoyaltyTestCode", royalty.RoyaltyTestCode);
+```
+
+> O catch do Expedir não mostra MessageBox (o handler global de mensagens OData mostra o erro) —
+> confira no navegador que a recusa "Informe a situação de royalty…" aparece; se não aparecer,
+> acrescente `MessageBox.error((e as Error).message)` naquele catch.
+
+- [ ] **Step 4: Check** — `yarn ts-typecheck`, `yarn lint`, `yarn ui5lint`.
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add webapp/controller/storageEntryTransaction/Create.controller.ts webapp/view/storageEntryTransaction/fragments
+git add webapp/view/royalties/fragments/RoyaltyPurchaseFields.fragment.xml webapp/controller/royalties/RoyaltyFieldsHelper.ts \
+  webapp/controller/storageEntryTransaction/Create.controller.ts webapp/view/storageEntryTransaction/fragments \
+  webapp/controller/shippingTransaction/Create.controller.ts webapp/view/shippingTransaction/fragments/Form.fragment.xml \
+  webapp/controller/shipmentLoads/Detail.controller.ts webapp/view/shipmentLoads/fragments/ShipDialog.fragment.xml
 git commit -F- <<'EOF'
-feat(storage): situação de royalty e origem na entrada em armazenagem própria
+feat(shipment): situação de royalty nas telas de compra em terceiro
 
-O recebimento da entrada nasce da cópia da compra e precisa da situação
-para confirmar quando o produto controla royalties.
+Expedição de Grãos, Expedir da montagem de carga e entrada em armazenagem
+própria informam a situação de royalty da compra; a origem é o armazém
+do carregamento e, sem situação, o armazém participante assume a sua.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_016riKPAkAjZmRzBJQVjRiPn
@@ -2996,7 +3374,7 @@ EOF
 
 ---
 
-### Task 14: Tela "Royalties ITS" — aba Pendentes (filtros, totais, PDF)
+### Task 15: Tela "Royalties ITS" — aba Pendentes (filtros, totais, PDF)
 
 **Files:**
 - Modify: `webapp/manifest.json` (rota perto das de armazenagem; target no objeto `targets`)
@@ -3006,7 +3384,7 @@ EOF
 - Create: `webapp/controller/royalties/Main.controller.ts`
 
 **Interfaces:**
-- Consumes: entity set `RoyaltyTransactionBalances`, function `RoyaltyBalanceTotals`, `POST /reports/RoyaltyPending`, `ServerRoutes` (Task 11).
+- Consumes: entity set `RoyaltyTransactionBalances`, function `RoyaltyBalanceTotals`, `POST /reports/RoyaltyPending`, `ServerRoutes` (Task 12).
 - Produces: rota `royaltyWriteOffs` (pattern `royalty-write-offs`), tabela `pendingTable` (seleção múltipla), model `filter`, model `totals`.
 
 - [ ] **Step 1: manifest.json**
@@ -3072,7 +3450,7 @@ Target:
 </mvc:View>
 ```
 
-> A aba "Baixas" referencia `WriteOffsTable`, criado na Task 15. Para esta task compilar e abrir, crie já o arquivo com um `core:FragmentDefinition` contendo só `<Text text="" />` e substitua na Task 15.
+> A aba "Baixas" referencia `WriteOffsTable`, criado na Task 16. Para esta task compilar e abrir, crie já o arquivo com um `core:FragmentDefinition` contendo só `<Text text="" />` e substitua na Task 16.
 
 ```xml
 <!-- webapp/view/royalties/fragments/Filterbar.fragment.xml -->
@@ -3156,6 +3534,9 @@ Target:
     </t:extension>
     <t:columns>
       <t:Column width="8rem"><Label text="Romaneio" /><t:template><Text text="{Code}" wrapping="false" /></t:template></t:Column>
+      <t:Column width="7rem"><Label text="Tipo" /><t:template>
+        <Text text="{= ${ path: 'TransactionType', targetType: 'any' } === 'Purchase' ? 'Compra' : 'Recebimento' }" wrapping="false" />
+      </t:template></t:Column>
       <t:Column width="6rem"><Label text="Data" /><t:template>
         <Text text="{ path: 'TransactionDate', type: 'sap.ui.model.odata.type.DateTimeOffset', formatOptions: { pattern: 'dd/MM/yyyy' } }" wrapping="false" />
       </t:template></t:Column>
@@ -3312,10 +3693,10 @@ export default class Main extends CommonController {
 		}
 	}
 
-	onTabSelect(): void { /* a aba Baixas aplica o próprio filtro na Task 15 */ }
+	onTabSelect(): void { /* a aba Baixas aplica o próprio filtro na Task 16 */ }
 
-	/** Implementado na Task 15. */
-	onOpenWriteOff(): void { /* Task 15 */ }
+	/** Implementado na Task 16. */
+	onOpenWriteOff(): void { /* Task 16 */ }
 }
 ```
 
@@ -3338,7 +3719,7 @@ EOF
 
 ---
 
-### Task 15: Registrar baixa (diálogo) + aba Baixas com cancelamento
+### Task 16: Registrar baixa (diálogo) + aba Baixas com cancelamento
 
 **Files:**
 - Create: `webapp/view/royalties/fragments/WriteOffDialog.fragment.xml`
@@ -3493,7 +3874,7 @@ EOF
 </core:FragmentDefinition>
 ```
 
-- [ ] **Step 3: Controller additions** (substituir os stubs `onOpenWriteOff`/`onTabSelect` da Task 14; imports novos: `Dialog`, `MessageToast`, `Context` de `sap/ui/model/odata/v4/Context`, `DialogHelper` de `siagrob1/dialogs/DialogHelper`)
+- [ ] **Step 3: Controller additions** (substituir os stubs `onOpenWriteOff`/`onTabSelect` da Task 15; imports novos: `Dialog`, `MessageToast`, `Context` de `sap/ui/model/odata/v4/Context`, `DialogHelper` de `siagrob1/dialogs/DialogHelper`)
 
 ```ts
 	private writeOffDialog?: Dialog;
@@ -3648,7 +4029,7 @@ EOF
 
 ---
 
-### Task 16: Seção "Baixas ITS" no detalhe do romaneio
+### Task 17: Seção "Baixas ITS" no detalhe do romaneio
 
 **Files:**
 - Modify: `webapp/view/storageTransactions/Detail.view.xml` (nova `uxap:ObjectPageSection` depois de "Dados do Romaneio", linha ~66)
@@ -3686,7 +4067,7 @@ EOF
 
 (declarar `xmlns` de `sap.m` se a view usa outro prefixo default).
 
-- [ ] **Step 2: Controller** — depois do `bindElement` e do `RoyaltyFieldsHelper.apply` (Task 12), quando `ui>/royaltyVisible`:
+- [ ] **Step 2: Controller** — depois do `bindElement` e do `RoyaltyFieldsHelper.apply` (Task 13), quando `ui>/royaltyVisible`:
 
 ```ts
 	private bindRoyaltyLines(key: string): void {
@@ -3743,7 +4124,7 @@ EOF
 
 ---
 
-### Task 17: Verificação ponta a ponta + atualização da spec
+### Task 18: Verificação ponta a ponta + atualização da spec
 
 **Files:**
 - Modify: `siagro-b1-backend/docs/superpowers/specs/2026-10-10-royalty-its-write-off-design.md` (seções 2.4, 2.5, 2.3 "caminhos", 3 item 5 e 5 — refletir os "Desvios da spec" deste plano)
@@ -3756,7 +4137,7 @@ Banco de **DEV** (memória `run-stack-locally`; nunca HOM/PRD; `ASPNETCORE_ENVIR
 - [ ] **Step 2: Caminho do usuário (navegador, a partir da home)**
 
 1. Menu Cadastros → produto da soja → Complemento → marcar "Controla royalties" → Salvar → reabrir: continua marcado.
-2. Contrato de compra: gravar com Tipo Tecnologia "Convencional" → reabrir → mostra "Convencional" (Task 10).
+2. Contrato de compra: gravar com Tipo Tecnologia "Convencional" → reabrir → mostra "Convencional" (Task 11).
 3. Armazenagem → Pesagem: ticket de entrada de soja; na classificação aparecem Situação/Origem/Código do teste; origem vem vazia e, ao concluir sem situação, aparece "Informe a situação de royalty e a origem da carga."; com "Testada" e sem código, "Informe o código do teste…"; preencher e concluir.
 4. Ticket de milho: os campos não aparecem e conclui normalmente.
 5. Romaneios de Movimentação → o romaneio gerado mostra a situação, a origem (com nome) e a seção "Baixas ITS" com saldo = peso líquido.
@@ -3766,7 +4147,11 @@ Banco de **DEV** (memória `run-stack-locally`; nunca HOM/PRD; `ASPNETCORE_ENVIR
 9. Tentar estornar esse romaneio → "Romaneio possui baixa ITS ativa (…); cancele a baixa antes."
 10. Baixar o restante com outro ID; repetir um ID ativo → "ID do ITS … já utilizado…".
 11. Cancelar uma baixa pela aba Baixas → saldo volta; o mesmo ID pode ser reutilizado.
-12. Entrada em armazenagem própria de soja: os campos aparecem, origem vem com o fornecedor do contrato; sem situação, o salvar avisa; com situação, o recebimento aparece em Pendentes.
+12. Entrada em armazenagem própria de soja: Situação e Código do teste aparecem (sem campo de origem); com armazém participante e situação vazia, grava como Armazém Participante; em Pendentes aparece **só a Compra** (Tipo = Compra, origem = armazém do carregamento), não o Recebimento.
+13. Expedição de Grãos de soja carregando em armazém **não** participante (fazenda) sem situação → "Informe a situação de royalty e a origem da carga."; com "Declarada" → a compra aparece em Pendentes com Tipo = Compra.
+14. Montagem de Carga → Expedir com soja: mesmo comportamento do passo 13 pelo diálogo.
+15. Baixa misturando uma Compra e um Recebimento da mesma situação → aceita; o PDF mostra a coluna Tipo.
+16. Troca de liberação numa compra com baixa ativa → recusada com "baixa ITS ativa"; cancelando a baixa, a troca passa e em Pendentes fica só a compra nova.
 
 Registrar qualquer divergência e corrigir (TDD) antes de seguir. Se o ambiente local impedir um passo (ex.: SAP indisponível no modo SAPB1 — memória `yokotobi-verification-env-timeouts-and-sap-unreachable`), anotar qual passo ficou sem verificação.
 
@@ -3776,7 +4161,7 @@ Backend: `dotnet test SiagroB1.Application.Tests` → tudo verde (anotar o total
 
 - [ ] **Step 4: Update the spec and commit (backend repo)**
 
-Aplicar os 6 desvios listados no topo deste plano às seções correspondentes da spec.
+Conferir que a spec reflete os desvios listados no topo deste plano (o item 7 já entrou) e aplicar os demais às seções correspondentes da spec.
 
 ```bash
 git add docs/superpowers/specs/2026-10-10-royalty-its-write-off-design.md
