@@ -62,6 +62,11 @@ public class UsageModel
     public decimal? IbsRateReduction { get; set; }
     public decimal? CbsRateReduction { get; set; }
 
+    /// <summary>Funrural: alíquotas de retenção do produtor rural (INSS, RAT e SENAR). Vazio = não retém.</summary>
+    public decimal? FunruralInssRate { get; set; }
+    public decimal? FunruralRatRate { get; set; }
+    public decimal? FunruralSenarRate { get; set; }
+
     /// <summary>
     /// Natureza da NF-e de devolução, da direção OPOSTA à desta (venda → devolução de venda, de Entrada;
     /// compra → devolução de compra, de Saída). Só STANDALONE.

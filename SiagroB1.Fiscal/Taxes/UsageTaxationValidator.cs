@@ -41,6 +41,10 @@ public static class UsageTaxationValidator
         ValidateRateForTaxedCst(model.CofinsCst, model.CofinsRate, "COFINS");
 
         ValidateIbsCbs(model);
+
+        ValidatePercent(model.FunruralInssRate, "Alíquota de INSS do Funrural");
+        ValidatePercent(model.FunruralRatRate, "Alíquota de RAT do Funrural");
+        ValidatePercent(model.FunruralSenarRate, "Alíquota de SENAR do Funrural");
     }
 
     private static void ValidateCfop(string? cfop, char prefix, string label)
