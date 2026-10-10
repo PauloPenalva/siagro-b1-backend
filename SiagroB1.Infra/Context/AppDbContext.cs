@@ -104,6 +104,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Item> Items { get; set; }
 
     public DbSet<ItemComplement> ItemComplements { get; set; }
+    public DbSet<RoyaltyWriteOff> RoyaltyWriteOffs { get; set; }
+    public DbSet<RoyaltyWriteOffLine> RoyaltyWriteOffLines { get; set; }
     public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
@@ -634,6 +636,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne<ShippingReleaseChange>().WithMany()
             .HasForeignKey(x => x.ShippingReleaseChangeKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Royalties (ITS): o ID do ITS é único entre baixas ATIVAS — cancelar libera o número.
+        modelBuilder.Entity<RoyaltyWriteOff>()
+            .HasIndex(x => x.ItsId)
+            .IsUnique()
+            .HasFilter($"[Status] = {(int)RoyaltyWriteOffStatus.Active}");
+
+        modelBuilder.Entity<RoyaltyWriteOff>()
+            .HasMany(x => x.Lines)
+            .WithOne(x => x.RoyaltyWriteOff)
+            .HasForeignKey(x => x.RoyaltyWriteOffKey)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RoyaltyWriteOffLine>()
+            .HasOne(x => x.StorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.StorageTransactionKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // O saldo a baixar é SUM(Weight) por romaneio: índice de cobertura.
+        modelBuilder.Entity<RoyaltyWriteOffLine>()
+            .HasIndex(x => x.StorageTransactionKey)
+            .IncludeProperties(x => x.Weight);
     }
 }
     

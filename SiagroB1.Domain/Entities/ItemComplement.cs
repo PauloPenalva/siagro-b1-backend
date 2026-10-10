@@ -30,4 +30,11 @@ public class ItemComplement
     /// <summary>KG por unidade comercial (ex.: 60 para saca de soja). Nula junto com a UoM.</summary>
     [Column(TypeName = "DECIMAL(18,6)")]
     public decimal? CommercialFactor { get; set; }
+
+    /// <summary>
+    /// Produto sujeito ao controle de royalties (ITS): tickets e romaneios de recebimento dele exigem
+    /// situação de royalty e origem, e entram na lista de pendentes de baixa.
+    /// </summary>
+    [Column(TypeName = "bit")]
+    public bool ControlsRoyalties { get; set; }
 }
