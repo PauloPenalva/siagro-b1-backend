@@ -1,3 +1,4 @@
+using System.Data;
 using System.Globalization;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +42,8 @@ public class RoyaltyWriteOffsCreateService(IUnitOfWork db)
             await db.BeginTransactionAsync();
 
             var keys = input.Lines.Select(l => l.StorageTransactionKey).ToList();
+            await LockStorageTransactionsAsync(keys);
+
             var balances = await RoyaltyBalanceQuery.Build(db.Context)
                 .Where(x => keys.Contains(x.StorageTransactionKey))
                 .ToDictionaryAsync(x => x.StorageTransactionKey);
@@ -104,10 +107,49 @@ public class RoyaltyWriteOffsCreateService(IUnitOfWork db)
             await db.RollbackAsync();
             throw new ApplicationException($"ID do ITS {itsId} já utilizado em outra baixa ativa.");
         }
+        catch (ApplicationException)
+        {
+            await db.RollbackAsync();
+            throw;
+        }
         catch (Exception e)
         {
             await db.RollbackAsync();
-            throw e as ApplicationException ?? new ApplicationException(e.Message);
+            throw new ApplicationException(e.Message, e);
+        }
+    }
+
+    /// <summary>
+    /// Serializa as baixas sobre um mesmo romaneio. Sem a trava, duas baixas simultâneas com IDs
+    /// do ITS diferentes leriam o mesmo saldo e as duas passariam, baixando mais do que o peso
+    /// líquido. O lock de aplicação pertence à transação (solto no commit/rollback); a segunda
+    /// baixa espera e, ao ler, já enxerga as linhas da primeira. As chaves vão em ordem para que
+    /// duas baixas com romaneios em comum nunca se travem em ordem cruzada (deadlock). Só no
+    /// SQL Server: o provider InMemory dos testes não executa SQL.
+    /// </summary>
+    /// <remarks>
+    /// O cancelamento/estorno do romaneio (RoyaltyRules.EnsureNoActiveWriteOffAsync) confere a baixa
+    /// ativa FORA de transação e não pega esta trava: uma baixa gravada entre essa conferência e o
+    /// cancelamento ainda passa. A janela é de milissegundos e exige duas pessoas agindo no mesmo
+    /// romaneio ao mesmo tempo; fechar exigiria mover a conferência para dentro da transação de
+    /// cada um desses serviços.
+    /// </remarks>
+    private async Task LockStorageTransactionsAsync(IEnumerable<Guid> keys)
+    {
+        if (!db.Context.Database.IsSqlServer())
+            return;
+
+        foreach (var key in keys.Distinct().Order())
+        {
+            var result = new SqlParameter("@result", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            await db.Context.Database.ExecuteSqlRawAsync(
+                "EXEC @result = sp_getapplock @Resource = @resource, @LockMode = 'Exclusive', " +
+                "@LockOwner = 'Transaction', @LockTimeout = 30000",
+                new SqlParameter("@resource", $"royalty-st-{key}"), result);
+
+            // 0/1 = concedido; negativo = tempo esgotado, deadlock ou erro.
+            if ((int)result.Value < 0)
+                throw new ApplicationException("Outra baixa ITS está sendo gravada para o mesmo romaneio. Tente novamente.");
         }
     }
 }
