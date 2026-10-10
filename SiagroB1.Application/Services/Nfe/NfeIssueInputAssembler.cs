@@ -60,8 +60,8 @@ public static class NfeIssueInputAssembler
     }
 
     /// <summary>
-    /// Entrada própria: ENTRADA normal, destinatário = fornecedor, sem NF-e referenciada (o NFref é 1:N no
-    /// leiaute e o documento não tem onde guardá-las). Devolução de compra: SAÍDA com finalidade 4, o item da
+    /// Entrada própria: ENTRADA normal, destinatário = fornecedor; a contra-nota leva no NFref a chave da escrituração do
+    /// produtor e o Funrural dela no infCpl (spec 2026-10-10 §6). Devolução de compra: SAÍDA com finalidade 4, o item da
     /// entrada no DFeReferenciado, sem pagamento.
     /// </summary>
     public static NfeIssueInput Build(
@@ -71,7 +71,11 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a entrada de origem.")
             : null;
 
-        IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey] : [];
+        var producer = returnOrigin is null ? context.ProducerInvoice : null;
+
+        IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey]
+            : producer is not null ? [producer.AccessKey]
+            : [];
 
         return Build(new NfeDocumentView(
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
@@ -81,7 +85,8 @@ public static class NfeIssueInputAssembler
             line => ((PurchaseInvoiceItem)line).PurchaseInvoiceItemOriginKey,
             invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
             new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
-            invoice.TaxPayerComments, TaxComments: null, PurchaseInvoiceFunrural.Text(invoice),
+            invoice.TaxPayerComments, TaxComments: null,
+            producer is not null ? producer.FunruralText : PurchaseInvoiceFunrural.Text(invoice),
             returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA"), context, issuedAt, technicalResponsible);
     }
 

@@ -6,7 +6,7 @@ namespace SiagroB1.Application.Tests.Support;
 /// <summary>
 /// Escrituração da NF-e do produtor pronta para a contra-nota (spec 2026-10-10): a entrada de terceiro confirmada do
 /// <see cref="ThirdPartyPurchaseSeed"/> com as linhas calculadas pela natureza "COMPRA DE MERCADORIA" (CFOP 1102), a
-/// natureza marcada "Permite contra-nota", a condição de pagamento preenchida e Funrural (SENAR 0,2%) na linha do TRIGO.
+/// natureza marcada "Permite contra-nota", a condição de pagamento preenchida e Funrural (INSS 0,1% + SENAR 0,1%) na linha do TRIGO.
 /// </summary>
 public static class CounterNoteSeed
 {
@@ -30,8 +30,11 @@ public static class CounterNoteSeed
             if (line.ItemCode == "TRIGO")
             {
                 line.FunruralBase = 1500m;
-                line.FunruralSenarRate = 0.2m;
-                line.FunruralSenarValue = 3m;
+                // INSS + SENAR (total 3,00): só com INSS/RAT o infCpl traz a frase "Contribuição Social denominada Funrural".
+                line.FunruralInssRate = 0.1m;
+                line.FunruralInssValue = 1.5m;
+                line.FunruralSenarRate = 0.1m;
+                line.FunruralSenarValue = 1.5m;
             }
         }
 

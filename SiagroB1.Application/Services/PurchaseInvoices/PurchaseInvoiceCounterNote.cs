@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -28,5 +29,22 @@ public static class PurchaseInvoiceCounterNote
         if (await FindValidAsync(context, producerInvoiceKey) is { } note)
             throw new DefaultException(
                 $"A escrituração tem a contra-nota {note.InvoiceNumber}: cancele ou exclua a contra-nota antes de {action}.");
+    }
+
+    /// <summary>
+    /// A escrituração conferida na emissão da contra-nota, antes de reservar o número: precisa continuar confirmada e com
+    /// a chave — é ela que vai no NFref.
+    /// </summary>
+    public static async Task<NfeCounterNoteOrigin> LoadIssueOriginAsync(AppDbContext context, Guid producerInvoiceKey)
+    {
+        var producer = await context.PurchaseInvoices.AsNoTracking().Include(i => i.Items)
+            .FirstOrDefaultAsync(i => i.Key == producerInvoiceKey);
+
+        if (producer is null || producer.InvoiceStatus != InvoiceStatus.Confirmed ||
+            producer.ChaveNFe is not { Length: 44 } key || !key.All(char.IsAsciiDigit))
+            throw new DefaultException(
+                "A escrituração da NF-e do produtor precisa estar confirmada e com a chave de 44 dígitos para emitir a contra-nota.");
+
+        return new NfeCounterNoteOrigin(key, PurchaseInvoiceFunrural.Text(producer));
     }
 }
