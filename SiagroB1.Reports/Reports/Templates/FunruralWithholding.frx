@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/09/2026 10:00:00" ReportInfo.Modified="10/09/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="FunruralRows" ReferenceName="FunruralRows" DataType="System.Int32" Enabled="true">
+      <Column Name="Kind" DataType="System.Int32"/>
+      <Column Name="IssueDate" DataType="System.String"/>
+      <Column Name="DocumentNumber" DataType="System.String"/>
+      <Column Name="InternalNumber" DataType="System.String"/>
+      <Column Name="Partner" DataType="System.String"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="Base" DataType="System.Decimal"/>
+      <Column Name="InssRate" DataType="System.String"/>
+      <Column Name="InssValue" DataType="System.Decimal"/>
+      <Column Name="RatRate" DataType="System.String"/>
+      <Column Name="RatValue" DataType="System.Decimal"/>
+      <Column Name="SenarRate" DataType="System.String"/>
+      <Column Name="SenarValue" DataType="System.Decimal"/>
+      <Column Name="Total" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pItemCount" DataType="System.Int32" AsString="0"/>
+    <Parameter Name="pGrossBase" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pGrossInss" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pGrossRat" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pGrossSenar" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pGrossTotal" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pReturnsBase" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pReturnsInss" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pReturnsRat" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pReturnsSenar" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pReturnsTotal" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pNetBase" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pNetInss" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pNetRat" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pNetSenar" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pNetTotal" DataType="System.Decimal" AsString="0"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Funrural Retido por Item de Entrada (INSS, GILRAT e SENAR)" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="34" Border.Lines="Bottom">
+      <TextObject Name="capInss" Left="654" Width="112" Height="15" Border.Lines="Bottom" Text="INSS" HorzAlign="Center" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="capRat" Left="766" Width="112" Height="15" Border.Lines="Bottom" Text="GILRAT" HorzAlign="Center" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="capSenar" Left="878" Width="112" Height="15" Border.Lines="Bottom" Text="SENAR" HorzAlign="Center" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssueDate" Left="0" Top="15" Width="62" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocumentNumber" Left="62" Top="15" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInternalNumber" Left="144" Top="15" Width="60" Height="17" Text="Nº interno" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPartner" Left="204" Top="15" Width="200" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDescription" Left="404" Top="15" Width="170" Height="17" Text="Produto" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBase" Left="574" Top="15" Width="80" Height="17" Text="Base" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInssRate" Left="654" Top="15" Width="42" Height="17" Text="%" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInssValue" Left="696" Top="15" Width="70" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrRatRate" Left="766" Top="15" Width="42" Height="17" Text="%" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrRatValue" Left="808" Top="15" Width="70" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrSenarRate" Left="878" Top="15" Width="42" Height="17" Text="%" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrSenarValue" Left="920" Top="15" Width="70" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrTotal" Left="990" Top="15" Width="94" Height="17" Text="Total Funrural" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Top="153.8" Width="1084" Height="17" CanGrow="true" DataSource="FunruralRows">
+        <TextObject Name="txtIssueDate" Left="0" Width="62" Height="17" Text="[FunruralRows.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDocumentNumber" Left="62" Width="82" Height="17" Text="[FunruralRows.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtInternalNumber" Left="144" Width="60" Height="17" Text="[FunruralRows.InternalNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtPartner" Left="204" Width="200" Height="17" Text="[FunruralRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDescription" Left="404" Width="170" Height="17" Text="[FunruralRows.Description]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtBase" Left="574" Width="80" Height="17" Text="[FunruralRows.Base]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtInssRate" Left="654" Width="42" Height="17" Text="[FunruralRows.InssRate]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtInssValue" Left="696" Width="70" Height="17" Text="[FunruralRows.InssValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRatRate" Left="766" Width="42" Height="17" Text="[FunruralRows.RatRate]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRatValue" Left="808" Width="70" Height="17" Text="[FunruralRows.RatValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtSenarRate" Left="878" Width="42" Height="17" Text="[FunruralRows.SenarRate]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtSenarValue" Left="920" Width="70" Height="17" Text="[FunruralRows.SenarValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtTotal" Left="990" Width="94" Height="17" Text="[FunruralRows.Total]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="174" Width="1084" Height="86" Border.Lines="Top">
+      <TextObject Name="lblSumCount" Left="0" Top="4" Width="200" Height="17" Text="[pItemCount] item(ns) com Funrural" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="lblSumGross" Left="404" Top="4" Width="170" Height="17" Text="Bruto:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumGrossBase" Left="574" Top="4" Width="80" Height="17" Text="[pGrossBase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumGrossInss" Left="696" Top="4" Width="70" Height="17" Text="[pGrossInss]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumGrossRat" Left="808" Top="4" Width="70" Height="17" Text="[pGrossRat]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumGrossSenar" Left="920" Top="4" Width="70" Height="17" Text="[pGrossSenar]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumGrossTotal" Left="990" Top="4" Width="94" Height="17" Text="[pGrossTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="lblSumReturns" Left="404" Top="23" Width="170" Height="17" Text="(-) Devoluções:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumReturnsBase" Left="574" Top="23" Width="80" Height="17" Text="[pReturnsBase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumReturnsInss" Left="696" Top="23" Width="70" Height="17" Text="[pReturnsInss]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumReturnsRat" Left="808" Top="23" Width="70" Height="17" Text="[pReturnsRat]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumReturnsSenar" Left="920" Top="23" Width="70" Height="17" Text="[pReturnsSenar]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumReturnsTotal" Left="990" Top="23" Width="94" Height="17" Text="[pReturnsTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="lblSumNet" Left="404" Top="42" Width="170" Height="17" Text="(=) Líquido a recolher:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumNetBase" Left="574" Top="42" Width="80" Height="17" Text="[pNetBase]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumNetInss" Left="696" Top="42" Width="70" Height="17" Text="[pNetInss]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumNetRat" Left="808" Top="42" Width="70" Height="17" Text="[pNetRat]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumNetSenar" Left="920" Top="42" Width="70" Height="17" Text="[pNetSenar]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumNetTotal" Left="990" Top="42" Width="94" Height="17" Text="[pNetTotal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="64" Width="1084" Height="17" Text="[IIf([pItemCount] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="263" Width="1084" Height="26">
+      <TextObject Name="txtFooterNote" Left="0" Width="900" Height="17" Text="Valores da fotografia gravada no item. Devoluções de compra abatidas na linha de origem, qualquer que seja a data delas." VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Italic"/>
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

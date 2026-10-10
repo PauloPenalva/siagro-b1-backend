@@ -19,7 +19,7 @@ public class InvoiceReportsLayoutTests
     public static TheoryData<string> Templates => new()
     {
         "SalesInvoicesByPeriod", "PurchaseInvoicesByPeriod", "SalesInvoiceItems",
-        "PurchaseInvoiceItems", "SalesReturns",
+        "PurchaseInvoiceItems", "SalesReturns", "FunruralWithholding",
     };
 
     /// <summary>Quantidade de caracteres do maior valor previsto, ou null se o objeto não é numérico.</summary>
@@ -30,6 +30,7 @@ public class InvoiceReportsLayoutTests
         if (isTotal)
         {
             if (name is "txtSumLabel" or "txtSumCount" or "txtGrpLabel" or "txtGrpCount") return null;
+            if (name.StartsWith("txtSum") && name.EndsWith("Base")) return 15;                // -999.999.999,99
             return name.EndsWith("Quantity") || name.EndsWith("NetWeight") ? 15 : 14; // 999.999.999,999 / 999.999.999,99
         }
 
@@ -38,6 +39,9 @@ public class InvoiceReportsLayoutTests
             "txtIssueDate" or "txtPostingDate" => 10,                    // 31/12/2026
             "txtQuantity" or "txtNetWeight" => 14,                       // 99.999.999,999
             "txtProducts" or "txtDeclared" or "txtTotal" or "txtGrandTotal" or "txtValue" => 12, // 9.999.999,99
+            "txtBase" => 13,                                             // -9.999.999,99 (devolução)
+            "txtInssValue" or "txtRatValue" or "txtSenarValue" => 11,    // -999.999,99
+            "txtInssRate" or "txtRatRate" or "txtSenarRate" => 6,        // 1,3250
             "txtFreight" or "txtDiscount" or "fiscalTaxes" or "fiscalIcms" or "fiscalPis"
                 or "fiscalCofins" or "fiscalIbsCbs" => 10,               // 999.999,99
             _ => null,
