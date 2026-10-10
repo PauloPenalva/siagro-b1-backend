@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.PurchaseInvoices;
@@ -89,5 +90,22 @@ public class PurchaseInvoicesFunruralReturnTests
 
         var line = (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key)).Items.Single();
         Assert.Equal((0m, 0m), (line.FunruralBase, line.FunruralValue));
+    }
+
+    [Fact]
+    public async Task Return_nfe_carries_the_reversal_text()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync(1.32m, 0.11m, 0.20m);
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+        scenario.Db.Context.ChangeTracker.Clear();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        await PurchaseInvoicesNfeIssueServiceTests.Issue(scenario, sefaz).ExecuteAsync(created.Key, "tester");
+
+        var infCpl = XDocument.Parse(Assert.Single(sefaz.Sent).Xml).Descendants().Single(e => e.Name.LocalName == "infCpl").Value;
+        Assert.Contains(
+            "Estorno - Contribuição Social denominada Funrural 1,63% = R$ 9,78 (INSS 1,32% R$ 7,92; RAT 0,11% R$ 0,66; SENAR 0,20% R$ 1,20)",
+            infCpl);
     }
 }

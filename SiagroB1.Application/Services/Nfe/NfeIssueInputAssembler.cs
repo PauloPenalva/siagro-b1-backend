@@ -1,4 +1,5 @@
 using System.Globalization;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -55,7 +56,7 @@ public static class NfeIssueInputAssembler
             line => ((SalesInvoiceItem)line).SalesInvoiceItemOriginKey,
             invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
             new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
-            invoice.TaxPayerComments, invoice.TaxComments, "VENDA"), context, issuedAt, technicalResponsible);
+            invoice.TaxPayerComments, invoice.TaxComments, FunruralText: null, "VENDA"), context, issuedAt, technicalResponsible);
     }
 
     /// <summary>
@@ -80,20 +81,21 @@ public static class NfeIssueInputAssembler
             line => ((PurchaseInvoiceItem)line).PurchaseInvoiceItemOriginKey,
             invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
             new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
-            invoice.TaxPayerComments, TaxComments: null,
+            invoice.TaxPayerComments, TaxComments: null, PurchaseInvoiceFunrural.Text(invoice),
             returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA"), context, issuedAt, technicalResponsible);
     }
 
     /// <summary>O que o montador precisa do documento, sem saber se é de saída ou de entrada.</summary>
     /// <param name="Lines">Já na ordem do <c>nItem</c> (<see cref="NfeItemNumbering.Ordered{TLine}"/>).</param>
     /// <param name="OriginItemKey">Na devolução, a chave do item da operação original que a linha devolve.</param>
+    /// <param name="FunruralText">Trecho do Funrural no infCpl (só a entrada; spec 2026-10-09 §6).</param>
     /// <param name="DefaultOperationNature"><c>natOp</c> quando a natureza da primeira linha não tem texto nem nome.</param>
     private sealed record NfeDocumentView(
         string TaxDocumentNumber, string TaxDocumentSeries, string RandomCode,
         NfeDirection Direction, NfeReturnOrigin? ReturnOrigin, IReadOnlyList<string> HeaderReferencedKeys,
         IReadOnlyList<INfeTaxedLine> Lines, Func<INfeTaxedLine, Guid?> OriginItemKey,
         FreightTerms FreightTerms, decimal NetWeight, decimal GrossWeight, NfeVolume? Volume,
-        string? TaxPayerComments, string? TaxComments, string DefaultOperationNature);
+        string? TaxPayerComments, string? TaxComments, string? FunruralText, string DefaultOperationNature);
 
     private static NfeIssueInput Build(
         NfeDocumentView view, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
@@ -193,7 +195,7 @@ public static class NfeIssueInputAssembler
                     context.PaymentCondition!.Days, context.PaymentCondition.StartRule, context.PaymentCondition.PaymentMeans,
                     total, DateOnly.FromDateTime(issuedAt.Date)),
             BillingNumber = view.TaxDocumentNumber,
-            AdditionalInfo = AdditionalInfo(items, context.Usages, view.TaxPayerComments, ReturnReference(returnOrigin)),
+            AdditionalInfo = AdditionalInfo(items, context.Usages, view.FunruralText, view.TaxPayerComments, ReturnReference(returnOrigin)),
             FiscoInfo = view.TaxComments,
             TechnicalResponsible = technicalResponsible,
         };
@@ -263,11 +265,11 @@ public static class NfeIssueInputAssembler
 
     /// <summary>
     /// <c>infCpl</c>: na devolução, a referência à operação original primeiro; depois os textos padrão
-    /// distintos das naturezas, na ordem das linhas, e as informações do contribuinte.
+    /// distintos das naturezas, na ordem das linhas, o Funrural calculado e as informações do contribuinte.
     /// </summary>
     private static string? AdditionalInfo(
-        IEnumerable<INfeTaxedLine> items, IReadOnlyDictionary<int, Usage> usages, string? taxPayerComments,
-        string? returnReference = null)
+        IEnumerable<INfeTaxedLine> items, IReadOnlyDictionary<int, Usage> usages, string? funruralText,
+        string? taxPayerComments, string? returnReference = null)
     {
         var texts = items
             .Select(i => i.UsageCode is { } code && usages.TryGetValue(code, out var usage) ? usage.DefaultAdditionalInfo : null)
@@ -278,6 +280,9 @@ public static class NfeIssueInputAssembler
 
         if (returnReference is not null)
             texts.Insert(0, returnReference);
+
+        if (!string.IsNullOrWhiteSpace(funruralText))
+            texts.Add(funruralText);
 
         if (!string.IsNullOrWhiteSpace(taxPayerComments))
             texts.Add(taxPayerComments.Trim());
