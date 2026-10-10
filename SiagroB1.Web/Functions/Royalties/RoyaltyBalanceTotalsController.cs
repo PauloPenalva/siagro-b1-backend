@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
@@ -12,8 +13,9 @@ public class RoyaltyBalanceTotalsController(IUnitOfWork unitOfWork) : ODataContr
 {
     [HttpGet("odata/RoyaltyBalanceTotals(FromDate={fromDate},ToDate={toDate},CardCode={cardCode},OriginCode={originCode},ItemCode={itemCode},Situation={situation},StorageAddressCode={storageAddressCode})")]
     public async Task<IActionResult> Get(
-        string? fromDate, string? toDate, string? cardCode, string? originCode,
-        string? itemCode, string? situation, string? storageAddressCode)
+        [FromODataUri] string? fromDate, [FromODataUri] string? toDate, [FromODataUri] string? cardCode,
+        [FromODataUri] string? originCode, [FromODataUri] string? itemCode, [FromODataUri] string? situation,
+        [FromODataUri] string? storageAddressCode)
     {
         var filter = new RoyaltyBalanceFilter
         {
@@ -31,13 +33,12 @@ public class RoyaltyBalanceTotalsController(IUnitOfWork unitOfWork) : ODataContr
         return Ok(totals);
     }
 
-    // Os parâmetros chegam como literal OData: 'texto' (com aspas) ou null.
-    private static string? Clean(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value == "null") return null;
-        var trimmed = value.Trim('\'');
-        return trimmed.Length == 0 ? null : Uri.UnescapeDataString(trimmed).Replace("''", "'");
-    }
+    // [FromODataUri] é obrigatório: sem ele o MVC liga o route value cru, e o literal `null` chega
+    // como a INSTÂNCIA ODataNullValue — cujo ToString() é "Microsoft.OData.ODataNullValue". Esse
+    // texto virava filtro (CardCode = "Microsoft.OData.ODataNullValue") e os totais vinham vazios.
+    // Com ele, `null` chega null e 'texto' chega já sem aspas e decodificado.
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static DateTime? ParseDate(string? value) =>
         DateTime.TryParseExact(Clean(value), "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var d)
