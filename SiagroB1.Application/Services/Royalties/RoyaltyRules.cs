@@ -29,16 +29,24 @@ public static class RoyaltyRules
 
     /// <summary>
     /// Romaneios que exigem a situação de royalty ao confirmar (quando o produto controla):
-    /// Recebimento e Compra. Ficam isentas: a Compra da Conferência de saldo de armazém (movimento
-    /// de papel) e a Compra gerada por troca de liberação cuja original não tem situação, isto é,
-    /// um embarque anterior ao controle de royalties — o usuário não tem como preencher uma
-    /// compra que o sistema criou, então ela herda o "sem situação" da original.
+    /// Recebimento e Compra. Fica isenta a Compra da Conferência de saldo de armazém (movimento
+    /// de papel). A isenção da Compra de troca de liberação de embarque anterior ao controle é
+    /// outra: ver <see cref="IsLegacyReleaseChangeLeg"/>.
     /// </summary>
     public static bool RequiresRoyalty(StorageTransaction st) =>
         st.TransactionType == StorageTransactionType.Receipt ||
         (st.TransactionType == StorageTransactionType.Purchase &&
-         st.TransactionOrigin != TransactionCode.WarehouseReconciliation &&
-         !(st.ShippingReleaseChangeKey != null && st.RoyaltySituation == null));
+         st.TransactionOrigin != TransactionCode.WarehouseReconciliation);
+
+    /// <summary>
+    /// Compra gerada por troca de liberação que, mesmo depois dos padrões do armazém, segue sem
+    /// situação: veio de um embarque anterior ao controle de royalties. O usuário não tem como
+    /// preencher uma compra que o sistema criou, então só a exigência de preenchimento é
+    /// dispensada; os padrões do armazém participante continuam valendo. Avaliar DEPOIS de
+    /// <see cref="ApplyPurchaseDefaultsAsync"/>.
+    /// </summary>
+    public static bool IsLegacyReleaseChangeLeg(StorageTransaction st) =>
+        st.ShippingReleaseChangeKey != null && st.RoyaltySituation is null;
 
     /// <summary>
     /// Nome da origem da carga: na Compra a origem é o armazém do carregamento; nos demais, o

@@ -776,6 +776,29 @@ public class ShippingTransactionsChangeReleaseServiceTests
     }
 
     /// <summary>
+    /// Embarque anterior ao controle, destino em armazém participante: a compra nova ainda recebe
+    /// os padrões do armazém (situação Armazém Participante e origem = armazém); só a exigência
+    /// de preenchimento é dispensada.
+    /// </summary>
+    [Fact]
+    public async Task LegacyPurchase_AtParticipantWarehouse_NewPurchaseGetsTheWarehouseDefaults()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0001");
+        var (shipping, _) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        _db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "SOJA", ControlsRoyalties = true });
+        _db.Context.WarehouseComplements.Add(new WarehouseComplement { WarehouseCode = "01", IsParticipant = true });
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync([new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester");
+
+        var change = await ChangeOf(shipping.SalesStorageTransactionKey);
+        var newPurchase = await Tx(change.NewPurchaseStorageTransactionKey!.Value);
+        Assert.Equal(RoyaltySituation.ParticipantWarehouse, newPurchase.RoyaltySituation);
+        Assert.Equal(newPurchase.WarehouseCode, newPurchase.RoyaltyOriginCode);
+    }
+
+    /// <summary>
     /// Liberação de origem Finalizada/Pausada: os estornos passam pela trava de movimentação sem
     /// a chave da liberação e só a recebem depois do confirm.
     /// </summary>

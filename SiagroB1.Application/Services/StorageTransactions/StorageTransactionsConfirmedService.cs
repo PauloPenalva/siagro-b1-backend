@@ -203,7 +203,8 @@ public class StorageTransactionsConfirmedService(
         if (RoyaltyRules.RequiresRoyalty(st) && await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
         {
             await RoyaltyRules.ApplyPurchaseDefaultsAsync(db.Context, st);
-            RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
+            if (!RoyaltyRules.IsLegacyReleaseChangeLeg(st))
+                RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
         }
 
         try
