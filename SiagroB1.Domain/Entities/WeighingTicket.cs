@@ -106,7 +106,7 @@ public class WeighingTicket : DocumentEntity
     public string? RoyaltyTestCode { get; set; }
 
     /// <summary>Parceiro de origem da carga (produtor, ou o armazém participante de onde veio).</summary>
-    [Column(TypeName = "VARCHAR(10)")]
+    [Column(TypeName = "VARCHAR(15)")]
     public string? RoyaltyOriginCode { get; set; }
 
     [Column(TypeName = "VARCHAR(200)")]

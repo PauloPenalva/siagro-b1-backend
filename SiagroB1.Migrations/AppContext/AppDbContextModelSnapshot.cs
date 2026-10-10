@@ -5527,7 +5527,7 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("rowversion");
 
                     b.Property<string>("RoyaltyOriginCode")
-                        .HasColumnType("VARCHAR(10)");
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("RoyaltyOriginName")
                         .HasColumnType("VARCHAR(200)");
@@ -6385,7 +6385,7 @@ namespace SiagroB1.Migrations.AppContext
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
 
                     b.Property<string>("RoyaltyOriginCode")
-                        .HasColumnType("VARCHAR(10)");
+                        .HasColumnType("VARCHAR(15)");
 
                     b.Property<string>("RoyaltyOriginName")
                         .HasColumnType("VARCHAR(200)");

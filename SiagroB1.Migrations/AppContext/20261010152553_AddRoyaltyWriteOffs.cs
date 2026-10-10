@@ -14,7 +14,7 @@ namespace SiagroB1.Migrations.AppContext
             migrationBuilder.AddColumn<string>(
                 name: "RoyaltyOriginCode",
                 table: "WEIGHING_TICKETS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(15)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
@@ -38,7 +38,7 @@ namespace SiagroB1.Migrations.AppContext
             migrationBuilder.AddColumn<string>(
                 name: "RoyaltyOriginCode",
                 table: "STORAGE_TRANSACTIONS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(15)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
