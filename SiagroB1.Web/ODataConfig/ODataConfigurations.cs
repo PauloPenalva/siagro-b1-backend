@@ -546,6 +546,17 @@ public static class ODataConfigurations
         storageEntryTransactionCancel.Parameter<Guid>("Key");
         storageEntryTransactionCancel.Returns<IActionResult>();
 
+        var royaltyWriteOffsCreate = modelBuilder.Action("RoyaltyWriteOffsCreate");
+        royaltyWriteOffsCreate.Parameter<string>("WriteOffDate");
+        royaltyWriteOffsCreate.Parameter<string>("ItsId");
+        royaltyWriteOffsCreate.Parameter<string>("TaxId");
+        royaltyWriteOffsCreate.Parameter<string>("Name");
+        royaltyWriteOffsCreate.Parameter<string>("Comments").Optional();
+        royaltyWriteOffsCreate.CollectionParameter<Guid>("StorageTransactionKeys");
+        // double, não decimal: o UI5 v4 serializa Edm.Decimal como string.
+        royaltyWriteOffsCreate.CollectionParameter<double>("Weights");
+        royaltyWriteOffsCreate.Returns<IActionResult>();
+
         var storageTransactionsConfirmed = modelBuilder.Action("StorageTransactionsConfirmed");
         storageTransactionsConfirmed.Parameter<Guid>("Key");
         storageTransactionsConfirmed.Returns<IActionResult>();
