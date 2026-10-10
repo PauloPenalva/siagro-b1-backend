@@ -357,6 +357,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesNfeReturnCreateService>();
         services.AddScoped<SalesInvoicesNfeReturnableItemsService>();
         services.AddScoped<PurchaseInvoicesNfeReturnCreateService>();
+        services.AddScoped<PurchaseInvoicesCounterNoteCreateService>();
         services.AddScoped<PurchaseInvoicesNfeReturnableItemsService>();
         services.AddScoped<PurchaseInvoiceNfeResultHandler>();
         services.AddScoped<PurchaseInvoicesNfeIssueService>();

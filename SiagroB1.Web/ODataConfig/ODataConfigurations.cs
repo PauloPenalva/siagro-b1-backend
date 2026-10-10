@@ -165,6 +165,11 @@ public static class ODataConfigurations
         purchaseInvoicesCreateNfeReturn.Parameter<string>("Reason");
         purchaseInvoicesCreateNfeReturn.Returns<Guid>();
 
+        // Contra-nota a partir da escrituração da NF-e do produtor (spec 2026-10-10 §5).
+        var purchaseInvoicesCreateCounterNote = modelBuilder.Action("PurchaseInvoicesCreateCounterNote");
+        purchaseInvoicesCreateCounterNote.Parameter<Guid>("Key");
+        purchaseInvoicesCreateCounterNote.Returns<Guid>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();

@@ -30,6 +30,23 @@ public static class TaxSnapshot
         nameof(INfeTaxedLine.CreatesFinancialDocument),
     ];
 
+    /// <summary>
+    /// Copia natureza, CFOP, NCM, origem, tributos e flags de uma linha para outra, sem recalcular: a contra-nota reproduz
+    /// a escrituração do produtor (spec 2026-10-10 D5). Usa <see cref="LockedProperties"/> para a cópia e a trava não
+    /// divergirem.
+    /// </summary>
+    public static void Copy(INfeTaxedLine source, INfeTaxedLine target)
+    {
+        foreach (var name in LockedProperties)
+        {
+            var property = typeof(INfeTaxedLine).GetProperty(name)!;
+            property.SetValue(target, property.GetValue(source));
+        }
+
+        target.UsageCode = source.UsageCode;
+        target.UsageName = source.UsageName;
+    }
+
     public static void Write(INfeTaxedLine item, TaxCalculationResult r)
     {
         item.CstIcms = r.IcmsCode;
