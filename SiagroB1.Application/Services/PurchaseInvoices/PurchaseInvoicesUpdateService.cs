@@ -124,6 +124,12 @@ public class PurchaseInvoicesUpdateService(
         // então toda alteração passa por aqui: recalcula o documento inteiro — data, fornecedor e filial
         // mudam o CFOP e a alíquota de todas as linhas. As linhas incluídas no SyncItems já estão na
         // coleção pelo fixup do EF.
+        // Tipo, emitente e filial são editáveis (só enquanto Pendente e sem NF-e emitida: travas acima). Se a troca tira o
+        // documento da regra, o ApplyAsync sai cedo e a linha guardaria o Funrural calculado antes; fora da regra não há Funrural.
+        if (!await taxApply.IsActiveForAsync(existing))
+            foreach (var item in existing.Items)
+                PurchaseInvoiceFunrural.Clear(item);
+
         await taxApply.ApplyAsync(existing, existing.Items);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).

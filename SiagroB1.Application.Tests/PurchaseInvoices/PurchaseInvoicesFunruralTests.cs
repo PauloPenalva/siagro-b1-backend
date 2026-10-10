@@ -161,4 +161,24 @@ public class PurchaseInvoicesFunruralTests
         Assert.Equal((3000m, 39.60m, 3.30m, 6.00m),
             (line.FunruralBase, line.FunruralInssValue, line.FunruralRatValue, line.FunruralSenarValue));
     }
+
+    [Fact]
+    public async Task Moving_the_document_out_of_the_rule_clears_the_funrural()
+    {
+        // Revisão final F1: Normal -> Devolução ao cliente tira o documento da regra; a linha não pode ficar com Funrural.
+        var (db, usage) = await SeedAsync(1.32m, 0.11m, 0.20m);
+        var invoice = ThirdPartyEntry(usage);
+        await Create(db).ExecuteAsync(invoice, "tester");
+        Assert.Equal(19.80m, (await LineAsync(db, invoice.Key)).FunruralInssValue);
+        db.Context.ChangeTracker.Clear();
+
+        var changed = await db.Context.PurchaseInvoices.AsNoTracking().Include(i => i.Items).SingleAsync(i => i.Key == invoice.Key);
+        changed.InvoiceType = PurchaseInvoiceType.Return;
+        await new PurchaseInvoicesUpdateService(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(),
+            TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners())).ExecuteAsync(changed.Key, changed, "tester");
+
+        var line = await LineAsync(db, invoice.Key);
+        Assert.Equal((0m, 0m, 0m, 0m),
+            (line.FunruralBase, line.FunruralInssValue, line.FunruralRatValue, line.FunruralSenarValue));
+    }
 }
