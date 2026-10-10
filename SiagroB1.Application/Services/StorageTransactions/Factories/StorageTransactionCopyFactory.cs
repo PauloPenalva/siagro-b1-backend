@@ -1,4 +1,5 @@
-﻿using SiagroB1.Domain.Entities;
+﻿using SiagroB1.Application.Services.Royalties;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Application.Services.StorageTransactions.Factories;
@@ -56,6 +57,10 @@ public static class StorageTransactionCopyFactory
             WeighingTicketKey = original.WeighingTicketKey,
 
             ProcessingCostCode = original.ProcessingCostCode,
+            RoyaltySituation = original.RoyaltySituation,
+            RoyaltyTestCode = original.RoyaltyTestCode,
+            RoyaltyOriginCode = original.RoyaltyOriginCode,
+            RoyaltyOriginName = original.RoyaltyOriginName,
 
             InvoiceNumber = original.InvoiceNumber,
             InvoiceSerie = original.InvoiceSerie,

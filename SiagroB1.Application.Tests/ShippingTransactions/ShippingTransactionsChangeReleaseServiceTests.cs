@@ -704,6 +704,57 @@ public class ShippingTransactionsChangeReleaseServiceTests
     }
 
     /// <summary>
+    /// Baixa ITS ativa sobre a compra original trava a troca, antes de qualquer gravação.
+    /// </summary>
+    [Fact]
+    public async Task ActiveRoyaltyWriteOff_OnTheOriginalPurchase_RefusesTheChange()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0001");
+        var (shipping, _) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        var writeOff = new RoyaltyWriteOff
+        {
+            ItsId = "ITS-1", TaxId = "12345678909", Name = "Produtor", Situation = RoyaltySituation.Declared,
+            WriteOffDate = DateTime.Today,
+        };
+        writeOff.Lines.Add(new RoyaltyWriteOffLine
+        {
+            StorageTransactionKey = shipping.PurchaseStorageTransactionKey!.Value, Weight = 100m,
+        });
+        _db.Context.RoyaltyWriteOffs.Add(writeOff);
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
+            [new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester"));
+
+        Assert.Contains("baixa ITS ativa", ex.Message);
+    }
+
+    /// <summary>A compra nova herda a situação de royalty da compra original.</summary>
+    [Fact]
+    public async Task NewPurchaseLeg_CarriesTheRoyaltyFieldsOfTheOriginalPurchase()
+    {
+        var (c1, r1) = await SeedReleaseAsync("PC-001", "F0001");
+        var (_, r2) = await SeedReleaseAsync("PC-002", "F0001");
+        var (shipping, _) = await ShipIntoInvoicedLoadAsync(c1, r1, 1000m);
+        // Tx() é AsNoTracking: o ajuste precisa ir pela entidade rastreada.
+        var originalPurchase = await _db.Context.StorageTransactions
+            .SingleAsync(x => x.Key == shipping.PurchaseStorageTransactionKey!.Value);
+        originalPurchase.RoyaltySituation = RoyaltySituation.Declared;
+        originalPurchase.RoyaltyOriginCode = "F0001";
+        originalPurchase.RoyaltyOriginName = "Produtor Um";
+        await _db.Context.SaveChangesAsync();
+
+        await Service().ExecuteAsync([new(shipping.SalesStorageTransactionKey, r2.Key)], "motivo", "tester");
+
+        var change = await ChangeOf(shipping.SalesStorageTransactionKey);
+        var newPurchase = await Tx(change.NewPurchaseStorageTransactionKey!.Value);
+        Assert.Equal(RoyaltySituation.Declared, newPurchase.RoyaltySituation);
+        Assert.Equal("F0001", newPurchase.RoyaltyOriginCode);
+        Assert.Equal("Produtor Um", newPurchase.RoyaltyOriginName);
+    }
+
+    /// <summary>
     /// Liberação de origem Finalizada/Pausada: os estornos passam pela trava de movimentação sem
     /// a chave da liberação e só a recebem depois do confirm.
     /// </summary>

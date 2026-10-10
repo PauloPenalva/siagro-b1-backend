@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -94,6 +95,11 @@ public class ShippingTransactionsChangeReleaseService(
         var plans = new List<Plan>();
         foreach (var item in items)
             plans.Add(await BuildPlanAsync(item));
+
+        // A compra original sai de cena na troca: com baixa ITS ativa os royalties ficariam
+        // apontando para um romaneio estornado.
+        foreach (var plan in plans.Where(p => p.Purchase != null))
+            await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, plan.Purchase!.Key);
 
         foreach (var plan in plans)
             plan.NewQuantity = await ResolveNewQuantityAsync(plan, items.Count);
@@ -490,6 +496,10 @@ public class ShippingTransactionsChangeReleaseService(
                 purchase.QualityInspections.Add(
                     StorageTransactionQualityInspectionCopyFactory.CreateFrom(inspection, purchase));
             purchase.ProcessingCostCode = plan.Purchase.ProcessingCostCode;
+            purchase.RoyaltySituation = plan.Purchase.RoyaltySituation;
+            purchase.RoyaltyTestCode = plan.Purchase.RoyaltyTestCode;
+            purchase.RoyaltyOriginCode = plan.Purchase.RoyaltyOriginCode;
+            purchase.RoyaltyOriginName = plan.Purchase.RoyaltyOriginName;
         }
 
         purchase.TransactionType = StorageTransactionType.Purchase;

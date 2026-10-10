@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -63,6 +64,14 @@ public class StorageTransactionsCreateService(
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
+            entity.RoyaltyTestCode = RoyaltyRules.NormalizeTestCode(entity.RoyaltySituation, entity.RoyaltyTestCode);
+            // Cópias (troca de liberação) já trazem o nome da origem, que na Compra é um armazém e
+            // não um parceiro: só resolve pelo cadastro de parceiros quando o nome não veio.
+            entity.RoyaltyOriginName = string.IsNullOrWhiteSpace(entity.RoyaltyOriginCode)
+                ? null
+                : !string.IsNullOrWhiteSpace(entity.RoyaltyOriginName)
+                    ? entity.RoyaltyOriginName
+                    : (await businessPartnerService.GetByIdAsync(entity.RoyaltyOriginCode))?.CardName;
             entity.TransactionOrigin = transactionCode;
             entity.CreatedBy = userName;
             entity.CreatedAt = DateTime.Now;

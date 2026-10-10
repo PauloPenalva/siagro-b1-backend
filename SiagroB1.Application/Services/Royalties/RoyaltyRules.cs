@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Royalties;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
 
@@ -25,6 +27,31 @@ public static class RoyaltyRules
     /// <summary>O código do teste só existe na situação Testada.</summary>
     public static string? NormalizeTestCode(RoyaltySituation? situation, string? testCode) =>
         situation == RoyaltySituation.Tested && !string.IsNullOrWhiteSpace(testCode) ? testCode.Trim() : null;
+
+    /// <summary>
+    /// Romaneios que exigem a situação de royalty ao confirmar (quando o produto controla):
+    /// Recebimento e Compra. A Compra da Conferência de saldo de armazém é movimento de papel.
+    /// </summary>
+    public static bool RequiresRoyalty(StorageTransaction st) =>
+        st.TransactionType == StorageTransactionType.Receipt ||
+        (st.TransactionType == StorageTransactionType.Purchase &&
+         st.TransactionOrigin != TransactionCode.WarehouseReconciliation);
+
+    /// <summary>
+    /// Na Compra (carregamento em terceiro) a origem é o armazém do carregamento, já gravado no
+    /// romaneio. Sem situação informada, armazém participante assume Armazém Participante.
+    /// </summary>
+    public static async Task ApplyPurchaseDefaultsAsync(AppDbContext ctx, StorageTransaction st)
+    {
+        st.RoyaltyOriginCode = st.WarehouseCode;
+        st.RoyaltyOriginName = st.WarehouseName;
+
+        if (st.RoyaltySituation is null && !string.IsNullOrWhiteSpace(st.WarehouseCode) &&
+            await ctx.WarehouseComplements.AnyAsync(w => w.WarehouseCode == st.WarehouseCode && w.IsParticipant))
+            st.RoyaltySituation = RoyaltySituation.ParticipantWarehouse;
+
+        st.RoyaltyTestCode = NormalizeTestCode(st.RoyaltySituation, st.RoyaltyTestCode);
+    }
 
     public static async Task EnsureNoActiveWriteOffAsync(AppDbContext ctx, Guid storageTransactionKey)
     {

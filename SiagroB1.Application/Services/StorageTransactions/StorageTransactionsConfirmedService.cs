@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -198,7 +199,13 @@ public class StorageTransactionsConfirmedService(
             //Apenas romaneios pendentes podem ser confirmados.
             throw new ApplicationException(resource["EXCEPTION_00005"]); 
         }
-        
+
+        if (RoyaltyRules.RequiresRoyalty(st) && await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
+        {
+            await RoyaltyRules.ApplyPurchaseDefaultsAsync(db.Context, st);
+            RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
+        }
+
         try
         {
             await CalculateReceipt(st);
@@ -226,7 +233,10 @@ public class StorageTransactionsConfirmedService(
             //Apenas romaneios pendentes podem ser confirmados.
             throw new ApplicationException(resource["EXCEPTION_00005"]); 
         }
-        
+
+        if (await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
+            RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
+
         try
         {
             // calcula descontos e custos se for entrada ou compra
