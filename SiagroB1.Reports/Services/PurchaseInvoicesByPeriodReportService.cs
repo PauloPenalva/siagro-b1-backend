@@ -31,6 +31,9 @@ public class PurchaseInvoicesByPeriodReportService(
             .Where(x => x.IssueDate >= from && x.IssueDate < toExclusive)
             .Where(x => statuses.Contains(x.InvoiceStatus));
 
+        // A contra-nota é só documento para a SEFAZ: a compra é a escrituração (spec 2026-10-10 D8).
+        query = query.Where(x => x.ProducerInvoiceKey == null);
+
         if (!string.IsNullOrWhiteSpace(request.BranchCode))
             query = query.Where(x => x.BranchCode == request.BranchCode);
 
