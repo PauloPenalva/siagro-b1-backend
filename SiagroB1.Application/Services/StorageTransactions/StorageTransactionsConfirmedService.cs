@@ -236,7 +236,15 @@ public class StorageTransactionsConfirmedService(
         }
 
         if (await RoyaltyRules.ControlsRoyaltiesAsync(db.Context, st.ItemCode))
+        {
+            // Origem vazia em produto controlado assume o próprio parceiro do romaneio.
+            if (string.IsNullOrWhiteSpace(st.RoyaltyOriginCode))
+            {
+                st.RoyaltyOriginCode = st.CardCode;
+                st.RoyaltyOriginName = st.CardName;
+            }
             RoyaltyRules.EnsureFilled(st.RoyaltySituation, st.RoyaltyOriginCode, st.RoyaltyTestCode);
+        }
 
         try
         {

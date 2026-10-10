@@ -85,6 +85,22 @@ public class StorageTransactionRoyaltyTests
     }
 
     [Fact]
+    public async Task Confirming_a_controlled_receipt_without_origin_defaults_it_to_the_partner()
+    {
+        var st = await SeedReceiptAsync(controlsRoyalties: true, situation: RoyaltySituation.Declared);
+        st.RoyaltyOriginCode = null;
+        st.RoyaltyOriginName = null;
+        st.CardName = "Produtor Parceiro";
+        await _db.SaveChangesAsync();
+
+        await Confirmed().ExecuteAsync(st, "tester");
+
+        Assert.Equal(StorageTransactionsStatus.Confirmed, st.TransactionStatus);
+        Assert.Equal("P0001", st.RoyaltyOriginCode);
+        Assert.Equal("Produtor Parceiro", st.RoyaltyOriginName);
+    }
+
+    [Fact]
     public async Task Confirming_a_receipt_of_an_uncontrolled_item_ignores_royalties()
     {
         var st = await SeedReceiptAsync(controlsRoyalties: false);
