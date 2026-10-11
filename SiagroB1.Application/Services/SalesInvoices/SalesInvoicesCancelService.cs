@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -34,7 +35,7 @@ public class SalesInvoicesCancelService(
         var invoice = await db.Context.SalesInvoices.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key)
                       ?? throw new NotFoundException("Documento de saída não encontrado.");
 
-        EnsureBusinessRules(invoice);
+        await EnsureBusinessRulesAsync(invoice);
         await SalesInvoicesRefusalLink.EnsureNotInCompletedRefusalAsync(db.Context, invoice);
     }
 
@@ -59,7 +60,7 @@ public class SalesInvoicesCancelService(
             SalesInvoiceNfeLock.EnsureCancellable(existingInvoice);
         }
 
-        EnsureBusinessRules(existingInvoice);
+        await EnsureBusinessRulesAsync(existingInvoice);
 
         // Pós-SEFAZ (2b) passa: a NF-e já foi cancelada e o documento precisa acompanhar (Review Focus 3).
         if (!afterNfe && !fromRefusal)
@@ -169,7 +170,7 @@ public class SalesInvoicesCancelService(
         
     }
 
-    private void EnsureBusinessRules(SalesInvoice invoice)
+    private async Task EnsureBusinessRulesAsync(SalesInvoice invoice)
     {
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento já está cancelado.");
@@ -181,6 +182,8 @@ public class SalesInvoicesCancelService(
 
         if (HasReturn(invoice))
             throw new DefaultException("Documento de saída possui retorno.");
+
+        await StorageDepositRules.EnsureRemittanceHasNoReturnAsync(db.Context, invoice.Key);
     }
 
     private bool HasReturn(SalesInvoice salesInvoice)

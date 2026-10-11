@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Commons.Resources;
@@ -30,6 +31,8 @@ public class SalesInvoicesReverseConfirmService(
             .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException(
                 resource["SALES_INVOICE_NOT_FOUND"].Value);
+
+        await StorageDepositRules.EnsureRemittanceHasNoReturnAsync(db.Context, key);
 
         // Devolução própria autorizada só sai pelo cancelamento da NF-e (spec §9.4): sem carga nem
         // ReturnInvoiceKey ela cairia no ramo legado e carimbaria um romaneio alheio como faturado.

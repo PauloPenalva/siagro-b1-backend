@@ -71,6 +71,22 @@ public static class StorageDepositRules
                 $"ativa. Cancele a remessa antes de {action} a liberação.");
     }
 
+    /// <summary>Remessa com retorno não cancelado não é cancelada nem estornada: o retorno ficaria apontando o vazio.</summary>
+    public static async Task EnsureRemittanceHasNoReturnAsync(AppDbContext ctx, Guid salesInvoiceKey)
+    {
+        var ret = await ctx.PurchaseInvoicesItems.AsNoTracking()
+            .Where(l => l.SalesInvoiceItem!.SalesInvoiceKey == salesInvoiceKey
+                        && l.SalesInvoiceItem.SalesInvoice!.ShipmentReleaseKey != null
+                        && l.PurchaseInvoice!.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Select(l => new { l.PurchaseInvoice!.TaxDocumentNumber, l.PurchaseInvoice.InvoiceNumber })
+            .FirstOrDefaultAsync();
+
+        if (ret != null)
+            throw new DefaultException(
+                $"A remessa para depósito tem retorno lançado (nº {DocumentNumber(ret.TaxDocumentNumber, ret.InvoiceNumber)}). " +
+                "Cancele os retornos antes.");
+    }
+
     /// <summary>
     /// Romaneio reconciliado não sai de cena (D8): estorná-lo deixaria o retorno apontando um carregamento que não
     /// existe mais. Vale também para a troca de liberação, que estorna sem passar pelo cancelamento comum.

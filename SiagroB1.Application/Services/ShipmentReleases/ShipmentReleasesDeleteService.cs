@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -24,6 +25,8 @@ public class ShipmentReleasesDeleteService(IUnitOfWork db, ILogger<ShipmentRelea
         {
             throw new ApplicationException("Shipment Release not pending.");
         }
+
+        await StorageDepositRules.EnsureNoActiveRemittanceAsync(db.Context, entity.Key, "excluir");
 
         if (await db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.ShipmentReleaseKey == key))
             throw new ApplicationException("Liberação usada em conferência de saldo de armazém: não pode ser excluída.");
