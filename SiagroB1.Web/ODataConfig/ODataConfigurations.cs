@@ -170,6 +170,31 @@ public static class ODataConfigurations
         purchaseInvoicesCreateCounterNote.Parameter<Guid>("Key");
         purchaseInvoicesCreateCounterNote.Returns<Guid>();
 
+        // Remessa para depósito em armazém de terceiro (spec 2026-10-10). UnitPrice é double: Edm.Decimal chega como
+        // string e o OData recusa.
+        var shipmentReleasesCreateStorageRemittance = modelBuilder.Action("ShipmentReleasesCreateStorageRemittance");
+        shipmentReleasesCreateStorageRemittance.Parameter<Guid>("ShipmentReleaseKey");
+        shipmentReleasesCreateStorageRemittance.Parameter<int>("UsageCode");
+        shipmentReleasesCreateStorageRemittance.Parameter<double>("UnitPrice");
+        shipmentReleasesCreateStorageRemittance.Returns<Guid>();
+
+        // Reconciliação do retorno de depósito com os romaneios (spec 2026-10-10 §3.5).
+        var purchaseInvoicesReconcileStorageReturn = modelBuilder.Action("PurchaseInvoicesReconcileStorageReturn");
+        purchaseInvoicesReconcileStorageReturn.Parameter<Guid>("Key");
+        purchaseInvoicesReconcileStorageReturn.CollectionParameter<Guid>("TransactionKeys");
+
+        var purchaseInvoicesUndoStorageReturnReconciliation = modelBuilder.Action("PurchaseInvoicesUndoStorageReturnReconciliation");
+        purchaseInvoicesUndoStorageReturnReconciliation.Parameter<Guid>("Key");
+        purchaseInvoicesUndoStorageReturnReconciliation.Parameter<Guid>("TransactionKey");
+
+        var purchaseInvoicesStorageReturnTransactions = modelBuilder.Function("PurchaseInvoicesStorageReturnTransactions");
+        purchaseInvoicesStorageReturnTransactions.Parameter<Guid>("Key");
+        purchaseInvoicesStorageReturnTransactions.ReturnsCollection<StorageReturnTransactionDto>();
+
+        var shipmentReleasesStorageRemittanceSummary = modelBuilder.Function("ShipmentReleasesStorageRemittanceSummary");
+        shipmentReleasesStorageRemittanceSummary.Parameter<Guid>("Key");
+        shipmentReleasesStorageRemittanceSummary.Returns<StorageRemittanceSummaryDto>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();

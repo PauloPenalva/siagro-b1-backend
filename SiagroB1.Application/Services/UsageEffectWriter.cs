@@ -33,6 +33,20 @@ internal static class UsageEffectWriter
             throw new DefaultException(
                 "Natureza de operação com efeito no contrato precisa exigir contrato.");
         }
+
+        if (model.StorageDepositRole != StorageDepositRole.None && hasEffect)
+        {
+            throw new DefaultException(
+                "Natureza de remessa ou retorno de depósito não pode alterar o contrato.");
+        }
+
+        var direction = model.Direction ?? UsageDirection.Outgoing;
+
+        if (model.StorageDepositRole == StorageDepositRole.Remittance && direction != UsageDirection.Outgoing)
+            throw new DefaultException("Natureza de remessa para depósito precisa ser de saída.");
+
+        if (model.StorageDepositRole == StorageDepositRole.Return && direction != UsageDirection.Incoming)
+            throw new DefaultException("Natureza de retorno de depósito precisa ser de entrada.");
     }
 
     internal static async Task WriteAsync(IUnitOfWork db, int usageCode, UsageModel model)
@@ -52,6 +66,7 @@ internal static class UsageEffectWriter
         effect.RequiresQuantity = model.RequiresQuantity;
         effect.RequiresWeight = model.RequiresWeight;
         effect.IsDefault = model.IsDefault;
+        effect.StorageDepositRole = model.StorageDepositRole;
 
         await ClearOtherDefaultsAsync(db, usageCode, model.IsDefault);
     }

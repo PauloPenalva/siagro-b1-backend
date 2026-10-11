@@ -45,7 +45,8 @@ public class PurchaseInvoicesImportXmlServiceTests
         string cardCode = "F0001", string taxId = "12.345.678/0001-99") =>
         new(new FakeBusinessPartnerService(
             names: new Dictionary<string, string> { [cardCode] = "CADASTRO" },
-            taxIds: new Dictionary<string, string> { [cardCode] = taxId }));
+            taxIds: new Dictionary<string, string> { [cardCode] = taxId }),
+            SiagroB1.Application.Tests.Support.TestDb.CreateUnitOfWork());
 
     private static byte[] Bytes(string xml) => Encoding.UTF8.GetBytes(xml);
 
@@ -70,7 +71,7 @@ public class PurchaseInvoicesImportXmlServiceTests
         }
         var partners = new BusinessPartnerService(
             db, NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer());
-        return new PurchaseInvoicesImportXmlService(partners);
+        return new PurchaseInvoicesImportXmlService(partners, db);
     }
 
     private static string NfeFor(string cnpj) => Nfe.Replace("12345678000199", cnpj);
@@ -207,7 +208,7 @@ public class PurchaseInvoicesImportXmlServiceTests
             SupplierNfeXml.Det(1, "TRG", "TRIGO", 1000m, 1.5m, SupplierNfeXml.Icms51(1500m)),
             SupplierNfeXml.Det(2, "MLH", "MILHO", 500m, 1m, SupplierNfeXml.Icms51(500m)));
 
-        var draft = await new PurchaseInvoicesImportXmlService(partners).ExecuteAsync(SupplierNfeXml.Bytes(xml), "nota.xml");
+        var draft = await new PurchaseInvoicesImportXmlService(partners, SiagroB1.Application.Tests.Support.TestDb.CreateUnitOfWork()).ExecuteAsync(SupplierNfeXml.Bytes(xml), "nota.xml");
 
         Assert.Equal(PurchaseNfeTestSeed.Supplier, draft.CardCode);
         Assert.Equal(SupplierNfeXml.AccessKey, draft.ChaveNFe);

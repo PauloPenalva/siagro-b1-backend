@@ -3629,6 +3629,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("ShipmentLoadRefusalKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ShipmentReleaseKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("TaxComments")
                         .HasColumnType("VARCHAR(500) DEFAULT ''");
 
@@ -3685,6 +3688,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("ShipmentLoadKey");
 
                     b.HasIndex("ShipmentLoadRefusalKey");
+
+                    b.HasIndex("ShipmentReleaseKey");
 
                     b.ToTable("SALES_INVOICES");
                 });
@@ -5400,6 +5405,34 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("STORAGE_INVOICE_ITEMS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageReturnReconciliation", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("PurchaseInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PurchaseInvoiceKey");
+
+                    b.HasIndex("StorageTransactionKey")
+                        .IsUnique();
+
+                    b.ToTable("STORAGE_RETURN_RECONCILIATIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.Property<Guid>("Key")
@@ -5995,6 +6028,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("RequiresWeight")
                         .HasColumnType("bit");
+
+                    b.Property<int>("StorageDepositRole")
+                        .HasColumnType("int");
 
                     b.HasKey("UsageCode");
 
@@ -7232,6 +7268,11 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("ShipmentLoadRefusalKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentRelease", "ShipmentRelease")
+                        .WithMany()
+                        .HasForeignKey("ShipmentReleaseKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
@@ -7239,6 +7280,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("SalesInvoiceOrigin");
 
                     b.Navigation("ShipmentLoad");
+
+                    b.Navigation("ShipmentRelease");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceChangeLog", b =>
@@ -7698,6 +7741,25 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
 
                     b.Navigation("StorageInvoice");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StorageReturnReconciliation", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "PurchaseInvoice")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "StorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("StorageTransactionKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseInvoice");
+
+                    b.Navigation("StorageTransaction");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

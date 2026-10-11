@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -45,6 +46,11 @@ public class PurchaseInvoicesItemsCreateService(
         if (item.PurchaseContractKey is not null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
+
+        // Retorno de depósito: confere a linha nova junto das demais do documento (spec 2026-10-10 §3.3).
+        var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey).ToListAsync();
+        await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, item.PurchaseInvoiceKey, [.. others, item]);
 
         // Funrural é calculado, nunca digitado (ver PurchaseInvoicesCreateService).
         PurchaseInvoiceFunrural.Clear(item);

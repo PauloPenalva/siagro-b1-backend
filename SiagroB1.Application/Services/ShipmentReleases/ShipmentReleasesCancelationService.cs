@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -53,6 +54,8 @@ public class ShipmentReleasesCancelationService(
 
         if (sr.Status is ReleaseStatus.Cancelled or ReleaseStatus.Completed)
             throw new ApplicationException("Liberação já cancelada ou finalizada: não é possível cancelar.");
+
+        await StorageDepositRules.EnsureNoActiveRemittanceAsync(context, sr.Key, "cancelar");
 
         // Calcula sem gravar: uma tentativa recusada não pode deixar efeito no banco.
         var shipped = await recalcShipped.CalculateShippedAsync(sr.Key, sr.Origin);

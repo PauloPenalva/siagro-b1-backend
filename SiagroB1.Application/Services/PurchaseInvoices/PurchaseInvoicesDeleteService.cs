@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -37,6 +38,8 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
         // rejeitada) antes, o delete estoura 547 no banco real. O InMemory dos testes não acusaria.
         db.Context.PurchaseInvoiceNfeXmls.RemoveRange(
             await db.Context.PurchaseInvoiceNfeXmls.Where(x => x.PurchaseInvoiceKey == invoice.Key).ToListAsync());
+
+        await StorageReturnReconciliationsService.RemoveForInvoiceAsync(db.Context, invoice.Key);
 
         db.Context.PurchaseInvoicesItems.RemoveRange(invoice.Items);
         db.Context.PurchaseInvoices.Remove(invoice);

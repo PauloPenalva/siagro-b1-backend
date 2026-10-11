@@ -44,6 +44,10 @@ public class SalesInvoicesUpdateService(
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
             SalesInvoiceNfeReturnLock.RestoreHeader(entry);
 
+            // O vínculo com a liberação (remessa para depósito) só nasce no "Emitir remessa": PUT/PATCH não o move.
+            entry.Property(nameof(SalesInvoice.ShipmentReleaseKey)).CurrentValue =
+                entry.OriginalValues[nameof(SalesInvoice.ShipmentReleaseKey)];
+
             // Complemento fiscal do contrato (spec 2026-10-07 D6): o PATCH reenvia o cabeçalho inteiro, então a
             // condição e o texto do contrato voltam em silêncio. No-op fora da regra e sem linha de contrato.
             await fiscalComplement.ApplyToHeaderAsync(existingEntity);

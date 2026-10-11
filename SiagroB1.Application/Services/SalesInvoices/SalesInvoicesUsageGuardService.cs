@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -50,6 +51,7 @@ public class SalesInvoicesUsageGuardService(IUsage usageService)
             resolved.Add(new SalesInvoiceItemUsage(item, usage));
         }
 
+        StorageDepositRules.EnsureSalesRoles(invoice, resolved);
         ValidateWeight(invoice, resolved);
 
         return resolved;

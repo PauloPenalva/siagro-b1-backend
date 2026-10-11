@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -70,6 +71,10 @@ public class SalesInvoicesConfirmService(
             .FirstOrDefaultAsync(x => x.Key == key)
             ?? throw new NotFoundException(
                 resource["SALES_INVOICE_NOT_FOUND"].Value);
+
+        // Remessa para depósito (spec 2026-10-10 §3.1): a tela permite editar o rascunho, a confirmação recusa o que
+        // deixou de ser a remessa da liberação.
+        await StorageDepositRules.EnsureRemittanceMatchesReleaseAsync(db.Context, invoice);
 
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
         {

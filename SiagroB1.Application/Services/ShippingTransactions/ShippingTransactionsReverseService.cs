@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -93,6 +94,11 @@ public class ShippingTransactionsReverseService(
         // senão os royalties baixados ficam apontando para um romaneio cancelado.
         if (shipping.PurchaseStorageTransactionKey is { } purchaseKey)
             await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, purchaseKey);
+
+        // Romaneio reconciliado com um retorno de depósito só sai de cena depois de desfeita a reconciliação.
+        await StorageDepositRules.EnsureTransactionsNotReconciledAsync(db.Context,
+            new[] { shipping.PurchaseStorageTransactionKey, (Guid?)shipping.SalesStorageTransactionKey }
+                .Where(k => k != null).Select(k => k!.Value));
 
         try
         {

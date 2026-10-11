@@ -14,11 +14,19 @@ public static class SupplierNfeXml
     private static string F2(decimal v) => v.ToString("0.00", CultureInfo.InvariantCulture);
     private static string F4(decimal v) => v.ToString("0.0000", CultureInfo.InvariantCulture);
 
-    public static string Build(params string[] dets) =>
+    public static string Build(params string[] dets) => BuildFor("<CPF>52998224725</CPF>", [], dets);
+
+    /// <summary>Retorno de depósito: emitente com CNPJ próprio e <c>ide/NFref/refNFe</c> apontando a(s) remessa(s).</summary>
+    public static string BuildReturn(string emitterCnpj, string[] referencedKeys, params string[] dets) =>
+        BuildFor($"<CNPJ>{emitterCnpj}</CNPJ>", referencedKeys, dets);
+
+    private static string BuildFor(string emitterTaxId, string[] referencedKeys, string[] dets) =>
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
         "<nfeProc xmlns=\"http://www.portalfiscal.inf.br/nfe\" versao=\"4.00\"><NFe>" +
         $"<infNFe Id=\"NFe{AccessKey}\" versao=\"4.00\"><ide><cUF>35</cUF><nNF>456</nNF><serie>1</serie>" +
-        "<dhEmi>2026-10-01T08:00:00-03:00</dhEmi></ide><emit><CPF>52998224725</CPF><xNome>PRODUTOR RURAL TESTE</xNome></emit>" +
+        "<dhEmi>2026-10-01T08:00:00-03:00</dhEmi>" +
+        string.Join(string.Empty, referencedKeys.Select(k => $"<NFref><refNFe>{k}</refNFe></NFref>")) +
+        $"</ide><emit>{emitterTaxId}<xNome>PRODUTOR RURAL TESTE</xNome></emit>" +
         string.Join(string.Empty, dets) +
         "<total><ICMSTot><vNF>1500.00</vNF></ICMSTot></total></infNFe></NFe></nfeProc>";
 

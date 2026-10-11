@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
@@ -73,6 +74,11 @@ public class PurchaseInvoicesItemsUpdateService(
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
+
+        // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
+        var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
+        await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
 
         // Travas da NF-e: devolução de compra só muda a quantidade e os quatro valores; emitido/em processamento trava a linha.
         var entry = db.Context.Entry(existing);

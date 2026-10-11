@@ -75,6 +75,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     RequiresQuantity = effect == null || effect.RequiresQuantity,
                     RequiresWeight = effect != null && effect.RequiresWeight,
                     IsDefault = effect != null && effect.IsDefault,
+                    StorageDepositRole = effect != null ? effect.StorageDepositRole : StorageDepositRole.None,
                     HasConfiguredEffects = effect != null,
                 })
             .AsNoTracking();

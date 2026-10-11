@@ -19,7 +19,8 @@ public sealed record SupplierNfeItem(
     decimal FreightValue = 0m, decimal InsuranceValue = 0m, decimal DiscountValue = 0m, decimal OtherExpensesValue = 0m);
 
 /// <summary>NF-e do fornecedor lida: o <c>infNFe</c> (para o cabeçalho), a chave e os itens.</summary>
-public sealed record SupplierNfe(XElement InfNfe, string AccessKey, IReadOnlyList<SupplierNfeItem> Items);
+public sealed record SupplierNfe(XElement InfNfe, string AccessKey, IReadOnlyList<SupplierNfeItem> Items,
+    IReadOnlyList<string> ReferencedKeys);
 
 /// <summary>
 /// Lê a NF-e do fornecedor (<c>nfeProc</c> ou <c>NFe</c>) com <see cref="XDocument"/>, como a importação sempre leu —
@@ -53,7 +54,11 @@ public static class SupplierNfeXmlReader
         var accessKey = (infNfe.Attribute("Id")?.Value ?? string.Empty)
             .Replace("NFe", string.Empty, StringComparison.OrdinalIgnoreCase);
 
-        return new SupplierNfe(infNfe, accessKey, infNfe.Elements(Nfe + "det").Select(ReadItem).ToList());
+        var referenced = infNfe.Element(Nfe + "ide")?.Elements(Nfe + "NFref")
+            .Select(r => r.Element(Nfe + "refNFe")?.Value)
+            .Where(k => !string.IsNullOrWhiteSpace(k)).Select(k => k!.Trim()).ToList() ?? [];
+
+        return new SupplierNfe(infNfe, accessKey, infNfe.Elements(Nfe + "det").Select(ReadItem).ToList(), referenced);
     }
 
     private static SupplierNfeItem ReadItem(XElement det)

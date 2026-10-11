@@ -36,6 +36,7 @@ using SiagroB1.Application.Services.ShippingTransactions;
 using SiagroB1.Application.Services.StorageAddresses;
 using SiagroB1.Application.Services.RoyaltyWriteOffs;
 using SiagroB1.Application.Services.StorageEntryTransactions;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.Security;
@@ -358,6 +359,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesNfeReturnableItemsService>();
         services.AddScoped<PurchaseInvoicesNfeReturnCreateService>();
         services.AddScoped<PurchaseInvoicesCounterNoteCreateService>();
+        services.AddScoped<StorageReturnReconciliationsService>();
+        services.AddScoped<ShipmentReleasesStorageRemittanceSummaryService>();
         services.AddScoped<PurchaseInvoicesNfeReturnableItemsService>();
         services.AddScoped<PurchaseInvoiceNfeResultHandler>();
         services.AddScoped<PurchaseInvoicesNfeIssueService>();
@@ -446,6 +449,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentReleasesBalanceService>();
         services.AddScoped<ShipmentReleasesCancelationService>();
         services.AddScoped<ShipmentReleasesCreateService>();
+        services.AddScoped<ShipmentReleasesCreateStorageRemittanceService>();
         services.AddScoped<ShipmentReleasesDeleteService>();
         services.AddScoped<ShipmentReleasesFromReturnService>();
         services.AddScoped<ShipmentReleasesGetService>();
