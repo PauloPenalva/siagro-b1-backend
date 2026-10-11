@@ -34,6 +34,7 @@ public sealed class StorageDepositSeed
             DeliveryLocationCode = Warehouse, DeliveryLocationName = "ARMAZEM TERCEIRO", Status = ReleaseStatus.Actived,
         };
 
+        db.Context.Branchs.Add(new Branch { Code = Branch, BranchName = "Matriz", ShortName = "MTZ", StateCode = "SP" });
         db.Context.PurchaseContracts.Add(contract);
         db.Context.ShipmentReleases.Add(release);
         db.Context.Usages.AddRange(

@@ -170,6 +170,14 @@ public static class ODataConfigurations
         purchaseInvoicesCreateCounterNote.Parameter<Guid>("Key");
         purchaseInvoicesCreateCounterNote.Returns<Guid>();
 
+        // Remessa para depósito em armazém de terceiro (spec 2026-10-10). UnitPrice é double: Edm.Decimal chega como
+        // string e o OData recusa.
+        var shipmentReleasesCreateStorageRemittance = modelBuilder.Action("ShipmentReleasesCreateStorageRemittance");
+        shipmentReleasesCreateStorageRemittance.Parameter<Guid>("ShipmentReleaseKey");
+        shipmentReleasesCreateStorageRemittance.Parameter<int>("UsageCode");
+        shipmentReleasesCreateStorageRemittance.Parameter<double>("UnitPrice");
+        shipmentReleasesCreateStorageRemittance.Returns<Guid>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();
