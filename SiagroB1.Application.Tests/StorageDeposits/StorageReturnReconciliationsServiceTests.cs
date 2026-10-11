@@ -76,7 +76,7 @@ public class StorageReturnReconciliationsServiceTests
     }
 
     [Fact]
-    public async Task Refuses_cancelled_return_and_document_without_return_line()
+    public async Task Refuses_cancelled_return()
     {
         var db = TestDb.CreateUnitOfWork();
         var seed = await StorageDepositSeed.CreateAsync(db);
@@ -147,5 +147,17 @@ public class StorageReturnReconciliationsServiceTests
         await new PurchaseInvoicesDeleteService(db).ExecuteAsync(ret.Key);
 
         Assert.False(await db.Context.StorageReturnReconciliations.AnyAsync());
+    }
+
+    /// <summary>InMemory esconde LINQ intraduzível: as consultas precisam virar SQL no provedor real.</summary>
+    [Fact]
+    public void Queries_translate_to_sql_server()
+    {
+        using var ctx = new SiagroB1.Infra.Context.AppDbContext(new DbContextOptionsBuilder<SiagroB1.Infra.Context.AppDbContext>()
+            .UseSqlServer("Server=model-inspection-only;Database=none").Options);
+
+        Assert.NotEmpty(StorageReturnReconciliationsService.CandidatesQuery(ctx, Guid.NewGuid(), ReleaseOrigin.Standard, Guid.NewGuid()).ToQueryString());
+        Assert.NotEmpty(StorageReturnReconciliationsService.CandidatesQuery(ctx, Guid.NewGuid(), ReleaseOrigin.OwnershipTransfer, Guid.NewGuid()).ToQueryString());
+        Assert.NotEmpty(StorageReturnReconciliationsService.ReleasesOfQuery(ctx, Guid.NewGuid()).ToQueryString());
     }
 }

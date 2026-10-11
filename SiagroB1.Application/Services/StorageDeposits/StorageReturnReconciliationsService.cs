@@ -24,17 +24,7 @@ public class StorageReturnReconciliationsService(IUnitOfWork db, IConfiguration 
 
         foreach (var (releaseKey, origin) in releases)
         {
-            rows.AddRange(await StorageDepositRules.ShippedTransactions(db.Context, releaseKey, origin)
-                .Where(t => !db.Context.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key
-                                                                              && r.PurchaseInvoiceKey != purchaseInvoiceKey))
-                .Select(t => new StorageReturnTransactionDto
-                {
-                    Key = t.Key, Code = t.Code, TransactionDate = t.TransactionDate, TruckCode = t.TruckCode,
-                    NetWeight = t.NetWeight, UnitOfMeasureCode = t.UnitOfMeasureCode,
-                    IsReconciled = db.Context.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key),
-                })
-                .AsNoTracking()
-                .ToListAsync());
+            rows.AddRange(await CandidatesQuery(db.Context, releaseKey, origin, purchaseInvoiceKey).ToListAsync());
         }
 
         return rows.OrderBy(r => r.TransactionDate).ThenBy(r => r.Code).ToList();
@@ -92,13 +82,40 @@ public class StorageReturnReconciliationsService(IUnitOfWork db, IConfiguration 
         ctx.StorageReturnReconciliations.RemoveRange(
             await ctx.StorageReturnReconciliations.Where(r => r.PurchaseInvoiceKey == purchaseInvoiceKey).ToListAsync());
 
+    /// <summary>Romaneios da liberação ainda livres (ou já reconciliados com ESTE retorno). Público para o teste de tradução SQL.</summary>
+    public static IQueryable<StorageReturnTransactionDto> CandidatesQuery(
+        AppDbContext ctx, Guid releaseKey, ReleaseOrigin origin, Guid purchaseInvoiceKey) =>
+        StorageDepositRules.ShippedTransactions(ctx, releaseKey, origin)
+            .Where(t => !ctx.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key
+                                                                   && r.PurchaseInvoiceKey != purchaseInvoiceKey))
+            .Select(t => new StorageReturnTransactionDto
+            {
+                Key = t.Key, Code = t.Code, TransactionDate = t.TransactionDate, TruckCode = t.TruckCode,
+                NetWeight = t.NetWeight, UnitOfMeasureCode = t.UnitOfMeasureCode,
+                IsReconciled = ctx.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key),
+            })
+            .AsNoTracking();
+
+    /// <summary>Liberações (com origem) das remessas referenciadas pelas linhas do retorno. Público para o teste de tradução SQL.</summary>
+    public static IQueryable<ReleaseRef> ReleasesOfQuery(AppDbContext ctx, Guid purchaseInvoiceKey) =>
+        ctx.PurchaseInvoicesItems.AsNoTracking()
+            .Where(l => l.PurchaseInvoiceKey == purchaseInvoiceKey && l.SalesInvoiceItem!.SalesInvoice!.ShipmentReleaseKey != null)
+            .Select(l => new ReleaseRef
+            {
+                Key = l.SalesInvoiceItem!.SalesInvoice!.ShipmentReleaseKey!.Value,
+                Origin = l.SalesInvoiceItem.SalesInvoice.ShipmentRelease!.Origin,
+            })
+            .Distinct();
+
+    public class ReleaseRef
+    {
+        public Guid Key { get; set; }
+        public ReleaseOrigin Origin { get; set; }
+    }
+
     private async Task<List<(Guid Key, ReleaseOrigin Origin)>> ReleasesOfAsync(Guid purchaseInvoiceKey)
     {
-        var releases = await db.Context.PurchaseInvoicesItems.AsNoTracking()
-            .Where(l => l.PurchaseInvoiceKey == purchaseInvoiceKey && l.SalesInvoiceItem!.SalesInvoice!.ShipmentReleaseKey != null)
-            .Select(l => new { Key = l.SalesInvoiceItem!.SalesInvoice!.ShipmentReleaseKey!.Value, l.SalesInvoiceItem.SalesInvoice.ShipmentRelease!.Origin })
-            .Distinct()
-            .ToListAsync();
+        var releases = await ReleasesOfQuery(db.Context, purchaseInvoiceKey).ToListAsync();
 
         return releases.Select(r => (r.Key, r.Origin)).ToList();
     }
