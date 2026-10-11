@@ -134,6 +134,7 @@ public class StorageDepositRulesTests
             .UseSqlServer("Server=model-inspection-only;Database=none").Options);
 
         Assert.NotEmpty(StorageDepositRules.ActiveRemittances(ctx).ToQueryString());
+        Assert.NotEmpty(StorageDepositRules.RemittanceLinesByAccessKeys(ctx, ["35261011222333000181550010000001231000001230"], "ARM001").ToQueryString());
         Assert.NotEmpty(StorageDepositRules.ShippedTransactions(ctx, Guid.NewGuid(), ReleaseOrigin.Standard).ToQueryString());
         Assert.NotEmpty(StorageDepositRules.ShippedTransactions(ctx, Guid.NewGuid(), ReleaseOrigin.OwnershipTransfer).ToQueryString());
         Assert.NotEmpty(StorageDepositRules.ReturnLinesQuery(ctx, [Guid.NewGuid()], Guid.NewGuid()).ToQueryString());

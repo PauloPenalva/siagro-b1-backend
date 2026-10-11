@@ -22,6 +22,18 @@ public static class StorageDepositRules
     public static IQueryable<SalesInvoice> ActiveRemittances(AppDbContext ctx) =>
         ctx.SalesInvoices.Where(i => i.ShipmentReleaseKey != null && i.InvoiceStatus != InvoiceStatus.Cancelled);
 
+    /// <summary>Linha de remessa ativa achada pela chave da NF-e (importação do XML do retorno).</summary>
+    public sealed record RemittanceLine(
+        Guid Key, string? ItemCode, string? ItemName, string? UnitOfMeasureCode, string? Number, Guid? InvoiceKey);
+
+    /// <summary>Linhas das remessas ativas do armazém <paramref name="cardCode"/> cuja chave está em <paramref name="accessKeys"/>.</summary>
+    public static IQueryable<RemittanceLine> RemittanceLinesByAccessKeys(
+        AppDbContext ctx, IReadOnlyCollection<string> accessKeys, string? cardCode) =>
+        ActiveRemittances(ctx).AsNoTracking()
+            .Where(i => i.ChaveNFe != null && accessKeys.Contains(i.ChaveNFe) && i.CardCode == cardCode)
+            .Join(ctx.SalesInvoicesItems.AsNoTracking(), i => i.Key, l => l.SalesInvoiceKey, (i, l) => new RemittanceLine(
+                l.Key!.Value, l.ItemCode, l.ItemName, l.UnitOfMeasureCode, i.TaxDocumentNumber ?? i.InvoiceNumber, i.Key));
+
     public static Task<SalesInvoice?> FindActiveRemittanceAsync(AppDbContext ctx, Guid shipmentReleaseKey) =>
         ActiveRemittances(ctx).Include(i => i.Items).FirstOrDefaultAsync(i => i.ShipmentReleaseKey == shipmentReleaseKey);
 

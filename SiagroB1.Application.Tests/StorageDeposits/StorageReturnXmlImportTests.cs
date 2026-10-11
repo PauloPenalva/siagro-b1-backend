@@ -39,6 +39,28 @@ public class StorageReturnXmlImportTests
     }
 
     [Fact]
+    public async Task Several_items_link_only_those_with_our_item_code()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(1000m);
+        remittance.ChaveNFe = RemittanceKey;
+        await db.SaveChangesAsync();
+        var xml = SupplierNfeXml.Bytes(SupplierNfeXml.BuildReturn(WarehouseCnpj, [RemittanceKey],
+            SupplierNfeXml.Det(1, "SOJA", "SOJA", 600m, 2m, SupplierNfeXml.Icms51(1200m)),
+            SupplierNfeXml.Det(2, "GRAO-01", "SOJA DO ARMAZEM", 400m, 2m, SupplierNfeXml.Icms51(800m))));
+
+        var draft = await Service(db).ExecuteAsync(xml, "retorno.xml");
+
+        Assert.Equal(2, draft.Items.Count);
+        Assert.Equal(remittance.Items.Single().Key, draft.Items[0].SalesInvoiceItemKey);
+        Assert.Equal("000000123", draft.Items[0].RemittanceNumber);
+        Assert.Equal("SOJA", draft.Items[0].ItemCode);
+        Assert.Null(draft.Items[1].SalesInvoiceItemKey);
+        Assert.Equal("GRAO-01", draft.Items[1].ItemCode);
+    }
+
+    [Fact]
     public async Task Unknown_reference_leaves_the_draft_unlinked()
     {
         var db = TestDb.CreateUnitOfWork();

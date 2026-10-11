@@ -11,7 +11,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 
 /// <summary>
 /// Lê o XML da NF-e de entrada e monta o rascunho do cabeçalho e das linhas, para o operador não
-/// redigitar. SÓ LÊ — quem grava é o POST do documento.
+/// redigitar. SÓ LÊ — quem grava é o POST do documento. Única exceção à regra abaixo: o retorno de depósito, em
+/// que o NFref aponta a remessa (ver <c>LinkStorageRemittancesAsync</c>).
 ///
 /// NÃO tenta adivinhar a amarração linha → NF de origem. O layout da NF-e guarda as referências em
 /// <c>ide/NFref</c>, que é do CABEÇALHO: o XML não diz qual linha veio de qual origem. Os emitentes
@@ -82,14 +83,8 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
         if (referencedKeys.Count == 0)
             return;
 
-        var remittances = await StorageDepositRules.ActiveRemittances(db.Context).AsNoTracking()
-            .Where(i => i.ChaveNFe != null && referencedKeys.Contains(i.ChaveNFe) && i.CardCode == draft.CardCode)
-            .SelectMany(i => i.Items.Select(l => new
-            {
-                Key = l.Key!.Value, l.ItemCode, l.ItemName, l.UnitOfMeasureCode,
-                Number = i.TaxDocumentNumber ?? i.InvoiceNumber, InvoiceKey = i.Key,
-            }))
-            .ToListAsync();
+        var remittances = await StorageDepositRules
+            .RemittanceLinesByAccessKeys(db.Context, referencedKeys.ToList(), draft.CardCode).ToListAsync();
 
         if (remittances.Count == 0)
             return;
