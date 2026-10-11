@@ -23,14 +23,16 @@ public class ShipmentReleasesStorageRemittanceSummaryService(IUnitOfWork db, ICo
 
         if (remittance != null)
         {
-            var item = remittance.Items.Single();
+            // Remessa editada para ≠1 linha não pode virar 500: soma as linhas.
+            var itemKeys = remittance.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList();
             summary.RemittanceKey = remittance.Key;
             summary.RemittanceNumber = StorageDepositRules.DocumentNumber(remittance.TaxDocumentNumber, remittance.InvoiceNumber);
             summary.RemittanceStatus = remittance.InvoiceStatus;
             summary.RemittanceNfeStatus = remittance.NfeStatus;
-            summary.RemittedQuantity = item.Quantity;
-            summary.Returns = await StorageDepositRules.ReturnsOfRemittanceItem(db.Context, item.Key!.Value)
-                .AsNoTracking().ToListAsync();
+            summary.RemittedQuantity = remittance.Items.Sum(i => i.Quantity);
+            summary.Returns = itemKeys.Count == 0
+                ? []
+                : await StorageDepositRules.ReturnsOfRemittanceItems(db.Context, itemKeys).AsNoTracking().ToListAsync();
             summary.ReturnedQuantity = summary.Returns.Sum(r => r.Quantity);
             summary.PendingReturnQuantity = summary.RemittedQuantity - summary.ReturnedQuantity;
         }

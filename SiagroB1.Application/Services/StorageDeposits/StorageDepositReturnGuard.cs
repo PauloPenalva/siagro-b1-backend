@@ -20,12 +20,36 @@ public static class StorageDepositReturnGuard
         AppDbContext ctx, string cardCode, Guid? purchaseInvoiceKey, IReadOnlyList<PurchaseInvoiceItem> documentLines)
     {
         var usageCodes = documentLines.Where(l => l.UsageCode != null).Select(l => l.UsageCode!.Value).Distinct().ToList();
-        if (usageCodes.Count == 0)
-            return;
 
-        var roles = await ctx.UsageEffects.AsNoTracking()
-            .Where(e => usageCodes.Contains(e.UsageCode) && e.StorageDepositRole != StorageDepositRole.None)
-            .ToDictionaryAsync(e => e.UsageCode, e => e.StorageDepositRole);
+        var roles = usageCodes.Count == 0
+            ? []
+            : await ctx.UsageEffects.AsNoTracking()
+                .Where(e => usageCodes.Contains(e.UsageCode) && e.StorageDepositRole != StorageDepositRole.None)
+                .ToDictionaryAsync(e => e.UsageCode, e => e.StorageDepositRole);
+
+        // Linha que aponta para linha de REMESSA sem natureza de retorno passaria por fora da conta do retornado.
+        var strays = documentLines
+            .Where(l => l.SalesInvoiceItemKey != null
+                        && !(l.UsageCode != null && roles.GetValueOrDefault(l.UsageCode.Value) == StorageDepositRole.Return))
+            .ToList();
+        if (strays.Count > 0)
+        {
+            var strayKeys = strays.Select(l => l.SalesInvoiceItemKey!.Value).Distinct().ToList();
+            var hit = await ctx.SalesInvoicesItems.AsNoTracking()
+                .Where(i => i.Key != null && strayKeys.Contains(i.Key.Value) && i.SalesInvoice!.ShipmentReleaseKey != null)
+                .Select(i => new { Key = i.Key!.Value, i.SalesInvoice!.TaxDocumentNumber, i.SalesInvoice.InvoiceNumber })
+                .ToListAsync();
+
+            foreach (var line in strays)
+            {
+                var remittance = hit.FirstOrDefault(h => h.Key == line.SalesInvoiceItemKey);
+                if (remittance != null && !(line.UsageCode != null && roles.GetValueOrDefault(line.UsageCode.Value) == StorageDepositRole.Remittance))
+                    throw new DefaultException(
+                        $"A linha {line.ItemCode} aponta a remessa nº " +
+                        $"{StorageDepositRules.DocumentNumber(remittance.TaxDocumentNumber, remittance.InvoiceNumber)}: " +
+                        "use uma natureza de retorno de depósito.");
+            }
+        }
 
         if (roles.Count == 0)
             return;

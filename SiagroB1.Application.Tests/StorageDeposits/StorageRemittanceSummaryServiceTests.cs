@@ -52,6 +52,25 @@ public class StorageRemittanceSummaryServiceTests
     }
 
     [Fact]
+    public async Task Remittance_with_two_lines_does_not_blow_up_and_sums_them()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(60_000m);
+        db.Context.SalesInvoicesItems.Add(new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = remittance.Key, ItemCode = StorageDepositSeed.Item, UnitOfMeasureCode = "KG",
+            Quantity = 40_000m, UsageCode = seed.RemittanceUsageCode,
+        });
+        await db.SaveChangesAsync();
+
+        var summary = await Service(db).ExecuteAsync(seed.Release.Key);
+
+        Assert.Equal(100_000m, summary.RemittedQuantity);
+        Assert.Equal(100_000m, summary.PendingReturnQuantity);
+    }
+
+    [Fact]
     public async Task Refuses_in_sap_mode()
     {
         var db = TestDb.CreateUnitOfWork();

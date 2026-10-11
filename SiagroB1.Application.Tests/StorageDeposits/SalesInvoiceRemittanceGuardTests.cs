@@ -83,6 +83,20 @@ public class SalesInvoiceRemittanceGuardTests
     }
 
     [Fact]
+    public async Task Confirm_refuses_remittance_of_another_item_than_the_contract()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100_000m, InvoiceStatus.Pending);
+        remittance.Items.Single().ItemCode = "MILHO";
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            StorageDepositRules.EnsureRemittanceMatchesReleaseAsync(db.Context, remittance));
+
+        Assert.Equal("A remessa para depósito precisa ser do produto do contrato da liberação (SOJA).", e.Message);
+    }
+
+    [Fact]
     public async Task Matching_remittance_passes()
     {
         var db = TestDb.CreateUnitOfWork();

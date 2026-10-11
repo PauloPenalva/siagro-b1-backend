@@ -65,7 +65,10 @@ public static class StorageDepositRules
 
     /// <summary>Retornos (um por nota) de uma linha de remessa, com a quantidade devolvida em cada um.</summary>
     public static IQueryable<StorageRemittanceReturnDto> ReturnsOfRemittanceItem(AppDbContext ctx, Guid remittanceItemKey) =>
-        ReturnLinesQuery(ctx, [remittanceItemKey], null)
+        ReturnsOfRemittanceItems(ctx, [remittanceItemKey]);
+
+    public static IQueryable<StorageRemittanceReturnDto> ReturnsOfRemittanceItems(AppDbContext ctx, IReadOnlyCollection<Guid> remittanceItemKeys) =>
+        ReturnLinesQuery(ctx, remittanceItemKeys, null)
             .GroupBy(l => l.PurchaseInvoiceKey!.Value)
             .Select(g => new StorageRemittanceReturnDto
             {
@@ -192,6 +195,13 @@ public static class StorageDepositRules
         var lines = invoice.Items.Count > 0
             ? invoice.Items.ToList()
             : await ctx.SalesInvoicesItems.AsNoTracking().Where(i => i.SalesInvoiceKey == invoice.Key).ToListAsync();
+
+        var contractItemCode = await ctx.PurchaseContracts.AsNoTracking()
+            .Where(c => c.Key == release.PurchaseContractKey).Select(c => c.ItemCode).FirstOrDefaultAsync();
+
+        if (lines.Count == 1 && lines[0].ItemCode != contractItemCode)
+            throw new DefaultException(
+                $"A remessa para depósito precisa ser do produto do contrato da liberação ({contractItemCode}).");
 
         if (lines.Count != 1 || lines[0].Quantity != release.ReleasedQuantity || invoice.CardCode != release.DeliveryLocationCode)
             throw new DefaultException(

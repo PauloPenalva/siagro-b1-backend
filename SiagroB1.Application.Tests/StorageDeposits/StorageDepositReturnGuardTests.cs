@@ -147,6 +147,45 @@ public class StorageDepositReturnGuardTests
         await StorageDepositReturnGuard.EnsureAsync(db.Context, StorageDepositSeed.Warehouse, null, [line]);
     }
 
+    [Fact]
+    public async Task Line_pointing_to_a_remittance_with_non_return_usage_is_refused()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100_000m);
+        db.Context.Usages.Add(new SiagroB1.Domain.Entities.Usage { Code = 907, Name = "COMPRA COMUM", Direction = UsageDirection.Incoming });
+        await db.SaveChangesAsync();
+        var plain = Line(seed, remittance.Items.Single().Key, 1m);
+        plain.UsageCode = 907;
+        var noUsage = Line(seed, remittance.Items.Single().Key, 1m);
+        noUsage.UsageCode = null;
+
+        foreach (var line in new[] { plain, noUsage })
+        {
+            var e = await Assert.ThrowsAsync<DefaultException>(() =>
+                StorageDepositReturnGuard.EnsureAsync(db.Context, StorageDepositSeed.Warehouse, null, [line]));
+            Assert.Equal("A linha SOJA aponta a remessa nº 000000123: use uma natureza de retorno de depósito.", e.Message);
+        }
+    }
+
+    [Fact]
+    public async Task Line_pointing_to_a_regular_sales_invoice_item_with_plain_usage_is_not_a_deposit_matter()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var sale = new SalesInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = StorageDepositSeed.Branch, CardCode = "CLI", InvoiceNumber = "S1",
+            Items = [new SalesInvoiceItem { Key = Guid.NewGuid(), ItemCode = StorageDepositSeed.Item, UnitOfMeasureCode = "KG", Quantity = 1m }],
+        };
+        db.Context.SalesInvoices.Add(sale);
+        await db.SaveChangesAsync();
+        var line = Line(seed, sale.Items.Single().Key, 1m);
+        line.UsageCode = null;
+
+        await StorageDepositReturnGuard.EnsureAsync(db.Context, StorageDepositSeed.Warehouse, null, [line]);
+    }
+
     // --- um teste por caminho de gravação: o guard está plantado ---
 
     private const string RequiresRemittance = "Linha SOJA com natureza de retorno de depósito precisa indicar a remessa.";

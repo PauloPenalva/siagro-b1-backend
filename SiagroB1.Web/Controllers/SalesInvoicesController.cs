@@ -48,6 +48,9 @@ public class SalesInvoicesController(
             return BadRequest(ModelState);
         }
             
+        // O vínculo com a liberação (remessa para depósito) só nasce no "Emitir remessa", que não passa por aqui.
+        entity.ShipmentReleaseKey = null;
+
         try
         {
             var userName = User.Identity?.Name ?? "Unknown";

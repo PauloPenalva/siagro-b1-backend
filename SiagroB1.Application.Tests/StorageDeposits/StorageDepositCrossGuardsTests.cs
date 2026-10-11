@@ -59,6 +59,20 @@ public class StorageDepositCrossGuardsTests
     }
 
     [Fact]
+    public async Task Release_with_cancelled_remittance_cannot_be_deleted_either()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        seed.Release.Status = ReleaseStatus.Pending;
+        await db.SaveChangesAsync();
+        await seed.AddRemittanceAsync(100_000m, InvoiceStatus.Cancelled);
+
+        var e = await Assert.ThrowsAsync<ApplicationException>(() => DeleteRelease(db).ExecuteAsync(seed.Release.Key));
+
+        Assert.Equal("A liberação tem remessa para depósito emitida e não pode ser excluída. Cancele a liberação.", e.Message);
+    }
+
+    [Fact]
     public async Task Release_with_cancelled_remittance_can_be_cancelled()
     {
         var db = TestDb.CreateUnitOfWork();
