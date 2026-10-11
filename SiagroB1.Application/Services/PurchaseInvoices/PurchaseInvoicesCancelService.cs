@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -53,6 +54,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         invoice.CanceledAt = DateTime.Now;
         invoice.CanceledBy = userName;
 
+        await StorageReturnReconciliationsService.RemoveForInvoiceAsync(db.Context, invoice.Key);
         await db.SaveChangesAsync();
     }
 

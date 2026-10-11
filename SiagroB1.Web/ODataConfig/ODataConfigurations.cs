@@ -178,6 +178,19 @@ public static class ODataConfigurations
         shipmentReleasesCreateStorageRemittance.Parameter<double>("UnitPrice");
         shipmentReleasesCreateStorageRemittance.Returns<Guid>();
 
+        // Reconciliação do retorno de depósito com os romaneios (spec 2026-10-10 §3.5).
+        var purchaseInvoicesReconcileStorageReturn = modelBuilder.Action("PurchaseInvoicesReconcileStorageReturn");
+        purchaseInvoicesReconcileStorageReturn.Parameter<Guid>("Key");
+        purchaseInvoicesReconcileStorageReturn.CollectionParameter<Guid>("TransactionKeys");
+
+        var purchaseInvoicesUndoStorageReturnReconciliation = modelBuilder.Action("PurchaseInvoicesUndoStorageReturnReconciliation");
+        purchaseInvoicesUndoStorageReturnReconciliation.Parameter<Guid>("Key");
+        purchaseInvoicesUndoStorageReturnReconciliation.Parameter<Guid>("TransactionKey");
+
+        var purchaseInvoicesStorageReturnTransactions = modelBuilder.Function("PurchaseInvoicesStorageReturnTransactions");
+        purchaseInvoicesStorageReturnTransactions.Parameter<Guid>("Key");
+        purchaseInvoicesStorageReturnTransactions.ReturnsCollection<StorageReturnTransactionDto>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();
