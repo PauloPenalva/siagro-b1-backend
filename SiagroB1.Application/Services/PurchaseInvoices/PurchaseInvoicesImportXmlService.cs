@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Xml.Linq;
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -23,15 +26,11 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// O rascunho só leva o <c>nItem</c> de cada item; a tributação é calculada pela natureza quando o documento é
 /// salvo, e o <c>PurchaseInvoiceSupplierItemNumbers</c> confere o <c>nItem</c> contra o XML guardado.
 /// </summary>
-public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPartnerService)
+public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPartnerService, IUnitOfWork db)
 {
     private static readonly XNamespace Nfe = "http://www.portalfiscal.inf.br/nfe";
 
-    /// <summary>
-    /// Assíncrono na assinatura, síncrono na execução: a leitura é toda em memória, e o
-    /// <c>Task.FromResult</c> evita o aviso de método async sem await.
-    /// </summary>
-    public Task<PurchaseInvoiceDraftDto> ExecuteAsync(byte[] xmlData, string fileName)
+    public async Task<PurchaseInvoiceDraftDto> ExecuteAsync(byte[] xmlData, string fileName)
     {
         var nfe = SupplierNfeXmlReader.Read(xmlData);
         var infNfe = nfe.InfNfe;
@@ -73,7 +72,49 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
         if (draft.Items.Count == 0)
             throw new DefaultException("XML sem itens (det).");
 
-        return Task.FromResult(draft);
+        await LinkStorageRemittancesAsync(draft, nfe.ReferencedKeys);
+
+        return draft;
+    }
+
+    private async Task LinkStorageRemittancesAsync(PurchaseInvoiceDraftDto draft, IReadOnlyList<string> referencedKeys)
+    {
+        if (referencedKeys.Count == 0)
+            return;
+
+        var remittances = await StorageDepositRules.ActiveRemittances(db.Context).AsNoTracking()
+            .Where(i => i.ChaveNFe != null && referencedKeys.Contains(i.ChaveNFe) && i.CardCode == draft.CardCode)
+            .SelectMany(i => i.Items.Select(l => new
+            {
+                Key = l.Key!.Value, l.ItemCode, l.ItemName, l.UnitOfMeasureCode,
+                Number = i.TaxDocumentNumber ?? i.InvoiceNumber, InvoiceKey = i.Key,
+            }))
+            .ToListAsync();
+
+        if (remittances.Count == 0)
+            return;
+
+        // O armazém usa o próprio código de produto: com uma remessa e um item, a ligação é inequívoca e o rascunho
+        // passa a usar o NOSSO produto.
+        if (remittances.Select(r => r.InvoiceKey).Distinct().Count() == 1 && remittances.Count == 1 && draft.Items.Count == 1)
+        {
+            var only = remittances[0];
+            var item = draft.Items[0];
+            item.SalesInvoiceItemKey = only.Key;
+            item.RemittanceNumber = only.Number;
+            item.ItemCode = only.ItemCode;
+            item.ItemName = only.ItemName;
+            item.UnitOfMeasureCode = only.UnitOfMeasureCode;
+            return;
+        }
+
+        foreach (var item in draft.Items)
+        {
+            var match = remittances.FirstOrDefault(r => r.ItemCode == item.ItemCode);
+            if (match == null) continue;
+            item.SalesInvoiceItemKey = match.Key;
+            item.RemittanceNumber = match.Number;
+        }
     }
 
     /// <summary>

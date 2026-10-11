@@ -33,6 +33,12 @@ public class PurchaseInvoiceDraftDto
 
 public class PurchaseInvoiceDraftItemDto
 {
+    /// <summary>Retorno de depósito: a linha da remessa que o NFref do XML referencia (spec 2026-10-10 §4).</summary>
+    public Guid? SalesInvoiceItemKey { get; set; }
+
+    /// <summary>Número da remessa vinculada, para a tela mostrar sem nova leitura.</summary>
+    public string? RemittanceNumber { get; set; }
+
     public string? ItemCode { get; set; }
 
     public string? ItemName { get; set; }
