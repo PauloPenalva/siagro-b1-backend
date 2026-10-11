@@ -1,6 +1,9 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.StorageDeposits;
@@ -92,6 +95,52 @@ public static class StorageDepositRules
             throw new ApplicationException(
                 $"O romaneio {hit.Code} está reconciliado com o retorno de depósito nº " +
                 $"{DocumentNumber(hit.TaxDocumentNumber, hit.InvoiceNumber)}. Desfaça a reconciliação antes.");
+    }
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    /// <summary>Spec §3.2: o documento de saída e o papel da natureza andam juntos.</summary>
+    public static void EnsureSalesRoles(SalesInvoice invoice, IReadOnlyList<SalesInvoiceItemUsage> resolved)
+    {
+        foreach (var (_, usage) in resolved)
+        {
+            if (usage.StorageDepositRole == StorageDepositRole.Return)
+                throw new DefaultException(
+                    $"Natureza {usage.Name} é de retorno de depósito e não pode ser usada no documento de saída.");
+
+            if (usage.StorageDepositRole == StorageDepositRole.Remittance && invoice.ShipmentReleaseKey is null)
+                throw new DefaultException(
+                    $"Natureza {usage.Name} é de remessa para depósito: emita pela liberação (Emitir remessa).");
+        }
+
+        if (invoice.ShipmentReleaseKey != null &&
+            (resolved.Count != invoice.Items.Count || resolved.Any(r => r.Usage.StorageDepositRole != StorageDepositRole.Remittance)))
+            throw new DefaultException("Remessa para depósito só aceita natureza de remessa para depósito.");
+    }
+
+    /// <summary>
+    /// A remessa Pendente pode ser editada pela tela do Documento de Saída; na confirmação ela precisa continuar
+    /// sendo a remessa da liberação: uma linha, quantidade liberada, destinatário = armazém, liberação viva.
+    /// </summary>
+    public static async Task EnsureRemittanceMatchesReleaseAsync(AppDbContext ctx, SalesInvoice invoice)
+    {
+        if (invoice.ShipmentReleaseKey is not { } releaseKey)
+            return;
+
+        var release = await ctx.ShipmentReleases.AsNoTracking().FirstOrDefaultAsync(r => r.Key == releaseKey)
+                      ?? throw new DefaultException("Liberação da remessa para depósito não encontrada.");
+
+        if (release.Status == ReleaseStatus.Cancelled)
+            throw new DefaultException("A liberação desta remessa para depósito está cancelada.");
+
+        var lines = invoice.Items.Count > 0
+            ? invoice.Items.ToList()
+            : await ctx.SalesInvoicesItems.AsNoTracking().Where(i => i.SalesInvoiceKey == invoice.Key).ToListAsync();
+
+        if (lines.Count != 1 || lines[0].Quantity != release.ReleasedQuantity || invoice.CardCode != release.DeliveryLocationCode)
+            throw new DefaultException(
+                $"A remessa para depósito precisa ter uma linha com a quantidade liberada " +
+                $"({release.ReleasedQuantity.ToString("N3", PtBr)}) para o armazém {release.DeliveryLocationCode}.");
     }
 
     /// <summary>Número da NF-e quando existe; senão o número interno do documento.</summary>
