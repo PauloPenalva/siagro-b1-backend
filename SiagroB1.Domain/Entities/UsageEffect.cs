@@ -44,4 +44,10 @@ public class UsageEffect
     /// natureza em tela. Invariante de natureza única mantida pelo serviço, não pelo banco.
     /// </summary>
     public bool IsDefault { get; set; }
+
+    /// <summary>
+    /// Papel na remessa para depósito (spec 2026-10-10 §2.1). Mora aqui, e não em USAGES, para nascer pronto para o
+    /// modo SAPB1 (chaveado pelo OUSG.ID), embora a feature hoje seja só STANDALONE.
+    /// </summary>
+    public StorageDepositRole StorageDepositRole { get; set; }
 }

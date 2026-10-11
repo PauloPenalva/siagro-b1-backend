@@ -92,6 +92,9 @@ public class UsageModel
     /// <summary>Natureza aplicada ao faturamento de romaneio — ver <see cref="Entities.UsageEffect.IsDefault"/>.</summary>
     public bool IsDefault { get; set; }
 
+    /// <summary>Papel na remessa para depósito — ver <see cref="Entities.UsageEffect.StorageDepositRole"/>.</summary>
+    public StorageDepositRole StorageDepositRole { get; set; }
+
     /// <summary>
     /// Existe linha de efeito cadastrada para esta natureza?
     ///

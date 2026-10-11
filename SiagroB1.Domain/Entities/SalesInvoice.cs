@@ -215,6 +215,14 @@ public class SalesInvoice : DocumentEntity, INfeDocument
 
     public Guid? SalesInvoiceOriginKey { get; set; }
     public SalesInvoice? SalesInvoiceOrigin { get; set; }
+
+    /// <summary>
+    /// Remessa para depósito: a liberação de compra cuja quantidade este documento remete ao armazém de terceiro
+    /// (spec 2026-10-10 §2.2). Só o "Emitir remessa" grava. Uma liberação tem no máximo uma remessa não cancelada —
+    /// regra do serviço, não do banco, porque as canceladas ficam.
+    /// </summary>
+    public Guid? ShipmentReleaseKey { get; set; }
+    public virtual ShipmentRelease? ShipmentRelease { get; set; }
     
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);

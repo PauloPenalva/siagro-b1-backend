@@ -106,6 +106,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ItemComplement> ItemComplements { get; set; }
     public DbSet<RoyaltyWriteOff> RoyaltyWriteOffs { get; set; }
     public DbSet<RoyaltyWriteOffLine> RoyaltyWriteOffLines { get; set; }
+    public DbSet<StorageReturnReconciliation> StorageReturnReconciliations { get; set; }
     public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
@@ -673,6 +674,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<RoyaltyWriteOffLine>()
             .HasIndex(x => x.StorageTransactionKey)
             .IncludeProperties(x => x.Weight);
+
+        // Remessa para depósito (spec 2026-10-10 §2). Restrict como as vizinhas: nada some em cascata — quem apaga
+        // a reconciliação é o cancelamento/exclusão do retorno, no serviço.
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne(x => x.ShipmentRelease)
+            .WithMany()
+            .HasForeignKey(x => x.ShipmentReleaseKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StorageReturnReconciliation>()
+            .HasOne(x => x.PurchaseInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StorageReturnReconciliation>()
+            .HasOne(x => x.StorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.StorageTransactionKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Romaneio inteiro, no máximo um retorno (D3).
+        modelBuilder.Entity<StorageReturnReconciliation>()
+            .HasIndex(x => x.StorageTransactionKey)
+            .IsUnique();
     }
 }
     
