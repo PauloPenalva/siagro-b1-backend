@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.StorageTransactions.Factories;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -102,6 +103,10 @@ public class ShippingTransactionsChangeReleaseService(
         // apontando para um romaneio estornado.
         foreach (var plan in plans.Where(p => p.Purchase != null))
             await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, plan.Purchase!.Key);
+
+        // A compra e a saída originais saem de cena na troca: reconciliadas, o retorno ficaria apontando o nada (D8).
+        await StorageDepositRules.EnsureTransactionsNotReconciledAsync(db.Context,
+            plans.SelectMany(p => new[] { p.Purchase?.Key, (Guid?)p.Sales.Key }).Where(k => k != null).Select(k => k!.Value));
 
         foreach (var plan in plans)
             plan.NewQuantity = await ResolveNewQuantityAsync(plan, items.Count);
