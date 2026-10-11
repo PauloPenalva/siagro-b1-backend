@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -59,6 +60,7 @@ public class UsageService(
                 RequiresQuantity = x.effect?.RequiresQuantity ?? true,
                 RequiresWeight = x.effect?.RequiresWeight ?? false,
                 IsDefault = x.effect?.IsDefault ?? false,
+                StorageDepositRole = x.effect?.StorageDepositRole ?? StorageDepositRole.None,
                 HasConfiguredEffects = x.effect != null,
             })
             .AsQueryable();
@@ -93,6 +95,10 @@ public class UsageService(
     /// </summary>
     public async Task<UsageModel?> UpdateAsync(int key, UsageModel model)
     {
+        // A remessa para depósito é só STANDALONE por enquanto (spec 2026-10-10 D10).
+        if (model.StorageDepositRole != StorageDepositRole.None)
+            throw new DefaultException("Disponível somente no modo STANDALONE.");
+
         var current = await GetByIdAsync(key);
 
         if (current == null)
