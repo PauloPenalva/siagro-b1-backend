@@ -191,6 +191,10 @@ public static class ODataConfigurations
         purchaseInvoicesStorageReturnTransactions.Parameter<Guid>("Key");
         purchaseInvoicesStorageReturnTransactions.ReturnsCollection<StorageReturnTransactionDto>();
 
+        var shipmentReleasesStorageRemittanceSummary = modelBuilder.Function("ShipmentReleasesStorageRemittanceSummary");
+        shipmentReleasesStorageRemittanceSummary.Parameter<Guid>("Key");
+        shipmentReleasesStorageRemittanceSummary.Returns<StorageRemittanceSummaryDto>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();

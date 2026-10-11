@@ -137,5 +137,7 @@ public class StorageDepositRulesTests
         Assert.NotEmpty(StorageDepositRules.ShippedTransactions(ctx, Guid.NewGuid(), ReleaseOrigin.Standard).ToQueryString());
         Assert.NotEmpty(StorageDepositRules.ShippedTransactions(ctx, Guid.NewGuid(), ReleaseOrigin.OwnershipTransfer).ToQueryString());
         Assert.NotEmpty(StorageDepositRules.ReturnLinesQuery(ctx, [Guid.NewGuid()], Guid.NewGuid()).ToQueryString());
+        Assert.NotEmpty(StorageDepositRules.ReturnsOfRemittanceItem(ctx, Guid.NewGuid()).ToQueryString());
+        Assert.NotEmpty(StorageDepositRules.TransactionsWithReturn(ctx, Guid.NewGuid(), ReleaseOrigin.Standard).ToQueryString());
     }
 }

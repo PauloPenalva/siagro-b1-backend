@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -49,6 +50,33 @@ public static class StorageDepositRules
                                              && remittanceItemKeys.Contains(l.SalesInvoiceItemKey.Value)
                                              && l.PurchaseInvoice!.InvoiceStatus != InvoiceStatus.Cancelled
                                              && l.PurchaseInvoiceKey != excludingPurchaseInvoiceKey);
+
+    /// <summary>Retornos (um por nota) de uma linha de remessa, com a quantidade devolvida em cada um.</summary>
+    public static IQueryable<StorageRemittanceReturnDto> ReturnsOfRemittanceItem(AppDbContext ctx, Guid remittanceItemKey) =>
+        ReturnLinesQuery(ctx, [remittanceItemKey], null)
+            .GroupBy(l => l.PurchaseInvoiceKey!.Value)
+            .Select(g => new StorageRemittanceReturnDto
+            {
+                PurchaseInvoiceKey = g.Key,
+                Number = g.Max(l => l.PurchaseInvoice!.TaxDocumentNumber ?? l.PurchaseInvoice.InvoiceNumber),
+                InvoiceDate = g.Max(l => l.PurchaseInvoice!.IssueDate),
+                InvoiceStatus = g.Max(l => l.PurchaseInvoice!.InvoiceStatus),
+                Quantity = g.Sum(l => l.Quantity),
+            });
+
+    /// <summary>Romaneios de carregamento da liberação, cada um com o retorno com que foi reconciliado (se houver).</summary>
+    public static IQueryable<StorageRemittanceTransactionDto> TransactionsWithReturn(
+        AppDbContext ctx, Guid shipmentReleaseKey, ReleaseOrigin origin) =>
+        ShippedTransactions(ctx, shipmentReleaseKey, origin)
+            .Select(t => new StorageRemittanceTransactionDto
+            {
+                Key = t.Key, Code = t.Code, TransactionDate = t.TransactionDate, TruckCode = t.TruckCode, NetWeight = t.NetWeight,
+                ReturnPurchaseInvoiceKey = ctx.StorageReturnReconciliations
+                    .Where(r => r.StorageTransactionKey == t.Key).Select(r => (Guid?)r.PurchaseInvoiceKey).FirstOrDefault(),
+                ReturnNumber = ctx.StorageReturnReconciliations
+                    .Where(r => r.StorageTransactionKey == t.Key)
+                    .Select(r => r.PurchaseInvoice!.TaxDocumentNumber ?? r.PurchaseInvoice.InvoiceNumber).FirstOrDefault(),
+            });
 
     public static Task<Dictionary<Guid, decimal>> ReturnedByRemittanceItemAsync(
         AppDbContext ctx, IReadOnlyCollection<Guid> remittanceItemKeys, Guid? excludingPurchaseInvoiceKey) =>
