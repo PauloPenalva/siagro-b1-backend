@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -99,6 +100,9 @@ public class PurchaseInvoicesCreateService(
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
+
+        // Retorno de depósito: a linha precisa apontar a remessa, do mesmo produto e armazém, dentro do saldo (spec 2026-10-10 §3.3).
+        await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, null, invoice.Items.ToList());
 
         // Documento de terceiro com o XML: todo nItem informado precisa existir na nota do fornecedor (é o que a
         // devolução referencia). Só na filial que emite NF-e pelo Siagro; fora dela o documento grava como veio.

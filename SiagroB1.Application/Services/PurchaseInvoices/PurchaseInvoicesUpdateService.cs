@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.Nfe;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
@@ -113,6 +114,9 @@ public class PurchaseInvoicesUpdateService(
         await PurchaseInvoiceChaveNFe.EnsureFreeAsync(db, existing.ChaveNFe, existing.Key);
 
         await SyncItemsAsync(existing, entity);
+
+        // Retorno de depósito sobre a lista final de linhas (mantidas/alteradas + novas), sem as removidas (spec 2026-10-10 §3.3).
+        await StorageDepositReturnGuard.EnsureAsync(db.Context, existing.CardCode, existing.Key, existing.Items.ToList());
 
         // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
         if (await taxApply.IsBranchActiveAsync(existing.BranchCode))
