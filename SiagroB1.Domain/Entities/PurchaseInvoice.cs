@@ -189,6 +189,15 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     public Guid? PurchaseInvoiceOriginKey { get; set; }
     public virtual PurchaseInvoice? PurchaseInvoiceOrigin { get; set; }
 
+    /// <summary>
+    /// Contra-nota: a escrituração da NF-e do produtor de que esta entrada própria nasceu (spec 2026-10-10 §4). Só o
+    /// "Gerar contra-nota" grava. Preenchido = documento só para a SEFAZ: estoque fiscal, título, tributação e relatórios
+    /// olham a escrituração (D13). Colunas próprias, e não <see cref="PurchaseInvoiceOriginKey"/>, que é remessa/devolução
+    /// e alimenta o saldo devolvível (D12).
+    /// </summary>
+    public Guid? ProducerInvoiceKey { get; set; }
+    public virtual PurchaseInvoice? ProducerInvoice { get; set; }
+
     [Column(TypeName = "VARCHAR(200)")]
     public string? XmlFileName { get; set; }
 

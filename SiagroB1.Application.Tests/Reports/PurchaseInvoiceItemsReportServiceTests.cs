@@ -123,6 +123,22 @@ public class PurchaseInvoiceItemsReportServiceTests
         Assert.Equal("", row.Contract);
     }
 
+    [Fact]
+    public async Task BuildRows_SkipsTheCounterNoteLines()
+    {
+        // A compra é a escrituração; a contra-nota é só para a SEFAZ (spec 2026-10-10 D8).
+        var db = TestDb.CreateUnitOfWork();
+        var producer = Purchase("1", new DateTime(2026, 7, 10), items: [PurchaseItem("1", "TRIGO EM GRÃOS")]);
+        var note = Purchase("2", new DateTime(2026, 7, 10), items: [PurchaseItem("1", "TRIGO EM GRÃOS")]);
+        note.ProducerInvoiceKey = producer.Key;
+        db.Context.PurchaseInvoices.AddRange(producer, note);
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Single(rows);
+    }
+
     [Theory]
     [InlineData("STANDALONE", true)]
     [InlineData("SAPB1", false)]

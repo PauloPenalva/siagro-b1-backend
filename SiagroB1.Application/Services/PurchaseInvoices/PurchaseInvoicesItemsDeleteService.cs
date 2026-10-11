@@ -20,7 +20,8 @@ public class PurchaseInvoicesItemsDeleteService(IUnitOfWork db, TaxCalculationGa
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, item.PurchaseInvoiceKey);
 
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == item.PurchaseInvoiceKey);
-        PurchaseInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus);
+        PurchaseInvoiceNfeLock.EnsureLinesRemovable(invoice);
+        await PurchaseInvoiceCounterNote.EnsureLinesNotReferencedAsync(db.Context, [item]);
 
         // Valor declarado do terceiro Normal: a soma das linhas que ficam, como na emissão própria.
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))

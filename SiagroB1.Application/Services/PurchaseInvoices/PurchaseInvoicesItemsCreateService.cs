@@ -22,6 +22,9 @@ public class PurchaseInvoicesItemsCreateService(
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5).
         InvoiceLineChargeRules.Ensure(item);
 
+        // O vínculo com a linha da escrituração só nasce no "Gerar contra-nota" (spec 2026-10-10 §4).
+        item.ProducerInvoiceItemKey = null;
+
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, item.PurchaseInvoiceKey);
 
         item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(

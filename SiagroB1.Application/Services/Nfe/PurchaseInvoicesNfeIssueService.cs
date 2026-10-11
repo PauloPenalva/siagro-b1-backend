@@ -53,7 +53,16 @@ public class PurchaseInvoicesNfeIssueService(
 
     protected override IReadOnlyList<INfeTaxedLine> Lines(PurchaseInvoice invoice) => invoice.Items.Cast<INfeTaxedLine>().ToList();
 
-    protected override Task<NfeIssueContext> ValidateReadinessAsync(PurchaseInvoice invoice) => readiness.ValidateAsync(invoice);
+    /// <summary>Contra-nota: além do cadastro, a escrituração do produtor (NFref e Funrural, spec 2026-10-10 §6). Antes da reserva.</summary>
+    protected override async Task<NfeIssueContext> ValidateReadinessAsync(PurchaseInvoice invoice)
+    {
+        var producer = invoice.ProducerInvoiceKey is { } producerKey
+            ? await PurchaseInvoiceCounterNote.LoadIssueOriginAsync(_db.Context, producerKey)
+            : null;
+        var context = await readiness.ValidateAsync(invoice);
+
+        return producer is null ? context : context with { ProducerInvoice = producer };
+    }
 
     protected override NfeIssueInput BuildInput(
         PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible) =>

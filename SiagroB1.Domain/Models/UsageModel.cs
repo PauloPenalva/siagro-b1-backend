@@ -76,6 +76,9 @@ public class UsageModel
     /// <summary>Nome da natureza de devolução — só leitura (projeção); o PATCH o ignora.</summary>
     public string? ReturnUsageName { get; set; }
 
+    /// <summary>Permite gerar a contra-nota a partir da escrituração da NF-e do produtor (só natureza de entrada).</summary>
+    public bool AllowsCounterNote { get; set; }
+
     public ContractBalanceEffect ContractBalanceEffect { get; set; }
 
     public ContractValueEffect ContractValueEffect { get; set; }

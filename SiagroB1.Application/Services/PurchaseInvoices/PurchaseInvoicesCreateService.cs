@@ -21,7 +21,7 @@ public class PurchaseInvoicesCreateService(
     PurchaseInvoicesTaxApplyService taxApply,
     DocNumberSequenceService numberSequenceService)
 {
-    public async Task ExecuteAsync(PurchaseInvoice invoice, string userName, bool nfeReturn = false)
+    public async Task ExecuteAsync(PurchaseInvoice invoice, string userName, bool nfeReturn = false, bool counterNote = false)
     {
         if (invoice.Items.Count == 0)
             throw new DefaultException("Informe ao menos um item no documento de entrada.");
@@ -42,6 +42,15 @@ public class PurchaseInvoicesCreateService(
         // Só o "Devolver" (PurchaseInvoicesNfeReturnCreateService) marca a devolução de compra; o corpo da
         // API nunca — senão um POST tiraria a nota da confirmação pela emissão.
         invoice.IsNfeReturn = nfeReturn && invoice.InvoiceType == PurchaseInvoiceType.Return;
+
+        // Só o "Gerar contra-nota" (PurchaseInvoicesCounterNoteCreateService) liga a entrada à escrituração do produtor;
+        // o corpo da API nunca — senão um POST tiraria a compra dos relatórios e da emissão normal (spec 2026-10-10 §8).
+        if (!counterNote)
+        {
+            invoice.ProducerInvoiceKey = null;
+            foreach (var item in invoice.Items)
+                item.ProducerInvoiceItemKey = null;
+        }
 
         if (invoice.IssuerType == DocumentIssuerType.Own && invoice.InvoiceType == PurchaseInvoiceType.Return &&
             !invoice.IsNfeReturn && await taxApply.IsBranchActiveAsync(invoice.BranchCode))

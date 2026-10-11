@@ -9,6 +9,7 @@ namespace SiagroB1.Application.Services.Nfe;
 /// </param>
 /// <param name="PaymentCondition">Nula só na devolução própria, que não tem pagamento (tPag 90).</param>
 /// <param name="ReturnOrigin">Na devolução própria, a venda referenciada; nula na venda.</param>
+/// <param name="ProducerInvoice">Na contra-nota, a escrituração do produtor (NFref e Funrural); nula nos demais.</param>
 public sealed record NfeIssueContext(
     Branch Branch,
     Municipality BranchMunicipality,
@@ -26,7 +27,8 @@ public sealed record NfeIssueContext(
     PaymentCondition? PaymentCondition,
     IReadOnlyDictionary<int, Usage> Usages,
     IReadOnlyDictionary<string, string?> ItemCests,
-    NfeReturnOrigin? ReturnOrigin = null);
+    NfeReturnOrigin? ReturnOrigin = null,
+    NfeCounterNoteOrigin? ProducerInvoice = null);
 
 /// <summary>
 /// A venda que a devolução própria referencia, já conferida: a chave vai no <c>NFref</c> e, com o
@@ -35,3 +37,9 @@ public sealed record NfeIssueContext(
 /// </summary>
 public sealed record NfeReturnOrigin(
     string AccessKey, string Number, string Series, DateTime? IssuedOn, IReadOnlyDictionary<Guid, int> ItemNumbers);
+
+/// <summary>
+/// A escrituração da NF-e do produtor que a contra-nota referencia (spec 2026-10-10 §6): a chave vai no
+/// <c>ide/NFref/refNFe</c> e o Funrural dela no <c>infCpl</c> (a contra-nota não retém).
+/// </summary>
+public sealed record NfeCounterNoteOrigin(string AccessKey, string? FunruralText);

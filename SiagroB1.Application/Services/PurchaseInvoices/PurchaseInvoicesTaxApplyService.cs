@@ -27,10 +27,15 @@ public class PurchaseInvoicesTaxApplyService(
 
     public Task<bool> IsBranchActiveAsync(string? branchCode) => gate.IsActiveAsync(branchCode);
 
+    /// <summary>
+    /// A contra-nota fica de fora (spec 2026-10-10 D5/D7): a fotografia é a da escrituração, copiada, e o Funrural é da
+    /// escrituração. Fora da regra, o Update zera o Funrural que vier no corpo.
+    /// </summary>
     public async Task<bool> IsActiveForAsync(PurchaseInvoice invoice) =>
-        (invoice.IssuerType == DocumentIssuerType.Own
-         && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
-         || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
+        invoice.ProducerInvoiceKey is null
+        && (invoice.IssuerType == DocumentIssuerType.Own
+            && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
+            || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
         && await gate.IsActiveAsync(invoice.BranchCode);
 
     /// <summary>Devolução de compra criada pelo "Devolver": sai com NF-e própria de saída.</summary>

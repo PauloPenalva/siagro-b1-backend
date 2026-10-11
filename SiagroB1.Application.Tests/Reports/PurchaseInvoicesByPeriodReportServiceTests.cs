@@ -94,6 +94,22 @@ public class PurchaseInvoicesByPeriodReportServiceTests
         Assert.Equal(1030m, row.GrandTotal);
     }
 
+    [Fact]
+    public async Task BuildRows_SkipsTheCounterNote()
+    {
+        // A compra é a escrituração; a contra-nota é só para a SEFAZ (spec 2026-10-10 D8).
+        var db = TestDb.CreateUnitOfWork();
+        var producer = Purchase("PROD");
+        var note = Purchase("CN");
+        note.ProducerInvoiceKey = producer.Key;
+        db.Context.PurchaseInvoices.AddRange(producer, note);
+        await Save(db);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { "PROD" }, rows.Select(r => r.InternalNumber));
+    }
+
     [Theory]
     [InlineData("STANDALONE", true)]
     [InlineData("SAPB1", false)]

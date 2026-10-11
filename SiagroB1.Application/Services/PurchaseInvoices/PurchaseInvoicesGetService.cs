@@ -35,6 +35,9 @@ public class PurchaseInvoicesGetService(IUnitOfWork db)
             .ThenInclude(si => si!.SalesInvoice)
             .Include(x => x.Items)
                 .ThenInclude(i => i.PurchaseContract)
+            // A lista mostra "Contra-nota de" pelo $expand=ProducerInvoice: sem o Include a navegação volta nula
+            // (mesma armadilha do SalesInvoice acima).
+            .Include(x => x.ProducerInvoice)
             .AsNoTracking();
     }
 

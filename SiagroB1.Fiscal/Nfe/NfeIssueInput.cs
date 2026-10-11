@@ -172,7 +172,7 @@ public sealed record NfeIssueInput
 
     public NfePurpose Purpose { get; init; } = NfePurpose.Normal;
 
-    /// <summary><c>ide/NFref/refNFe</c> — na devolução, a chave da nota de origem; na entrada própria, a NF-e do produtor. Só vai ao cabeçalho quando nenhum item tem <see cref="NfeItem.Reference"/> (rejeição 1010).</summary>
+    /// <summary><c>ide/NFref/refNFe</c> — na devolução, a chave da nota de origem; na contra-nota, a NF-e do produtor escriturada. Só vai ao cabeçalho quando nenhum item tem <see cref="NfeItem.Reference"/> (rejeição 1010).</summary>
     public IReadOnlyList<string> ReferencedKeys { get; init; } = [];
 
     /// <summary><c>dhEmi</c>, já em America/Sao_Paulo.</summary>

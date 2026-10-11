@@ -136,6 +136,11 @@ public class PurchaseInvoicesNfeReturnCreateService(
             return true;
         }
 
+        // A contra-nota é só documento para a SEFAZ: devolver por ela referenciaria a nossa chave e a SEFAZ-SP rejeita
+        // (1194). A devolução parte da escrituração, que referencia a chave do produtor (spec 2026-10-10 D9).
+        if (origin.ProducerInvoiceKey is not null)
+            throw new DefaultException("A contra-nota não é devolvida: a devolução parte da escrituração da NF-e do produtor.");
+
         if (origin.IssuerType != DocumentIssuerType.Own || origin.InvoiceType != PurchaseInvoiceType.Normal ||
             origin.InvoiceStatus != InvoiceStatus.Confirmed || origin.NfeStatus != NfeStatus.Authorized ||
             origin.ChaveNFe is not { Length: 44 })

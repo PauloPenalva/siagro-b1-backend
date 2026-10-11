@@ -31,6 +31,7 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
                 "Somente documento pendente pode ser excluído. Cancele o documento.");
 
         PurchaseInvoiceNfeLock.EnsureDeletable(invoice);
+        await PurchaseInvoiceCounterNote.EnsureNotReferencedAsync(db.Context, invoice.Key);
 
         // A FK de PURCHASE_INVOICE_NFE_XMLS para o documento é NoAction: sem remover os XMLs (da NF-e
         // rejeitada) antes, o delete estoura 547 no banco real. O InMemory dos testes não acusaria.
