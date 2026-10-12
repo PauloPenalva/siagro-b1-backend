@@ -178,12 +178,17 @@ public class BusinessPartnerService(
 
     public async Task<bool> DeleteAsync(string code)
     {
-        var entity = await db.Context.BusinessPartners.FindAsync(code);
+        var entity = await db.Context.BusinessPartners
+            .Include(x => x.Addresses)
+            .FirstOrDefaultAsync(x => x.CardCode == code);
         if (entity == null)
         {
             return false;
         }
 
+        // BUSINESS_PARTNERS_ADDRESSES tem FK para o parceiro com NoAction: sem remover os endereços
+        // antes, o DELETE do parceiro batia na FK (erro 547) e a tela recebia 500.
+        db.Context.Addresses.RemoveRange(entity.Addresses);
         db.Context.BusinessPartners.Remove(entity);
         await db.SaveChangesAsync();
         return true;
