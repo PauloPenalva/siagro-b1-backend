@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Dtos;
-using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -9,93 +8,60 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;
 
-public class WarehouseService(AppDbContext context, ILogger<WarehouseService> logger) 
+/// <summary>
+/// Armazém em STANDALONE: o parceiro de negócio com <c>QryGroup23 = 'Y'</c>, espelhando
+/// <see cref="SAP.WarehouseService"/>. A tabela <c>WAREHOUSES</c> não serve para NF-e (sem IE nem
+/// endereço) e ficou sem uso; o cadastro é feito no Parceiro de Negócio.
+/// </summary>
+public class WarehouseService(AppDbContext context, ILogger<WarehouseService> logger)
     : IWarehouseService
 {
-    public  async Task<WarehouseModel> CreateAsync(WarehouseModel model)
-    {
-        if (EntityExists(model.Code))
-            throw new ArgumentException($"Armazém com código '{model.Code}' já existe.");
+    public const string ManagedByBusinessPartnerMessage =
+        "Cadastre o armazém no Parceiro de Negócio, marcando 'Armazém'.";
 
-        try
-        {
-            var entity = new Warehouse
-            {
-                Code = model.Code,
-                Name = model.Name,
-                TaxId = model.TaxId
-            };
-            
-            await context.Warehouses.AddAsync(entity);
-            await context.SaveChangesAsync();
-            return model;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error creating model.");
-            throw;
-        }
-    }
-    
-    public async Task<bool> DeleteAsync(string code)
-    {
-        try
-        {
-            var entity = await context.Warehouses.FindAsync(code);
-            if (entity == null)
-            {
-                return false;
-            }
+    public Task<WarehouseModel> CreateAsync(WarehouseModel model) =>
+        throw new DefaultException(ManagedByBusinessPartnerMessage);
 
-            context.Warehouses.Remove(entity);
-            await context.SaveChangesAsync();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error deleting entity.");
-            throw new DefaultException("Error deleting entity.");
-        }
-    }
+    public Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model) =>
+        throw new DefaultException(ManagedByBusinessPartnerMessage);
+
+    public Task<bool> DeleteAsync(string code) =>
+        throw new DefaultException(ManagedByBusinessPartnerMessage);
 
     public IQueryable<WarehouseModel> QueryAll()
     {
-        return context.Warehouses
+        return context.BusinessPartners
             .AsNoTracking()
+            .Where(x => x.QryGroup23 == "Y")
             .Select(x => new WarehouseModel
             {
-                Code = x.Code,
-                Name = x.Name,
+                Code = x.CardCode,
+                Name = x.CardName,
+                FName = x.CardFName,
                 TaxId = x.TaxId,
+                Notes = x.Notes,
+                // Mesma regra do LoadWarehousesAsync: primeiro endereço de ENTREGA pelo nome.
+                City = x.Addresses
+                    .Where(a => a.AdresType == "S")
+                    .OrderBy(a => a.AddressName)
+                    .Select(a => a.City)
+                    .FirstOrDefault(),
+                State = x.Addresses
+                    .Where(a => a.AdresType == "S")
+                    .OrderBy(a => a.AddressName)
+                    .Select(a => a.State)
+                    .FirstOrDefault(),
             });
     }
 
-    public async Task<IEnumerable<WarehouseModel>> GetAllAsync()
-    {
-        return await context.Warehouses
-            .Select(x => new WarehouseModel
-            {
-                Code = x.Code,
-                Name = x.Name,
-                TaxId = x.TaxId,
-            })
-            .ToListAsync();
-    }
+    public async Task<IEnumerable<WarehouseModel>> GetAllAsync() =>
+        await QueryAll().ToListAsync();
 
     public async Task<WarehouseModel?> GetByIdAsync(string code)
     {
         try
         {
-            logger.LogInformation("Fetching entity with ID {Id}", code);
-
-            return await context.Warehouses
-                .Select(x => new WarehouseModel
-                {
-                    Code = x.Code,
-                    Name = x.Name,
-                    TaxId = x.TaxId,
-                })
-                .FirstOrDefaultAsync(x => x.Code == code);
+            return await QueryAll().FirstOrDefaultAsync(x => x.Code == code);
         }
         catch (Exception ex)
         {
@@ -104,41 +70,6 @@ public class WarehouseService(AppDbContext context, ILogger<WarehouseService> lo
         }
     }
 
-
-    public async Task<WarehouseModel?> UpdateAsync(string code, WarehouseModel model)
-    {
-        try
-        {
-            var entity = await context.Warehouses.FindAsync(code);
-            if (entity == null) throw  new NotFoundException("Entity not found.");
-            
-            context.Entry(entity).State = EntityState.Modified;
-            entity.Name = model.Name;
-            entity.TaxId = model.TaxId;
-            
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!EntityExists(code))
-            {
-                throw new KeyNotFoundException("Entity not found.");
-            }
-            else
-            {
-                throw new DefaultException("Error updating model due to concurrency issues.");
-            }
-        }
-
-        return model;
-    }
-
-        
-    private bool EntityExists(string key)
-    {
-        return context.Warehouses.Any(x => x.Code == key);
-    }
-    
     public async Task<Dictionary<string, WarehouseInfo>> LoadWarehousesAsync()
     {
         return await context.BusinessPartners
