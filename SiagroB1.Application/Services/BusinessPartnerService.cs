@@ -97,7 +97,7 @@ public class BusinessPartnerService(
             CardName = model.CardName,
             CardFName = model.CardFName,
             CardType = model.CardType,
-            QryGroup23 = "N",
+            QryGroup23 = WarehouseFlag(model.QryGroup23),
             TaxId = model.TaxId,
             StateRegistration = model.StateRegistration,
             StateRegistrationIndicator = model.StateRegistrationIndicator,
@@ -159,6 +159,10 @@ public class BusinessPartnerService(
         entity.NfeEmail = model.NfeEmail;
         entity.Phone = model.Phone;
         entity.PaymentConditionCode = model.PaymentConditionCode;
+
+        // Corpo sem a marca (cliente antigo, PUT parcial) não desmarca o armazém em silêncio.
+        if (model.QryGroup23 is not null)
+            entity.QryGroup23 = WarehouseFlag(model.QryGroup23);
 
         try
         {
@@ -287,4 +291,7 @@ public class BusinessPartnerService(
     {
         return db.Context.BusinessPartners.Any(e => e.CardCode == code);
     }
+
+    /// <summary>QryGroup23 = 'Y' marca o parceiro como ARMAZÉM; qualquer outro valor vira 'N'.</summary>
+    private static string WarehouseFlag(string? value) => value == "Y" ? "Y" : "N";
 }
