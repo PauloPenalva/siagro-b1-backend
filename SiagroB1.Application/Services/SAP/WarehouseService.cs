@@ -29,7 +29,6 @@ public class WarehouseService(
     public IQueryable<WarehouseModel> QueryAll()
     {
         return context.BusinessPartners
-            .Include(x => x.Addresses)
             .AsNoTracking()
             .Where(x => x.QryGroup23 == "Y")
             .Select(x => new WarehouseModel
@@ -39,8 +38,18 @@ public class WarehouseService(
                 TaxId =  x.TaxId,
                 FName = x.CardFName,
                 Notes = x.Notes,
-                City = x.Addresses.ToList().FirstOrDefault().City,
-                State = x.Addresses.ToList().FirstOrDefault().State,
+                // Primeiro endereço de ENTREGA pelo nome, como no LoadWarehousesAsync. Subconsulta
+                // traduzível: a coluna Cidade/UF da tela de armazéns ordena e filtra por ela.
+                City = x.Addresses
+                    .Where(a => a.AdresType == "S")
+                    .OrderBy(a => a.AddressName)
+                    .Select(a => a.City)
+                    .FirstOrDefault(),
+                State = x.Addresses
+                    .Where(a => a.AdresType == "S")
+                    .OrderBy(a => a.AddressName)
+                    .Select(a => a.State)
+                    .FirstOrDefault(),
             });
     }
 

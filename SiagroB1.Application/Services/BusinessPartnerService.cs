@@ -97,7 +97,7 @@ public class BusinessPartnerService(
             CardName = model.CardName,
             CardFName = model.CardFName,
             CardType = model.CardType,
-            QryGroup23 = "N",
+            QryGroup23 = WarehouseFlag(model.QryGroup23),
             TaxId = model.TaxId,
             StateRegistration = model.StateRegistration,
             StateRegistrationIndicator = model.StateRegistrationIndicator,
@@ -160,6 +160,10 @@ public class BusinessPartnerService(
         entity.Phone = model.Phone;
         entity.PaymentConditionCode = model.PaymentConditionCode;
 
+        // Corpo sem a marca (cliente antigo, PUT parcial) não desmarca o armazém em silêncio.
+        if (model.QryGroup23 is not null)
+            entity.QryGroup23 = WarehouseFlag(model.QryGroup23);
+
         try
         {
             await db.SaveChangesAsync();
@@ -174,12 +178,21 @@ public class BusinessPartnerService(
 
     public async Task<bool> DeleteAsync(string code)
     {
-        var entity = await db.Context.BusinessPartners.FindAsync(code);
+        var entity = await db.Context.BusinessPartners
+            .Include(x => x.Addresses)
+            .FirstOrDefaultAsync(x => x.CardCode == code);
         if (entity == null)
         {
             return false;
         }
 
+        // BUSINESS_PARTNERS_ADDRESSES tem FK para o parceiro com NoAction: sem remover os endereços
+        // antes, o DELETE do parceiro batia na FK (erro 547) e a tela recebia 500.
+        db.Context.Addresses.RemoveRange(entity.Addresses);
+        // Signatários não têm FK (em SAPB1 o parceiro vive no SAP), então não bloqueiam o DELETE, mas
+        // ficariam órfãos e reapareceriam se o código fosse recriado. Minutas só os leem no envio.
+        db.Context.BusinessPartnerSignatories.RemoveRange(
+            await db.Context.BusinessPartnerSignatories.Where(s => s.CardCode == code).ToListAsync());
         db.Context.BusinessPartners.Remove(entity);
         await db.SaveChangesAsync();
         return true;
@@ -287,4 +300,7 @@ public class BusinessPartnerService(
     {
         return db.Context.BusinessPartners.Any(e => e.CardCode == code);
     }
+
+    /// <summary>QryGroup23 = 'Y' marca o parceiro como ARMAZÉM; qualquer outro valor vira 'N'.</summary>
+    private static string WarehouseFlag(string? value) => value == "Y" ? "Y" : "N";
 }

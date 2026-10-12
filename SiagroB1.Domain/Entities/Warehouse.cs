@@ -3,6 +3,11 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SiagroB1.Domain.Entities;
 
+/// <summary>
+/// OBSOLETA desde 12/10/2026: o armazém é o parceiro de negócio com <c>QryGroup23 = 'Y'</c> nos dois
+/// modos. A migration <c>MigrateWarehousesToBusinessPartners</c> converteu as linhas; a tabela fica
+/// só até ser apagada numa etapa posterior. Não leia nem grave aqui.
+/// </summary>
 [Table("WAREHOUSES")]
 public class Warehouse 
 {
