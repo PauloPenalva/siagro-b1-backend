@@ -59,9 +59,9 @@ comentário). Apagar a tabela fica para uma etapa posterior.
 
 - `BusinessPartnerService` (STANDALONE): `CreateAsync` grava `QryGroup23` do modelo (`"Y"` ou
   `"N"`; nulo/outro vira `"N"`) em vez de forçar `"N"`; `UpdateAsync` passa a gravá-lo.
-- Frontend `view/parceirosNegocio/fragments/Form.fragment.xml`: checkbox **"Armazém"**
+- Frontend `view/parceirosNegocio/fragments/Form.fragment.xml`: select **"Armazém"** (Sim/Não)
   ligado a `QryGroup23` (`Y`/`N`), visível só com `ui>/standalone`. `Add.controller.ts` mantém
-  o padrão `"N"`.
+  o padrão `"N"`. (Era checkbox; trocado a pedido do usuário na verificação de 12/10.)
 - Sem trava ao desmarcar (igual ao SAP): documentos antigos mantêm o código; o PN só deixa de
   aparecer no value help de armazém.
 
