@@ -312,6 +312,45 @@ public class StorageRemittancesByPeriodReportServiceTests
         }
     }
 
+    [Fact]
+    public async Task Execute_DescribesEveryFilter()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        await seed.AddRemittanceAsync(100m, date: Oct10);
+        var recorder = new RecordingFastReportService();
+
+        var request = Request();
+        request.BranchCode = StorageDepositSeed.Branch;
+        request.ItemCode = StorageDepositSeed.Item;
+        request.CardCode = StorageDepositSeed.Warehouse;
+        request.ReturnSituation = StorageRemittanceSituation.Open;
+        request.Detailed = true;
+        await new StorageRemittancesByPeriodReportService(db, recorder).ExecuteAsync(request);
+
+        Assert.Equal("StorageRemittancesByPeriod.frx", recorder.LastReportName);
+        Assert.Equal(
+            "Data da remessa: 01/10/2026 a 31/10/2026 | Filial: MTZ | Produto: SOJA | Situação: em aberto | " +
+            "Armazém: ARM001 | Detalhado",
+            recorder.LastParameters!["pFilters"]);
+        Assert.Equal(true, recorder.LastParameters![FastReportService.SingleUomParameter]);
+    }
+
+    [Theory]
+    [InlineData(StorageRemittanceSituation.All, "Situação: todas")]
+    [InlineData(StorageRemittanceSituation.Returned, "Situação: totalmente retornada")]
+    public async Task Execute_DescribesTheSituation(StorageRemittanceSituation situation, string expected)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var recorder = new RecordingFastReportService();
+        var request = Request();
+        request.ReturnSituation = situation;
+
+        await new StorageRemittancesByPeriodReportService(db, recorder).ExecuteAsync(request);
+
+        Assert.Equal($"Data da remessa: 01/10/2026 a 31/10/2026 | {expected}", recorder.LastParameters!["pFilters"]);
+    }
+
     private static StorageRemittancesByPeriodReportService Service(IUnitOfWork db) =>
         new(db, new RecordingFastReportService());
 

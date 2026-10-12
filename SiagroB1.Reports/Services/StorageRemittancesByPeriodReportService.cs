@@ -124,6 +124,40 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
         _ => true,
     };
 
+    public async Task<byte[]> ExecuteAsync(StorageRemittancesByPeriodRequest request)
+    {
+        var rows = await BuildRowsAsync(request);
+        var first = rows.FirstOrDefault(r => r.Kind == StorageRemittanceRowKind.Remittance);
+
+        var extra = new List<string>();
+        if (!string.IsNullOrWhiteSpace(request.CardCode))
+            extra.Add($"Armazém: {ReportText.Describe(first?.Warehouse, request.CardCode)}");
+        if (request.Detailed)
+            extra.Add("Detalhado");
+
+        var parameters = new Dictionary<string, object>
+        {
+            ["pFilters"] = LogisticsReportText.BuildFilters(
+                "Data da remessa",
+                request,
+                await LogisticsReportText.BranchNameAsync(db.Context, request.BranchCode),
+                ReportText.ProductOfGroup(first?.Group),
+                SituationText(request.ReturnSituation),
+                extra),
+            [FastReportService.SingleUomParameter] = ReportText.IsSingleUnit(rows.Select(r => r.UnitOfMeasure)),
+        };
+
+        return await reportService.GeneratePdfAsync(
+            "StorageRemittancesByPeriod.frx", rows, "StorageRemittances", "StorageRemittances", parameters);
+    }
+
+    private static string SituationText(StorageRemittanceSituation situation) => situation switch
+    {
+        StorageRemittanceSituation.Open => "Situação: em aberto",
+        StorageRemittanceSituation.Returned => "Situação: totalmente retornada",
+        _ => "Situação: todas",
+    };
+
     private static StorageRemittanceRowDto RemittanceRow(RemittancePosition p) => new()
     {
         Group = p.Group,

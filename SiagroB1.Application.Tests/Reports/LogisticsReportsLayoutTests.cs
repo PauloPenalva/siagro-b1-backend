@@ -24,11 +24,25 @@ public class LogisticsReportsLayoutTests
         "SalesShipmentReleasesByPeriod",
         "ShipmentReleasesByPeriod",
         "SalesShipmentsByPeriod",
+        "StorageRemittancesByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
     private static readonly Dictionary<string, Dictionary<string, int>> LongestText = new()
     {
+        ["StorageRemittancesByPeriod"] = new()
+        {
+            ["txtRemittance"] = 15,           // S1a2b3c... / 000000123 (nº interno longo)
+            ["txtInvoiceDate"] = 10,          // 31/12/2026
+            ["txtStatus"] = 10,               // Confirmado
+            ["txtNfeStatus"] = 16,            // Em processamento
+            ["txtContract"] = 12,             // PC2026000123
+            ["txtReleaseDate"] = 10,          // 31/12/2026
+            ["txtRemitted"] = 14,             // 99.999.999,999 (texto formatado no serviço)
+            ["txtReturned"] = 14,
+            ["txtPendingReturn"] = 15,        // -10.000.000,000 (retorno a maior)
+            ["txtShippedWithoutReturn"] = 14,
+        },
         ["ShipmentLoadsByPeriod"] = new()
         {
             ["txtCode"] = 8,      // CG000051
@@ -216,7 +230,9 @@ public class LogisticsReportsLayoutTests
     public void DataCells_DoNotOverlap(string template)
     {
         using var report = Load(template);
-        var cells = TextObjects(report).Where(o => o.Parent is DataBand).OrderBy(o => o.Left).ToList();
+        // txtDetail (Remessas para Depósito) cobre de propósito as colunas de texto: só as linhas filhas o
+        // preenchem, e nelas as outras células vêm vazias. Conferido à parte em DetailCell_EndsWhereTheQuantitiesStart.
+        var cells = TextObjects(report).Where(o => o.Parent is DataBand && o.Name != "txtDetail").OrderBy(o => o.Left).ToList();
         var problems = new List<string>();
 
         for (var i = 0; i + 1 < cells.Count; i++)
@@ -255,5 +271,17 @@ public class LogisticsReportsLayoutTests
 
         Assert.NotEmpty(groups);
         Assert.All(groups, g => Assert.Equal(SortOrder.None, g.SortOrder));
+    }
+
+    [Fact]
+    public void DetailCell_EndsWhereTheQuantitiesStart()
+    {
+        using var report = Load("StorageRemittancesByPeriod");
+        var objects = TextObjects(report);
+        var detail = objects.Single(o => o.Name == "txtDetail");
+        var firstQuantity = objects.Single(o => o.Name == "txtRemitted");
+
+        Assert.True(detail.Left + detail.Width <= firstQuantity.Left + 0.01f,
+            $"txtDetail termina em {detail.Left + detail.Width}px; Remetido começa em {firstQuantity.Left}px");
     }
 }
