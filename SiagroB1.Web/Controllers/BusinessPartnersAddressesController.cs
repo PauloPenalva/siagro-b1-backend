@@ -160,7 +160,10 @@ public class BusinessPartnersAddressesController(
         return Ok(item);
     }
     
-    [AcceptVerbs("PATCH", "MERGE")]
+    // AddressModel não tem entity set: o UI5 manda o PATCH pela URL de navegação. Sem esta rota a
+    // edição de endereço já gravado dava 404 no /edit do parceiro.
+    [AcceptVerbs("PATCH", "MERGE",
+        Route = "odata/BusinessPartners({key})/Addresses(AddressName={addressName},AdresType={adresType},CardCode={cardCode})")]
     public async Task<IActionResult> Patch(
         [FromRoute] string key, 
         [FromRoute] string addressName,
