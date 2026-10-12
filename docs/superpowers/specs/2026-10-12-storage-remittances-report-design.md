@@ -69,23 +69,28 @@ O serviço entrega linhas achatadas (`StorageRemittanceRowDto`) com `RowKind` = 
 `Transaction`. Sem Detalhado, só `Remittance`.
 
 - **Agrupamento** por produto + UM da remessa com `InvoiceItemGrouping.BuildGroupResolver` sobre a primeira linha da
-  remessa (remessa nasce com 1 linha; editada para várias, as quantidades somam todas e o grupo é o da primeira).
+  remessa em ordem de `ItemCode`, depois `Key` (o item não tem número de linha; remessa nasce com 1 linha; editada
+  para várias, as quantidades somam todas).
 - **Ordem**: grupo, data da remessa, número, chave. Dentro da remessa: retornos por data/número, depois romaneios por
   data/código. `SortOrder="None"` nos `GroupHeaderBand` (o serviço já ordena).
 - **Linha de remessa**: Remessa (número), Emissão, Situação (Pendente/Confirmada), NF-e (status), Armazém
   (`ReportText.Partner`), Contrato (código do contrato de compra da liberação), Liberação (data da liberação),
   Remetido, Retornado, A retornar, Expedido sem retorno.
-- **Linha de retorno** (Detalhado): "Retorno", número, data, quantidade.
-- **Linha de romaneio** (Detalhado): "Romaneio", código, data, placa, peso líquido, retorno reconciliado ou
-  "Sem retorno".
-- **Totais** por produto e geral das quatro quantidades, calculados no serviço sobre as linhas `Remittance` e levados
-  nos campos de grupo da linha (o template não soma linhas de detalhe).
+- **Linha de retorno** (Detalhado): uma célula de texto `Detail` — "Retorno 000000456 de 11/10/2026 - Confirmado -
+  150.000,000 KG".
+- **Linha de romaneio** (Detalhado): `Detail` — "Romaneio RM000048 de 10/10/2026 - placa ABC1D23 - 30.000,000 KG -
+  retorno 000000456" ou "... - sem retorno".
+- As colunas de quantidade são TEXTO formatado no serviço (vazio nas linhas filhas). Os **totais** por produto e
+  geral somam campos decimais paralelos que valem 0 nas linhas filhas; a contagem de remessas soma
+  `RemittanceCount` (1 na remessa, 0 nas filhas).
 - Sem remessas no filtro → PDF com "Nenhum registro", como os demais.
 
 ### 5.3 Template
 
 `StorageRemittancesByPeriod.frx`, paisagem, uma `DataBand` + `GroupHeaderBand` por produto, mesmo cabeçalho/rodapé dos
-relatórios de logística. Linhas de detalhe impressas na mesma banda com visibilidade por `RowKind` e recuo.
+relatórios de logística. Linhas de detalhe impressas na mesma banda: a célula `txtDetail` (recuada, até o início das
+quantidades) só tem texto nas linhas filhas, e as demais células só têm texto na linha de remessa — sem visibilidade
+condicional.
 Larguras pela regra do pacote 1: `(chars×5,2+4)×tam/7+4` px, Consolas 7pt, totais 6pt; `SingleUomParameter` como
 nos demais.
 
@@ -94,13 +99,15 @@ nos demais.
 - Migration `AddStorageRemittancesReportMenu` (CommonContext): `MENU_ITEMS` `storageRemittancesReport`, "Remessas
   para Depósito", `ParentKey = reports`, próximo `Order` livre, `StandaloneOnly = true`; `ROLE_MENUS` ADMIN.
 - Rota `storageRemittancesReport` no `manifest.json` (o nome é a chave do menu).
-- Tela `view/reports/storageRemittances`, no padrão de `view/reports/shipmentReleases`: Período (padrão mês corrente),
+- Tela `view/reports/storageRemittances`, no padrão de `view/reports/shipmentReleases`: Período (sem padrão, como as demais telas de relatório),
   Filial, Produto, Armazém (value help de PN marcado como armazém), Situação (Select, padrão Todas), Detalhado
   (CheckBox); botão gera o PDF pelo mesmo helper dos outros relatórios.
 
 ## 7. Testes
 
-- **Serviço** (SQL Server, padrão de `ShipmentReleasesByPeriodReportServiceTests`): remessa cancelada fora; retorno
+- **Tradução**: as consultas de `StorageRemittanceData` geram SQL Server (`ToQueryString`, padrão de
+  `ContractPositionDataTests`).
+- **Serviço** (InMemory, padrão de `ShipmentReleasesByPeriodReportServiceTests`): remessa cancelada fora; retorno
   cancelado não conta; Compra de conferência fora; origem sem perna de compra usa Saída(7); filtros de período,
   filial, produto, armazém; Situação Open/Returned/All, incluindo remessa totalmente retornada e excesso; Detalhado
   gera as linhas filhas na ordem; totais por grupo.
