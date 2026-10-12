@@ -67,7 +67,14 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
 
         var rows = new List<StorageRemittanceRowDto>();
         foreach (var position in positions)
+        {
             rows.Add(RemittanceRow(position));
+            if (!request.Detailed)
+                continue;
+
+            rows.AddRange(position.Returns.Select(r => ReturnRow(position, r)));
+            rows.AddRange(position.Shipped.Select(t => TransactionRow(position, t)));
+        }
 
         return rows;
     }
@@ -139,6 +146,39 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
         ShippedWithoutReturnText = Quantity(p.ShippedWithoutReturn),
         RemittanceCount = 1,
     };
+
+    private static StorageRemittanceRowDto ReturnRow(RemittancePosition p, ReturnDocument r) => new()
+    {
+        Group = p.Group,
+        Kind = StorageRemittanceRowKind.Return,
+        UnitOfMeasure = p.UnitOfMeasure,
+        Detail = Join(
+            Head("Retorno", r.Number, r.IssueDate),
+            InvoiceReportText.Status(r.Status),
+            $"{Quantity(r.Quantity)} {p.UnitOfMeasure}".Trim()),
+    };
+
+    private static StorageRemittanceRowDto TransactionRow(RemittancePosition p, StorageRemittanceData.TransactionLine t) => new()
+    {
+        Group = p.Group,
+        Kind = StorageRemittanceRowKind.Transaction,
+        UnitOfMeasure = p.UnitOfMeasure,
+        Detail = Join(
+            Head("Romaneio", t.Code, t.TransactionDate),
+            string.IsNullOrWhiteSpace(t.TruckCode) ? "" : $"placa {t.TruckCode.Trim()}",
+            $"{Quantity(t.NetWeight)} {p.UnitOfMeasure}".Trim(),
+            t.HasReturn ? $"retorno {t.ReturnNumber}" : "sem retorno"),
+    };
+
+    /// <summary>"Rótulo número de dd/MM/yyyy" — sem data, sem o "de".</summary>
+    private static string Head(string label, string? number, DateTime? date)
+    {
+        var head = $"{label} {number}".Trim();
+        return date is null ? head : $"{head} de {ReportText.Date(date)}";
+    }
+
+    private static string Join(params string[] parts) =>
+        string.Join(" - ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
 
     /// <summary>"Primeira" linha: o item não tem número de linha, então ItemCode e depois Key (determinístico).</summary>
     private static SalesInvoiceItem? FirstLine(SalesInvoice remittance) =>

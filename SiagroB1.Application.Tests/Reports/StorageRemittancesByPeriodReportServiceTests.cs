@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -201,6 +202,114 @@ public class StorageRemittancesByPeriodReportServiceTests
         Assert.All(sql[1..], s => Assert.Matches(@"IN \(\s*SELECT", s));
         Assert.Contains("[PURCHASE_INVOICES_ITEMS]", sql[1]);
         Assert.Contains("[STORAGE_RETURN_RECONCILIATIONS]", sql[2]);
+    }
+
+    [Fact]
+    public async Task BuildRows_DetailedAddsReturnsThenTransactionsUnderTheRemittance()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100_000m, date: Oct10, number: "000000123");
+        await seed.AddReturnAsync(remittance, 20_000m, InvoiceStatus.Confirmed, date: Oct12, number: "000000502");
+        var first = await seed.AddReturnAsync(remittance, 10_000m, InvoiceStatus.Pending, date: Oct11, number: "000000501");
+        await seed.AddShipmentAsync(20_000m, date: Oct12, code: "RM000002");
+        var loaded = await seed.AddShipmentAsync(10_000m, date: Oct11, code: "RM000001");
+        await Reconcile(db, first, loaded);
+
+        var request = Request();
+        request.Detailed = true;
+        var rows = await Service(db).BuildRowsAsync(request);
+
+        Assert.Equal(
+            new[]
+            {
+                StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return, StorageRemittanceRowKind.Return,
+                StorageRemittanceRowKind.Transaction, StorageRemittanceRowKind.Transaction,
+            },
+            rows.Select(r => r.Kind));
+        Assert.Equal(
+            new[]
+            {
+                "",
+                "Retorno 000000501 de 11/10/2026 - Pendente - 10.000,000 KG",
+                "Retorno 000000502 de 12/10/2026 - Confirmado - 20.000,000 KG",
+                "Romaneio RM000001 de 11/10/2026 - placa ABC1D23 - 10.000,000 KG - retorno 000000501",
+                "Romaneio RM000002 de 12/10/2026 - placa ABC1D23 - 20.000,000 KG - sem retorno",
+            },
+            rows.Select(r => r.Detail));
+        Assert.All(rows.Skip(1), r =>
+        {
+            Assert.Equal("SOJA - KG", r.Group);
+            Assert.Equal("KG", r.UnitOfMeasure);
+            Assert.Equal("", r.Remittance);
+            Assert.Equal("", r.RemittedText);
+            Assert.Equal(0m, r.RemittedQuantity + r.ReturnedQuantity + r.PendingReturnQuantity + r.ShippedWithoutReturnQuantity);
+            Assert.Equal(0, r.RemittanceCount);
+        });
+    }
+
+    [Fact]
+    public async Task BuildRows_WithoutDetailedHasOnlyRemittanceRows()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100m, date: Oct10);
+        await seed.AddReturnAsync(remittance, 10m, InvoiceStatus.Confirmed);
+        await seed.AddShipmentAsync(10m);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(new[] { StorageRemittanceRowKind.Remittance }, rows.Select(r => r.Kind));
+    }
+
+    /// <summary>
+    /// O relatório reescreve as regras de StorageDepositRules (o Reports não enxerga a Application). Este teste
+    /// garante que, remessa a remessa, os quatro números são os da seção "Remessa para depósito" da liberação.
+    /// </summary>
+    [Fact]
+    public async Task BuildRows_MatchesTheReleaseScreenForEveryRemittance()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+
+        // A: Standard, retorno parcial, um romaneio reconciliado, um sem retorno, um de conferência.
+        var a = await seed.AddRemittanceAsync(100_000m, date: Oct10, number: "000000001");
+        var aReturn = await seed.AddReturnAsync(a, 30_000m, InvoiceStatus.Confirmed);
+        await seed.AddReturnAsync(a, 5_000m, InvoiceStatus.Cancelled);
+        var aLoaded = await seed.AddShipmentAsync(30_000m);
+        await seed.AddShipmentAsync(12_000m);
+        await seed.AddShipmentAsync(4_000m, origin: TransactionCode.WarehouseReconciliation);
+        await Reconcile(db, aReturn, aLoaded);
+
+        // B: transferência (Saída 7), totalmente retornada.
+        var transfer = await seed.AddReleaseAsync(ReleaseOrigin.OwnershipTransfer);
+        var b = await seed.AddRemittanceAsync(40_000m, release: transfer, date: Oct10, number: "000000002");
+        await seed.AddReturnAsync(b, 40_000m, InvoiceStatus.Confirmed);
+        await seed.AddShipmentAsync(40_000m, StorageTransactionType.SalesShipment, release: transfer);
+        await seed.AddShipmentAsync(9_000m, release: transfer);
+
+        // C: remessa editada para duas linhas, sem retorno.
+        var other = await seed.AddReleaseAsync();
+        var c = await seed.AddRemittanceAsync(60_000m, release: other, date: Oct10, number: "000000003");
+        db.Context.SalesInvoicesItems.Add(new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(), SalesInvoiceKey = c.Key, ItemCode = StorageDepositSeed.Item, UnitOfMeasureCode = "KG",
+            Quantity = 40_000m, UsageCode = seed.RemittanceUsageCode,
+        });
+        await db.SaveChangesAsync();
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+        var screen = new ShipmentReleasesStorageRemittanceSummaryService(db, TestConfiguration.Erp("STANDALONE"));
+
+        foreach (var (release, number) in new[] { (seed.Release, "000000001"), (transfer, "000000002"), (other, "000000003") })
+        {
+            var expected = await screen.ExecuteAsync(release.Key);
+            var row = rows.Single(r => r.Remittance == number);
+            Assert.Equal(expected.RemittedQuantity, row.RemittedQuantity);
+            Assert.Equal(expected.ReturnedQuantity, row.ReturnedQuantity);
+            Assert.Equal(expected.PendingReturnQuantity, row.PendingReturnQuantity);
+            Assert.Equal(expected.ShippedWithoutReturnQuantity, row.ShippedWithoutReturnQuantity);
+        }
     }
 
     private static StorageRemittancesByPeriodReportService Service(IUnitOfWork db) =>
