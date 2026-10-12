@@ -14,12 +14,16 @@ namespace SiagroB1.Reports.Helpers;
 public static class StorageRemittanceData
 {
     public sealed record ReturnLine(
-        Guid RemittanceItemKey, Guid PurchaseInvoiceKey, string? Number, DateTime? IssueDate, InvoiceStatus Status,
+        Guid RemittanceItemKey, Guid PurchaseInvoiceKey, string? InvoiceNumber, string? TaxDocumentNumber,
+        string? TaxDocumentSeries, string? AccessKey, DateTime? IssueDate, InvoiceStatus Status, NfeStatus NfeStatus,
         decimal Quantity);
 
     public sealed record TransactionLine(
         Guid Key, Guid ReleaseKey, StorageTransactionType Type, TransactionCode? Origin, string? Code,
-        DateTime? TransactionDate, string? TruckCode, decimal NetWeight, string? ReturnNumber, bool HasReturn);
+        DateTime? TransactionDate, string? TruckCode, decimal NetWeight, Guid? ReturnKey, string? ReturnNumber)
+    {
+        public bool HasReturn => ReturnKey != null;
+    }
 
     /// <summary>Remessas não canceladas (Pendente e Confirmada) emitidas no período, com os filtros opcionais.</summary>
     public static IQueryable<SalesInvoice> RemittancesQuery(AppDbContext context, StorageRemittancesByPeriodRequest request)
@@ -58,9 +62,13 @@ public static class StorageRemittanceData
             .Select(l => new ReturnLine(
                 l.SalesInvoiceItemKey!.Value,
                 l.PurchaseInvoiceKey!.Value,
-                l.PurchaseInvoice!.TaxDocumentNumber ?? l.PurchaseInvoice.InvoiceNumber,
+                l.PurchaseInvoice!.InvoiceNumber,
+                l.PurchaseInvoice.TaxDocumentNumber,
+                l.PurchaseInvoice.TaxDocumentSeries,
+                l.PurchaseInvoice.ChaveNFe,
                 l.PurchaseInvoice.IssueDate,
                 l.PurchaseInvoice.InvoiceStatus,
+                l.PurchaseInvoice.NfeStatus,
                 l.Quantity));
 
     /// <summary>
@@ -85,9 +93,12 @@ public static class StorageRemittanceData
                 t.NetWeight,
                 context.StorageReturnReconciliations
                     .Where(r => r.StorageTransactionKey == t.Key)
-                    .Select(r => r.PurchaseInvoice!.TaxDocumentNumber ?? r.PurchaseInvoice.InvoiceNumber)
+                    .Select(r => (Guid?)r.PurchaseInvoiceKey)
                     .FirstOrDefault(),
-                context.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key)));
+                context.StorageReturnReconciliations
+                    .Where(r => r.StorageTransactionKey == t.Key)
+                    .Select(r => r.PurchaseInvoice!.InvoiceNumber)
+                    .FirstOrDefault()));
 
     /// <summary>
     /// Mesmo eixo de <c>StorageDepositRules.ShippedTransactions</c>: Saída(7) na liberação sem perna de compra;

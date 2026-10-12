@@ -32,7 +32,8 @@ public class LogisticsReportsLayoutTests
     {
         ["StorageRemittancesByPeriod"] = new()
         {
-            ["txtRemittance"] = 15,           // S1a2b3c... / 000000123 (nº interno longo)
+            ["txtDocument"] = 9,              // DS000176 / DE000026 (VARCHAR(9))
+            ["txtTaxDocument"] = 13,          // 000000038-001 (número VARCHAR(9) + série VARCHAR(3))
             ["txtInvoiceDate"] = 10,          // 31/12/2026
             ["txtStatus"] = 10,               // Confirmado
             ["txtNfeStatus"] = 16,            // Em processamento
@@ -230,9 +231,11 @@ public class LogisticsReportsLayoutTests
     public void DataCells_DoNotOverlap(string template)
     {
         using var report = Load(template);
-        // txtDetail (Remessas para Depósito) cobre de propósito as colunas de texto: só as linhas filhas o
-        // preenchem, e nelas as outras células vêm vazias. Conferido à parte em DetailCell_EndsWhereTheQuantitiesStart.
-        var cells = TextObjects(report).Where(o => o.Parent is DataBand && o.Name != "txtDetail").OrderBy(o => o.Left).ToList();
+        // Remessas para Depósito: txtDetail (romaneio) e txtNote (retorno) cobrem de propósito colunas de texto que
+        // vêm vazias nessas linhas; txtAccessKey fica na segunda linha e txtShade é o fundo. Conferidos à parte em
+        // SpanningCells_EndWhereTheQuantitiesStart.
+        string[] spanning = ["txtDetail", "txtNote", "txtAccessKey", "txtShade"];
+        var cells = TextObjects(report).Where(o => o.Parent is DataBand && !spanning.Contains(o.Name)).OrderBy(o => o.Left).ToList();
         var problems = new List<string>();
 
         for (var i = 0; i + 1 < cells.Count; i++)
@@ -273,15 +276,28 @@ public class LogisticsReportsLayoutTests
         Assert.All(groups, g => Assert.Equal(SortOrder.None, g.SortOrder));
     }
 
-    [Fact]
-    public void DetailCell_EndsWhereTheQuantitiesStart()
+    [Theory]
+    [InlineData("txtDetail")]
+    [InlineData("txtNote")]
+    [InlineData("txtAccessKey")]
+    public void SpanningCells_EndWhereTheQuantitiesStart(string name)
     {
         using var report = Load("StorageRemittancesByPeriod");
         var objects = TextObjects(report);
-        var detail = objects.Single(o => o.Name == "txtDetail");
+        var cell = objects.Single(o => o.Name == name);
         var firstQuantity = objects.Single(o => o.Name == "txtRemitted");
 
-        Assert.True(detail.Left + detail.Width <= firstQuantity.Left + 0.01f,
-            $"txtDetail termina em {detail.Left + detail.Width}px; Remetido começa em {firstQuantity.Left}px");
+        Assert.True(cell.Left + cell.Width <= firstQuantity.Left + 0.01f,
+            $"{name} termina em {cell.Left + cell.Width}px; Remetido começa em {firstQuantity.Left}px");
+    }
+
+    [Fact]
+    public void AccessKeyLine_FitsTheLabelAndTheGroupedKey()
+    {
+        using var report = Load("StorageRemittancesByPeriod");
+        var key = TextObjects(report).Single(o => o.Name == "txtAccessKey");
+        const int chars = 12 + 54; // "Chave NF-e: " + 44 dígitos em 11 grupos de 4
+
+        Assert.True(Required(chars, key.Font.Size) <= key.Width, $"txtAccessKey precisa {Required(chars, key.Font.Size):0.#}px");
     }
 }

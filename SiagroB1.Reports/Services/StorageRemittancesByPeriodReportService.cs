@@ -12,19 +12,22 @@ namespace SiagroB1.Reports.Services;
 /// "Remessas para Depósito": uma linha por remessa ativa do período, com a posição ATUAL de Remetido, Retornado,
 /// A retornar e Expedido sem retorno — os mesmos números da seção da liberação
 /// (<c>ShipmentReleasesStorageRemittanceSummaryService</c>). Agrupado pelo produto + UM da primeira linha da
-/// remessa. Só STANDALONE (a guarda fica no controller).
+/// remessa. Cada retorno sai sempre logo abaixo da remessa, com o saldo A retornar depois dele; Detalhado acrescenta os
+/// romaneios de carregamento. Só STANDALONE (a guarda fica no controller).
 /// </summary>
 public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReportService reportService)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    private sealed record ReturnDocument(string Number, DateTime? IssueDate, InvoiceStatus Status, decimal Quantity);
+    private sealed record ReturnDocument(
+        Guid Key, string InvoiceNumber, string TaxDocument, string AccessKey, DateTime? IssueDate, InvoiceStatus Status,
+        NfeStatus NfeStatus, decimal Quantity);
 
     private sealed record RemittancePosition(
         SalesInvoice Remittance,
         ShipmentRelease? Release,
         string Group,
-        string Number,
+        string TaxDocument,
         string UnitOfMeasure,
         List<ReturnDocument> Returns,
         List<StorageRemittanceData.TransactionLine> Shipped,
@@ -62,18 +65,23 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
             .Where(p => Matches(p, request.ReturnSituation))
             .OrderBy(p => p.Group, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(p => p.Remittance.InvoiceDate)
-            .ThenBy(p => p.Number, StringComparer.Ordinal)
+            .ThenBy(p => p.TaxDocument, StringComparer.Ordinal)
             .ThenBy(p => p.Remittance.Key);
 
         var rows = new List<StorageRemittanceRowDto>();
         foreach (var position in positions)
         {
             rows.Add(RemittanceRow(position));
-            if (!request.Detailed)
-                continue;
 
-            rows.AddRange(position.Returns.Select(r => ReturnRow(position, r)));
-            rows.AddRange(position.Shipped.Select(t => TransactionRow(position, t)));
+            var pending = position.Remitted;
+            foreach (var ret in position.Returns)
+            {
+                pending -= ret.Quantity;
+                rows.Add(ReturnRow(position, ret, pending));
+            }
+
+            if (request.Detailed)
+                rows.AddRange(position.Shipped.Select(t => TransactionRow(position, t)));
         }
 
         return rows;
@@ -91,10 +99,16 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
         var returns = returnLines
             .Where(l => itemKeys.Contains(l.RemittanceItemKey))
             .GroupBy(l => l.PurchaseInvoiceKey)
-            .Select(g => new ReturnDocument(
-                g.Max(l => l.Number) ?? "", g.Max(l => l.IssueDate), g.Max(l => l.Status), g.Sum(l => l.Quantity)))
+            .Select(g =>
+            {
+                var head = g.First();
+                return new ReturnDocument(
+                    g.Key, head.InvoiceNumber ?? "", TaxDocument(head.TaxDocumentNumber, head.TaxDocumentSeries),
+                    AccessKey(head.AccessKey), head.IssueDate, head.Status, head.NfeStatus, g.Sum(l => l.Quantity));
+            })
             .OrderBy(r => r.IssueDate)
-            .ThenBy(r => r.Number, StringComparer.Ordinal)
+            .ThenBy(r => r.TaxDocument, StringComparer.Ordinal)
+            .ThenBy(r => r.InvoiceNumber, StringComparer.Ordinal)
             .ToList();
 
         var origin = release?.Origin ?? ReleaseOrigin.Standard;
@@ -108,7 +122,7 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
             remittance,
             release,
             group,
-            DocumentNumber(remittance.TaxDocumentNumber, remittance.InvoiceNumber),
+            TaxDocument(remittance.TaxDocumentNumber, remittance.TaxDocumentSeries),
             FirstLine(remittance)?.UnitOfMeasureCode ?? "",
             returns,
             shipped,
@@ -162,7 +176,9 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
     {
         Group = p.Group,
         Kind = StorageRemittanceRowKind.Remittance,
-        Remittance = p.Number,
+        Document = p.Remittance.InvoiceNumber ?? "",
+        TaxDocument = p.TaxDocument,
+        AccessKey = AccessKey(p.Remittance.ChaveNFe),
         InvoiceDate = ReportText.Date(p.Remittance.InvoiceDate),
         Status = InvoiceReportText.Status(p.Remittance.InvoiceStatus),
         NfeStatus = InvoiceReportText.Nfe(p.Remittance.NfeStatus),
@@ -181,16 +197,36 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
         RemittanceCount = 1,
     };
 
-    private static StorageRemittanceRowDto ReturnRow(RemittancePosition p, ReturnDocument r) => new()
+    /// <summary>
+    /// Retorno com as colunas da remessa: quantidade em Retornado, saldo depois dele em A retornar (só texto — os
+    /// totais somam a remessa) e, em <see cref="StorageRemittanceRowDto.Note"/>, os romaneios conciliados com ele.
+    /// </summary>
+    private static StorageRemittanceRowDto ReturnRow(RemittancePosition p, ReturnDocument r, decimal pendingAfter) => new()
     {
         Group = p.Group,
         Kind = StorageRemittanceRowKind.Return,
+        Document = r.InvoiceNumber,
+        TaxDocument = r.TaxDocument,
+        AccessKey = r.AccessKey,
+        InvoiceDate = ReportText.Date(r.IssueDate),
+        Status = InvoiceReportText.Status(r.Status),
+        NfeStatus = InvoiceReportText.Nfe(r.NfeStatus),
+        Note = ReconciledNote(p, r),
         UnitOfMeasure = p.UnitOfMeasure,
-        Detail = Join(
-            Head("Retorno", r.Number, r.IssueDate),
-            InvoiceReportText.Status(r.Status),
-            $"{Quantity(r.Quantity)} {p.UnitOfMeasure}".Trim()),
+        ReturnedText = Quantity(r.Quantity),
+        PendingReturnText = Quantity(pendingAfter),
     };
+
+    private static string ReconciledNote(RemittancePosition p, ReturnDocument r)
+    {
+        var loads = p.Shipped
+            .Where(t => t.ReturnKey == r.Key)
+            .Select(t => $"{t.Code} ({$"{Quantity(t.NetWeight)} {p.UnitOfMeasure}".Trim()})")
+            .ToList();
+        return loads.Count == 0
+            ? "Retorno - sem romaneio conciliado"
+            : "Retorno - romaneios: " + string.Join(", ", loads);
+    }
 
     private static StorageRemittanceRowDto TransactionRow(RemittancePosition p, StorageRemittanceData.TransactionLine t) => new()
     {
@@ -218,9 +254,20 @@ public class StorageRemittancesByPeriodReportService(IUnitOfWork db, IFastReport
     private static SalesInvoiceItem? FirstLine(SalesInvoice remittance) =>
         remittance.Items.OrderBy(l => l.ItemCode, StringComparer.Ordinal).ThenBy(l => l.Key).FirstOrDefault();
 
-    /// <summary>Mesma regra de <c>StorageDepositRules.DocumentNumber</c>.</summary>
-    private static string DocumentNumber(string? taxDocumentNumber, string? invoiceNumber) =>
-        string.IsNullOrWhiteSpace(taxDocumentNumber) ? invoiceNumber ?? "" : taxDocumentNumber;
+    /// <summary>"número-série"; sem série, só o número; sem número (remessa sem nota), vazio.</summary>
+    private static string TaxDocument(string? number, string? series)
+    {
+        if (string.IsNullOrWhiteSpace(number))
+            return "";
+        return string.IsNullOrWhiteSpace(series) ? number.Trim() : $"{number.Trim()}-{series.Trim()}";
+    }
+
+    /// <summary>Chave da NF-e em grupos de 4 dígitos, como no DANFE.</summary>
+    private static string AccessKey(string? key)
+    {
+        var digits = key?.Trim() ?? "";
+        return string.Join(" ", digits.Chunk(4).Select(c => new string(c)));
+    }
 
     private static string Quantity(decimal value) => value.ToString("N3", PtBr);
 }

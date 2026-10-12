@@ -31,10 +31,10 @@ public class StorageRemittancesByPeriodReportServiceTests
         await seed.AddShipmentAsync(20_000m);
         await Reconcile(db, ret, s1);
 
-        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+        var row = Remittances(await Service(db).BuildRowsAsync(Request())).Single();
 
         Assert.Equal(StorageRemittanceRowKind.Remittance, row.Kind);
-        Assert.Equal("000000123", row.Remittance);
+        Assert.Equal("000000123", row.TaxDocument);
         Assert.Equal("10/10/2026", row.InvoiceDate);
         Assert.Equal("Confirmado", row.Status);
         Assert.Equal("", row.NfeStatus);
@@ -64,9 +64,9 @@ public class StorageRemittancesByPeriodReportServiceTests
         pending.NfeStatus = NfeStatus.Rejected;
         await db.SaveChangesAsync();
 
-        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+        var row = Remittances(await Service(db).BuildRowsAsync(Request())).Single();
 
-        Assert.Equal("000000002", row.Remittance);
+        Assert.Equal("000000002", row.TaxDocument);
         Assert.Equal("Pendente", row.Status);
         Assert.Equal("Rejeitada", row.NfeStatus);
     }
@@ -81,9 +81,9 @@ public class StorageRemittancesByPeriodReportServiceTests
         await seed.AddRemittanceAsync(100m, release: await seed.AddReleaseAsync(), date: new DateTime(2026, 9, 30), number: "000000003");
         await seed.AddReturnAsync(inside, 100m, InvoiceStatus.Confirmed, date: new DateTime(2026, 11, 5));
 
-        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+        var row = Remittances(await Service(db).BuildRowsAsync(Request())).Single();
 
-        Assert.Equal("000000001", row.Remittance);
+        Assert.Equal("000000001", row.TaxDocument);
         Assert.Equal(0m, row.PendingReturnQuantity);
     }
 
@@ -112,7 +112,7 @@ public class StorageRemittancesByPeriodReportServiceTests
 
         var rows = await Service(db).BuildRowsAsync(request);
 
-        Assert.Equal(new[] { "000000001" }, rows.Select(r => r.Remittance));
+        Assert.Equal(new[] { "000000001" }, rows.Select(r => r.TaxDocument));
     }
 
     [Theory]
@@ -133,9 +133,9 @@ public class StorageRemittancesByPeriodReportServiceTests
         request.ReturnSituation = situation;
         var rows = await Service(db).BuildRowsAsync(request);
 
-        Assert.Equal(expected, rows.Select(r => r.Remittance));
+        Assert.Equal(expected, Remittances(rows).Select(r => r.TaxDocument));
         if (situation == StorageRemittanceSituation.Returned)
-            Assert.Equal("-20,000", rows.Single(r => r.Remittance == "000000003").PendingReturnText);
+            Assert.Equal("-20,000", Remittances(rows).Single(r => r.TaxDocument == "000000003").PendingReturnText);
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class StorageRemittancesByPeriodReportServiceTests
         var rows = await Service(db).BuildRowsAsync(Request());
 
         Assert.Equal(new[] { "MILHO - KG", "SOJA - KG", "SOJA - KG", "SOJA - KG" }, rows.Select(r => r.Group));
-        Assert.Equal(new[] { "000000007", "000000005", "000000009", "000000001" }, rows.Select(r => r.Remittance));
+        Assert.Equal(new[] { "000000007", "000000005", "000000009", "000000001" }, rows.Select(r => r.TaxDocument));
     }
 
     [Fact]
@@ -204,17 +204,107 @@ public class StorageRemittancesByPeriodReportServiceTests
         Assert.Contains("[STORAGE_RETURN_RECONCILIATIONS]", sql[2]);
     }
 
+    private const string RemittanceKey = "35261012345678000195550010000000381000000381";
+    private const string ReturnKey = "35261098765432000110550010000007901000007901";
+
     [Fact]
-    public async Task BuildRows_DetailedAddsReturnsThenTransactionsUnderTheRemittance()
+    public async Task BuildRows_RemittanceRowShowsInternalNumberTaxDocumentAndAccessKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100m, date: Oct10, number: "000000038");
+        remittance.InvoiceNumber = "DS000176";
+        remittance.TaxDocumentSeries = "1";
+        remittance.ChaveNFe = RemittanceKey;
+        await db.SaveChangesAsync();
+
+        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+
+        Assert.Equal("DS000176", row.Document);
+        Assert.Equal("000000038-1", row.TaxDocument);
+        Assert.Equal("3526 1012 3456 7800 0195 5500 1000 0000 3810 0000 0381", row.AccessKey);
+    }
+
+    [Fact]
+    public async Task BuildRows_WithoutTaxDocumentLeavesNumberAndKeyEmpty()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100m, date: Oct10);
+        remittance.TaxDocumentNumber = null;
+        await db.SaveChangesAsync();
+
+        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+
+        Assert.Equal(remittance.InvoiceNumber, row.Document);
+        Assert.Equal("", row.TaxDocument);
+        Assert.Equal("", row.AccessKey);
+    }
+
+    [Fact]
+    public async Task BuildRows_ReturnsAlwaysFollowTheRemittanceWithTheirOwnColumnsAndRunningBalance()
     {
         var db = TestDb.CreateUnitOfWork();
         var seed = await StorageDepositSeed.CreateAsync(db);
         var remittance = await seed.AddRemittanceAsync(100_000m, date: Oct10, number: "000000123");
-        await seed.AddReturnAsync(remittance, 20_000m, InvoiceStatus.Confirmed, date: Oct12, number: "000000502");
+        var second = await seed.AddReturnAsync(remittance, 20_000m, InvoiceStatus.Confirmed, date: Oct12, number: "000000502");
         var first = await seed.AddReturnAsync(remittance, 10_000m, InvoiceStatus.Pending, date: Oct11, number: "000000501");
+        first.InvoiceNumber = "DE000026";
+        first.TaxDocumentSeries = "1";
+        first.ChaveNFe = ReturnKey;
+        first.NfeStatus = NfeStatus.Authorized;
+        await db.SaveChangesAsync();
+        var a = await seed.AddShipmentAsync(4_000m, date: Oct11, code: "RM000001");
+        var b = await seed.AddShipmentAsync(6_000m, date: Oct11, code: "RM000002");
+        await Reconcile(db, first, a);
+        await Reconcile(db, first, b);
+
+        var rows = await Service(db).BuildRowsAsync(Request());
+
+        Assert.Equal(
+            new[] { StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return, StorageRemittanceRowKind.Return },
+            rows.Select(r => r.Kind));
+        var r1 = rows[1];
+        Assert.Equal("DE000026", r1.Document);
+        Assert.Equal("000000501-1", r1.TaxDocument);
+        Assert.Equal("11/10/2026", r1.InvoiceDate);
+        Assert.Equal("Pendente", r1.Status);
+        Assert.Equal("Autorizada", r1.NfeStatus);
+        Assert.Equal("3526 1098 7654 3200 0110 5500 1000 0007 9010 0000 7901", r1.AccessKey);
+        Assert.Equal("Retorno - romaneios: RM000001 (4.000,000 KG), RM000002 (6.000,000 KG)", r1.Note);
+        Assert.Equal("10.000,000", r1.ReturnedText);
+        Assert.Equal("90.000,000", r1.PendingReturnText);
+        var r2 = rows[2];
+        Assert.Equal(second.InvoiceNumber, r2.Document);
+        Assert.Equal("000000502", r2.TaxDocument);
+        Assert.Equal("Confirmado", r2.Status);
+        Assert.Equal("Retorno - sem romaneio conciliado", r2.Note);
+        Assert.Equal("20.000,000", r2.ReturnedText);
+        Assert.Equal("70.000,000", r2.PendingReturnText);
+        Assert.All(rows.Skip(1), r =>
+        {
+            Assert.Equal("SOJA - KG", r.Group);
+            Assert.Equal("", r.Warehouse);
+            Assert.Equal("", r.Contract);
+            Assert.Equal("", r.RemittedText);
+            Assert.Equal("", r.ShippedWithoutReturnText);
+            Assert.Equal(0m, r.RemittedQuantity + r.ReturnedQuantity + r.PendingReturnQuantity + r.ShippedWithoutReturnQuantity);
+            Assert.Equal(0, r.RemittanceCount);
+        });
+    }
+
+    [Fact]
+    public async Task BuildRows_DetailedAddsTheLoadingTransactionsAfterTheReturns()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100_000m, date: Oct10, number: "000000123");
+        var ret = await seed.AddReturnAsync(remittance, 10_000m, InvoiceStatus.Pending, date: Oct11, number: "000000501");
+        ret.InvoiceNumber = "DE000026";
+        await db.SaveChangesAsync();
         await seed.AddShipmentAsync(20_000m, date: Oct12, code: "RM000002");
         var loaded = await seed.AddShipmentAsync(10_000m, date: Oct11, code: "RM000001");
-        await Reconcile(db, first, loaded);
+        await Reconcile(db, ret, loaded);
 
         var request = Request();
         request.Detailed = true;
@@ -223,33 +313,30 @@ public class StorageRemittancesByPeriodReportServiceTests
         Assert.Equal(
             new[]
             {
-                StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return, StorageRemittanceRowKind.Return,
+                StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return,
                 StorageRemittanceRowKind.Transaction, StorageRemittanceRowKind.Transaction,
             },
             rows.Select(r => r.Kind));
         Assert.Equal(
             new[]
             {
-                "",
-                "Retorno 000000501 de 11/10/2026 - Pendente - 10.000,000 KG",
-                "Retorno 000000502 de 12/10/2026 - Confirmado - 20.000,000 KG",
-                "Romaneio RM000001 de 11/10/2026 - placa ABC1D23 - 10.000,000 KG - retorno 000000501",
+                "Romaneio RM000001 de 11/10/2026 - placa ABC1D23 - 10.000,000 KG - retorno DE000026",
                 "Romaneio RM000002 de 12/10/2026 - placa ABC1D23 - 20.000,000 KG - sem retorno",
             },
-            rows.Select(r => r.Detail));
-        Assert.All(rows.Skip(1), r =>
+            rows.Skip(2).Select(r => r.Detail));
+        Assert.All(rows.Take(2), r => Assert.Equal("", r.Detail));
+        Assert.All(rows.Skip(2), r =>
         {
-            Assert.Equal("SOJA - KG", r.Group);
-            Assert.Equal("KG", r.UnitOfMeasure);
-            Assert.Equal("", r.Remittance);
-            Assert.Equal("", r.RemittedText);
+            Assert.Equal("", r.Document);
+            Assert.Equal("", r.AccessKey);
+            Assert.Equal("", r.ReturnedText);
             Assert.Equal(0m, r.RemittedQuantity + r.ReturnedQuantity + r.PendingReturnQuantity + r.ShippedWithoutReturnQuantity);
             Assert.Equal(0, r.RemittanceCount);
         });
     }
 
     [Fact]
-    public async Task BuildRows_WithoutDetailedHasOnlyRemittanceRows()
+    public async Task BuildRows_WithoutDetailedHasNoLoadingTransactions()
     {
         var db = TestDb.CreateUnitOfWork();
         var seed = await StorageDepositSeed.CreateAsync(db);
@@ -259,7 +346,7 @@ public class StorageRemittancesByPeriodReportServiceTests
 
         var rows = await Service(db).BuildRowsAsync(Request());
 
-        Assert.Equal(new[] { StorageRemittanceRowKind.Remittance }, rows.Select(r => r.Kind));
+        Assert.Equal(new[] { StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return }, rows.Select(r => r.Kind));
     }
 
     /// <summary>
@@ -304,7 +391,7 @@ public class StorageRemittancesByPeriodReportServiceTests
         foreach (var (release, number) in new[] { (seed.Release, "000000001"), (transfer, "000000002"), (other, "000000003") })
         {
             var expected = await screen.ExecuteAsync(release.Key);
-            var row = rows.Single(r => r.Remittance == number);
+            var row = Remittances(rows).Single(r => r.TaxDocument == number);
             Assert.Equal(expected.RemittedQuantity, row.RemittedQuantity);
             Assert.Equal(expected.ReturnedQuantity, row.ReturnedQuantity);
             Assert.Equal(expected.PendingReturnQuantity, row.PendingReturnQuantity);
@@ -350,6 +437,9 @@ public class StorageRemittancesByPeriodReportServiceTests
 
         Assert.Equal($"Data da remessa: 01/10/2026 a 31/10/2026 | {expected}", recorder.LastParameters!["pFilters"]);
     }
+
+    private static IEnumerable<StorageRemittanceRowDto> Remittances(IEnumerable<StorageRemittanceRowDto> rows) =>
+        rows.Where(r => r.Kind == StorageRemittanceRowKind.Remittance);
 
     private static StorageRemittancesByPeriodReportService Service(IUnitOfWork db) =>
         new(db, new RecordingFastReportService());

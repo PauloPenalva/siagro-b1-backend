@@ -18,6 +18,7 @@ Critério de sucesso: para cada remessa, os quatro números do relatório são i
 | D1 | Uma linha de resumo por remessa; parâmetro **Detalhado** acrescenta retornos e romaneios abaixo dela. |
 | D2 | Filtro **Situação**: Todas (padrão) / Em aberto / Totalmente retornada. |
 | D3 | Período sobre a **data da remessa** (`SalesInvoice.InvoiceDate`). Retornado/A retornar são a posição atual, inclusive retornos lançados depois do período. |
+| D5 | (ajuste do mesmo dia) Documento interno, NF/série e chave da NF-e na remessa e no retorno; retornos **sempre** abaixo da remessa, com colunas próprias e saldo corrente; Detalhado passa a acrescentar só os romaneios. |
 | D4 | Abordagem A: consulta própria no `SiagroB1.Reports` (que não referencia a Application) + teste cruzado contra o `ShipmentReleasesStorageRemittanceSummaryService`. Não mover `StorageDepositRules`. |
 
 ## 3. Regras de dados
@@ -66,21 +67,25 @@ produto, armazém, situação, "Detalhado").
 ### 5.2 Linhas
 
 O serviço entrega linhas achatadas (`StorageRemittanceRowDto`) com `RowKind` = `Remittance` | `Return` |
-`Transaction`. Sem Detalhado, só `Remittance`.
+`Transaction`. Retornos saem sempre; Detalhado acrescenta os `Transaction`.
 
 - **Agrupamento** por produto + UM da remessa com `InvoiceItemGrouping.BuildGroupResolver` sobre a primeira linha da
   remessa em ordem de `ItemCode`, depois `Key` (o item não tem número de linha; remessa nasce com 1 linha; editada
   para várias, as quantidades somam todas).
 - **Ordem**: grupo, data da remessa, número, chave. Dentro da remessa: retornos por data/número, depois romaneios por
   data/código. `SortOrder="None"` nos `GroupHeaderBand` (o serviço já ordena).
-- **Linha de remessa**: Remessa (número), Emissão, Situação (Pendente/Confirmada), NF-e (status), Armazém
+- **Linha de remessa**: Documento (nº interno DS…), NF/Série ("000000038-1"; vazio sem nota), Emissão, Situação (Pendente/Confirmada), NF-e (status), Armazém
   (`ReportText.Partner`), Contrato (código do contrato de compra da liberação), Liberação (data da liberação),
   Remetido, Retornado, A retornar, Expedido sem retorno.
-- **Linha de retorno** (Detalhado): uma célula de texto `Detail` — "Retorno 000000456 de 11/10/2026 - Confirmado -
-  150.000,000 KG".
+  Segunda linha "Chave NF-e: 3526 1012 …" (44 dígitos em grupos de 4), que encolhe quando não há chave. A linha da
+  remessa sai sombreada.
+- **Linha de retorno** (sempre): nas mesmas colunas, documento de entrada (DE…), NF/Série, emissão, situação, status da
+  NF-e e a chave na segunda linha; no lugar de Armazém/Contrato/Liberação, `Note` — "Retorno - romaneios: RM000050
+  (24.500,000 KG)" ou "Retorno - sem romaneio conciliado"; Retornado = quantidade do retorno; A retornar = saldo
+  depois dele (Remetido − retornos até ele, em ordem de emissão).
 - **Linha de romaneio** (Detalhado): `Detail` — "Romaneio RM000048 de 10/10/2026 - placa ABC1D23 - 30.000,000 KG -
-  retorno 000000456" ou "... - sem retorno".
-- As colunas de quantidade são TEXTO formatado no serviço (vazio nas linhas filhas). Os **totais** por produto e
+  retorno DE000026" (nº interno da entrada) ou "... - sem retorno".
+- As colunas de quantidade são TEXTO formatado no serviço (no retorno, só Retornado e A retornar; vazio no romaneio). Os **totais** por produto e
   geral somam campos decimais paralelos que valem 0 nas linhas filhas; a contagem de remessas soma
   `RemittanceCount` (1 na remessa, 0 nas filhas).
 - Sem remessas no filtro → PDF com "Nenhum registro", como os demais.
