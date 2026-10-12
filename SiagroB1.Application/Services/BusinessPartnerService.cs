@@ -189,6 +189,10 @@ public class BusinessPartnerService(
         // BUSINESS_PARTNERS_ADDRESSES tem FK para o parceiro com NoAction: sem remover os endereços
         // antes, o DELETE do parceiro batia na FK (erro 547) e a tela recebia 500.
         db.Context.Addresses.RemoveRange(entity.Addresses);
+        // Signatários não têm FK (em SAPB1 o parceiro vive no SAP), então não bloqueiam o DELETE, mas
+        // ficariam órfãos e reapareceriam se o código fosse recriado. Minutas só os leem no envio.
+        db.Context.BusinessPartnerSignatories.RemoveRange(
+            await db.Context.BusinessPartnerSignatories.Where(s => s.CardCode == code).ToListAsync());
         db.Context.BusinessPartners.Remove(entity);
         await db.SaveChangesAsync();
         return true;
