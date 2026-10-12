@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
@@ -321,5 +322,43 @@ public class LogisticsReportsPdfTests : IDisposable
             .ExecuteAsync(new SalesShipmentsByPeriodRequest { FromDate = Jul01, ToDate = Jul31 });
 
         Keep("SalesShipmentsByPeriod-large", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task StorageRemittancesByPeriod_ProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var oct10 = new DateTime(2026, 10, 10);
+        var open = await seed.AddRemittanceAsync(99_999_999.999m, date: oct10, number: "000000123");
+        var ret = await seed.AddReturnAsync(open, 30_000m, InvoiceStatus.Confirmed, date: oct10);
+        var loaded = await seed.AddShipmentAsync(30_000m, date: oct10, code: "RM000048");
+        await seed.AddShipmentAsync(20_000m, date: oct10, code: "RM000049");
+        db.Context.StorageReturnReconciliations.Add(new StorageReturnReconciliation
+        {
+            PurchaseInvoiceKey = ret.Key, StorageTransactionKey = loaded.Key,
+        });
+        var excess = await seed.AddRemittanceAsync(100m, release: await seed.AddReleaseAsync(), date: oct10, number: "000000124");
+        await seed.AddReturnAsync(excess, 10_000_100m, InvoiceStatus.Confirmed, date: oct10, number: "000000999");
+        await db.SaveChangesAsync();
+
+        var pdf = await new StorageRemittancesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new StorageRemittancesByPeriodRequest
+            {
+                FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31),
+            });
+
+        Keep("StorageRemittancesByPeriod", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task StorageRemittancesByPeriod_EmptyResultStillProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var pdf = await new StorageRemittancesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new StorageRemittancesByPeriodRequest { FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31) });
+
+        Assert.NotEmpty(pdf);
     }
 }

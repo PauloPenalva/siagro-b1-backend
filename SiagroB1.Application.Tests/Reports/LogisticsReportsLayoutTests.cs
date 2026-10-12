@@ -24,11 +24,27 @@ public class LogisticsReportsLayoutTests
         "SalesShipmentReleasesByPeriod",
         "ShipmentReleasesByPeriod",
         "SalesShipmentsByPeriod",
+        "StorageRemittancesByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
     private static readonly Dictionary<string, Dictionary<string, int>> LongestText = new()
     {
+        ["StorageRemittancesByPeriod"] = new()
+        {
+            ["txtDocument"] = 9,              // DS000176 / DE000026 (VARCHAR(9))
+            ["txtTaxDocument"] = 13,          // 000000038-001 (número VARCHAR(9) + série VARCHAR(3))
+            ["txtCfop"] = 9,                  // 5905/6905 (linhas com CFOPs diferentes)
+            ["txtInvoiceDate"] = 10,          // 31/12/2026
+            ["txtStatus"] = 10,               // Confirmado
+            ["txtNfeStatus"] = 16,            // Em processamento
+            ["txtContract"] = 12,             // PC2026000123
+            ["txtReleaseDate"] = 10,          // 31/12/2026
+            ["txtRemitted"] = 14,             // 99.999.999,999 (texto formatado no serviço)
+            ["txtReturned"] = 14,
+            ["txtPendingReturn"] = 15,        // -10.000.000,000 (retorno a maior)
+            ["txtShippedWithoutReturn"] = 14,
+        },
         ["ShipmentLoadsByPeriod"] = new()
         {
             ["txtCode"] = 8,      // CG000051
@@ -216,7 +232,10 @@ public class LogisticsReportsLayoutTests
     public void DataCells_DoNotOverlap(string template)
     {
         using var report = Load(template);
-        var cells = TextObjects(report).Where(o => o.Parent is DataBand).OrderBy(o => o.Left).ToList();
+        // Remessas para Depósito: txtAccessKey fica na segunda linha e txtSeparator é o fio acima da remessa, que
+        // cruza a página. Conferidos à parte em AccessKeyLine_EndsWhereTheQuantitiesStart.
+        string[] spanning = ["txtAccessKey", "txtSeparator"];
+        var cells = TextObjects(report).Where(o => o.Parent is DataBand && !spanning.Contains(o.Name)).OrderBy(o => o.Left).ToList();
         var problems = new List<string>();
 
         for (var i = 0; i + 1 < cells.Count; i++)
@@ -255,5 +274,28 @@ public class LogisticsReportsLayoutTests
 
         Assert.NotEmpty(groups);
         Assert.All(groups, g => Assert.Equal(SortOrder.None, g.SortOrder));
+    }
+
+    [Fact]
+    public void AccessKeyLine_EndsWhereTheQuantitiesStart()
+    {
+        const string name = "txtAccessKey";
+        using var report = Load("StorageRemittancesByPeriod");
+        var objects = TextObjects(report);
+        var cell = objects.Single(o => o.Name == name);
+        var firstQuantity = objects.Single(o => o.Name == "txtRemitted");
+
+        Assert.True(cell.Left + cell.Width <= firstQuantity.Left + 0.01f,
+            $"{name} termina em {cell.Left + cell.Width}px; Remetido começa em {firstQuantity.Left}px");
+    }
+
+    [Fact]
+    public void AccessKeyLine_FitsTheLabelAndTheGroupedKey()
+    {
+        using var report = Load("StorageRemittancesByPeriod");
+        var key = TextObjects(report).Single(o => o.Name == "txtAccessKey");
+        const int chars = 12 + 54; // "Chave NF-e: " + 44 dígitos em 11 grupos de 4
+
+        Assert.True(Required(chars, key.Font.Size) <= key.Width, $"txtAccessKey precisa {Required(chars, key.Font.Size):0.#}px");
     }
 }
