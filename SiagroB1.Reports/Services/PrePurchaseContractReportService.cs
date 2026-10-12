@@ -69,7 +69,7 @@ public class PrePurchaseContractReportService(
         return stream.ToArray();
     }
 
-    private async Task<PrePurchaseContractPrintDto> GetAsync(Guid key)
+    public async Task<PrePurchaseContractPrintDto> GetAsync(Guid key)
     {
         var contract = await db.Context.PurchaseContracts
             .AsNoTracking()
@@ -90,9 +90,10 @@ public class PrePurchaseContractReportService(
         // vendedor saem em branco, para o jurídico preencher.
         var partner = await partnerSource.GetByCardCodeAsync(contract.CardCode);
 
-        var warehouse = await db.Context.Warehouses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.Code == contract.DeliveryLocationCode);
+        // O armazém é parceiro de negócio nos dois modos (QryGroup23 = 'Y'); WAREHOUSES é obsoleta.
+        var warehouse = string.IsNullOrWhiteSpace(contract.DeliveryLocationCode)
+            ? null
+            : await partnerSource.GetByCardCodeAsync(contract.DeliveryLocationCode);
 
         var totalPrice = contract.TotalPrice;
 
@@ -125,7 +126,8 @@ public class PrePurchaseContractReportService(
             DeliveryStartDate = contract.DeliveryStartDate,
             DeliveryEndDate = contract.DeliveryEndDate,
             DeliveryLocationName = contract.DeliveryLocationName ?? contract.DeliveryLocationCode,
-            WarehouseTaxId = warehouse?.TaxId,
+            // Na origem SAP o CNPJ detalhado vem do CRD7 (Cnpj); na standalone só o TaxId.
+            WarehouseTaxId = warehouse?.Cnpj ?? warehouse?.TaxId,
 
             FreightTermsText = contract.FreightTerms switch
             {
