@@ -324,10 +324,8 @@ public class LogisticsReportsPdfTests : IDisposable
         Keep("SalesShipmentsByPeriod-large", "STANDALONE", pdf);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task StorageRemittancesByPeriod_ProducesAPdf(bool detailed)
+    [Fact]
+    public async Task StorageRemittancesByPeriod_ProducesAPdf()
     {
         var db = TestDb.CreateUnitOfWork();
         var seed = await StorageDepositSeed.CreateAsync(db);
@@ -347,10 +345,10 @@ public class LogisticsReportsPdfTests : IDisposable
         var pdf = await new StorageRemittancesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
             .ExecuteAsync(new StorageRemittancesByPeriodRequest
             {
-                FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31), Detailed = detailed,
+                FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31),
             });
 
-        Keep(detailed ? "StorageRemittancesByPeriod-detailed" : "StorageRemittancesByPeriod", "STANDALONE", pdf);
+        Keep("StorageRemittancesByPeriod", "STANDALONE", pdf);
     }
 
     [Fact]

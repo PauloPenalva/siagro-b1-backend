@@ -34,6 +34,7 @@ public class LogisticsReportsLayoutTests
         {
             ["txtDocument"] = 9,              // DS000176 / DE000026 (VARCHAR(9))
             ["txtTaxDocument"] = 13,          // 000000038-001 (número VARCHAR(9) + série VARCHAR(3))
+            ["txtCfop"] = 9,                  // 5905/6905 (linhas com CFOPs diferentes)
             ["txtInvoiceDate"] = 10,          // 31/12/2026
             ["txtStatus"] = 10,               // Confirmado
             ["txtNfeStatus"] = 16,            // Em processamento
@@ -231,10 +232,9 @@ public class LogisticsReportsLayoutTests
     public void DataCells_DoNotOverlap(string template)
     {
         using var report = Load(template);
-        // Remessas para Depósito: txtDetail (romaneio) e txtNote (retorno) cobrem de propósito colunas de texto que
-        // vêm vazias nessas linhas; txtAccessKey fica na segunda linha e txtShade é o fundo. Conferidos à parte em
-        // SpanningCells_EndWhereTheQuantitiesStart.
-        string[] spanning = ["txtDetail", "txtNote", "txtAccessKey", "txtShade"];
+        // Remessas para Depósito: txtAccessKey fica na segunda linha e txtSeparator é o fio acima da remessa, que
+        // cruza a página. Conferidos à parte em AccessKeyLine_EndsWhereTheQuantitiesStart.
+        string[] spanning = ["txtAccessKey", "txtSeparator"];
         var cells = TextObjects(report).Where(o => o.Parent is DataBand && !spanning.Contains(o.Name)).OrderBy(o => o.Left).ToList();
         var problems = new List<string>();
 
@@ -276,12 +276,10 @@ public class LogisticsReportsLayoutTests
         Assert.All(groups, g => Assert.Equal(SortOrder.None, g.SortOrder));
     }
 
-    [Theory]
-    [InlineData("txtDetail")]
-    [InlineData("txtNote")]
-    [InlineData("txtAccessKey")]
-    public void SpanningCells_EndWhereTheQuantitiesStart(string name)
+    [Fact]
+    public void AccessKeyLine_EndsWhereTheQuantitiesStart()
     {
+        const string name = "txtAccessKey";
         using var report = Load("StorageRemittancesByPeriod");
         var objects = TextObjects(report);
         var cell = objects.Single(o => o.Name == name);

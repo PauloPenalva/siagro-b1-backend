@@ -15,15 +15,12 @@ public static class StorageRemittanceData
 {
     public sealed record ReturnLine(
         Guid RemittanceItemKey, Guid PurchaseInvoiceKey, string? InvoiceNumber, string? TaxDocumentNumber,
-        string? TaxDocumentSeries, string? AccessKey, DateTime? IssueDate, InvoiceStatus Status, NfeStatus NfeStatus,
+        string? TaxDocumentSeries, string? AccessKey, string? Cfop, DateTime? IssueDate, InvoiceStatus Status, NfeStatus NfeStatus,
         decimal Quantity);
 
     public sealed record TransactionLine(
         Guid Key, Guid ReleaseKey, StorageTransactionType Type, TransactionCode? Origin, string? Code,
-        DateTime? TransactionDate, string? TruckCode, decimal NetWeight, Guid? ReturnKey, string? ReturnNumber)
-    {
-        public bool HasReturn => ReturnKey != null;
-    }
+        DateTime? TransactionDate, decimal NetWeight, bool HasReturn);
 
     /// <summary>Remessas não canceladas (Pendente e Confirmada) emitidas no período, com os filtros opcionais.</summary>
     public static IQueryable<SalesInvoice> RemittancesQuery(AppDbContext context, StorageRemittancesByPeriodRequest request)
@@ -66,13 +63,14 @@ public static class StorageRemittanceData
                 l.PurchaseInvoice.TaxDocumentNumber,
                 l.PurchaseInvoice.TaxDocumentSeries,
                 l.PurchaseInvoice.ChaveNFe,
+                l.Cfop,
                 l.PurchaseInvoice.IssueDate,
                 l.PurchaseInvoice.InvoiceStatus,
                 l.PurchaseInvoice.NfeStatus,
                 l.Quantity));
 
     /// <summary>
-    /// Romaneios não cancelados de Compra(8) e Saída(7) das liberações, com o retorno reconciliado. A escolha
+    /// Romaneios não cancelados de Compra(8) e Saída(7) das liberações, marcando os já reconciliados. A escolha
     /// entre os dois tipos depende da origem da liberação e é feita em memória por <see cref="IsShipped"/>.
     /// </summary>
     public static IQueryable<TransactionLine> TransactionsQuery(AppDbContext context, IQueryable<Guid> releaseKeys) =>
@@ -89,16 +87,8 @@ public static class StorageRemittanceData
                 t.TransactionOrigin,
                 t.Code,
                 t.TransactionDate,
-                t.TruckCode,
                 t.NetWeight,
-                context.StorageReturnReconciliations
-                    .Where(r => r.StorageTransactionKey == t.Key)
-                    .Select(r => (Guid?)r.PurchaseInvoiceKey)
-                    .FirstOrDefault(),
-                context.StorageReturnReconciliations
-                    .Where(r => r.StorageTransactionKey == t.Key)
-                    .Select(r => r.PurchaseInvoice!.InvoiceNumber)
-                    .FirstOrDefault()));
+                context.StorageReturnReconciliations.Any(r => r.StorageTransactionKey == t.Key)));
 
     /// <summary>
     /// Mesmo eixo de <c>StorageDepositRules.ShippedTransactions</c>: Saída(7) na liberação sem perna de compra;

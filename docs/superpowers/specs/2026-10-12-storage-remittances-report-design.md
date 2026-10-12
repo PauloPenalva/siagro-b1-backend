@@ -6,8 +6,8 @@ Data: 2026-10-12 · Modo: só STANDALONE · Depende de: `2026-10-10-storage-depo
 
 Hoje a conferência de remessa para depósito em armazém de terceiro só existe na seção "Remessa para depósito" do
 detalhe da liberação, uma liberação por vez. O relatório consolida todas as remessas de um período — abertas **e já
-totalmente retornadas** — com Remetido, Retornado, A retornar e Expedido sem retorno, e opcionalmente o detalhe de
-retornos e romaneios (conciliação retorno ↔ romaneio).
+totalmente retornadas** — com Remetido, Retornado, A retornar e Expedido sem retorno, e os retornos de cada remessa
+logo abaixo dela.
 
 Critério de sucesso: para cada remessa, os quatro números do relatório são idênticos aos da seção da liberação.
 
@@ -15,10 +15,11 @@ Critério de sucesso: para cada remessa, os quatro números do relatório são i
 
 | # | Decisão |
 |---|---|
-| D1 | Uma linha de resumo por remessa; parâmetro **Detalhado** acrescenta retornos e romaneios abaixo dela. |
+| D1 | Uma linha de resumo por remessa. (Originalmente com parâmetro **Detalhado** — substituído por D5/D6.) |
 | D2 | Filtro **Situação**: Todas (padrão) / Em aberto / Totalmente retornada. |
 | D3 | Período sobre a **data da remessa** (`SalesInvoice.InvoiceDate`). Retornado/A retornar são a posição atual, inclusive retornos lançados depois do período. |
 | D5 | (ajuste do mesmo dia) Documento interno, NF/série e chave da NF-e na remessa e no retorno; retornos **sempre** abaixo da remessa, com colunas próprias e saldo corrente; Detalhado passa a acrescentar só os romaneios. |
+| D6 | (segundo ajuste do mesmo dia) Coluna **CFOP** na remessa e no retorno; romaneios **não aparecem** no relatório (o parâmetro Detalhado sai; o romaneio só entra no Expedido sem retorno); sem zebrado nem sombreamento — a remessa sai em negrito com um fio acima, o retorno em itálico logo abaixo. |
 | D4 | Abordagem A: consulta própria no `SiagroB1.Reports` (que não referencia a Application) + teste cruzado contra o `ShipmentReleasesStorageRemittanceSummaryService`. Não mover `StorageDepositRules`. |
 
 ## 3. Regras de dados
@@ -51,10 +52,9 @@ Request `StorageRemittancesByPeriodRequest : LogisticsReportRequest`:
 | `ItemCode` | produto de alguma linha da remessa. |
 | `CardCode` | armazém = PN da remessa (`SalesInvoice.CardCode`). |
 | `ReturnSituation` | enum novo no Reports: `All` (padrão) / `Open` / `Returned`. |
-| `Detailed` | bool, padrão `false`. |
 
 O cabeçalho do PDF (`pFilters`) descreve os filtros como os demais relatórios de logística ("Data da remessa", filial,
-produto, armazém, situação, "Detalhado").
+produto, armazém, situação).
 
 ## 5. Saída
 
@@ -66,26 +66,22 @@ produto, armazém, situação, "Detalhado").
 
 ### 5.2 Linhas
 
-O serviço entrega linhas achatadas (`StorageRemittanceRowDto`) com `RowKind` = `Remittance` | `Return` |
-`Transaction`. Retornos saem sempre; Detalhado acrescenta os `Transaction`.
+O serviço entrega linhas achatadas (`StorageRemittanceRowDto`) com `RowKind` = `Remittance` | `Return`. Romaneios não
+viram linha.
 
 - **Agrupamento** por produto + UM da remessa com `InvoiceItemGrouping.BuildGroupResolver` sobre a primeira linha da
   remessa em ordem de `ItemCode`, depois `Key` (o item não tem número de linha; remessa nasce com 1 linha; editada
   para várias, as quantidades somam todas).
-- **Ordem**: grupo, data da remessa, número, chave. Dentro da remessa: retornos por data/número, depois romaneios por
-  data/código. `SortOrder="None"` nos `GroupHeaderBand` (o serviço já ordena).
-- **Linha de remessa**: Documento (nº interno DS…), NF/Série ("000000038-1"; vazio sem nota), Emissão, Situação (Pendente/Confirmada), NF-e (status), Armazém
+- **Ordem**: grupo, data da remessa, número, chave. Dentro da remessa: retornos por data/número. `SortOrder="None"` nos `GroupHeaderBand` (o serviço já ordena).
+- **Linha de remessa** (negrito, fio acima): Documento (nº interno DS…), NF/Série ("000000038-1"; vazio sem nota),
+  CFOP (distintos das linhas, "5905/6905"), Emissão, Situação (Pendente/Confirmada), NF-e (status), Armazém
   (`ReportText.Partner`), Contrato (código do contrato de compra da liberação), Liberação (data da liberação),
   Remetido, Retornado, A retornar, Expedido sem retorno.
-  Segunda linha "Chave NF-e: 3526 1012 …" (44 dígitos em grupos de 4), que encolhe quando não há chave. A linha da
-  remessa sai sombreada.
-- **Linha de retorno** (sempre): nas mesmas colunas, documento de entrada (DE…), NF/Série, emissão, situação, status da
-  NF-e e a chave na segunda linha; no lugar de Armazém/Contrato/Liberação, `Note` — "Retorno - romaneios: RM000050
-  (24.500,000 KG)" ou "Retorno - sem romaneio conciliado"; Retornado = quantidade do retorno; A retornar = saldo
-  depois dele (Remetido − retornos até ele, em ordem de emissão).
-- **Linha de romaneio** (Detalhado): `Detail` — "Romaneio RM000048 de 10/10/2026 - placa ABC1D23 - 30.000,000 KG -
-  retorno DE000026" (nº interno da entrada) ou "... - sem retorno".
-- As colunas de quantidade são TEXTO formatado no serviço (no retorno, só Retornado e A retornar; vazio no romaneio). Os **totais** por produto e
+  Segunda linha "Chave NF-e: 3526 1012 …" (44 dígitos em grupos de 4), que encolhe quando não há chave.
+- **Linha de retorno** (itálico, logo abaixo da remessa): nas mesmas colunas, documento de entrada (DE…), NF/Série, CFOP,
+  emissão, situação, status da NF-e e a chave na segunda linha; "Retorno" na coluna Armazém; Retornado = quantidade do
+  retorno; A retornar = saldo depois dele (Remetido − retornos até ele, em ordem de emissão).
+- As colunas de quantidade são TEXTO formatado no serviço (no retorno, só Retornado e A retornar). Os **totais** por produto e
   geral somam campos decimais paralelos que valem 0 nas linhas filhas; a contagem de remessas soma
   `RemittanceCount` (1 na remessa, 0 nas filhas).
 - Sem remessas no filtro → PDF com "Nenhum registro", como os demais.
@@ -93,9 +89,9 @@ O serviço entrega linhas achatadas (`StorageRemittanceRowDto`) com `RowKind` = 
 ### 5.3 Template
 
 `StorageRemittancesByPeriod.frx`, paisagem, uma `DataBand` + `GroupHeaderBand` por produto, mesmo cabeçalho/rodapé dos
-relatórios de logística. Linhas de detalhe impressas na mesma banda: a célula `txtDetail` (recuada, até o início das
-quantidades) só tem texto nas linhas filhas, e as demais células só têm texto na linha de remessa — sem visibilidade
-condicional.
+relatórios de logística. Remessa e retorno usam as mesmas células; `Highlight` por `Kind` deixa o retorno em itálico e
+esconde o fio (`txtSeparator`, borda superior) fora da remessa. A chave (`txtAccessKey`, `CanShrink`) fica na
+segunda linha da banda.
 Larguras pela regra do pacote 1: `(chars×5,2+4)×tam/7+4` px, Consolas 7pt, totais 6pt; `SingleUomParameter` como
 nos demais.
 
@@ -105,8 +101,7 @@ nos demais.
   para Depósito", `ParentKey = reports`, próximo `Order` livre, `StandaloneOnly = true`; `ROLE_MENUS` ADMIN.
 - Rota `storageRemittancesReport` no `manifest.json` (o nome é a chave do menu).
 - Tela `view/reports/storageRemittances`, no padrão de `view/reports/shipmentReleases`: Período (sem padrão, como as demais telas de relatório),
-  Filial, Produto, Armazém (value help de PN marcado como armazém), Situação (Select, padrão Todas), Detalhado
-  (CheckBox); botão gera o PDF pelo mesmo helper dos outros relatórios.
+  Filial, Produto, Armazém (value help de PN marcado como armazém), Situação (Select, padrão Todas); botão gera o PDF pelo mesmo helper dos outros relatórios.
 
 ## 7. Testes
 
@@ -114,11 +109,11 @@ nos demais.
   `ContractPositionDataTests`).
 - **Serviço** (InMemory, padrão de `ShipmentReleasesByPeriodReportServiceTests`): remessa cancelada fora; retorno
   cancelado não conta; Compra de conferência fora; origem sem perna de compra usa Saída(7); filtros de período,
-  filial, produto, armazém; Situação Open/Returned/All, incluindo remessa totalmente retornada e excesso; Detalhado
-  gera as linhas filhas na ordem; totais por grupo.
+  filial, produto, armazém; Situação Open/Returned/All, incluindo remessa totalmente retornada e excesso; retornos
+  abaixo da remessa com saldo corrente, CFOP e chave; romaneios nunca viram linha; totais por grupo.
 - **Cruzado**: para cada remessa de um cenário com várias liberações, os quatro números batem com
   `ShipmentReleasesStorageRemittanceSummaryService`.
-- **Layout/PDF**: larguras medidas (como `LogisticsReportsLayoutTests`) e geração do PDF com e sem Detalhado.
+- **Layout/PDF**: larguras medidas (como `LogisticsReportsLayoutTests`) e geração do PDF.
 - **Controller**: 400 fora de STANDALONE e com período inválido.
 - **Verificação pela tela** na CEAGUI dev: remessas DS000175/DS000176, retorno DE000026, romaneios RM000048–051;
   conferir os números contra a seção da liberação.

@@ -17,7 +17,4 @@ public class StorageRemittancesByPeriodRequest : LogisticsReportRequest
     public string? CardCode { get; set; }
 
     public StorageRemittanceSituation ReturnSituation { get; set; } = StorageRemittanceSituation.All;
-
-    /// <summary>Acrescenta, abaixo de cada remessa, os retornos e os romaneios de carregamento.</summary>
-    public bool Detailed { get; set; }
 }

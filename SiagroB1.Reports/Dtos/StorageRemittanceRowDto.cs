@@ -5,15 +5,13 @@ public static class StorageRemittanceRowKind
 {
     public const string Remittance = "Remessa";
     public const string Return = "Retorno";
-    public const string Transaction = "Romaneio";
 }
 
 /// <summary>
-/// Linha de "Remessas para Depósito", achatada. Remessa: todas as colunas. Retorno (sempre, logo abaixo da remessa):
-/// documento de entrada, NF, emissão, situação, NF-e, chave, <see cref="Note"/> com os romaneios conciliados, a
-/// quantidade em Retornado e o saldo depois dele em A retornar. Romaneio (só com Detalhado): só <see cref="Detail"/>.
-/// As quantidades decimais valem 0 fora da remessa — são elas que os totais do template somam; os textos são o que a
-/// célula imprime.
+/// Linha de "Remessas para Depósito", achatada. Remessa: todas as colunas. Retorno (logo abaixo da remessa): documento
+/// de entrada, NF, CFOP, emissão, situação, NF-e, chave, "Retorno" na coluna Armazém, a quantidade em Retornado e o
+/// saldo depois dele em A retornar. As quantidades decimais valem 0 no retorno — são elas que os totais do template
+/// somam; os textos são o que a célula imprime. Romaneios não aparecem (só entram no Exp. s/ retorno da remessa).
 /// </summary>
 public class StorageRemittanceRowDto
 {
@@ -23,6 +21,8 @@ public class StorageRemittanceRowDto
     public string Document { get; set; } = "";
     /// <summary>Número da nota fiscal com a série ("000000038-1"); vazio sem nota.</summary>
     public string TaxDocument { get; set; } = "";
+    /// <summary>CFOPs distintos das linhas, separados por "/".</summary>
+    public string Cfop { get; set; } = "";
     /// <summary>Chave da NF-e em grupos de 4; vazia sem chave (a linha da chave some no PDF).</summary>
     public string AccessKey { get; set; } = "";
     public string InvoiceDate { get; set; } = "";
@@ -31,9 +31,6 @@ public class StorageRemittanceRowDto
     public string Warehouse { get; set; } = "";
     public string Contract { get; set; } = "";
     public string ReleaseDate { get; set; } = "";
-    /// <summary>Só no retorno: romaneios conciliados com ele.</summary>
-    public string Note { get; set; } = "";
-    public string Detail { get; set; } = "";
     public string UnitOfMeasure { get; set; } = "";
     public string RemittedText { get; set; } = "";
     public string ReturnedText { get; set; } = "";

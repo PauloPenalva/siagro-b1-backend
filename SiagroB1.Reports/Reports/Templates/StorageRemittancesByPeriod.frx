@@ -6,6 +6,7 @@
       <Column Name="Kind" DataType="System.String"/>
       <Column Name="Document" DataType="System.String"/>
       <Column Name="TaxDocument" DataType="System.String"/>
+      <Column Name="Cfop" DataType="System.String"/>
       <Column Name="AccessKey" DataType="System.String"/>
       <Column Name="InvoiceDate" DataType="System.String"/>
       <Column Name="Status" DataType="System.String"/>
@@ -13,8 +14,6 @@
       <Column Name="Warehouse" DataType="System.String"/>
       <Column Name="Contract" DataType="System.String"/>
       <Column Name="ReleaseDate" DataType="System.String"/>
-      <Column Name="Note" DataType="System.String"/>
-      <Column Name="Detail" DataType="System.String"/>
       <Column Name="UnitOfMeasure" DataType="System.String"/>
       <Column Name="RemittedText" DataType="System.String"/>
       <Column Name="ReturnedText" DataType="System.String"/>
@@ -51,10 +50,11 @@
     <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
       <TextObject Name="hdrDocument" Left="0" Width="62" Height="17" Text="Documento" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrTaxDocument" Left="62" Width="78" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrInvoiceDate" Left="140" Width="62" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrStatus" Left="202" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrNfeStatus" Left="264" Width="92" Height="17" Text="NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrWarehouse" Left="356" Width="242" Height="17" Text="Armazém" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCfop" Left="140" Width="56" Height="17" Text="CFOP" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInvoiceDate" Left="196" Width="62" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="258" Width="62" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeStatus" Left="320" Width="92" Height="17" Text="NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrWarehouse" Left="412" Width="186" Height="17" Text="Armazém" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrContract" Left="598" Width="72" Height="17" Text="Contrato" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrReleaseDate" Left="670" Width="62" Height="17" Text="Liberação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrRemitted" Left="732" Width="88" Height="17" Text="Remetido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -65,24 +65,51 @@
     <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[StorageRemittances.Group]">
       <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[StorageRemittances.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
       <DataBand Name="Data1" Top="159.75" Width="1084" Height="31" CanGrow="true" CanShrink="true" DataSource="StorageRemittances">
-        <TextObject Name="txtShade" Left="0" Width="1084" Height="17" Text="" WordWrap="false" Font="Consolas, 7pt">
-          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Remessa&quot;" Fill.Color="Gainsboro" ApplyFill="true" ApplyTextFill="false"/></Highlight>
+        <TextObject Name="txtSeparator" Left="0" Width="1084" Height="17" Border.Lines="Top" Border.Color="DimGray" Text="" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] != &quot;Remessa&quot;" Visible="false" ApplyTextFill="false"/></Highlight>
         </TextObject>
-        <TextObject Name="txtDocument" Left="0" Width="62" Height="17" Text="[StorageRemittances.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtTaxDocument" Left="62" Width="78" Height="17" Text="[StorageRemittances.TaxDocument]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtInvoiceDate" Left="140" Width="62" Height="17" Text="[StorageRemittances.InvoiceDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtStatus" Left="202" Width="62" Height="17" Text="[StorageRemittances.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtNfeStatus" Left="264" Width="92" Height="17" Text="[StorageRemittances.NfeStatus]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtWarehouse" Left="356" Width="242" Height="17" Text="[StorageRemittances.Warehouse]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtContract" Left="598" Width="72" Height="17" Text="[StorageRemittances.Contract]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtReleaseDate" Left="670" Width="62" Height="17" Text="[StorageRemittances.ReleaseDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtNote" Left="356" Width="376" Height="17" CanGrow="true" Text="[StorageRemittances.Note]" VertAlign="Center" WordWrap="true" Font="Consolas, 7pt, style=Italic"/>
-        <TextObject Name="txtDetail" Left="20" Width="712" Height="17" Text="[StorageRemittances.Detail]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
-        <TextObject Name="txtAccessKey" Left="62" Top="17" Width="670" Height="14" CanShrink="true" Text="[IIf([StorageRemittances.AccessKey] == &quot;&quot;, &quot;&quot;, &quot;Chave NF-e: &quot; + [StorageRemittances.AccessKey])]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRemitted" Left="732" Width="88" Height="17" Text="[StorageRemittances.RemittedText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtReturned" Left="820" Width="88" Height="17" Text="[StorageRemittances.ReturnedText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtPendingReturn" Left="908" Width="88" Height="17" Text="[StorageRemittances.PendingReturnText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtShippedWithoutReturn" Left="996" Width="88" Height="17" Text="[StorageRemittances.ShippedWithoutReturnText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtDocument" Left="0" Width="62" Height="17" Text="[StorageRemittances.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtTaxDocument" Left="62" Width="78" Height="17" Text="[StorageRemittances.TaxDocument]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtCfop" Left="140" Width="56" Height="17" Text="[StorageRemittances.Cfop]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtInvoiceDate" Left="196" Width="62" Height="17" Text="[StorageRemittances.InvoiceDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtStatus" Left="258" Width="62" Height="17" Text="[StorageRemittances.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtNfeStatus" Left="320" Width="92" Height="17" Text="[StorageRemittances.NfeStatus]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtWarehouse" Left="412" Width="186" Height="17" Text="[StorageRemittances.Warehouse]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtContract" Left="598" Width="72" Height="17" Text="[StorageRemittances.Contract]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtReleaseDate" Left="670" Width="62" Height="17" Text="[StorageRemittances.ReleaseDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRemitted" Left="732" Width="88" Height="17" Text="[StorageRemittances.RemittedText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtReturned" Left="820" Width="88" Height="17" Text="[StorageRemittances.ReturnedText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtPendingReturn" Left="908" Width="88" Height="17" Text="[StorageRemittances.PendingReturnText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtShippedWithoutReturn" Left="996" Width="88" Height="17" Text="[StorageRemittances.ShippedWithoutReturnText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtAccessKey" Left="62" Top="17" Width="670" Height="14" CanShrink="true" Text="[IIf([StorageRemittances.AccessKey] == &quot;&quot;, &quot;&quot;, &quot;Chave NF-e: &quot; + [StorageRemittances.AccessKey])]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[StorageRemittances.Kind] == &quot;Retorno&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
       </DataBand>
       <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
         <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="732" Height="17" Text="Subtotal do produto/UM:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>

@@ -51,7 +51,6 @@ public class StorageRemittancesByPeriodReportServiceTests
         Assert.Equal("70.500,000", row.PendingReturnText);
         Assert.Equal("20.000,000", row.ShippedWithoutReturnText);
         Assert.Equal(1, row.RemittanceCount);
-        Assert.Equal("", row.Detail);
     }
 
     [Fact]
@@ -253,17 +252,16 @@ public class StorageRemittancesByPeriodReportServiceTests
         first.TaxDocumentSeries = "1";
         first.ChaveNFe = ReturnKey;
         first.NfeStatus = NfeStatus.Authorized;
+        first.Items.Single().Cfop = "1906";
+        remittance.Items.Single().Cfop = "5905";
         await db.SaveChangesAsync();
-        var a = await seed.AddShipmentAsync(4_000m, date: Oct11, code: "RM000001");
-        var b = await seed.AddShipmentAsync(6_000m, date: Oct11, code: "RM000002");
-        await Reconcile(db, first, a);
-        await Reconcile(db, first, b);
 
         var rows = await Service(db).BuildRowsAsync(Request());
 
         Assert.Equal(
             new[] { StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return, StorageRemittanceRowKind.Return },
             rows.Select(r => r.Kind));
+        Assert.Equal("5905", rows[0].Cfop);
         var r1 = rows[1];
         Assert.Equal("DE000026", r1.Document);
         Assert.Equal("000000501-1", r1.TaxDocument);
@@ -271,20 +269,20 @@ public class StorageRemittancesByPeriodReportServiceTests
         Assert.Equal("Pendente", r1.Status);
         Assert.Equal("Autorizada", r1.NfeStatus);
         Assert.Equal("3526 1098 7654 3200 0110 5500 1000 0007 9010 0000 7901", r1.AccessKey);
-        Assert.Equal("Retorno - romaneios: RM000001 (4.000,000 KG), RM000002 (6.000,000 KG)", r1.Note);
+        Assert.Equal("1906", r1.Cfop);
         Assert.Equal("10.000,000", r1.ReturnedText);
         Assert.Equal("90.000,000", r1.PendingReturnText);
         var r2 = rows[2];
         Assert.Equal(second.InvoiceNumber, r2.Document);
         Assert.Equal("000000502", r2.TaxDocument);
         Assert.Equal("Confirmado", r2.Status);
-        Assert.Equal("Retorno - sem romaneio conciliado", r2.Note);
+        Assert.Equal("", r2.Cfop);
         Assert.Equal("20.000,000", r2.ReturnedText);
         Assert.Equal("70.000,000", r2.PendingReturnText);
         Assert.All(rows.Skip(1), r =>
         {
             Assert.Equal("SOJA - KG", r.Group);
-            Assert.Equal("", r.Warehouse);
+            Assert.Equal("Retorno", r.Warehouse);
             Assert.Equal("", r.Contract);
             Assert.Equal("", r.RemittedText);
             Assert.Equal("", r.ShippedWithoutReturnText);
@@ -294,59 +292,37 @@ public class StorageRemittancesByPeriodReportServiceTests
     }
 
     [Fact]
-    public async Task BuildRows_DetailedAddsTheLoadingTransactionsAfterTheReturns()
-    {
-        var db = TestDb.CreateUnitOfWork();
-        var seed = await StorageDepositSeed.CreateAsync(db);
-        var remittance = await seed.AddRemittanceAsync(100_000m, date: Oct10, number: "000000123");
-        var ret = await seed.AddReturnAsync(remittance, 10_000m, InvoiceStatus.Pending, date: Oct11, number: "000000501");
-        ret.InvoiceNumber = "DE000026";
-        await db.SaveChangesAsync();
-        await seed.AddShipmentAsync(20_000m, date: Oct12, code: "RM000002");
-        var loaded = await seed.AddShipmentAsync(10_000m, date: Oct11, code: "RM000001");
-        await Reconcile(db, ret, loaded);
-
-        var request = Request();
-        request.Detailed = true;
-        var rows = await Service(db).BuildRowsAsync(request);
-
-        Assert.Equal(
-            new[]
-            {
-                StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return,
-                StorageRemittanceRowKind.Transaction, StorageRemittanceRowKind.Transaction,
-            },
-            rows.Select(r => r.Kind));
-        Assert.Equal(
-            new[]
-            {
-                "Romaneio RM000001 de 11/10/2026 - placa ABC1D23 - 10.000,000 KG - retorno DE000026",
-                "Romaneio RM000002 de 12/10/2026 - placa ABC1D23 - 20.000,000 KG - sem retorno",
-            },
-            rows.Skip(2).Select(r => r.Detail));
-        Assert.All(rows.Take(2), r => Assert.Equal("", r.Detail));
-        Assert.All(rows.Skip(2), r =>
-        {
-            Assert.Equal("", r.Document);
-            Assert.Equal("", r.AccessKey);
-            Assert.Equal("", r.ReturnedText);
-            Assert.Equal(0m, r.RemittedQuantity + r.ReturnedQuantity + r.PendingReturnQuantity + r.ShippedWithoutReturnQuantity);
-            Assert.Equal(0, r.RemittanceCount);
-        });
-    }
-
-    [Fact]
-    public async Task BuildRows_WithoutDetailedHasNoLoadingTransactions()
+    public async Task BuildRows_CfopListsTheDistinctCodesOfTheLines()
     {
         var db = TestDb.CreateUnitOfWork();
         var seed = await StorageDepositSeed.CreateAsync(db);
         var remittance = await seed.AddRemittanceAsync(100m, date: Oct10);
-        await seed.AddReturnAsync(remittance, 10m, InvoiceStatus.Confirmed);
-        await seed.AddShipmentAsync(10m);
+        remittance.Items.Single().Cfop = "6905";
+        db.Context.SalesInvoicesItems.AddRange(
+            new SalesInvoiceItem { Key = Guid.NewGuid(), SalesInvoiceKey = remittance.Key, ItemCode = StorageDepositSeed.Item, UnitOfMeasureCode = "KG", Quantity = 1m, Cfop = "5905" },
+            new SalesInvoiceItem { Key = Guid.NewGuid(), SalesInvoiceKey = remittance.Key, ItemCode = StorageDepositSeed.Item, UnitOfMeasureCode = "KG", Quantity = 1m, Cfop = "6905" });
+        await db.SaveChangesAsync();
+
+        var row = (await Service(db).BuildRowsAsync(Request())).Single();
+
+        Assert.Equal("5905/6905", row.Cfop);
+    }
+
+    [Fact]
+    public async Task BuildRows_NeverListsTheLoadingTransactions()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageDepositSeed.CreateAsync(db);
+        var remittance = await seed.AddRemittanceAsync(100m, date: Oct10);
+        var ret = await seed.AddReturnAsync(remittance, 10m, InvoiceStatus.Confirmed);
+        var loaded = await seed.AddShipmentAsync(10m);
+        await seed.AddShipmentAsync(30m);
+        await Reconcile(db, ret, loaded);
 
         var rows = await Service(db).BuildRowsAsync(Request());
 
         Assert.Equal(new[] { StorageRemittanceRowKind.Remittance, StorageRemittanceRowKind.Return }, rows.Select(r => r.Kind));
+        Assert.Equal(30m, rows[0].ShippedWithoutReturnQuantity);
     }
 
     /// <summary>
@@ -412,13 +388,12 @@ public class StorageRemittancesByPeriodReportServiceTests
         request.ItemCode = StorageDepositSeed.Item;
         request.CardCode = StorageDepositSeed.Warehouse;
         request.ReturnSituation = StorageRemittanceSituation.Open;
-        request.Detailed = true;
         await new StorageRemittancesByPeriodReportService(db, recorder).ExecuteAsync(request);
 
         Assert.Equal("StorageRemittancesByPeriod.frx", recorder.LastReportName);
         Assert.Equal(
             "Data da remessa: 01/10/2026 a 31/10/2026 | Filial: MTZ | Produto: SOJA | Situação: em aberto | " +
-            "Armazém: ARM001 | Detalhado",
+            "Armazém: ARM001",
             recorder.LastParameters!["pFilters"]);
         Assert.Equal(true, recorder.LastParameters![FastReportService.SingleUomParameter]);
     }
