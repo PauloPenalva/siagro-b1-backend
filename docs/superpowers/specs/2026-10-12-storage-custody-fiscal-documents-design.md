@@ -39,9 +39,10 @@ etapas esperadas e a mesma situação; o saldo fiscal em depósito por lote é c
 
 ## 3. Modelo de dados
 
-### 3.1 Natureza — `Usage.StorageCustodyRole`
+### 3.1 Natureza — `UsageEffect.StorageCustodyRole`
 
-Enum novo `StorageCustodyRole` (Domain/Enums), separado de `StorageDepositRole` (fluxos espelhados, não misturar):
+Enum novo `StorageCustodyRole` (Domain/Enums), separado de `StorageDepositRole` (fluxos espelhados, não misturar).
+Mora em `USAGE_EFFECTS` (como o `StorageDepositRole`), exposto em `UsageModel`:
 
 | Valor | Etapa | Direção exigida | CFOP sugerido |
 |---|---|---|---|
@@ -52,7 +53,7 @@ Enum novo `StorageCustodyRole` (Domain/Enums), separado de `StorageDepositRole` 
 | `StorageReturn = 4` | Retorno de armazenagem (retirada) | `Outgoing` | 5.906 / 6.906 |
 | `StorageSymbolicReturn = 5` | Retorno simbólico de armazenagem (transferência) | `Outgoing` | 5.907 / 6.907 |
 
-Validação no cadastro da natureza (`UsageService`), papel ≠ None:
+Validação no cadastro da natureza (`UsageEffectWriter.ValidateEffects`), papel ≠ None:
 
 - a direção bate com a tabela;
 - efeitos de contrato e de valor = None (mesma regra do `StorageDepositRole`);
@@ -78,8 +79,12 @@ fiscais de custódia; não é possível alterar o beneficiamento.").
 - Chave **obrigatória** quando o papel ≠ None; **proibida** quando o papel = None.
 - Papéis 1 e 3 só em `PurchaseInvoice`; papéis 2, 4 e 5 só em `SalesInvoice` (decorre da direção).
 
-**Nota ativa** = não cancelada e sem NF-e rejeitada/inutilizada (mesmo critério de "ativa" já usado pela trava de
-duplicidade de documento de saída). Nota Pendente conta como ativa.
+**Nota ativa** = `InvoiceStatus != Cancelled` (mesmo critério da remessa para depósito). Pendente conta como ativa; a
+NF-e rejeitada continua sendo a nota da etapa (corrige-se e retransmite, ou cancela-se o documento).
+
+**Papel gravado no cabeçalho**: `PurchaseInvoice.CustodyRole` e `SalesInvoice.CustodyRole` (`StorageCustodyRole`,
+padrão None) são escritos SÓ pela guarda (§4.4) a partir da natureza das linhas — o corpo da API não os define. Isso
+congela o papel mesmo que a natureza seja editada depois e deixa unicidade, ordem e relatório como consultas simples.
 
 ### 3.4 Etapas esperadas (derivadas, nunca gravadas)
 
@@ -108,10 +113,10 @@ romaneios do lote. Informativo, ao lado do saldo físico; nada trava por diverg�
 
 ### 4.1 Ação "Gerar nota de custódia"
 
-Action OData no romaneio (`StorageTransactions(key)/CreateCustodyDocument`), serviço
+Action OData não vinculada `StorageTransactionsCreateCustodyDocument` (padrão do projeto), serviço
 `StorageTransactionsCreateCustodyDocumentService`.
 
-Parâmetros: `Role` (StorageCustodyRole), `UsageCode`, `UnitPrice` (> 0).
+Parâmetros: `StorageTransactionKey`, `Role` (StorageCustodyRole), `UsageCode`, `UnitPrice` (> 0, `double` no EDM).
 
 Pré-condições (cada uma com mensagem pt-BR própria):
 
@@ -145,7 +150,12 @@ enquanto Pendente.
 | 4 Retorno | quantidade com que a Expedição baixa o lote (mesmo campo usado pelo saldo do lote) |
 | 5 Retorno simbólico | quantidade transferida (quantidade da Expedição de transferência) |
 
-O campo exato de peso que o saldo do lote usa é confirmado no plano, lendo o cálculo de saldo do `StorageAddress`.
+O saldo do lote soma `NetWeight` (conferido em `StorageAddress.TotalReceipt/TotalShipment`), então os papéis 3, 4 e 5
+usam `NetWeight` do romaneio. Os pesos bruto/líquido do CABEÇALHO da nota nascem iguais à quantidade (editáveis
+enquanto Pendente) e a placa vem do romaneio — a emissão exige pesos.
+
+**Pagamento**: nota de custódia não tem pagamento — a prontidão da NF-e não exige condição e o XML sai com tPag 90
+(como a devolução).
 
 ### 4.3 Ordem e referências
 
@@ -159,7 +169,8 @@ O campo exato de peso que o saldo do lote usa é confirmado no plano, lendo o c�
 
 Documento de Entrada **De terceiro** existente (digitado ou importado do XML). Quando alguma linha tem natureza com
 papel 1 ou 3, o cabeçalho exige **Romaneio** (`CustodyStorageTransactionKey`). O XML não identifica o romaneio — o
-vínculo é sempre escolhido pelo usuário. A quantidade é a da nota do depositante; diferença para a balança não
+vínculo é sempre escolhido pelo usuário. O value help lista os romaneios de Recepção confirmados de lote de terceiro do
+mesmo depositante e produto; a etapa pendente é conferida pelo servidor ao gravar. A quantidade é a da nota do depositante; diferença para a balança não
 bloqueia e aparece no relatório.
 
 Também vale para a escrituração (mesmo serviço de validação usado pela ação e pelas telas de nota):
@@ -175,7 +186,10 @@ Também vale para a escrituração (mesmo serviço de validação usado pela aç
 - Estorno/cancelamento de romaneio com nota de custódia ativa é recusado; estorno de transferência de titularidade
   é recusado se qualquer romaneio dela tiver nota ativa ("Cancele as notas fiscais de custódia antes de estornar.").
 - Nota cancelada/rejeitada deixa de contar: a etapa volta a pendente e aceita nova nota.
-- Excluir nota Pendente segue as regras atuais de exclusão; a FK Restrict impede excluir romaneio com nota vinculada.
+- Excluir nota Pendente segue as regras atuais de exclusão, mais a mesma ordem inversa; a FK Restrict impede excluir
+  romaneio com nota vinculada.
+- Romaneios de transferência **cancelada** (os originais e as contrapartidas do cancelamento, todos com
+  `OwnershipTransferKey`) não esperam nota nenhuma.
 
 ### 4.6 SAPB1
 
@@ -187,16 +201,17 @@ campo do lote não aparecem.
 - **Natureza** (`usages` Add/Edit): Select "Papel na custódia (armazenagem)" — Nenhum, Entrada para beneficiamento,
   Devolução simbólica do beneficiamento, Entrada para armazenagem, Retorno de armazenagem, Retorno simbólico de
   armazenagem. Só STANDALONE, junto do "Papel na remessa para depósito".
-- **Lote** (`storageAddresses` Add/Edit): Select Sim/Não "Passa por beneficiamento (fiscal)", só STANDALONE e lote de
-  terceiro; desabilitado quando houver nota de custódia ativa.
+- **Lote** (`storageAddresses` Add/Edit): CheckBox "Passa por beneficiamento (fiscal)", só STANDALONE; a recusa de
+  alteração com nota ativa vem do servidor.
 - **Romaneio** (`storageTransactions` Detail): seção "Notas fiscais de custódia" — uma linha por etapa esperada:
   Etapa, Situação (Pendente de nota / Documento gerado / Autorizada / Escriturada), Documento (DE…/DS…, link), NF/Série,
   Chave, Quantidade. Botão "Gerar nota" abre diálogo com Etapa (sugerida = próxima pendente), Natureza (filtrada pelo
-  papel) e Preço unitário; ao gravar navega para o documento. Dados vêm de uma function OData
-  `StorageTransactions(key)/CustodySummary` (mesmas regras do relatório).
+  papel) e Preço unitário; ao gravar navega para o documento. Dados vêm da function OData
+  `StorageTransactionsCustodySummary(Key=…)`; tela e relatório usam a MESMA consulta (`SiagroB1.Infra/Queries/
+  StorageCustodyQuery`) e as mesmas regras puras (`StorageCustodyRules`, Domain).
 - **Documento de Entrada** (`purchaseInvoices` Add/Edit/Detail): campo Romaneio no cabeçalho quando alguma linha tem
-  natureza de papel 1 ou 3; value help com as Recepções do mesmo depositante e item com a etapa pendente; link no
-  Detail.
+  natureza de papel 1 ou 3 (visível em STANDALONE, Normal); value help com as Recepções do mesmo depositante e produto;
+  link no Detail.
 - **Documento de Saída** (`salesInvoices` Detail): link para o romaneio, só leitura.
 
 ## 6. Relatório "Custódia de Armazenagem"
@@ -204,7 +219,8 @@ campo do lote não aparecem.
 PDF no `SiagroB1.Reports`, no molde do relatório de remessas para depósito: consulta própria (o Reports não referencia
 a Application), regras de etapas reaproveitadas de `StorageCustodyRules` (Domain), endpoint
 `POST /reports/StorageCustodyByPeriod` → `storage-custody-by-period.pdf`; fora do STANDALONE → 400 "Disponível somente
-no modo STANDALONE.". Menu no grupo Armazenagem, com migration de menu (MENU_ITEMS + ROLE_MENUS).
+no modo STANDALONE.". Menu no grupo Relatórios (como os demais relatórios, inclusive o de remessas para depósito), com migration de menu
+(MENU_ITEMS + ROLE_MENUS).
 
 **Filtros**: período (obrigatório, data do romaneio, fim inclusivo), filial, depositante, produto, lote, situação
 (Todas — padrão / Com pendência fiscal / Completa).
