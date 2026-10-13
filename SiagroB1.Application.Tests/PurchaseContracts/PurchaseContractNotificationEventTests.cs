@@ -77,7 +77,7 @@ public class PurchaseContractNotificationEventTests
     {
         var contract = Seed(ContractStatus.InApproval);
 
-        await new PurchaseContractsApprovalService(_db.Context, Outbox(), FinancialDocuments())
+        await new PurchaseContractsApprovalService(_db.Context, Outbox(), FinancialDocuments(), TestConfiguration.Erp("SAPB1"))
             .ExecuteAsync(contract.Key, "ok", "paulo");
 
         var message = SingleOutboxMessage();

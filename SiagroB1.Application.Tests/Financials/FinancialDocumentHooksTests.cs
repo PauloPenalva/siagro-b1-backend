@@ -95,7 +95,7 @@ public class FinancialDocumentHooksTests
         }
 
         await using var act = NewContext(dbName);
-        await new PurchaseContractsApprovalService(act, Outbox(act), FinancialDocuments(act))
+        await new PurchaseContractsApprovalService(act, Outbox(act), FinancialDocuments(act), TestConfiguration.Erp("SAPB1"))
             .ExecuteAsync(contractKey, null, "diretoria");
 
         var document = Assert.Single(act.FinancialDocuments);
@@ -131,7 +131,7 @@ public class FinancialDocumentHooksTests
         }
 
         await using var act = NewContext(dbName);
-        await new PurchaseContractsApprovalService(act, Outbox(act), FinancialDocuments(act))
+        await new PurchaseContractsApprovalService(act, Outbox(act), FinancialDocuments(act), TestConfiguration.Erp("SAPB1"))
             .ExecuteAsync(contractKey, null, "diretoria");
 
         Assert.Empty(act.FinancialDocuments);
