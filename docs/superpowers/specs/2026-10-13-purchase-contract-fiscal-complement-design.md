@@ -191,16 +191,12 @@ quem aprova enxerga antes de clicar e ser recusado.
 - `BadRequest(string)` chega como `responseJSON` = a própria string — o handler do diálogo precisa
   aceitar as três formas, ou a mensagem de negócio some (lição do guard de cancelamento).
 
-## Impressão do pré-contrato
+## Impressão do pré-contrato — nada muda
 
-`SiagroB1.Reports/Services/PrePurchaseContractReportService.cs` + `PrePurchaseContract.frx`:
-
-- Em `STANDALONE`, `data.Taxes` passa a ser montado das linhas de Funrural (mesmo
-  `FunruralCalculator`, mesma base), omitindo valor zero, mais uma linha **"LÍQUIDO AO PRODUTOR"**.
-  O `.frx` não muda de estrutura (IMPOSTO / ALÍQUOTA (%) / VALOR (R$)).
-- A natureza vem de `PURCHASE_CONTRACT_FISCAL_COMPLEMENTS` + `USAGES` (Reports usa `AppDbContext`
-  direto e roda em `STANDALONE` com a tabela local).
-- Em `SAPB1`, como hoje. `FUNRURAL: BRUTO/LIVRE` continua impresso (D4).
+`PrePurchaseContractReportService.GeneratePdfAsync` **recusa** a impressão fora de `SAPB1` ("A impressão
+do pré-contrato está disponível apenas na integração com o SAP Business One." — layout da Yokotobi,
+dependente de CRD7/CRD1/OCNT). Como este sub-projeto só age em `STANDALONE`, a impressão não é tocada.
+Achado ao escrever o plano; a versão anterior deste spec previa trocar o bloco de impostos do `.frx`.
 
 ## Migrations
 
@@ -257,11 +253,10 @@ Roteiro no navegador, stack **CEAGUI** (`STANDALONE`, profile `ceagui`):
    Tentar "Limpar" → recusado.
 5. Login `teste.comercial` (sem a permissão) → seção visível, sem "Editar".
 6. Tela de Aprovação mostra quadro e aviso.
-7. Imprimir o pré-contrato → linhas de Funrural + líquido; `FUNRURAL: BRUTO`.
-8. Contrato PAF sem fixação → base zero; confirmar uma fixação → quadro atualiza.
-9. Yokotobi (`SAPB1`, profile `yktb`) → nada mudou: sem seção, grade digitada presente, aprovação sem
+7. Contrato PAF sem fixação → base zero; confirmar uma fixação → quadro atualiza.
+8. Yokotobi (`SAPB1`, profile `yktb`) → nada mudou: sem seção, grade digitada presente, aprovação sem
    exigência.
-10. Derrubar a stack **matando por PID**.
+9. Derrubar a stack **matando por PID**.
 
 ## Fora deste sub-projeto
 
