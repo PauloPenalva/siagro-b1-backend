@@ -526,6 +526,16 @@ public static class ODataConfigurations
         salesContractsSetFiscalComplement.Parameter<string>("CustomerOrderItem").Optional();
         salesContractsSetFiscalComplement.Returns<SalesContractFiscalComplementDto>();
 
+        var purchaseContractsGetFiscalComplement = modelBuilder.Function("PurchaseContractsGetFiscalComplement");
+        purchaseContractsGetFiscalComplement.Parameter<Guid>("Key");
+        purchaseContractsGetFiscalComplement.Returns<PurchaseContractFiscalComplementDto>();
+
+        var purchaseContractsSetFiscalComplement = modelBuilder.Action("PurchaseContractsSetFiscalComplement");
+        purchaseContractsSetFiscalComplement.Parameter<Guid>("Key");
+        // Opcional e anulável: null limpa a natureza (só fora de contrato aprovado — regra no serviço).
+        purchaseContractsSetFiscalComplement.Parameter<int?>("UsageCode").Optional();
+        purchaseContractsSetFiscalComplement.Returns<PurchaseContractFiscalComplementDto>();
+
         var warehousesGetComplement = modelBuilder.Function("WarehousesGetComplement");
         warehousesGetComplement.Parameter<string>("WarehouseCode");
         warehousesGetComplement.Returns<WarehouseComplementDto>();

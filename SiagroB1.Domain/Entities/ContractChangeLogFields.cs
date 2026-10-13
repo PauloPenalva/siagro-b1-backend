@@ -28,6 +28,9 @@ public static class ContractChangeLogFields
     /// </summary>
     public const string Comment = "Comment";
 
+    /// <summary>Natureza de operação do complemento fiscal do contrato de compra. Valores "código - nome".</summary>
+    public const string Usage = "Usage";
+
     /// <summary>Quantidade entregue conferida na balança do cliente (linha do documento de saída).</summary>
     public const string DeliveredQuantity = "DeliveredQuantity";
 

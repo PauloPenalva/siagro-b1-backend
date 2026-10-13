@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
@@ -181,7 +182,7 @@ public class WashoutBalanceConsumersTests
         contract.WashedOutVolume = 300m;
         await SeedAsync(contract);
 
-        var totals = await new PurchaseContractsTotalsService(_db.Context).GetTotals(contract.Key);
+        var totals = await new PurchaseContractsTotalsService(_db.Context, new UsageService(_db, NullLogger<UsageService>.Instance), TestConfiguration.Erp("SAPB1")).GetTotals(contract.Key);
 
         Assert.Equal(300m, totals.WashedOutVolume);
         Assert.Equal(700m, totals.AvaiableVolume);
