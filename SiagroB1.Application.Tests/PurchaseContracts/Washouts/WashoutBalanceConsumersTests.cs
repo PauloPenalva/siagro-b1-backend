@@ -168,7 +168,8 @@ public class WashoutBalanceConsumersTests
             status: PurchaseContractWashoutStatus.Rejected));
 
         var service = new PurchaseContractsWithdrawApprovalService(
-            _db, new FakeStringLocalizer<Resource>(), TestNotificationOutbox.For(_db.Context));
+            _db, new FakeStringLocalizer<Resource>(), TestNotificationOutbox.For(_db.Context),
+            FinancialDocumentTestServices.Cancel(_db.Context));
 
         await Assert.ThrowsAsync<BusinessException>(() => service.ExecuteAsync(contract.Key, "tester"));
     }

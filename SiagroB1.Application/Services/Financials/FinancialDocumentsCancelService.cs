@@ -92,6 +92,48 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
     }
 
     /// <summary>
+    /// Enqueue-only, para a EXCLUSÃO de contrato em rascunho: cancela os provisórios ainda abertos
+    /// e solta TODOS os documentos do contrato (chave do contrato = null). A FK para o contrato é
+    /// NoAction e barrava a exclusão com erro 547, mesmo com o documento cancelado — e apagar o
+    /// documento mataria o rastro. <c>OriginDocNumber</c> segue com o número do contrato excluído.
+    ///
+    /// Documento ativo que não seja provisório (adiantamento, por exemplo) é dinheiro de verdade
+    /// prometido ao parceiro: barra a exclusão em vez de ficar sem contrato em silêncio.
+    /// </summary>
+    public async Task EnqueueReleaseContractForDeletionAsync(
+        Guid? purchaseContractKey, Guid? salesContractKey, string userName)
+    {
+        if (purchaseContractKey is null && salesContractKey is null)
+            throw new ArgumentException(
+                "Informe a chave do contrato de compra ou de venda para liberar a exclusão.");
+
+        var documents = await Context.FinancialDocuments
+            .Where(x => (purchaseContractKey != null && x.PurchaseContractKey == purchaseContractKey) ||
+                        (salesContractKey != null && x.SalesContractKey == salesContractKey))
+            .ToListAsync();
+
+        var blocking = documents
+            .Where(x => x.Nature != FinancialDocumentNature.Provisional &&
+                        x.Status != FinancialDocumentStatus.Canceled)
+            .Select(x => x.Code)
+            .ToList();
+
+        if (blocking.Count > 0)
+            throw new DefaultException(
+                $"O contrato possui título financeiro ativo: {string.Join(", ", blocking)}. " +
+                "Cancele o título ou vincule-o a outro contrato antes de excluir o contrato.");
+
+        foreach (var document in documents)
+        {
+            if (document.Status != FinancialDocumentStatus.Canceled)
+                Cancel(document, "Contrato excluído", userName);
+
+            document.PurchaseContractKey = null;
+            document.SalesContractKey = null;
+        }
+    }
+
+    /// <summary>
     /// Enqueue-only: cancela UM documento pela chave — hoje, o título a receber do washout
     /// estornado. Recusa documento com baixa: o dinheiro já entrou, e cancelar o título apagaria
     /// o rastro dele. Documento já cancelado passa em silêncio (idempotente).

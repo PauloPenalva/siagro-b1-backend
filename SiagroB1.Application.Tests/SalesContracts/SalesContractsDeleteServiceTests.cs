@@ -18,7 +18,7 @@ public class SalesContractsDeleteServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private SalesContractsDeleteService Service() =>
-        new(_db.Context, NullLogger<SalesContractsDeleteService>.Instance);
+        new(_db.Context, FinancialDocumentTestServices.Cancel(_db.Context), NullLogger<SalesContractsDeleteService>.Instance);
 
     private async Task<SalesContract> SeedDraftWithChildrenAsync(ContractDraftStatus minutaStatus = ContractDraftStatus.Draft)
     {
@@ -67,7 +67,7 @@ public class SalesContractsDeleteServiceTests
     {
         var contract = await SeedDraftWithChildrenAsync();
 
-        Assert.True(await Service().ExecuteAsync(contract.Key));
+        Assert.True(await Service().ExecuteAsync(contract.Key, "tester"));
 
         var ctx = _db.Context;
         Assert.False(await ctx.SalesContracts.AnyAsync(x => x.Key == contract.Key));
@@ -90,7 +90,7 @@ public class SalesContractsDeleteServiceTests
     {
         var contract = await SeedDraftWithChildrenAsync(status);
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(contract.Key));
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(contract.Key, "tester"));
 
         Assert.Equal("O contrato tem minuta enviada para assinatura: cancele a minuta antes de excluir o contrato.", ex.Message);
         Assert.True(await _db.Context.SalesContracts.AnyAsync(x => x.Key == contract.Key));
@@ -101,7 +101,7 @@ public class SalesContractsDeleteServiceTests
     {
         var contract = await SeedDraftWithChildrenAsync(ContractDraftStatus.Canceled);
 
-        Assert.True(await Service().ExecuteAsync(contract.Key));
+        Assert.True(await Service().ExecuteAsync(contract.Key, "tester"));
         Assert.False(await _db.Context.ContractDrafts.AnyAsync(x => x.SalesContractKey == contract.Key));
     }
 }

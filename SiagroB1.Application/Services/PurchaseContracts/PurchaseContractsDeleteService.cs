@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
@@ -11,14 +12,18 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsDeleteService(
     AppDbContext context, 
     IStringLocalizer<Resource> resource,
+    FinancialDocumentsCancelService financialDocuments,
     ILogger<PurchaseContractsDeleteService> logger)
 {
     /// <summary>
-    /// Deleta o contrato de compra, somente se estiver com status de rascunho (Draft)
+    /// Deleta o contrato de compra, somente se estiver com status de rascunho (Draft).
+    /// Os documentos financeiros não são apagados: são cancelados e soltos do contrato (rascunho que
+    /// já foi aprovado e teve a aprovação retirada carrega o provisório da aprovação; a FK é NoAction).
     /// </summary>
     /// <param name="key"></param>
+    /// <param name="userName"></param>
     /// <returns></returns>
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(Guid key, string userName)
     {
         return await DeleteAsyncWithTransaction(key, async entity =>
         {
@@ -41,6 +46,9 @@ public class PurchaseContractsDeleteService(
             
             if (entity.Brokers.Any())
                 context.PurchaseContractsBrokers.RemoveRange(entity.Brokers);
+
+            await financialDocuments.EnqueueReleaseContractForDeletionAsync(
+                purchaseContractKey: entity.Key, salesContractKey: null, userName: userName);
 
             await context.SaveChangesAsync();
         });

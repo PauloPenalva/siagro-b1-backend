@@ -93,7 +93,7 @@ public class SalesContractsController(
     {
         try
         {
-            var success = await deleteService.ExecuteAsync(key);
+            var success = await deleteService.ExecuteAsync(key, User.Identity?.Name ?? "Unknown");
 
             if (!success)
             {
