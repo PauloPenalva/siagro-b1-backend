@@ -457,7 +457,7 @@ public class ShippingTransactionsReverseServiceTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
 
-        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de estornar.", error.Message);
+        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de cancelar ou estornar.", error.Message);
         Assert.True(await _db.Context.ShippingTransactions.AsNoTracking()
             .AnyAsync(x => x.SalesStorageTransactionKey == shipping.SalesStorageTransactionKey));
 

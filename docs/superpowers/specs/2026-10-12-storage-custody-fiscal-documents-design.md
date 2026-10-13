@@ -184,7 +184,7 @@ Também vale para a escrituração (mesmo serviço de validação usado pela aç
 - Cancelar nota de papel 1 é recusado com papel 2 ativo no mesmo romaneio; papel 2 recusado com papel 3 ativo
   ("Cancele primeiro a nota da etapa seguinte.").
 - Estorno/cancelamento de romaneio com nota de custódia ativa é recusado; estorno de transferência de titularidade
-  é recusado se qualquer romaneio dela tiver nota ativa ("Cancele as notas fiscais de custódia antes de estornar.").
+  é recusado se qualquer romaneio dela tiver nota ativa ("Cancele as notas fiscais de custódia antes de cancelar ou estornar.").
 - Nota cancelada/rejeitada deixa de contar: a etapa volta a pendente e aceita nova nota.
 - Excluir nota Pendente segue as regras atuais de exclusão, mais a mesma ordem inversa; a FK Restrict impede excluir
   romaneio com nota vinculada.

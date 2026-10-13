@@ -199,6 +199,6 @@ public class OwnershipTransfersGuardsTests
 
         var e = await Assert.ThrowsAsync<ApplicationException>(() => ctx.Cancel().ExecuteAsync(transfer.Key, "tester"));
 
-        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de estornar.", e.Message);
+        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de cancelar ou estornar.", e.Message);
     }
 }

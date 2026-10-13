@@ -236,6 +236,6 @@ public static class StorageCustodyGuard
         if (hit != null)
             throw new ApplicationException(
                 $"O romaneio tem nota fiscal de custódia ativa (nº {StorageCustodyRules.DocumentNumber(hit)}). " +
-                "Cancele as notas fiscais de custódia antes de estornar.");
+                "Cancele as notas fiscais de custódia antes de cancelar ou estornar.");
     }
 }

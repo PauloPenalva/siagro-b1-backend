@@ -76,7 +76,7 @@ public class StorageCustodyLockTests
         var reverse = await Assert.ThrowsAsync<ApplicationException>(() =>
             new StorageTransactionsReverseService(db, new StorageAddressesGetBalanceService(null!), recalc, new FakeStringLocalizer<Resource>())
                 .ExecuteAsync(t.Key, "tester"));
-        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000101). Cancele as notas fiscais de custódia antes de estornar.", reverse.Message);
+        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000101). Cancele as notas fiscais de custódia antes de cancelar ou estornar.", reverse.Message);
 
         doc.InvoiceStatus = InvoiceStatus.Cancelled;
         await db.SaveChangesAsync();

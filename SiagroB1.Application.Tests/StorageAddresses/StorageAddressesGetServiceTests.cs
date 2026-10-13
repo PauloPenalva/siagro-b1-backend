@@ -193,4 +193,34 @@ public class StorageAddressesGetServiceTests
         Assert.Equal(StorageAddressNature.Regular, natureByCode["L003"]);
         Assert.Equal(StorageAddressNature.Transshipment, natureByCode["L004"]);
     }
+
+    /// <summary>
+    /// Custódia fiscal: a projeção manual do QueryAll omitia RequiresProcessing e a lista sempre devolvia false.
+    /// </summary>
+    [Fact]
+    public async Task QueryAll_keeps_requires_processing_of_each_lot()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        db.Context.StorageAddresses.AddRange(
+            new StorageAddress
+            {
+                Code = "L005", Description = "Com beneficiamento", CardCode = "C0001", ItemCode = "SOJA",
+                WarehouseCode = "01", UoM = "KG", RequiresProcessing = true,
+            },
+            new StorageAddress
+            {
+                Code = "L006", Description = "Sem beneficiamento", CardCode = "C0001", ItemCode = "SOJA",
+                WarehouseCode = "01", UoM = "KG", RequiresProcessing = false,
+            });
+
+        await db.SaveChangesAsync();
+
+        var service = new StorageAddressesGetService(db, new TestLogger<StorageAddressesGetService>());
+
+        var byCode = await service.QueryAll().ToDictionaryAsync(x => x.Code!, x => x.RequiresProcessing);
+
+        Assert.True(byCode["L005"]);
+        Assert.False(byCode["L006"]);
+    }
 }
