@@ -156,8 +156,9 @@ public static class PurchaseFiscalReconciliationQuery
         if (root == null)
             return owners;
 
-        // O TaxId pode estar mascarado no cadastro: candidatos pelos 3 primeiros dígitos, decisão em memória.
-        var prefix = root[..3];
+        // O TaxId pode estar mascarado no cadastro: candidatos pelos 2 primeiros dígitos (contíguos tanto em
+        // "123.456.789-01" quanto em "12.345.678/0001-90"), decisão em memória.
+        var prefix = root[..2];
         var candidates = await ctx.BusinessPartners.AsNoTracking()
             .Where(bp => bp.TaxId != null && bp.TaxId.Contains(prefix))
             .Select(bp => new { bp.CardCode, bp.TaxId })
@@ -193,6 +194,7 @@ public static class PurchaseFiscalReconciliationQuery
             .Where(l => l.ItemCode == f.ItemCode &&
                         l.PurchaseInvoice!.InvoiceStatus != InvoiceStatus.Cancelled &&
                         l.PurchaseInvoice.ProducerInvoiceKey == null &&      // contra-nota: vincula-se a escrituração
+                        l.PurchaseInvoice.CustodyStorageTransactionKey == null && // nota de custódia não é NF de venda
                         issuers.Contains(l.PurchaseInvoice.CardCode));
 
         if (f.DateFrom is { } from)

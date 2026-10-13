@@ -120,6 +120,17 @@ public class PurchaseFiscalReconciliationServiceTests
     }
 
     [Fact]
+    public async Task Save_refuses_custody_note()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var tx = await seed.AddTransactionAsync(100m);
+        var (_, custody) = await seed.AddInvoiceAsync(100m, custodyTransactionKey: Guid.NewGuid());
+
+        Assert.Contains("custódia", await RefusalAsync(() =>
+            new PurchaseFiscalReconciliationService(seed.Db).SaveAsync([Pair(custody, tx, 10m)], "a")));
+    }
+
+    [Fact]
     public async Task Save_accepts_other_issuer_without_refusing()
     {
         var seed = await FiscalReconciliationSeed.CreateAsync();

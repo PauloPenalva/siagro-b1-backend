@@ -142,6 +142,32 @@ public class PurchaseFiscalReconciliationQueryTests
     }
 
     [Fact]
+    public async Task Invoice_lines_skip_custody_notes()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        await seed.AddInvoiceAsync(100m, taxNumber: "1");
+        await seed.AddInvoiceAsync(500m, taxNumber: "2", custodyTransactionKey: Guid.NewGuid());
+
+        var lines = await PurchaseFiscalReconciliationQuery.LoadInvoiceLinesAsync(seed.Db.Context, Filter());
+
+        Assert.Equal(["1-1"], lines.Select(l => l.TaxDocument));
+    }
+
+    [Fact]
+    public async Task Masked_cnpj_partners_are_the_same_owner()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        await seed.AddPartnerAsync("PJ01", "Cerealista Matriz", "12.345.678/0001-90");
+        await seed.AddPartnerAsync("PJ02", "Cerealista Filial", "12.345.678/0002-71");
+        await seed.AddInvoiceAsync(100m, cardCode: "PJ02", taxNumber: "9");
+
+        var line = Assert.Single(await PurchaseFiscalReconciliationQuery.LoadInvoiceLinesAsync(
+            seed.Db.Context, Filter(f => f.CardCode = "PJ01")));
+
+        Assert.True(line.IssuerMatchesSupplier);
+    }
+
+    [Fact]
     public void Queries_translate_to_sql()
     {
         using var ctx = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()

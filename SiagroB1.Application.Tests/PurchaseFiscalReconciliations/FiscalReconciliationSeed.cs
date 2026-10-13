@@ -65,13 +65,14 @@ internal sealed class FiscalReconciliationSeed
         decimal quantity, string unit = "KG", PurchaseInvoiceType type = PurchaseInvoiceType.Normal,
         string cardCode = Supplier, PurchaseContract? contract = null, DateTime? issueDate = null,
         InvoiceStatus status = InvoiceStatus.Confirmed, string? taxNumber = null, Guid? producerInvoiceKey = null,
-        string itemCode = Product)
+        string itemCode = Product, Guid? custodyTransactionKey = null)
     {
         var invoice = new PurchaseInvoice
         {
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = cardCode, CardName = cardCode, InvoiceType = type,
             InvoiceStatus = status, InvoiceNumber = $"DE{++_seq:000000}", TaxDocumentNumber = taxNumber ?? $"{_seq:000000000}",
             TaxDocumentSeries = "1", IssueDate = issueDate ?? new DateTime(2026, 10, 9), ProducerInvoiceKey = producerInvoiceKey,
+            CustodyStorageTransactionKey = custodyTransactionKey,
         };
         var line = new PurchaseInvoiceItem
         {

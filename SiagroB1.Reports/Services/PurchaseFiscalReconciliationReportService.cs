@@ -44,15 +44,19 @@ public class PurchaseFiscalReconciliationReportService(IUnitOfWork db, IFastRepo
         foreach (var (group, tx) in placed)
         {
             var first = counted.Add(tx.Key);
+            // Totais com sentido: Dev.Compra e Quebra Descarga SAEM do contrato. O texto da linha fica positivo e o
+            // tipo diz o sentido, como na aba Entregas.
+            var sign = tx.TransactionType is StorageTransactionType.PurchaseReturn or StorageTransactionType.PurchaseDischargeLoss ? -1m : 1m;
             rows.Add(new PurchaseFiscalReconciliationRowDto
             {
                 Group = group, Kind = PurchaseFiscalReconciliationRowKind.Transaction, Document = tx.Code ?? "",
                 Date = ReportText.Date(tx.TransactionDate), Description = tx.TransactionTypeName, Party = tx.TruckCode ?? "",
                 PhysicalText = Quantity(tx.PhysicalQuantity), FiscalText = Quantity(tx.FiscalQuantity),
                 DifferenceText = Quantity(tx.Difference), Status = tx.StatusName,
-                GroupPhysical = tx.PhysicalQuantity, GroupFiscal = tx.FiscalQuantity, GroupDifference = tx.Difference,
-                SumPhysical = first ? tx.PhysicalQuantity : 0m, SumFiscal = first ? tx.FiscalQuantity : 0m,
-                SumDifference = first ? tx.Difference : 0m, TransactionCount = first ? 1 : 0,
+                GroupPhysical = sign * tx.PhysicalQuantity, GroupFiscal = sign * tx.FiscalQuantity,
+                GroupDifference = sign * tx.Difference,
+                SumPhysical = first ? sign * tx.PhysicalQuantity : 0m, SumFiscal = first ? sign * tx.FiscalQuantity : 0m,
+                SumDifference = first ? sign * tx.Difference : 0m, TransactionCount = first ? 1 : 0,
             });
 
             rows.AddRange(tx.Links.Select(link => new PurchaseFiscalReconciliationRowDto

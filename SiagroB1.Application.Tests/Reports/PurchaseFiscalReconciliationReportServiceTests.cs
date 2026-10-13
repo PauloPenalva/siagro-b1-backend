@@ -56,6 +56,23 @@ public class PurchaseFiscalReconciliationReportServiceTests
     }
 
     [Fact]
+    public async Task Totals_subtract_returns_and_discharge_losses()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var contract = await seed.AddContractAsync("PC-1");
+        await seed.AddTransactionAsync(30_000m, contract: contract);
+        await seed.AddTransactionAsync(5_000m, StorageTransactionType.PurchaseReturn, contract: contract);
+        await seed.AddTransactionAsync(200m, StorageTransactionType.PurchaseDischargeLoss, contract: contract);
+
+        var rows = (await Service(seed).BuildRowsAsync(Request())).Where(r => r.Kind == "Romaneio").ToList();
+
+        Assert.Equal(24_800m, rows.Sum(r => r.GroupPhysical));
+        Assert.Equal(24_800m, rows.Sum(r => r.SumPhysical));
+        Assert.Equal(-24_800m, rows.Sum(r => r.SumDifference));
+        Assert.All(rows, r => Assert.DoesNotContain("-", r.PhysicalText));
+    }
+
+    [Fact]
     public async Task Status_filter_and_transaction_without_contract()
     {
         var seed = await FiscalReconciliationSeed.CreateAsync();

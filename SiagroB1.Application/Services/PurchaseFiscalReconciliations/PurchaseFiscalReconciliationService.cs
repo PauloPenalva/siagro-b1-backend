@@ -170,7 +170,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
 
     private sealed record LineData(
         Guid Key, string ItemCode, string? Unit, decimal Quantity, Guid? ContractKey, string? ContractCode,
-        PurchaseInvoiceType InvoiceType, InvoiceStatus InvoiceStatus, bool IsCounterNote, DateTime? IssueDate,
+        PurchaseInvoiceType InvoiceType, InvoiceStatus InvoiceStatus, bool IsCounterNote, bool IsCustodyNote, DateTime? IssueDate,
         string TaxDocument, ItemComplement? Complement);
 
     private async Task<List<LineData>> LoadLinesAsync(IReadOnlyCollection<Guid> keys)
@@ -181,7 +181,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
             {
                 Key = l.Key!.Value, l.ItemCode, l.UnitOfMeasureCode, l.Quantity, l.PurchaseContractKey,
                 ContractCode = l.PurchaseContract!.Code, l.PurchaseInvoice!.InvoiceType, l.PurchaseInvoice.InvoiceStatus,
-                l.PurchaseInvoice.ProducerInvoiceKey, l.PurchaseInvoice.IssueDate, l.PurchaseInvoice.TaxDocumentNumber,
+                l.PurchaseInvoice.ProducerInvoiceKey, l.PurchaseInvoice.CustodyStorageTransactionKey, l.PurchaseInvoice.IssueDate, l.PurchaseInvoice.TaxDocumentNumber,
                 l.PurchaseInvoice.TaxDocumentSeries, l.PurchaseInvoice.InvoiceNumber,
             })
             .ToListAsync();
@@ -195,7 +195,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
 
         return rows.Select(r => new LineData(
             r.Key, r.ItemCode ?? "", r.UnitOfMeasureCode, r.Quantity, r.PurchaseContractKey, r.ContractCode,
-            r.InvoiceType, r.InvoiceStatus, r.ProducerInvoiceKey != null, r.IssueDate,
+            r.InvoiceType, r.InvoiceStatus, r.ProducerInvoiceKey != null, r.CustodyStorageTransactionKey != null, r.IssueDate,
             R.TaxDocument(r.TaxDocumentNumber, r.TaxDocumentSeries, r.InvoiceNumber),
             r.ItemCode == null ? null : complements.GetValueOrDefault(r.ItemCode))).ToList();
     }
@@ -221,6 +221,9 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
 
         if (line.IsCounterNote)
             throw new DefaultException($"A NF {line.TaxDocument} é contra-nota: vincule a escrituração da NF do produtor.");
+
+        if (line.IsCustodyNote)
+            throw new DefaultException($"A NF {line.TaxDocument} é nota de custódia de armazenagem, não NF de venda do fornecedor.");
 
         if (!R.IsLinkable(tx.TransactionType))
             throw new DefaultException(
