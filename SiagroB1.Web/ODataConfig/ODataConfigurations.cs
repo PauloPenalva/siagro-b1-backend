@@ -195,6 +195,19 @@ public static class ODataConfigurations
         shipmentReleasesStorageRemittanceSummary.Parameter<Guid>("Key");
         shipmentReleasesStorageRemittanceSummary.Returns<StorageRemittanceSummaryDto>();
 
+        // Notas de custódia em armazém próprio (spec 2026-10-12). Role vai como string (nome do enum) e UnitPrice como
+        // double: enum e Edm.Decimal em parâmetro de action dão trabalho no OData.
+        var storageTransactionsCreateCustodyDocument = modelBuilder.Action("StorageTransactionsCreateCustodyDocument");
+        storageTransactionsCreateCustodyDocument.Parameter<Guid>("StorageTransactionKey");
+        storageTransactionsCreateCustodyDocument.Parameter<string>("Role");
+        storageTransactionsCreateCustodyDocument.Parameter<int>("UsageCode");
+        storageTransactionsCreateCustodyDocument.Parameter<double>("UnitPrice");
+        storageTransactionsCreateCustodyDocument.Returns<Guid>();
+
+        var storageTransactionsCustodySummary = modelBuilder.Function("StorageTransactionsCustodySummary");
+        storageTransactionsCustodySummary.Parameter<Guid>("Key");
+        storageTransactionsCustodySummary.Returns<StorageCustodySummaryDto>();
+
         var purchaseInvoicesNfeReturnableItems = modelBuilder.Function("PurchaseInvoicesNfeReturnableItems");
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();

@@ -56,4 +56,16 @@ public class StorageCustodyModelTests
         Assert.NotNull(Type(nameof(StorageAddress)).FindProperty("RequiresProcessing"));
         Assert.NotNull(Type(nameof(UsageModel)).FindProperty("StorageCustodyRole"));
     }
+
+    [Fact]
+    public void Edm_declares_the_custody_operations()
+    {
+        var builder = new ODataConventionModelBuilder();
+        builder.ConfigureODataEntities();
+        var model = builder.GetEdmModel();
+
+        var action = model.SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "StorageTransactionsCreateCustodyDocument");
+        Assert.Equal(["StorageTransactionKey", "Role", "UsageCode", "UnitPrice"], action.Parameters.Select(p => p.Name));
+        Assert.Contains(model.SchemaElements.OfType<IEdmFunction>(), f => f.Name == "StorageTransactionsCustodySummary");
+    }
 }
