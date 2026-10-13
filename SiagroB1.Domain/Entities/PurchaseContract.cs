@@ -138,6 +138,11 @@ public class PurchaseContract : DocumentEntity
 
     public TechnologyType? TechnologyType { get; set; }
 
+    /// <summary>
+    /// Só COMERCIAL (spec 2026-10-13 D4): diz ao produtor como o preço foi negociado e sai na impressão.
+    /// Não entra em cálculo nenhum — o Funrural é sempre retido sobre o preço cheio, com as alíquotas da
+    /// natureza do complemento fiscal. Não "conecte" este campo ao totalizador.
+    /// </summary>
     public FunruralType? FunruralType { get; set; } = Enums.FunruralType.Bruto;
 
     [Column(TypeName = "DECIMAL(18,3)")]
