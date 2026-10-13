@@ -238,7 +238,16 @@ public class StorageTransaction : DocumentEntity
     
     [Column(TypeName = "VARCHAR(500)")]
     public string? Comments { get; set; }
-    
+
+    /// <summary>
+    /// Conciliação fiscal confirmada à mão (spec 2026-10-13 §3.2): o romaneio conta como Conciliado mesmo com
+    /// diferença entre o fiscal e o físico. Qualquer mudança nos vínculos dele limpa os dois campos.
+    /// </summary>
+    public DateTime? FiscalReconciledAt { get; set; }
+
+    [Column(TypeName = "VARCHAR(100)")]
+    public string? FiscalReconciledBy { get; set; }
+
     public ICollection<StorageTransactionQualityInspection> QualityInspections { get; set; } = [];
     
     public Guid? SalesInvoiceKey { get; set; }

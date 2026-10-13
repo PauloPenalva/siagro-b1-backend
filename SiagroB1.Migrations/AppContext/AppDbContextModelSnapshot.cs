@@ -2355,6 +2355,37 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("PURCHASE_CONTRACTS_WASHOUTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseFiscalReconciliation", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("PurchaseInvoiceItemKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(19,6)");
+
+                    b.Property<Guid>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("StorageTransactionKey");
+
+                    b.HasIndex("PurchaseInvoiceItemKey", "StorageTransactionKey")
+                        .IsUnique();
+
+                    b.ToTable("PURCHASE_FISCAL_RECONCILIATIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoice", b =>
                 {
                     b.Property<Guid>("Key")
@@ -5519,6 +5550,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("DryingServicePrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
+                    b.Property<DateTime?>("FiscalReconciledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FiscalReconciledBy")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<int>("FreightCalculationMethod")
                         .HasColumnType("int");
 
@@ -7019,6 +7056,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("PriceFixation");
 
                     b.Navigation("PurchaseContract");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseFiscalReconciliation", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoiceItem", "PurchaseInvoiceItem")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceItemKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "StorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("StorageTransactionKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseInvoiceItem");
+
+                    b.Navigation("StorageTransaction");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoice", b =>
