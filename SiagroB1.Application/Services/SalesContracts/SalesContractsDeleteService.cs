@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
@@ -6,14 +7,19 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.SalesContracts;
 
-public class SalesContractsDeleteService(AppDbContext context, ILogger<SalesContractsDeleteService> logger)
+public class SalesContractsDeleteService(
+    AppDbContext context,
+    FinancialDocumentsCancelService financialDocuments,
+    ILogger<SalesContractsDeleteService> logger)
 {
     /// <summary>
     /// Exclui o contrato em rascunho junto com os filhos que um rascunho pode ter. As FKs para SALES_CONTRACTS são
     /// NoAction, e o contrato "Fixo" já nasce com uma fixação automática: sem remover os filhos antes, o SQL Server
     /// recusava a exclusão (500). Mesmo padrão de <c>PurchaseContractsDeleteService</c>.
+    /// Os documentos financeiros não são filhos a apagar: são cancelados e soltos do contrato (rascunho que já foi
+    /// aprovado e teve a aprovação retirada carrega o provisório da aprovação).
     /// </summary>
-    public async Task<bool> ExecuteAsync(Guid key)
+    public async Task<bool> ExecuteAsync(Guid key, string userName)
     {
         return await DeleteAsyncWithTransaction(key, async entity =>
         {
@@ -45,6 +51,9 @@ public class SalesContractsDeleteService(AppDbContext context, ILogger<SalesCont
             // A FK é cascade no banco, mas removido aqui também: o resultado não depende do provider.
             context.SalesContractFiscalComplements.RemoveRange(
                 await context.SalesContractFiscalComplements.Where(x => x.SalesContractKey == entity.Key).ToListAsync());
+
+            await financialDocuments.EnqueueReleaseContractForDeletionAsync(
+                purchaseContractKey: null, salesContractKey: entity.Key, userName: userName);
 
             await context.SaveChangesAsync();
         });

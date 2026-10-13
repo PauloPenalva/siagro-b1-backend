@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Notifications;
@@ -11,7 +12,8 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsWithdrawApprovalService(
     IUnitOfWork db,
     IStringLocalizer<Resource> resource,
-    ContractNotificationOutboxService notificationOutbox
+    ContractNotificationOutboxService notificationOutbox,
+    FinancialDocumentsCancelService financialDocuments
     )
 {
     public async Task ExecuteAsync(Guid key, string userName)
@@ -37,6 +39,15 @@ public class PurchaseContractsWithdrawApprovalService(
         contract.UpdatedAt = DateTime.Now;
 
         notificationOutbox.Register(contract, NotificationEventType.ApprovalWithdrawn, userName);
+
+        // O provisório nasceu da aprovação e morre com ela; reaprovar gera um novo. Sem isso o
+        // rascunho ficava com título a pagar aberto, e a exclusão dele estourava na FK (547).
+        // O adiantamento não é tocado: retirar a aprovação não desfaz o que foi combinado em dinheiro.
+        await financialDocuments.EnqueueCancelByContractAsync(
+            purchaseContractKey: contract.Key,
+            salesContractKey: null,
+            reason: "Aprovação retirada",
+            userName: userName);
 
         await db.SaveChangesAsync();
     }
