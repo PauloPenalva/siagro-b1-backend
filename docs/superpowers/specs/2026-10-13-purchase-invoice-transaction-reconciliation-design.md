@@ -94,19 +94,23 @@ Mensagens de recusa em pt-BR, como `DefaultException` (o controller traduz).
   `PurchaseInvoicesCancelService` e `PurchaseInvoicesDeleteService`, ao lado da limpeza de
   `STORAGE_RETURN_RECONCILIATIONS`.
 - **Linha de NF removida** (`SyncItems` do Update / ItemsDelete) → idem para a linha.
-- **Quantidade da linha reduzida abaixo do vinculado** → recusa ("desvincule antes"). É a única recusa fora da tela,
-  e só na edição da NF.
-- **Romaneio cancelado** → vínculos removidos e confirmação limpa. Há 6 serviços que cancelam romaneio
-  (`StorageTransactionsCancelService`, `ShippingTransactionsReverseService`, `SalesInvoicesReverseConfirmService`,
-  `ShipmentLoadsTransshipmentReverseService`, `WarehouseReconciliationsCancelService`,
-  `PurchaseDischargeTransactionsSyncService`); cada um chama `PurchaseFiscalReconciliationService.RemoveForTransactionsAsync`.
-  Defesa em profundidade: toda consulta ignora vínculo de romaneio cancelado.
+- **Quantidade da linha reduzida abaixo do vinculado** → recusa ("desvincule antes"). Com a troca de produto, são as
+  únicas recusas fora da tela, e só na edição da NF.
+- **Romaneio cancelado** → vínculos removidos e confirmação limpa.
+- **Um ponto só**: toda a limpeza acima (e as recusas de redução de quantidade e de troca de produto de linha
+  vinculada) mora num `SaveChangesInterceptor` — `PurchaseFiscalReconciliationCleanupInterceptor`, registrado no
+  `AppDbContext` do Web como o `FinishedContractMutationGuardInterceptor`. Assim cobre os 6 serviços que cancelam
+  romaneio, o cancelamento/exclusão da NF, o `SyncItems` e PATCH direto, e qualquer caminho futuro, sem tocar em
+  nenhum deles. Defesa em profundidade: toda consulta ignora vínculo de romaneio cancelado ou de NF cancelada.
+- **Troca de produto** de linha de NF vinculada → recusa ("desvincule antes").
 - ⚠️ Consequência aceita: a Conferência de Entregas **recria** os 16/17 a cada gravação (spec 2026-09-19), então NF
   vinculada a um 16/17 perde o vínculo quando a conferência é regravada, e precisa ser vinculada de novo.
 
 ## 5. Backend
 
 - **Entidade + config EF** (`AppDbContext`), DTOs no Domain.
+- **Leitura compartilhada** em `SiagroB1.Infra/Queries/PurchaseFiscalReconciliationQuery.cs` (+ regras puras em
+  `PurchaseFiscalReconciliationRules.cs`), no padrão do `RoyaltyBalanceQuery`: o Web e o Reports usam a MESMA consulta.
 - **`PurchaseFiscalReconciliationService`** (Application/Services/PurchaseFiscalReconciliations):
   - `ListTransactionsAsync(filtro)` — romaneios do fornecedor/produto (+ contrato, período sobre `TransactionDate`,
     status) com Físico, Fiscal, Diferença, Status, contrato(s), placa e NFs vinculadas.
@@ -127,8 +131,7 @@ Rota e view novas (`purchaseFiscalReconciliations/Main`), menu pela migration.
 
 ### 6.1 Layout
 
-- **FilterBar**: Fornecedor* (value help de parceiro), Produto* (value help de produto), Contrato (value help filtrado
-  por fornecedor + produto), Período (DateRangeSelection, "até" inclusivo), Status (multi), Emitente da NF.
+- **FilterBar**: Fornecedor* (value help de parceiro), Produto* (value help de produto), Contrato (código), Período (DateRangeSelection, "até" inclusivo), Status (multi), Emitente da NF.
 - **Tabela de romaneios**: Código, Data, Tipo, Contrato, Placa, Físico, Fiscal, Diferença, Status (ObjectStatus),
   NFs vinculadas. Seleção múltipla. Botão Exportar (Spreadsheet).
 - **Tabela de linhas de NF**: NF/Série, Emitente (⚠ quando `!IssuerMatchesSupplier`), Emissão, Natureza, Contrato,
@@ -161,8 +164,8 @@ recusa do guard aparece em MessageBox e nada é gravado.
 
 ## 8. Relatório "Entregas × NF do Fornecedor"
 
-`SiagroB1.Reports` (que não referencia a Application — consulta própria, com teste cruzado contra
-`PurchaseFiscalReconciliationService.ListTransactionsAsync`), `BuildRowsAsync` + `.frx` retrato.
+`SiagroB1.Reports`, lendo pela `PurchaseFiscalReconciliationQuery` do Infra (a mesma da tela — sem teste cruzado),
+`BuildRowsAsync` + `.frx` paisagem (mesma página dos relatórios de logística).
 
 - Filtros = os da tela (Fornecedor, Produto, Contrato, Período, Status).
 - Agrupado por contrato: linha do romaneio (Código, Data, Tipo, Placa, Físico, Fiscal, Diferença, Status) e, abaixo,
@@ -176,11 +179,11 @@ recusa do guard aparece em MessageBox e nada é gravado.
 
 - **Guard/serviço** (xUnit + InMemory, contexto próprio): cada regra de §4 (status da NF, contra-nota, tipo, sentido,
   produto, contrato, unidade com e sem fator, teto da NF, emitente diferente grava com flag), confirmação derrubada,
-  status calculado, limpeza por NF cancelada/excluída/linha removida/romaneio cancelado (um teste por serviço de
-  cancelamento), recusa da redução de quantidade.
+  status calculado; interceptor: limpeza por NF cancelada/excluída, linha removida, romaneio cancelado, recusa da
+  redução de quantidade e da troca de produto; um teste de ponta com `StorageTransactionsCancelService` real.
 - **Distribuição sugerida**: 1 NF × 2 romaneios (FOB, sobra no último), 2 NFs × 1 romaneio, NF Return × 9/16.
 - **Aba Entregas**: tipo 10 aparece; colunas fiscais; romaneio rateado.
-- **Relatório**: rows + teste cruzado com o serviço.
+- **Relatório**: rows + PDF + layout (padrão `LogisticsReportsPdfTests`/`LogisticsReportsLayoutTests`).
 - **Navegador** (profile `ceagui`, STANDALONE): NF FOB cobrindo 2 caminhões; caminhão com 2 NFs; emitente com outra
   IE (aviso); troca nota com quebra 16 e NF de devolução; marcar/desfazer conciliação; cancelar a NF e ver os
   vínculos sumirem; aba Entregas e PDF batendo com a tela.
