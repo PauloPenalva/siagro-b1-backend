@@ -50,4 +50,10 @@ public class UsageEffect
     /// modo SAPB1 (chaveado pelo OUSG.ID), embora a feature hoje seja só STANDALONE.
     /// </summary>
     public StorageDepositRole StorageDepositRole { get; set; }
+
+    /// <summary>
+    /// Papel nas notas de custódia em armazém próprio (spec 2026-10-12 §3.1). Mora aqui pelo mesmo motivo do
+    /// <see cref="StorageDepositRole"/>: nasce pronto para o modo SAPB1, embora a feature seja só STANDALONE.
+    /// </summary>
+    public StorageCustodyRole StorageCustodyRole { get; set; }
 }

@@ -2395,6 +2395,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<int>("CustodyRole")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CustodyStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -2540,6 +2546,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("ChaveNFe")
                         .IsUnique()
                         .HasFilter("[ChaveNFe] IS NOT NULL AND [InvoiceStatus] <> 2");
+
+                    b.HasIndex("CustodyStorageTransactionKey");
 
                     b.HasIndex("DocNumberKey");
 
@@ -3530,6 +3538,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<int>("CustodyRole")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CustodyStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("DeliveryCardCode")
                         .HasColumnType("VARCHAR(15)");
 
@@ -3680,6 +3694,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
+
+                    b.HasIndex("CustodyStorageTransactionKey");
 
                     b.HasIndex("DocNumberKey");
 
@@ -5048,6 +5064,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("RequiresProcessing")
+                        .HasColumnType("bit");
+
                     b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
@@ -6048,6 +6067,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("RequiresWeight")
                         .HasColumnType("bit");
 
+                    b.Property<int>("StorageCustodyRole")
+                        .HasColumnType("int");
+
                     b.Property<int>("StorageDepositRole")
                         .HasColumnType("int");
 
@@ -7006,6 +7028,11 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("BranchCode")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("CustodyStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
                         .HasForeignKey("DocNumberKey")
@@ -7272,6 +7299,11 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany()
                         .HasForeignKey("BranchCode")
                         .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("CustodyStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SiagroB1.Domain.Entities.DocNumber", "DocNumber")
                         .WithMany()
