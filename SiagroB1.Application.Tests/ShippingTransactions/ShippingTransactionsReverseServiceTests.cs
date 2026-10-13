@@ -433,4 +433,36 @@ public class ShippingTransactionsReverseServiceTests
             .AsNoTracking().SingleAsync(x => x.Key == release.Key);
         Assert.Equal(1000m, reloadedRelease.ShippedQuantity);
     }
+
+    /// <summary>
+    /// O estorno também cancela as pernas direto: nota de custódia ativa (spec 2026-10-12 §4.5) num dos romaneios
+    /// ficaria órfã. Cancelada a nota, o estorno segue.
+    /// </summary>
+    [Fact]
+    public async Task Execute_ComNotaDeCustodiaAtivaNaPerna_RecusaEPassaDepoisDeCancelada()
+    {
+        var (contract, release) = await SeedAsync();
+        var shipping = await CreateService()
+            .ExecuteAsync(contract.Key, NewPurchase(release.Key, 1000m), "tester");
+
+        var note = new SalesInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = "F0001", InvoiceNumber = "DS1", TaxDocumentNumber = "000000009",
+            CustodyStorageTransactionKey = shipping.SalesStorageTransactionKey, CustodyRole = StorageCustodyRole.StorageSymbolicReturn,
+            InvoiceStatus = InvoiceStatus.Confirmed,
+        };
+        _db.Context.SalesInvoices.Add(note);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester"));
+
+        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de estornar.", error.Message);
+        Assert.True(await _db.Context.ShippingTransactions.AsNoTracking()
+            .AnyAsync(x => x.SalesStorageTransactionKey == shipping.SalesStorageTransactionKey));
+
+        note.InvoiceStatus = InvoiceStatus.Cancelled;
+        await _db.Context.SaveChangesAsync();
+        await ReverseService().ExecuteAsync(shipping.SalesStorageTransactionKey, "tester");
+    }
 }

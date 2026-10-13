@@ -1,3 +1,5 @@
+using SiagroB1.Application.Services.StorageCustody;
+using SiagroB1.Infra.Queries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
@@ -37,6 +39,18 @@ public class StorageAddressesUpdateService(
         {
             throw new ApplicationException(
                 $"A natureza do lote {code} não pode ser alterada após a criação.");
+        }
+
+        // Beneficiamento fiscal (spec 2026-10-12 §3.2): trocar com nota de custódia ativa mudaria as etapas esperadas
+        // de romaneios que já têm nota. OriginalValues pelo mesmo motivo da natureza (PATCH chega mutado).
+        var originalProcessing = context.Entry(existingAddress).OriginalValues.GetValue<bool>(nameof(StorageAddress.RequiresProcessing));
+        if (entity.RequiresProcessing != originalProcessing)
+        {
+            var lotTransactionKeys = await context.StorageTransactions.AsNoTracking()
+                .Where(t => t.StorageAddressCode == code).Select(t => t.Key).ToListAsync();
+
+            if ((await StorageCustodyQuery.ActiveDocumentsAsync(context, lotTransactionKeys)).Count > 0)
+                throw new ApplicationException("O lote já possui notas fiscais de custódia; não é possível alterar o beneficiamento.");
         }
 
         try

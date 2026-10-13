@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -185,6 +186,7 @@ public class SalesInvoicesCancelService(
             throw new DefaultException("Documento de saída possui retorno.");
 
         await StorageDepositRules.EnsureRemittanceHasNoReturnAsync(db.Context, invoice.Key);
+        await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, invoice.Key);
 
         // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir de um
         // item desta nota — o acerto do fornecedor ficaria órfão se a nota fosse cancelada.

@@ -173,4 +173,63 @@ public static class StorageCustodyGuard
 
         return entry.ChaveNFe;
     }
+
+
+    /// <summary>Etapa que depende desta: cancelar/excluir esta exige cancelar aquela antes (spec §4.5).</summary>
+    private static StorageCustodyRole LaterStep(StorageCustodyRole role) => role switch
+    {
+        StorageCustodyRole.ProcessingEntry => StorageCustodyRole.ProcessingSymbolicReturn,
+        StorageCustodyRole.ProcessingSymbolicReturn => StorageCustodyRole.StorageEntry,
+        _ => StorageCustodyRole.None,
+    };
+
+    private static async Task EnsureNoLaterStepAsync(AppDbContext ctx, Guid? transactionKey, StorageCustodyRole role, Guid documentKey)
+    {
+        var later = LaterStep(role);
+        if (transactionKey is not { } key || later == StorageCustodyRole.None)
+            return;
+
+        var hit = (await StorageCustodyQuery.ActiveDocumentsAsync(ctx, [key]))
+            .FirstOrDefault(d => d.Role == later && d.DocumentKey != documentKey);
+
+        if (hit != null)
+            throw new DefaultException(
+                $"Cancele primeiro a nota de {Label(later)} nº {StorageCustodyRules.DocumentNumber(hit)} deste romaneio.");
+    }
+
+    public static async Task EnsurePurchaseHasNoLaterStepAsync(AppDbContext ctx, Guid purchaseInvoiceKey)
+    {
+        var doc = await ctx.PurchaseInvoices.AsNoTracking()
+            .Where(i => i.Key == purchaseInvoiceKey)
+            .Select(i => new { i.CustodyStorageTransactionKey, i.CustodyRole })
+            .FirstOrDefaultAsync();
+
+        if (doc != null)
+            await EnsureNoLaterStepAsync(ctx, doc.CustodyStorageTransactionKey, doc.CustodyRole, purchaseInvoiceKey);
+    }
+
+    public static async Task EnsureSalesHasNoLaterStepAsync(AppDbContext ctx, Guid salesInvoiceKey)
+    {
+        var doc = await ctx.SalesInvoices.AsNoTracking()
+            .Where(i => i.Key == salesInvoiceKey)
+            .Select(i => new { i.CustodyStorageTransactionKey, i.CustodyRole })
+            .FirstOrDefaultAsync();
+
+        if (doc != null)
+            await EnsureNoLaterStepAsync(ctx, doc.CustodyStorageTransactionKey, doc.CustodyRole, salesInvoiceKey);
+    }
+
+    /// <summary>
+    /// Romaneio (ou transferência) com nota de custódia ativa não é cancelado nem estornado: a nota ficaria apontando um
+    /// movimento que não existe mais. ApplicationException, como as travas vizinhas desses serviços.
+    /// </summary>
+    public static async Task EnsureTransactionsHaveNoCustodyAsync(AppDbContext ctx, IReadOnlyCollection<Guid> transactionKeys)
+    {
+        var hit = (await StorageCustodyQuery.ActiveDocumentsAsync(ctx, transactionKeys)).FirstOrDefault();
+
+        if (hit != null)
+            throw new ApplicationException(
+                $"O romaneio tem nota fiscal de custódia ativa (nº {StorageCustodyRules.DocumentNumber(hit)}). " +
+                "Cancele as notas fiscais de custódia antes de estornar.");
+    }
 }

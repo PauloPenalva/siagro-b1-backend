@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -33,6 +34,7 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
 
         PurchaseInvoiceNfeLock.EnsureDeletable(invoice);
         await PurchaseInvoiceCounterNote.EnsureNotReferencedAsync(db.Context, invoice.Key);
+        await StorageCustodyGuard.EnsurePurchaseHasNoLaterStepAsync(db.Context, invoice.Key);
 
         // A FK de PURCHASE_INVOICE_NFE_XMLS para o documento é NoAction: sem remover os XMLs (da NF-e
         // rejeitada) antes, o delete estoura 547 no banco real. O InMemory dos testes não acusaria.

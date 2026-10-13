@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -22,6 +23,7 @@ public class SalesInvoicesDeleteService(
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
 
             SalesInvoiceNfeLock.EnsureDeletable(entity);
+            await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, entity.Key);
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, entity);
 
             // GAC-1171: as FKs de SHIPMENT_LOAD_DISCHARGE_ITEMS (o rateio do ticket) para a nota e

@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
@@ -107,6 +108,12 @@ public class ShippingTransactionsReverseService(
         await StorageDepositRules.EnsureTransactionsNotReconciledAsync(db.Context,
             new[] { shipping.PurchaseStorageTransactionKey, (Guid?)shipping.SalesStorageTransactionKey }
                 .Where(k => k != null).Select(k => k!.Value));
+
+        // O estorno cancela as pernas escrevendo o status direto, sem passar por StorageTransactionsCancelService:
+        // nota de custódia ativa em qualquer uma delas ficaria órfã (spec 2026-10-12 §4.5).
+        await StorageCustodyGuard.EnsureTransactionsHaveNoCustodyAsync(db.Context,
+            new[] { shipping.PurchaseStorageTransactionKey, (Guid?)shipping.SalesStorageTransactionKey }
+                .Where(k => k != null).Select(k => k!.Value).ToList());
 
         try
         {

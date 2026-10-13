@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -71,5 +72,8 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
 
         // A contra-nota referencia a chave desta escrituração (spec 2026-10-10 D10).
         await PurchaseInvoiceCounterNote.EnsureNoValidAsync(db.Context, key, "cancelar a escrituração");
+
+        // Cadeia de custódia na ordem inversa (spec 2026-10-12 §4.5).
+        await StorageCustodyGuard.EnsurePurchaseHasNoLaterStepAsync(db.Context, key);
     }
 }
