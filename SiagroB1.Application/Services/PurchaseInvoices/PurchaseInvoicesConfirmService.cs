@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Taxes;
@@ -48,6 +49,11 @@ public class PurchaseInvoicesConfirmService(
             SupplierNfeKeyGuard.Ensure(invoice, (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.TaxId);
             await supplierNfe.EnsureAuthorizedAsync(invoice);
         }
+
+        // A escrituração/entrada de custódia precisa continuar batendo com o romaneio (spec 2026-10-12 §4.4).
+        var lines = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
 
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;

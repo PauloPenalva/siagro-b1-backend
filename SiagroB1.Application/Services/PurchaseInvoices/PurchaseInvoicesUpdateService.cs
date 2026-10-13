@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.Nfe;
 using Microsoft.EntityFrameworkCore;
@@ -81,6 +82,7 @@ public class PurchaseInvoicesUpdateService(
         existing.BranchCode = entity.BranchCode;
         existing.PaymentConditionCode = entity.PaymentConditionCode;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
+        existing.CustodyStorageTransactionKey = entity.CustodyStorageTransactionKey;
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
@@ -117,6 +119,7 @@ public class PurchaseInvoicesUpdateService(
 
         // Retorno de depósito sobre a lista final de linhas (mantidas/alteradas + novas), sem as removidas (spec 2026-10-10 §3.3).
         await StorageDepositReturnGuard.EnsureAsync(db.Context, existing.CardCode, existing.Key, existing.Items.ToList());
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, existing, existing.Items.ToList());
 
         // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
         if (await taxApply.IsBranchActiveAsync(existing.BranchCode))

@@ -190,4 +190,17 @@ public class SalesInvoicesConfirmNfeGuardTests
 
         Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
     }
+
+    [Fact]
+    public async Task Confirm_refuses_sales_custody_document_with_changed_quantity()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync(StorageTransactionType.Shipment, net: 15_000m);
+        var doc = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.StorageReturn, 14_000m);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(doc.Key, "tester"));
+
+        Assert.Contains("precisa ter a quantidade do romaneio", e.Message);
+    }
 }

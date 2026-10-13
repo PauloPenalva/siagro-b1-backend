@@ -51,6 +51,9 @@ public class SalesInvoicesController(
         // O vínculo com a liberação (remessa para depósito) só nasce no "Emitir remessa", que não passa por aqui.
         entity.ShipmentReleaseKey = null;
 
+        // O vínculo da nota de custódia só nasce no "Gerar nota" do romaneio, que não passa por aqui.
+        entity.CustodyStorageTransactionKey = null;
+
         try
         {
             var userName = User.Identity?.Name ?? "Unknown";

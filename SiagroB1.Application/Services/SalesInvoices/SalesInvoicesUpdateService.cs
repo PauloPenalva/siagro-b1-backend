@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
@@ -47,6 +48,12 @@ public class SalesInvoicesUpdateService(
             // O vínculo com a liberação (remessa para depósito) só nasce no "Emitir remessa": PUT/PATCH não o move.
             entry.Property(nameof(SalesInvoice.ShipmentReleaseKey)).CurrentValue =
                 entry.OriginalValues[nameof(SalesInvoice.ShipmentReleaseKey)];
+
+            // O vínculo da nota de custódia só nasce no "Gerar nota" do romaneio: PUT/PATCH não o move.
+            entry.Property(nameof(SalesInvoice.CustodyStorageTransactionKey)).CurrentValue =
+                entry.OriginalValues[nameof(SalesInvoice.CustodyStorageTransactionKey)];
+            entry.Property(nameof(SalesInvoice.CustodyRole)).CurrentValue =
+                entry.OriginalValues[nameof(SalesInvoice.CustodyRole)];
 
             // Complemento fiscal do contrato (spec 2026-10-07 D6): o PATCH reenvia o cabeçalho inteiro, então a
             // condição e o texto do contrato voltam em silêncio. No-op fora da regra e sem linha de contrato.

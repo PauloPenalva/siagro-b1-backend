@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using SiagroB1.Application.Services.StorageCustody;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
@@ -62,6 +63,9 @@ public class SalesInvoicesCreateService(
         await fiscalComplement.ApplyToDocumentAsync(salesInvoice);
 
         var lineUsages = await usageGuard.ValidateAsync(salesInvoice);
+
+        // Nota de custódia (spec 2026-10-12 §4): só nasce pelo romaneio; grava o papel no cabeçalho.
+        await StorageCustodyGuard.EnsureSalesAsync(db.Context, salesInvoice, salesInvoice.Items.ToList());
 
         // Documento nascido de romaneio — por CARGA ou pelo caminho legado. A coleção
         // SalesTransactions é vazia no documento de carga (ele chega ao romaneio pela carga),

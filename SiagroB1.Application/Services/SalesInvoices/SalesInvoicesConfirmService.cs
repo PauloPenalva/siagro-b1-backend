@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using SiagroB1.Application.Services.StorageCustody;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -75,6 +76,9 @@ public class SalesInvoicesConfirmService(
         // Remessa para depósito (spec 2026-10-10 §3.1): a tela permite editar o rascunho, a confirmação recusa o que
         // deixou de ser a remessa da liberação.
         await StorageDepositRules.EnsureRemittanceMatchesReleaseAsync(db.Context, invoice);
+
+        // Nota de custódia editada pela tela depois de gerada: a confirmação recusa o que deixou de bater com o romaneio.
+        await StorageCustodyGuard.EnsureSalesAsync(db.Context, invoice, invoice.Items.ToList());
 
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
         {
