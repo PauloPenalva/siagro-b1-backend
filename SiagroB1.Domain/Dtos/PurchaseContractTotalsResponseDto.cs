@@ -33,4 +33,33 @@ public class PurchaseContractTotalsResponseDto
 
     [JsonPropertyName("WashedOutVolume")]
     public decimal WashedOutVolume { get; set; }
+
+    // Totalizador de Funrural (spec 2026-10-13, só STANDALONE; zerado em SAPB1). Base = TotalPrice.
+    [JsonPropertyName("FunruralBase")]
+    public decimal FunruralBase { get; set; }
+
+    [JsonPropertyName("FunruralInssRate")]
+    public decimal FunruralInssRate { get; set; }
+
+    [JsonPropertyName("FunruralRatRate")]
+    public decimal FunruralRatRate { get; set; }
+
+    [JsonPropertyName("FunruralSenarRate")]
+    public decimal FunruralSenarRate { get; set; }
+
+    [JsonPropertyName("FunruralInssValue")]
+    public decimal FunruralInssValue { get; set; }
+
+    [JsonPropertyName("FunruralRatValue")]
+    public decimal FunruralRatValue { get; set; }
+
+    [JsonPropertyName("FunruralSenarValue")]
+    public decimal FunruralSenarValue { get; set; }
+
+    [JsonPropertyName("TotalFunrural")]
+    public decimal TotalFunrural { get; set; }
+
+    /// <summary>Base − Funrural: o que o produtor recebe (Funrural sempre retido sobre o preço cheio).</summary>
+    [JsonPropertyName("NetToProducer")]
+    public decimal NetToProducer { get; set; }
 }
