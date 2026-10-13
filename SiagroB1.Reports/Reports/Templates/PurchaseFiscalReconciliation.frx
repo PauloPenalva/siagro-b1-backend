@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/13/2026 10:00:00" ReportInfo.Modified="10/13/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="FiscalReconciliation" ReferenceName="FiscalReconciliation" DataType="System.Int32" Enabled="true">
+      <Column Name="Group" DataType="System.String"/>
+      <Column Name="Kind" DataType="System.String"/>
+      <Column Name="Document" DataType="System.String"/>
+      <Column Name="Date" DataType="System.String"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="Party" DataType="System.String"/>
+      <Column Name="PhysicalText" DataType="System.String"/>
+      <Column Name="FiscalText" DataType="System.String"/>
+      <Column Name="DifferenceText" DataType="System.String"/>
+      <Column Name="Status" DataType="System.String"/>
+      <Column Name="GroupPhysical" DataType="System.Decimal"/>
+      <Column Name="GroupFiscal" DataType="System.Decimal"/>
+      <Column Name="GroupDifference" DataType="System.Decimal"/>
+      <Column Name="SumPhysical" DataType="System.Decimal"/>
+      <Column Name="SumFiscal" DataType="System.Decimal"/>
+      <Column Name="SumDifference" DataType="System.Decimal"/>
+      <Column Name="TransactionCount" DataType="System.Int32"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Total Name="TotalGrpPhysical" Expression="[FiscalReconciliation.GroupPhysical]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpFiscal" Expression="[FiscalReconciliation.GroupFiscal]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalGrpDifference" Expression="[FiscalReconciliation.GroupDifference]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="TotalSumPhysical" Expression="[FiscalReconciliation.SumPhysical]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumFiscal" Expression="[FiscalReconciliation.SumFiscal]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalSumDifference" Expression="[FiscalReconciliation.SumDifference]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalTransactions" Expression="[FiscalReconciliation.TransactionCount]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Entregas × NF do Fornecedor" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hdrDocument" Left="0" Width="90" Height="17" Text="Romaneio/NF" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrRowDate" Left="90" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDescription" Left="152" Width="150" Height="17" Text="Tipo/Natureza" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrParty" Left="302" Width="330" Height="17" Text="Placa/Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPhysical" Left="632" Width="100" Height="17" Text="Físico (KG)" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrFiscal" Left="732" Width="100" Height="17" Text="Fiscal (KG)" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDifference" Left="832" Width="100" Height="17" Text="Diferença" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrStatus" Left="942" Width="142" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[FiscalReconciliation.Group]">
+      <TextObject Name="txtGroup" Left="0" Top="2" Width="700" Height="17" Text="[FiscalReconciliation.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <DataBand Name="Data1" Top="159.75" Width="1084" Height="17" CanGrow="true" CanShrink="true" DataSource="FiscalReconciliation">
+        <TextObject Name="txtSeparator" Left="0" Width="1084" Height="17" Border.Lines="Top" Border.Color="DimGray" Text="" WordWrap="false" Font="Consolas, 7pt">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Visible="false" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtDocument" Left="0" Width="90" Height="17" Text="[FiscalReconciliation.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtRowDate" Left="90" Width="62" Height="17" Text="[FiscalReconciliation.Date]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtDescription" Left="152" Width="150" Height="17" Text="[FiscalReconciliation.Description]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtParty" Left="302" Width="330" Height="17" Text="[FiscalReconciliation.Party]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtPhysical" Left="632" Width="100" Height="17" Text="[FiscalReconciliation.PhysicalText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtFiscal" Left="732" Width="100" Height="17" Text="[FiscalReconciliation.FiscalText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtDifference" Left="832" Width="100" Height="17" Text="[FiscalReconciliation.DifferenceText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtStatus" Left="942" Width="142" Height="17" Text="[FiscalReconciliation.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[FiscalReconciliation.Kind] != &quot;Romaneio&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
+        <TextObject Name="txtGrpLabel" Left="0" Top="2" Width="632" Height="17" Text="Subtotal do grupo:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpPhysical" Left="632" Top="2" Width="100" Height="17" Text="[TotalGrpPhysical]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpFiscal" Left="732" Top="2" Width="100" Height="17" Text="[TotalGrpFiscal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtGrpDifference" Left="832" Top="2" Width="100" Height="17" Text="[TotalGrpDifference]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="48">
+      <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtSumCount" Left="100" Top="4" Width="160" Height="17" Text="[TotalTransactions] romaneio(s)" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtSumPhysical" Left="632" Top="4" Width="100" Height="17" Text="[TotalSumPhysical]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumFiscal" Left="732" Top="4" Width="100" Height="17" Text="[TotalSumFiscal]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtSumDifference" Left="832" Top="4" Width="100" Height="17" Text="[TotalSumDifference]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="254" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
