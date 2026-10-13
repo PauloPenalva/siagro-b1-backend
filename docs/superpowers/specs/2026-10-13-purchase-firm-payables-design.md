@@ -5,8 +5,8 @@ Status: aprovado para planejamento
 Modo alvo: **os dois** (`STANDALONE` e `SAPB1`). Em `SAPB1` o Funrural da linha do documento é zero e o
 firme sai pelo bruto.
 
-Sub-projeto **2 de 4** de "título a pagar firme a partir do romaneio de compra". O sub-projeto 1
-(`2026-10-13-purchase-contract-fiscal-complement-design.md`) está mergeado em `main`.
+Sub-projeto **2** de "título a pagar firme a partir do romaneio de compra". O sub-projeto 1
+(`2026-10-13-purchase-contract-fiscal-complement-design.md`) está mergeado em `main` e é **desfeito** por este (ver abaixo).
 
 ## O que mudou em relação ao roadmap do sub-projeto 1
 
@@ -28,6 +28,30 @@ Consequências:
 Continua valendo do roadmap: um provisório por fixação (FIX e PAF) é o **único** título que recebe
 baixa em dinheiro; trava rígida (paga-se só o que está coberto); a NF não precisa ser fiscal ("seja
 nota fiscal ou não").
+
+### Reversão do sub-projeto 1 (decisão do usuário ao revisar este spec)
+
+Com o Funrural e a flag "gera financeiro" vindo da **natureza do documento de entrada** conciliado
+(NF-e ou Outros), a natureza no contrato perdeu a razão de existir. O usuário escolheu **desfazer o
+sub-projeto 1, sem trazer a grade de impostos de volta**:
+
+- **sai**: `PURCHASE_CONTRACT_FISCAL_COMPLEMENTS` (migration nova `DropPurchaseContractFiscalComplement`
+  — as migrations antigas já estão aplicadas na CEAGUI dev e não são reescritas), a permissão
+  `PURCHASE_CONTRACT_FISCAL_EDIT` (migration `RemovePurchaseContractFiscalEditPermission`, idempotente),
+  `PurchaseContractFiscalComplementService`, function/action e controllers, a trava em
+  `PurchaseContractsApprovalService` (e o parâmetro `IConfiguration` que só ela usava), o totalizador
+  em `PurchaseContractsTotalsService` (e os 9 campos de Funrural do DTO), `ContractChangeLogFields.Usage`,
+  as seções "Complemento Fiscal" e o quadro de Funrural no Detail e na Aprovação, o KPI "Líquido ao
+  produtor", o helper `PurchaseContractFunruralHelpers` e o rótulo `Usage` do formatter;
+- **a grade digitada não volta em STANDALONE**: a seção "Impostos" e o "Total Impostos" ficam ocultos
+  em STANDALONE (`TotalTax` volta a ser a soma da grade, que em STANDALONE não é mais editável nem
+  exibida). Em SAPB1 tudo como antes;
+- **fica**, por não depender da natureza: a correção do tratamento de erro da tela de Aprovação
+  (mensagens de negócio na tela) e a porta única `applyContractTotals`;
+- o comentário de `PurchaseContract.FunruralType` passa a dizer que o Funrural vem do documento de
+  entrada;
+- **o sub-projeto 4 sai do roadmap** (dependia da natureza no contrato). Restam este (2) e a
+  compensação de adiantamento (3).
 
 ## Decisões do usuário
 
@@ -319,6 +343,6 @@ teste na CEAGUI dev); quem precisar, regrava o vínculo.
 
 - Compensação de adiantamento contra o provisório (sub-projeto 3 — usará `AvailableToSettleAmount`).
 - Recebimento em dinheiro de devolução.
-- Natureza do contrato como padrão na Entrada (sub-projeto 4).
+- Natureza do contrato como padrão na Entrada — removido do roadmap junto com o sub-projeto 1.
 - Retenção de Funrural na Yokotobi (`SAPB1`).
 - Contas a Receber (venda) — este desenho é só compra.
