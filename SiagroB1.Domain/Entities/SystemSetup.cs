@@ -21,6 +21,12 @@ public class SystemSetup
     [Column(TypeName = "VARCHAR(4)")]
     public string? DefaultFreightUoM { get; set; }
 
+    /// <summary>
+    /// Cálculo do Frete/Remoção que vem selecionado no romaneio e no ticket de pesagem novos
+    /// (GAC-1191): Fixo na Mhagro, Saco na Yokotobi. O usuário ainda pode trocar em cada documento.
+    /// </summary>
+    public FreightCalculationMethod DefaultFreightCalculationMethod { get; set; } = FreightCalculationMethod.Fixed;
+
     public bool IsActive { get; set; } = true;
     
     [Column(TypeName = "VARCHAR(200)")]

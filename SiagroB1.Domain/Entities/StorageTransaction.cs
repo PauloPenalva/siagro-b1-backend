@@ -235,6 +235,11 @@ public class StorageTransaction : DocumentEntity
 
     public DateTime? InvoicedAt { get; set; }
     
+    /// <summary>
+    /// Total do Frete/Remoção. Derivado de <see cref="FreightCalculationMethod"/> e
+    /// <see cref="FreightUnitPrice"/> por <see cref="RecalculateFreightPrice"/> — não é mais digitado.
+    /// Continua sendo a coluna que a fatura de armazenagem e o relatório de romaneios leem.
+    /// </summary>
     [Column(TypeName = "DECIMAL(18,2)")]
     public decimal FreightPrice { get; set; }
 
@@ -252,6 +257,12 @@ public class StorageTransaction : DocumentEntity
     [Column(TypeName = "VARCHAR(200)")]
     public string? RoyaltyOriginName { get; set; }
     
+    public FreightCalculationMethod FreightCalculationMethod { get; set; } = FreightCalculationMethod.Fixed;
+
+    /// <summary>Valor da viagem (Fixo) ou R$ por saco de 60 kg (Saco).</summary>
+    [Column(TypeName = "DECIMAL(18,2)")]
+    public decimal FreightUnitPrice { get; set; }
+
     public Guid? ReturnInvoiceKey { get; set; }
 
     public DateTime? ReturnedAt { get; set; }
@@ -285,4 +296,11 @@ public class StorageTransaction : DocumentEntity
     /// </summary>
     public void RecalculateAvailableVolume(decimal totalAllocated)
         => AvaiableVolumeToAllocate = IsAllocatable ? NetWeight - totalAllocated : decimal.Zero;
+
+    /// <summary>
+    /// Refaz <see cref="FreightPrice"/> a partir do método, do unitário e do peso bruto. Chamar
+    /// sempre que qualquer um dos três puder ter mudado (criação e edição).
+    /// </summary>
+    public void RecalculateFreightPrice()
+        => FreightPrice = FreightPriceCalculator.Calculate(FreightCalculationMethod, FreightUnitPrice, GrossWeight);
 }

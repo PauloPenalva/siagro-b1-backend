@@ -68,6 +68,7 @@ public class StorageTransactionsCreateService(
             entity.RoyaltyOriginName = await RoyaltyRules.ResolveOriginNameAsync(
                 entity, async code => (await businessPartnerService.GetByIdAsync(code))?.CardName);
             entity.TransactionOrigin = transactionCode;
+            entity.RecalculateFreightPrice();
             entity.CreatedBy = userName;
             entity.CreatedAt = DateTime.Now;
             

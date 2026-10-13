@@ -30,6 +30,9 @@ public class WeighingTicketsSecondWeighingService(IUnitOfWork db, WeighingCaptur
         ticket.SecondWeighScaleCode = origin.ScaleCode;
         ticket.SecondWeighCaptured = origin.Captured;
 
+        // O peso bruto nasce aqui: o frete por saco informado antes da 2ª pesagem valia zero.
+        ticket.RecalculateFreightPrice();
+
         await db.SaveChangesAsync();
     }
 }

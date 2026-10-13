@@ -40,6 +40,7 @@ public class WeighingTicketsUpdateService(
             existingEntity.RoyaltyOriginName = string.IsNullOrWhiteSpace(existingEntity.RoyaltyOriginCode)
                 ? null
                 : (await businessPartnerService.GetByIdAsync(existingEntity.RoyaltyOriginCode))?.CardName;
+            existingEntity.RecalculateFreightPrice();
 
             await db.SaveChangesAsync();
         }

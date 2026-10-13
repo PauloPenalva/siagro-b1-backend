@@ -47,6 +47,7 @@ public class StorageTransactionsUpdateService(
                 RoyaltyRules.NormalizeTestCode(existingEntity.RoyaltySituation, existingEntity.RoyaltyTestCode);
             existingEntity.RoyaltyOriginName = await RoyaltyRules.ResolveOriginNameAsync(
                 existingEntity, async code => (await businessPartnerService.GetByIdAsync(code))?.CardName);
+            existingEntity.RecalculateFreightPrice();
 
             existingEntity.UpdatedBy = userName;
             existingEntity.UpdatedAt = DateTime.Now;
