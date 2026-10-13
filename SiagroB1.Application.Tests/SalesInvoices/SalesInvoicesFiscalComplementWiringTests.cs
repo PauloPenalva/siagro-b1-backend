@@ -104,6 +104,7 @@ public class SalesInvoicesFiscalComplementWiringTests
         new(db, Items(),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
             TaxTestServices.Apply(db, Partners()), TaxTestServices.FiscalComplement(db),
+            PurchaseDischargeTestServices.Sync(db),
             NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db, string erp = "STANDALONE") =>

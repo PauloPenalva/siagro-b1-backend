@@ -25,6 +25,18 @@ public class PurchaseContractsAllocationDeleteService(
         if (contract?.Status == ContractStatus.Finished)
             throw new ApplicationException("Contrato encerrado: não é possível estornar a alocação.");
 
+        // Troca nota: a alocação de um romaneio de quebra/sobra de descarga (16/17) só pode ser
+        // desfeita reabrindo a Conferência de Entregas — soltá-la por aqui deixaria o romaneio
+        // ativo, sem alocação. O cascade interno da sync (ExecuteAsync) não passa por este guard.
+        var dischargeType = await db.Context.StorageTransactions
+            .Where(x => x.Key == alloc.StorageTransactionKey)
+            .Select(x => (StorageTransactionType?)x.TransactionType)
+            .FirstOrDefaultAsync();
+
+        if (dischargeType is StorageTransactionType.PurchaseDischargeLoss or StorageTransactionType.PurchaseDischargeGain)
+            throw new ApplicationException(
+                "Esta alocação é de quebra/sobra de descarga da troca nota. Reabra a Conferência de Entregas para desfazê-la.");
+
         // A alocação de uma entrada em armazenagem faz parte de um agregado: soltá-la
         // aqui devolveria o volume ao contrato mas deixaria o produto no lote e a
         // liberação consumida. O estorno da entrada é o único caminho consistente

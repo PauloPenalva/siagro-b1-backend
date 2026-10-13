@@ -25,7 +25,7 @@ public class SalesInvoicesNfeReturnLockTests
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), PurchaseDischargeTestServices.Sync(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     [Fact]
     public async Task Informar_nota_fiscal_is_refused_for_an_own_return()

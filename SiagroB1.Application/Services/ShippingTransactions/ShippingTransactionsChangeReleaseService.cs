@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -190,6 +191,12 @@ public class ShippingTransactionsChangeReleaseService(
                        ?? throw new NotFoundException("Expedição não encontrada para o romaneio informado.");
 
         var sales = shipping.SalesStorageTransaction!;
+
+        // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir desta
+        // Expedição — trocar a liberação por baixo dela deixaria o acerto do fornecedor órfão no
+        // contrato de ORIGEM. Primeiro guard: os de baixo (carga, contrato) não dizem o que desfazer.
+        if (await PurchaseDischargeGuards.HasActiveForShippingAsync(db.Context, shipping.Key))
+            throw new ApplicationException(PurchaseDischargeGuards.ShippingMessage);
 
         if (sales.ReplacedByShippingReleaseChangeKey != null)
             throw new ApplicationException(

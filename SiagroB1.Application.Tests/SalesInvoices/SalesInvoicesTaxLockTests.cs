@@ -81,7 +81,7 @@ public class SalesInvoicesTaxLockTests
     private static SalesInvoicesItemsUpdateService ItemsUpdate(UnitOfWork db) =>
         new(db, Items(),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), PurchaseDischargeTestServices.Sync(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesUpdateService HeaderUpdate(UnitOfWork db) =>
         new(db, Partners(), TaxTestServices.Apply(db, Partners()), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);

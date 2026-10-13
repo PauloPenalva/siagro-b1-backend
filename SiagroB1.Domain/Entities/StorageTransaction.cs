@@ -182,6 +182,27 @@ public class StorageTransaction : DocumentEntity
     /// </remarks>
     public Guid? ShippingReleaseChangeKey { get; set; }
 
+    /// <summary>
+    /// Troca nota: item do documento de saída cuja Conferência de Entregas gerou este romaneio de
+    /// quebra/sobra de descarga (<see cref="StorageTransactionType.PurchaseDischargeLoss"/> /
+    /// <see cref="StorageTransactionType.PurchaseDischargeGain"/>).
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Coluna própria, e NÃO <see cref="SalesInvoiceKey"/>/<see cref="ShipmentLoadKey"/>.</b>
+    /// Aquelas entram nos saldos da nota e da carga; o romaneio de descarga só acerta o contrato de
+    /// compra. Sem navigation property, pelo mesmo motivo das chaves da troca de liberação.
+    /// </remarks>
+    public Guid? DischargeSalesInvoiceItemKey { get; set; }
+
+    /// <summary>
+    /// Troca nota: a Expedição (par Compra 8 / Saída 7 em <c>SHIPPING_TRANSACTIONS</c>) cujo
+    /// contrato de compra este romaneio acerta.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ NÃO é <see cref="ShipmentReleaseKey"/>: a quebra reabre o CONTRATO, nunca a liberação.
+    /// </remarks>
+    public Guid? DischargeShippingTransactionKey { get; set; }
+
     public TransactionCode? TransactionOrigin { get; set; }
     
     public Guid? ShippingOrderKey { get; set; }

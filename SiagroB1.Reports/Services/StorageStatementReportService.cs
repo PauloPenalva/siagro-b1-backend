@@ -17,6 +17,10 @@ public class StorageStatementReportService(IUnitOfWork db) : IStorageStatementRe
         var query = db.Context.StorageTransactions
             .AsNoTracking()
             .Where(x => x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            // Troca nota: quebra/sobra de descarga só acerta o contrato de compra — o grão nunca
+            // esteve no armazém do extrato.
+            .Where(x => x.TransactionType != StorageTransactionType.PurchaseDischargeLoss &&
+                        x.TransactionType != StorageTransactionType.PurchaseDischargeGain)
             .Include(x => x.QualityInspections)
             .AsQueryable();
 

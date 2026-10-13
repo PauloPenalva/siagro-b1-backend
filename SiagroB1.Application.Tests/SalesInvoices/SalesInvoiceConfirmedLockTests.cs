@@ -49,7 +49,7 @@ public class SalesInvoiceConfirmedLockTests
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            Apply(db, erp), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            Apply(db, erp), TaxTestServices.InactiveFiscalComplement(db), PurchaseDischargeTestServices.Sync(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static SalesInvoicesItemsCreateService ItemCreate(UnitOfWork db, string erp = "STANDALONE") =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }), Apply(db, erp),

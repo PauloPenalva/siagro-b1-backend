@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
 using SiagroB1.Application.Services.StorageTransactions;
@@ -35,6 +36,13 @@ public class ShippingTransactionsReverseService(
                            .Include(x => x.SalesStorageTransaction)
                 .FirstOrDefaultAsync(x => x.SalesStorageTransactionKey == key) ??
             throw new NotFoundException("Shipping not found.");
+
+        // Troca nota: quebra/sobra de descarga ATIVA lançada no contrato de compra a partir desta
+        // Expedição — o acerto do fornecedor ficaria órfão se o par fosse cancelado por baixo dele.
+        // Primeiro guard de propósito: os de baixo (faturado, carga) respondem com uma mensagem
+        // que não diz o que desfazer.
+        if (await PurchaseDischargeGuards.HasActiveForShippingAsync(db.Context, shipping.Key))
+            throw new ApplicationException(PurchaseDischargeGuards.ShippingMessage);
 
         if (shipping.SalesStorageTransaction is { TransactionStatus: StorageTransactionsStatus.Invoiced })
         {

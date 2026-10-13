@@ -48,7 +48,7 @@ public class SalesInvoiceNfeLockTests
     private static SalesInvoicesItemsUpdateService ItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), PurchaseDischargeTestServices.Sync(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     [Fact]
     public async Task Processing_document_header_cannot_be_edited()

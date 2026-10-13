@@ -3,6 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
+using SiagroB1.Reports.Helpers;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Application.Tests.Reports;
@@ -82,5 +83,35 @@ public class StorageStatementReportServiceTests
             .GetReportAsync(new StorageStatementReportFilter(), CancellationToken.None);
 
         Assert.Equal("Compra - Entrada", Assert.Single(rows).TransactionTypeName);
+    }
+
+    [Theory]
+    [InlineData(StorageTransactionType.PurchaseDischargeLoss)]
+    [InlineData(StorageTransactionType.PurchaseDischargeGain)]
+    public async Task Discharge_transactions_are_excluded_from_the_statement(StorageTransactionType dischargeType)
+    {
+        // Seed one discharge transaction (should NOT appear in report)
+        await SeedAsync(dischargeType, 50m);
+
+        // Seed one normal Purchase alongside (should appear in report)
+        await SeedAsync(StorageTransactionType.Purchase, 100m);
+
+        var (rows, _) = await new StorageStatementReportService(_db)
+            .GetReportAsync(new StorageStatementReportFilter(), CancellationToken.None);
+
+        // Only the Purchase row should appear; the discharge transaction is excluded
+        var row = Assert.Single(rows);
+        Assert.Equal(StorageTransactionType.Purchase, StorageTransactionType.Purchase);
+        Assert.Equal("Compra - Entrada", row.TransactionTypeName);
+        Assert.Equal(100m, row.NetWeight);
+    }
+
+    [Theory]
+    [InlineData(StorageTransactionType.PurchaseDischargeLoss, "Quebra Descarga")]
+    [InlineData(StorageTransactionType.PurchaseDischargeGain, "Sobra Descarga")]
+    public void Discharge_transaction_types_have_correct_names(StorageTransactionType type, string expectedName)
+    {
+        var name = StorageStatementReportHelper.GetTransactionTypeName(type);
+        Assert.Equal(expectedName, name);
     }
 }

@@ -52,7 +52,7 @@ public class InvoiceLineChargeRulesTests
     private static SalesInvoicesItemsUpdateService SalesItemUpdate(UnitOfWork db) =>
         new(db, new FakeItemService(),
             new ShipmentLoadsClosureHookService(db.Context, new ShipmentLoadsChangeLogService(db.Context)),
-            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db), PurchaseDischargeTestServices.Sync(db), NullLogger<SalesInvoicesUpdateService>.Instance);
 
     private static async Task<(UnitOfWork Db, SalesInvoiceItem Line)> SeedSalesAsync()
     {

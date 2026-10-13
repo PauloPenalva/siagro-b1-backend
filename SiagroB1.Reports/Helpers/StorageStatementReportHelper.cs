@@ -21,6 +21,8 @@ public static class StorageStatementReportHelper
         StorageTransactionType.SalesShipmentReturn => "Venda - Devolução",
         StorageTransactionType.WarehouseLoss => "Perda Armazém",
         StorageTransactionType.WarehouseGain => "Sobra Armazém",
+        StorageTransactionType.PurchaseDischargeLoss => "Quebra Descarga",
+        StorageTransactionType.PurchaseDischargeGain => "Sobra Descarga",
         _ => "Outros"
     };
 
