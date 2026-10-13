@@ -230,7 +230,7 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// </summary>
     public Guid? CustodyStorageTransactionKey { get; set; }
 
-    /// <summary>Papel da nota de custódia, gravado SÓ pela StorageCustodyGuard.</summary>
+    /// <summary>Papel da nota de custódia, gravado SÓ pela StorageCustodyGuard a partir da natureza das linhas, a cada gravação, confirmação e emissão; o corpo da API não o define.</summary>
     public StorageCustodyRole CustodyRole { get; set; }
     
     [NotMapped]

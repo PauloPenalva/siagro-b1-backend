@@ -280,6 +280,23 @@ public class StorageCustodyGuardTests
     }
 
     [Fact]
+    public async Task Processing_entry_access_key_refuses_a_symbolic_return_whose_quantity_drifted()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync();
+        await seed.AddPurchaseDocumentAsync(t, StorageCustodyRole.ProcessingEntry, 30_000m, DocumentIssuerType.Own,
+            InvoiceStatus.Confirmed, NfeStatus.Authorized, StorageCustodySeed.AccessKey);
+        var symbolic = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.ProcessingSymbolicReturn, 30_000m);
+        symbolic.Items.Single().Quantity = 29_000m;
+        await db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => StorageCustodyGuard.ProcessingEntryAccessKeyAsync(db.Context, symbolic));
+
+        Assert.Equal("A devolução simbólica precisa ter a quantidade da entrada para beneficiamento (30.000,000).", e.Message);
+    }
+
+    [Fact]
     public async Task Purchase_create_runs_the_guard()
     {
         var db = TestDb.CreateUnitOfWork();

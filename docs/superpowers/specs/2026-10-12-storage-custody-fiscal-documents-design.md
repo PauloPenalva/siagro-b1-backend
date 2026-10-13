@@ -84,7 +84,7 @@ NF-e rejeitada continua sendo a nota da etapa (corrige-se e retransmite, ou canc
 
 **Papel gravado no cabeçalho**: `PurchaseInvoice.CustodyRole` e `SalesInvoice.CustodyRole` (`StorageCustodyRole`,
 padrão None) são escritos SÓ pela guarda (§4.4) a partir da natureza das linhas — o corpo da API não os define. Isso
-congela o papel mesmo que a natureza seja editada depois e deixa unicidade, ordem e relatório como consultas simples.
+deixa unicidade, ordem e relatório como consultas simples.
 
 ### 3.4 Etapas esperadas (derivadas, nunca gravadas)
 

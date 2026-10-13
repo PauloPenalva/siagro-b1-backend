@@ -171,6 +171,12 @@ public static class StorageCustodyGuard
                     .FirstOrDefault(d => d.Role == StorageCustodyRole.ProcessingEntry && HasAccessKey(d))
                     ?? throw new DefaultException("A devolução simbólica está sem a entrada para beneficiamento com chave de acesso.");
 
+        // A quantidade pode ter mudado entre a gravação e a emissão: a conferência da guarda vale na hora de transmitir.
+        var quantity = invoice.Items.Sum(i => i.Quantity);
+        if (quantity != entry.Quantity)
+            throw new DefaultException(
+                $"A devolução simbólica precisa ter a quantidade da entrada para beneficiamento ({entry.Quantity.ToString("N3", PtBr)}).");
+
         return entry.ChaveNFe;
     }
 

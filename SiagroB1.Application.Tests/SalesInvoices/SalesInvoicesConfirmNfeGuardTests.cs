@@ -38,6 +38,20 @@ public class SalesInvoicesConfirmNfeGuardTests
             TaxTestServices.Gate(db, erp));
     }
 
+    [Fact]
+    public async Task Custody_guard_runs_after_the_pending_check()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync();
+        // Já cancelada e sem a entrada: a guarda reclamaria da cadeia, mas o que importa é o status.
+        var invoice = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.ProcessingSymbolicReturn, 30_000m, InvoiceStatus.Cancelled);
+
+        var e = await Assert.ThrowsAsync<ApplicationException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("Invoice is not pending.", e.Message);
+    }
+
     /// <summary>Documento AVULSO de uma linha, natureza sem efeito no contrato, filial com a chave.</summary>
     private static async Task<(UnitOfWork Db, SalesInvoice Invoice)> SeedAsync(
         bool issuesNfe = true, NfeStatus nfe = NfeStatus.None, SalesInvoiceType type = SalesInvoiceType.Normal,

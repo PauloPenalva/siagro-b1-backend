@@ -51,4 +51,27 @@ public class StorageCustodyNfeTests
         Assert.Empty(input.ReferencedKeys);
         Assert.Equal(PaymentMeansCodes.NoPayment, input.Payment.PaymentMeans);
     }
+
+    [Theory]
+    [InlineData(StorageCustodyRole.ProcessingEntry)]
+    [InlineData(StorageCustodyRole.StorageEntry)]
+    public async Task Own_purchase_entry_has_no_reference_and_no_payment(StorageCustodyRole role)
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var invoice = await scenario.Db.Context.PurchaseInvoices.Include(i => i.Items).SingleAsync(i => i.Key == scenario.InvoiceKey);
+        invoice.TaxDocumentNumber = "000000001";
+        invoice.TaxDocumentSeries = "1";
+        invoice.NfeRandomCode = "48151623";
+        invoice.CustodyRole = role;
+        invoice.PaymentConditionCode = null;
+        await scenario.Db.SaveChangesAsync();
+
+        var options = new NfeOptions(NfeTestSeed.Config());
+        var context = await new NfeReadinessValidator(scenario.Db, options).ValidateAsync(invoice);
+
+        var input = NfeIssueInputAssembler.Build(invoice, context, IssuedAt, options.TechnicalResponsible);
+
+        Assert.Empty(input.ReferencedKeys);
+        Assert.Equal(PaymentMeansCodes.NoPayment, input.Payment.PaymentMeans);
+    }
 }

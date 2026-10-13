@@ -205,8 +205,7 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     public Guid? CustodyStorageTransactionKey { get; set; }
 
     /// <summary>
-    /// Papel da nota de custódia, copiado da natureza das linhas SÓ pela StorageCustodyGuard — o corpo da API não o
-    /// define. Congela o papel mesmo se a natureza for editada depois.
+    /// Papel da nota de custódia, gravado SÓ pela StorageCustodyGuard a partir da natureza das linhas, a cada gravação, confirmação e emissão; o corpo da API não o define.
     /// </summary>
     public StorageCustodyRole CustodyRole { get; set; }
 

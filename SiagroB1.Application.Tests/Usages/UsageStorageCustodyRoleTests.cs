@@ -67,6 +67,17 @@ public class UsageStorageCustodyRoleTests
     }
 
     [Fact]
+    public async Task Custody_role_cannot_be_the_default_of_shipment_billing()
+    {
+        var model = Return();
+        model.IsDefault = true;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(TestDb.CreateUnitOfWork()).CreateAsync(model));
+
+        Assert.Equal("Natureza de custódia (armazenagem) não pode ser a padrão do faturamento de romaneio.", e.Message);
+    }
+
+    [Fact]
     public async Task Custody_role_cannot_touch_the_contract()
     {
         var model = Entry();

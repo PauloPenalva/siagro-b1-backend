@@ -51,6 +51,17 @@ public class SalesInvoicesNfeReturnCreateServiceTests
     }
 
     [Fact]
+    public async Task Custody_document_is_not_returned()
+    {
+        var s = await NfeReturnTestSeed.SeedAsync();
+        var sale = await s.Sale.Db.Context.SalesInvoices.SingleAsync(i => i.Key == s.Sale.InvoiceKey);
+        sale.CustodyRole = StorageCustodyRole.StorageReturn;
+        await s.Sale.Db.SaveChangesAsync();
+
+        Assert.Equal("Nota de custódia (armazenagem) não é devolvida: cancele a nota ou gere a etapa seguinte pelo romaneio.", await Rejects(s));
+    }
+
+    [Fact]
     public async Task Partial_returns_are_accepted_until_the_sold_quantity()
     {
         var s = await NfeReturnTestSeed.SeedAsync();

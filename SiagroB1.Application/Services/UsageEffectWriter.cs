@@ -53,6 +53,9 @@ internal static class UsageEffectWriter
             if (hasEffect)
                 throw new DefaultException("Natureza de custódia (armazenagem) não pode alterar o contrato.");
 
+            if (model.IsDefault)
+                throw new DefaultException("Natureza de custódia (armazenagem) não pode ser a padrão do faturamento de romaneio.");
+
             if (model.StorageDepositRole != StorageDepositRole.None)
                 throw new DefaultException("A natureza tem papel na remessa para depósito ou na custódia, não nos dois.");
 

@@ -39,6 +39,22 @@ public class PurchaseInvoicesNfeReturnTests
     private static PurchaseInvoiceNfeReturnRequest Request(PurchaseInvoice origin, decimal quantity, string reason = "grão fora do padrão", int item = 0) =>
         new(origin.Key, [new PurchaseInvoiceNfeReturnItem(origin.Items.OrderBy(i => i.NfeItemNumber).ElementAt(item).Key!.Value, quantity)], reason);
 
+    [Theory]
+    [InlineData(StorageCustodyRole.ProcessingEntry)]
+    [InlineData(StorageCustodyRole.StorageEntry)]
+    public async Task Custody_document_is_not_returned(StorageCustodyRole role)
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var tracked = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == origin.Key);
+        tracked.CustodyRole = role;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester"));
+
+        Assert.Equal("Nota de custódia (armazenagem) não é devolvida: cancele a nota ou gere a etapa seguinte pelo romaneio.", e.Message);
+    }
+
     [Fact]
     public async Task Partial_return_is_born_pending_with_the_return_usage_and_proportional_weights()
     {

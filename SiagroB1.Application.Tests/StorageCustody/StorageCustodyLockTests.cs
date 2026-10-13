@@ -97,7 +97,57 @@ public class StorageCustodyLockTests
         seed.Lot.RequiresProcessing = false; // PATCH: a instância rastreada chega já mutada
         var e = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(seed.Lot.Code!, seed.Lot, "tester"));
 
-        Assert.Equal("O lote já possui notas fiscais de custódia; não é possível alterar o beneficiamento.", e.Message);
+        Assert.Equal("O lote já possui notas fiscais de custódia; não é possível alterar depositante, produto, filial, tipo de saldo ou o beneficiamento.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("CardCode")]
+    [InlineData("ItemCode")]
+    [InlineData("BranchCode")]
+    [InlineData("OwnershipType")]
+    public async Task Lot_identity_is_locked_while_the_lot_has_custody_documents(string field)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync();
+        await seed.AddPurchaseDocumentAsync(t, StorageCustodyRole.ProcessingEntry, 30_000m);
+        var service = new StorageAddressesUpdateService(
+            db.Context, new FakeBusinessPartnerService(), new FakeItemService(), new FakeWarehouseService(),
+            new TestLogger<StorageAddressesUpdateService>());
+
+        MutateIdentity(seed.Lot, field);
+        var e = await Assert.ThrowsAsync<ApplicationException>(() => service.ExecuteAsync(seed.Lot.Code!, seed.Lot, "tester"));
+
+        Assert.Equal("O lote já possui notas fiscais de custódia; não é possível alterar depositante, produto, filial, tipo de saldo ou o beneficiamento.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("CardCode")]
+    [InlineData("ItemCode")]
+    [InlineData("BranchCode")]
+    [InlineData("OwnershipType")]
+    public async Task Lot_identity_changes_freely_without_documents(string field)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        await seed.AddTransactionAsync();
+        var service = new StorageAddressesUpdateService(
+            db.Context, new FakeBusinessPartnerService(), new FakeItemService(), new FakeWarehouseService(),
+            new TestLogger<StorageAddressesUpdateService>());
+
+        MutateIdentity(seed.Lot, field);
+        await service.ExecuteAsync(seed.Lot.Code!, seed.Lot, "tester");
+    }
+
+    private static void MutateIdentity(StorageAddress lot, string field)
+    {
+        switch (field)
+        {
+            case "CardCode": lot.CardCode = "P0002"; break;
+            case "ItemCode": lot.ItemCode = "MILHO"; break;
+            case "BranchCode": lot.BranchCode = "02"; break;
+            default: lot.OwnershipType = StorageOwnershipType.OwnedInOurCustody; break;
+        }
     }
 
     [Fact]
