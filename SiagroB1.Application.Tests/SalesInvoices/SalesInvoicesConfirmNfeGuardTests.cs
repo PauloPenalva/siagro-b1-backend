@@ -38,6 +38,20 @@ public class SalesInvoicesConfirmNfeGuardTests
             TaxTestServices.Gate(db, erp));
     }
 
+    [Fact]
+    public async Task Custody_guard_runs_after_the_pending_check()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync();
+        // Já cancelada e sem a entrada: a guarda reclamaria da cadeia, mas o que importa é o status.
+        var invoice = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.ProcessingSymbolicReturn, 30_000m, InvoiceStatus.Cancelled);
+
+        var e = await Assert.ThrowsAsync<ApplicationException>(() => Confirm(db, "STANDALONE").ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("Invoice is not pending.", e.Message);
+    }
+
     /// <summary>Documento AVULSO de uma linha, natureza sem efeito no contrato, filial com a chave.</summary>
     private static async Task<(UnitOfWork Db, SalesInvoice Invoice)> SeedAsync(
         bool issuesNfe = true, NfeStatus nfe = NfeStatus.None, SalesInvoiceType type = SalesInvoiceType.Normal,
@@ -189,5 +203,18 @@ public class SalesInvoicesConfirmNfeGuardTests
         await Confirm(db, "SAPB1").ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Confirmed, await StatusAsync(db, invoice.Key));
+    }
+
+    [Fact]
+    public async Task Confirm_refuses_sales_custody_document_with_changed_quantity()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var t = await seed.AddTransactionAsync(StorageTransactionType.Shipment, net: 15_000m);
+        var doc = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.StorageReturn, 14_000m);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Confirm(db, "STANDALONE").ExecuteAsync(doc.Key, "tester"));
+
+        Assert.Contains("precisa ter a quantidade do romaneio", e.Message);
     }
 }

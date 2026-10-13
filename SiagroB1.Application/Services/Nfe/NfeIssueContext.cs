@@ -10,6 +10,7 @@ namespace SiagroB1.Application.Services.Nfe;
 /// <param name="PaymentCondition">Nula só na devolução própria, que não tem pagamento (tPag 90).</param>
 /// <param name="ReturnOrigin">Na devolução própria, a venda referenciada; nula na venda.</param>
 /// <param name="ProducerInvoice">Na contra-nota, a escrituração do produtor (NFref e Funrural); nula nos demais.</param>
+/// <param name="CustodyReferencedKey">Na devolução simbólica do beneficiamento, a chave da entrada (NFref; spec 2026-10-12 §4.3).</param>
 public sealed record NfeIssueContext(
     Branch Branch,
     Municipality BranchMunicipality,
@@ -28,7 +29,8 @@ public sealed record NfeIssueContext(
     IReadOnlyDictionary<int, Usage> Usages,
     IReadOnlyDictionary<string, string?> ItemCests,
     NfeReturnOrigin? ReturnOrigin = null,
-    NfeCounterNoteOrigin? ProducerInvoice = null);
+    NfeCounterNoteOrigin? ProducerInvoice = null,
+    string? CustodyReferencedKey = null);
 
 /// <summary>
 /// A venda que a devolução própria referencia, já conferida: a chave vai no <c>NFref</c> e, com o

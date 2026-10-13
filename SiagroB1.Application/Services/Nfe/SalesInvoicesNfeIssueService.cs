@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -66,7 +67,14 @@ public class SalesInvoicesNfeIssueService(
         await SalesInvoiceNfeReturnBalance.EnsureWithinAsync(_db.Context, invoice, invoice.Items);
     }
 
-    protected override Task<NfeIssueContext> ValidateReadinessAsync(SalesInvoice invoice) => readiness.ValidateAsync(invoice);
+    /// <summary>Devolução simbólica do beneficiamento: NFref para a entrada do mesmo romaneio (spec 2026-10-12 §4.3).</summary>
+    protected override async Task<NfeIssueContext> ValidateReadinessAsync(SalesInvoice invoice)
+    {
+        var context = await readiness.ValidateAsync(invoice);
+        var custodyKey = await StorageCustodyGuard.ProcessingEntryAccessKeyAsync(_db.Context, invoice);
+
+        return custodyKey is null ? context : context with { CustodyReferencedKey = custodyKey };
+    }
 
     protected override NfeIssueInput BuildInput(
         SalesInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible) =>

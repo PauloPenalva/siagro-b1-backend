@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
@@ -103,6 +104,9 @@ public class PurchaseInvoicesCreateService(
 
         // Retorno de depósito: a linha precisa apontar a remessa, do mesmo produto e armazém, dentro do saldo (spec 2026-10-10 §3.3).
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, null, invoice.Items.ToList());
+        // Nota de custódia em armazém próprio (spec 2026-10-12 §4): romaneio, depositante, produto, filial, ordem e
+        // quantidade; grava o papel no cabeçalho.
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, invoice.Items.ToList());
 
         // Documento de terceiro com o XML: todo nItem informado precisa existir na nota do fornecedor (é o que a
         // devolução referencia). Só na filial que emite NF-e pelo Siagro; fora dela o documento grava como veio.

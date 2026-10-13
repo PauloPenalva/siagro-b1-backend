@@ -171,4 +171,34 @@ public class OwnershipTransfersGuardsTests
             () => _ctx.Cancel().ExecuteAsync(transfer.Key, "tester"));
         Assert.Equal("OWNERSHIP_TRANSFER_ALREADY_CANCELLED", ex.Message);
     }
+
+    [Fact]
+    public async Task Cancel_is_refused_while_a_transfer_romaneio_has_custody_document()
+    {
+        var ctx = new OwnershipTransfersTestContext();
+        var origin = OwnershipTransfersTestContext.Lot("L1", "P0001", StorageOwnershipType.ThirdParty);
+        var destination = OwnershipTransfersTestContext.Lot("L2", "P0002", StorageOwnershipType.ThirdParty);
+        origin.BranchCode = destination.BranchCode = "01";
+        var transfer = OwnershipTransfersTestContext.Transfer(origin, destination, status: OwnershipTransferStatus.Closed);
+        ctx.Db.Context.StorageAddresses.AddRange(origin, destination);
+        ctx.Db.Context.OwnershipTransfers.Add(transfer);
+        var shipment = new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "RM1", BranchCode = "01", StorageAddressCode = "L1", CardCode = "P0001",
+            ItemCode = "SOJA", UnitOfMeasureCode = "KG", WarehouseCode = "01", TransactionType = StorageTransactionType.Shipment,
+            TransactionStatus = StorageTransactionsStatus.Confirmed, NetWeight = 1000m, GrossWeight = 1000m,
+            OwnershipTransferKey = transfer.Key, IsOwnershipTransfer = "Y",
+        };
+        ctx.Db.Context.StorageTransactions.Add(shipment);
+        ctx.Db.Context.SalesInvoices.Add(new SalesInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = "P0001", InvoiceNumber = "DS1", TaxDocumentNumber = "000000009",
+            CustodyStorageTransactionKey = shipment.Key, CustodyRole = StorageCustodyRole.StorageSymbolicReturn,
+        });
+        await ctx.Db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<ApplicationException>(() => ctx.Cancel().ExecuteAsync(transfer.Key, "tester"));
+
+        Assert.Equal("O romaneio tem nota fiscal de custódia ativa (nº 000000009). Cancele as notas fiscais de custódia antes de cancelar ou estornar.", e.Message);
+    }
 }

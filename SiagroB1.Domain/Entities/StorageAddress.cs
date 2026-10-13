@@ -60,6 +60,13 @@ public class StorageAddress : MasterEntity
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public string? ProcessingCostCode { get; set; }
     public virtual ProcessingCost? ProcessingCost { get; set; }
+
+    /// <summary>
+    /// O lote passa pelo beneficiamento FISCAL (spec 2026-10-12 §3.2): cada Recepção espera entrada para
+    /// beneficiamento, devolução simbólica e entrada para armazenagem; sem ele, só a entrada para armazenagem. Só vale
+    /// em lote de terceiro. Travado enquanto houver nota de custódia ativa (StorageAddressesUpdateService).
+    /// </summary>
+    public bool RequiresProcessing { get; set; }
     
     // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
     public decimal TotalReceipt => Transactions

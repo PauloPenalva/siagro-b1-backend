@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
@@ -79,6 +80,7 @@ public class PurchaseInvoicesItemsUpdateService(
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, existing]);
 
         // Travas da NF-e: devolução de compra só muda a quantidade e os quatro valores; emitido/em processamento trava a linha.
         var entry = db.Context.Entry(existing);

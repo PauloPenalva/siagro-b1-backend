@@ -95,6 +95,9 @@ public class UsageModel
     /// <summary>Papel na remessa para depósito — ver <see cref="Entities.UsageEffect.StorageDepositRole"/>.</summary>
     public StorageDepositRole StorageDepositRole { get; set; }
 
+    /// <summary>Papel nas notas de custódia — ver <see cref="Entities.UsageEffect.StorageCustodyRole"/>.</summary>
+    public StorageCustodyRole StorageCustodyRole { get; set; }
+
     /// <summary>
     /// Existe linha de efeito cadastrada para esta natureza?
     ///

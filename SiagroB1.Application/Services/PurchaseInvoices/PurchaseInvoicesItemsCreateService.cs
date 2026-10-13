@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
@@ -51,6 +52,7 @@ public class PurchaseInvoicesItemsCreateService(
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey).ToListAsync();
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, item.PurchaseInvoiceKey, [.. others, item]);
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, item]);
 
         // Funrural é calculado, nunca digitado (ver PurchaseInvoicesCreateService).
         PurchaseInvoiceFunrural.Clear(item);

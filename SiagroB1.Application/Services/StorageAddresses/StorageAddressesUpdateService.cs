@@ -1,3 +1,5 @@
+using SiagroB1.Application.Services.StorageCustody;
+using SiagroB1.Infra.Queries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
@@ -37,6 +39,27 @@ public class StorageAddressesUpdateService(
         {
             throw new ApplicationException(
                 $"A natureza do lote {code} não pode ser alterada após a criação.");
+        }
+
+        // Identidade do lote e beneficiamento fiscal (spec 2026-10-12 §3.2): com nota de custódia ativa, trocar depositante,
+        // produto, filial, tipo de saldo ou o beneficiamento deixaria as notas incoerentes com o lote ou mudaria as etapas
+        // esperadas. OriginalValues pelo mesmo motivo da natureza (PATCH chega mutado).
+        var original = context.Entry(existingAddress).OriginalValues;
+        var identityChanged =
+            entity.RequiresProcessing != original.GetValue<bool>(nameof(StorageAddress.RequiresProcessing))
+            || entity.CardCode != original.GetValue<string?>(nameof(StorageAddress.CardCode))
+            || entity.ItemCode != original.GetValue<string?>(nameof(StorageAddress.ItemCode))
+            || entity.BranchCode != original.GetValue<string?>(nameof(StorageAddress.BranchCode))
+            || entity.OwnershipType != original.GetValue<StorageOwnershipType>(nameof(StorageAddress.OwnershipType));
+
+        if (identityChanged)
+        {
+            var lotTransactionKeys = await context.StorageTransactions.AsNoTracking()
+                .Where(t => t.StorageAddressCode == code).Select(t => t.Key).ToListAsync();
+
+            if ((await StorageCustodyQuery.ActiveDocumentsAsync(context, lotTransactionKeys)).Count > 0)
+                throw new ApplicationException(
+                    "O lote já possui notas fiscais de custódia; não é possível alterar depositante, produto, filial, tipo de saldo ou o beneficiamento.");
         }
 
         try

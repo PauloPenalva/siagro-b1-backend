@@ -198,6 +198,17 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     public Guid? ProducerInvoiceKey { get; set; }
     public virtual PurchaseInvoice? ProducerInvoice { get; set; }
 
+    /// <summary>
+    /// Romaneio de lote de armazenagem de terceiro que esta nota de custódia cumpre (spec 2026-10-12 §3.3). Própria
+    /// (gerada pela ação no romaneio) ou escrituração da NF-e do depositante, escolhida pelo usuário.
+    /// </summary>
+    public Guid? CustodyStorageTransactionKey { get; set; }
+
+    /// <summary>
+    /// Papel da nota de custódia, gravado SÓ pela StorageCustodyGuard a partir da natureza das linhas, a cada gravação, confirmação e emissão; o corpo da API não o define.
+    /// </summary>
+    public StorageCustodyRole CustodyRole { get; set; }
+
     [Column(TypeName = "VARCHAR(200)")]
     public string? XmlFileName { get; set; }
 

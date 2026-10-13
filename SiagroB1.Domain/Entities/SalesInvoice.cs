@@ -223,6 +223,15 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// </summary>
     public Guid? ShipmentReleaseKey { get; set; }
     public virtual ShipmentRelease? ShipmentRelease { get; set; }
+
+    /// <summary>
+    /// Romaneio de lote de armazenagem de terceiro desta nota de custódia (devolução simbólica, retorno ou retorno
+    /// simbólico — spec 2026-10-12 §3.3). Só o "Gerar nota" do romaneio grava; PUT/PATCH não o move.
+    /// </summary>
+    public Guid? CustodyStorageTransactionKey { get; set; }
+
+    /// <summary>Papel da nota de custódia, gravado SÓ pela StorageCustodyGuard a partir da natureza das linhas, a cada gravação, confirmação e emissão; o corpo da API não o define.</summary>
+    public StorageCustodyRole CustodyRole { get; set; }
     
     [NotMapped]
     public decimal TotalInvoiceItems => Items.Sum(i => i.Total);

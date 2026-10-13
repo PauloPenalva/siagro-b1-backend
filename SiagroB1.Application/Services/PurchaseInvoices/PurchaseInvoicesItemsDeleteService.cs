@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Exceptions;
@@ -26,6 +27,11 @@ public class PurchaseInvoicesItemsDeleteService(IUnitOfWork db, TaxCalculationGa
         // Valor declarado do terceiro Normal: a soma das linhas que ficam, como na emissão própria.
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))
             await PurchaseInvoiceDeclaredTotal.ApplyAsync(db, invoice, item.Key, null);
+
+        // A linha que sai não pode deixar o romaneio de custódia sem nota (spec 2026-10-12 §3.3).
+        var remaining = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey && x.Key != item.Key).ToListAsync();
+        await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, remaining);
 
         db.Context.PurchaseInvoicesItems.Remove(item);
         await db.SaveChangesAsync();

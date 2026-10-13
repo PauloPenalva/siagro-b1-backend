@@ -67,6 +67,7 @@ public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddresses
                 UoM = a.UoM,
                 ProcessingCostCode = a.ProcessingCostCode,
                 ProcessingCost = a.ProcessingCost,
+                RequiresProcessing = a.RequiresProcessing,
                 // 12 com lote = estorno de troca de liberação (GAC-1177); nenhum 12 anterior tem lote.
                 Balance = a.Transactions
                     .Where(t =>

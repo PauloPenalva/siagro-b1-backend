@@ -32,7 +32,8 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             new NfeReadinessRequest(
                 invoice.BranchCode, invoice.CardCode, "Cliente", invoice.DeliveryCardCode, invoice.TruckingCompanyCode,
                 invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
-                RequiresPayment: !invoice.IsNfeReturn,
+                // Devolução e nota de custódia (armazenagem/beneficiamento) não têm pagamento (tPag 90).
+                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None,
                 // Venda: saída. Devolução própria: entrada.
                 Direction: invoice.IsNfeReturn ? NfeDirection.Incoming : NfeDirection.Outgoing,
                 Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
@@ -49,7 +50,8 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             new NfeReadinessRequest(
                 invoice.BranchCode, invoice.CardCode, "Fornecedor", DeliveryCardCode: null, invoice.TruckingCompanyCode,
                 invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
-                RequiresPayment: !invoice.IsNfeReturn,
+                // Devolução e nota de custódia (armazenagem/beneficiamento) não têm pagamento (tPag 90).
+                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None,
                 Direction: invoice.IsNfeReturn ? NfeDirection.Outgoing : NfeDirection.Incoming,
                 Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
                 RequiresProductAndUnit: true),

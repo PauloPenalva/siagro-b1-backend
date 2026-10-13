@@ -3,6 +3,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
@@ -37,6 +38,12 @@ public class OwnershipTransfersCancelService(
         // a mensagem de negócio.
         if (ownershipTransfer.TransferStatus == OwnershipTransferStatus.Cancelled)
             throw new ApplicationException(resource["OWNERSHIP_TRANSFER_ALREADY_CANCELLED"].Value);
+
+        // Notas de custódia (spec 2026-10-12 §4.5): retorno simbólico na origem e entrada no destino precisam ser
+        // canceladas antes — os romaneios que o cancelamento cria não esperam nota, e as notas ficariam órfãs.
+        var transferTransactionKeys = await db.Context.StorageTransactions.AsNoTracking()
+            .Where(t => t.OwnershipTransferKey == ownershipTransfer.Key).Select(t => t.Key).ToListAsync();
+        await StorageCustodyGuard.EnsureTransactionsHaveNoCustodyAsync(db.Context, transferTransactionKeys);
 
         // Também fora do try, e antes do saldo do lote: com embarque parcial o lote
         // fica curto e ValidateDestinationBalance falharia com uma mensagem enganosa

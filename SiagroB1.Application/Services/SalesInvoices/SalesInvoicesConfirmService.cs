@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using SiagroB1.Application.Services.StorageCustody;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -81,6 +82,9 @@ public class SalesInvoicesConfirmService(
             throw new ApplicationException(
                 "Invoice is not pending.");
         }
+
+        // Nota de custódia editada pela tela depois de gerada: a confirmação recusa o que deixou de bater com o romaneio.
+        await StorageCustodyGuard.EnsureSalesAsync(db.Context, invoice, invoice.Items.ToList());
 
         // NF-e STANDALONE: na filial com a regra ativa, a devolução própria só confirma com a NF-e autorizada — é a
         // emissão que chama esta confirmação. O documento Normal confirma aqui e transmite a NF-e depois (spec

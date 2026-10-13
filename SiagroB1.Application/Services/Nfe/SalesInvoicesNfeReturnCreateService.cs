@@ -71,6 +71,10 @@ public class SalesInvoicesNfeReturnCreateService(
 
     private async Task ValidateOriginAsync(SalesInvoice origin)
     {
+        if (origin.CustodyRole != StorageCustodyRole.None)
+            throw new DefaultException(
+                "Nota de custódia (armazenagem) não é devolvida: cancele a nota ou gere a etapa seguinte pelo romaneio.");
+
         if (!await gate.IsActiveAsync(origin.BranchCode))
             throw new DefaultException($"A filial {origin.BranchCode} não emite NF-e pelo Siagro.");
 

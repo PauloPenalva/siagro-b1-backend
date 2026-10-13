@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.Taxes;
@@ -45,6 +46,10 @@ public class PurchaseInvoicesNfeIssueService(
     // maior que a compra.
     protected override async Task EnsureBeforeReservationAsync(PurchaseInvoice invoice)
     {
+        // Nota de custódia editada pela tela depois de gerada: revalida antes de numerar (spec 2026-10-12 §4.1).
+        if (invoice.CustodyStorageTransactionKey != null || invoice.CustodyRole != StorageCustodyRole.None)
+            await StorageCustodyGuard.EnsurePurchaseAsync(_db.Context, invoice, invoice.Items.ToList());
+
         if (invoice.IsNfeReturn)
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(_db.Context, invoice, invoice.Items);
     }

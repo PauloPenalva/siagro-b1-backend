@@ -712,6 +712,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne<ShippingTransaction>().WithMany()
             .HasForeignKey(x => x.DischargeShippingTransactionKey)
             .OnDelete(DeleteBehavior.NoAction);
+
+        // Notas de custódia em armazém próprio (spec 2026-10-12 §3.3). Sem navegação (não entra no EDM) e Restrict: o
+        // romaneio com nota vinculada não some — o estorno é barrado pela StorageCustodyGuard antes.
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.CustodyStorageTransactionKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne<StorageTransaction>().WithMany()
+            .HasForeignKey(x => x.CustodyStorageTransactionKey)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
     
