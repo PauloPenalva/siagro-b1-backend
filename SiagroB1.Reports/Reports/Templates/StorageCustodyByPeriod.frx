@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/12/2026 10:00:00" ReportInfo.Modified="10/12/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="StorageCustody" ReferenceName="StorageCustody" DataType="System.Int32" Enabled="true">
+      <Column Name="Group" DataType="System.String"/>
+      <Column Name="Kind" DataType="System.String"/>
+      <Column Name="Transaction" DataType="System.String"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="Date" DataType="System.String"/>
+      <Column Name="Cfop" DataType="System.String"/>
+      <Column Name="Document" DataType="System.String"/>
+      <Column Name="TaxDocument" DataType="System.String"/>
+      <Column Name="Situation" DataType="System.String"/>
+      <Column Name="NfeStatus" DataType="System.String"/>
+      <Column Name="GrossWeightText" DataType="System.String"/>
+      <Column Name="NetWeightText" DataType="System.String"/>
+      <Column Name="QuantityText" DataType="System.String"/>
+      <Column Name="DifferenceText" DataType="System.String"/>
+      <Column Name="LotBalanceLabel" DataType="System.String"/>
+      <Column Name="LotPhysicalBalance" DataType="System.Decimal"/>
+      <Column Name="LotFiscalBalance" DataType="System.Decimal"/>
+      <Column Name="LotDifference" DataType="System.Decimal"/>
+      <Column Name="RomaneioCount" DataType="System.Int32"/>
+      <Column Name="PendingCount" DataType="System.Int32"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Total Name="TotalRomaneios" Expression="[StorageCustody.RomaneioCount]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalPending" Expression="[StorageCustody.PendingCount]" Evaluator="Data1" PrintOn="ReportSummary1"/>
+    <Total Name="TotalCountAll" TotalType="Count" Evaluator="Data1" PrintOn="ReportSummary1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="5" TopMargin="5" RightMargin="5" BottomMargin="5" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1084" Height="113.4">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="700" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtPrintDate" Left="937" Top="2" Width="147" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1084" Height="28.35" Text="Custódia de Armazenagem" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtFilters" Top="75" Width="1084" Height="37.8" Text="[pFilters]" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="116.6" Width="1084" Height="17">
+      <TextObject Name="hdrTransaction" Left="0" Width="70" Height="17" Text="Romaneio" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDescription" Left="70" Width="200" Height="17" Text="Tipo / Etapa" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDate" Left="270" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCfop" Left="332" Width="40" Height="17" Text="CFOP" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocument" Left="372" Width="62" Height="17" Text="Documento" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrTaxDocument" Left="434" Width="78" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrSituation" Left="512" Width="110" Height="17" Text="Situação" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeStatus" Left="622" Width="92" Height="17" Text="NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrGrossWeight" Left="714" Width="88" Height="17" Text="Peso bruto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNetWeight" Left="802" Width="88" Height="17" Text="Peso líquido" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrQuantity" Left="890" Width="88" Height="17" Text="Qtde. nota" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDifference" Left="978" Width="88" Height="17" Text="Diferença" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" SortOrder="None" Top="136.7" Width="1084" Height="20" Condition="[StorageCustody.Group]">
+      <TextObject Name="txtGroup" Left="0" Top="2" Width="1000" Height="17" Text="[StorageCustody.Group]" VertAlign="Center" WordWrap="false" Font="Arial, 8pt, style=Bold"/>
+      <DataBand Name="Data1" Top="159.75" Width="1084" Height="17" CanGrow="true" CanShrink="true" DataSource="StorageCustody">
+        <TextObject Name="txtTransaction" Left="0" Width="70" Height="17" Text="[StorageCustody.Transaction]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtDescription" Left="70" Width="200" Height="17" Text="[StorageCustody.Description]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageCustody.Kind] == &quot;Etapa&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtDate" Left="270" Width="62" Height="17" Text="[StorageCustody.Date]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold">
+          <Highlight><Condition Expression="[StorageCustody.Kind] == &quot;Etapa&quot;" Font="Consolas, 7pt, style=Italic" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtCfop" Left="332" Width="40" Height="17" Text="[StorageCustody.Cfop]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+        <TextObject Name="txtDocument" Left="372" Width="62" Height="17" Text="[StorageCustody.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+        <TextObject Name="txtTaxDocument" Left="434" Width="78" Height="17" Text="[StorageCustody.TaxDocument]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+        <TextObject Name="txtSituation" Left="512" Width="110" Height="17" Text="[StorageCustody.Situation]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic">
+          <Highlight><Condition Expression="[StorageCustody.Situation] == &quot;PENDENTE&quot;" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+        </TextObject>
+        <TextObject Name="txtNfeStatus" Left="622" Width="92" Height="17" Text="[StorageCustody.NfeStatus]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+        <TextObject Name="txtGrossWeight" Left="714" Width="88" Height="17" Text="[StorageCustody.GrossWeightText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtNetWeight" Left="802" Width="88" Height="17" Text="[StorageCustody.NetWeightText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtQuantity" Left="890" Width="88" Height="17" Text="[StorageCustody.QuantityText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+        <TextObject Name="txtDifference" Left="978" Width="88" Height="17" Text="[StorageCustody.DifferenceText]" HorzAlign="Right" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Italic"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="180" Width="1084" Height="20">
+        <TextObject Name="txtLotLabel" Left="0" Top="2" Width="802" Height="17" Text="[StorageCustody.LotBalanceLabel]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+        <TextObject Name="txtLotPhysical" Left="802" Top="2" Width="88" Height="17" Text="[StorageCustody.LotPhysicalBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtLotFiscal" Left="890" Top="2" Width="88" Height="17" Text="[StorageCustody.LotFiscalBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+        <TextObject Name="txtLotDifference" Left="978" Top="2" Width="88" Height="17" Text="[StorageCustody.LotDifference]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="3" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Bold, Italic"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="203" Width="1084" Height="48">
+      <TextObject Name="txtSumLabel" Left="0" Top="4" Width="100" Height="17" Text="TOTAL GERAL:" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtSumCount" Left="100" Top="4" Width="500" Height="17" Text="[TotalRomaneios] romaneio(s), [TotalPending] com pendência fiscal" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="26" Width="1084" Height="17" Text="[IIf([TotalCountAll] == 0, &quot;Nenhum registro encontrado.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="254" Width="1084" Height="26">
+      <TextObject Name="txtPage" Left="937" Width="147" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

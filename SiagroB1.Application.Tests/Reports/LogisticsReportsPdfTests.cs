@@ -361,4 +361,31 @@ public class LogisticsReportsPdfTests : IDisposable
 
         Assert.NotEmpty(pdf);
     }
+
+    [Fact]
+    public async Task StorageCustodyByPeriod_ProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var seed = await StorageCustodySeed.CreateAsync(db);
+        var oct10 = new DateTime(2026, 10, 10);
+        var t = await seed.AddTransactionAsync(gross: 99_999_999.999m, net: 99_000_000m, date: oct10, code: "RM000048");
+        await seed.AddPurchaseDocumentAsync(t, StorageCustodyRole.ProcessingEntry, 99_999_999.999m, DocumentIssuerType.ThirdParty, InvoiceStatus.Confirmed);
+        await seed.AddTransactionAsync(StorageTransactionType.Shipment, net: 10_000m, date: oct10, code: "RM000049");
+
+        var pdf = await new StorageCustodyByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new StorageCustodyByPeriodRequest { FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31) });
+
+        Keep("StorageCustodyByPeriod", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task StorageCustodyByPeriod_EmptyResultStillProducesAPdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var pdf = await new StorageCustodyByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new StorageCustodyByPeriodRequest { FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31) });
+
+        Assert.NotEmpty(pdf);
+    }
 }

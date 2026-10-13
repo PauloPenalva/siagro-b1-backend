@@ -25,11 +25,27 @@ public class LogisticsReportsLayoutTests
         "ShipmentReleasesByPeriod",
         "SalesShipmentsByPeriod",
         "StorageRemittancesByPeriod",
+        "StorageCustodyByPeriod",
     };
 
     /// <summary>Maior valor realista de cada campo de texto curto, em caracteres.</summary>
     private static readonly Dictionary<string, Dictionary<string, int>> LongestText = new()
     {
+        ["StorageCustodyByPeriod"] = new()
+        {
+            ["txtTransaction"] = 9,   // RM0000123 (VARCHAR do código)
+            ["txtDescription"] = 25,  // Expedição (transferência)
+            ["txtDate"] = 10,         // 31/12/2026
+            ["txtCfop"] = 4,          // 5902
+            ["txtDocument"] = 9,      // DE0000026
+            ["txtTaxDocument"] = 13,  // 000000038-001
+            ["txtSituation"] = 11,    // Escriturada
+            ["txtNfeStatus"] = 16,    // Em processamento
+            ["txtGrossWeight"] = 14,  // 99.999.999,999
+            ["txtNetWeight"] = 14,
+            ["txtQuantity"] = 14,
+            ["txtDifference"] = 15,   // -10.000.000,000
+        },
         ["StorageRemittancesByPeriod"] = new()
         {
             ["txtDocument"] = 9,              // DS000176 / DE000026 (VARCHAR(9))
