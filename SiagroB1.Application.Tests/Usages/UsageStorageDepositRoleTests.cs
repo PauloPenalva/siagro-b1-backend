@@ -106,4 +106,18 @@ public class UsageStorageDepositRoleTests
 
         Assert.Equal("Disponível somente no modo STANDALONE.", e.Message);
     }
+
+    [Fact]
+    public async Task Sap_mode_refuses_a_custody_role()
+    {
+        var sapContext = new SapErpDbContext(
+            new DbContextOptionsBuilder<SapErpDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var sapService = new SiagroB1.Application.Services.SAP.UsageService(
+            sapContext, TestDb.CreateUnitOfWork(), NullLogger<SiagroB1.Application.Services.SAP.UsageService>.Instance);
+        var model = new UsageModel { Name = "X", StorageCustodyRole = StorageCustodyRole.StorageReturn };
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => sapService.UpdateAsync(1, model));
+
+        Assert.Equal("Disponível somente no modo STANDALONE.", e.Message);
+    }
 }

@@ -61,6 +61,7 @@ public class UsageService(
                 RequiresWeight = x.effect?.RequiresWeight ?? false,
                 IsDefault = x.effect?.IsDefault ?? false,
                 StorageDepositRole = x.effect?.StorageDepositRole ?? StorageDepositRole.None,
+                StorageCustodyRole = x.effect?.StorageCustodyRole ?? StorageCustodyRole.None,
                 HasConfiguredEffects = x.effect != null,
             })
             .AsQueryable();
@@ -95,8 +96,8 @@ public class UsageService(
     /// </summary>
     public async Task<UsageModel?> UpdateAsync(int key, UsageModel model)
     {
-        // A remessa para depósito é só STANDALONE por enquanto (spec 2026-10-10 D10).
-        if (model.StorageDepositRole != StorageDepositRole.None)
+        // Remessa para depósito e custódia em armazém próprio são só STANDALONE por enquanto (specs 2026-10-10 e 2026-10-12).
+        if (model.StorageDepositRole != StorageDepositRole.None || model.StorageCustodyRole != StorageCustodyRole.None)
             throw new DefaultException("Disponível somente no modo STANDALONE.");
 
         var current = await GetByIdAsync(key);

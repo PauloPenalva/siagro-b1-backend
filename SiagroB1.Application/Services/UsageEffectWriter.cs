@@ -47,6 +47,27 @@ internal static class UsageEffectWriter
 
         if (model.StorageDepositRole == StorageDepositRole.Return && direction != UsageDirection.Incoming)
             throw new DefaultException("Natureza de retorno de depósito precisa ser de entrada.");
+
+        if (model.StorageCustodyRole != StorageCustodyRole.None)
+        {
+            if (hasEffect)
+                throw new DefaultException("Natureza de custódia (armazenagem) não pode alterar o contrato.");
+
+            if (model.StorageDepositRole != StorageDepositRole.None)
+                throw new DefaultException("A natureza tem papel na remessa para depósito ou na custódia, não nos dois.");
+
+            if (model.AllowsCounterNote)
+                throw new DefaultException("Natureza de custódia (armazenagem) não permite contra-nota.");
+
+            var incoming = model.StorageCustodyRole is StorageCustodyRole.ProcessingEntry or StorageCustodyRole.StorageEntry;
+
+            if (incoming && direction != UsageDirection.Incoming)
+                throw new DefaultException(
+                    "Natureza de entrada de custódia (beneficiamento ou armazenagem) precisa ser de entrada.");
+
+            if (!incoming && direction != UsageDirection.Outgoing)
+                throw new DefaultException("Natureza de devolução ou retorno de custódia precisa ser de saída.");
+        }
     }
 
     internal static async Task WriteAsync(IUnitOfWork db, int usageCode, UsageModel model)
@@ -67,6 +88,7 @@ internal static class UsageEffectWriter
         effect.RequiresWeight = model.RequiresWeight;
         effect.IsDefault = model.IsDefault;
         effect.StorageDepositRole = model.StorageDepositRole;
+        effect.StorageCustodyRole = model.StorageCustodyRole;
 
         await ClearOtherDefaultsAsync(db, usageCode, model.IsDefault);
     }
