@@ -1463,6 +1463,48 @@ public static class ODataConfigurations
         purchaseDischargesList.Parameter<string>("DateTo");
         purchaseDischargesList.Returns<IActionResult>();
 
+        // Conciliação Fiscal de Compras (spec 2026-10-13): NF do fornecedor × romaneio de compra.
+        var fiscalTransactions = modelBuilder.Function("PurchaseFiscalReconciliationTransactions");
+        fiscalTransactions.Parameter<string>("CardCode");
+        fiscalTransactions.Parameter<string>("ItemCode");
+        fiscalTransactions.Parameter<string>("ContractCode");
+        fiscalTransactions.Parameter<string>("DateFrom");
+        fiscalTransactions.Parameter<string>("DateTo");
+        fiscalTransactions.Returns<IActionResult>();
+
+        var fiscalInvoiceLines = modelBuilder.Function("PurchaseFiscalReconciliationInvoiceLines");
+        fiscalInvoiceLines.Parameter<string>("CardCode");
+        fiscalInvoiceLines.Parameter<string>("ItemCode");
+        fiscalInvoiceLines.Parameter<string>("ContractCode");
+        fiscalInvoiceLines.Parameter<string>("DateFrom");
+        fiscalInvoiceLines.Parameter<string>("DateTo");
+        fiscalInvoiceLines.Parameter<string>("IssuerCardCode");
+        fiscalInvoiceLines.Parameter<bool>("IncludeFullyLinked");
+        fiscalInvoiceLines.Returns<IActionResult>();
+
+        var fiscalLinks = modelBuilder.Function("PurchaseFiscalReconciliationLinks");
+        fiscalLinks.Parameter<Guid>("TransactionKey");
+        fiscalLinks.Returns<IActionResult>();
+
+        var fiscalSuggest = modelBuilder.Action("PurchaseFiscalReconciliationSuggest");
+        fiscalSuggest.CollectionParameter<Guid>("InvoiceItemKeys");
+        fiscalSuggest.CollectionParameter<Guid>("TransactionKeys");
+        fiscalSuggest.ReturnsCollection<FiscalReconciliationPairDto>();
+
+        var fiscalSave = modelBuilder.Action("PurchaseFiscalReconciliationSave");
+        fiscalSave.CollectionParameter<Guid>("InvoiceItemKeys");
+        fiscalSave.CollectionParameter<Guid>("TransactionKeys");
+        fiscalSave.CollectionParameter<double>("Quantities");
+
+        var fiscalRemove = modelBuilder.Action("PurchaseFiscalReconciliationRemove");
+        fiscalRemove.Parameter<Guid>("Key");
+
+        var fiscalConfirm = modelBuilder.Action("PurchaseFiscalReconciliationConfirm");
+        fiscalConfirm.Parameter<Guid>("TransactionKey");
+
+        var fiscalUnconfirm = modelBuilder.Action("PurchaseFiscalReconciliationUnconfirm");
+        fiscalUnconfirm.Parameter<Guid>("TransactionKey");
+
         var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
         storageInvoiceClosing.Parameter<Guid>("DocNumberKey");
         storageInvoiceClosing.Parameter<string>("StorageAddressCode");

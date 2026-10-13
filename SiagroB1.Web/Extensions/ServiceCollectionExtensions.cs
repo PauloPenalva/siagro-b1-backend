@@ -21,6 +21,7 @@ using SiagroB1.Application.Services.Profiles;
 using SiagroB1.Application.Services.ProfilesRoles;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.PurchaseDischarges;
+using SiagroB1.Application.Services.PurchaseFiscalReconciliations;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.Roles;
 using SiagroB1.Application.Services.RolesMenus;
@@ -402,6 +403,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesItemsUpdateService>();
         services.AddScoped<PurchaseDischargeTransactionsSyncService>();
         services.AddScoped<PurchaseDischargesListService>();
+        services.AddScoped<PurchaseFiscalReconciliationService>();
         services.AddScoped<SalesInvoicesUpdateService>();
         services.AddScoped<SalesInvoicesReturnableShipmentsService>();
         services.AddScoped<SalesInvoicesReturnService>();
