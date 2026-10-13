@@ -57,7 +57,6 @@ public class PurchaseContractsGetAllocationsByContractService(
             ST.FiscalReconciledAt AS FiscalReconciledAt,
             FIS.FiscalQuantity AS FiscalQuantity,
             FIS.LinkCount AS FiscalLinkCount,
-            FIS.SupplierInvoiceNumbers AS SupplierInvoiceNumbers,
             SPLIT.ContractCount AS ContractCount
         FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
         LEFT JOIN STORAGE_TRANSACTIONS ST
@@ -88,13 +87,11 @@ public class PurchaseContractsGetAllocationsByContractService(
         LEFT JOIN SHIPMENT_LOADS DLOAD
                ON DLOAD.[Key] = DINV.ShipmentLoadKey
         -- Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao romaneio (NF cancelada não conta).
+        -- ⚠️ Sem STRING_AGG aqui: dentro deste SELECT DISTINCT com 11 LEFT JOINs ele levou o plano de 0,3 s a mais de
+        -- 40 s (CEAGUI, 13/10/2026). Os números das NFs vêm de LinksSql, uma consulta à parte.
         OUTER APPLY (
             SELECT SUM(PFR.Quantity) AS FiscalQuantity,
-                   COUNT(*) AS LinkCount,
-                   STRING_AGG(CASE WHEN PI.TaxDocumentNumber IS NULL OR PI.TaxDocumentNumber = ''
-                                   THEN PI.InvoiceNumber
-                                   ELSE PI.TaxDocumentNumber + COALESCE('-' + NULLIF(PI.TaxDocumentSeries, ''), '') END, ', ')
-                       AS SupplierInvoiceNumbers
+                   COUNT(*) AS LinkCount
             FROM PURCHASE_FISCAL_RECONCILIATIONS PFR
             JOIN PURCHASE_INVOICES_ITEMS PII ON PII.[Key] = PFR.PurchaseInvoiceItemKey
             JOIN PURCHASE_INVOICES PI ON PI.[Key] = PII.PurchaseInvoiceKey
@@ -108,6 +105,19 @@ public class PurchaseContractsGetAllocationsByContractService(
         WHERE PA.PurchaseContractKey = @purchaseContractKey
         """;
     
+    /// <summary>NFs do fornecedor vinculadas aos romaneios do contrato (NF cancelada não conta).</summary>
+    private static readonly string LinksSql = """
+        SELECT DISTINCT PFR.StorageTransactionKey AS StorageTransactionKey,
+               PI.TaxDocumentNumber AS TaxDocumentNumber,
+               PI.TaxDocumentSeries AS TaxDocumentSeries,
+               PI.InvoiceNumber AS InvoiceNumber
+        FROM PURCHASE_FISCAL_RECONCILIATIONS PFR
+        JOIN PURCHASE_INVOICES_ITEMS PII ON PII.[Key] = PFR.PurchaseInvoiceItemKey
+        JOIN PURCHASE_INVOICES PI ON PI.[Key] = PII.PurchaseInvoiceKey
+        JOIN PURCHASE_CONTRACTS_ALLOCATIONS PA ON PA.StorageTransactionKey = PFR.StorageTransactionKey
+        WHERE PA.PurchaseContractKey = @purchaseContractKey AND PI.InvoiceStatus <> 2
+        """;
+
     public async Task<ICollection<PurchaseContractAllocationsByContractDto>> ExecuteAsync(Guid purchaseContractKey)
     {
         var allocations = new List<PurchaseContractAllocationsByContractDto>();
@@ -115,6 +125,14 @@ public class PurchaseContractsGetAllocationsByContractService(
         var contractAllocations = 
             dbConnection.Query(SQL,  new { purchaseContractKey })
             .ToList();
+
+        var invoiceNumbers = dbConnection.Query(LinksSql, new { purchaseContractKey })
+            .GroupBy(l => (Guid)l.StorageTransactionKey)
+            .ToDictionary(
+                g => g.Key,
+                g => string.Join(", ", g.Select(l => PurchaseFiscalReconciliationRules.TaxDocument(
+                        (string?)l.TaxDocumentNumber, (string?)l.TaxDocumentSeries, (string?)l.InvoiceNumber))
+                    .Distinct().Order(StringComparer.Ordinal)));
 
         foreach (var allocation in contractAllocations)
         {
@@ -146,7 +164,7 @@ public class PurchaseContractsGetAllocationsByContractService(
                 DischargeLoadCode = allocation.DischargeLoadCode,
                 StorageTransactionKey = (Guid?)allocation.StorageTransactionKey,
                 ItemCode = (string?)allocation.ItemCode,
-                SupplierInvoiceNumbers = (string?)allocation.SupplierInvoiceNumbers,
+                SupplierInvoiceNumbers = allocation.StorageTransactionKey is Guid txKey ? invoiceNumbers.GetValueOrDefault(txKey) : null,
                 PhysicalQuantity = physical,
                 FiscalQuantity = fiscal,
                 FiscalDifference = fiscal - physical,
