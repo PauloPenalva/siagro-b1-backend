@@ -70,6 +70,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
                 b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
         options.AddInterceptors(new FinishedContractMutationGuardInterceptor());
+        options.AddInterceptors(new PurchaseFiscalReconciliationCleanupInterceptor());
         options.EnableSensitiveDataLogging();
     }
 );

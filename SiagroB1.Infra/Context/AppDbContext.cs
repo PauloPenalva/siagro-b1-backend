@@ -107,6 +107,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RoyaltyWriteOff> RoyaltyWriteOffs { get; set; }
     public DbSet<RoyaltyWriteOffLine> RoyaltyWriteOffLines { get; set; }
     public DbSet<StorageReturnReconciliation> StorageReturnReconciliations { get; set; }
+    public DbSet<PurchaseFiscalReconciliation> PurchaseFiscalReconciliations { get; set; }
     public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
@@ -698,6 +699,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // Romaneio inteiro, no máximo um retorno (D3).
         modelBuilder.Entity<StorageReturnReconciliation>()
             .HasIndex(x => x.StorageTransactionKey)
+            .IsUnique();
+
+        // Conciliação fiscal de compras (spec 2026-10-13): NF do fornecedor × romaneio, sem efeito em saldo. A limpeza
+        // (NF cancelada/excluída, linha removida, romaneio cancelado) é do PurchaseFiscalReconciliationCleanupInterceptor.
+        modelBuilder.Entity<PurchaseFiscalReconciliation>()
+            .HasOne(x => x.PurchaseInvoiceItem)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceItemKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseFiscalReconciliation>()
+            .HasOne(x => x.StorageTransaction)
+            .WithMany()
+            .HasForeignKey(x => x.StorageTransactionKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseFiscalReconciliation>()
+            .HasIndex(x => new { x.PurchaseInvoiceItemKey, x.StorageTransactionKey })
             .IsUnique();
 
         // Troca nota: o romaneio de quebra/sobra de descarga aponta o item conferido e a Expedição

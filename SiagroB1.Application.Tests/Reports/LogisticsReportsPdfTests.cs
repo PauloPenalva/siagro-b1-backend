@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Tests.PurchaseFiscalReconciliations;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -358,6 +359,34 @@ public class LogisticsReportsPdfTests : IDisposable
 
         var pdf = await new StorageRemittancesByPeriodReportService(db, FastReport(Configuration("STANDALONE")))
             .ExecuteAsync(new StorageRemittancesByPeriodRequest { FromDate = new DateTime(2026, 10, 1), ToDate = new DateTime(2026, 10, 31) });
+
+        Assert.NotEmpty(pdf);
+    }
+
+    [Fact]
+    public async Task PurchaseFiscalReconciliation_ProducesAPdf()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var contract = await seed.AddContractAsync("PC2026000123");
+        var tx = await seed.AddTransactionAsync(99_999_999.999m, contract: contract, code: "RM00000123");
+        var (_, line) = await seed.AddInvoiceAsync(99_999_999.999m, taxNumber: "000000038");
+        await seed.LinkAsync(line, tx, 99_999_999.999m);
+        await seed.AddInvoiceAsync(10_000m, taxNumber: "000000039");
+
+        var pdf = await new PurchaseFiscalReconciliationReportService(seed.Db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new PurchaseFiscalReconciliationReportRequest
+                { CardCode = FiscalReconciliationSeed.Supplier, ItemCode = FiscalReconciliationSeed.Product });
+
+        Keep("PurchaseFiscalReconciliation", "STANDALONE", pdf);
+    }
+
+    [Fact]
+    public async Task PurchaseFiscalReconciliation_EmptyResultStillProducesAPdf()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+
+        var pdf = await new PurchaseFiscalReconciliationReportService(seed.Db, FastReport(Configuration("STANDALONE")))
+            .ExecuteAsync(new PurchaseFiscalReconciliationReportRequest { CardCode = "X", ItemCode = "Y" });
 
         Assert.NotEmpty(pdf);
     }
