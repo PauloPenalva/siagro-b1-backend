@@ -47,16 +47,21 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a venda de origem.")
             : null;
 
+        IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey]
+            : context.CustodyReferencedKey is { } custodyKey ? [custodyKey]
+            : [];
+
         return Build(new NfeDocumentView(
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
             // Venda: saída normal. Devolução de venda: ENTRADA com finalidade 4.
             returnOrigin is null ? NfeDirection.Outgoing : NfeDirection.Incoming,
-            returnOrigin, returnOrigin is null ? [] : [returnOrigin.AccessKey],
+            returnOrigin, referencedKeys,
             NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
             line => ((SalesInvoiceItem)line).SalesInvoiceItemOriginKey,
             invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
             new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
-            invoice.TaxPayerComments, invoice.TaxComments, FunruralText: null, "VENDA"), context, issuedAt, technicalResponsible);
+            invoice.TaxPayerComments, invoice.TaxComments, FunruralText: null, "VENDA",
+            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None), context, issuedAt, technicalResponsible);
     }
 
     /// <summary>
@@ -87,7 +92,8 @@ public static class NfeIssueInputAssembler
             new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
             invoice.TaxPayerComments, TaxComments: null,
             producer is not null ? producer.FunruralText : PurchaseInvoiceFunrural.Text(invoice),
-            returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA"), context, issuedAt, technicalResponsible);
+            returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA",
+            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None), context, issuedAt, technicalResponsible);
     }
 
     /// <summary>O que o montador precisa do documento, sem saber se é de saída ou de entrada.</summary>
@@ -100,7 +106,8 @@ public static class NfeIssueInputAssembler
         NfeDirection Direction, NfeReturnOrigin? ReturnOrigin, IReadOnlyList<string> HeaderReferencedKeys,
         IReadOnlyList<INfeTaxedLine> Lines, Func<INfeTaxedLine, Guid?> OriginItemKey,
         FreightTerms FreightTerms, decimal NetWeight, decimal GrossWeight, NfeVolume? Volume,
-        string? TaxPayerComments, string? TaxComments, string? FunruralText, string DefaultOperationNature);
+        string? TaxPayerComments, string? TaxComments, string? FunruralText, string DefaultOperationNature,
+        bool WithoutPayment);
 
     private static NfeIssueInput Build(
         NfeDocumentView view, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
@@ -193,8 +200,8 @@ public static class NfeIssueInputAssembler
             NetWeight = view.NetWeight,
             GrossWeight = view.GrossWeight,
             Volume = view.Volume,
-            // Devolução: tPag 90 com vPag 0 (rejeição 871) e sem cobr.
-            Payment = returnOrigin is not null
+            // Devolução e nota de custódia: tPag 90 com vPag 0 (rejeição 871) e sem cobr.
+            Payment = view.WithoutPayment
                 ? new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, [])
                 : PaymentInstallmentCalculator.Calculate(
                     context.PaymentCondition!.Days, context.PaymentCondition.StartRule, context.PaymentCondition.PaymentMeans,
