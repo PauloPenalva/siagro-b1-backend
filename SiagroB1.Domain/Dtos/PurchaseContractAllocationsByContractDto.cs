@@ -68,4 +68,31 @@ public class PurchaseContractAllocationsByContractDto
     /// <summary>Troca nota: código da carga faturada por essa nota.</summary>
     [JsonPropertyName("DischargeLoadCode")]
     public string? DischargeLoadCode { get; set; }
+
+    [JsonPropertyName("StorageTransactionKey")]
+    public Guid? StorageTransactionKey { get; set; }
+
+    [JsonPropertyName("ItemCode")]
+    public string? ItemCode { get; set; }
+
+    /// <summary>Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao ROMANEIO inteiro.</summary>
+    [JsonPropertyName("SupplierInvoiceNumbers")]
+    public string? SupplierInvoiceNumbers { get; set; }
+
+    [JsonPropertyName("PhysicalQuantity")]
+    public decimal? PhysicalQuantity { get; set; }
+
+    [JsonPropertyName("FiscalQuantity")]
+    public decimal? FiscalQuantity { get; set; }
+
+    [JsonPropertyName("FiscalDifference")]
+    public decimal? FiscalDifference { get; set; }
+
+    /// <summary>"Sem NF" / "Parcial" / "Conciliado" — PurchaseFiscalReconciliationRules.StatusName.</summary>
+    [JsonPropertyName("FiscalStatus")]
+    public string? FiscalStatus { get; set; }
+
+    /// <summary>Romaneio rateado em mais de um contrato: os números fiscais são do romaneio, não desta alocação.</summary>
+    [JsonPropertyName("IsSplitAcrossContracts")]
+    public bool IsSplitAcrossContracts { get; set; }
 }

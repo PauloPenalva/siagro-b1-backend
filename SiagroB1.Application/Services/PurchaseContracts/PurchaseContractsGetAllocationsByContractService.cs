@@ -3,6 +3,7 @@ using Dapper;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Queries;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
@@ -21,6 +22,7 @@ public class PurchaseContractsGetAllocationsByContractService(
             CASE
         		 WHEN ST.TransactionType = 8 THEN 'Compra'
         		 WHEN ST.TransactionType = 9 THEN 'Dev.Compra'
+        		 WHEN ST.TransactionType = 10 THEN 'Compl.Qtd.'
         		 WHEN ST.TransactionType = 16 THEN 'Quebra Descarga'
         		 WHEN ST.TransactionType = 17 THEN 'Sobra Descarga'
         	END AS StorageTransactionTypeName,
@@ -28,6 +30,7 @@ public class PurchaseContractsGetAllocationsByContractService(
         	CASE
                 WHEN ST.TransactionType = 8 THEN PA.Volume
                 WHEN ST.TransactionType = 9 THEN PA.Volume * -1
+                WHEN ST.TransactionType = 10 THEN PA.Volume
                 -- Troca nota: a alocação da quebra já é negativa; exibida positiva com o tipo dizendo
                 -- o sentido, como a Dev.Compra.
                 WHEN ST.TransactionType = 16 THEN PA.Volume * -1
@@ -47,7 +50,15 @@ public class PurchaseContractsGetAllocationsByContractService(
             WR.Code AS WarehouseReconciliationCode,
             WRRS.Description AS ReasonDescription,
             COALESCE(DINV.TaxDocumentNumber, DINV.InvoiceNumber) AS DischargeInvoiceNumber,
-            DLOAD.Code AS DischargeLoadCode
+            DLOAD.Code AS DischargeLoadCode,
+            ST.[Key] AS StorageTransactionKey,
+            ST.ItemCode AS ItemCode,
+            ST.NetWeight AS PhysicalQuantity,
+            ST.FiscalReconciledAt AS FiscalReconciledAt,
+            FIS.FiscalQuantity AS FiscalQuantity,
+            FIS.LinkCount AS FiscalLinkCount,
+            FIS.SupplierInvoiceNumbers AS SupplierInvoiceNumbers,
+            SPLIT.ContractCount AS ContractCount
         FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
         LEFT JOIN STORAGE_TRANSACTIONS ST
                ON ST.[Key] = PA.StorageTransactionKey
@@ -76,6 +87,24 @@ public class PurchaseContractsGetAllocationsByContractService(
                ON DINV.[Key] = DITEM.SalesInvoiceKey
         LEFT JOIN SHIPMENT_LOADS DLOAD
                ON DLOAD.[Key] = DINV.ShipmentLoadKey
+        -- Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao romaneio (NF cancelada não conta).
+        OUTER APPLY (
+            SELECT SUM(PFR.Quantity) AS FiscalQuantity,
+                   COUNT(*) AS LinkCount,
+                   STRING_AGG(CASE WHEN PI.TaxDocumentNumber IS NULL OR PI.TaxDocumentNumber = ''
+                                   THEN PI.InvoiceNumber
+                                   ELSE PI.TaxDocumentNumber + COALESCE('-' + NULLIF(PI.TaxDocumentSeries, ''), '') END, ', ')
+                       AS SupplierInvoiceNumbers
+            FROM PURCHASE_FISCAL_RECONCILIATIONS PFR
+            JOIN PURCHASE_INVOICES_ITEMS PII ON PII.[Key] = PFR.PurchaseInvoiceItemKey
+            JOIN PURCHASE_INVOICES PI ON PI.[Key] = PII.PurchaseInvoiceKey
+            WHERE PFR.StorageTransactionKey = ST.[Key] AND PI.InvoiceStatus <> 2
+        ) FIS
+        OUTER APPLY (
+            SELECT COUNT(DISTINCT PA2.PurchaseContractKey) AS ContractCount
+            FROM PURCHASE_CONTRACTS_ALLOCATIONS PA2
+            WHERE PA2.StorageTransactionKey = ST.[Key]
+        ) SPLIT
         WHERE PA.PurchaseContractKey = @purchaseContractKey
         """;
     
@@ -91,6 +120,8 @@ public class PurchaseContractsGetAllocationsByContractService(
         {
             var supplierName = await GetSupplierName(allocation.CardCode);
             var warehouseName = await GetSupplierName(allocation.WarehouseCode);
+            var physical = (decimal?)allocation.PhysicalQuantity ?? 0m;
+            var fiscal = (decimal?)allocation.FiscalQuantity ?? 0m;
             
             allocations.Add(new PurchaseContractAllocationsByContractDto
             {
@@ -112,7 +143,16 @@ public class PurchaseContractsGetAllocationsByContractService(
                 WarehouseReconciliationCode = allocation.WarehouseReconciliationCode,
                 ReasonDescription = allocation.ReasonDescription,
                 DischargeInvoiceNumber = allocation.DischargeInvoiceNumber,
-                DischargeLoadCode = allocation.DischargeLoadCode
+                DischargeLoadCode = allocation.DischargeLoadCode,
+                StorageTransactionKey = (Guid?)allocation.StorageTransactionKey,
+                ItemCode = (string?)allocation.ItemCode,
+                SupplierInvoiceNumbers = (string?)allocation.SupplierInvoiceNumbers,
+                PhysicalQuantity = physical,
+                FiscalQuantity = fiscal,
+                FiscalDifference = fiscal - physical,
+                FiscalStatus = PurchaseFiscalReconciliationRules.StatusName(PurchaseFiscalReconciliationRules.Status(
+                    physical, fiscal, ((int?)allocation.FiscalLinkCount ?? 0) > 0, allocation.FiscalReconciledAt != null)),
+                IsSplitAcrossContracts = ((int?)allocation.ContractCount ?? 0) > 1,
             });
         }
 
