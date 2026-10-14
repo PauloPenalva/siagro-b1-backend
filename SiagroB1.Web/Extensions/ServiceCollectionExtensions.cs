@@ -667,6 +667,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsComposeService>();
         services.AddScoped<FinancialDocumentsUncomposeService>();
         services.AddScoped<FinancialDocumentsDationService>();
+        services.AddScoped<FinancialDocumentsNettingService>();
         // O guard é injetado nos dois serviços de cancelamento de CONTRATO, então precisa de
         // registro — ao contrário de FinancialDocumentsSettlementGuardService, que é estático e
         // deliberadamente não registrado.

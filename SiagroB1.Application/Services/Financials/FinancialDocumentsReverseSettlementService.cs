@@ -11,6 +11,9 @@ namespace SiagroB1.Application.Services.Financials;
 /// Estorna uma baixa gravando a linha NEGATIVA espelho. O ledger é insert-only — é dinheiro,
 /// nunca se apaga. O índice único filtrado em ReversedSettlementKey impede estornar a mesma
 /// baixa duas vezes; a consulta abaixo é a camada amigável do mesmo impedimento.
+///
+/// Encontro de contas (spec 2026-10-13, títulos firmes, regra 21): estornar uma ponta estorna o PAR no mesmo ato.
+/// Abatimento de composição (regra 14): recusado — só o desfazer da composição o estorna.
 /// </summary>
 public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
 {
@@ -38,52 +41,55 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
             throw new ApplicationException(
                 "Não é possível estornar uma devolução: ela é o registro de que o dinheiro voltou.");
 
-        var document = await db.Context.FinancialDocuments
-                           .FirstOrDefaultAsync(x => x.Key == settlement.FinancialDocumentKey)
-                       ?? throw new NotFoundException("Documento financeiro não encontrado.");
+        var settlements = new List<FinancialSettlement> { settlement };
 
-        // A devolução de adiantamento é o primeiro caminho do sistema que produz um documento
-        // Canceled com um ledger de baixas ainda vivo (a baixa original + a linha negativa da
-        // devolução). Sem este guard, estornar a baixa original reabriria o saldo enquanto o
-        // Status continua Canceled — e nem o recálculo (que não mexe em documento cancelado) nem
-        // o guard de cancelamento de contrato (que já filtra Status != Canceled) percebem. É o
-        // buraco que esta feature existe para fechar reabrindo sozinho, então NÃO apagar por
-        // parecer redundante com o guard de Origin acima.
-        if (document.Status == FinancialDocumentStatus.Canceled)
-            throw new ApplicationException("Não é possível estornar a baixa de um título cancelado.");
-
-        if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == settlementKey))
-            throw new ApplicationException("Esta baixa já foi estornada.");
-
-        var reversal = new FinancialSettlement
+        // Regra 21: o par do encontro de contas. Qualquer ponta ainda não estornada entre os mesmos dois títulos e
+        // com o mesmo valor serve — financeiramente são idênticas.
+        if (settlement.Origin == FinancialSettlementOrigin.Netting)
         {
-            Key = Guid.NewGuid(),
-            FinancialDocumentKey = settlement.FinancialDocumentKey,
-            FinancialAccountCode = settlement.FinancialAccountCode,
-            SettlementDate = DateTime.Today,
-            Amount = -settlement.Amount,
-            InterestAmount = -settlement.InterestAmount,
-            FineAmount = -settlement.FineAmount,
-            DiscountAmount = -settlement.DiscountAmount,
-            Origin = FinancialSettlementOrigin.Reversal,
-            ReversedSettlementKey = settlementKey,
-            DocumentReference = settlement.DocumentReference,
-            Notes = reason,
-            CreatedAt = DateTime.Now,
-            CreatedBy = userName,
-            UpdatedAt = DateTime.Now,
-            UpdatedBy = userName
-        };
+            var counterpart = await db.Context.FinancialSettlements
+                                  .Where(x => x.FinancialDocumentKey == settlement.RelatedDocumentKey &&
+                                              x.RelatedDocumentKey == settlement.FinancialDocumentKey &&
+                                              x.Origin == FinancialSettlementOrigin.Netting &&
+                                              x.Amount == settlement.Amount &&
+                                              !db.Context.FinancialSettlements.Any(r => r.ReversedSettlementKey == x.Key))
+                                  .OrderBy(x => x.CreatedAt)
+                                  .FirstOrDefaultAsync()
+                              ?? throw new ApplicationException("Lançamento par do encontro de contas não encontrado.");
+            settlements.Add(counterpart);
+        }
+
+        foreach (var line in settlements)
+        {
+            var document = await db.Context.FinancialDocuments
+                               .FirstOrDefaultAsync(x => x.Key == line.FinancialDocumentKey)
+                           ?? throw new NotFoundException("Documento financeiro não encontrado.");
+
+            // A devolução de adiantamento é o primeiro caminho do sistema que produz um documento
+            // Canceled com um ledger de baixas ainda vivo (a baixa original + a linha negativa da
+            // devolução). Sem este guard, estornar a baixa original reabriria o saldo enquanto o
+            // Status continua Canceled — e nem o recálculo (que não mexe em documento cancelado) nem
+            // o guard de cancelamento de contrato (que já filtra Status != Canceled) percebem. É o
+            // buraco que esta feature existe para fechar reabrindo sozinho, então NÃO apagar por
+            // parecer redundante com o guard de Origin acima.
+            if (document.Status == FinancialDocumentStatus.Canceled)
+                throw new ApplicationException("Não é possível estornar a baixa de um título cancelado.");
+
+            if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == line.Key))
+                throw new ApplicationException("Esta baixa já foi estornada.");
+        }
+
+        var reversals = settlements.Select(line => Mirror(line, reason, userName)).ToList();
 
         try
         {
             if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
-            db.Context.FinancialSettlements.Add(reversal);
+            db.Context.FinancialSettlements.AddRange(reversals);
             await db.Context.SaveChangesAsync();
 
-            await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(
-                db.Context, settlement.FinancialDocumentKey);
+            foreach (var line in settlements)
+                await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, line.FinancialDocumentKey);
             await db.Context.SaveChangesAsync();
 
             if (commitMode == CommitMode.Auto) await db.CommitAsync();
@@ -94,4 +100,26 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
             throw;
         }
     }
+
+    private static FinancialSettlement Mirror(FinancialSettlement settlement, string reason, string userName) => new()
+    {
+        Key = Guid.NewGuid(),
+        FinancialDocumentKey = settlement.FinancialDocumentKey,
+        FinancialAccountCode = settlement.FinancialAccountCode,
+        SettlementDate = DateTime.Today,
+        Amount = -settlement.Amount,
+        InterestAmount = -settlement.InterestAmount,
+        FineAmount = -settlement.FineAmount,
+        DiscountAmount = -settlement.DiscountAmount,
+        Origin = FinancialSettlementOrigin.Reversal,
+        ReversedSettlementKey = settlement.Key,
+        RelatedDocumentKey = settlement.RelatedDocumentKey,
+        CompositionKey = settlement.CompositionKey,
+        DocumentReference = settlement.DocumentReference,
+        Notes = reason,
+        CreatedAt = DateTime.Now,
+        CreatedBy = userName,
+        UpdatedAt = DateTime.Now,
+        UpdatedBy = userName
+    };
 }

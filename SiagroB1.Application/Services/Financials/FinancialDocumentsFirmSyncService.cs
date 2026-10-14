@@ -25,7 +25,8 @@ public class FinancialDocumentsFirmSyncService(
     DocNumberSequenceService docNumberSequence,
     FinancialDocumentChangeLogService changeLog,
     IUsage usageService,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    FinancialDocumentsNettingService netting)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -144,6 +145,10 @@ public class FinancialDocumentsFirmSyncService(
 
         context.FinancialDocuments.Add(document);
         await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(context, document.Key);
+
+        // Regra 8: devolução nasce → compensação automática com o firme de origem solto (regras 18–19).
+        if (document.Nature == FinancialDocumentNature.PurchaseReturn)
+            await netting.EnqueueAutoAsync(document, line.PurchaseInvoiceItemOriginKey, userName);
     }
 
     /// <summary>Regra 7: vínculo removido → cancela o firme solto ou recusa (S1/P1).</summary>

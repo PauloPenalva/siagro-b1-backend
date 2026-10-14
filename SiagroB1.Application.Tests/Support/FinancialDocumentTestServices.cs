@@ -39,5 +39,6 @@ public static class FinancialDocumentTestServices
     public static FinancialDocumentsFirmSyncService FirmSync(
         IUnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE") =>
         new(db, numbers ?? new FakeDocNumberSequenceService(), new FinancialDocumentChangeLogService(db.Context),
-            new UsageService(db, NullLogger<UsageService>.Instance), TestConfiguration.Erp(erp));
+            new UsageService(db, NullLogger<UsageService>.Instance), TestConfiguration.Erp(erp),
+            new FinancialDocumentsNettingService(db));
 }
