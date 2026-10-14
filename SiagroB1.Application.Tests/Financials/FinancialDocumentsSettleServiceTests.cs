@@ -64,7 +64,7 @@ public class FinancialDocumentsSettleServiceTests
             () => Service().ExecuteAsync(document.Key, "CX01", 100m, DateTime.Today,
                 0m, 0m, 0m, null, null, "tester"));
 
-        Assert.Contains("provisório", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith("Valor acima do disponível para baixa", error.Message);
     }
 
     [Fact]
