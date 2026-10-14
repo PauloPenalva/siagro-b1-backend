@@ -14,4 +14,10 @@ public static class FinancialDocumentChangeLogFields
 
     /// <summary>Valor do provisório ajustado no lugar pelo washout (valores formatados N2 pt-BR).</summary>
     public const string NetAmount = "NetAmount";
+
+    /// <summary>
+    /// Composição no provisório, registrada nos DOIS títulos: valores "código do outro título: valor N2 pt-BR"
+    /// (assinado). OldValue nulo = composto; NewValue nulo = desfeito.
+    /// </summary>
+    public const string Composition = "Composition";
 }

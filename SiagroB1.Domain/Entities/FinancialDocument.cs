@@ -83,6 +83,30 @@ public class FinancialDocument : DocumentEntity
     [Column(TypeName = "VARCHAR(50)")]
     public string? OriginDocNumber { get; set; }
 
+    /// <summary>
+    /// Documento de entrada do FIRME (spec 2026-10-13, títulos firmes). Sem FK, como <see cref="OriginKey"/>: o
+    /// título sobrevive ao registro que narra.
+    /// </summary>
+    public Guid? PurchaseInvoiceKey { get; set; }
+
+    /// <summary>Romaneio do vínculo que gerou o firme. Sem FK.</summary>
+    public Guid? StorageTransactionKey { get; set; }
+
+    /// <summary>Código do romaneio, desnormalizado para a lista.</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? StorageTransactionCode { get; set; }
+
+    /// <summary>"número-série" da NF, ou o número interno do documento sem NF (PurchaseFiscalReconciliationRules.TaxDocument).</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? TaxDocumentNumber { get; set; }
+
+    /// <summary>
+    /// Só no PROVISÓRIO: persistido-derivado, Σ FINANCIAL_DOCUMENT_COMPOSITIONS.Amount (assinado: firme +, devolução −).
+    /// Escritor ÚNICO: FinancialDocumentsRecalculateBalanceService.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal ComposedAmount { get; set; }
+
     public Guid? PurchaseContractKey { get; set; }
     public virtual PurchaseContract? PurchaseContract { get; set; }
 
@@ -119,11 +143,33 @@ public class FinancialDocument : DocumentEntity
         decimal.Round(NetAmount - SettledAmount, 2, MidpointRounding.ToEven);
 
     /// <summary>
-    /// Derivado da natureza, SEM coluna — uma coluna criaria uma segunda fonte de verdade para
-    /// manter em sincronia.
+    /// Derivado, SEM coluna — uma coluna criaria uma segunda fonte de verdade. Provisório: bloqueado enquanto não houver
+    /// composto a pagar (paga-se só o que está coberto por firme). Firme e devolução da conciliação: sempre — saem só
+    /// por composição, dação ou encontro de contas. Demais (adiantamento, título a receber do washout): livres.
     /// </summary>
     [NotMapped]
-    public bool IsBlockedForSettlement => Nature == FinancialDocumentNature.Provisional;
+    public bool IsBlockedForSettlement => Nature switch
+    {
+        FinancialDocumentNature.Provisional => AvailableToSettleAmount <= 0m,
+        _ => IsPurchaseFirmPayable,
+    };
+
+    /// <summary>Provisório: composto − baixado (mínimo 0). Demais naturezas: o saldo em aberto.</summary>
+    [NotMapped]
+    public decimal AvailableToSettleAmount => Nature == FinancialDocumentNature.Provisional
+        ? Math.Max(0m, decimal.Round(ComposedAmount - SettledAmount, 2, MidpointRounding.ToEven))
+        : OpenAmount;
+
+    /// <summary>
+    /// Firme ou devolução nascidos da Conciliação Fiscal de Compras, ou firme nascido da confirmação do documento de
+    /// entrada "Complemento de valor" (spec D11, origem PurchaseInvoice). O título a receber do washout também é Firm,
+    /// mas de outra origem, e continua baixável em dinheiro. Só em memória (o EF não traduz) e fora do EDM.
+    /// </summary>
+    [NotMapped]
+    public bool IsPurchaseFirmPayable =>
+        (OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation &&
+         Nature is FinancialDocumentNature.Firm or FinancialDocumentNature.PurchaseReturn) ||
+        (OriginType == FinancialDocumentOrigin.PurchaseInvoice && Nature == FinancialDocumentNature.Firm);
 
     [NotMapped]
     public bool IsOverdue => DueDate.Date < DateTime.Now.Date && OpenAmount > 0;

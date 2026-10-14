@@ -1536,14 +1536,15 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
 
-        // [NotMapped] some do EDM: sem estes quatro AddProperty, $select=OpenAmount devolve 400 e a
+        // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
         // tela não consegue mostrar o saldo.
         foreach (var property in new[]
                  {
                      nameof(FinancialDocument.OpenAmount),
                      nameof(FinancialDocument.IsBlockedForSettlement),
                      nameof(FinancialDocument.IsOverdue),
-                     nameof(FinancialDocument.AvailableAdvanceAmount)
+                     nameof(FinancialDocument.AvailableAdvanceAmount),
+                     nameof(FinancialDocument.AvailableToSettleAmount)
                  })
         {
             modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(FinancialDocument))
