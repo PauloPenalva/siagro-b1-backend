@@ -249,6 +249,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ProducerInvoiceItemKey)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Complemento de valor próprio → item da nota original (spec 2026-10-14). Restrict como as auto-relações acima:
+        // o spec escreveu NoAction, que no SQL Server é o MESMO DDL (ON DELETE NO ACTION); Restrict casa com as vizinhas
+        // e com o snapshot. A original autorizada não é excluída, e o complemento (dependente) some sem levar nada junto.
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.ComplementedItem)
+            .WithMany()
+            .HasForeignKey(x => x.ComplementedItemKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // FK OPCIONAL de propósito: entrada NORMAL não tem origem de saída, e uma FK obrigatória
         // viraria INNER JOIN zerando a coleção inteira.
         modelBuilder.Entity<PurchaseInvoiceItem>()
