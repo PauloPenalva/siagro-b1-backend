@@ -196,7 +196,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
     private sealed record LineData(
         Guid Key, string ItemCode, string? Unit, decimal Quantity, Guid? ContractKey, string? ContractCode,
         PurchaseInvoiceType InvoiceType, InvoiceStatus InvoiceStatus, bool IsCounterNote, bool IsCustodyNote, DateTime? IssueDate,
-        string TaxDocument, ItemComplement? Complement);
+        string TaxDocument, DocumentIssuerType IssuerType, ItemComplement? Complement);
 
     private async Task<List<LineData>> LoadLinesAsync(IReadOnlyCollection<Guid> keys)
     {
@@ -207,7 +207,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
                 Key = l.Key!.Value, l.ItemCode, l.UnitOfMeasureCode, l.Quantity, l.PurchaseContractKey,
                 ContractCode = l.PurchaseContract!.Code, l.PurchaseInvoice!.InvoiceType, l.PurchaseInvoice.InvoiceStatus,
                 l.PurchaseInvoice.ProducerInvoiceKey, l.PurchaseInvoice.CustodyStorageTransactionKey, l.PurchaseInvoice.IssueDate, l.PurchaseInvoice.TaxDocumentNumber,
-                l.PurchaseInvoice.TaxDocumentSeries, l.PurchaseInvoice.InvoiceNumber,
+                l.PurchaseInvoice.TaxDocumentSeries, l.PurchaseInvoice.InvoiceNumber, l.PurchaseInvoice.IssuerType,
             })
             .ToListAsync();
 
@@ -221,7 +221,7 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
         return rows.Select(r => new LineData(
             r.Key, r.ItemCode ?? "", r.UnitOfMeasureCode, r.Quantity, r.PurchaseContractKey, r.ContractCode,
             r.InvoiceType, r.InvoiceStatus, r.ProducerInvoiceKey != null, r.CustodyStorageTransactionKey != null, r.IssueDate,
-            R.TaxDocument(r.TaxDocumentNumber, r.TaxDocumentSeries, r.InvoiceNumber),
+            R.TaxDocument(r.TaxDocumentNumber, r.TaxDocumentSeries, r.InvoiceNumber), r.IssuerType,
             r.ItemCode == null ? null : complements.GetValueOrDefault(r.ItemCode))).ToList();
     }
 
@@ -247,6 +247,10 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
         if (line.InvoiceType == PurchaseInvoiceType.ValueComplement)
             throw new DefaultException(
                 $"O documento {line.TaxDocument} é complemento de valor: não se concilia com romaneio; o título nasce na confirmação.");
+
+        if (line.IssuerType == DocumentIssuerType.Own && line.InvoiceStatus != InvoiceStatus.Confirmed)
+            throw new DefaultException(
+                $"O documento {line.TaxDocument} é de emissão própria e ainda não foi confirmado: emita/confirme antes de conciliar.");
 
         if (line.IsCounterNote)
             throw new DefaultException($"A NF {line.TaxDocument} é contra-nota: vincule a escrituração da NF do produtor.");

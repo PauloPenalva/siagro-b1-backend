@@ -59,7 +59,7 @@ Compras".
 
 Moram num único serviço/guard (`PurchaseFiscalReconciliationGuard`), chamado por toda gravação.
 
-1. **Linha de NF** elegível: `PurchaseInvoice.InvoiceStatus != Cancelled` (Pendente, Confirmada e Devolvida entram);
+1. **Linha de NF** elegível: `PurchaseInvoice.InvoiceStatus != Cancelled` (Pendente, Confirmada e Devolvida entram). Documento de emissão própria só entra Confirmado (2026-10-14: o vínculo passou a gerar título financeiro);
    **não é contra-nota** (`PurchaseInvoice.ProducerInvoiceKey == null`) — o vínculo vai na escrituração da NF do
    produtor, senão a mesma carga conta duas vezes.
 2. **Romaneio** elegível: `TransactionType ∈ {8, 9, 10, 16, 17}` e `TransactionStatus != Cancelled`.
