@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -77,6 +78,12 @@ public class PurchaseContractsAllocationDeleteService(
 
         if (storageTransaction.TransactionStatus == StorageTransactionsStatus.Invoiced)
             throw new ApplicationException("Cannot delete an allocation of an invoiced storage transaction.");
+
+        // Spec 2026-10-13 (títulos firmes, regras 23–24): o estorno do romaneio desfaz a composição dos firmes dele,
+        // remove os vínculos fiscais com documentos deste contrato e cancela os firmes — ou recusa, se o provisório já
+        // tem baixa. ANTES de qualquer outra mudança; tudo enfileirado no mesmo SaveChanges do estorno.
+        await FinancialDocumentsFirmUnwind.EnqueueForAllocationAsync(
+            db.Context, storageTransaction, alloc.PurchaseContractKey, userName);
 
         db.Context.PurchaseContractsAllocations.Remove(alloc);
 
