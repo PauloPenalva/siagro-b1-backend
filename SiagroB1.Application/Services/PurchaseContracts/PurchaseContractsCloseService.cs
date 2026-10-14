@@ -41,6 +41,8 @@ public class PurchaseContractsCloseService(
 
         await GuardFinancialDocumentsAsync(contract, userName);
 
+        await GuardAdvanceCreditAsync(contract);
+
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
@@ -90,6 +92,30 @@ public class PurchaseContractsCloseService(
         if (unsettledCode is not null)
             throw new ApplicationException(
                 $"O título {unsettledCode} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.");
+    }
+
+    /// <summary>
+    /// Spec 2026-10-14 (regra 10, D2): nenhum adiantamento não cancelado do contrato com crédito não aplicado — dinheiro
+    /// pago ao produtor que não abateu nada. Saídas: compensar no provisório, devolver ou revincular a outro contrato.
+    /// Crédito = pago − aplicado (o EF traduz a subtração; a propriedade [NotMapped] não).
+    /// </summary>
+    private async Task GuardAdvanceCreditAsync(PurchaseContract contract)
+    {
+        var advance = await context.FinancialDocuments.AsNoTracking()
+            .Where(x => x.PurchaseContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Advance &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.SettledAmount - x.AppliedAmount > 0m)
+            .OrderBy(x => x.Code)
+            .Select(x => new { x.Code, x.SettledAmount, x.AppliedAmount })
+            .FirstOrDefaultAsync();
+
+        if (advance is null)
+            return;
+
+        var credit = decimal.Round(advance.SettledAmount - advance.AppliedAmount, 2, MidpointRounding.ToEven);
+        throw new ApplicationException(
+            $"O adiantamento {advance.Code} tem {credit.ToString("N2", CultureInfo.GetCultureInfo("pt-BR"))} de crédito não aplicado: compense, devolva ou vincule a outro contrato antes de encerrar.");
     }
 
     /// <summary>
