@@ -101,14 +101,41 @@ public static class PurchaseFiscalReconciliationQuery
     {
         var rows = await LinksQuery(ctx, transactionKeys).ToListAsync();
 
+        // Spec 2026-10-13 (títulos firmes): o firme de cada vínculo — o ativo, ou o último cancelado — e a situação.
+        var linkKeys = rows.Select(r => r.Key).ToList();
+        var firms = await ctx.FinancialDocuments.AsNoTracking()
+            .Where(d => d.OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation &&
+                        d.OriginKey != null && linkKeys.Contains(d.OriginKey.Value))
+            .Select(d => new { d.Key, d.Code, OriginKey = d.OriginKey!.Value, d.Status, d.CreatedAt })
+            .ToListAsync();
+        var firmKeys = firms.Select(f => f.Key).ToList();
+        var composed = (await ctx.FinancialDocumentCompositions.AsNoTracking()
+                .Where(c => firmKeys.Contains(c.ComposedDocumentKey))
+                .Select(c => c.ComposedDocumentKey)
+                .ToListAsync())
+            .ToHashSet();
+        var firmByLink = firms
+            .GroupBy(f => f.OriginKey)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(f => f.Status == FinancialDocumentStatus.Canceled ? 1 : 0)
+                .ThenByDescending(f => f.CreatedAt)
+                .First());
+
         return rows
-            .Select(r => new FiscalReconciliationLinkDto
+            .Select(r =>
             {
-                Key = r.Key, PurchaseInvoiceItemKey = r.PurchaseInvoiceItemKey, PurchaseInvoiceKey = r.PurchaseInvoiceKey,
-                StorageTransactionKey = r.StorageTransactionKey,
-                TaxDocument = R.TaxDocument(r.TaxDocumentNumber, r.TaxDocumentSeries, r.InvoiceNumber),
-                CardCode = r.CardCode, CardName = r.CardName, IssueDate = r.IssueDate, Quantity = r.Quantity,
-                CreatedAt = r.CreatedAt, CreatedBy = r.CreatedBy,
+                var firm = firmByLink.GetValueOrDefault(r.Key);
+                return new FiscalReconciliationLinkDto
+                {
+                    Key = r.Key, PurchaseInvoiceItemKey = r.PurchaseInvoiceItemKey, PurchaseInvoiceKey = r.PurchaseInvoiceKey,
+                    StorageTransactionKey = r.StorageTransactionKey,
+                    TaxDocument = R.TaxDocument(r.TaxDocumentNumber, r.TaxDocumentSeries, r.InvoiceNumber),
+                    CardCode = r.CardCode, CardName = r.CardName, IssueDate = r.IssueDate, Quantity = r.Quantity,
+                    CreatedAt = r.CreatedAt, CreatedBy = r.CreatedBy,
+                    FirmDocumentKey = firm?.Key,
+                    FirmDocumentCode = firm?.Code,
+                    FirmSituation = firm is null ? null : PurchaseFirmPayableRules.SituationName(firm.Status, composed.Contains(firm.Key)),
+                };
             })
             .OrderBy(l => l.IssueDate).ThenBy(l => l.TaxDocument, StringComparer.Ordinal)
             .ToList();
