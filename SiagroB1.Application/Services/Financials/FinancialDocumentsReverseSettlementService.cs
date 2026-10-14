@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -12,11 +13,19 @@ namespace SiagroB1.Application.Services.Financials;
 /// nunca se apaga. O índice único filtrado em ReversedSettlementKey impede estornar a mesma
 /// baixa duas vezes; a consulta abaixo é a camada amigável do mesmo impedimento.
 ///
-/// Encontro de contas (spec 2026-10-13, títulos firmes, regra 21): estornar uma ponta estorna o PAR no mesmo ato.
+/// Lançamentos em PAR — encontro de contas (spec 2026-10-13, regra 21), compensação de adiantamento e transferência de
+/// crédito (spec 2026-10-14, regras 5 e 9): estornar uma ponta estorna o PAR no mesmo ato.
 /// Abatimento de composição (regra 14): recusado — só o desfazer da composição o estorna.
+/// Pagamento do adiantamento (regra 6): recusado se o pago ficaria abaixo do aplicado.
+/// Transferência (regra 9): estornar o par CANCELA o adiantamento nascido do desmembramento.
 /// </summary>
 public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
 {
+    /// <summary>Motivo de cancelamento do adiantamento novo quando a transferência é estornada (spec 2026-10-14, regra 9).</summary>
+    public const string SplitReversalReason = "Transferência de crédito estornada";
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     public async Task ExecuteAsync(
         Guid settlementKey, string reason, string userName, CommitMode commitMode = CommitMode.Auto)
     {
@@ -43,22 +52,12 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
 
         var settlements = new List<FinancialSettlement> { settlement };
 
-        // Regra 21: o par do encontro de contas. Qualquer ponta ainda não estornada entre os mesmos dois títulos e
-        // com o mesmo valor serve — financeiramente são idênticas.
-        if (settlement.Origin == FinancialSettlementOrigin.Netting)
-        {
-            var counterpart = await db.Context.FinancialSettlements
-                                  .Where(x => x.FinancialDocumentKey == settlement.RelatedDocumentKey &&
-                                              x.RelatedDocumentKey == settlement.FinancialDocumentKey &&
-                                              x.Origin == FinancialSettlementOrigin.Netting &&
-                                              x.Amount == settlement.Amount &&
-                                              !db.Context.FinancialSettlements.Any(r => r.ReversedSettlementKey == x.Key))
-                                  .OrderBy(x => x.CreatedAt)
-                                  .FirstOrDefaultAsync()
-                              ?? throw new ApplicationException("Lançamento par do encontro de contas não encontrado.");
-            settlements.Add(counterpart);
-        }
+        if (settlement.Origin is FinancialSettlementOrigin.Netting
+            or FinancialSettlementOrigin.AdvanceApplication
+            or FinancialSettlementOrigin.AdvanceTransfer)
+            settlements.Add(await CounterpartAsync(settlement));
 
+        var documents = new Dictionary<Guid, FinancialDocument>();
         foreach (var line in settlements)
         {
             var document = await db.Context.FinancialDocuments
@@ -77,9 +76,18 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
 
             if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == line.Key))
                 throw new ApplicationException("Esta baixa já foi estornada.");
+
+            documents[line.FinancialDocumentKey] = document;
         }
 
+        EnsurePaymentStillCoversTheApplied(settlement, documents[settlement.FinancialDocumentKey]);
+
+        var splitAdvance = settlement.Origin == FinancialSettlementOrigin.AdvanceTransfer
+            ? EnsureSplitAdvanceUnused(settlements, documents)
+            : null;
+
         var reversals = settlements.Select(line => Mirror(line, reason, userName)).ToList();
+        LogUndo(settlements, documents, userName);
 
         try
         {
@@ -90,6 +98,11 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
 
             foreach (var line in settlements)
                 await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, line.FinancialDocumentKey);
+
+            // Regra 9: o recálculo deixa o novo sem pago (Open); o cancelamento vem DEPOIS para prevalecer.
+            if (splitAdvance is not null)
+                FinancialDocumentsCancelService.Cancel(splitAdvance, SplitReversalReason, userName);
+
             await db.Context.SaveChangesAsync();
 
             if (commitMode == CommitMode.Auto) await db.CommitAsync();
@@ -98,6 +111,89 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
         {
             if (commitMode == CommitMode.Auto) await db.RollbackAsync();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// A outra ponta do par: lançamento entre os mesmos dois títulos (chaves cruzadas), mesma origem e valor, ainda não
+    /// estornado. Qualquer uma serve — financeiramente são idênticas.
+    /// </summary>
+    private async Task<FinancialSettlement> CounterpartAsync(FinancialSettlement settlement)
+    {
+        var counterpart = await db.Context.FinancialSettlements
+            .Where(x => x.FinancialDocumentKey == settlement.RelatedDocumentKey &&
+                        x.RelatedDocumentKey == settlement.FinancialDocumentKey &&
+                        x.Origin == settlement.Origin &&
+                        x.Amount == settlement.Amount &&
+                        !db.Context.FinancialSettlements.Any(r => r.ReversedSettlementKey == x.Key))
+            .OrderBy(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+
+        return counterpart ?? throw new ApplicationException(settlement.Origin switch
+        {
+            FinancialSettlementOrigin.Netting => "Lançamento par do encontro de contas não encontrado.",
+            FinancialSettlementOrigin.AdvanceApplication => "Lançamento par da compensação de adiantamento não encontrado.",
+            _ => "Lançamento par da transferência de adiantamento não encontrado.",
+        });
+    }
+
+    /// <summary>
+    /// Regra 6 (spec 2026-10-14): estornar um pagamento do adiantamento não pode deixar o pago abaixo do aplicado — o
+    /// crédito já usado ficaria sem dinheiro por trás. A transferência de saída do desmembramento conta como aplicado.
+    /// </summary>
+    private static void EnsurePaymentStillCoversTheApplied(FinancialSettlement settlement, FinancialDocument document)
+    {
+        if (settlement.Origin != FinancialSettlementOrigin.Manual ||
+            document.Nature != FinancialDocumentNature.Advance ||
+            settlement.Amount <= 0m)
+            return;
+
+        var paidAfter = decimal.Round(document.SettledAmount - settlement.Amount, 2, MidpointRounding.ToEven);
+        if (paidAfter < document.AppliedAmount)
+            throw new ApplicationException(
+                $"O adiantamento {document.Code} tem {document.AppliedAmount.ToString("N2", PtBr)} aplicado: desfaça as compensações antes de estornar o pagamento.");
+    }
+
+    /// <summary>
+    /// Regra 9: o adiantamento NOVO é o da transferência de ENTRADA. Só se desfaz o desmembramento se ele continua
+    /// intocado — nada aplicado e o pago igual à transferência (compensação estornada se anula e não trava).
+    /// </summary>
+    private static FinancialDocument EnsureSplitAdvanceUnused(
+        IReadOnlyList<FinancialSettlement> settlements, IReadOnlyDictionary<Guid, FinancialDocument> documents)
+    {
+        var incoming = settlements.FirstOrDefault(line =>
+                           FinancialDocumentsRecalculateBalanceService.IsIncomingTransfer(
+                               documents[line.FinancialDocumentKey], line))
+                       ?? throw new ApplicationException("Lançamento par da transferência de adiantamento não encontrado.");
+
+        var split = documents[incoming.FinancialDocumentKey];
+        if (split.AppliedAmount != 0m || split.SettledAmount != incoming.Amount)
+            throw new ApplicationException(
+                $"O adiantamento {split.Code} já foi usado: desfaça as compensações dele antes de estornar a transferência.");
+
+        return split;
+    }
+
+    /// <summary>Compensação e transferência logam o desfazer nos dois títulos (NewValue nulo), como a composição.</summary>
+    private void LogUndo(
+        IReadOnlyList<FinancialSettlement> settlements, IReadOnlyDictionary<Guid, FinancialDocument> documents,
+        string userName)
+    {
+        var field = settlements[0].Origin switch
+        {
+            FinancialSettlementOrigin.AdvanceApplication => FinancialDocumentChangeLogFields.AdvanceApplication,
+            FinancialSettlementOrigin.AdvanceTransfer => FinancialDocumentChangeLogFields.AdvanceTransfer,
+            _ => null,
+        };
+        if (field is null)
+            return;
+
+        var changeLog = new FinancialDocumentChangeLogService(db.Context);
+        foreach (var line in settlements)
+        {
+            var other = documents[line.RelatedDocumentKey!.Value];
+            changeLog.Register(line.FinancialDocumentKey, field,
+                FinancialDocumentsComposeService.Describe(other.Code, line.Amount), null, userName);
         }
     }
 
