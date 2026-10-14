@@ -27,6 +27,11 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
         if (settlement.Origin == FinancialSettlementOrigin.Reversal)
             throw new ApplicationException("Não é possível estornar um estorno.");
 
+        // Regra 14 (spec 2026-10-13, títulos firmes): o abatimento nasce da composição e só ela o desfaz (remove a
+        // linha de composição junto); estornar por aqui deixaria a composição órfã.
+        if (settlement.Origin == FinancialSettlementOrigin.InvoiceOffset)
+            throw new ApplicationException("Abatimento de composição se desfaz pela composição.");
+
         // A devolução é o registro de que o dinheiro voltou por fora — não é uma baixa errada,
         // então não há o que "desfazer" nela.
         if (settlement.Origin == FinancialSettlementOrigin.AdvanceRefund)

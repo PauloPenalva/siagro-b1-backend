@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -75,5 +76,15 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
 
         // Cadeia de custódia na ordem inversa (spec 2026-10-12 §4.5).
         await StorageCustodyGuard.EnsurePurchaseHasNoLaterStepAsync(db.Context, key);
+
+        // Títulos firmes (spec 2026-10-13, regras 6-7): cancelar o documento desfaz os vínculos, e o interceptor recusa
+        // se algum firme está composto ou baixado. Sem este ensaio a recusa viria no SaveChanges da fase 2, DEPOIS de
+        // a SEFAZ já ter cancelado a NF-e (NfeStatus=Cancelled com o documento ainda ativo).
+        var linkKeys = await db.Context.PurchaseFiscalReconciliations.AsNoTracking()
+            .Where(l => l.PurchaseInvoiceItem!.PurchaseInvoiceKey == key)
+            .Select(l => l.Key)
+            .ToListAsync();
+        foreach (var firm in PurchaseFirmPayableRules.ActiveFirmsOf(db.Context, linkKeys))
+            PurchaseFirmPayableRules.EnsureLoose(db.Context, firm);
     }
 }
