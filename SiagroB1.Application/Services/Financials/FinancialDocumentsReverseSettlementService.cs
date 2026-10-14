@@ -50,6 +50,11 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
             throw new ApplicationException(
                 "Não é possível estornar uma devolução: ela é o registro de que o dinheiro voltou.");
 
+        // A linha escolhida já estornada tem de recusar ANTES da busca do par: o par estornado não é achado
+        // (CounterpartAsync o ignora) e a mensagem sairia "par não encontrado".
+        if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == settlement.Key))
+            throw new ApplicationException("Esta baixa já foi estornada.");
+
         var settlements = new List<FinancialSettlement> { settlement };
 
         if (settlement.Origin is FinancialSettlementOrigin.Netting

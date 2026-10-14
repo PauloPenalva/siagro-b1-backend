@@ -56,6 +56,24 @@ public class FinancialDocumentsAdvanceApplicationReverseTests
     }
 
     [Fact]
+    public async Task Reversing_an_already_reversed_application_line_is_refused_with_the_reversed_message()
+    {
+        var seed = await AdvanceApplicationSeed.CreateAsync();
+        await seed.ApplyAsync(6_000m);
+        var onAdvance = await seed.LineAsync(seed.Advance.Key, FinancialSettlementOrigin.AdvanceApplication);
+        var onProvisional = await seed.LineAsync(seed.Provisional.Key, FinancialSettlementOrigin.AdvanceApplication);
+        await seed.Reverse().ExecuteAsync(onAdvance.Key, "compensação errada", "bia");
+
+        var fromAdvance = await Assert.ThrowsAsync<ApplicationException>(() =>
+            seed.Reverse().ExecuteAsync(onAdvance.Key, "de novo", "bia"));
+        var fromProvisional = await Assert.ThrowsAsync<ApplicationException>(() =>
+            seed.Reverse().ExecuteAsync(onProvisional.Key, "de novo", "bia"));
+
+        Assert.Equal("Esta baixa já foi estornada.", fromAdvance.Message);
+        Assert.Equal("Esta baixa já foi estornada.", fromProvisional.Message);
+    }
+
+    [Fact]
     public async Task Reversing_the_payment_of_an_applied_advance_is_refused()
     {
         var seed = await AdvanceApplicationSeed.CreateAsync();

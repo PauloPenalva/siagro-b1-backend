@@ -122,6 +122,32 @@ public class FinancialAdvancesRelinkSplitTests
     }
 
     [Fact]
+    public async Task Reversing_the_transfer_from_the_split_advance_side_has_the_same_outcome()
+    {
+        var seed = await AdvanceApplicationSeed.CreateAsync();
+        var (_, split) = await SplitAsync(seed);
+        var incoming = await seed.LineAsync(split.Key, FinancialSettlementOrigin.AdvanceTransfer);
+        var outgoing = await OutgoingTransferAsync(seed);
+
+        await seed.Reverse().ExecuteAsync(incoming.Key, "revínculo errado", "bia");
+
+        var reversals = await seed.Context.FinancialSettlements.AsNoTracking()
+            .Where(s => s.Origin == FinancialSettlementOrigin.Reversal).ToListAsync();
+        Assert.Equal(2, reversals.Count);
+        Assert.Contains(reversals, r => r.ReversedSettlementKey == incoming.Key);
+        Assert.Contains(reversals, r => r.ReversedSettlementKey == outgoing.Key);
+
+        var canceled = await seed.ReloadAsync(split.Key);
+        Assert.Equal(FinancialDocumentStatus.Canceled, canceled.Status);
+        Assert.Equal("Transferência de crédito estornada", canceled.CancellationReason);
+        Assert.Equal(0m, canceled.SettledAmount);
+
+        var original = await seed.ReloadAsync(seed.Advance.Key);
+        Assert.Equal(3_000m, original.AppliedAmount);
+        Assert.Equal(7_000m, original.AvailableAdvanceAmount);
+    }
+
+    [Fact]
     public async Task Reversing_the_transfer_of_a_used_split_advance_is_refused()
     {
         var seed = await AdvanceApplicationSeed.CreateAsync();
