@@ -2140,25 +2140,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("PURCHASE_CONTRACTS_COMMENTS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", b =>
-                {
-                    b.Property<Guid>("PurchaseContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<int?>("UsageCode")
-                        .HasColumnType("int");
-
-                    b.HasKey("PurchaseContractKey");
-
-                    b.ToTable("PURCHASE_CONTRACT_FISCAL_COMPLEMENTS");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
                 {
                     b.Property<Guid>("Key")
@@ -7002,17 +6983,6 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany("CommentEntries")
                         .HasForeignKey("PurchaseContractKey")
                         .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("PurchaseContract");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
-                        .WithOne()
-                        .HasForeignKey("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", "PurchaseContractKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("PurchaseContract");
                 });

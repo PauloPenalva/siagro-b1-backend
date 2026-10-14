@@ -47,12 +47,6 @@ public class PurchaseContractsDeleteService(
             if (entity.Brokers.Any())
                 context.PurchaseContractsBrokers.RemoveRange(entity.Brokers);
 
-            // Complemento fiscal (1:1, cascade no banco): removido à mão pelo mesmo motivo dos filhos acima.
-            var fiscalComplement = await context.PurchaseContractFiscalComplements
-                .FirstOrDefaultAsync(x => x.PurchaseContractKey == entity.Key);
-            if (fiscalComplement is not null)
-                context.PurchaseContractFiscalComplements.Remove(fiscalComplement);
-
             await financialDocuments.EnqueueReleaseContractForDeletionAsync(
                 purchaseContractKey: entity.Key, salesContractKey: null, userName: userName);
 

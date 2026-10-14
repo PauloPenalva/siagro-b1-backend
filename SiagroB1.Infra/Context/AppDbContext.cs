@@ -109,7 +109,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageReturnReconciliation> StorageReturnReconciliations { get; set; }
     public DbSet<PurchaseFiscalReconciliation> PurchaseFiscalReconciliations { get; set; }
     public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
-    public DbSet<PurchaseContractFiscalComplement> PurchaseContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
@@ -278,16 +277,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => x.SalesContractKey);
             e.HasOne(x => x.SalesContract).WithOne()
                 .HasForeignKey<SalesContractFiscalComplement>(x => x.SalesContractKey)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // 1:1 com o contrato de compra; excluir o contrato exclui o complemento. Sem navegação inversa no
-        // contrato: entraria no EDM do OData sem ninguém pedir (a leitura é pela function).
-        modelBuilder.Entity<PurchaseContractFiscalComplement>(e =>
-        {
-            e.HasKey(x => x.PurchaseContractKey);
-            e.HasOne(x => x.PurchaseContract).WithOne()
-                .HasForeignKey<PurchaseContractFiscalComplement>(x => x.PurchaseContractKey)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

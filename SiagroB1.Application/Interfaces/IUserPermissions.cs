@@ -8,9 +8,6 @@ public static class PermissionCodes
 
     /// <summary>Editar o complemento fiscal do contrato de venda.</summary>
     public const string SalesContractFiscalEdit = "SALES_CONTRACT_FISCAL_EDIT";
-
-    /// <summary>Editar o complemento fiscal (natureza de operação) do contrato de compra.</summary>
-    public const string PurchaseContractFiscalEdit = "PURCHASE_CONTRACT_FISCAL_EDIT";
 }
 
 public interface IUserPermissions
