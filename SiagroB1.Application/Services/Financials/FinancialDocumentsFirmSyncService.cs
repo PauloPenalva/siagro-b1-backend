@@ -97,7 +97,7 @@ public class FinancialDocumentsFirmSyncService(
 
         var contract = await context.PurchaseContracts.AsNoTracking()
                            .Where(c => c.Key == line.PurchaseContractKey)
-                           .Select(c => new { c.Code, c.StandardCurrency })
+                           .Select(c => new { c.Code })
                            .FirstOrDefaultAsync()
                        ?? throw new NotFoundException("Contrato de compra não encontrado.");
         var transactionCode = await context.StorageTransactions.AsNoTracking()
@@ -128,7 +128,8 @@ public class FinancialDocumentsFirmSyncService(
             // Firme não é pago direto: o vencimento que vale é o do provisório.
             DocumentDate = issueDate,
             DueDate = issueDate,
-            Currency = contract.StandardCurrency ?? CurrencyType.Brl,
+            // D12: o firme nasce na moeda do documento de entrada (BRL), não na do contrato.
+            Currency = CurrencyType.Brl,
             NetAmount = amount,
             OriginType = FinancialDocumentOrigin.PurchaseFiscalReconciliation,
             OriginKey = link.Key,
@@ -176,7 +177,7 @@ public class FinancialDocumentsFirmSyncService(
         var contractKeys = lines.Select(l => l.PurchaseContractKey!.Value).Distinct().ToList();
         var contracts = await context.PurchaseContracts.AsNoTracking()
             .Where(c => contractKeys.Contains(c.Key))
-            .Select(c => new { c.Key, c.Code, c.StandardCurrency })
+            .Select(c => new { c.Key, c.Code })
             .ToDictionaryAsync(c => c.Key);
 
         foreach (var line in lines)
@@ -203,7 +204,7 @@ public class FinancialDocumentsFirmSyncService(
                 CardName = invoice.CardName,
                 DocumentDate = issueDate,
                 DueDate = issueDate,
-                Currency = contract.StandardCurrency ?? CurrencyType.Brl,
+                Currency = CurrencyType.Brl, // D12: moeda do documento de entrada
                 NetAmount = decimal.Round(line.GrandTotal - line.FunruralValue, 2, MidpointRounding.ToEven),
                 OriginType = FinancialDocumentOrigin.PurchaseInvoice,
                 OriginKey = lineKey,

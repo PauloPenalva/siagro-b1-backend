@@ -9,4 +9,13 @@ public static class TestConfiguration
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Erp"] = mode })
             .Build();
+
+    /// <summary>Configuração com chaves avulsas (valor null = chave ausente).</summary>
+    public static IConfiguration With(params (string Key, string? Value)[] values) =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(values.Where(v => v.Value is not null).ToDictionary(v => v.Key, v => v.Value))
+            .Build();
+
+    /// <summary>Sem chave nenhuma.</summary>
+    public static IConfiguration Empty() => With();
 }

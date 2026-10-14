@@ -261,4 +261,16 @@ public class FinancialDocumentsFirmSyncTests
             "Título firme nasce e morre com o vínculo da Conciliação Fiscal de Compras: desfaça o vínculo para cancelá-lo.",
             error.Message);
     }
+    [Fact]
+    public async Task Firm_is_born_in_brl_even_for_a_dollar_contract()
+    {
+        // D12: o firme nasce na moeda do documento de entrada (BRL), não na do contrato.
+        var seed = await FirmPayableSeed.CreateAsync();
+        seed.Contract.StandardCurrency = CurrencyType.Usd;
+        await seed.Context.SaveChangesAsync();
+
+        var c = await seed.ConciliateAsync();
+
+        Assert.Equal(CurrencyType.Brl, c.Firm!.Currency);
+    }
 }

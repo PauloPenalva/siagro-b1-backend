@@ -271,4 +271,68 @@ public class FinancialDocumentsCompositionTests
 
         await new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(c.Invoice.Key);
     }
+    [Fact]
+    public async Task Return_listed_before_the_firm_composes_like_firm_first()
+    {
+        // Revisão final (I6): firmes entram antes das devoluções, qualquer que seja a ordem da lista.
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var r = await ReturnAsync(seed);
+
+        await Compose(seed).ExecuteAsync(seed.Provisional.Key, [r.Firm!.Key, c.Firm!.Key], "ana");
+
+        var rows = await seed.Context.FinancialDocumentCompositions.AsNoTracking().ToListAsync();
+        Assert.Equal(19_728.33m, rows.Single(x => x.ComposedDocumentKey == c.Firm.Key).Amount);
+        Assert.Equal(-2_959.25m, rows.Single(x => x.ComposedDocumentKey == r.Firm.Key).Amount);
+        Assert.Equal(16_769.08m, (await seed.ReloadAsync(seed.Provisional.Key)).ComposedAmount);
+    }
+
+    [Fact]
+    public async Task Uncomposing_the_firm_under_a_composed_return_without_payment_asks_to_uncompose_the_return()
+    {
+        // Revisão final (I5): sem baixa no provisório, a recusa não é "estorne a baixa" — é a devolução composta.
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var r = await ReturnAsync(seed);
+        await Compose(seed).ExecuteAsync(seed.Provisional.Key, [c.Firm!.Key, r.Firm!.Key], "ana");
+        var row = await seed.Context.FinancialDocumentCompositions.AsNoTracking().SingleAsync(x => x.ComposedDocumentKey == c.Firm.Key);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => Uncompose(seed).ExecuteAsync(row.Key, "bia"));
+
+        Assert.Equal("Desfaça antes a composição da devolução ST-0002 neste título.", error.Message);
+        seed.Context.ChangeTracker.Clear();
+        Assert.Equal(2, await seed.Context.FinancialDocumentCompositions.AsNoTracking().CountAsync());
+    }
+
+    [Fact]
+    public async Task Uncomposing_the_firm_under_a_composed_return_with_payment_asks_to_reverse_the_payment()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var r = await ReturnAsync(seed);
+        await Compose(seed).ExecuteAsync(seed.Provisional.Key, [c.Firm!.Key, r.Firm!.Key], "ana");
+        await SettleProvisionalAsync(seed, 1_000m);
+        var row = await seed.Context.FinancialDocumentCompositions.AsNoTracking().SingleAsync(x => x.ComposedDocumentKey == c.Firm.Key);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => Uncompose(seed).ExecuteAsync(row.Key, "bia"));
+
+        Assert.Equal("Estorne a baixa do título FN-PROV-1 antes de desfazer a composição.", error.Message);
+    }
+    [Fact]
+    public async Task Composing_a_title_in_another_currency_is_refused()
+    {
+        // D12: provisório em dólar, firme em reais.
+        var seed = await FirmPayableSeed.CreateAsync();
+        seed.Provisional.Currency = CurrencyType.Usd;
+        await seed.Context.SaveChangesAsync();
+        var c = await seed.ConciliateAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Compose(seed).ExecuteAsync(seed.Provisional.Key, [c.Firm!.Key], "ana"));
+
+        Assert.Equal(
+            "O título ST-0001 está em R$ e o provisório FN-PROV-1 em US$: composição entre moedas diferentes ainda não é suportada.",
+            error.Message);
+        Assert.Empty(seed.Context.FinancialDocumentCompositions.AsNoTracking());
+    }
 }

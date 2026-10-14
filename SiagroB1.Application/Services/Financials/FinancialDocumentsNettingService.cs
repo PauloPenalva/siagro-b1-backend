@@ -46,7 +46,14 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
             if (returnDocument.OpenAmount <= 0m)
                 break;
 
-            if (firm.OpenAmount <= 0m || PurchaseFirmPayableRules.ProvisionalOf(context, firm.Key) is not null)
+            // O SQL filtra Canceled, mas o EF devolve a instância RASTREADA: a origem pode ter sido cancelada neste
+            // mesmo SaveChanges (vínculo de origem desfeito junto com o da devolução) — revisão final I2.
+            if (firm.Status == FinancialDocumentStatus.Canceled)
+                continue;
+
+            // D12: moeda diferente também fica para o operador.
+            if (firm.OpenAmount <= 0m || firm.Currency != returnDocument.Currency ||
+                PurchaseFirmPayableRules.ProvisionalOf(context, firm.Key) is not null)
                 continue;
 
             await EnqueuePairAsync(returnDocument, firm, Math.Min(returnDocument.OpenAmount, firm.OpenAmount), userName);
@@ -71,6 +78,11 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
         if (firm.PurchaseContractKey != refund.PurchaseContractKey)
             throw new ApplicationException($"O título {firm.Code} é de outro contrato.");
 
+        // D12: sem variação cambial ainda, só compensa título da mesma moeda.
+        if (firm.Currency != refund.Currency)
+            throw new ApplicationException(
+                $"O título {firm.Code} está em {Currency(firm.Currency)} e a devolução {refund.Code} em {Currency(refund.Currency)}: compensação entre moedas diferentes ainda não é suportada.");
+
         foreach (var document in new[] { refund, firm })
         {
             if (document.Status == FinancialDocumentStatus.Canceled)
@@ -91,6 +103,9 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
         await EnqueuePairAsync(refund, firm, Math.Min(refund.OpenAmount, firm.OpenAmount), userName);
         await db.SaveChangesAsync();
     }
+
+    private static string Currency(CurrencyType currency) =>
+        FinancialDocumentsContractCancellationGuardService.CurrencySymbol(currency);
 
     private async Task EnqueuePairAsync(FinancialDocument refund, FinancialDocument firm, decimal amount, string userName)
     {

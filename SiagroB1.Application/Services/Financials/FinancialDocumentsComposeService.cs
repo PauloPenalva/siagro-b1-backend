@@ -12,6 +12,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// Compõe (aglutina) títulos firmes e de devolução no PROVISÓRIO de uma fixação (spec 2026-10-13, títulos firmes,
 /// regras 9–12). Manual: quem decide em qual provisório cada firme entra é o operador, na ordem em que listou.
 ///
+/// Firmes entram primeiro (na ordem listada), depois as devoluções, qualquer que seja a ordem recebida.
 /// Firme entra por min(saldo do firme, espaço), espaço = valor do provisório − composto; sem espaço nenhum, recusa.
 /// Devolução entra NEGATIVA pelo seu saldo (libera espaço), desde que o composto não fique abaixo do já baixado.
 /// Tudo num SaveChanges: linha de composição, abatimento (InvoiceOffset) no título composto, recálculo e log nos dois.
@@ -45,9 +46,16 @@ public class FinancialDocumentsComposeService(IUnitOfWork db, FinancialDocumentC
 
         var composed = provisional.ComposedAmount;
 
-        foreach (var key in keys)
+        // Firmes antes das devoluções, cada grupo na ordem listada (OrderBy é estável): a devolução só libera espaço
+        // sobre o composto final, e [devolução, firme] num provisório vazio não pode recusar o que [firme, devolução]
+        // aceita (revisão final I6).
+        var ordered = keys
+            .Select(key => documents.Single(x => x.Key == key))
+            .OrderBy(x => x.Nature == FinancialDocumentNature.Firm ? 0 : 1)
+            .ToList();
+
+        foreach (var document in ordered)
         {
-            var document = documents.Single(x => x.Key == key);
             EnsureComposable(provisional, document);
 
             decimal amount;
@@ -91,12 +99,20 @@ public class FinancialDocumentsComposeService(IUnitOfWork db, FinancialDocumentC
         if (document.PurchaseContractKey != provisional.PurchaseContractKey)
             throw new ApplicationException($"O título {document.Code} é de outro contrato.");
 
+        // D12: o firme nasce em BRL; provisório em outra moeda (contrato em dólar) não compõe até a variação cambial.
+        if (document.Currency != provisional.Currency)
+            throw new ApplicationException(
+                $"O título {document.Code} está em {Currency(document.Currency)} e o provisório {provisional.Code} em {Currency(provisional.Currency)}: composição entre moedas diferentes ainda não é suportada.");
+
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O título {document.Code} está cancelado.");
 
         if (document.OpenAmount <= 0m)
             throw new ApplicationException($"O título {document.Code} não tem saldo a compor.");
     }
+
+    private static string Currency(CurrencyType currency) =>
+        FinancialDocumentsContractCancellationGuardService.CurrencySymbol(currency);
 
     private void Enqueue(FinancialDocument provisional, FinancialDocument document, decimal amount, string userName)
     {

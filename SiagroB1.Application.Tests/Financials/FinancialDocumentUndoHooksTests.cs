@@ -302,7 +302,8 @@ public class FinancialDocumentUndoHooksTests
                 new PurchaseContractsCloseService(
                         act,
                         new PurchaseContractsFixedVolumeService(act),
-                        TestNotificationOutbox.For(act))
+                        TestNotificationOutbox.For(act), TestConfiguration.Empty(),
+                        Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance)
                     .ExecuteAsync(contractKey, "tester"));
 
             Assert.Equal(
@@ -349,7 +350,8 @@ public class FinancialDocumentUndoHooksTests
             await new PurchaseContractsCloseService(
                     act,
                     new PurchaseContractsFixedVolumeService(act),
-                    TestNotificationOutbox.For(act))
+                    TestNotificationOutbox.For(act), TestConfiguration.Empty(),
+                        Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance)
                 .ExecuteAsync(contractKey, "tester");
         }
 
@@ -561,7 +563,8 @@ public class FinancialDocumentUndoHooksTests
             await new PurchaseContractsCloseService(
                     close,
                     new PurchaseContractsFixedVolumeService(close),
-                    TestNotificationOutbox.For(close))
+                    TestNotificationOutbox.For(close), TestConfiguration.Empty(),
+                        Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance)
                 .ExecuteAsync(contractKey, "tester");
         }
 

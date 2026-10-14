@@ -45,7 +45,20 @@ public static class FinancialDocumentsFirmUnwind
             throw new ApplicationException(
                 $"O romaneio {transaction.Code} compõe o título {paid}, que já tem baixa ou compensação: estorne a baixa antes.");
 
-        // Regra 13 sem a checagem (o provisório não tem baixa), remoção dos vínculos e regra 7.
+        // Regra 13 com o provisório sem baixa: o composto ainda não pode ficar negativo — uma devolução composta no mesmo
+        // provisório (de outro romaneio) tem de sair antes (revisão final I5).
+        foreach (var group in compositions.GroupBy(c => c.ProvisionalDocumentKey))
+        {
+            var leaving = group.Select(c => c.Key).ToList();
+            var remaining = await context.FinancialDocumentCompositions.AsNoTracking()
+                .Where(c => c.ProvisionalDocumentKey == group.Key && !leaving.Contains(c.Key))
+                .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+            if (remaining < 0m)
+                throw new ApplicationException(FinancialDocumentsUncomposeService.ReturnFirstRefusal(
+                    await FinancialDocumentsUncomposeService.ComposedReturnCodeAsync(context, group.Key, leaving)));
+        }
+
+        // Regra 13 sem a checagem de baixa (já garantida acima), remoção dos vínculos e regra 7.
         foreach (var composition in compositions)
             await FinancialDocumentsUncomposeService.EnqueueAsync(context, composition, userName);
 

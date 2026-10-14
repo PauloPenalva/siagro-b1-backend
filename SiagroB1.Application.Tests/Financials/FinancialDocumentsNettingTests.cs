@@ -133,4 +133,49 @@ public class FinancialDocumentsNettingTests
         Assert.Equal(0m, firm.SettledAmount);
         Assert.Equal(FinancialDocumentStatus.Open, firm.Status);
     }
+    [Fact]
+    public async Task Origin_canceled_in_the_same_save_is_not_netted()
+    {
+        // Revisão final (I2): o mesmo SaveAsync desvincula a origem (firme cancelado em memória) e vincula a devolução.
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var returnTx = await seed.Fiscal.AddTransactionAsync(1_500m, StorageTransactionType.PurchaseReturn, seed.Contract);
+        var (_, returnLine) = await seed.Fiscal.AddInvoiceAsync(
+            30_000m, type: PurchaseInvoiceType.Return, contract: seed.Contract, taxNumber: "2001");
+        returnLine.FunruralInssValue = 815m;
+        returnLine.UsageCode = seed.FinancialUsageCode;
+        returnLine.PurchaseInvoiceItemOriginKey = c.Line.Key;
+        await seed.Db.SaveChangesAsync();
+
+        await seed.Reconciliation().SaveAsync(
+        [
+            new FiscalReconciliationPairDto { PurchaseInvoiceItemKey = c.Line.Key!.Value, StorageTransactionKey = c.Transaction.Key, Quantity = 0m },
+            new FiscalReconciliationPairDto { PurchaseInvoiceItemKey = returnLine.Key!.Value, StorageTransactionKey = returnTx.Key, Quantity = 1_500m },
+        ], "ana");
+
+        Assert.Equal(FinancialDocumentStatus.Canceled, (await seed.ReloadAsync(c.Firm!.Key)).Status);
+        var refund = await seed.Context.FinancialDocuments.AsNoTracking()
+            .SingleAsync(d => d.Nature == FinancialDocumentNature.PurchaseReturn);
+        Assert.Equal(FinancialDocumentStatus.Open, refund.Status);
+        Assert.Equal(0m, refund.SettledAmount);
+        Assert.Empty(seed.Context.FinancialSettlements.AsNoTracking().Where(s => s.Origin == FinancialSettlementOrigin.Netting));
+    }
+    [Fact]
+    public async Task Manual_netting_between_currencies_is_refused()
+    {
+        // D12: a devolução (legada) em dólar não compensa firme em reais.
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var r = await ReturnAsync(seed, originLineKey: null);
+        var refund = await seed.Context.FinancialDocuments.SingleAsync(d => d.Key == r.Firm!.Key);
+        refund.Currency = CurrencyType.Usd;
+        await seed.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Netting(seed).ExecuteAsync(r.Firm!.Key, c.Firm!.Key, "ana"));
+
+        Assert.Equal(
+            "O título ST-0001 está em R$ e a devolução ST-0002 em US$: compensação entre moedas diferentes ainda não é suportada.",
+            error.Message);
+    }
 }

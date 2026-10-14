@@ -23,11 +23,31 @@ public class FinancialDocumentsUncomposeService(IUnitOfWork db)
 
         // Sem a linha, o composto não pode ficar abaixo do que já foi pago no provisório.
         if (provisional.ComposedAmount - composition.Amount < provisional.SettledAmount)
-            throw new ApplicationException($"Estorne a baixa do título {provisional.Code} antes de desfazer a composição.");
+        {
+            if (provisional.SettledAmount > 0m)
+                throw new ApplicationException($"Estorne a baixa do título {provisional.Code} antes de desfazer a composição.");
+
+            // Nada pago: quem deixaria o composto negativo é uma devolução composta neste provisório (revisão final I5).
+            throw new ApplicationException(
+                ReturnFirstRefusal(await ComposedReturnCodeAsync(db.Context, provisional.Key, [composition.Key])));
+        }
 
         await EnqueueAsync(db.Context, composition, userName);
         await db.SaveChangesAsync();
     }
+
+    /// <summary>Regra 13 sem baixa: a devolução composta no provisório tem de sair antes do firme.</summary>
+    internal static string ReturnFirstRefusal(string? returnCode) =>
+        $"Desfaça antes a composição da devolução {returnCode} neste título.";
+
+    /// <summary>Código da devolução (linha de composição negativa) que fica no provisório, fora das linhas que saem.</summary>
+    internal static async Task<string?> ComposedReturnCodeAsync(
+        AppDbContext context, Guid provisionalKey, IReadOnlyCollection<Guid> leavingCompositionKeys) =>
+        await context.FinancialDocumentCompositions.AsNoTracking()
+            .Where(c => c.ProvisionalDocumentKey == provisionalKey && c.Amount < 0m && !leavingCompositionKeys.Contains(c.Key))
+            .Join(context.FinancialDocuments, c => c.ComposedDocumentKey, d => d.Key, (c, d) => d.Code)
+            .OrderBy(code => code)
+            .FirstOrDefaultAsync();
 
     /// <summary>
     /// Enqueue-only e SEM a checagem da regra 13: o estorno de romaneio (FinancialDocumentsFirmUnwind) só chega aqui

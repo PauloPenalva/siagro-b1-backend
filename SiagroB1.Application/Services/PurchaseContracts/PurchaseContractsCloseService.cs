@@ -1,4 +1,8 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -10,8 +14,15 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsCloseService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
-    ContractNotificationOutboxService notificationOutbox)
+    ContractNotificationOutboxService notificationOutbox,
+    IConfiguration configuration,
+    ILogger<PurchaseContractsCloseService> logger)
 {
+    /// <summary>D13: data de corte (yyyy-MM-dd) dos contratos anteriores aos títulos firmes. Sem a chave, ninguém é isento.</summary>
+    public const string CutoverDateKey = "Financial:FirmPayablesCutoverDate";
+
+    public const string LegacyCancellationReason = "Encerramento do contrato";
+
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var contract = await context.PurchaseContracts
@@ -28,7 +39,7 @@ public class PurchaseContractsCloseService(
 
         await GuardNegativeBalanceAsync(contract);
 
-        await GuardFinancialDocumentsAsync(contract);
+        await GuardFinancialDocumentsAsync(contract, userName);
 
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
@@ -45,7 +56,7 @@ public class PurchaseContractsCloseService(
     /// Regra 28: nenhum firme/devolução do contrato com saldo, e todo provisório não cancelado QUITADO
     /// (baixa + compensação = valor contratado).
     /// </summary>
-    private async Task GuardFinancialDocumentsAsync(PurchaseContract contract)
+    private async Task GuardFinancialDocumentsAsync(PurchaseContract contract, string userName)
     {
         // Firme/devolução da conciliação e firme do complemento de valor (D11); o título a receber do washout não entra.
         var hasOpenFirm = await context.FinancialDocuments.AnyAsync(x =>
@@ -60,18 +71,60 @@ public class PurchaseContractsCloseService(
             throw new ApplicationException(
                 "Há títulos firmes com saldo neste contrato: componha, compense ou baixe por dação antes de encerrar.");
 
+        await CancelLegacyUntouchedProvisionalsAsync(contract, userName);
+
         var unsettled = await context.FinancialDocuments
             .Where(x => x.PurchaseContractKey == contract.Key &&
                         x.Nature == FinancialDocumentNature.Provisional &&
                         x.Status != FinancialDocumentStatus.Canceled &&
                         x.Status != FinancialDocumentStatus.Settled)
             .OrderBy(x => x.Code)
+            .Select(x => new { x.Key, x.Code })
+            .ToListAsync();
+        // O SQL não vê o cancelamento do legado acima, ainda só em memória: reconfere pela instância rastreada.
+        var unsettledCode = unsettled
+            .Where(x => context.FinancialDocuments.Local.FirstOrDefault(d => d.Key == x.Key) is not { Status: FinancialDocumentStatus.Canceled })
             .Select(x => x.Code)
-            .FirstOrDefaultAsync();
+            .FirstOrDefault();
 
-        if (unsettled is not null)
+        if (unsettledCode is not null)
             throw new ApplicationException(
-                $"O título {unsettled} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.");
+                $"O título {unsettledCode} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.");
+    }
+
+    /// <summary>
+    /// D13 (spec 2026-10-13, decisões da revisão final): provisório criado ANTES da data de corte, sem composição e sem
+    /// baixa, não trava o encerramento: é cancelado como antes desta fase ("Encerramento do contrato"). Enqueue-only:
+    /// grava junto com o contrato, e uma recusa adiante descarta tudo. Sem a chave (ou com valor inválido), nada é isento.
+    /// </summary>
+    private async Task CancelLegacyUntouchedProvisionalsAsync(PurchaseContract contract, string userName)
+    {
+        var raw = configuration[CutoverDateKey];
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        if (!DateTime.TryParseExact(raw.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var cutover))
+        {
+            logger.LogWarning("{Key} inválida ({Value}): nenhum provisório é isento no encerramento.", CutoverDateKey, raw);
+            return;
+        }
+
+        var legacy = await context.FinancialDocuments
+            .Where(x => x.PurchaseContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Provisional &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.Status != FinancialDocumentStatus.Settled &&
+                        x.CreatedAt != null && x.CreatedAt < cutover &&
+                        x.ComposedAmount == 0m && x.SettledAmount == 0m)
+            .ToListAsync();
+
+        foreach (var provisional in legacy)
+        {
+            FinancialDocumentsCancelService.Cancel(provisional, LegacyCancellationReason, userName);
+            logger.LogInformation(
+                "Encerramento do contrato {Contract}: provisório {Document} anterior à data de corte {Cutover:yyyy-MM-dd} cancelado.",
+                contract.Code, provisional.Code, cutover);
+        }
     }
 
     /// <summary>

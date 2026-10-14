@@ -45,8 +45,20 @@ public class FinancialDocumentFirmLocksTests
         await s.Context.SaveChangesAsync();
     }
 
-    private static PurchaseContractsCloseService Close(FirmPayableSeed s) =>
-        new(s.Context, new PurchaseContractsFixedVolumeService(s.Context), TestNotificationOutbox.For(s.Context));
+    private static PurchaseContractsCloseService Close(FirmPayableSeed s, string? cutover = null) =>
+        new(s.Context, new PurchaseContractsFixedVolumeService(s.Context), TestNotificationOutbox.For(s.Context),
+            TestConfiguration.With(("Financial:FirmPayablesCutoverDate", cutover)),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance);
+
+    private const string UnsettledProvisional =
+        "O título FN-PROV-1 não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.";
+
+    /// <summary>D13: o provisório do seed nasce em 01/09/2026 — "antes da data de corte" quando o corte é 01/10/2026.</summary>
+    private static async Task BackdateProvisionalAsync(FirmPayableSeed s)
+    {
+        s.Provisional.CreatedAt = new DateTime(2026, 9, 1);
+        await s.Context.SaveChangesAsync();
+    }
 
     [Fact]
     public async Task Reversing_a_fixation_whose_provisional_has_composition_is_refused_until_uncomposed()
@@ -170,6 +182,79 @@ public class FinancialDocumentFirmLocksTests
         Assert.Equal(
             "O título FN-PROV-1 não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.",
             error.Message);
+    }
+
+    [Fact]
+    public async Task Closing_cancels_a_legacy_untouched_provisional_created_before_the_cutover()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        await BackdateProvisionalAsync(seed);
+
+        await Close(seed, "2026-10-01").ExecuteAsync(seed.Contract.Key, "ana");
+
+        var provisional = await seed.ReloadAsync(seed.Provisional.Key);
+        Assert.Equal(FinancialDocumentStatus.Canceled, provisional.Status);
+        Assert.Equal("Encerramento do contrato", provisional.CancellationReason);
+        Assert.Equal("ana", provisional.CanceledBy);
+        Assert.Equal(ContractStatus.Finished,
+            (await seed.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == seed.Contract.Key)).Status);
+    }
+
+    [Fact]
+    public async Task Closing_refuses_an_untouched_provisional_created_after_the_cutover()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        seed.Provisional.CreatedAt = new DateTime(2026, 10, 2);
+        await seed.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Close(seed, "2026-10-01").ExecuteAsync(seed.Contract.Key, "ana"));
+
+        Assert.Equal(UnsettledProvisional, error.Message);
+    }
+
+    [Fact]
+    public async Task Closing_refuses_a_provisional_before_the_cutover_with_composition()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        await BackdateProvisionalAsync(seed);
+        await SeedCompositionAsync(seed, 100m);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Close(seed, "2026-10-01").ExecuteAsync(seed.Contract.Key, "ana"));
+
+        Assert.Equal(UnsettledProvisional, error.Message);
+    }
+
+    [Fact]
+    public async Task Closing_refuses_a_provisional_before_the_cutover_with_settlement()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        await BackdateProvisionalAsync(seed);
+        seed.Context.FinancialSettlements.Add(new FinancialSettlement
+        {
+            Key = Guid.NewGuid(), FinancialDocumentKey = seed.Provisional.Key, FinancialAccountCode = "CX01", Amount = 100m,
+            SettlementDate = DateTime.Today, Origin = FinancialSettlementOrigin.Manual,
+        });
+        await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(seed.Context, seed.Provisional.Key);
+        await seed.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Close(seed, "2026-10-01").ExecuteAsync(seed.Contract.Key, "ana"));
+
+        Assert.Equal(UnsettledProvisional, error.Message);
+    }
+
+    [Fact]
+    public async Task Closing_without_the_cutover_key_exempts_nothing()
+    {
+        var seed = await FirmPayableSeed.CreateAsync();
+        await BackdateProvisionalAsync(seed);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => Close(seed).ExecuteAsync(seed.Contract.Key, "ana"));
+
+        Assert.Equal(UnsettledProvisional, error.Message);
+        Assert.Equal(FinancialDocumentStatus.Open, (await seed.ReloadAsync(seed.Provisional.Key)).Status);
     }
 
     [Fact]

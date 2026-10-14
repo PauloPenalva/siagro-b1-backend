@@ -47,7 +47,7 @@ public class FinancialDocumentsContractCancellationGuardService(IUnitOfWork db)
 
     // FinancialDocument.Currency é por documento (CurrencyType tem Brl e Usd) — a mensagem tem
     // que refletir a moeda do PRÓPRIO documento, nunca um literal fixo.
-    private static string CurrencySymbol(CurrencyType currency) => currency switch
+    internal static string CurrencySymbol(CurrencyType currency) => currency switch
     {
         CurrencyType.Usd => "US$",
         _ => "R$",

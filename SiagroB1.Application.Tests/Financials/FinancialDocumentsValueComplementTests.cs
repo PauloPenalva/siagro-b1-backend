@@ -182,4 +182,16 @@ public class FinancialDocumentsValueComplementTests
         Assert.Empty(await FiscalReconciliationSeed.NewService(fiscal.Db).ListInvoiceLinesAsync(
             new FiscalReconciliationFilter { CardCode = FiscalReconciliationSeed.Supplier, ItemCode = FiscalReconciliationSeed.Product }));
     }
+    [Fact]
+    public async Task Complement_firm_is_born_in_brl_even_for_a_dollar_contract()
+    {
+        // D12.
+        var seed = await FirmPayableSeed.CreateAsync();
+        seed.Contract.StandardCurrency = CurrencyType.Usd;
+        await seed.Context.SaveChangesAsync();
+
+        await ConfirmedComplementAsync(seed, 1_000m);
+
+        Assert.Equal(CurrencyType.Brl, (await ComplementFirms(seed).SingleAsync()).Currency);
+    }
 }

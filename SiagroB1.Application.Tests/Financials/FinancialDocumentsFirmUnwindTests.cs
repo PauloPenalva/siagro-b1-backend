@@ -95,4 +95,24 @@ public class FinancialDocumentsFirmUnwindTests
         Assert.Equal(FinancialDocumentStatus.Open, (await seed.ReloadAsync(r.Firm!.Key)).Status);
         Assert.Single(seed.Context.PurchaseFiscalReconciliations.AsNoTracking());
     }
+    [Fact]
+    public async Task Reversing_a_transaction_whose_firm_carries_a_composed_return_is_refused()
+    {
+        // Revisão final (I5, Minor): sem baixa, desfazer só o firme deixaria o composto negativo pela devolução.
+        var seed = await FirmPayableSeed.CreateAsync();
+        var c = await seed.ConciliateAsync();
+        var r = await seed.ConciliateAsync(kg: 1_500m, invoiceType: PurchaseInvoiceType.Return,
+            transactionType: StorageTransactionType.PurchaseReturn, taxNumber: "2001");
+        await new FinancialDocumentsComposeService(seed.Db, new FinancialDocumentChangeLogService(seed.Context))
+            .ExecuteAsync(seed.Provisional.Key, [c.Firm!.Key, r.Firm!.Key], "ana");
+        var allocationKey = await AllocationKeyAsync(seed, c.Transaction);
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            AllocationDelete(seed).ExecuteWithTransactionAsync(allocationKey, "bia"));
+
+        Assert.Equal("Desfaça antes a composição da devolução ST-0002 neste título.", error.Message);
+        seed.Context.ChangeTracker.Clear();
+        Assert.Equal(2, await seed.Context.FinancialDocumentCompositions.AsNoTracking().CountAsync());
+        Assert.Equal(2, await seed.Context.PurchaseFiscalReconciliations.AsNoTracking().CountAsync());
+    }
 }

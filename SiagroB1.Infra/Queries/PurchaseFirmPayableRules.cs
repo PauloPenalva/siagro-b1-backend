@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -14,6 +15,11 @@ namespace SiagroB1.Infra.Queries;
 public static class PurchaseFirmPayableRules
 {
     public const string LinkUndoneReason = "Vínculo fiscal desfeito";
+
+    /// <summary>Motivo do cancelamento quando a natureza da linha conciliada deixa de gerar financeiro (revisão final C1).</summary>
+    public const string NatureWithoutFinancialReason = "Natureza não gera financeiro";
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>Usuário do cancelamento em cascata (NF/romaneio cancelado): o interceptor não sabe quem é.</summary>
     public const string SystemUserName = "Sistema";
@@ -92,7 +98,8 @@ public static class PurchaseFirmPayableRules
     /// antes de qualquer mudança. Enqueue-only. Grava os carimbos à mão: o Infra não enxerga
     /// FinancialDocumentsCancelService.Cancel.
     /// </summary>
-    public static void CancelLooseFirms(DbContext context, IReadOnlyCollection<Guid> linkKeys, string userName)
+    public static void CancelLooseFirms(
+        DbContext context, IReadOnlyCollection<Guid> linkKeys, string userName, string reason = LinkUndoneReason)
     {
         var firms = ActiveFirmsOf(context, linkKeys);
         foreach (var firm in firms)
@@ -102,12 +109,40 @@ public static class PurchaseFirmPayableRules
         foreach (var firm in firms)
         {
             firm.Status = FinancialDocumentStatus.Canceled;
-            firm.CancellationReason = LinkUndoneReason;
+            firm.CancellationReason = reason;
             firm.CanceledAt = now;
             firm.CanceledBy = userName;
             firm.UpdatedAt = now;
             firm.UpdatedBy = userName;
         }
+    }
+
+    /// <summary>
+    /// Regra 6 na edição da linha conciliada (revisão final C1): valor igual não toca no título nem recusa; senão só o
+    /// firme solto muda, com o log de NetAmount. Solto = sem composição e sem baixa, então o recálculo do saldo se reduz
+    /// ao status (mesma regra de FinancialDocumentsRecalculateBalanceService, que o Infra não enxerga). Enqueue-only.
+    /// </summary>
+    public static void RecalculateLooseFirm(DbContext context, FinancialDocument firm, decimal amount, string userName)
+    {
+        if (firm.NetAmount == amount) return;
+
+        EnsureLoose(context, firm);
+
+        var now = DateTime.Now;
+        context.Set<FinancialDocumentChangeLog>().Add(new FinancialDocumentChangeLog
+        {
+            FinancialDocumentKey = firm.Key,
+            Field = FinancialDocumentChangeLogFields.NetAmount,
+            OldValue = firm.NetAmount.ToString("N2", PtBr),
+            NewValue = amount.ToString("N2", PtBr),
+            ChangedAt = now,
+            ChangedBy = userName,
+        });
+
+        firm.NetAmount = amount;
+        firm.Status = amount <= 0m ? FinancialDocumentStatus.Settled : FinancialDocumentStatus.Open;
+        firm.UpdatedAt = now;
+        firm.UpdatedBy = userName;
     }
 
     // --- Complemento de valor (spec 2026-10-13 D11): o firme nasce da LINHA do documento (OriginType PurchaseInvoice). ---
