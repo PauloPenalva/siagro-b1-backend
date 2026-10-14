@@ -1678,6 +1678,20 @@ public static class ODataConfigurations
         financialComposition.Parameter<Guid>("Key");
         financialComposition.Returns<FinancialDocumentCompositionDto>();
 
+        // Compensação de adiantamento no provisório (spec 2026-10-14). Dinheiro em Edm.Double e data em string,
+        // como na baixa. Nenhum parâmetro opcional: uma rota só. A transferência de crédito NÃO tem action (regra 12):
+        // nasce só pelo revínculo desmembrado.
+        var financialApplyAdvance = modelBuilder.Action("FinancialDocumentsApplyAdvance");
+        financialApplyAdvance.Parameter<Guid>("Key");
+        financialApplyAdvance.Parameter<Guid>("AdvanceKey");
+        financialApplyAdvance.Parameter<double>("Amount");
+        financialApplyAdvance.Parameter<string>("SettlementDate");
+        financialApplyAdvance.Returns<IActionResult>();
+
+        var financialAdvanceCandidates = modelBuilder.Function("FinancialDocumentsGetAdvanceCandidates");
+        financialAdvanceCandidates.Parameter<Guid>("Key");
+        financialAdvanceCandidates.ReturnsCollection<FinancialDocumentAdvanceCandidateDto>();
+
         var financialBacklog = modelBuilder.Action("FinancialDocumentsGenerateBacklog");
         financialBacklog.Parameter<string>("BranchCode").Optional();
         financialBacklog.Parameter<string>("FromDate");
