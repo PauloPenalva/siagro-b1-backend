@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.PurchaseFiscalReconciliations;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -14,6 +15,11 @@ internal sealed class FiscalReconciliationSeed
     private int _seq;
 
     private FiscalReconciliationSeed(UnitOfWork db) => Db = db;
+
+    /// <summary>Serviço real da conciliação, com o sync do firme (spec 2026-10-13, títulos firmes).</summary>
+    public static PurchaseFiscalReconciliationService NewService(
+        UnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE") =>
+        new(db, FinancialDocumentTestServices.FirmSync(db, numbers, erp));
 
     public static async Task<FiscalReconciliationSeed> CreateAsync(UnitOfWork? db = null)
     {

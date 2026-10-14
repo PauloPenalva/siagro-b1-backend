@@ -35,12 +35,16 @@ public class PurchaseInvoicesTaxApplyService(
         invoice.ProducerInvoiceKey is null
         && (invoice.IssuerType == DocumentIssuerType.Own
             && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
-            || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal)
+            || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement)
         && await gate.IsActiveAsync(invoice.BranchCode);
 
     /// <summary>Devolução de compra criada pelo "Devolver": sai com NF-e própria de saída.</summary>
     public static bool IsOwnNfeReturn(PurchaseInvoice invoice) =>
         invoice.InvoiceType == PurchaseInvoiceType.Return && invoice.IsNfeReturn;
+
+    /// <summary>Spec 2026-10-13 D11: regras do documento "Complemento de valor" (e do valor de complemento nos demais tipos).</summary>
+    public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate.IsStandalone);
 
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {

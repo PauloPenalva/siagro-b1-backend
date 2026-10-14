@@ -34,6 +34,11 @@ public class PurchaseInvoicesNfeIssueService(
 
     protected override void EnsureIssuableType(PurchaseInvoice invoice)
     {
+        // Spec 2026-10-13 D11: a NF-e de complemento (finNFe=2, NFref) é o sub-projeto 2b.
+        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
+            throw new DefaultException(
+                "Complemento de valor não é emitido como NF-e por aqui (fica para o sub-projeto 2b): lance-o como documento de terceiro.");
+
         if (invoice.IssuerType != DocumentIssuerType.Own)
             throw new DefaultException("Só o documento de emissão própria é emitido como NF-e.");
 

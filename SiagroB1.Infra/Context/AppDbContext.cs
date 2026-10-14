@@ -109,7 +109,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageReturnReconciliation> StorageReturnReconciliations { get; set; }
     public DbSet<PurchaseFiscalReconciliation> PurchaseFiscalReconciliations { get; set; }
     public DbSet<SalesContractFiscalComplement> SalesContractFiscalComplements { get; set; }
-    public DbSet<PurchaseContractFiscalComplement> PurchaseContractFiscalComplements { get; set; }
 
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
@@ -129,6 +128,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialDocument> FinancialDocuments { get; set; }
     public DbSet<FinancialSettlement> FinancialSettlements { get; set; }
     public DbSet<FinancialDocumentChangeLog> FinancialDocumentChangeLogs { get; set; }
+    public DbSet<FinancialDocumentComposition> FinancialDocumentCompositions { get; set; }
 
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
 
@@ -278,16 +278,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasKey(x => x.SalesContractKey);
             e.HasOne(x => x.SalesContract).WithOne()
                 .HasForeignKey<SalesContractFiscalComplement>(x => x.SalesContractKey)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // 1:1 com o contrato de compra; excluir o contrato exclui o complemento. Sem navegação inversa no
-        // contrato: entraria no EDM do OData sem ninguém pedir (a leitura é pela function).
-        modelBuilder.Entity<PurchaseContractFiscalComplement>(e =>
-        {
-            e.HasKey(x => x.PurchaseContractKey);
-            e.HasOne(x => x.PurchaseContract).WithOne()
-                .HasForeignKey<PurchaseContractFiscalComplement>(x => x.PurchaseContractKey)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -475,6 +465,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.SalesContract).WithMany()
             .HasForeignKey(x => x.SalesContractKey).OnDelete(DeleteBehavior.NoAction);
 
+        // Composição (spec 2026-10-13, títulos firmes): duas FKs para a MESMA tabela, declaradas à mão para a convenção
+        // não emparelhar errado; WithMany() SEM coleção inversa (entraria no EDM). NoAction: título financeiro não some.
+        // Os índices das duas colunas vêm da convenção de FK.
+        modelBuilder.Entity<FinancialDocumentComposition>()
+            .HasOne<FinancialDocument>().WithMany()
+            .HasForeignKey(x => x.ProvisionalDocumentKey).OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<FinancialDocumentComposition>()
+            .HasOne<FinancialDocument>().WithMany()
+            .HasForeignKey(x => x.ComposedDocumentKey).OnDelete(DeleteBehavior.NoAction);
+
         // Washout: Restrict para o contrato e para a fixação — nenhum dos dois pode sumir debaixo
         // de um washout (o estorno de fixação e a retirada da aprovação já recusam antes). NoAction
         // para o título, no mesmo padrão das FKs de FinancialDocument.
@@ -548,6 +549,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.OriginType, x.OriginKey }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
             .IsUnique()
             .HasFilter($"[Nature] = {(int)FinancialDocumentNature.Provisional} " +
+                       $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
+                       "AND [OriginKey] IS NOT NULL");
+
+        // Par do índice acima para o firme e a devolução: um título ativo por vínculo de conciliação. Também cobre o
+        // título a receber do washout (Firm, origem própria), que já é um por washout.
+        modelBuilder.Entity<FinancialDocument>()
+            .HasIndex(x => new { x.OriginType, x.OriginKey }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
+            .IsUnique()
+            .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
                        "AND [OriginKey] IS NOT NULL");
 

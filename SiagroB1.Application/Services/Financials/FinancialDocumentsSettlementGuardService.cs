@@ -1,3 +1,4 @@
+using System.Globalization;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
@@ -10,16 +11,19 @@ namespace SiagroB1.Application.Services.Financials;
 /// </summary>
 public static class FinancialDocumentsSettlementGuardService
 {
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     public static void EnsureCanSettle(
         FinancialDocument document, FinancialAccount? account, decimal amount)
     {
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} está cancelado.");
 
-        if (document.IsBlockedForSettlement)
+        // Regra 15 (spec 2026-10-13, títulos firmes): firme e devolução da conciliação saem só por composição no
+        // provisório, dação ou encontro de contas — nunca por baixa em dinheiro.
+        if (document.IsPurchaseFirmPayable)
             throw new ApplicationException(
-                $"O documento {document.Code} é provisório e não pode ser baixado. " +
-                "Ele será liberado quando o documento fiscal for confirmado.");
+                "Título firme não recebe baixa direta: componha no provisório ou baixe por dação.");
 
         if (account is null)
             throw new ApplicationException("Informe a conta financeira da baixa.");
@@ -34,6 +38,12 @@ public static class FinancialDocumentsSettlementGuardService
 
         if (amount <= 0m)
             throw new ApplicationException("O valor da baixa deve ser maior que zero.");
+
+        // Regra 15: o provisório paga só o que está coberto por firme composto (trava rígida).
+        if (document.Nature == FinancialDocumentNature.Provisional && amount > document.AvailableToSettleAmount)
+            throw new ApplicationException(
+                $"Valor acima do disponível para baixa ({document.AvailableToSettleAmount.ToString("N2", PtBr)}): " +
+                "componha mais títulos firmes antes.");
 
         if (amount > document.OpenAmount)
             throw new ApplicationException(

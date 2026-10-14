@@ -526,16 +526,6 @@ public static class ODataConfigurations
         salesContractsSetFiscalComplement.Parameter<string>("CustomerOrderItem").Optional();
         salesContractsSetFiscalComplement.Returns<SalesContractFiscalComplementDto>();
 
-        var purchaseContractsGetFiscalComplement = modelBuilder.Function("PurchaseContractsGetFiscalComplement");
-        purchaseContractsGetFiscalComplement.Parameter<Guid>("Key");
-        purchaseContractsGetFiscalComplement.Returns<PurchaseContractFiscalComplementDto>();
-
-        var purchaseContractsSetFiscalComplement = modelBuilder.Action("PurchaseContractsSetFiscalComplement");
-        purchaseContractsSetFiscalComplement.Parameter<Guid>("Key");
-        // Opcional e anulável: null limpa a natureza (só fora de contrato aprovado — regra no serviço).
-        purchaseContractsSetFiscalComplement.Parameter<int?>("UsageCode").Optional();
-        purchaseContractsSetFiscalComplement.Returns<PurchaseContractFiscalComplementDto>();
-
         var warehousesGetComplement = modelBuilder.Function("WarehousesGetComplement");
         warehousesGetComplement.Parameter<string>("WarehouseCode");
         warehousesGetComplement.Returns<WarehouseComplementDto>();
@@ -1546,14 +1536,15 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
 
-        // [NotMapped] some do EDM: sem estes quatro AddProperty, $select=OpenAmount devolve 400 e a
+        // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
         // tela não consegue mostrar o saldo.
         foreach (var property in new[]
                  {
                      nameof(FinancialDocument.OpenAmount),
                      nameof(FinancialDocument.IsBlockedForSettlement),
                      nameof(FinancialDocument.IsOverdue),
-                     nameof(FinancialDocument.AvailableAdvanceAmount)
+                     nameof(FinancialDocument.AvailableAdvanceAmount),
+                     nameof(FinancialDocument.AvailableToSettleAmount)
                  })
         {
             modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(FinancialDocument))
@@ -1659,6 +1650,33 @@ public static class ODataConfigurations
         financialByContract.Parameter<string>("ContractType");
         financialByContract.Parameter<Guid>("ContractKey");
         financialByContract.ReturnsCollection<FinancialDocumentByContractDto>();
+
+        // Títulos firmes de compra (spec 2026-10-13): composição no provisório, dação e encontro de contas.
+        // ⚠️ Dinheiro em Edm.Double e data em string, como na baixa. Nenhum parâmetro é opcional: uma rota só por operação.
+        var financialCompose = modelBuilder.Action("FinancialDocumentsCompose");
+        financialCompose.Parameter<Guid>("Key");
+        financialCompose.CollectionParameter<Guid>("ComposedKeys");
+        financialCompose.Returns<IActionResult>();
+
+        var financialUncompose = modelBuilder.Action("FinancialDocumentsUncompose");
+        financialUncompose.Parameter<Guid>("CompositionKey");
+        financialUncompose.Returns<IActionResult>();
+
+        var financialDation = modelBuilder.Action("FinancialDocumentsDation");
+        financialDation.Parameter<Guid>("Key");
+        financialDation.Parameter<double>("Amount");
+        financialDation.Parameter<string>("SettlementDate");
+        financialDation.Parameter<string>("Notes");
+        financialDation.Returns<IActionResult>();
+
+        var financialNetting = modelBuilder.Action("FinancialDocumentsNetting");
+        financialNetting.Parameter<Guid>("Key");
+        financialNetting.Parameter<Guid>("CounterpartKey");
+        financialNetting.Returns<IActionResult>();
+
+        var financialComposition = modelBuilder.Function("FinancialDocumentsGetComposition");
+        financialComposition.Parameter<Guid>("Key");
+        financialComposition.Returns<FinancialDocumentCompositionDto>();
 
         var financialBacklog = modelBuilder.Action("FinancialDocumentsGenerateBacklog");
         financialBacklog.Parameter<string>("BranchCode").Optional();

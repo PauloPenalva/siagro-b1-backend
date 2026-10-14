@@ -102,6 +102,10 @@ public class PurchaseInvoicesCreateService(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
 
+        // Spec 2026-10-13 D11: complemento de valor (linhas só-valor, contrato e natureza) — e valor de complemento
+        // recusado nos demais tipos.
+        await taxApply.EnsureValueComplementAsync(invoice, invoice.Items.ToList());
+
         // Retorno de depósito: a linha precisa apontar a remessa, do mesmo produto e armazém, dentro do saldo (spec 2026-10-10 §3.3).
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, null, invoice.Items.ToList());
         // Nota de custódia em armazém próprio (spec 2026-10-12 §4): romaneio, depositante, produto, filial, ordem e

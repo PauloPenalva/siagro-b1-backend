@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
@@ -29,4 +31,14 @@ public static class FinancialDocumentTestServices
             ["F0001"] = "PRODUTOR TESTE",
             ["C0001"] = "CLIENTE TESTE",
         }));
+
+    /// <summary>
+    /// Sync do firme da conciliação (spec 2026-10-13, títulos firmes), com numeração em memória. A natureza é lida pelo
+    /// UsageService local (D10); em "SAPB1" o modo decide e a natureza nem é consultada.
+    /// </summary>
+    public static FinancialDocumentsFirmSyncService FirmSync(
+        IUnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE") =>
+        new(db, numbers ?? new FakeDocNumberSequenceService(), new FinancialDocumentChangeLogService(db.Context),
+            new UsageService(db, NullLogger<UsageService>.Instance), TestConfiguration.Erp(erp),
+            new FinancialDocumentsNettingService(db));
 }

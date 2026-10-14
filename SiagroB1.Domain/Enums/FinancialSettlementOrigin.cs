@@ -14,5 +14,11 @@ public enum FinancialSettlementOrigin
     /// A conciliação bancária da Fase 4 precisa da distinção — no estorno não há movimento de
     /// caixa a conciliar, na devolução há.
     /// </summary>
-    AdvanceRefund = 5
+    AdvanceRefund = 5,
+
+    /// <summary>
+    /// Dação: o operador baixa a sobra de um firme (NF acima do contrato) sem dinheiro, com motivo. Sem conta.
+    /// Estornável pelo estorno genérico.
+    /// </summary>
+    Dation = 6
 }

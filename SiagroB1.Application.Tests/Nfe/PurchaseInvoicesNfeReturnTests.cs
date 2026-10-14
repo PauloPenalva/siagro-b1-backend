@@ -80,6 +80,29 @@ public class PurchaseInvoicesNfeReturnTests
     }
 
     [Fact]
+    public async Task Return_line_copies_the_purchase_contract_of_the_origin_line()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var originLine = origin.Items.Single();
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(), Code = "PC0001", CardCode = origin.CardCode, ItemCode = originLine.ItemCode,
+            BranchCode = origin.BranchCode, UnitOfMeasureCode = "KG", HarvestSeasonCode = "2025",
+            DeliveryLocationCode = "01", TotalVolume = 100000m, StandardPrice = 1.5m, StandardCurrency = CurrencyType.Brl,
+            Type = ContractType.Fixed, Status = ContractStatus.Approved,
+        };
+        scenario.Db.Context.PurchaseContracts.Add(contract);
+        (await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.Key == originLine.Key)).PurchaseContractKey = contract.Key;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+
+        var created = await Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester");
+
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, created.Key);
+        Assert.Equal(contract.Key, saved.Items.Single().PurchaseContractKey);
+    }
+
+    [Fact]
     public async Task Return_receives_an_internal_number_from_the_sequence()
     {
         var (scenario, origin) = await AuthorizedOriginAsync();

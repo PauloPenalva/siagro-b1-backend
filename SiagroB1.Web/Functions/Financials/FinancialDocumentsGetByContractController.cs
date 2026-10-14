@@ -17,7 +17,7 @@ public class FinancialDocumentsGetByContractController(
     {
         try
         {
-            return Ok(await service.ExecuteAsync(contractType, contractKey));
+            return Ok(await service.ExecuteAsync(contractType.Trim('\''), contractKey));
         }
         catch (Exception e)
         {

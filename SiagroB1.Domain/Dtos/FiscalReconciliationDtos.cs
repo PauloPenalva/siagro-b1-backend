@@ -51,6 +51,14 @@ public class FiscalReconciliationLinkDto
     public DateTime CreatedAt { get; set; }
     [JsonPropertyName("CreatedBy")]
     public string? CreatedBy { get; set; }
+    /// <summary>Título firme/devolução do vínculo (spec 2026-10-13, títulos firmes); o ativo, ou o último cancelado.</summary>
+    [JsonPropertyName("FirmDocumentKey")]
+    public Guid? FirmDocumentKey { get; set; }
+    [JsonPropertyName("FirmDocumentCode")]
+    public string? FirmDocumentCode { get; set; }
+    /// <summary>"Solto", "Composto" ou "Cancelado" (PurchaseFirmPayableRules.SituationName).</summary>
+    [JsonPropertyName("FirmSituation")]
+    public string? FirmSituation { get; set; }
 }
 
 public class FiscalReconciliationTransactionDto

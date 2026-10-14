@@ -16,11 +16,16 @@ public sealed record SupplierNfeItem(
     string? IbsCbsCst, string? IbsCbsClassCode, decimal IbsCbsBase,
     decimal IbsStateRate, decimal IbsMunicipalRate, decimal IbsRateReduction, decimal IbsStateValue, decimal IbsMunicipalValue,
     decimal CbsRate, decimal CbsRateReduction, decimal CbsValue,
-    decimal FreightValue = 0m, decimal InsuranceValue = 0m, decimal DiscountValue = 0m, decimal OtherExpensesValue = 0m);
+    decimal FreightValue = 0m, decimal InsuranceValue = 0m, decimal DiscountValue = 0m, decimal OtherExpensesValue = 0m,
+    decimal ProductValue = 0m);
 
 /// <summary>NF-e do fornecedor lida: o <c>infNFe</c> (para o cabeçalho), a chave e os itens.</summary>
 public sealed record SupplierNfe(XElement InfNfe, string AccessKey, IReadOnlyList<SupplierNfeItem> Items,
-    IReadOnlyList<string> ReferencedKeys);
+    IReadOnlyList<string> ReferencedKeys, string? Purpose = null)
+{
+    /// <summary>finNFe 2 = NF-e de complemento (de valor): D11 do spec 2026-10-13.</summary>
+    public bool IsComplement => Purpose?.Trim() == "2";
+}
 
 /// <summary>
 /// Lê a NF-e do fornecedor (<c>nfeProc</c> ou <c>NFe</c>) com <see cref="XDocument"/>, como a importação sempre leu —
@@ -58,7 +63,8 @@ public static class SupplierNfeXmlReader
             .Select(r => r.Element(Nfe + "refNFe")?.Value)
             .Where(k => !string.IsNullOrWhiteSpace(k)).Select(k => k!.Trim()).ToList() ?? [];
 
-        return new SupplierNfe(infNfe, accessKey, infNfe.Elements(Nfe + "det").Select(ReadItem).ToList(), referenced);
+        return new SupplierNfe(infNfe, accessKey, infNfe.Elements(Nfe + "det").Select(ReadItem).ToList(), referenced,
+            infNfe.Element(Nfe + "ide")?.Element(Nfe + "finNFe")?.Value);
     }
 
     private static SupplierNfeItem ReadItem(XElement det)
@@ -97,7 +103,8 @@ public static class SupplierNfeXmlReader
             CbsValue: Number(gCbs, "vCBS"),
             // Frete, seguro, desconto e outras despesas do det/prod (spec 2026-10-05 §8); ausente = 0.
             FreightValue: Number(prod, "vFrete"), InsuranceValue: Number(prod, "vSeg"),
-            DiscountValue: Number(prod, "vDesc"), OtherExpensesValue: Number(prod, "vOutro"));
+            DiscountValue: Number(prod, "vDesc"), OtherExpensesValue: Number(prod, "vOutro"),
+            ProductValue: Number(prod, "vProd"));
     }
 
     private static string? Value(XElement? parent, string name) => parent?.Element(Nfe + name)?.Value;

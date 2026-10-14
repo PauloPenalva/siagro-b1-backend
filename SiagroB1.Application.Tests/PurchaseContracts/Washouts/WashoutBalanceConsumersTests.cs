@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
@@ -17,7 +16,8 @@ public class WashoutBalanceConsumersTests
 
     private PurchaseContractsCloseService CloseService() =>
         new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context),
-            FinancialDocumentTestServices.Cancel(_db.Context));
+            TestConfiguration.Empty(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance);
 
     private PurchaseContractsCancelService CancelService() =>
         new(_db, TestNotificationOutbox.For(_db.Context),
@@ -182,7 +182,7 @@ public class WashoutBalanceConsumersTests
         contract.WashedOutVolume = 300m;
         await SeedAsync(contract);
 
-        var totals = await new PurchaseContractsTotalsService(_db.Context, new UsageService(_db, NullLogger<UsageService>.Instance), TestConfiguration.Erp("SAPB1")).GetTotals(contract.Key);
+        var totals = await new PurchaseContractsTotalsService(_db.Context).GetTotals(contract.Key);
 
         Assert.Equal(300m, totals.WashedOutVolume);
         Assert.Equal(700m, totals.AvaiableVolume);

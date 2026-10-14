@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -22,20 +23,38 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
 {
     /// <summary>
-    /// Recalcula e apenas ENFILEIRA a alteração — quem chama decide quando salvar. É esta
-    /// sobrecarga que a baixa e o estorno usam, de dentro da transação deles.
+    /// Recalcula e apenas ENFILEIRA a alteração — quem chama decide quando salvar.
+    ///
+    /// Soma o ledger do BANCO mais as linhas ainda PENDENTES no ChangeTracker (Added soma; Deleted ainda está no banco,
+    /// então subtrai). É o que deixa composição, desfazer, encontro de contas e o firme recém-nascido num SaveChanges
+    /// só, sem salvar no meio. Ledger e composição não têm valor alterado em linha existente (insert-only/remove), então
+    /// Modified não entra. Depois do SaveChanges não há pendência e o resultado é o mesmo de sempre.
     /// </summary>
     public static async Task RecalculateAsync(AppDbContext context, Guid documentKey)
     {
-        var document = await context.FinancialDocuments
-                           .FirstOrDefaultAsync(x => x.Key == documentKey)
+        // FindAsync, e não uma consulta: enxerga também o título ainda não salvo.
+        var document = await context.FinancialDocuments.FindAsync(documentKey)
                        ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
-        var settled = await context.FinancialSettlements
-            .Where(x => x.FinancialDocumentKey == documentKey)
-            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+        var settled = (await context.FinancialSettlements
+                          .Where(x => x.FinancialDocumentKey == documentKey)
+                          .SumAsync(x => (decimal?)x.Amount) ?? 0m)
+                      + PendingDelta(context.ChangeTracker.Entries<FinancialSettlement>()
+                          .Where(e => e.Entity.FinancialDocumentKey == documentKey), x => x.Amount);
 
         document.SettledAmount = decimal.Round(settled, 2, MidpointRounding.ToEven);
+
+        // Spec 2026-10-13 (títulos firmes): só o provisório tem composição.
+        if (document.Nature == FinancialDocumentNature.Provisional)
+        {
+            var composed = (await context.FinancialDocumentCompositions
+                               .Where(x => x.ProvisionalDocumentKey == documentKey)
+                               .SumAsync(x => (decimal?)x.Amount) ?? 0m)
+                           + PendingDelta(context.ChangeTracker.Entries<FinancialDocumentComposition>()
+                               .Where(e => e.Entity.ProvisionalDocumentKey == documentKey), x => x.Amount);
+
+            document.ComposedAmount = decimal.Round(composed, 2, MidpointRounding.ToEven);
+        }
 
         if (document.Status == FinancialDocumentStatus.Canceled)
             return;
@@ -43,6 +62,7 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
         // Documento sem valor nao tem o que liquidar: nasce e permanece quitado. Sem isto, o
         // braco `<= 0` da expressao abaixo o classificaria como Aberto para sempre, e ele ficaria
         // entulhando a tela de Contas a Pagar com saldo zero.
+        // Regra 16: o provisório só fica Settled quando a baixa alcança o valor CONTRATADO (NetAmount).
         document.Status = document.NetAmount <= 0m
             ? FinancialDocumentStatus.Settled
             : document.SettledAmount switch
@@ -52,6 +72,14 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
                 _ => FinancialDocumentStatus.PartiallySettled
             };
     }
+
+    private static decimal PendingDelta<T>(IEnumerable<EntityEntry<T>> entries, Func<T, decimal> amount) where T : class =>
+        entries.Sum(e => e.State switch
+        {
+            EntityState.Added => amount(e.Entity),
+            EntityState.Deleted => -amount(e.Entity),
+            _ => 0m,
+        });
 
     public async Task<FinancialDocumentRecalcResultDto> ExecuteAsync(Guid key)
     {

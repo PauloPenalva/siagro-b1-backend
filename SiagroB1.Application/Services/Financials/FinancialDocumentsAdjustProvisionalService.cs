@@ -9,10 +9,12 @@ namespace SiagroB1.Application.Services.Financials;
 /// <summary>
 /// Ajusta NO LUGAR o provisório a pagar de uma fixação cujo volume mudou por washout.
 ///
-/// No lugar, e não cancelar-e-gerar: provisório não aceita baixa, então mudar o valor não afeta
-/// nada realizado; e cancelar-e-gerar exigiria gravar o cancelamento antes do insert (índice único
-/// filtrado IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin) e buscar número por Dapper no meio da
-/// transação.
+/// No lugar, e não cancelar-e-gerar: cancelar-e-gerar exigiria gravar o cancelamento antes do insert (índice único
+/// filtrado IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin) e buscar número por Dapper no meio da transação.
+///
+/// Spec 2026-10-13 (títulos firmes, regra 26): o valor não desce abaixo do já COMPOSTO, e o provisório com composição
+/// ou baixa não é cancelado. Depois de ajustar, recalcula o status — o washout que cobre a entrega a menos deixa o
+/// provisório pago Quitado (D8), e é o que libera o encerramento.
 ///
 /// ENQUEUE-ONLY. Chame ANTES de abrir transação: sem provisório aberto, delega ao gerador, que
 /// busca número em DOC_NUMBERS.
@@ -46,12 +48,20 @@ public class FinancialDocumentsAdjustProvisionalService(
 
         if (remainingVolume <= 0)
         {
+            if (document.ComposedAmount != 0m || document.SettledAmount != 0m)
+                throw new ApplicationException(
+                    $"O washout consumiria toda a fixação, mas o título {document.Code} tem composição ou baixa: desfaça a composição e estorne as baixas antes.");
+
             FinancialDocumentsCancelService.Cancel(document, WashedOutCancellationReason, userName);
             return;
         }
 
         var newAmount = decimal.Round(remainingVolume * fixation.FixationPrice, 2, MidpointRounding.ToEven);
         if (newAmount == document.NetAmount) return;
+
+        if (newAmount < document.ComposedAmount)
+            throw new ApplicationException(
+                $"O washout reduziria o título {document.Code} para {newAmount.ToString("N2", PtBr)}, abaixo do valor já composto ({document.ComposedAmount.ToString("N2", PtBr)}): desfaça a composição antes.");
 
         changeLog.Register(
             document.Key,
@@ -63,5 +73,7 @@ public class FinancialDocumentsAdjustProvisionalService(
         document.NetAmount = newAmount;
         document.UpdatedAt = DateTime.Now;
         document.UpdatedBy = userName;
+
+        await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(context, document.Key);
     }
 }

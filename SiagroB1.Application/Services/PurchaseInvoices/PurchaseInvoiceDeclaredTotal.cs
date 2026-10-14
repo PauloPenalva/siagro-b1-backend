@@ -14,7 +14,7 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public static class PurchaseInvoiceDeclaredTotal
 {
     public static bool AppliesTo(PurchaseInvoice invoice) =>
-        invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType == PurchaseInvoiceType.Normal;
+        invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement;
 
     /// <summary>Documento inteiro em memória (inclusão e alteração do cabeçalho com as linhas).</summary>
     public static void Apply(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> lines) =>

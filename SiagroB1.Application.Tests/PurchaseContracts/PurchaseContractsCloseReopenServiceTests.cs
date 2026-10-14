@@ -39,7 +39,8 @@ public class PurchaseContractsCloseReopenServiceTests
 
     private PurchaseContractsCloseService CloseService() =>
         new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context),
-            FinancialDocumentTestServices.Cancel(_db.Context));
+            TestConfiguration.Empty(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<PurchaseContractsCloseService>.Instance);
 
     private PurchaseContractsReopenService ReopenService() =>
         new(_db.Context, TestNotificationOutbox.For(_db.Context), FinancialDocumentTestServices.Generate(_db.Context));

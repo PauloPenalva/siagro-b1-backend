@@ -271,7 +271,6 @@ public static class ServiceCollectionExtensions
         // sales contracts
         services.AddScoped<SalesContractsApprovalService>();
         services.AddScoped<SalesContractFiscalComplementService>();
-        services.AddScoped<PurchaseContractFiscalComplementService>();
         services.AddScoped<SalesContractsCopyService>();
         services.AddScoped<SalesContractsCreateService>();
         services.AddScoped<SalesContractsDeleteService>();
@@ -664,6 +663,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsGenerateBacklogService>();
         services.AddScoped<FinancialAdvancesRefundService>();
         services.AddScoped<FinancialAdvancesRelinkContractService>();
+        services.AddScoped<FinancialDocumentsFirmSyncService>();
+        services.AddScoped<FinancialDocumentsComposeService>();
+        services.AddScoped<FinancialDocumentsUncomposeService>();
+        services.AddScoped<FinancialDocumentsDationService>();
+        services.AddScoped<FinancialDocumentsNettingService>();
+        services.AddScoped<FinancialDocumentsGetCompositionService>();
         // O guard é injetado nos dois serviços de cancelamento de CONTRATO, então precisa de
         // registro — ao contrário de FinancialDocumentsSettlementGuardService, que é estático e
         // deliberadamente não registrado.

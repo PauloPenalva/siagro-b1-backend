@@ -210,6 +210,14 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal FunruralSenarValue { get; set; }
 
+    /// <summary>
+    /// Valor da linha do documento "Complemento de valor" (spec 2026-10-13 D11), que não tem quantidade nem preço
+    /// unitário (Quantity = UnitPrice = 0). Soma no <see cref="Total"/> — é o vProd da NF de complemento —, então
+    /// GrandTotal, tributos, Funrural e totais o enxergam sem caso especial. Zero em todo outro tipo (validado).
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal ComplementAmount { get; set; }
+
     /// <summary>INSS + RAT + SENAR retidos na linha.</summary>
     [NotMapped]
     public decimal FunruralValue => FunruralInssValue + FunruralRatValue + FunruralSenarValue;
@@ -222,7 +230,7 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     public decimal TotalIbsCbs => CbsValue + IbsStateValue + IbsMunicipalValue;
 
     [NotMapped]
-    public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
+    public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven) + ComplementAmount;
 
     // --- Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05, D1). Padrão 0 em toda filial (R1). ---
 

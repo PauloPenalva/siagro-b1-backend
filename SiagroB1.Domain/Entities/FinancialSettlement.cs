@@ -63,6 +63,18 @@ public class FinancialSettlement : BaseEntity
     /// </summary>
     public Guid? ReversedSettlementKey { get; set; }
 
+    /// <summary>
+    /// Abatimento (InvoiceOffset): o PROVISÓRIO em que o título foi composto. Encontro de contas (Netting): o título do
+    /// outro lado. Sem FK.
+    /// </summary>
+    public Guid? RelatedDocumentKey { get; set; }
+
+    /// <summary>
+    /// Abatimento: a linha de composição que o gerou — é como "desfazer" acha a linha a estornar. Sem FK: a composição é
+    /// removida ao desfazer; o ledger, nunca.
+    /// </summary>
+    public Guid? CompositionKey { get; set; }
+
     [Column(TypeName = "VARCHAR(50)")]
     public string? DocumentReference { get; set; }
 

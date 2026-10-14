@@ -72,6 +72,7 @@ public class PurchaseInvoicesItemsUpdateService(
         existing.InsuranceValue = entity.InsuranceValue;
         existing.DiscountValue = entity.DiscountValue;
         existing.OtherExpensesValue = entity.OtherExpensesValue;
+        existing.ComplementAmount = entity.ComplementAmount;
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
@@ -79,6 +80,7 @@ public class PurchaseInvoicesItemsUpdateService(
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
+        await taxApply.EnsureValueComplementAsync(invoice, [.. others, existing]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, existing]);
 

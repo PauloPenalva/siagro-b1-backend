@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
@@ -51,6 +52,7 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
             CardName = Value(emit, "xNome"),
             CardCode = ResolveCardCode(cnpj),
             XmlFileName = fileName,
+            InvoiceType = nfe.IsComplement ? PurchaseInvoiceType.ValueComplement : PurchaseInvoiceType.Normal,
         };
 
         foreach (var item in nfe.Items)
@@ -60,8 +62,10 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
                 ItemCode = item.ProductCode,
                 ItemName = item.ProductName,
                 UnitOfMeasureCode = item.UnitOfMeasure,
-                Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice,
+                // NF-e de complemento (D11): só o valor da linha conta; quantidade e preço unitário ficam zerados (P11).
+                Quantity = nfe.IsComplement ? 0m : item.Quantity,
+                UnitPrice = nfe.IsComplement ? 0m : item.UnitPrice,
+                ComplementAmount = nfe.IsComplement ? item.ProductValue : 0m,
                 NfeItemNumber = item.ItemNumber,
                 FreightValue = item.FreightValue,
                 InsuranceValue = item.InsuranceValue,

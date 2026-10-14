@@ -33,12 +33,13 @@ public class FunruralWithholdingReportService(
         var statuses = InvoiceReportText.EffectiveStatuses(request.Statuses);
 
         // Devolução de compra e devolução do cliente são InvoiceType.Return: nunca são linha de origem.
+        // O complemento de valor (D11) entra.
         var query = db.Context.PurchaseInvoicesItems
             .AsNoTracking()
             .Include(i => i.PurchaseInvoice)
             .Include(i => i.PurchaseContract)
             .Where(i => i.PurchaseInvoice != null)
-            .Where(i => i.PurchaseInvoice!.InvoiceType == PurchaseInvoiceType.Normal)
+            .Where(i => i.PurchaseInvoice!.InvoiceType != PurchaseInvoiceType.Return)
             .Where(i => i.FunruralInssValue + i.FunruralRatValue + i.FunruralSenarValue > 0)
             .Where(i => i.PurchaseInvoice!.IssueDate >= from && i.PurchaseInvoice.IssueDate < toExclusive)
             .Where(i => statuses.Contains(i.PurchaseInvoice!.InvoiceStatus));

@@ -117,6 +117,9 @@ public class PurchaseInvoicesUpdateService(
 
         await SyncItemsAsync(existing, entity);
 
+        // Spec 2026-10-13 D11 (o tipo é editável enquanto Pendente: a regra vale sobre a lista final).
+        await taxApply.EnsureValueComplementAsync(existing, existing.Items.ToList());
+
         // Retorno de depósito sobre a lista final de linhas (mantidas/alteradas + novas), sem as removidas (spec 2026-10-10 §3.3).
         await StorageDepositReturnGuard.EnsureAsync(db.Context, existing.CardCode, existing.Key, existing.Items.ToList());
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, existing, existing.Items.ToList());
@@ -224,6 +227,7 @@ public class PurchaseInvoicesUpdateService(
                     InsuranceValue = line.InsuranceValue,
                     DiscountValue = line.DiscountValue,
                     OtherExpensesValue = line.OtherExpensesValue,
+                    ComplementAmount = line.ComplementAmount,
                 });
 
                 continue;
@@ -249,6 +253,7 @@ public class PurchaseInvoicesUpdateService(
             current.InsuranceValue = line.InsuranceValue;
             current.DiscountValue = line.DiscountValue;
             current.OtherExpensesValue = line.OtherExpensesValue;
+            current.ComplementAmount = line.ComplementAmount;
 
             // Na devolução de compra só a quantidade e os quatro valores da linha mudam (a descrição re-resolvida também volta).
             var lineEntry = db.Context.Entry(current);

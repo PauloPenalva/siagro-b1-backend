@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
@@ -25,7 +26,8 @@ public class PurchaseInvoicesConfirmService(
     IUnitOfWork db,
     TaxCalculationGate gate,
     IBusinessPartnerService businessPartnerService,
-    SupplierNfeAuthorizationService supplierNfe)
+    SupplierNfeAuthorizationService supplierNfe,
+    FinancialDocumentsFirmSyncService firmSync)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -54,6 +56,9 @@ public class PurchaseInvoicesConfirmService(
         var lines = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
+
+        // Spec 2026-10-13 D11: o complemento de valor cria os títulos firmes aqui, no MESMO SaveChanges da confirmação.
+        await firmSync.EnqueueForValueComplementAsync(invoice, lines, userName);
 
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;

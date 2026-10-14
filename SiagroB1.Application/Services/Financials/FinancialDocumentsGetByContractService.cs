@@ -32,7 +32,10 @@ public class FinancialDocumentsGetByContractService(IUnitOfWork db)
             DueDate = x.DueDate,
             NetAmount = x.NetAmount,
             SettledAmount = x.SettledAmount,
-            OpenAmount = x.OpenAmount
+            OpenAmount = x.OpenAmount,
+            ComposedAmount = x.ComposedAmount,
+            StorageTransactionCode = x.StorageTransactionCode,
+            TaxDocumentNumber = x.TaxDocumentNumber
         }).ToList();
     }
 }

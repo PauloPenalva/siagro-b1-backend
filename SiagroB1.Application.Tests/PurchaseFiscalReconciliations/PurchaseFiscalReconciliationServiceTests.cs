@@ -24,7 +24,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var seed = await FiscalReconciliationSeed.CreateAsync();
         var tx = await seed.AddTransactionAsync(29_820m);
         var (_, line) = await seed.AddInvoiceAsync(30_000m);
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         await service.SaveAsync([Pair(line, tx, 30_000m)], "ana");
 
@@ -44,7 +44,7 @@ public class PurchaseFiscalReconciliationServiceTests
         tx.FiscalReconciledAt = DateTime.Now;
         tx.FiscalReconciledBy = "ana";
         await seed.Db.SaveChangesAsync();
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         await service.SaveAsync([Pair(line, tx, 70m)], "bia");
         Assert.Equal(70m, (await seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking().SingleAsync()).Quantity);
@@ -61,7 +61,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var t1 = await seed.AddTransactionAsync(30_000m);
         var t2 = await seed.AddTransactionAsync(30_000m);
         var (_, line) = await seed.AddInvoiceAsync(50_000m, taxNumber: "777");
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         var message = await RefusalAsync(() => service.SaveAsync([Pair(line, t1, 30_000m), Pair(line, t2, 30_000m)], "ana"));
 
@@ -76,7 +76,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var seed = await FiscalReconciliationSeed.CreateAsync();
         var tx = await seed.AddTransactionAsync(6_000m);
         var (_, sc) = await seed.AddInvoiceAsync(100m, unit: "SC");
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         Assert.Contains("Cadastre o fator da unidade SC", await RefusalAsync(() => service.SaveAsync([Pair(sc, tx, 6_000m)], "ana")));
 
@@ -96,7 +96,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var ret = await seed.AddTransactionAsync(100m, StorageTransactionType.PurchaseReturn, code: "RM-2");
         var cancelledTx = await seed.AddTransactionAsync(100m, status: StorageTransactionsStatus.Cancelled, code: "RM-3");
         var receipt = await seed.AddTransactionAsync(100m, StorageTransactionType.Receipt, code: "RM-4");
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         var (_, cancelled) = await seed.AddInvoiceAsync(100m, status: InvoiceStatus.Cancelled);
         Assert.Contains("cancelad", await RefusalAsync(() => service.SaveAsync([Pair(cancelled, tx, 10m)], "a")));
@@ -127,7 +127,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var (_, custody) = await seed.AddInvoiceAsync(100m, custodyTransactionKey: Guid.NewGuid());
 
         Assert.Contains("custódia", await RefusalAsync(() =>
-            new PurchaseFiscalReconciliationService(seed.Db).SaveAsync([Pair(custody, tx, 10m)], "a")));
+            FiscalReconciliationSeed.NewService(seed.Db).SaveAsync([Pair(custody, tx, 10m)], "a")));
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var tx = await seed.AddTransactionAsync(100m);
         var (_, line) = await seed.AddInvoiceAsync(100m, cardCode: "F0003");
 
-        await new PurchaseFiscalReconciliationService(seed.Db).SaveAsync([Pair(line, tx, 100m)], "a");
+        await FiscalReconciliationSeed.NewService(seed.Db).SaveAsync([Pair(line, tx, 100m)], "a");
 
         Assert.Single(seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking());
     }
@@ -151,7 +151,7 @@ public class PurchaseFiscalReconciliationServiceTests
         var t2 = await seed.AddTransactionAsync(30_000m, date: new DateTime(2026, 10, 2));
         var (_, l1) = await seed.AddInvoiceAsync(60_100m, taxNumber: "1");
         await seed.LinkAsync(l1, t1, 10_000m);
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         var pairs = await service.SuggestAsync([l1.Key!.Value], [t1.Key, t2.Key]);
 
@@ -167,7 +167,7 @@ public class PurchaseFiscalReconciliationServiceTests
     {
         var seed = await FiscalReconciliationSeed.CreateAsync();
         var tx = await seed.AddTransactionAsync(100m);
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
 
         Assert.Contains("Vincule ao menos uma NF", await RefusalAsync(() => service.ConfirmAsync(tx.Key, "ana")));
 
@@ -189,20 +189,20 @@ public class PurchaseFiscalReconciliationServiceTests
         var tx = await seed.AddTransactionAsync(100m);
         var (_, line) = await seed.AddInvoiceAsync(100m);
         var link = await seed.LinkAsync(line, tx, 100m);
-        var service = new PurchaseFiscalReconciliationService(seed.Db);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
         await service.ConfirmAsync(tx.Key, "ana");
 
-        await service.RemoveAsync(link.Key);
+        await service.RemoveAsync(link.Key, "ana");
 
         Assert.Empty(seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking());
         Assert.Null((await seed.Db.Context.StorageTransactions.AsNoTracking().SingleAsync(t => t.Key == tx.Key)).FiscalReconciledAt);
-        await Assert.ThrowsAsync<NotFoundException>(() => service.RemoveAsync(link.Key));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.RemoveAsync(link.Key, "ana"));
     }
 
     [Fact]
     public async Task List_requires_supplier_and_item()
     {
-        var service = new PurchaseFiscalReconciliationService((await FiscalReconciliationSeed.CreateAsync()).Db);
+        var service = FiscalReconciliationSeed.NewService((await FiscalReconciliationSeed.CreateAsync()).Db);
 
         Assert.Contains("fornecedor e o produto", await RefusalAsync(() => service.ListTransactionsAsync(new() { CardCode = Supplier })));
     }

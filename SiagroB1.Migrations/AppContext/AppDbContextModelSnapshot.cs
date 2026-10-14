@@ -779,6 +779,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Comments")
                         .HasColumnType("VARCHAR(500)");
 
+                    b.Property<decimal>("ComposedAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -821,6 +824,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("PurchaseInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("RowId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
@@ -840,6 +846,15 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<string>("StorageTransactionCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<Guid?>("StorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TaxDocumentNumber")
+                        .HasColumnType("VARCHAR(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -864,6 +879,10 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("SalesContractKey");
 
                     b.HasIndex("Direction", "Status", "DueDate");
+
+                    b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
+                        .IsUnique()
+                        .HasFilter("[Nature] IN (1, 4) AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
                         .IsUnique()
@@ -904,6 +923,60 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("FINANCIAL_DOCUMENT_CHANGE_LOGS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocumentComposition", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("ComposedDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("ProvisionalDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ComposedDocumentKey");
+
+                    b.HasIndex("ProvisionalDocumentKey");
+
+                    b.ToTable("FINANCIAL_DOCUMENT_COMPOSITIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialSettlement", b =>
                 {
                     b.Property<Guid>("Key")
@@ -924,6 +997,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("CanceledBy")
                         .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid?>("CompositionKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -954,6 +1030,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<int>("Origin")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("RelatedDocumentKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ReversedSettlementKey")
                         .HasColumnType("uniqueidentifier");
@@ -2140,25 +2219,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("PURCHASE_CONTRACTS_COMMENTS");
                 });
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", b =>
-                {
-                    b.Property<Guid>("PurchaseContractKey")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("VARCHAR(100)");
-
-                    b.Property<int?>("UsageCode")
-                        .HasColumnType("int");
-
-                    b.HasKey("PurchaseContractKey");
-
-                    b.ToTable("PURCHASE_CONTRACT_FISCAL_COMPLEMENTS");
-                });
-
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
                 {
                     b.Property<Guid>("Key")
@@ -2691,6 +2751,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("DECIMAL(7,4) DEFAULT 0");
 
                     b.Property<decimal>("CofinsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("ComplementAmount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
                     b.Property<bool>("CreatesFinancialDocument")
@@ -6768,6 +6831,21 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("FinancialDocument");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocumentComposition", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialDocument", null)
+                        .WithMany()
+                        .HasForeignKey("ComposedDocumentKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialDocument", null)
+                        .WithMany()
+                        .HasForeignKey("ProvisionalDocumentKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialSettlement", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.FinancialAccount", "FinancialAccount")
@@ -7002,17 +7080,6 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany("CommentEntries")
                         .HasForeignKey("PurchaseContractKey")
                         .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("PurchaseContract");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", b =>
-                {
-                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
-                        .WithOne()
-                        .HasForeignKey("SiagroB1.Domain.Entities.PurchaseContractFiscalComplement", "PurchaseContractKey")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("PurchaseContract");
                 });
