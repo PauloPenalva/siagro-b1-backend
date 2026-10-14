@@ -34,6 +34,8 @@ public class FinancialDocumentsGetByContractService(IUnitOfWork db)
             SettledAmount = x.SettledAmount,
             OpenAmount = x.OpenAmount,
             ComposedAmount = x.ComposedAmount,
+            AppliedAmount = x.AppliedAmount,
+            AvailableAdvanceAmount = x.AvailableAdvanceAmount,
             StorageTransactionCode = x.StorageTransactionCode,
             TaxDocumentNumber = x.TaxDocumentNumber
         }).ToList();

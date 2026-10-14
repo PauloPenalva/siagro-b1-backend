@@ -13,6 +13,8 @@ public class FinancialDocumentByContractDto
     [JsonPropertyName("SettledAmount")] public decimal SettledAmount { get; set; }
     [JsonPropertyName("OpenAmount")] public decimal OpenAmount { get; set; }
     [JsonPropertyName("ComposedAmount")] public decimal ComposedAmount { get; set; }
+    [JsonPropertyName("AppliedAmount")] public decimal AppliedAmount { get; set; }
+    [JsonPropertyName("AvailableAdvanceAmount")] public decimal AvailableAdvanceAmount { get; set; }
     [JsonPropertyName("StorageTransactionCode")] public string? StorageTransactionCode { get; set; }
     [JsonPropertyName("TaxDocumentNumber")] public string? TaxDocumentNumber { get; set; }
 }
