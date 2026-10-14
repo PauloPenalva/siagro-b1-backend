@@ -67,6 +67,25 @@ sub-projeto 1, sem trazer a grade de impostos de volta**:
 | D8 | Encerrar contrato exige **todo provisório quitado** (baixa + compensação = valor). Entrega a menos se resolve por **washout**. |
 | D9 | Reabrir contrato **não altera valores**. |
 
+### Decisões tomadas na revisão do plano
+
+- **D10 — "gera financeiro" lido da NATUREZA, não da linha.** `PurchaseInvoiceItem.CreatesFinancialDocument`
+  só é gravado pelo cálculo de tributos da NF-e (STANDALONE com "Emite NF-e"); lido da linha, SAPB1 e
+  MH Agro nunca teriam firme. A regra 2 lê `Usage.CreatesFinancialDocument` da natureza da linha
+  (`IUsage.GetByIdAsync(linha.UsageCode)`) no momento da conciliação. Em `SAPB1` (OUSG, sem a flag)
+  considera-se que **gera**. Linha sem natureza: não gera.
+- **D11 — Faturado ABAIXO do contrato se resolve com documento de entrada "Complemento de valor".**
+  Novo `PurchaseInvoiceType.ValueComplement = 2` (no fim do enum). Linhas **sem quantidade, só valor**,
+  natureza obrigatória e com "gera financeiro" (em SAPB1, natureza obrigatória), `PurchaseContractKey`
+  obrigatório em toda linha. **Não se concilia** com romaneio (`EnsurePair` recusa o tipo). Ao
+  **confirmar** o documento, nasce um firme por linha: `Nature = Firm`, `OriginType = PurchaseInvoice`
+  (valor 3, já reservado), `OriginKey = linha.Key`, valor = `linha.GrandTotal − linha.FunruralValue`,
+  `TaxDocumentNumber` do documento, sem romaneio. Compõe como qualquer firme. Cancelar o documento
+  cancela o firme solto e é **recusado** com firme composto ou com dação/encontro (mesma regra 7).
+  Só **escrituração** (terceiro ou "Outros") neste sub-projeto.
+- **Sub-projeto 2b (próximo, spec próprio):** **emissão** de NF-e própria de complemento de valor
+  (finNFe=2, NFref à NF original). Fora daqui.
+
 ## Modelo de dados
 
 ### Enums (sem migration — colunas já `int`; valores novos no fim, nunca renumerar)
