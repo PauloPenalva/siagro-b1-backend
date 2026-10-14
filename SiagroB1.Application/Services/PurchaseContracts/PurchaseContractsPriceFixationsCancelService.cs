@@ -58,6 +58,18 @@ public class PurchaseContractsPriceFixationsCancelService(
             throw new ApplicationException(
                 "Fixação possui washout registrado. Rejeite ou estorne o washout antes de estornar a fixação.");
 
+        // Regra 25 (spec 2026-10-13, títulos firmes, D6): o provisório desta fixação com composição ou baixa barra o
+        // estorno. Desfaz-se a composição primeiro — os firmes NÃO são apagados, voltam a ficar soltos.
+        var provisional = await context.FinancialDocuments.AsNoTracking().FirstOrDefaultAsync(x =>
+            x.OriginType == FinancialDocumentOrigin.PurchaseContractPriceFixation &&
+            x.OriginKey == fixation.Key &&
+            x.Nature == FinancialDocumentNature.Provisional &&
+            x.Status != FinancialDocumentStatus.Canceled);
+
+        if (provisional is not null && (provisional.ComposedAmount != 0m || provisional.SettledAmount != 0m))
+            throw new ApplicationException(
+                $"Desfaça a composição do título {provisional.Code} antes de estornar a fixação.");
+
         await using var transaction = await context.Database.BeginTransactionAsync();
 
         var previous = ContractChangeLogFields.DescribePriceFixation(

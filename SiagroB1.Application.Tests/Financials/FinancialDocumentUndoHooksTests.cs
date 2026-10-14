@@ -270,12 +270,17 @@ public class FinancialDocumentUndoHooksTests
         Assert.Equal("Contrato cancelado", document.CancellationReason);
     }
 
+    /// <summary>
+    /// Spec 2026-10-13 (títulos firmes, regra 28 e D8): encerrar NÃO cancela mais o provisório — exige que ele esteja
+    /// quitado. A entrega a menos se resolve por washout antes.
+    /// </summary>
     [Fact]
-    public async Task ClosingAContract_CancelsTheRemainingOpenProvisionals()
+    public async Task ClosingAContract_WithAnOpenProvisional_IsRefusedAndLeavesItOpen()
     {
         var dbName = Guid.NewGuid().ToString();
         var contractKey = Guid.NewGuid();
         var documentKey = Guid.NewGuid();
+        string? documentCode;
 
         await using (var seed = NewContext(dbName))
         {
@@ -285,6 +290,7 @@ public class FinancialDocumentUndoHooksTests
 
             var seededDocument = NewProvisional(contractKey, Guid.NewGuid());
             seededDocument.Key = documentKey;
+            documentCode = seededDocument.Code;
             seed.FinancialDocuments.Add(seededDocument);
 
             await seed.SaveChangesAsync();
@@ -292,21 +298,22 @@ public class FinancialDocumentUndoHooksTests
 
         await using (var act = NewContext(dbName))
         {
-            await new PurchaseContractsCloseService(
-                    act,
-                    new PurchaseContractsFixedVolumeService(act),
-                    TestNotificationOutbox.For(act),
-                    FinancialDocumentTestServices.Cancel(act))
-                .ExecuteAsync(contractKey, "tester");
+            var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+                new PurchaseContractsCloseService(
+                        act,
+                        new PurchaseContractsFixedVolumeService(act),
+                        TestNotificationOutbox.For(act))
+                    .ExecuteAsync(contractKey, "tester"));
+
+            Assert.Equal(
+                $"O título {documentCode} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.",
+                error.Message);
         }
 
         await using var assert = NewContext(dbName);
 
-        Assert.Equal(ContractStatus.Finished, (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
-
-        var document = await assert.FinancialDocuments.SingleAsync(x => x.Key == documentKey);
-        Assert.Equal(FinancialDocumentStatus.Canceled, document.Status);
-        Assert.Equal("Contrato encerrado", document.CancellationReason);
+        Assert.Equal(ContractStatus.Approved, (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
+        Assert.Equal(FinancialDocumentStatus.Open, (await assert.FinancialDocuments.SingleAsync(x => x.Key == documentKey)).Status);
     }
 
     /// <summary>
@@ -342,8 +349,7 @@ public class FinancialDocumentUndoHooksTests
             await new PurchaseContractsCloseService(
                     act,
                     new PurchaseContractsFixedVolumeService(act),
-                    TestNotificationOutbox.For(act),
-                    FinancialDocumentTestServices.Cancel(act))
+                    TestNotificationOutbox.For(act))
                 .ExecuteAsync(contractKey, "tester");
         }
 
@@ -514,15 +520,11 @@ public class FinancialDocumentUndoHooksTests
     }
 
     /// <summary>
-    /// Regra 11 do spec, provada pelo caminho REAL da tela — não por proxy do gerador nem do
-    /// gancho de estorno de fixação (esses já são cobertos acima). Encerrar cancela o provisório
-    /// (mesmo gancho de <see cref="ClosingAContract_CancelsTheRemainingOpenProvisionals"/>);
-    /// reabrir precisa fazer o índice único filtrado enxergar o cancelado como "livre" e gerar um
-    /// documento NOVO para a MESMA fixação confirmada — sem isso o contrato reaberto ficaria sem
-    /// nenhum provisório em aberto.
+    /// Spec 2026-10-13 (títulos firmes, regras 28–29 e D9): o provisório quitado sobrevive ao encerramento, e a
+    /// reabertura não altera valor nenhum — o gerador idempotente pula o provisório existente.
     /// </summary>
     [Fact]
-    public async Task ReopeningAClosedContract_RegeneratesTheProvisional_ThroughTheRealCloseAndReopenServices()
+    public async Task ReopeningAClosedContract_KeepsTheSettledProvisional_ThroughTheRealCloseAndReopenServices()
     {
         var dbName = Guid.NewGuid().ToString();
         var contractKey = Guid.NewGuid();
@@ -546,26 +548,23 @@ public class FinancialDocumentUndoHooksTests
                 ApprovedAt = DateTime.Now,
             });
 
-            var seededDocument = NewProvisional(contractKey, fixationKey);
+            var seededDocument = NewProvisional(contractKey, fixationKey, FinancialDocumentStatus.Settled);
             seededDocument.Key = originalDocumentKey;
+            seededDocument.SettledAmount = seededDocument.NetAmount;
             seed.FinancialDocuments.Add(seededDocument);
 
             await seed.SaveChangesAsync();
         }
 
-        // Fase 1: encerra — cancela o provisório aberto (mesmo gancho do teste acima).
         await using (var close = NewContext(dbName))
         {
             await new PurchaseContractsCloseService(
                     close,
                     new PurchaseContractsFixedVolumeService(close),
-                    TestNotificationOutbox.For(close),
-                    FinancialDocumentTestServices.Cancel(close))
+                    TestNotificationOutbox.For(close))
                 .ExecuteAsync(contractKey, "tester");
         }
 
-        // Fase 2: reabre — o índice único filtrado ignora o cancelado, então regenera um NOVO
-        // provisório para a MESMA fixação confirmada.
         await using (var reopen = NewContext(dbName))
         {
             await new PurchaseContractsReopenService(
@@ -579,18 +578,11 @@ public class FinancialDocumentUndoHooksTests
 
         Assert.Equal(ContractStatus.Approved, (await assert.PurchaseContracts.SingleAsync(x => x.Key == contractKey)).Status);
 
-        var documents = await assert.FinancialDocuments
-            .Where(x => x.OriginType == FinancialDocumentOrigin.PurchaseContractPriceFixation
-                        && x.OriginKey == fixationKey)
-            .ToListAsync();
-
-        Assert.Equal(2, documents.Count);
-
-        var original = Assert.Single(documents, x => x.Key == originalDocumentKey);
-        Assert.Equal(FinancialDocumentStatus.Canceled, original.Status);
-
-        var replacement = Assert.Single(documents, x => x.Key != originalDocumentKey);
-        Assert.Equal(FinancialDocumentStatus.Open, replacement.Status);
-        Assert.NotEqual(original.Key, replacement.Key);
+        var document = Assert.Single(await assert.FinancialDocuments
+            .Where(x => x.OriginType == FinancialDocumentOrigin.PurchaseContractPriceFixation && x.OriginKey == fixationKey)
+            .ToListAsync());
+        Assert.Equal(originalDocumentKey, document.Key);
+        Assert.Equal(FinancialDocumentStatus.Settled, document.Status);
+        Assert.Equal(1_000m, document.NetAmount);
     }
 }

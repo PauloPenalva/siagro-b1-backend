@@ -15,8 +15,7 @@ public class WashoutBalanceConsumersTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private PurchaseContractsCloseService CloseService() =>
-        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context),
-            FinancialDocumentTestServices.Cancel(_db.Context));
+        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context));
 
     private PurchaseContractsCancelService CancelService() =>
         new(_db, TestNotificationOutbox.For(_db.Context),

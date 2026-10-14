@@ -41,6 +41,12 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                 "Título gerado por washout não pode ser cancelado aqui. " +
                 $"Estorne o washout no contrato de compra {document.OriginDocNumber}.");
 
+        // Spec 2026-10-13 (títulos firmes): cancelar o provisório composto deixaria linhas de composição órfãs
+        // abatendo os firmes.
+        if (document.ComposedAmount != 0m)
+            throw new ApplicationException(
+                $"O documento {document.Code} tem composição. Desfaça a composição antes de cancelar.");
+
         if (document.SettledAmount != 0m)
             throw new ApplicationException(
                 $"O documento {document.Code} possui baixas. Estorne-as antes de cancelar.");
@@ -75,9 +81,8 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
     /// <see cref="FinancialDocumentsContractCancellationGuardService"/>, que exige estorno,
     /// devolução ou revínculo.
     ///
-    /// Só os dois serviços de CANCELAMENTO passam true. Os de ENCERRAMENTO chamam este mesmo
-    /// método e ficam com o padrão false: contrato encerrado foi cumprido, e ali o adiantamento
-    /// é matéria da amortização da Fase 2.
+    /// Só os dois serviços de CANCELAMENTO passam true. O ENCERRAMENTO de contrato de compra não chama mais este
+    /// método (spec 2026-10-13, regra 28); o de venda continua chamando com o padrão false.
     /// </summary>
     public async Task EnqueueCancelByContractAsync(
         Guid? purchaseContractKey, Guid? salesContractKey, string reason, string userName,
@@ -92,6 +97,14 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                         ((purchaseContractKey != null && x.PurchaseContractKey == purchaseContractKey) ||
                          (salesContractKey != null && x.SalesContractKey == salesContractKey)))
             .ToListAsync();
+
+        // Regra 27 (spec 2026-10-13, títulos firmes): cancelar contrato e retirar aprovação recusam provisório com
+        // composição ou baixa. O encerramento não chega mais aqui (regra 28).
+        var blocked = documents.FirstOrDefault(x =>
+            x.Nature == FinancialDocumentNature.Provisional && (x.ComposedAmount != 0m || x.SettledAmount != 0m));
+        if (blocked is not null)
+            throw new ApplicationException(
+                $"O título {blocked.Code} tem composição ou baixa: desfaça a composição e estorne as baixas antes de cancelar o contrato ou retirar a aprovação.");
 
         foreach (var document in documents)
             Cancel(document, reason, userName);

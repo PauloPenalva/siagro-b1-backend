@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -11,8 +10,7 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsCloseService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
-    ContractNotificationOutboxService notificationOutbox,
-    FinancialDocumentsCancelService financialDocuments)
+    ContractNotificationOutboxService notificationOutbox)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -30,22 +28,50 @@ public class PurchaseContractsCloseService(
 
         await GuardNegativeBalanceAsync(contract);
 
+        await GuardFinancialDocumentsAsync(contract);
+
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
 
         notificationOutbox.Register(contract, NotificationEventType.Closed, userName);
 
-        // Encerrar significa que não haverá mais entrega — e o provisório significa "saldo a
-        // faturar". O que sobra nunca será faturado; deixá-lo aberto empilharia na tela um
-        // "a faturar" permanente que envenena o total.
-        await financialDocuments.EnqueueCancelByContractAsync(
-            purchaseContractKey: contract.Key,
-            salesContractKey: null,
-            reason: "Contrato encerrado",
-            userName: userName);
-
+        // Spec 2026-10-13 (títulos firmes, regra 28 e D8): o encerramento NÃO cancela mais o provisório e não altera
+        // valor nenhum — ele só passa com tudo quitado (a entrega a menos se resolve por washout antes).
         await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Regra 28: nenhum firme/devolução do contrato com saldo, e todo provisório não cancelado QUITADO
+    /// (baixa + compensação = valor contratado).
+    /// </summary>
+    private async Task GuardFinancialDocumentsAsync(PurchaseContract contract)
+    {
+        // Firme/devolução da conciliação e firme do complemento de valor (D11); o título a receber do washout não entra.
+        var hasOpenFirm = await context.FinancialDocuments.AnyAsync(x =>
+            x.PurchaseContractKey == contract.Key &&
+            (x.OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation ||
+             x.OriginType == FinancialDocumentOrigin.PurchaseInvoice) &&
+            (x.Nature == FinancialDocumentNature.Firm || x.Nature == FinancialDocumentNature.PurchaseReturn) &&
+            x.Status != FinancialDocumentStatus.Canceled &&
+            x.NetAmount > x.SettledAmount);
+
+        if (hasOpenFirm)
+            throw new ApplicationException(
+                "Há títulos firmes com saldo neste contrato: componha, compense ou baixe por dação antes de encerrar.");
+
+        var unsettled = await context.FinancialDocuments
+            .Where(x => x.PurchaseContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Provisional &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.Status != FinancialDocumentStatus.Settled)
+            .OrderBy(x => x.Code)
+            .Select(x => x.Code)
+            .FirstOrDefaultAsync();
+
+        if (unsettled is not null)
+            throw new ApplicationException(
+                $"O título {unsettled} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout; faturamento abaixo, por documento de complemento de valor.");
     }
 
     /// <summary>

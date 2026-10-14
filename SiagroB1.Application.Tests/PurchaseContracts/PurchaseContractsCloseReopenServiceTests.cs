@@ -38,8 +38,7 @@ public class PurchaseContractsCloseReopenServiceTests
         await _db.Context.PurchaseContracts.AsNoTracking().SingleAsync(x => x.Key == key);
 
     private PurchaseContractsCloseService CloseService() =>
-        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context),
-            FinancialDocumentTestServices.Cancel(_db.Context));
+        new(_db.Context, new PurchaseContractsFixedVolumeService(_db.Context), TestNotificationOutbox.For(_db.Context));
 
     private PurchaseContractsReopenService ReopenService() =>
         new(_db.Context, TestNotificationOutbox.For(_db.Context), FinancialDocumentTestServices.Generate(_db.Context));
