@@ -92,6 +92,21 @@ public class FinancialDocumentsReadModelTests
     }
 
     [Fact]
+    public async Task Contract_financial_endpoint_accepts_the_quoted_contract_type_sent_by_the_odata_route()
+    {
+        // A rota literal entrega ContractType='Purchase' COM aspas; o controller as remove.
+        var seed = await FirmPayableSeed.CreateAsync();
+        await seed.ConciliateAsync();
+        var controller = new SiagroB1.Web.Functions.Financials.FinancialDocumentsGetByContractController(
+            new FinancialDocumentsGetByContractService(seed.Db));
+
+        var result = await controller.Get("'Purchase'", seed.Contract.Key);
+
+        var ok = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result.Result);
+        Assert.NotEmpty(Assert.IsAssignableFrom<IEnumerable<FinancialDocumentByContractDto>>(ok.Value));
+    }
+
+    [Fact]
     public async Task Conciliation_link_shows_the_firm_and_its_situation()
     {
         var seed = await FirmPayableSeed.CreateAsync();
