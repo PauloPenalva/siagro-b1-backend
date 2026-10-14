@@ -143,6 +143,24 @@ public class PurchaseInvoicesNfeReturnTests
     }
 
     [Fact]
+    public async Task Origin_line_without_unit_is_refused_before_anything_is_created()
+    {
+        var (scenario, origin) = await AuthorizedOriginAsync();
+        var tracked = await scenario.Db.Context.PurchaseInvoicesItems.SingleAsync(i => i.PurchaseInvoiceKey == origin.Key);
+        tracked.UnitOfMeasureCode = null;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        var before = await scenario.Db.Context.PurchaseInvoices.CountAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Returns(scenario).ExecuteAsync(Request(origin, 400m), "tester"));
+
+        Assert.Equal(
+            $"A linha 1 ({tracked.ItemCode}) do documento de origem está sem unidade de medida: corrija a origem antes de devolver.",
+            e.Message);
+        Assert.Equal(before, await scenario.Db.Context.PurchaseInvoices.CountAsync());
+    }
+
+    [Fact]
     public async Task Quantity_above_the_returnable_balance_is_refused()
     {
         var (scenario, origin) = await AuthorizedOriginAsync();

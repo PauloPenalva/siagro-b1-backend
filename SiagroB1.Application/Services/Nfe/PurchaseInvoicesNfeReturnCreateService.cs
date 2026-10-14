@@ -48,6 +48,7 @@ public class PurchaseInvoicesNfeReturnCreateService(
             throw new DefaultException("Informe o motivo da devolução.");
 
         var quantities = await ResolveQuantitiesAsync(origin, request.Items);
+        EnsureOriginUnits(origin, quantities.Keys);
         var returnUsages = thirdParty
             ? await ResolveThirdPartyUsageAsync(origin, quantities.Keys)
             : await ResolveReturnUsagesAsync(origin, quantities.Keys);
@@ -266,6 +267,23 @@ public class PurchaseInvoicesNfeReturnCreateService(
         }
 
         return typed;
+    }
+
+    /// <summary>
+    /// B7: a devolução copia a unidade da linha de origem e trava a edição; origem sem unidade geraria uma devolução
+    /// que a NF-e recusa. Recusa antes de criar qualquer coisa. Nº = posição da linha na origem (ordem da NF-e).
+    /// </summary>
+    private static void EnsureOriginUnits(PurchaseInvoice origin, IEnumerable<Guid> originItemKeys)
+    {
+        var returned = originItemKeys.ToHashSet();
+        var ordered = NfeItemNumbering.Ordered(origin.Items);
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (returned.Contains(ordered[i].Key!.Value) && string.IsNullOrWhiteSpace(ordered[i].UnitOfMeasureCode))
+                throw new DefaultException(
+                    $"A linha {i + 1} ({ordered[i].ItemCode}) do documento de origem está sem unidade de medida: corrija a origem antes de devolver.");
+        }
     }
 
     private static void EnsureEntryItemNumbers(PurchaseInvoice origin, IEnumerable<Guid> originItemKeys)

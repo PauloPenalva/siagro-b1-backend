@@ -33,7 +33,7 @@ public class PurchaseInvoicesCreateTests
     private static PurchaseInvoice NewInvoice(string? chave = Chave)
     {
         var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = chave };
-        invoice.AddItem(new PurchaseInvoiceItem { ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m });
+        invoice.AddItem(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m });
         return invoice;
     }
 
@@ -211,7 +211,7 @@ public class PurchaseInvoicesCreateTests
         // no deep-insert, então a linha chega com o produto certo e o nome vazio.
         var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "SOJA", ItemName = "", Quantity = 10m, UnitPrice = 1m,
         });
 
@@ -229,7 +229,7 @@ public class PurchaseInvoicesCreateTests
         // descaracterizaria o documento fiscal de terceiro.
         var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "SOJA", ItemName = "SOJA GRAO A GRANEL", Quantity = 10m, UnitPrice = 1m,
         });
 
@@ -247,7 +247,7 @@ public class PurchaseInvoicesCreateTests
         // assim mesmo. O documento de entrada é de CONTROLE e não pode barrar por isso.
         var invoice = new PurchaseInvoice { CardCode = "F0001", ChaveNFe = null };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "DESCONHECIDO", ItemName = "", Quantity = 1m, UnitPrice = 1m,
         });
 

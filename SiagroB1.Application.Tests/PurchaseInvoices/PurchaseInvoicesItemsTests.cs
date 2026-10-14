@@ -43,7 +43,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync();
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 10m,
         };
 
@@ -58,7 +58,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync();
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "SOJA",
             ItemName = "SOJA EM GRAOS (DO XML)",
@@ -77,7 +77,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync();
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "CODIGO-DO-EMITENTE",
             ItemName = "PRODUTO QUALQUER",
@@ -96,7 +96,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync(InvoiceStatus.Confirmed);
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 1m,
         };
 
@@ -111,7 +111,7 @@ public class PurchaseInvoicesItemsTests
         var originKey = Guid.NewGuid();
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key,
             ItemCode = "SOJA", ItemName = "SOJA", Quantity = 10m,
         };
@@ -119,7 +119,7 @@ public class PurchaseInvoicesItemsTests
         await _db.Context.SaveChangesAsync();
 
         var incoming = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "SOJA", ItemName = "SOJA", Quantity = 12m, UnitPrice = 3m,
             SalesInvoiceItemKey = originKey,
         };
@@ -140,7 +140,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync(InvoiceStatus.Confirmed);
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 1m,
         };
         _db.Context.PurchaseInvoicesItems.Add(item);
@@ -149,7 +149,7 @@ public class PurchaseInvoicesItemsTests
         // A porta dos fundos: PATCH direto na linha não passa pelo Update do cabeçalho.
         await Assert.ThrowsAsync<DefaultException>(
             () => new PurchaseInvoicesItemsUpdateService(_db, Catalog(), TaxTestServices.InactivePurchaseApply(_db))
-                .ExecuteAsync(item.Key!.Value, new PurchaseInvoiceItem { Quantity = 99m }, "tester"));
+                .ExecuteAsync(item.Key!.Value, new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", Quantity = 99m }, "tester"));
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync();
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 1m,
         };
         _db.Context.PurchaseInvoicesItems.Add(item);
@@ -175,7 +175,7 @@ public class PurchaseInvoicesItemsTests
         var invoice = await SeedAsync(InvoiceStatus.Confirmed);
 
         var item = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 1m,
         };
         _db.Context.PurchaseInvoicesItems.Add(item);
@@ -197,7 +197,7 @@ public class PurchaseInvoicesItemsTests
     {
         var invoice = await SeedAsync();
         _db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", Quantity = 1m,
         });
         await _db.Context.SaveChangesAsync();
@@ -212,7 +212,7 @@ public class PurchaseInvoicesItemsTests
         var lineKey = Guid.NewGuid();
 
         _db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = lineKey,
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "SOJA",
@@ -226,7 +226,7 @@ public class PurchaseInvoicesItemsTests
         // value help grava a descrição com group ID null, então o corpo traz só `ItemCode` e a
         // descrição que sobra é a do produto ANTERIOR.
         var patched = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = lineKey,
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "MILHO",
@@ -250,7 +250,7 @@ public class PurchaseInvoicesItemsTests
         var lineKey = Guid.NewGuid();
 
         _db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = lineKey,
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "SOJA",
@@ -263,7 +263,7 @@ public class PurchaseInvoicesItemsTests
         // Produto igual, só a quantidade mudou: a descrição do XML não pode ser trocada pela do
         // cadastro.
         var patched = new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = lineKey,
             PurchaseInvoiceKey = invoice.Key,
             ItemCode = "SOJA",
