@@ -384,3 +384,7 @@ teste na CEAGUI dev); quem precisar, regrava o vínculo.
   recalcula o firme solto e é recusada com firme composto/compensado; troca de contrato da linha e de
   tipo/emitente do documento conciliado são recusadas; natureza que deixa de gerar financeiro
   cancela o firme solto.
+- **D15 — Reabrir contrato encerrado pela data de corte:** o provisório legado cancelado no
+  encerramento **é recriado** pelo gerador (comportamento da Fase 1), e a partir daí o contrato segue a
+  regra nova — compor e quitar para encerrar de novo. Decisão do usuário em 2026-10-14, após o roteiro
+  do navegador (achado B6).
