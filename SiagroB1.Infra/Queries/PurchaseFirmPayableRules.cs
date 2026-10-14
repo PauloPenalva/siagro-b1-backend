@@ -109,4 +109,65 @@ public static class PurchaseFirmPayableRules
             firm.UpdatedBy = userName;
         }
     }
+
+    // --- Complemento de valor (spec 2026-10-13 D11): o firme nasce da LINHA do documento (OriginType PurchaseInvoice). ---
+
+    public const string ValueComplementUndoneReason = "Documento de complemento de valor cancelado ou estornado";
+
+    /// <summary>Firmes ATIVOS das linhas do complemento de valor, rastreados (status reconferido em memória).</summary>
+    public static List<FinancialDocument> ActiveValueComplementFirmsOf(DbContext context, IReadOnlyCollection<Guid> lineKeys)
+    {
+        if (lineKeys.Count == 0) return [];
+
+        return context.Set<FinancialDocument>()
+            .Where(d => d.OriginType == FinancialDocumentOrigin.PurchaseInvoice &&
+                        d.Nature == FinancialDocumentNature.Firm &&
+                        d.OriginKey != null && lineKeys.Contains(d.OriginKey.Value) &&
+                        d.Status != FinancialDocumentStatus.Canceled)
+            .ToList()
+            .Where(d => d.Status != FinancialDocumentStatus.Canceled)
+            .ToList();
+    }
+
+    /// <summary>Recusa (P12) se algum firme ativo do complemento está composto, ou com dação ou encontro de contas. Não altera nada.</summary>
+    public static List<FinancialDocument> EnsureValueComplementFirmsLoose(DbContext context, IReadOnlyCollection<Guid> lineKeys)
+    {
+        var firms = ActiveValueComplementFirmsOf(context, lineKeys);
+        foreach (var firm in firms)
+        {
+            if (ProvisionalOf(context, firm.Key) is { } provisionalKey)
+            {
+                var provisionalCode = context.Set<FinancialDocument>().AsNoTracking()
+                    .Where(d => d.Key == provisionalKey).Select(d => d.Code).FirstOrDefault();
+                throw new DefaultException(
+                    $"O título {firm.Code} do complemento de valor já está composto no título {provisionalCode}: desfaça a composição antes de cancelar ou estornar o documento.");
+            }
+
+            if (firm.SettledAmount != 0m)
+                throw new DefaultException(
+                    $"O título {firm.Code} do complemento de valor já tem baixa por dação ou encontro de contas: estorne-a antes de cancelar ou estornar o documento.");
+        }
+
+        return firms;
+    }
+
+    /// <summary>
+    /// Documento cancelado ou confirmação estornada: o firme solto é cancelado; composto, ou com dação ou encontro de
+    /// contas, recusa a operação inteira (mesma regra 7 do vínculo, com o texto do documento).
+    /// </summary>
+    public static void CancelValueComplementFirms(DbContext context, IReadOnlyCollection<Guid> lineKeys, string userName)
+    {
+        var firms = EnsureValueComplementFirmsLoose(context, lineKeys);
+
+        var now = DateTime.Now;
+        foreach (var firm in firms)
+        {
+            firm.Status = FinancialDocumentStatus.Canceled;
+            firm.CancellationReason = ValueComplementUndoneReason;
+            firm.CanceledAt = now;
+            firm.CanceledBy = userName;
+            firm.UpdatedAt = now;
+            firm.UpdatedBy = userName;
+        }
+    }
 }

@@ -15,6 +15,7 @@ namespace SiagroB1.Infra.Interceptors;
 /// <list type="bullet">
 /// <item>romaneio cancelado/excluído, NF cancelada/excluída ou linha excluída → vínculos removidos e a confirmação manual
 /// dos romaneios que ficaram é limpa;</item>
+/// <item>documento de complemento de valor cancelado, excluído ou com a confirmação estornada → firmes das linhas cancelados ou recusa;</item>
 /// <item>linha vinculada com quantidade reduzida abaixo do vinculado, UM sem conversão ou produto trocado → recusa.</item>
 /// </list>
 /// As consultas são poucas e por chave; uma implementação síncrona atende os dois caminhos do SaveChanges.
@@ -40,6 +41,8 @@ public class PurchaseFiscalReconciliationCleanupInterceptor : SaveChangesInterce
         var cancelledInvoices = new HashSet<Guid>();
         var deletedLines = new HashSet<Guid>();
         var changedLines = new List<EntityEntry<PurchaseInvoiceItem>>();
+        // Spec 2026-10-13 D11: documento cujo firme de complemento de valor tem de morrer, com quem fez a operação.
+        var undoneInvoices = new Dictionary<Guid, string>();
 
         foreach (var entry in context.ChangeTracker.Entries())
         {
@@ -52,6 +55,10 @@ public class PurchaseFiscalReconciliationCleanupInterceptor : SaveChangesInterce
                 case PurchaseInvoice i when entry.State == EntityState.Deleted ||
                                             BecameCancelled(entry, nameof(PurchaseInvoice.InvoiceStatus), InvoiceStatus.Cancelled):
                     cancelledInvoices.Add(i.Key);
+                    undoneInvoices[i.Key] = i.CanceledBy ?? PurchaseFirmPayableRules.SystemUserName;
+                    break;
+                case PurchaseInvoice i when ConfirmationReversed(entry):
+                    undoneInvoices[i.Key] = i.UpdatedBy ?? PurchaseFirmPayableRules.SystemUserName;
                     break;
                 case PurchaseInvoiceItem { Key: { } key } when entry.State == EntityState.Deleted:
                     deletedLines.Add(key);
@@ -62,13 +69,28 @@ public class PurchaseFiscalReconciliationCleanupInterceptor : SaveChangesInterce
             }
         }
 
-        if (cancelledTransactions.Count + cancelledInvoices.Count + deletedLines.Count + changedLines.Count == 0)
+        if (cancelledTransactions.Count + cancelledInvoices.Count + deletedLines.Count + changedLines.Count + undoneInvoices.Count == 0)
             return;
 
         var links = context.Set<PurchaseFiscalReconciliation>();
 
         foreach (var line in changedLines)
             EnsureLineEditKeepsLinks(context, links, line);
+
+        // D11: o firme do complemento de valor segue o documento (cancelado, excluído ou com a confirmação estornada).
+        if (undoneInvoices.Count > 0)
+        {
+            var invoiceKeys = undoneInvoices.Keys.ToList();
+            var linesByInvoice = context.Set<PurchaseInvoiceItem>().AsNoTracking()
+                .Where(l => l.PurchaseInvoiceKey != null && invoiceKeys.Contains(l.PurchaseInvoiceKey.Value))
+                .Select(l => new { InvoiceKey = l.PurchaseInvoiceKey!.Value, LineKey = l.Key!.Value })
+                .ToList()
+                .GroupBy(l => l.InvoiceKey);
+
+            foreach (var group in linesByInvoice)
+                PurchaseFirmPayableRules.CancelValueComplementFirms(
+                    context, group.Select(l => l.LineKey).ToList(), undoneInvoices[group.Key]);
+        }
 
         if (cancelledTransactions.Count + cancelledInvoices.Count + deletedLines.Count == 0)
             return;
@@ -98,6 +120,14 @@ public class PurchaseFiscalReconciliationCleanupInterceptor : SaveChangesInterce
             tx.FiscalReconciledAt = null;
             tx.FiscalReconciledBy = null;
         }
+    }
+
+    /// <summary>Estorno da confirmação: Confirmed → Pending (PurchaseInvoicesReverseConfirmService).</summary>
+    private static bool ConfirmationReversed(EntityEntry entry)
+    {
+        if (entry.State != EntityState.Modified) return false;
+        var p = entry.Property(nameof(PurchaseInvoice.InvoiceStatus));
+        return p.IsModified && Equals(p.OriginalValue, InvoiceStatus.Confirmed) && Equals(p.CurrentValue, InvoiceStatus.Pending);
     }
 
     private static bool BecameCancelled<TStatus>(EntityEntry entry, string property, TStatus cancelled) where TStatus : struct, Enum

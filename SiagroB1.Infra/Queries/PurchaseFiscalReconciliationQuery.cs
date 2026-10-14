@@ -222,6 +222,7 @@ public static class PurchaseFiscalReconciliationQuery
                         l.PurchaseInvoice!.InvoiceStatus != InvoiceStatus.Cancelled &&
                         l.PurchaseInvoice.ProducerInvoiceKey == null &&      // contra-nota: vincula-se a escrituração
                         l.PurchaseInvoice.CustodyStorageTransactionKey == null && // nota de custódia não é NF de venda
+                        l.PurchaseInvoice.InvoiceType != PurchaseInvoiceType.ValueComplement && // D11: título nasce na confirmação
                         issuers.Contains(l.PurchaseInvoice.CardCode));
 
         if (f.DateFrom is { } from)

@@ -1,3 +1,5 @@
+using SiagroB1.Domain.Enums;
+
 namespace SiagroB1.Domain.Dtos;
 
 /// <summary>
@@ -27,6 +29,9 @@ public class PurchaseInvoiceDraftDto
     public string? TaxPayerComments { get; set; }
 
     public string? XmlFileName { get; set; }
+
+    /// <summary>NF-e de complemento (finNFe 2) vira o documento do tipo Complemento de valor (D11); as demais, Normal.</summary>
+    public PurchaseInvoiceType InvoiceType { get; set; } = PurchaseInvoiceType.Normal;
 
     public List<PurchaseInvoiceDraftItemDto> Items { get; set; } = [];
 }
@@ -63,4 +68,7 @@ public class PurchaseInvoiceDraftItemDto
 
     /// <summary>Outras despesas da linha (<c>det/prod/vOutro</c>).</summary>
     public decimal OtherExpensesValue { get; set; }
+
+    /// <summary>Complemento de valor: o valor da linha (<c>det/prod/vProd</c>); quantidade e preço ficam zerados. 0 nos demais.</summary>
+    public decimal ComplementAmount { get; set; }
 }

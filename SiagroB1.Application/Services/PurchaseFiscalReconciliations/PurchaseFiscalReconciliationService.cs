@@ -244,6 +244,10 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
         if (line.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new DefaultException($"O documento de entrada {line.TaxDocument} está cancelado e não pode ser conciliado.");
 
+        if (line.InvoiceType == PurchaseInvoiceType.ValueComplement)
+            throw new DefaultException(
+                $"O documento {line.TaxDocument} é complemento de valor: não se concilia com romaneio; o título nasce na confirmação.");
+
         if (line.IsCounterNote)
             throw new DefaultException($"A NF {line.TaxDocument} é contra-nota: vincule a escrituração da NF do produtor.");
 

@@ -29,6 +29,10 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
 
         // Spec 2026-10-13 (títulos firmes): cancelar à mão deixaria o vínculo vivo sem título — e a próxima gravação
         // dele criaria outro. O caminho é desfazer o vínculo na Conciliação Fiscal de Compras.
+        if (document.IsPurchaseFirmPayable && document.OriginType == FinancialDocumentOrigin.PurchaseInvoice)
+            throw new ApplicationException(
+                "Título firme do complemento de valor nasce da confirmação do documento de entrada: cancele ou estorne o documento para cancelá-lo.");
+
         if (document.IsPurchaseFirmPayable)
             throw new ApplicationException(
                 "Título firme nasce e morre com o vínculo da Conciliação Fiscal de Compras: desfaça o vínculo para cancelá-lo.");

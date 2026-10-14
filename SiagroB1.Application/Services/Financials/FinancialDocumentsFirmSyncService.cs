@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -154,4 +155,70 @@ public class FinancialDocumentsFirmSyncService(
     /// <summary>Regra 7: vínculo removido → cancela o firme solto ou recusa (S1/P1).</summary>
     public void EnqueueRemoval(Guid linkKey, string userName) =>
         PurchaseFirmPayableRules.CancelLooseFirms(db.Context, [linkKey], userName);
+
+    /// <summary>
+    /// Spec 2026-10-13 D11: confirmar o documento "Complemento de valor" cria um firme por linha (origem PurchaseInvoice,
+    /// OriginKey = linha), pelo valor da linha menos o Funrural, sem romaneio. Revalida as regras do documento (a
+    /// natureza ou o contrato podem ter mudado desde a gravação). ENQUEUE-ONLY e fora de transação (numeração por Dapper).
+    /// Idempotente por linha: o índice IX_FINANCIAL_DOCUMENTS_FirmOrigin (OriginType + OriginKey) é a segunda camada.
+    /// </summary>
+    public async Task EnqueueForValueComplementAsync(
+        PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines, string userName)
+    {
+        if (invoice.InvoiceType != PurchaseInvoiceType.ValueComplement)
+            return;
+
+        await PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, ErpMode.IsStandalone(configuration));
+
+        var context = db.Context;
+        var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);
+        var issueDate = (invoice.IssueDate ?? DateTime.Today).Date;
+        var contractKeys = lines.Select(l => l.PurchaseContractKey!.Value).Distinct().ToList();
+        var contracts = await context.PurchaseContracts.AsNoTracking()
+            .Where(c => contractKeys.Contains(c.Key))
+            .Select(c => new { c.Key, c.Code, c.StandardCurrency })
+            .ToDictionaryAsync(c => c.Key);
+
+        foreach (var line in lines)
+        {
+            var lineKey = line.Key!.Value;
+            if (PurchaseFirmPayableRules.ActiveValueComplementFirmsOf(context, [lineKey]).Count > 0)
+                continue;
+
+            var contract = contracts[line.PurchaseContractKey!.Value];
+            var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
+            var code = await docNumberSequence.GetDocNumber(docNumberKey);
+            var now = DateTime.Now;
+
+            var document = new FinancialDocument
+            {
+                Key = Guid.NewGuid(),
+                Code = code,
+                DocNumberKey = docNumberKey,
+                BranchCode = invoice.BranchCode,
+                Direction = FinancialDirection.Payable,
+                Nature = FinancialDocumentNature.Firm,
+                Status = FinancialDocumentStatus.Open,
+                CardCode = invoice.CardCode,
+                CardName = invoice.CardName,
+                DocumentDate = issueDate,
+                DueDate = issueDate,
+                Currency = contract.StandardCurrency ?? CurrencyType.Brl,
+                NetAmount = decimal.Round(line.GrandTotal - line.FunruralValue, 2, MidpointRounding.ToEven),
+                OriginType = FinancialDocumentOrigin.PurchaseInvoice,
+                OriginKey = lineKey,
+                OriginDocNumber = contract.Code,
+                PurchaseContractKey = line.PurchaseContractKey,
+                PurchaseInvoiceKey = invoice.Key,
+                TaxDocumentNumber = taxDocument,
+                CreatedAt = now,
+                CreatedBy = userName,
+                UpdatedAt = now,
+                UpdatedBy = userName,
+            };
+
+            context.FinancialDocuments.Add(document);
+            await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(context, document.Key);
+        }
+    }
 }

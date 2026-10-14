@@ -86,5 +86,13 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
             .ToListAsync();
         foreach (var firm in PurchaseFirmPayableRules.ActiveFirmsOf(db.Context, linkKeys))
             PurchaseFirmPayableRules.EnsureLoose(db.Context, firm);
+
+        // Spec 2026-10-13 D11: o complemento de valor tem o firme na LINHA (OriginType PurchaseInvoice); composto ou
+        // baixado, recusa aqui também, antes da SEFAZ (P12).
+        var lineKeys = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(l => l.PurchaseInvoiceKey == key)
+            .Select(l => l.Key!.Value)
+            .ToListAsync();
+        PurchaseFirmPayableRules.EnsureValueComplementFirmsLoose(db.Context, lineKeys);
     }
 }

@@ -23,12 +23,17 @@ public static class PurchaseFiscalReconciliationRules
 
     public static bool IsLinkable(StorageTransactionType type) => LinkableTypes.Contains(type);
 
-    /// <summary>NF de devolução cobre o que SAI do contrato (9, 16); a normal, o que ENTRA (8, 10, 17).</summary>
-    public static bool SenseMatches(PurchaseInvoiceType invoiceType, StorageTransactionType type) =>
-        invoiceType == PurchaseInvoiceType.Return
-            ? type is StorageTransactionType.PurchaseReturn or StorageTransactionType.PurchaseDischargeLoss
-            : type is StorageTransactionType.Purchase or StorageTransactionType.PurchaseQtyComplement
-                or StorageTransactionType.PurchaseDischargeGain;
+    /// <summary>
+    /// NF de devolução cobre o que SAI do contrato (9, 16); a normal, o que ENTRA (8, 10, 17). O complemento de valor
+    /// (D11) não tem quantidade: não casa com romaneio nenhum.
+    /// </summary>
+    public static bool SenseMatches(PurchaseInvoiceType invoiceType, StorageTransactionType type) => invoiceType switch
+    {
+        PurchaseInvoiceType.Return => type is StorageTransactionType.PurchaseReturn or StorageTransactionType.PurchaseDischargeLoss,
+        PurchaseInvoiceType.Normal => type is StorageTransactionType.Purchase or StorageTransactionType.PurchaseQtyComplement
+            or StorageTransactionType.PurchaseDischargeGain,
+        _ => false,
+    };
 
     /// <summary>Dono do documento: CPF inteiro (11) ou raiz do CNPJ (8 primeiros de 14). Outra coisa: null.</summary>
     public static string? OwnerRoot(string? taxId)

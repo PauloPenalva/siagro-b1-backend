@@ -230,4 +230,29 @@ public class PurchaseInvoicesImportXmlServiceTests
         Assert.Equal((100m, 20m, 50m, 30m), (first.FreightValue, first.InsuranceValue, first.DiscountValue, first.OtherExpensesValue));
         Assert.Equal((0m, 0m, 0m, 0m), (second.FreightValue, second.InsuranceValue, second.DiscountValue, second.OtherExpensesValue));
     }
+
+    [Fact]
+    public async Task Complement_nfe_finnfe_2_becomes_a_value_complement_draft_with_the_line_value()
+    {
+        // NF-e de complemento (finNFe=2): qCom/vUnCom zerados e o valor só em vProd.
+        var xml = Nfe.Replace("<ide>", "<ide><finNFe>2</finNFe>")
+            .Replace("<qCom>1000.000</qCom><vUnCom>1.5000</vUnCom>", "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>271.67</vProd>")
+            .Replace("<qCom>500.000</qCom><vUnCom>0.8000</vUnCom>", "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>100.00</vProd>");
+
+        var draft = await Service().ExecuteAsync(Bytes(xml), "nfe.xml");
+
+        Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.ValueComplement, draft.InvoiceType);
+        Assert.Equal(new[] { 271.67m, 100m }, draft.Items.Select(i => i.ComplementAmount));
+        Assert.All(draft.Items, i => Assert.Equal((0m, 0m), (i.Quantity, i.UnitPrice)));
+    }
+
+    [Fact]
+    public async Task Normal_nfe_keeps_quantity_and_price_and_no_complement_amount()
+    {
+        var draft = await Service().ExecuteAsync(Bytes(Nfe), "nfe.xml");
+
+        Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.Normal, draft.InvoiceType);
+        Assert.All(draft.Items, i => Assert.Equal(0m, i.ComplementAmount));
+        Assert.Equal((1000m, 1.5m), (draft.Items[0].Quantity, draft.Items[0].UnitPrice));
+    }
 }
