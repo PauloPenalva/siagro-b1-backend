@@ -107,8 +107,12 @@ public class PurchaseInvoicesByPeriodReportService(
         GrandTotal = x.GrandTotal,
     };
 
-    internal static string DescribeType(PurchaseInvoiceType type) =>
-        type == PurchaseInvoiceType.Return ? "Devolução" : "Normal";
+    internal static string DescribeType(PurchaseInvoiceType type) => type switch
+    {
+        PurchaseInvoiceType.Return => "Devolução",
+        PurchaseInvoiceType.ValueComplement => "Complemento de valor",
+        _ => "Normal",
+    };
 
     internal static string DescribeIssuer(DocumentIssuerType issuer) =>
         issuer == DocumentIssuerType.Own ? "Própria" : "Terceiro";

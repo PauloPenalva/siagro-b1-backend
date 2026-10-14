@@ -2753,6 +2753,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("CofinsValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<decimal>("ComplementAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
 

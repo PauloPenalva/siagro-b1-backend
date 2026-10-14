@@ -14,7 +14,7 @@ public static class SupplierNfeKeyGuard
 {
     public static bool AppliesTo(PurchaseInvoice invoice) =>
         invoice.IssuerType == DocumentIssuerType.ThirdParty
-        && invoice.InvoiceType == PurchaseInvoiceType.Normal
+        && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement
         && invoice.TaxDocumentKind == TaxDocumentKind.Nfe;
 
     /// <summary>
