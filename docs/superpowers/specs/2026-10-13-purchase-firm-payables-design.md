@@ -365,3 +365,22 @@ teste na CEAGUI dev); quem precisar, regrava o vínculo.
 - Natureza do contrato como padrão na Entrada — removido do roadmap junto com o sub-projeto 1.
 - Retenção de Funrural na Yokotobi (`SAPB1`).
 - Contas a Receber (venda) — este desenho é só compra.
+
+## Decisões da revisão final (2026-10-14)
+
+- **D12 — Contrato em dólar:** o firme nasce sempre em **BRL** (moeda do documento de entrada). A
+  composição recusa título de moeda diferente da do provisório:
+  `"O título {código} está em {moeda} e o provisório {provisório} em {moeda do provisório}: composição entre moedas diferentes ainda não é suportada."`
+  Variação cambial fica para a Fase 3 do roadmap financeiro.
+- **D13 — Contratos antigos (data de corte):** configuração `Financial:FirmPayablesCutoverDate`
+  (`yyyy-MM-dd`). No encerramento, provisório com `CreatedAt` anterior à data de corte, **sem
+  composição** (`ComposedAmount = 0`) e **sem baixa** (`SettledAmount = 0`) não trava: é cancelado
+  como antes desta fase (motivo "Encerramento do contrato"). Sem a chave configurada, nenhum
+  provisório é isento. A chave entra no checklist de deploy.
+- **D14 — Troca nota:** a recusa ao editar a entrega quando o título de devolução do romaneio 16 já
+  foi compensado **fica como está**. A regra 24 ("sem trava") vale para a alocação, não para o
+  cancelamento de uma devolução compensada.
+- **Edição do documento de entrada depois do vínculo** (achado crítico da revisão): mudança de valor
+  recalcula o firme solto e é recusada com firme composto/compensado; troca de contrato da linha e de
+  tipo/emitente do documento conciliado são recusadas; natureza que deixa de gerar financeiro
+  cancela o firme solto.
