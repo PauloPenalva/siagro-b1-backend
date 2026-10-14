@@ -1651,6 +1651,33 @@ public static class ODataConfigurations
         financialByContract.Parameter<Guid>("ContractKey");
         financialByContract.ReturnsCollection<FinancialDocumentByContractDto>();
 
+        // Títulos firmes de compra (spec 2026-10-13): composição no provisório, dação e encontro de contas.
+        // ⚠️ Dinheiro em Edm.Double e data em string, como na baixa. Nenhum parâmetro é opcional: uma rota só por operação.
+        var financialCompose = modelBuilder.Action("FinancialDocumentsCompose");
+        financialCompose.Parameter<Guid>("Key");
+        financialCompose.CollectionParameter<Guid>("ComposedKeys");
+        financialCompose.Returns<IActionResult>();
+
+        var financialUncompose = modelBuilder.Action("FinancialDocumentsUncompose");
+        financialUncompose.Parameter<Guid>("CompositionKey");
+        financialUncompose.Returns<IActionResult>();
+
+        var financialDation = modelBuilder.Action("FinancialDocumentsDation");
+        financialDation.Parameter<Guid>("Key");
+        financialDation.Parameter<double>("Amount");
+        financialDation.Parameter<string>("SettlementDate");
+        financialDation.Parameter<string>("Notes");
+        financialDation.Returns<IActionResult>();
+
+        var financialNetting = modelBuilder.Action("FinancialDocumentsNetting");
+        financialNetting.Parameter<Guid>("Key");
+        financialNetting.Parameter<Guid>("CounterpartKey");
+        financialNetting.Returns<IActionResult>();
+
+        var financialComposition = modelBuilder.Function("FinancialDocumentsGetComposition");
+        financialComposition.Parameter<Guid>("Key");
+        financialComposition.Returns<FinancialDocumentCompositionDto>();
+
         var financialBacklog = modelBuilder.Action("FinancialDocumentsGenerateBacklog");
         financialBacklog.Parameter<string>("BranchCode").Optional();
         financialBacklog.Parameter<string>("FromDate");
