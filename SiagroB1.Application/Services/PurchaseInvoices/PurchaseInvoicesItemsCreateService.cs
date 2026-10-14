@@ -51,6 +51,7 @@ public class PurchaseInvoicesItemsCreateService(
         // Retorno de depósito: confere a linha nova junto das demais do documento (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey).ToListAsync();
+        PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, [.. others, item]);
         await taxApply.EnsureValueComplementAsync(invoice, [.. others, item]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, item.PurchaseInvoiceKey, [.. others, item]);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, item]);

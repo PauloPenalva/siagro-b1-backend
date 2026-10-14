@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -67,6 +68,29 @@ internal static class PurchaseInvoiceLineGuard
         // Produto trocado por um código fora do cadastro (o value help filtra por grupo, o XML
         // não): manter a descrição que veio é melhor que esvaziar a linha.
         return (await itemService.GetByIdAsync(itemCode))?.ItemName ?? itemName;
+    }
+
+    /// <summary>
+    /// A unidade de medida é obrigatória na linha (B7): sem ela a devolução copiava a unidade vazia e a NF-e recusava.
+    /// Vale sobre a lista FINAL de linhas do documento, na ordem em que a grade as mostra (nº = posição na carga, a partir de 1; linha nova no fim). Complemento
+    /// de valor fica fora: a linha só tem valor (quantidade 0), então não há unidade a informar.
+    /// </summary>
+    public static void EnsureUnitOfMeasure(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
+            return;
+
+        // Devolução com NF-e e contra-nota: a unidade da linha vem da origem e a tela a trava (RestoreReturnLine /
+        // RestoreCounterNoteLine) — exigir aqui prenderia o documento sem o usuário poder corrigir. A origem sem
+        // unidade é recusada ANTES de criar (Devolver / Gerar contra-nota).
+        if (invoice.IsNfeReturn || invoice.ProducerInvoiceKey is not null)
+            return;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(lines[i].UnitOfMeasureCode))
+                throw new DefaultException($"Informe a unidade de medida da linha {i + 1} ({lines[i].ItemCode}).");
+        }
     }
 
     /// <summary>

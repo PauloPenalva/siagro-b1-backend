@@ -69,7 +69,7 @@ public class PurchaseInvoiceNfeLockTests
     {
         var db = TestDb.CreateUnitOfWork();
         var invoice = new PurchaseInvoice { CardCode = "F-SP", NfeStatus = NfeStatus.Authorized, NfeProtocol = "1", IsNfeReturn = true, InvoiceType = PurchaseInvoiceType.Return };
-        invoice.AddItem(new PurchaseInvoiceItem { ItemCode = "TRIGO", Quantity = 1m, UnitPrice = 1m });
+        invoice.AddItem(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", ItemCode = "TRIGO", Quantity = 1m, UnitPrice = 1m });
 
         await new PurchaseInvoicesCreateService(db, new FakeBusinessPartnerService(), new FakeItemService(),
             TaxTestServices.InactivePurchaseApply(db), new FakeDocNumberSequenceService()).ExecuteAsync(invoice, "tester");
@@ -214,7 +214,7 @@ public class PurchaseInvoiceNfeLockTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
             new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
-                .ExecuteAsync(new PurchaseInvoiceItem { PurchaseInvoiceKey = invoice.Key, ItemCode = "TRIGO", Quantity = 1m }, "tester"));
+                .ExecuteAsync(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", PurchaseInvoiceKey = invoice.Key, ItemCode = "TRIGO", Quantity = 1m }, "tester"));
 
         Assert.Equal("A NF-e deste documento já foi autorizada: os dados que foram para a nota não podem mudar.", e.Message);
     }
@@ -226,7 +226,7 @@ public class PurchaseInvoiceNfeLockTests
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
             new PurchaseInvoicesItemsCreateService(db, new FakeItemService(), TaxTestServices.InactivePurchaseApply(db))
-                .ExecuteAsync(new PurchaseInvoiceItem { PurchaseInvoiceKey = invoice.Key, ItemCode = "TRIGO", Quantity = 1m }, "tester"));
+                .ExecuteAsync(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", PurchaseInvoiceKey = invoice.Key, ItemCode = "TRIGO", Quantity = 1m }, "tester"));
 
         Assert.Equal("A devolução de compra só tem os itens que vieram da entrada: não é possível incluir item.", e.Message);
     }

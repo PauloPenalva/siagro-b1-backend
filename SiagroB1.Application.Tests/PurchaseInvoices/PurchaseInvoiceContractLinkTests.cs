@@ -50,7 +50,7 @@ public class PurchaseInvoiceContractLinkTests
 
         var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F0001" };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(),
             ItemCode = "SOJA",
             Quantity = 10m,
@@ -75,7 +75,7 @@ public class PurchaseInvoiceContractLinkTests
         // vínculo, porque o XML não o carrega.
         var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F0001" };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m,
         });
 
@@ -93,7 +93,7 @@ public class PurchaseInvoiceContractLinkTests
     {
         var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = cardCode };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "SOJA",
             ItemName = "SOJA",
             Quantity = 10m,
@@ -195,7 +195,7 @@ public class PurchaseInvoiceContractLinkTests
 
         var incoming = new PurchaseInvoice { CardCode = "F0002" };
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = invoice.Items.First().Key,
             ItemCode = "SOJA",
             Quantity = 10m,

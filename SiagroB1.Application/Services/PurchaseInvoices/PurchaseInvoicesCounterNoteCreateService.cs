@@ -43,6 +43,7 @@ public class PurchaseInvoicesCounterNoteCreateService(
                 "A contra-nota parte da escrituração de uma NF-e de produtor: documento de terceiro, Normal, confirmado e com a chave de 44 dígitos.");
 
         await EnsureUsagesAllowAsync(producer);
+        EnsureProducerUnits(producer);
 
         if (await PurchaseInvoiceCounterNote.FindValidAsync(db.Context, producer.Key) is { } existing)
             throw new DefaultException($"A escrituração já tem a contra-nota {existing.InvoiceNumber}.");
@@ -121,6 +122,19 @@ public class PurchaseInvoicesCounterNoteCreateService(
 
             if (string.IsNullOrWhiteSpace(line.Cfop))
                 throw new DefaultException($"O item {line.ItemCode} da escrituração está sem os tributos calculados.");
+        }
+    }
+
+    /// <summary>B7: a contra-nota copia a unidade da escrituração e trava a linha; sem unidade, recusa antes de criar.</summary>
+    private static void EnsureProducerUnits(PurchaseInvoice producer)
+    {
+        var ordered = NfeItemNumbering.Ordered(producer.Items);
+
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(ordered[i].UnitOfMeasureCode))
+                throw new DefaultException(
+                    $"A linha {i + 1} ({ordered[i].ItemCode}) da nota do produtor está sem unidade de medida: corrija a nota do produtor antes de gerar a contra-nota.");
         }
     }
 

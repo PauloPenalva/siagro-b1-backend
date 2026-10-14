@@ -29,7 +29,7 @@ public class PurchaseInvoicesUpdateTests
             InvoiceNumber = "DE000007",
         };
         invoice.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m,
         });
 
@@ -61,7 +61,7 @@ public class PurchaseInvoicesUpdateTests
     {
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = lineKey,
             ItemCode = "SOJA",
             Quantity = 10m,
@@ -208,7 +208,7 @@ public class PurchaseInvoicesUpdateTests
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
         // A linha original NÃO vem: deve ser removida. Uma nova entra no lugar.
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = Guid.NewGuid(), ItemCode = "MILHO", Quantity = 5m, UnitPrice = 2m,
         });
 
@@ -232,7 +232,7 @@ public class PurchaseInvoicesUpdateTests
 
         var incoming = Incoming(saved.Items.First().Key);
         // Linha nova digitada na grade chega sem Key: quem a gera é o servidor.
-        incoming.AddItem(new PurchaseInvoiceItem { ItemCode = "MILHO", Quantity = 7m, UnitPrice = 3m });
+        incoming.AddItem(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", ItemCode = "MILHO", Quantity = 7m, UnitPrice = 3m });
 
         await Service(db).ExecuteAsync(saved.Key, incoming, "tester");
 
@@ -316,7 +316,7 @@ public class PurchaseInvoicesUpdateTests
         // e a descrição de outro — mesma armadilha do nome do emitente.
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = saved.Items.First().Key,
             ItemCode = "MILHO",
             ItemName = "SOJA EM GRAOS",
@@ -341,7 +341,7 @@ public class PurchaseInvoicesUpdateTests
         // pela do cadastro.
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = saved.Items.First().Key,
             ItemCode = "SOJA",
             ItemName = "SOJA GRAO A GRANEL",
@@ -364,12 +364,12 @@ public class PurchaseInvoicesUpdateTests
 
         var incoming = new PurchaseInvoice { CardCode = "F0001" };
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             Key = saved.Items.First().Key, ItemCode = "SOJA", Quantity = 10m, UnitPrice = 1m,
         });
         // Linha incluída na grade durante a edição: chega sem chave e com o nome em branco.
         incoming.AddItem(new PurchaseInvoiceItem
-        {
+        { UnitOfMeasureCode = "KG",
             ItemCode = "MILHO", ItemName = "", Quantity = 5m, UnitPrice = 2m,
         });
 

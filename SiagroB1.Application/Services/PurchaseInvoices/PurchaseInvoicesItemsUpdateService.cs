@@ -80,6 +80,10 @@ public class PurchaseInvoicesItemsUpdateService(
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
+        // Ordem da grade: a da carga, com a linha editada no lugar dela.
+        var inGridOrder = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey).Select(x => x.Key).ToListAsync();
+        PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, [.. inGridOrder.Select(k => k == existing.Key ? existing : others.First(o => o.Key == k))]);
         await taxApply.EnsureValueComplementAsync(invoice, [.. others, existing]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, existing]);

@@ -17,7 +17,7 @@ public class StorageCustodyGuardTests
     {
         Key = Guid.NewGuid(), BranchCode = branch, CardCode = card, IssuerType = issuer,
         CustodyStorageTransactionKey = t?.Key,
-        Items = [new PurchaseInvoiceItem { Key = Guid.NewGuid(), ItemCode = item, Quantity = quantity, UsageCode = StorageCustodySeed.UsageOf(role) }],
+        Items = [new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", Key = Guid.NewGuid(), ItemCode = item, Quantity = quantity, UsageCode = StorageCustodySeed.UsageOf(role) }],
     };
 
     private static SalesInvoice Sales(StorageTransaction? t, StorageCustodyRole role, decimal quantity) => new()
@@ -98,7 +98,7 @@ public class StorageCustodyGuardTests
         var seed = await StorageCustodySeed.CreateAsync(db);
         var t = await seed.AddTransactionAsync();
         var invoice = Purchase(t, StorageCustodyRole.ProcessingEntry, 30_000m);
-        invoice.Items.Add(new PurchaseInvoiceItem { ItemCode = StorageCustodySeed.Item, Quantity = 1m, UsageCode = StorageCustodySeed.StorageEntryUsage });
+        invoice.Items.Add(new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", ItemCode = StorageCustodySeed.Item, Quantity = 1m, UsageCode = StorageCustodySeed.StorageEntryUsage });
 
         var e = await Assert.ThrowsAsync<DefaultException>(() => Ensure(db, invoice));
 
@@ -258,7 +258,7 @@ public class StorageCustodyGuardTests
         var invoice = new PurchaseInvoice
         {
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = "F1",
-            Items = [new PurchaseInvoiceItem { ItemCode = "X", Quantity = 1m }],
+            Items = [new PurchaseInvoiceItem { UnitOfMeasureCode = "KG", ItemCode = "X", Quantity = 1m }],
         };
 
         await Ensure(db, invoice);

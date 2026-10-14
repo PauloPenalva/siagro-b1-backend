@@ -54,6 +54,23 @@ public class PurchaseInvoicesCounterNoteTests
     }
 
     [Fact]
+    public async Task Producer_line_without_unit_is_refused_before_anything_is_created()
+    {
+        var (scenario, producer) = await CounterNoteSeed.SeedAsync();
+        var line = await scenario.Db.Context.PurchaseInvoicesItems.FirstAsync(i => i.PurchaseInvoiceKey == producer.Key);
+        line.UnitOfMeasureCode = null;
+        await scenario.Db.SaveChangesAsync();
+        scenario.Db.Context.ChangeTracker.Clear();
+        var before = await scenario.Db.Context.PurchaseInvoices.CountAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(scenario).ExecuteAsync(producer.Key, "tester"));
+
+        Assert.Contains("da nota do produtor está sem unidade de medida: corrija a nota do produtor antes de gerar a contra-nota.", e.Message);
+        Assert.StartsWith("A linha ", e.Message);
+        Assert.Equal(before, await scenario.Db.Context.PurchaseInvoices.CountAsync());
+    }
+
+    [Fact]
     public async Task Producer_is_not_changed()
     {
         var (scenario, producer) = await CounterNoteSeed.SeedAsync();

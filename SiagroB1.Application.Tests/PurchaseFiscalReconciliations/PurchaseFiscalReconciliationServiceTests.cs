@@ -144,6 +144,47 @@ public class PurchaseFiscalReconciliationServiceTests
     }
 
     [Fact]
+    public async Task Own_pending_document_is_not_listed_and_save_is_refused()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var tx = await seed.AddTransactionAsync(100m);
+        var (_, line) = await seed.AddInvoiceAsync(100m, status: InvoiceStatus.Pending, taxNumber: "777", issuerType: DocumentIssuerType.Own);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
+
+        Assert.Empty(await service.ListInvoiceLinesAsync(Filter()));
+        Assert.Equal(
+            "O documento 777-1 é de emissão própria e ainda não foi confirmado: emita/confirme antes de conciliar.",
+            await RefusalAsync(() => service.SaveAsync([Pair(line, tx, 10m)], "a")));
+        Assert.Empty(seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task Own_confirmed_document_is_listed_and_accepted()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var tx = await seed.AddTransactionAsync(100m);
+        var (_, line) = await seed.AddInvoiceAsync(100m, status: InvoiceStatus.Confirmed, issuerType: DocumentIssuerType.Own);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
+
+        Assert.Single(await service.ListInvoiceLinesAsync(Filter()));
+        await service.SaveAsync([Pair(line, tx, 100m)], "a");
+        Assert.Single(seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task Third_party_pending_document_is_still_listed_and_accepted()
+    {
+        var seed = await FiscalReconciliationSeed.CreateAsync();
+        var tx = await seed.AddTransactionAsync(100m);
+        var (_, line) = await seed.AddInvoiceAsync(100m, status: InvoiceStatus.Pending);
+        var service = FiscalReconciliationSeed.NewService(seed.Db);
+
+        Assert.Single(await service.ListInvoiceLinesAsync(Filter()));
+        await service.SaveAsync([Pair(line, tx, 100m)], "a");
+        Assert.Single(seed.Db.Context.PurchaseFiscalReconciliations.AsNoTracking());
+    }
+
+    [Fact]
     public async Task Suggest_adds_current_quantity_and_uses_open_balance()
     {
         var seed = await FiscalReconciliationSeed.CreateAsync();

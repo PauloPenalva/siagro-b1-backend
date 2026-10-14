@@ -13,6 +13,9 @@ public class PurchaseContractsGetAllocationsByContractService(
     IDbConnection dbConnection
     )
 {
+    // Leitura de exibição: o banco roda READ COMMITTED com RCSI desligado, então sem WITH (NOLOCK) em TODAS as
+    // tabelas a aba "Entregas" trava (timeout de 30 s) atrás de qualquer escrita em andamento, mesmo de outro
+    // contrato (produção CEAGUI, 14/10/2026). Todo FROM/JOIN novo precisa do hint (há teste que confere).
     private static readonly string SQL = """
         SELECT DISTINCT 
             ST.BranchCode AS BranchCode,
@@ -58,33 +61,33 @@ public class PurchaseContractsGetAllocationsByContractService(
             FIS.FiscalQuantity AS FiscalQuantity,
             FIS.LinkCount AS FiscalLinkCount,
             SPLIT.ContractCount AS ContractCount
-        FROM PURCHASE_CONTRACTS_ALLOCATIONS PA (NOLOCK)
-        LEFT JOIN STORAGE_TRANSACTIONS ST
+        FROM PURCHASE_CONTRACTS_ALLOCATIONS PA WITH (NOLOCK)
+        LEFT JOIN STORAGE_TRANSACTIONS ST WITH (NOLOCK)
                ON ST.[Key] = PA.StorageTransactionKey
-        LEFT JOIN PURCHASE_CONTRACTS PC
+        LEFT JOIN PURCHASE_CONTRACTS PC WITH (NOLOCK)
                ON PC.[Key] = PA.PurchaseContractKey
-        LEFT JOIN SHIPPING_TRANSACTIONS SHT
+        LEFT JOIN SHIPPING_TRANSACTIONS SHT WITH (NOLOCK)
                ON SHT.PurchaseStorageTransactionKey = ST.[Key]
-        LEFT JOIN STORAGE_TRANSACTIONS SALES
+        LEFT JOIN STORAGE_TRANSACTIONS SALES WITH (NOLOCK)
                ON SALES.[Key] = SHT.SalesStorageTransactionKey
-        LEFT JOIN BRANCHS B
+        LEFT JOIN BRANCHS B WITH (NOLOCK)
                ON B.Code = ST.BranchCode
-        LEFT JOIN SALES_INVOICES INV
+        LEFT JOIN SALES_INVOICES INV WITH (NOLOCK)
                ON INV.[Key] = SALES.SalesInvoiceKey
         -- Compra(8) gerada pela aprovação da Conferência de Saldo de Armazém (GAC-1164): a perda é
         -- custo da empresa e consome a liberação, mas o romaneio continua sendo Compra no contrato.
-        LEFT JOIN WAREHOUSE_RECONCILIATION_RELEASES WRR
+        LEFT JOIN WAREHOUSE_RECONCILIATION_RELEASES WRR WITH (NOLOCK)
                ON WRR.PurchaseStorageTransactionKey = ST.[Key]
-        LEFT JOIN WAREHOUSE_RECONCILIATIONS WR
+        LEFT JOIN WAREHOUSE_RECONCILIATIONS WR WITH (NOLOCK)
                ON WR.[Key] = WRR.WarehouseReconciliationKey
-        LEFT JOIN WAREHOUSE_RECONCILIATION_REASONS WRRS
+        LEFT JOIN WAREHOUSE_RECONCILIATION_REASONS WRRS WITH (NOLOCK)
                ON WRRS.[Key] = WR.ReasonKey
         -- Troca nota (romaneios 16/17): a nota de venda conferida e a carga que ela faturou.
-        LEFT JOIN SALES_INVOICES_ITEMS DITEM
+        LEFT JOIN SALES_INVOICES_ITEMS DITEM WITH (NOLOCK)
                ON DITEM.[Key] = ST.DischargeSalesInvoiceItemKey
-        LEFT JOIN SALES_INVOICES DINV
+        LEFT JOIN SALES_INVOICES DINV WITH (NOLOCK)
                ON DINV.[Key] = DITEM.SalesInvoiceKey
-        LEFT JOIN SHIPMENT_LOADS DLOAD
+        LEFT JOIN SHIPMENT_LOADS DLOAD WITH (NOLOCK)
                ON DLOAD.[Key] = DINV.ShipmentLoadKey
         -- Conciliação fiscal (spec 2026-10-13 §7): NFs do fornecedor vinculadas ao romaneio (NF cancelada não conta).
         -- ⚠️ Sem STRING_AGG aqui: dentro deste SELECT DISTINCT com 11 LEFT JOINs ele levou o plano de 0,3 s a mais de
@@ -92,14 +95,14 @@ public class PurchaseContractsGetAllocationsByContractService(
         OUTER APPLY (
             SELECT SUM(PFR.Quantity) AS FiscalQuantity,
                    COUNT(*) AS LinkCount
-            FROM PURCHASE_FISCAL_RECONCILIATIONS PFR
-            JOIN PURCHASE_INVOICES_ITEMS PII ON PII.[Key] = PFR.PurchaseInvoiceItemKey
-            JOIN PURCHASE_INVOICES PI ON PI.[Key] = PII.PurchaseInvoiceKey
+            FROM PURCHASE_FISCAL_RECONCILIATIONS PFR WITH (NOLOCK)
+            JOIN PURCHASE_INVOICES_ITEMS PII WITH (NOLOCK) ON PII.[Key] = PFR.PurchaseInvoiceItemKey
+            JOIN PURCHASE_INVOICES PI WITH (NOLOCK) ON PI.[Key] = PII.PurchaseInvoiceKey
             WHERE PFR.StorageTransactionKey = ST.[Key] AND PI.InvoiceStatus <> 2
         ) FIS
         OUTER APPLY (
             SELECT COUNT(DISTINCT PA2.PurchaseContractKey) AS ContractCount
-            FROM PURCHASE_CONTRACTS_ALLOCATIONS PA2
+            FROM PURCHASE_CONTRACTS_ALLOCATIONS PA2 WITH (NOLOCK)
             WHERE PA2.StorageTransactionKey = ST.[Key]
         ) SPLIT
         WHERE PA.PurchaseContractKey = @purchaseContractKey
@@ -111,10 +114,10 @@ public class PurchaseContractsGetAllocationsByContractService(
                PI.TaxDocumentNumber AS TaxDocumentNumber,
                PI.TaxDocumentSeries AS TaxDocumentSeries,
                PI.InvoiceNumber AS InvoiceNumber
-        FROM PURCHASE_FISCAL_RECONCILIATIONS PFR
-        JOIN PURCHASE_INVOICES_ITEMS PII ON PII.[Key] = PFR.PurchaseInvoiceItemKey
-        JOIN PURCHASE_INVOICES PI ON PI.[Key] = PII.PurchaseInvoiceKey
-        JOIN PURCHASE_CONTRACTS_ALLOCATIONS PA ON PA.StorageTransactionKey = PFR.StorageTransactionKey
+        FROM PURCHASE_FISCAL_RECONCILIATIONS PFR WITH (NOLOCK)
+        JOIN PURCHASE_INVOICES_ITEMS PII WITH (NOLOCK) ON PII.[Key] = PFR.PurchaseInvoiceItemKey
+        JOIN PURCHASE_INVOICES PI WITH (NOLOCK) ON PI.[Key] = PII.PurchaseInvoiceKey
+        JOIN PURCHASE_CONTRACTS_ALLOCATIONS PA WITH (NOLOCK) ON PA.StorageTransactionKey = PFR.StorageTransactionKey
         WHERE PA.PurchaseContractKey = @purchaseContractKey AND PI.InvoiceStatus <> 2
         """;
 

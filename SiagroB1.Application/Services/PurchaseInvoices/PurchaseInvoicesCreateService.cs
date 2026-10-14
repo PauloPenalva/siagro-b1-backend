@@ -102,6 +102,8 @@ public class PurchaseInvoicesCreateService(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
 
+        PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, invoice.Items.ToList());
+
         // Spec 2026-10-13 D11: complemento de valor (linhas só-valor, contrato e natureza) — e valor de complemento
         // recusado nos demais tipos.
         await taxApply.EnsureValueComplementAsync(invoice, invoice.Items.ToList());
