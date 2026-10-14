@@ -748,6 +748,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("AppliedAmount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 

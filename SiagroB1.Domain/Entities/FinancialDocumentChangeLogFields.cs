@@ -20,4 +20,13 @@ public static class FinancialDocumentChangeLogFields
     /// (assinado). OldValue nulo = composto; NewValue nulo = desfeito.
     /// </summary>
     public const string Composition = "Composition";
+
+    /// <summary>
+    /// Compensação de adiantamento no provisório (spec 2026-10-14), registrada nos DOIS títulos: "código do outro título:
+    /// valor N2 pt-BR". OldValue nulo = compensado; NewValue nulo = estornado.
+    /// </summary>
+    public const string AdvanceApplication = "AdvanceApplication";
+
+    /// <summary>Transferência do crédito no revínculo desmembrado (spec 2026-10-14, regra 8), nos dois adiantamentos.</summary>
+    public const string AdvanceTransfer = "AdvanceTransfer";
 }

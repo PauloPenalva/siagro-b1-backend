@@ -36,13 +36,27 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
         var document = await context.FinancialDocuments.FindAsync(documentKey)
                        ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
-        var settled = (await context.FinancialSettlements
-                          .Where(x => x.FinancialDocumentKey == documentKey)
-                          .SumAsync(x => (decimal?)x.Amount) ?? 0m)
-                      + PendingDelta(context.ChangeTracker.Entries<FinancialSettlement>()
-                          .Where(e => e.Entity.FinancialDocumentKey == documentKey), x => x.Amount);
+        if (document.Nature == FinancialDocumentNature.Advance)
+        {
+            // Spec 2026-10-14 (compensação de adiantamento): dois eixos. Aplicado = compensações e transferências de
+            // SAÍDA (e os estornos delas); pago = todo o resto, inclusive a transferência de ENTRADA.
+            var lines = await LedgerAsync(context, documentKey);
+            var byKey = lines.ToDictionary(x => x.Key);
+            var applied = lines.Where(x => CountsAsApplied(document, x, byKey)).Sum(x => x.Amount);
 
-        document.SettledAmount = decimal.Round(settled, 2, MidpointRounding.ToEven);
+            document.AppliedAmount = decimal.Round(applied, 2, MidpointRounding.ToEven);
+            document.SettledAmount = decimal.Round(lines.Sum(x => x.Amount) - applied, 2, MidpointRounding.ToEven);
+        }
+        else
+        {
+            var settled = (await context.FinancialSettlements
+                              .Where(x => x.FinancialDocumentKey == documentKey)
+                              .SumAsync(x => (decimal?)x.Amount) ?? 0m)
+                          + PendingDelta(context.ChangeTracker.Entries<FinancialSettlement>()
+                              .Where(e => e.Entity.FinancialDocumentKey == documentKey), x => x.Amount);
+
+            document.SettledAmount = decimal.Round(settled, 2, MidpointRounding.ToEven);
+        }
 
         // Spec 2026-10-13 (títulos firmes): só o provisório tem composição.
         if (document.Nature == FinancialDocumentNature.Provisional)
@@ -72,6 +86,49 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
                 _ => FinancialDocumentStatus.PartiallySettled
             };
     }
+
+    /// <summary>
+    /// Linhas do ledger do título como ficarão depois do SaveChanges: as do banco menos as Deleted pendentes, mais as
+    /// Added pendentes. Ledger é insert-only, então Modified não entra.
+    /// </summary>
+    private static async Task<List<FinancialSettlement>> LedgerAsync(AppDbContext context, Guid documentKey)
+    {
+        var pending = context.ChangeTracker.Entries<FinancialSettlement>()
+            .Where(e => e.Entity.FinancialDocumentKey == documentKey)
+            .ToList();
+        var deleted = pending.Where(e => e.State == EntityState.Deleted).Select(e => e.Entity.Key).ToHashSet();
+
+        var stored = await context.FinancialSettlements.AsNoTracking()
+            .Where(x => x.FinancialDocumentKey == documentKey)
+            .ToListAsync();
+
+        return stored.Where(x => !deleted.Contains(x.Key))
+            .Concat(pending.Where(e => e.State == EntityState.Added).Select(e => e.Entity))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Transferência de ENTRADA: a linha do adiantamento NOVO, nascido do desmembramento, que aponta para o original
+    /// (OriginType = FinancialDocument e OriginKey = RelatedDocumentKey). Depende só de dados do próprio documento.
+    /// </summary>
+    internal static bool IsIncomingTransfer(FinancialDocument advance, FinancialSettlement line) =>
+        line.Origin == FinancialSettlementOrigin.AdvanceTransfer &&
+        advance.OriginType == FinancialDocumentOrigin.FinancialDocument &&
+        advance.OriginKey is not null &&
+        line.RelatedDocumentKey == advance.OriginKey;
+
+    private static bool IsAppliedAxis(FinancialDocument advance, FinancialSettlement line) =>
+        line.Origin == FinancialSettlementOrigin.AdvanceApplication ||
+        (line.Origin == FinancialSettlementOrigin.AdvanceTransfer && !IsIncomingTransfer(advance, line));
+
+    /// <summary>O estorno segue o eixo da linha que ele estorna — a espelho fica sempre no mesmo título.</summary>
+    private static bool CountsAsApplied(
+        FinancialDocument advance, FinancialSettlement line, IReadOnlyDictionary<Guid, FinancialSettlement> byKey) =>
+        line.Origin == FinancialSettlementOrigin.Reversal
+            ? line.ReversedSettlementKey is { } reversed &&
+              byKey.TryGetValue(reversed, out var original) &&
+              IsAppliedAxis(advance, original)
+            : IsAppliedAxis(advance, line);
 
     private static decimal PendingDelta<T>(IEnumerable<EntityEntry<T>> entries, Func<T, decimal> amount) where T : class =>
         entries.Sum(e => e.State switch

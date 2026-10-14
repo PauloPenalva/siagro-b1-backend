@@ -107,6 +107,13 @@ public class FinancialDocument : DocumentEntity
     [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
     public decimal ComposedAmount { get; set; }
 
+    /// <summary>
+    /// Só no ADIANTAMENTO (spec 2026-10-14): persistido-derivado, Σ das linhas AdvanceApplication e AdvanceTransfer de
+    /// SAÍDA (e dos estornos delas). Escritor ÚNICO: FinancialDocumentsRecalculateBalanceService. Nos demais títulos fica 0.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal AppliedAmount { get; set; }
+
     public Guid? PurchaseContractKey { get; set; }
     public virtual PurchaseContract? PurchaseContract { get; set; }
 
@@ -175,11 +182,11 @@ public class FinancialDocument : DocumentEntity
     public bool IsOverdue => DueDate.Date < DateTime.Now.Date && OpenAmount > 0;
 
     /// <summary>
-    /// Crédito de adiantamento disponível. Na Fase 1 é o que já foi pago, porque não existe
-    /// documento firme para amortizar. A Fase 2 acrescenta AppliedAmount e esta expressão vira
-    /// <c>SettledAmount - AppliedAmount</c>; o backfill sai do próprio ledger, pelo Origin.
+    /// Crédito de adiantamento disponível (spec 2026-10-14): o que foi pago menos o que já foi aplicado (compensado no
+    /// provisório ou transferido no revínculo), nunca negativo. Nos demais títulos, 0.
     /// </summary>
     [NotMapped]
-    public decimal AvailableAdvanceAmount =>
-        Nature == FinancialDocumentNature.Advance ? SettledAmount : 0m;
+    public decimal AvailableAdvanceAmount => Nature == FinancialDocumentNature.Advance
+        ? Math.Max(0m, decimal.Round(SettledAmount - AppliedAmount, 2, MidpointRounding.ToEven))
+        : 0m;
 }
