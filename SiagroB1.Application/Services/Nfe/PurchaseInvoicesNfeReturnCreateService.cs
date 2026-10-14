@@ -107,6 +107,8 @@ public class PurchaseInvoicesNfeReturnCreateService(
                 UnitPrice = bought.UnitPrice,
                 UsageCode = returnUsages[bought.Key!.Value],
                 PurchaseInvoiceItemOriginKey = bought.Key,
+                // O contrato da origem segue na devolução: sem ele o título firme PurchaseReturn não nasce (regra 2).
+                PurchaseContractKey = bought.PurchaseContractKey,
             };
 
             // Frete, seguro, desconto e outras despesas na proporção do que volta (spec 2026-10-05 D4); editáveis
