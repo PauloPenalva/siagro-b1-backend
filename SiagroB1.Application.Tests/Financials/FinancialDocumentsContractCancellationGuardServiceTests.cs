@@ -321,7 +321,7 @@ public class FinancialDocumentsContractCancellationGuardServiceTests
 
         await using (var relink = NewContext(dbName))
             await new FinancialAdvancesRelinkContractService(
-                    new UnitOfWork(relink), new FinancialDocumentChangeLogService(relink))
+                    new UnitOfWork(relink), new FinancialDocumentChangeLogService(relink), new FakeDocNumberSequenceService())
                 .ExecuteAsync(advanceKey, "Purchase", newKey, "tester");
 
         await using (var act = NewContext(dbName))

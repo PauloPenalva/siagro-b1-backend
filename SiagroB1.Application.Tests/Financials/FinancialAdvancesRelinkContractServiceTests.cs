@@ -16,7 +16,7 @@ public class FinancialAdvancesRelinkContractServiceTests
     private readonly IUnitOfWork _db = TestDb.CreateUnitOfWork();
 
     private FinancialAdvancesRelinkContractService Service() =>
-        new(_db, new FinancialDocumentChangeLogService(_db.Context));
+        new(_db, new FinancialDocumentChangeLogService(_db.Context), new FakeDocNumberSequenceService());
 
     private static PurchaseContract NewPurchaseContract(
         string code, string cardCode = "F0001", string branchCode = "03",
