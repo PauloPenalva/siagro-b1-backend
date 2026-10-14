@@ -102,7 +102,7 @@ public class FinancialAdvancesRefundServiceTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(document.Key, "CX01", DateTime.Today, null, "motivo", "tester"));
 
-        Assert.Contains("não há", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("O adiantamento FN000217 não tem crédito disponível para devolver.", error.Message);
     }
 
     [Fact]

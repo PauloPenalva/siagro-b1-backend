@@ -11,11 +11,11 @@ namespace SiagroB1.Application.Services.Financials;
 /// Devolução do valor adiantado: o dinheiro saiu e voltou.
 ///
 /// Uma das três saídas para um adiantamento pago cujo contrato alguém quer cancelar (as outras
-/// são estornar a baixa e vincular o adiantamento a outro contrato). Sempre pelo valor INTEIRO:
-/// devolução parcial exigiria partir o título em dois e encosta na amortização da Fase 2.
+/// são estornar a baixa e vincular o adiantamento a outro contrato).
 ///
-/// AvailableAdvanceAmount é [NotMapped] derivado de SettledAmount, então o crédito desaparece
-/// sozinho — não há segunda fonte de verdade para sincronizar.
+/// Spec 2026-10-14 (regra 7): devolve só o CRÉDITO DISPONÍVEL (pago − aplicado). Sem nada aplicado é o comportamento
+/// de sempre — devolve tudo e o título fica cancelado. Com compensação, a devolução abate só o pago e o título NÃO é
+/// cancelado: fica quitado/parcial pelo que sobrou pago, que é igual ao aplicado.
 /// </summary>
 public class FinancialAdvancesRefundService(IUnitOfWork db)
 {
@@ -42,9 +42,13 @@ public class FinancialAdvancesRefundService(IUnitOfWork db)
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} já está cancelado.");
 
-        if (document.SettledAmount == 0m)
-            throw new ApplicationException(
-                $"O adiantamento {document.Code} não tem valor pago: não há o que devolver.");
+        // Crédito 0 cobre o não pago e o totalmente aplicado.
+        var credit = document.AvailableAdvanceAmount;
+        if (credit <= 0m)
+            throw new ApplicationException($"O adiantamento {document.Code} não tem crédito disponível para devolver.");
+
+        // Com algo aplicado o título continua vivo: o aplicado é dinheiro que pagou o provisório.
+        var keepsDocument = document.AppliedAmount > 0m;
 
         // Obrigatória: o dinheiro volta para algum lugar concreto. FinancialAccountCode ser
         // anulável no modelo existe para as origens não-caixa da Fase 2/3, não para esta.
@@ -68,7 +72,7 @@ public class FinancialAdvancesRefundService(IUnitOfWork db)
             FinancialDocumentKey = documentKey,
             FinancialAccountCode = financialAccountCode,
             SettlementDate = refundDate,
-            Amount = -document.SettledAmount,
+            Amount = -credit,
             InterestAmount = 0m,
             FineAmount = 0m,
             DiscountAmount = 0m,
@@ -89,17 +93,19 @@ public class FinancialAdvancesRefundService(IUnitOfWork db)
             db.Context.FinancialSettlements.Add(refund);
             await db.Context.SaveChangesAsync();
 
-            // SumAsync não enxerga entidade rastreada ainda não salva: recalcular só DEPOIS do save
-            // acima. RecalculateAsync (sobrecarga estática) só ENFILEIRA a mudança no MESMO
-            // `document` rastreado por este DbContext — não salva —, então o save abaixo, feito
-            // depois do cancelamento, persiste as duas coisas de uma vez.
+            // O recálculo só ENFILEIRA a mudança no `document` rastreado; o save abaixo persiste
+            // recálculo e (se houver) cancelamento de uma vez.
             await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, documentKey);
 
             // O recálculo escreve Status; o cancelamento vem DEPOIS para prevalecer sobre ele.
-            document.Status = FinancialDocumentStatus.Canceled;
-            document.CancellationReason = $"Adiantamento devolvido: {reason}";
-            document.CanceledAt = DateTime.Now;
-            document.CanceledBy = userName;
+            if (!keepsDocument)
+            {
+                document.Status = FinancialDocumentStatus.Canceled;
+                document.CancellationReason = $"Adiantamento devolvido: {reason}";
+                document.CanceledAt = DateTime.Now;
+                document.CanceledBy = userName;
+            }
+
             document.UpdatedAt = DateTime.Now;
             document.UpdatedBy = userName;
             await db.Context.SaveChangesAsync();
