@@ -38,7 +38,7 @@ public class PurchaseFiscalReconciliationActionsController(PurchaseFiscalReconci
     public Task<IActionResult> Remove([FromBody] ODataActionParameters parameters) => Run(async () =>
     {
         if (!TryGuid(parameters, "Key", out var key)) return BadRequest("Parâmetro obrigatório: Key.");
-        await service.RemoveAsync(key);
+        await service.RemoveAsync(key, User.Identity?.Name ?? "Unknown");
         return NoContent();
     });
 

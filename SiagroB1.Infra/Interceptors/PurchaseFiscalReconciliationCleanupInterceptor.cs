@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Queries;
 using R = SiagroB1.Infra.Queries.PurchaseFiscalReconciliationRules;
 
 namespace SiagroB1.Infra.Interceptors;
@@ -83,6 +84,11 @@ public class PurchaseFiscalReconciliationCleanupInterceptor : SaveChangesInterce
             .ToList();
         if (doomed.Count == 0)
             return;
+
+        // Spec 2026-10-13 (títulos firmes, regra 7): o firme solto do vínculo é cancelado; o composto (ou com dação ou
+        // encontro de contas) recusa a operação inteira — antes de remover qualquer vínculo.
+        PurchaseFirmPayableRules.CancelLooseFirms(
+            context, doomed.Select(l => l.Key).ToList(), PurchaseFirmPayableRules.SystemUserName);
 
         links.RemoveRange(doomed);
 

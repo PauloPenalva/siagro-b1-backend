@@ -27,6 +27,12 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} já está cancelado.");
 
+        // Spec 2026-10-13 (títulos firmes): cancelar à mão deixaria o vínculo vivo sem título — e a próxima gravação
+        // dele criaria outro. O caminho é desfazer o vínculo na Conciliação Fiscal de Compras.
+        if (document.IsPurchaseFirmPayable)
+            throw new ApplicationException(
+                "Título firme nasce e morre com o vínculo da Conciliação Fiscal de Compras: desfaça o vínculo para cancelá-lo.");
+
         // F4 (revisão final): cancelar o título de washout por aqui deixaria o washout Approved
         // reduzindo saldo e provisório sem título nenhum por trás — e um Estorno depois passaria
         // em silêncio, porque EnqueueCancelByKeyAsync trata documento já cancelado como no-op.

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -14,7 +15,7 @@ namespace SiagroB1.Application.Services.PurchaseFiscalReconciliations;
 /// quantidade em KG, posterior e SEM efeito em saldo. As travas de §4 moram aqui (toda gravação passa por
 /// <see cref="SaveAsync"/>); a limpeza automática é do <c>PurchaseFiscalReconciliationCleanupInterceptor</c>.
 /// </summary>
-public class PurchaseFiscalReconciliationService(IUnitOfWork db)
+public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocumentsFirmSyncService firmSync)
 {
     public Task<List<FiscalReconciliationTransactionDto>> ListTransactionsAsync(FiscalReconciliationFilter filter)
     {
@@ -114,6 +115,9 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
                     $"A quantidade vinculada da NF {line.TaxDocument} ({total:N3} KG) passa da quantidade da linha ({limit:N3} KG).");
         }
 
+        var removedLinks = new List<Guid>();
+        var syncedLinks = new List<PurchaseFiscalReconciliation>();
+
         foreach (var pair in pairs)
         {
             var link = existing.FirstOrDefault(e =>
@@ -121,30 +125,51 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db)
 
             if (pair.Quantity == 0)
             {
-                if (link != null) db.Context.PurchaseFiscalReconciliations.Remove(link);
+                if (link != null)
+                {
+                    db.Context.PurchaseFiscalReconciliations.Remove(link);
+                    removedLinks.Add(link.Key);
+                }
                 continue;
             }
 
             if (link != null)
+            {
                 link.Quantity = pair.Quantity;
+                syncedLinks.Add(link);
+            }
             else
-                db.Context.PurchaseFiscalReconciliations.Add(new PurchaseFiscalReconciliation
+            {
+                // Chave explícita: o firme aponta para ela (OriginKey) antes do SaveChanges.
+                var created = new PurchaseFiscalReconciliation
                 {
+                    Key = Guid.NewGuid(),
                     PurchaseInvoiceItemKey = pair.PurchaseInvoiceItemKey, StorageTransactionKey = pair.StorageTransactionKey,
                     Quantity = pair.Quantity, CreatedAt = DateTime.Now, CreatedBy = userName,
-                });
+                };
+                db.Context.PurchaseFiscalReconciliations.Add(created);
+                syncedLinks.Add(created);
+            }
         }
+
+        // Spec 2026-10-13 (títulos firmes, regras 1–7): o firme acompanha o vínculo, no MESMO SaveChanges. Recusa
+        // (firme composto ou com baixa) derruba a gravação inteira.
+        foreach (var key in removedLinks)
+            firmSync.EnqueueRemoval(key, userName);
+        foreach (var link in syncedLinks)
+            await firmSync.EnqueueSyncAsync(link, userName);
 
         await ClearConfirmationAsync(transactionKeys);
         await db.SaveChangesAsync();
     }
 
-    public async Task RemoveAsync(Guid linkKey)
+    public async Task RemoveAsync(Guid linkKey, string userName)
     {
         var link = await db.Context.PurchaseFiscalReconciliations.FirstOrDefaultAsync(l => l.Key == linkKey)
                    ?? throw new NotFoundException("Vínculo não encontrado.");
 
         db.Context.PurchaseFiscalReconciliations.Remove(link);
+        firmSync.EnqueueRemoval(link.Key, userName);
         await ClearConfirmationAsync([link.StorageTransactionKey]);
         await db.SaveChangesAsync();
     }
