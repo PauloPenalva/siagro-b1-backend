@@ -24,6 +24,7 @@ o Tipo em "Normal" no modo NF-e.
 | D1 | A NF-e complementar própria só referencia **nota nossa**: entrada própria **autorizada** (normal ou contra-nota). Quando o produtor emite a nota dele, ele mesmo emite o complemento, e nós só escrituramos (já funciona). |
 | D2 | **Uma nota de complemento; cada linha referencia um item de uma nota original.** Uma nota pode complementar itens de notas originais diferentes (do mesmo produtor). |
 | D3 | Na linha, o operador escolhe o **item da original**; a linha herda produto, unidade, natureza e contrato, e o operador só digita o valor do complemento. |
+| D5 | **Original sem contrato:** a linha herda produto, unidade e natureza, e o **operador escolhe o contrato** de compra (mesmo produtor), como já faz na entrada. Original com contrato: o contrato é herdado e travado. (Decidido na revisão do plano: nenhuma entrada própria autorizada do CEAGUI dev tem contrato na linha.) |
 | D4 | **Cancelar a original** (documento ou NF-e) é **recusado** enquanto houver complemento não cancelado apontando para ela. A **devolução** da original continua permitida e devolve só a original; o complemento não tem "Devolver". |
 
 ## Escopo decorrente (sem decisão nova)
@@ -67,15 +68,19 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 3. Documento original com o **mesmo `CardCode` e a mesma filial** do complemento (C3) — vale também quando o
    operador troca o produtor ou a filial do cabeçalho depois de incluir linhas (a regra roda no Update).
 4. O mesmo item original não aparece em duas linhas da mesma nota (C4).
-5. Produto, unidade, natureza e contrato da linha são os do item original. O backend **copia** do original no
+5. Produto, unidade e natureza da linha são os do item original. O backend **copia** do original no
    Create/ItemsCreate e **recusa** divergência no Update/ItemsUpdate (C5) — a tela trava esses campos.
+5a. Contrato (D5): se o item original tem contrato, a linha herda e a divergência é recusada (C10); se não tem,
+   o contrato é o que o operador informar, com as regras de contrato que a linha de entrada já aplica (mesmo
+   produtor etc.), e continua obrigatório (regra existente do complemento).
 
 ### Emissão
 
 6. `PurchaseInvoicesNfeIssueService.EnsureIssuableType` aceita `ValueComplement` + `Own`.
 7. `PurchaseInvoicesTaxApplyService.IsActiveForAsync` passa a calcular para `ValueComplement` + `Own`.
 8. Readiness (`NfeReadinessValidator`): o complemento próprio exige, como a entrada própria, produto e unidade
-   (herdados) e condição de pagamento; e na emissão **recarrega** cada original e recusa se algum deixou de
+   (herdados) e condição de pagamento, mas **não exige pesos** (não há mercadoria transportada; o montador já omite
+   `vol` com peso 0); e na emissão **recarrega** cada original e recusa se algum deixou de
    estar autorizado (C6) — a regra 2 vale no rascunho, mas a original pode ter sido cancelada antes da
    transmissão.
 9. `NfePurpose` ganha `Complement` → `FinalidadeNFe.fnComplementar` (finNFe=2) no `NfeXmlBuilder`. O assembler
@@ -104,11 +109,12 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 | C2 | `Item {item}: a nota original {número} precisa ser uma entrada própria normal, com NF-e autorizada e não cancelada.` |
 | C3 | `Item {item}: a nota original {número} é de outro produtor ou de outra filial.` |
 | C4 | `O item {número da nota original}/{nº do item} já está complementado nesta nota.` |
-| C5 | `Item {item}: produto, unidade, natureza e contrato vêm do item da nota original e não podem ser alterados.` |
+| C5 | `Item {item}: produto, unidade e natureza vêm do item da nota original e não podem ser alterados.` |
 | C6 | `A nota original {número} não está mais autorizada: o complemento não pode ser emitido.` |
 | C7 | `O item da nota original só existe no complemento de valor de emissão própria.` |
 | C8 | `A nota {número} tem o complemento {número do complemento} ativo: cancele o complemento antes.` |
 | C9 | `Complemento de valor não tem devolução.` |
+| C10 | `Item {item}: o contrato vem do item da nota original e não pode ser alterado.` |
 
 `{número}` = número de documento exibido na tela (o mesmo das demais mensagens do Documento de Entrada).
 
@@ -117,7 +123,8 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 - **Function** `PurchaseInvoicesGetComplementCandidates(CardCode, BranchCode)` → coleção de itens
   originais elegíveis (regra 2 e 3), DTO PascalCase (`[JsonPropertyName]`): `ItemKey`, `InvoiceKey`,
   `InvoiceNumber`, `InvoiceDate`, `AccessKey`, `LineNumber`, `ItemCode`, `ItemName`, `UnitOfMeasure`,
-  `Quantity`, `UnitPrice`, `Total`, `UsageCode`, `PurchaseContractKey`, `PurchaseContractCode`.
+  `Quantity`, `UnitPrice`, `Total`, `UsageCode`, `PurchaseContractKey` e `PurchaseContractCode` (anuláveis: item
+  sem contrato também é candidato — D5).
 - `PurchaseInvoiceItem` no EDM com `ComplementedItemKey` (Edm.Guid, anulável).
 - Create/Update/ItemsCreate/ItemsUpdate do Documento de Entrada aceitam `ComplementedItemKey` e aplicam as regras.
 - `NfeIssueInputAssembler.Build(PurchaseInvoice)`: propósito e `ReferencedKeys` (regras 9–10).
@@ -131,7 +138,8 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 - **Incluir item no complemento próprio:** abre um diálogo de seleção (`openTableSelectDialog`, ver memória do
   contrato do helper) com os itens de `PurchaseInvoicesGetComplementCandidates` do produtor e filial do
   cabeçalho (nota, data, item, produto, quantidade, valor, contrato). Escolhido o item, a linha nasce com produto,
-  unidade, natureza e contrato preenchidos e **travados**, quantidade e preço 0, e o foco no "Valor do
+  unidade e natureza preenchidos e **travados**; o contrato vem preenchido e travado quando o original tem, e
+  editável (value help de contrato atual) quando não tem; quantidade e preço 0, e o foco no "Valor do
   complemento". Sem produtor no cabeçalho: aviso "Informe o fornecedor antes de incluir itens.".
 - Linha do complemento mostra "Nota original" (número/item).
 - `canIssuePurchaseNfe` e `isPurchaseTaxMode` alinhados ao backend (complemento próprio emite e calcula).
@@ -141,7 +149,7 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 
 ## Testes
 
-- Linha: C1–C5, C7; cópia dos campos do original; troca de produtor no cabeçalho dispara C3; complemento de
+- Linha: C1–C5, C7, C10; original sem contrato aceita contrato escolhido e recusa linha sem contrato; cópia dos campos do original; troca de produtor no cabeçalho dispara C3; complemento de
   terceiro inalterado (sem vínculo, sem emissão própria recusada pela regra antiga).
 - Emissão: `EnsureIssuableType` aceita; tributação ativa; readiness C6; XML com finNFe=2, `NFref` com chaves
   distintas na ordem, itens sem `DFeReferenciado`, qCom/vUnCom 0, vProd = valor, uCom herdada.
@@ -154,7 +162,8 @@ regras existentes (quantidade e preço 0, valor > 0, contrato e natureza com "ge
 
 1. Entrada própria autorizada de referência: série 9 nº 5 (FTESTE01, homologação).
 2. Documento de Entrada → Incluir, Emissão Própria, tipo Complemento de valor, fornecedor FTESTE01 → Incluir
-   item → escolher o item da nº 5 → valor → salvar. Campos herdados travados.
+   item → escolher o item da nº 5 (sem contrato) → escolher o contrato CC000002 → valor → salvar. Produto,
+   unidade e natureza travados.
 3. Confirmar (firme criado) → transmitir em **homologação SEFAZ-SP** → autorizada, finNFe=2 e `NFref` com a chave
    da nº 5 no XML. Se rejeitar, registrar código e motivo.
 4. Na nº 5: cancelar → recusa C8 na tela. "Devolver" a nº 5 continua disponível.
