@@ -85,6 +85,25 @@ public static class PurchaseInvoiceValueComplement
         $"Item {(string.IsNullOrWhiteSpace(itemCode) ? "(sem produto)" : itemCode)}: o complemento de valor de emissão própria exige o item da nota original.";
 
     /// <summary>
+    /// D4 / C8: a original não é cancelada (documento nem NF-e) enquanto houver linha de complemento apontando um item
+    /// dela num documento não cancelado — o NFref do complemento ficaria referenciando uma NF-e cancelada. Complemento
+    /// cancelado não trava.
+    /// </summary>
+    public static async Task EnsureNoActiveComplementAsync(AppDbContext context, Guid originalKey, string? originalNumber)
+    {
+        var complement = await context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(l => l.ComplementedItemKey != null &&
+                        l.ComplementedItem!.PurchaseInvoiceKey == originalKey &&
+                        l.PurchaseInvoice!.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Select(l => new { l.PurchaseInvoice!.InvoiceNumber })
+            .FirstOrDefaultAsync();
+
+        if (complement is not null)
+            throw new DefaultException(
+                $"A nota {originalNumber} tem o complemento {complement.InvoiceNumber} ativo: cancele o complemento antes.");
+    }
+
+    /// <summary>
     /// Os itens originais apontados pelas linhas (ComplementedItemKey), com o documento de cada um e os itens dele (para o
     /// nItem da original), sem rastreamento e indexados pela Key do item original. Linha sem vínculo é ignorada; chave que
     /// não existe simplesmente não aparece no dicionário. Compartilhado com a prontidão da emissão (Task 5).
