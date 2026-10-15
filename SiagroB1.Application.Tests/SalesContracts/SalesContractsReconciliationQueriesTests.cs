@@ -122,4 +122,22 @@ public class SalesContractsReconciliationQueriesTests
         Assert.Equal([negative.Key.ToString()], rows.Select(r => r.SalesContractKey).ToList());
         Assert.Equal(-300m, rows.Single().Balance);
     }
+
+    [Fact]
+    public async Task NegativeBalances_SubtractsWashedOutVolume()
+    {
+        var washed = NewContract(totalVolume: 1000m);
+        washed.WashedOutVolume = 200m;
+        washed.AllocatedVolume = 900m; // 1000 - 200 - 900 = -100
+        var notNegative = NewContract(totalVolume: 1000m);
+        notNegative.WashedOutVolume = 200m;
+        notNegative.AllocatedVolume = 800m; // saldo 0
+        _db.Context.AddRange(washed, notNegative);
+        await _db.Context.SaveChangesAsync();
+
+        var rows = await new SalesContractsGetNegativeBalancesService(_db).ExecuteAsync();
+
+        Assert.Equal([washed.Key.ToString()], rows.Select(r => r.SalesContractKey).ToList());
+        Assert.Equal(-100m, rows.Single().Balance);
+    }
 }

@@ -125,7 +125,25 @@ public class FinancialDocumentsSalesWashoutTests
             Adjust().EnqueueForSalesFixationAsync(contract, fixation, 600m, "tester"));
 
         Assert.Equal(
-            "O provisório FN-PROV-V1 já tem 70.000,00 composto: o washout o deixaria em 60.000,00. Desfaça a composição antes de aprovar.",
+            "O provisório FN-PROV-V1 já tem 70.000,00 composto/baixado: o washout o deixaria em 60.000,00. Desfaça a composição ou estorne as baixas antes de aprovar.",
+            error.Message);
+    }
+
+    [Fact]
+    public async Task Adjust_below_the_settled_amount_is_refused_quoting_the_settled_amount()
+    {
+        var (contract, fixation) = await SeedAsync();
+        var provisional = SalesWashoutTestData.Provisional(contract, fixation);
+        provisional.ComposedAmount = 10_000m;
+        provisional.SettledAmount = 70_000m;
+        _db.Context.FinancialDocuments.Add(provisional);
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Adjust().EnqueueForSalesFixationAsync(contract, fixation, 600m, "tester"));
+
+        Assert.Equal(
+            "O provisório FN-PROV-V1 já tem 70.000,00 composto/baixado: o washout o deixaria em 60.000,00. Desfaça a composição ou estorne as baixas antes de aprovar.",
             error.Message);
     }
 

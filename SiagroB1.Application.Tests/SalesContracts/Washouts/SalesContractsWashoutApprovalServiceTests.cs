@@ -141,7 +141,7 @@ public class SalesContractsWashoutApprovalServiceTests
             Approval().ExecuteAsync(washout.Key, null, "diretoria"));
 
         Assert.Equal(
-            "O provisório FN-PROV-V1 já tem 95.000,00 composto: o washout o deixaria em 90.000,00. Desfaça a composição antes de aprovar.",
+            "O provisório FN-PROV-V1 já tem 95.000,00 composto/baixado: o washout o deixaria em 90.000,00. Desfaça a composição ou estorne as baixas antes de aprovar.",
             error.Message);
         Assert.Equal(SalesContractWashoutStatus.InApproval, (await ReloadAsync(washout.Key)).Status);
         Assert.Equal(100_000m, (await ReloadDocumentAsync(provisional.Key)).NetAmount);

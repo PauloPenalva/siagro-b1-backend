@@ -7,7 +7,7 @@ namespace SiagroB1.Application.Services.SalesContracts;
 
 /// <summary>
 /// Diagnóstico da tela de conciliação: contratos de venda com saldo por nota NEGATIVO
-/// (<c>TotalVolume − AllocatedVolume &lt; 0</c>) — o sintoma dos contratos legados,
+/// (<c>TotalVolume − WashedOutVolume − AllocatedVolume &lt; 0</c>, o mesmo saldo da trava de encerramento) — o sintoma dos contratos legados,
 /// faturados por fora da liberação de entrega.
 ///
 /// ⚠️ <c>AllocatedVolume</c> é persistido-derivado: parte dos negativos pode ser drift do
@@ -26,8 +26,8 @@ public class SalesContractsGetNegativeBalancesService(IUnitOfWork db)
         return await db.Context.SalesContracts
             .AsNoTracking()
             .Where(c => c.Status != ContractStatus.Finished
-                        && c.TotalVolume - c.AllocatedVolume < 0)
-            .OrderBy(c => c.TotalVolume - c.AllocatedVolume)
+                        && c.TotalVolume - c.WashedOutVolume - c.AllocatedVolume < 0)
+            .OrderBy(c => c.TotalVolume - c.WashedOutVolume - c.AllocatedVolume)
             .Select(c => new SalesContractNegativeBalanceDto
             {
                 SalesContractKey = c.Key.ToString(),
@@ -44,7 +44,7 @@ public class SalesContractsGetNegativeBalancesService(IUnitOfWork db)
                 HarvestSeasonCode = c.HarvestSeasonCode,
                 TotalVolume = c.TotalVolume,
                 AllocatedVolume = c.AllocatedVolume,
-                Balance = c.TotalVolume - c.AllocatedVolume,
+                Balance = c.TotalVolume - c.WashedOutVolume - c.AllocatedVolume,
             })
             .ToListAsync();
     }

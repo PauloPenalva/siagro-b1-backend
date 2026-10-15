@@ -107,10 +107,11 @@ public class FinancialDocumentsAdjustProvisionalService(
             ? 0m
             : decimal.Round(remainingVolume * fixation.FixationPrice, 2, MidpointRounding.ToEven);
 
-        if (newAmount < Math.Max(document.ComposedAmount, document.SettledAmount))
+        var binding = Math.Max(document.ComposedAmount, document.SettledAmount);
+        if (newAmount < binding)
             throw new ApplicationException(
-                $"O provisório {document.Code} já tem {document.ComposedAmount.ToString("N2", PtBr)} composto: " +
-                $"o washout o deixaria em {newAmount.ToString("N2", PtBr)}. Desfaça a composição antes de aprovar.");
+                $"O provisório {document.Code} já tem {binding.ToString("N2", PtBr)} composto/baixado: " +
+                $"o washout o deixaria em {newAmount.ToString("N2", PtBr)}. Desfaça a composição ou estorne as baixas antes de aprovar.");
 
         if (remainingVolume <= 0)
         {
