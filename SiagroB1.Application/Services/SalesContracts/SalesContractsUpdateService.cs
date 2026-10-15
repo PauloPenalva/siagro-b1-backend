@@ -44,6 +44,11 @@ public class SalesContractsUpdateService(
         {
             entry.CurrentValues.SetValues(entity);
 
+            if (existingEntity.Type == ContractType.Fixed)
+            {
+                await UpdatePriceFixation(existingEntity);
+            }
+
             // SaveAsync changes
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;
@@ -77,5 +82,25 @@ public class SalesContractsUpdateService(
 
         return entity;
     }
-    
+
+    /// <summary>
+    /// Espelho de <c>PurchaseContractsUpdateService.UpdatePriceFixation</c>: a fixação automática
+    /// do contrato de preço fixo acompanha volume, preço e frete. Sem isso, editar depois de
+    /// retirar a aprovação deixava a fixação (e o título provisório da reaprovação) no volume antigo.
+    /// </summary>
+    private async Task UpdatePriceFixation(SalesContract entity)
+    {
+        var fixation = await context.SalesContractsPriceFixations
+                           .FirstOrDefaultAsync(pf => pf.SalesContractKey == entity.Key) ??
+                       throw new KeyNotFoundException("Price fixation not found.");
+
+        fixation.FreightCost = entity.FreightCostStandard;
+        fixation.FixationVolume = entity.TotalVolume;
+        fixation.FixationPrice = entity.Price;
+        // Confirmed pelo mesmo motivo da criação: é o espelho do preço já acordado.
+        fixation.Status = PriceFixationStatus.Confirmed;
+        // A fixação automática cobre o contrato inteiro, como na criação. Não dá para usar o
+        // SalesContractsFixedVolumeService aqui: ele soma pelo banco e ainda leria o volume antigo.
+        entity.FixedVolume = entity.TotalVolume;
+    }
 }

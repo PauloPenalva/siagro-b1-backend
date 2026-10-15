@@ -94,5 +94,8 @@ public class PurchaseContractsUpdateService(
         // Confirmed pelo mesmo motivo da criação: é o espelho do preço já acordado.
         // Devolver para InApproval aqui zeraria TotalPrice/TotalTax a cada edição.
         price.Status = PriceFixationStatus.Confirmed;
+        // A fixação automática cobre o contrato inteiro. O PurchaseContractsFixedVolumeService
+        // soma pelo banco e ainda leria o volume antigo, por isso a atribuição direta.
+        entity.FixedVolume = entity.TotalVolume;
     }
 }
