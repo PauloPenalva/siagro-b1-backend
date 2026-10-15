@@ -101,4 +101,64 @@ public class PurchaseInvoicesItemsControllerTests
 
         Assert.IsType<Microsoft.AspNetCore.OData.Results.BadRequestODataResult>(result);
     }
+
+    // B2: logo após o POST da linha (201) o UI5 relê a linha recém-criada pelo caminho da navegação,
+    // `PurchaseInvoices({key})/Items({itemKey})?$select=...`. Sem rota para o item, o usuário leva
+    // "Communication error: 404" mesmo com a linha gravada.
+    [Fact]
+    public void Navigation_item_get_is_routed_in_both_odata_path_styles()
+    {
+        var templates = typeof(PurchaseInvoicesItemsController)
+            .GetMethods()
+            .SelectMany(m => m.GetCustomAttributes<HttpGetAttribute>())
+            .Select(a => a.Template)
+            .ToList();
+
+        Assert.Contains("odata/PurchaseInvoices({key:guid})/Items({itemKey:guid})", templates);
+        Assert.Contains("odata/PurchaseInvoices/{key:guid}/Items/{itemKey:guid}", templates);
+    }
+
+    [Fact]
+    public async Task Navigation_item_get_returns_the_line_of_that_invoice()
+    {
+        var invoice = await SeedAsync();
+        var line = new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+        };
+        _db.Context.PurchaseInvoicesItems.Add(line);
+        await _db.Context.SaveChangesAsync();
+
+        var result = await NewController().GetFromInvoice(invoice.Key, line.Key!.Value);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(line.Key, Assert.IsType<PurchaseInvoiceItem>(ok.Value).Key);
+    }
+
+    [Fact]
+    public async Task Navigation_item_get_of_a_line_from_another_invoice_is_not_found()
+    {
+        var invoice = await SeedAsync();
+        var other = await SeedAsync();
+        var line = new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), PurchaseInvoiceKey = other.Key, ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+        };
+        _db.Context.PurchaseInvoicesItems.Add(line);
+        await _db.Context.SaveChangesAsync();
+
+        var result = await NewController().GetFromInvoice(invoice.Key, line.Key!.Value);
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Navigation_item_get_of_a_missing_line_is_not_found()
+    {
+        var invoice = await SeedAsync();
+
+        var result = await NewController().GetFromInvoice(invoice.Key, Guid.NewGuid());
+
+        Assert.IsType<NotFoundResult>(result.Result);
+    }
 }
