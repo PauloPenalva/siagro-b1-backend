@@ -22,8 +22,10 @@ public class FinancialDocumentsDationService(IUnitOfWork db)
         var document = await db.Context.FinancialDocuments.FirstOrDefaultAsync(x => x.Key == documentKey)
                        ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
-        if (!document.IsPurchaseFirmPayable || document.Nature != FinancialDocumentNature.Firm)
-            throw new ApplicationException("Dação só se aplica a título firme da conciliação fiscal.");
+        if (!document.IsContractFirmDocument || document.Nature != FinancialDocumentNature.Firm)
+            throw new ApplicationException(document.SalesContractKey is null
+                ? "Dação só se aplica a título firme da conciliação fiscal."
+                : "Dação só se aplica a título firme do documento de saída.");
 
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O título {document.Code} está cancelado.");

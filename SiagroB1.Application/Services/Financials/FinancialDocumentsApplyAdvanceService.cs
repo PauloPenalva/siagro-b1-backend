@@ -37,8 +37,7 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
         if (provisional.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException("Título cancelado não pode ser compensado.");
 
-        // Só compra: o provisório de venda nunca recebe baixa (não tem composição).
-        if (provisional.PurchaseContractKey is null)
+        if (provisional.PurchaseContractKey is null && provisional.SalesContractKey is null)
             throw new ApplicationException($"Título {provisional.Code} não é provisório de contrato de compra.");
 
         var advance = await context.FinancialDocuments.FirstOrDefaultAsync(x => x.Key == advanceKey)
@@ -51,7 +50,7 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
             throw new ApplicationException("Título cancelado não pode ser compensado.");
 
         // Mesmo CONTRATO: adiantamento de outro contrato se revincula antes (fora do escopo compensar entre contratos).
-        if (advance.PurchaseContractKey != provisional.PurchaseContractKey)
+        if (!advance.HasSameContractAs(provisional))
             throw new ApplicationException(
                 $"Adiantamento {advance.Code} não pertence ao contrato do título {provisional.Code}.");
 

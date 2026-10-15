@@ -60,6 +60,44 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
         }
     }
 
+    /// <summary>
+    /// Spec 2026-10-15 (regra 9), ENQUEUE-ONLY: a devolução de venda recém-nascida compensa os firmes ATIVOS da LINHA de
+    /// origem no MESMO contrato de venda, soltos e com saldo, do mais antigo (CreatedAt, depois RowId). Sem origem, ou
+    /// origem composta ou quitada, a devolução fica em aberto para o operador.
+    /// </summary>
+    public async Task EnqueueAutoForSalesAsync(FinancialDocument returnDocument, Guid? originLineKey, string userName)
+    {
+        if (originLineKey is null || returnDocument.Nature != FinancialDocumentNature.SalesReturn ||
+            returnDocument.SalesContractKey is null)
+            return;
+
+        var context = db.Context;
+        var origins = await context.FinancialDocuments
+            .Where(d => d.OriginType == FinancialDocumentOrigin.SalesInvoice &&
+                        d.Nature == FinancialDocumentNature.Firm &&
+                        d.Status != FinancialDocumentStatus.Canceled &&
+                        d.OriginKey == originLineKey &&
+                        d.SalesContractKey == returnDocument.SalesContractKey)
+            .OrderBy(d => d.CreatedAt).ThenBy(d => d.RowId)
+            .ToListAsync();
+
+        foreach (var firm in origins)
+        {
+            if (returnDocument.OpenAmount <= 0m)
+                break;
+
+            // A instância rastreada pode ter sido cancelada neste mesmo SaveChanges.
+            if (firm.Status == FinancialDocumentStatus.Canceled)
+                continue;
+
+            if (firm.OpenAmount <= 0m || firm.Currency != returnDocument.Currency ||
+                PurchaseFirmPayableRules.ProvisionalOf(context, firm.Key) is not null)
+                continue;
+
+            await EnqueuePairAsync(returnDocument, firm, Math.Min(returnDocument.OpenAmount, firm.OpenAmount), userName);
+        }
+    }
+
     /// <summary>Regra 20: "Compensar com firme" — a devolução em aberto contra um firme solto do mesmo contrato.</summary>
     public async Task ExecuteAsync(Guid returnKey, Guid firmKey, string userName)
     {
@@ -67,15 +105,18 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
 
         var refund = await context.FinancialDocuments.FirstOrDefaultAsync(d => d.Key == returnKey)
                      ?? throw new NotFoundException("Documento financeiro não encontrado.");
-        if (!refund.IsPurchaseFirmPayable || refund.Nature != FinancialDocumentNature.PurchaseReturn)
+        if (!refund.IsContractFirmDocument ||
+            refund.Nature is not (FinancialDocumentNature.PurchaseReturn or FinancialDocumentNature.SalesReturn))
             throw new ApplicationException("Compensar com firme só vale para título de devolução.");
 
         var firm = await context.FinancialDocuments.FirstOrDefaultAsync(d => d.Key == firmKey)
                    ?? throw new NotFoundException("Documento financeiro não encontrado.");
-        if (!firm.IsPurchaseFirmPayable || firm.Nature != FinancialDocumentNature.Firm)
-            throw new ApplicationException($"O título {firm.Code} não é um título firme da conciliação fiscal.");
+        if (!firm.IsContractFirmDocument || firm.Nature != FinancialDocumentNature.Firm)
+            throw new ApplicationException(refund.IsSalesFirmReceivable
+                ? $"O título {firm.Code} não é um título firme do documento de saída."
+                : $"O título {firm.Code} não é um título firme da conciliação fiscal.");
 
-        if (firm.PurchaseContractKey != refund.PurchaseContractKey)
+        if (!firm.HasSameContractAs(refund))
             throw new ApplicationException($"O título {firm.Code} é de outro contrato.");
 
         // D12: sem variação cambial ainda, só compensa título da mesma moeda.

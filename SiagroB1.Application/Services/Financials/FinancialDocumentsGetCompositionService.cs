@@ -56,6 +56,7 @@ public class FinancialDocumentsGetCompositionService(IUnitOfWork db)
             {
                 FinancialDocumentNature.Provisional => await ComposeCandidatesAsync(document),
                 FinancialDocumentNature.PurchaseReturn when document.IsPurchaseFirmPayable => await NettingCandidatesAsync(document),
+                FinancialDocumentNature.SalesReturn when document.IsSalesFirmReceivable => await NettingCandidatesAsync(document),
                 _ => [],
             };
 
@@ -64,7 +65,7 @@ public class FinancialDocumentsGetCompositionService(IUnitOfWork db)
 
     private async Task<List<FinancialDocumentCompositionCandidateDto>> ComposeCandidatesAsync(FinancialDocument provisional)
     {
-        var open = await OpenFirmPayablesAsync(provisional.PurchaseContractKey);
+        var open = await OpenContractFirmsAsync(provisional);
         var space = Math.Max(0m, provisional.NetAmount - provisional.ComposedAmount);
 
         return open
@@ -74,7 +75,7 @@ public class FinancialDocumentsGetCompositionService(IUnitOfWork db)
 
     private async Task<List<FinancialDocumentCompositionCandidateDto>> NettingCandidatesAsync(FinancialDocument refund)
     {
-        var firms = (await OpenFirmPayablesAsync(refund.PurchaseContractKey))
+        var firms = (await OpenContractFirmsAsync(refund))
             .Where(d => d.Nature == FinancialDocumentNature.Firm)
             .ToList();
         var firmKeys = firms.Select(f => f.Key).ToList();
@@ -90,21 +91,30 @@ public class FinancialDocumentsGetCompositionService(IUnitOfWork db)
             .ToList();
     }
 
-    /// <summary>Firmes e devoluções de compra (conciliação e complemento de valor, D11), do mesmo contrato, não cancelados e com saldo.</summary>
-    private async Task<List<FinancialDocument>> OpenFirmPayablesAsync(Guid? contractKey)
+    /// <summary>
+    /// Firmes e devoluções do MESMO contrato do título-âncora, não cancelados e com saldo. Compra: conciliação e complemento
+    /// de valor (D11). Venda (spec 2026-10-15): documento de saída. O título a receber do washout (Firm, outra origem)
+    /// não entra.
+    /// </summary>
+    private async Task<List<FinancialDocument>> OpenContractFirmsAsync(FinancialDocument anchor)
     {
-        // Sem contrato não há candidato: comparar com chave nula casaria títulos sem contrato.
-        if (contractKey is null) return [];
+        var documents = db.Context.FinancialDocuments.AsNoTracking()
+            .Where(d => d.Status != FinancialDocumentStatus.Canceled && d.NetAmount > d.SettledAmount);
 
-        return await db.Context.FinancialDocuments.AsNoTracking()
-            .Where(d => d.PurchaseContractKey == contractKey &&
-                        (d.OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation ||
-                         d.OriginType == FinancialDocumentOrigin.PurchaseInvoice) &&
-                        (d.Nature == FinancialDocumentNature.Firm || d.Nature == FinancialDocumentNature.PurchaseReturn) &&
-                        d.Status != FinancialDocumentStatus.Canceled &&
-                        d.NetAmount > d.SettledAmount)
-            .OrderBy(d => d.DocumentDate).ThenBy(d => d.Code)
-            .ToListAsync();
+        if (anchor.PurchaseContractKey is { } purchaseKey)
+            documents = documents.Where(d => d.PurchaseContractKey == purchaseKey &&
+                                             (d.OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation ||
+                                              d.OriginType == FinancialDocumentOrigin.PurchaseInvoice) &&
+                                             (d.Nature == FinancialDocumentNature.Firm || d.Nature == FinancialDocumentNature.PurchaseReturn));
+        else if (anchor.SalesContractKey is { } salesKey)
+            documents = documents.Where(d => d.SalesContractKey == salesKey &&
+                                             d.OriginType == FinancialDocumentOrigin.SalesInvoice &&
+                                             (d.Nature == FinancialDocumentNature.Firm || d.Nature == FinancialDocumentNature.SalesReturn));
+        else
+            // Sem contrato não há candidato: comparar com chave nula casaria títulos sem contrato.
+            return [];
+
+        return await documents.OrderBy(d => d.DocumentDate).ThenBy(d => d.Code).ToListAsync();
     }
 
     private static FinancialDocumentCompositionCandidateDto Candidate(FinancialDocument d, decimal suggested) => new()

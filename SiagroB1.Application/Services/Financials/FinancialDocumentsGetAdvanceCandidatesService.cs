@@ -21,13 +21,14 @@ public class FinancialDocumentsGetAdvanceCandidatesService(IUnitOfWork db)
 
         if (provisional.Nature != FinancialDocumentNature.Provisional ||
             provisional.Status == FinancialDocumentStatus.Canceled ||
-            provisional.PurchaseContractKey is null)
+            (provisional.PurchaseContractKey is null && provisional.SalesContractKey is null))
             return [];
 
         var available = provisional.AvailableToSettleAmount;
 
         var advances = await db.Context.FinancialDocuments.AsNoTracking()
             .Where(d => d.PurchaseContractKey == provisional.PurchaseContractKey &&
+                        d.SalesContractKey == provisional.SalesContractKey &&
                         d.Nature == FinancialDocumentNature.Advance &&
                         d.Status != FinancialDocumentStatus.Canceled &&
                         d.Currency == provisional.Currency &&
