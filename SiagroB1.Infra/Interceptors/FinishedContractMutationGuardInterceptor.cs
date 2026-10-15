@@ -7,10 +7,9 @@ using SiagroB1.Domain.Exceptions;
 namespace SiagroB1.Infra.Interceptors;
 
 /// <summary>
-/// Impede alterar (add/update/delete) sub-entidades vinculadas a um contrato de
-/// compra encerrado (<see cref="ContractStatus.Finished"/>): corretores, impostos,
-/// parâmetros de qualidade, fixações de preço e washouts. Cobre todos os caminhos de
-/// mutação (controllers OData diretos e serviços) num único ponto.
+/// Impede alterar (add/update/delete) sub-entidades vinculadas a um contrato encerrado
+/// (<see cref="ContractStatus.Finished"/>). Compra: corretores, impostos, parâmetros de qualidade, fixações de preço
+/// e washouts. Venda: washouts (spec 2026-10-15). Cobre todos os caminhos de mutação num único ponto.
 /// </summary>
 public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
 {
@@ -21,16 +20,17 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
     {
         if (eventData.Context is not null)
         {
-            var keys = CollectContractKeys(eventData.Context);
-            if (keys.Count > 0)
-            {
-                var hasFinished = await eventData.Context.Set<PurchaseContract>()
-                    .AsNoTracking()
-                    .AnyAsync(c => keys.Contains(c.Key) && c.Status == ContractStatus.Finished, cancellationToken);
+            var (purchaseKeys, salesKeys) = CollectContractKeys(eventData.Context);
 
-                if (hasFinished)
-                    throw Blocked();
-            }
+            if (purchaseKeys.Count > 0 && await eventData.Context.Set<PurchaseContract>()
+                    .AsNoTracking()
+                    .AnyAsync(c => purchaseKeys.Contains(c.Key) && c.Status == ContractStatus.Finished, cancellationToken))
+                throw Blocked();
+
+            if (salesKeys.Count > 0 && await eventData.Context.Set<SalesContract>()
+                    .AsNoTracking()
+                    .AnyAsync(c => salesKeys.Contains(c.Key) && c.Status == ContractStatus.Finished, cancellationToken))
+                throw Blocked();
         }
 
         return await base.SavingChangesAsync(eventData, result, cancellationToken);
@@ -42,24 +42,26 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
     {
         if (eventData.Context is not null)
         {
-            var keys = CollectContractKeys(eventData.Context);
-            if (keys.Count > 0)
-            {
-                var hasFinished = eventData.Context.Set<PurchaseContract>()
-                    .AsNoTracking()
-                    .Any(c => keys.Contains(c.Key) && c.Status == ContractStatus.Finished);
+            var (purchaseKeys, salesKeys) = CollectContractKeys(eventData.Context);
 
-                if (hasFinished)
-                    throw Blocked();
-            }
+            if (purchaseKeys.Count > 0 && eventData.Context.Set<PurchaseContract>()
+                    .AsNoTracking()
+                    .Any(c => purchaseKeys.Contains(c.Key) && c.Status == ContractStatus.Finished))
+                throw Blocked();
+
+            if (salesKeys.Count > 0 && eventData.Context.Set<SalesContract>()
+                    .AsNoTracking()
+                    .Any(c => salesKeys.Contains(c.Key) && c.Status == ContractStatus.Finished))
+                throw Blocked();
         }
 
         return base.SavingChanges(eventData, result);
     }
 
-    private static HashSet<Guid> CollectContractKeys(DbContext context)
+    private static (HashSet<Guid> Purchase, HashSet<Guid> Sales) CollectContractKeys(DbContext context)
     {
-        var keys = new HashSet<Guid>();
+        var purchase = new HashSet<Guid>();
+        var sales = new HashSet<Guid>();
 
         // ⚠️ NÃO acrescente FinancialDocument a este switch, por mais que pareça "seguir o
         // padrão". O encerramento do contrato cancela o provisório no MESMO SaveChanges em que
@@ -75,7 +77,7 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
             // valor nem saldo, e o requisito é justamente poder comentar contrato encerrado.
             // ContractDraft / ContractDraftSigner ficam FORA de propósito: minuta é documentação,
             // como anexo — um contrato encerrado pode ter aditivo ou distrato (spec 2026-09-21).
-            Guid? key = entry.Entity switch
+            Guid? purchaseKey = entry.Entity switch
             {
                 PurchaseContractBroker b => b.PurchaseContractKey,
                 PurchaseContractTax t => t.PurchaseContractKey,
@@ -85,11 +87,15 @@ public class FinishedContractMutationGuardInterceptor : SaveChangesInterceptor
                 _ => null
             };
 
-            if (key.HasValue && key.Value != Guid.Empty)
-                keys.Add(key.Value);
+            if (purchaseKey.HasValue && purchaseKey.Value != Guid.Empty)
+                purchase.Add(purchaseKey.Value);
+
+            // Venda: só o washout (spec 2026-10-15). Os demais filhos de venda nunca passaram por esta guarda.
+            if (entry.Entity is SalesContractWashout sw && sw.SalesContractKey != Guid.Empty)
+                sales.Add(sw.SalesContractKey);
         }
 
-        return keys;
+        return (purchase, sales);
     }
 
     private static DefaultException Blocked() =>

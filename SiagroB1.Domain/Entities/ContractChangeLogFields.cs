@@ -120,6 +120,18 @@ public static class ContractChangeLogFields
             DescribeWashoutStatus(washout.Status));
     }
 
+    /// <summary>Como o washout de venda aparece no log: mesmo formato do de compra.</summary>
+    public static string DescribeWashout(SalesContractWashout washout, string? unitOfMeasureCode = null)
+    {
+        var unit = string.IsNullOrWhiteSpace(unitOfMeasureCode) ? "" : $" {unitOfMeasureCode}";
+
+        return string.Format(
+            PtBr,
+            "WO-{0}: {1:N3}{2} fixado + {3:N3}{2} não fixado, R$ {4:N2} — {5}",
+            washout.Sequence, washout.FixedVolume, unit, washout.UnfixedVolume, washout.Amount,
+            DescribeWashoutStatus((PurchaseContractWashoutStatus)(int)washout.Status));
+    }
+
     private static string DescribeWashoutStatus(PurchaseContractWashoutStatus status) => status switch
     {
         PurchaseContractWashoutStatus.InApproval => "Em aprovação",

@@ -155,6 +155,8 @@ public class SalesContract : DocumentEntity
     /// </summary>
     public ICollection<SalesContractChangeLog> ChangeLogs { get; set; } = [];
 
+    public ICollection<SalesContractWashout> Washouts { get; set; } = [];
+
     /// <summary>
     /// Volume já fixado (persistido, derivado). Soma <see cref="SalesContractPriceFixation.FixationVolume"/>
     /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas
@@ -174,6 +176,20 @@ public class SalesContract : DocumentEntity
     /// </summary>
     [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
     public decimal AllocatedVolume { get; set; }
+
+    /// <summary>
+    /// Volume lavado (persistido, derivado): Σ (FixedVolume + UnfixedVolume) dos washouts InApproval
+    /// + Approved. Recalculado exclusivamente por SalesContractsWashedOutVolumeService.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal WashedOutVolume { get; set; }
+
+    /// <summary>
+    /// Parte NÃO FIXADA de <see cref="WashedOutVolume"/>: volume a fixar de que o cliente desistiu e que, por isso,
+    /// não pode mais ser fixado. Mesmo recálculo.
+    /// </summary>
+    [Column(TypeName = "DECIMAL(18,3) DEFAULT 0")]
+    public decimal WashedOutUnfixedVolume { get; set; }
 
     /// <summary>
     /// Token de concorrência otimista (SQL Server rowversion). Protege
@@ -205,7 +221,7 @@ public class SalesContract : DocumentEntity
 
     [NotMapped]
     public decimal AvailableVolumeToPricing =>
-        decimal.Round(TotalVolume - FixedVolume, 3, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - FixedVolume - WashedOutUnfixedVolume, 3, MidpointRounding.ToEven);
 
     /// <remarks>
     /// LEGADO: a fonte de verdade do consumo agora é <see cref="AllocatedVolume"/>
@@ -235,7 +251,7 @@ public class SalesContract : DocumentEntity
     /// </summary>
     [NotMapped]
     public decimal AvaiableVolume =>
-        decimal.Round(TotalVolume - AllocatedVolume, 3, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - AllocatedVolume - WashedOutVolume, 3, MidpointRounding.ToEven);
     
     [NotMapped]
     public bool HasInvoices => SalesInvoiceItems?
@@ -256,7 +272,7 @@ public class SalesContract : DocumentEntity
 
     [NotMapped]
     public decimal TotalAvailableToRelease =>
-        decimal.Round(TotalVolume - TotalShipmentReleases, 2, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - TotalShipmentReleases - WashedOutVolume, 2, MidpointRounding.ToEven);
 
     [NotMapped]
     public decimal TotalShipmentReleasesWithoutProvisioning =>
@@ -270,7 +286,7 @@ public class SalesContract : DocumentEntity
 
     [NotMapped]
     public decimal TotalAvailableToReleaseWithoutProvisioning =>
-        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning, 2, MidpointRounding.ToEven);
+        decimal.Round(TotalVolume - TotalShipmentReleasesWithoutProvisioning - WashedOutVolume, 2, MidpointRounding.ToEven);
 
     [NotMapped]
     public bool HasShipmentReleases => SalesShipmentReleases

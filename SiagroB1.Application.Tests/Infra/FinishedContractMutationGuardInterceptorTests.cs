@@ -114,4 +114,53 @@ public class FinishedContractMutationGuardInterceptorTests
 
         await Assert.ThrowsAsync<DefaultException>(() => ctx.SaveChangesAsync());
     }
+
+    private static SalesContract NewSalesContract(ContractStatus status)
+    {
+        var contract = SalesContracts.SalesContractsAllocationTestSupport.NewContract(1_000m, status: status);
+        contract.Code = "CV-001";
+        return contract;
+    }
+
+    [Fact]
+    public async Task AddingWashoutToFinishedSalesContract_Throws()
+    {
+        await using var ctx = NewContext();
+        var sc = NewSalesContract(ContractStatus.Finished);
+        ctx.SalesContracts.Add(sc);
+        await ctx.SaveChangesAsync();
+
+        ctx.SalesContractsWashouts.Add(new SalesContractWashout
+        {
+            Key = Guid.NewGuid(),
+            SalesContractKey = sc.Key,
+            Sequence = 1,
+            UnfixedVolume = 10m,
+            Reason = "falta",
+        });
+
+        await Assert.ThrowsAsync<DefaultException>(() => ctx.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task AddingWashoutToApprovedSalesContract_Succeeds()
+    {
+        await using var ctx = NewContext();
+        var sc = NewSalesContract(ContractStatus.Approved);
+        ctx.SalesContracts.Add(sc);
+        await ctx.SaveChangesAsync();
+
+        ctx.SalesContractsWashouts.Add(new SalesContractWashout
+        {
+            Key = Guid.NewGuid(),
+            SalesContractKey = sc.Key,
+            Sequence = 1,
+            UnfixedVolume = 10m,
+            Reason = "falta",
+        });
+
+        await ctx.SaveChangesAsync();
+
+        Assert.Equal(1, await ctx.SalesContractsWashouts.CountAsync());
+    }
 }

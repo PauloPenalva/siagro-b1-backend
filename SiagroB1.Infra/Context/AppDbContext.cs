@@ -50,6 +50,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
+    public DbSet<SalesContractWashout> SalesContractsWashouts { get; set; }
     public DbSet<SalesContractDeliveryLocation> SalesContractsDeliveryLocations { get; set; }
     public DbSet<SalesContractChangeLog> SalesContractsChangeLogs { get; set; }
     public DbSet<SalesContractComment> SalesContractsComments { get; set; }
@@ -497,6 +498,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.PriceFixationKey).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<PurchaseContractWashout>()
+            .HasOne(x => x.FinancialDocument).WithMany()
+            .HasForeignKey(x => x.FinancialDocumentKey).OnDelete(DeleteBehavior.NoAction);
+
+        // Washout de venda: mesmo desenho do de compra — Restrict para o contrato e para a fixação, NoAction para o título.
+        modelBuilder.Entity<SalesContractWashout>()
+            .HasOne(x => x.SalesContract).WithMany(x => x.Washouts)
+            .HasForeignKey(x => x.SalesContractKey).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SalesContractWashout>()
+            .HasOne(x => x.PriceFixation).WithMany()
+            .HasForeignKey(x => x.PriceFixationKey).OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SalesContractWashout>()
             .HasOne(x => x.FinancialDocument).WithMany()
             .HasForeignKey(x => x.FinancialDocumentKey).OnDelete(DeleteBehavior.NoAction);
 

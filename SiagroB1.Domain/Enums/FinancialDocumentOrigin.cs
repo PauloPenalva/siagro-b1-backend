@@ -13,5 +13,8 @@ public enum FinancialDocumentOrigin
     PurchaseContractWashout = 6,
 
     /// <summary>Firme/devolução nascido de um vínculo PURCHASE_FISCAL_RECONCILIATIONS (OriginKey = chave do vínculo).</summary>
-    PurchaseFiscalReconciliation = 7
+    PurchaseFiscalReconciliation = 7,
+
+    /// <summary>Título a receber do cliente gerado pela aprovação de um washout de venda (spec 2026-10-15).</summary>
+    SalesContractWashout = 8
 }
