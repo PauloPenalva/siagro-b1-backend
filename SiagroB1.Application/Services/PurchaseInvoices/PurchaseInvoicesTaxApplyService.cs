@@ -45,7 +45,7 @@ public class PurchaseInvoicesTaxApplyService(
 
     /// <summary>Spec 2026-10-13 D11: regras do documento "Complemento de valor" (e do valor de complemento nos demais tipos).</summary>
     public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
-        PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate.IsStandalone, db.Context);
+        PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
 
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {

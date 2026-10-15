@@ -18,5 +18,15 @@ public class PurchaseInvoicesGetComplementCandidatesController(
     [HttpGet("odata/PurchaseInvoicesGetComplementCandidates(CardCode={cardCode},BranchCode={branchCode})")]
     public async Task<ActionResult<IEnumerable<PurchaseInvoiceComplementCandidateDto>>> Get(
         [FromRoute] string cardCode, [FromRoute] string branchCode) =>
-        Ok(await service.ExecuteAsync(cardCode.Trim('\''), branchCode.Trim('\'')));
+        Ok(await service.ExecuteAsync(Unquote(cardCode), Unquote(branchCode)));
+
+    /// <summary>
+    /// Literal de string do OData: uma aspa de cada ponta (não Trim, que levaria o apóstrofo final do código) e o
+    /// apóstrofo interno, que a tela manda dobrado ('D''AGUA'), desfeito.
+    /// </summary>
+    private static string Unquote(string literal)
+    {
+        var value = literal.Length >= 2 && literal[0] == '\'' && literal[^1] == '\'' ? literal[1..^1] : literal;
+        return value.Replace("''", "'");
+    }
 }

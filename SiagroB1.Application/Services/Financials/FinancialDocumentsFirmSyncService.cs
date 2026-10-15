@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.PurchaseInvoices;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -170,7 +171,7 @@ public class FinancialDocumentsFirmSyncService(
             return;
 
         await PurchaseInvoiceValueComplement.EnsureAsync(
-            invoice, lines, usageService, ErpMode.IsStandalone(configuration), db.Context);
+            invoice, lines, usageService, new TaxCalculationGate(db, configuration), db.Context);
 
         var context = db.Context;
         var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);

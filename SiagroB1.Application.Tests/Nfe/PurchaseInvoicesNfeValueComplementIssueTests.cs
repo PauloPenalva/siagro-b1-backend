@@ -99,12 +99,68 @@ public class PurchaseInvoicesNfeValueComplementIssueTests
             o.InvoiceStatus = InvoiceStatus.Cancelled;
         });
         var sefaz = new FakeNfeSefazClient();
+        var reservation = new FakeNfeNumberReservationService();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            PurchaseInvoicesNfeIssueServiceTests.Issue(s.Purchase, sefaz).ExecuteAsync(invoice.Key, "tester"));
+            PurchaseInvoicesNfeIssueServiceTests.Issue(s.Purchase, sefaz, reservation).ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal("A nota original DE000005 não está mais autorizada: o complemento não pode ser emitido.", e.Message);
         Assert.Empty(sefaz.Sent);
+        // Regra 8: "antes de qualquer reserva" — nenhum número consumido.
+        Assert.Equal(0, reservation.Calls);
+        Assert.Null((await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(s.Purchase, invoice.Key)).TaxDocumentNumber);
+    }
+
+    /// <summary>
+    /// I2: o que mudou no cadastro entre gravar o rascunho e "Emitir NF-e" — contrato (herdado ou escolhido) que saiu de
+    /// Aprovado/Encerrado, natureza que deixou de gerar financeiro — recusa ANTES de reservar o número. Sem isso a SEFAZ
+    /// autorizaria e a confirmação falharia depois, com o documento Pendente e sem título firme.
+    /// </summary>
+    [Theory]
+    [InlineData("inherited-contract")]
+    [InlineData("chosen-contract")]
+    [InlineData("nature")]
+    public async Task Rules_changed_after_the_draft_refuse_before_the_number_is_reserved(string variant)
+    {
+        var s = await SeedAsync();
+        PurchaseContract? chosen = null;
+        if (variant == "chosen-contract")
+        {
+            await ChangeAsync(s.Db, s.OriginalKey, o => o.Items.Single().PurchaseContractKey = null);
+            chosen = await AddContractAsync(s.Db, "PC-TRIGO-2");
+        }
+
+        var invoice = s.Complement((s.OriginalItemKey, 300m));
+        invoice.Items.Single().PurchaseContractKey = chosen?.Key;
+        await Create(s.Db).ExecuteAsync(invoice, "ana");
+
+        string expected;
+        switch (variant)
+        {
+            case "nature":
+                var usage = await s.Db.Context.Usages.SingleAsync(u => u.Code == s.PurchaseUsage);
+                usage.CreatesFinancialDocument = false;
+                expected = $"Item TRIGO: a natureza {s.PurchaseUsage} não gera financeiro; o complemento de valor precisa de uma natureza que gere.";
+                break;
+            default:
+                var contract = chosen ?? s.Contract;
+                (await s.Db.Context.PurchaseContracts.SingleAsync(c => c.Key == contract.Key)).Status = ContractStatus.Canceled;
+                expected = $"O contrato {contract.Code}, amarrado na linha do produto TRIGO, não está aprovado nem encerrado e não pode ser amarrado a um documento de entrada.";
+                break;
+        }
+        await s.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        var reservation = new FakeNfeNumberReservationService();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            PurchaseInvoicesNfeIssueServiceTests.Issue(s.Purchase, sefaz, reservation).ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal(expected, e.Message);
+        Assert.Empty(sefaz.Sent);
+        Assert.Equal(0, reservation.Calls);
+        var saved = await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(s.Purchase, invoice.Key);
+        Assert.Null(saved.TaxDocumentNumber);
+        Assert.Equal(InvoiceStatus.Pending, saved.InvoiceStatus);
     }
 
     [Fact]

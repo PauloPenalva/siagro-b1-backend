@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
+using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -18,14 +19,20 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// </summary>
 public static class PurchaseInvoiceValueComplement
 {
-    /// <param name="standalone">
-    /// STANDALONE exige natureza com "Gera financeiro"; em SAPB1 a natureza é o OUSG, sem a flag (D10), e basta existir.
+    /// <summary>Complemento próprio fora do modo NF-e (SAPB1, ou filial STANDALONE que não emite pelo Siagro).</summary>
+    internal const string OutsideNfeModeMessage =
+        "Complemento de valor de emissão própria só existe na filial que emite NF-e pelo Siagro.";
+
+    /// <param name="gate">
+    /// O modo: STANDALONE exige natureza com "Gera financeiro"; em SAPB1 a natureza é o OUSG, sem a flag (D10), e basta
+    /// existir. E a filial que emite NF-e pelo Siagro, única onde o complemento PRÓPRIO existe.
     /// </param>
     /// <param name="context">Lê os itens originais do complemento próprio.</param>
     public static async Task EnsureAsync(
-        PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines, IUsage usageService, bool standalone,
+        PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines, IUsage usageService, TaxCalculationGate gate,
         AppDbContext context)
     {
+        var standalone = gate.IsStandalone;
         var ownComplement = invoice.InvoiceType == PurchaseInvoiceType.ValueComplement &&
                             invoice.IssuerType == DocumentIssuerType.Own;
 
@@ -43,7 +50,14 @@ public static class PurchaseInvoiceValueComplement
         }
 
         if (ownComplement)
+        {
+            // O complemento próprio sai como NF-e complementar (finNFe=2): fora do modo NF-e não há a nota original
+            // autorizada que ele referencia, e C1 falaria de um item que a tela nem oferece. Antes de C1.
+            if (!await gate.IsActiveAsync(invoice.BranchCode))
+                throw new DefaultException(OutsideNfeModeMessage);
+
             await EnsureOwnLinesAsync(invoice, lines, context);
+        }
 
         foreach (var line in lines)
         {
@@ -68,13 +82,41 @@ public static class PurchaseInvoiceValueComplement
 
     /// <summary>
     /// Regra 2 / C2: a nota que se complementa — própria, Normal (a contra-nota é uma entrada própria Normal: D1), com a
-    /// NF-e autorizada e o documento não cancelado. Só dados do próprio documento.
+    /// NF-e autorizada e o documento não cancelado. Só dados do próprio documento. A nota de custódia (entrada para
+    /// beneficiamento ou armazenagem, 1.901/1.905) também é própria, Normal e autorizada, mas não é compra: fica de fora.
     /// </summary>
     internal static bool IsComplementableOrigin(PurchaseInvoice origin) =>
         origin.IssuerType == DocumentIssuerType.Own &&
         origin.InvoiceType == PurchaseInvoiceType.Normal &&
+        origin.CustodyRole == StorageCustodyRole.None &&
         origin.NfeStatus == NfeStatus.Authorized &&
         origin.InvoiceStatus != InvoiceStatus.Cancelled;
+
+    /// <summary>
+    /// "Emitir NF-e" do complemento próprio, antes de reservar o número: a regra das linhas de novo, porque o cadastro
+    /// pode ter mudado desde a gravação do rascunho (contrato herdado ou escolhido fora de Aprovado/Encerrado, natureza
+    /// sem "Gera financeiro"). Sem isso a SEFAZ autorizaria e a confirmação, que roda depois, falharia: NF-e autorizada
+    /// com o documento Pendente e sem título firme.
+    ///
+    /// Sobre uma cópia SEM rastreamento, como a confirmação: as linhas rastreadas da emissão cairiam no ramo "recusa
+    /// divergência", e a cópia não grava nada. A original que deixou de estar autorizada fala a língua da emissão (C6),
+    /// não a do rascunho (C2).
+    /// </summary>
+    internal static async Task EnsureIssuableAsync(
+        Guid invoiceKey, IUsage usageService, TaxCalculationGate gate, AppDbContext context)
+    {
+        var copy = await context.PurchaseInvoices.AsNoTracking().Include(i => i.Items)
+            .SingleAsync(i => i.Key == invoiceKey);
+        var lines = copy.Items.ToList();
+
+        var originals = await LoadOriginalsAsync(context, lines);
+        var lapsed = originals.Values.Select(o => o.PurchaseInvoice)
+            .FirstOrDefault(origin => origin is not null && !IsComplementableOrigin(origin));
+        if (lapsed is not null)
+            throw new DefaultException(NoLongerAuthorizedMessage(lapsed.InvoiceNumber));
+
+        await EnsureAsync(copy, lines, usageService, gate, context);
+    }
 
     /// <summary>C6: a original deixou de estar autorizada entre o rascunho e a emissão.</summary>
     internal static string NoLongerAuthorizedMessage(string? originalNumber) =>
@@ -169,7 +211,9 @@ public static class PurchaseInvoiceValueComplement
     /// Original SEM contrato (D5): o contrato é o que o operador informou, e passa AQUI pelas regras de contrato da linha
     /// de entrada — os quatro caminhos que gravam linha deixam de chamar a guarda para a linha do complemento, para que
     /// ela rode com o produto já herdado e DEPOIS de C3 (trocar o produtor do cabeçalho recusa por C3, não pelo
-    /// contrato). Sem contrato, a regra existente do complemento recusa adiante (obrigatório).
+    /// contrato). Sem contrato, a regra existente do complemento recusa adiante (obrigatório). O contrato HERDADO passa
+    /// pela mesma guarda: fornecedor e produto já batem (C3 e herança), mas a situação pode ter mudado depois da nota
+    /// original (cancelado, por exemplo).
     /// </summary>
     private static async Task InheritOrRefuseAsync(
         PurchaseInvoice invoice, PurchaseInvoiceItem line, PurchaseInvoiceItem original, AppDbContext context)
@@ -195,7 +239,7 @@ public static class PurchaseInvoiceValueComplement
                     $"Item {original.ItemCode}: o contrato vem do item da nota original e não pode ser alterado.");
         }
 
-        if (original.PurchaseContractKey is null && line.PurchaseContractKey is not null)
+        if (line.PurchaseContractKey is not null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 context, line.PurchaseContractKey, line.ItemCode, invoice.CardCode);
     }

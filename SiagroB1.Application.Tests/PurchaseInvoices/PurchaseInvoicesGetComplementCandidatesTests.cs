@@ -47,6 +47,8 @@ public class PurchaseInvoicesGetComplementCandidatesTests
                      (12, i => i.InvoiceStatus = InvoiceStatus.Cancelled),
                      (13, i => i.CardCode = "F-OUTRO"),
                      (14, i => i.InvoiceType = PurchaseInvoiceType.ValueComplement),
+                     // Entrada para armazenagem (custódia): própria, Normal, autorizada, e não é compra.
+                     (15, i => i.CustodyRole = StorageCustodyRole.StorageEntry),
                  })
         {
             var (key, _) = await AddOriginalAsync(s.Db, s.Contract, s.PurchaseUsage, $"DE0000{number}", number);

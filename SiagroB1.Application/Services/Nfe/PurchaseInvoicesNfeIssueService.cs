@@ -24,6 +24,7 @@ public class PurchaseInvoicesNfeIssueService(
     NfeNumberReservationService reservation,
     INfeSefazClient sefaz,
     PurchaseInvoiceNfeResultHandler resultHandler,
+    IUsage usageService,
     NfeOptions options,
     ILogger<PurchaseInvoicesNfeIssueService> logger,
     Func<DateTimeOffset>? clock = null,
@@ -32,6 +33,7 @@ public class PurchaseInvoicesNfeIssueService(
         db, gate, new PurchaseInvoiceNfeStore(db), settingsService, reservation, sefaz, resultHandler, options, logger, clock, storageZone)
 {
     private readonly IUnitOfWork _db = db;
+    private readonly TaxCalculationGate _gate = gate;
 
     protected override void EnsureIssuableType(PurchaseInvoice invoice)
     {
@@ -46,7 +48,7 @@ public class PurchaseInvoicesNfeIssueService(
     }
 
     // Devolução de compra: o saldo da entrada ANTES de reservar o número — a SEFAZ autorizaria uma devolução
-    // maior que a compra.
+    // maior que a compra. Complemento de valor: a regra das linhas, pelo mesmo motivo.
     protected override async Task EnsureBeforeReservationAsync(PurchaseInvoice invoice)
     {
         // Nota de custódia editada pela tela depois de gerada: revalida antes de numerar (spec 2026-10-12 §4.1).
@@ -55,6 +57,11 @@ public class PurchaseInvoicesNfeIssueService(
 
         if (invoice.IsNfeReturn)
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(_db.Context, invoice, invoice.Items);
+
+        // Complemento de valor próprio: a regra das linhas de novo (contrato, natureza, valor, originais), porque a
+        // confirmação, que também a roda, só vem depois da autorização (spec 2026-10-14).
+        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
+            await PurchaseInvoiceValueComplement.EnsureIssuableAsync(invoice.Key, usageService, _gate, _db.Context);
     }
 
     protected override DateTime? DocumentDate(PurchaseInvoice invoice) => invoice.IssueDate;

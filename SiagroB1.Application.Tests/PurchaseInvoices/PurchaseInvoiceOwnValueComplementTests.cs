@@ -18,6 +18,8 @@ public class PurchaseInvoiceOwnValueComplementTests
     private const string Inherited =
         "Item TRIGO: produto, unidade e natureza vêm do item da nota original e não podem ser alterados.";
     private const string InheritedContract = "Item TRIGO: o contrato vem do item da nota original e não pode ser alterado.";
+    private const string OutsideNfeMode =
+        "Complemento de valor de emissão própria só existe na filial que emite NF-e pelo Siagro.";
     private const string OnlyOwnComplement = "O item da nota original só existe no complemento de valor de emissão própria.";
 
     /// <summary>D5: a original sem contrato na linha — o caso real de toda entrada própria autorizada da CEAGUI dev.</summary>
@@ -95,6 +97,7 @@ public class PurchaseInvoiceOwnValueComplementTests
     [InlineData("document-cancelled")]
     [InlineData("complement")]
     [InlineData("return")]
+    [InlineData("custody")]
     public async Task Original_must_be_an_authorized_own_normal_entry(string variant)
     {
         var s = await SeedAsync();
@@ -108,6 +111,8 @@ public class PurchaseInvoiceOwnValueComplementTests
                 case "document-cancelled": original.InvoiceStatus = InvoiceStatus.Cancelled; break;
                 case "complement": original.InvoiceType = PurchaseInvoiceType.ValueComplement; break;
                 case "return": original.InvoiceType = PurchaseInvoiceType.Return; break;
+                // Nota de custódia (entrada para armazenagem): própria, Normal e autorizada, mas não é compra (D1).
+                case "custody": original.CustodyRole = StorageCustodyRole.StorageEntry; break;
             }
         });
 
@@ -211,6 +216,9 @@ public class PurchaseInvoiceOwnValueComplementTests
     public async Task Changing_the_branch_after_including_lines_is_refused()
     {
         var s = await SeedAsync();
+        // A filial 02 também emite NF-e: sem isso a troca recusaria antes, por estar fora do modo NF-e.
+        s.Db.Context.Branchs.Add(new Branch { Code = "02", BranchName = "FILIAL 2", IssuesNfe = true });
+        await s.Db.SaveChangesAsync();
         var invoice = await SavedComplementAsync(s);
         var incoming = await ReloadAsync(s, invoice.Key);
         incoming.BranchCode = "02";
@@ -348,5 +356,65 @@ public class PurchaseInvoiceOwnValueComplementTests
         thirdPartyLine.UsageCode = s.PurchaseUsage;
         thirdPartyLine.PurchaseContractKey = s.Contract.Key;
         Assert.Equal(OnlyOwnComplement, await RefusalAsync(s, thirdParty));
+    }
+
+    [Fact]
+    public async Task Own_complement_outside_nfe_mode_is_refused_explicitly_in_sapb1()
+    {
+        var s = await SeedAsync();
+        var sapb1 = new PurchaseInvoicesCreateService(s.Db, PurchaseNfeTestSeed.Partners(), new FakeItemService(),
+            TaxTestServices.PurchaseApply(s.Db, PurchaseNfeTestSeed.Partners(), "SAPB1"), new FakeDocNumberSequenceService());
+
+        // Antes de C1: a linha sem o item original nem chega a ser cobrada fora do modo NF-e.
+        foreach (var originalItemKey in new Guid?[] { s.OriginalItemKey, null })
+        {
+            var e = await Assert.ThrowsAsync<DefaultException>(() =>
+                sapb1.ExecuteAsync(s.Complement((originalItemKey, 300m)), "ana"));
+            Assert.Equal(OutsideNfeMode, e.Message);
+        }
+    }
+
+    [Fact]
+    public async Task Own_complement_in_a_standalone_branch_without_nfe_is_refused_explicitly()
+    {
+        var s = await SeedAsync();
+        var branch = await s.Db.Context.Branchs.SingleAsync(b => b.Code == "01");
+        branch.IssuesNfe = false;
+        await s.Db.SaveChangesAsync();
+
+        Assert.Equal(OutsideNfeMode, await RefusalAsync(s, s.Complement((s.OriginalItemKey, 300m))));
+        Assert.Equal(OutsideNfeMode, await RefusalAsync(s, s.Complement((null, 300m))));
+    }
+
+    [Fact]
+    public async Task Line_added_through_the_header_patch_inherits_and_is_checked_by_C4()
+    {
+        var s = await SeedAsync();
+        var (_, second) = await AddOriginalAsync(s.Db, s.Contract, s.PurchaseUsage, SecondNumber, 7, items: 2);
+        var invoice = s.Complement((second[0], 300m));
+        await Create(s.Db).ExecuteAsync(invoice, "ana");
+        s.Db.Context.ChangeTracker.Clear();
+
+        // Linha nova pelo PATCH do cabeçalho (SyncItems, estado Added): só o item original e o valor.
+        var incoming = await ReloadAsync(s, invoice.Key);
+        var added = new PurchaseInvoiceItem { Key = NextLineKey(), ComplementedItemKey = second[1], ComplementAmount = 120m };
+        incoming.AddItem(added);
+        await Update(s).ExecuteAsync(invoice.Key, incoming, "ana");
+        s.Db.Context.ChangeTracker.Clear();
+
+        var line = (await ReloadAsync(s, invoice.Key)).Items.Single(l => l.Key == added.Key);
+        Assert.Equal(second[1], line.ComplementedItemKey);
+        Assert.Equal("TRIGO", line.ItemCode);
+        Assert.Equal("TRIGO EM GRAOS", line.ItemName);
+        Assert.Equal("KG", line.UnitOfMeasureCode);
+        Assert.Equal(s.PurchaseUsage, line.UsageCode);
+        Assert.Equal(s.Contract.Key, line.PurchaseContractKey);
+        Assert.Equal(120m, line.ComplementAmount);
+
+        // O mesmo item original de novo pelo PATCH do cabeçalho: C4.
+        var again = await ReloadAsync(s, invoice.Key);
+        again.AddItem(new PurchaseInvoiceItem { Key = NextLineKey(), ComplementedItemKey = second[0], ComplementAmount = 50m });
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Update(s).ExecuteAsync(invoice.Key, again, "ana"));
+        Assert.Equal("O item DE000007/1 já está complementado nesta nota.", e.Message);
     }
 }
