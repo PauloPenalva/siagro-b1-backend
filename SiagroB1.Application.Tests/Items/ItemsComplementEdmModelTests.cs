@@ -78,4 +78,20 @@ public class ItemsComplementEdmModelTests
 
         Assert.Equal("Edm.Double", action.Parameters.Single(p => p.Name == "CommercialFactor").Type.FullName());
     }
+
+    [Fact]
+    public void Taxable_unit_parameters_are_optional_and_the_factor_is_a_double()
+    {
+        var action = Model()
+            .SchemaElements
+            .OfType<IEdmAction>()
+            .Single(a => a.Name == "ItemsSetComplement");
+
+        var unit = action.Parameters.Single(p => p.Name == "TaxableUnitOfMeasureCode");
+        var factor = action.Parameters.Single(p => p.Name == "TaxableFactor");
+
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(unit);
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(factor);
+        Assert.Equal("Edm.Double", factor.Type.FullName());
+    }
 }

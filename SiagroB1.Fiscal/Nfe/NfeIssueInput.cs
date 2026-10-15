@@ -104,6 +104,14 @@ public sealed record NfeItem
     public required decimal UnitPrice { get; init; }
     public required decimal Total { get; init; }
 
+    /// <summary>
+    /// Grupo tributável (<c>uTrib</c>/<c>qTrib</c>/<c>vUnTrib</c>) quando difere do comercial: item com CFOP de exportação e
+    /// unidade de exportação configurada no complemento do produto (spec 2026-10-14 §4). Nulos = iguais aos comerciais.
+    /// </summary>
+    public string? TaxableUnitOfMeasure { get; init; }
+    public decimal? TaxableQuantity { get; init; }
+    public decimal? TaxableUnitPrice { get; init; }
+
     /// <summary>Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §7); 0 = omitido no <c>det/prod</c>.</summary>
     public decimal FreightValue { get; init; }
     public decimal InsuranceValue { get; init; }

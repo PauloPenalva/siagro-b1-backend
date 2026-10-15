@@ -227,12 +227,19 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         var itemCests = await db.Context.Items.AsNoTracking()
             .Where(i => itemCodes.Contains(i.ItemCode))
             .ToDictionaryAsync(i => i.ItemCode, i => i.Cest);
+        // Fator > 0: o Convert divide por ele, e um 0 gravado fora do serviço não pode derrubar a emissão.
+        // O SQL Server compara sem diferenciar maiúsculas; o filtro (UPPER) e o dicionário seguem a mesma regra.
+        var upperItemCodes = itemCodes.Select(c => c.ToUpperInvariant()).ToList();
+        var taxableUnits = await db.Context.ItemComplements.AsNoTracking()
+            .Where(c => upperItemCodes.Contains(c.ItemCode.ToUpper()) && c.TaxableUnitOfMeasureCode != null && c.TaxableFactor != null && c.TaxableFactor > 0)
+            .ToDictionaryAsync(c => c.ItemCode, c => new NfeTaxableUnitSetting(c.TaxableUnitOfMeasureCode!, c.TaxableFactor!.Value),
+                StringComparer.OrdinalIgnoreCase);
 
         return new NfeIssueContext(
             branch, branch.Municipality!, settings!, customer!, customerAddress!, customerAddress!.Municipality!,
             deliveryPartner, deliveryAddress, deliveryAddress?.Municipality,
             carrier, carrier is null ? null : BillingAddress(carrier),
-            plate, truckState, condition, usages, itemCests, returnOrigin);
+            plate, truckState, condition, usages, itemCests, returnOrigin, TaxableUnits: taxableUnits);
     }
 
     /// <summary>A venda da devolução própria: confirmada, com NF-e autorizada e o nItem de cada item devolvido.</summary>

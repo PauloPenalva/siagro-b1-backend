@@ -117,6 +117,19 @@ public static class NfeIssueInputAssembler
         string? TaxPayerComments, string? TaxComments, string? FunruralText, string DefaultOperationNature,
         bool WithoutPayment);
 
+    /// <summary>
+    /// CFOP de exportação + produto com unidade tributável configurada → grupo tributável convertido
+    /// (spec 2026-10-14 §4); senão o item sai como está (tributável = comercial).
+    /// </summary>
+    private static NfeItem WithTaxableUnit(NfeItem item, IReadOnlyDictionary<string, NfeTaxableUnitSetting>? taxableUnits)
+    {
+        if (!ExportCfops.Contains(item.Cfop) || taxableUnits?.GetValueOrDefault(item.ItemCode) is not { } setting)
+            return item;
+
+        var (quantity, unitPrice) = NfeTaxableUnit.Convert(item.Quantity, item.Total, setting.Factor);
+        return item with { TaxableUnitOfMeasure = setting.UnitOfMeasure, TaxableQuantity = quantity, TaxableUnitPrice = unitPrice };
+    }
+
     private static NfeIssueInput Build(
         NfeDocumentView view, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
     {
@@ -176,7 +189,7 @@ public static class NfeIssueInputAssembler
                     StateRegistration = NfeText.Digits(context.DeliveryPartner.StateRegistration),
                     Address = ToAddress(context.DeliveryAddress!, context.DeliveryMunicipality!, context.DeliveryPartner.Phone),
                 },
-            Items = items.Select((item, index) => ToItem(item, item.NfeItemNumber ?? index + 1) with
+            Items = items.Select((item, index) => WithTaxableUnit(ToItem(item, item.NfeItemNumber ?? index + 1) with
             {
                 Cest = context.ItemCests.GetValueOrDefault(item.ItemCode!),
                 // Pedido do cliente só existe na saída; a linha de compra devolve nulo no cast.
@@ -186,7 +199,7 @@ public static class NfeIssueInputAssembler
                 Reference = returnOrigin is null
                     ? null
                     : new NfeItemReference(returnOrigin.AccessKey, returnOrigin.ItemNumbers[view.OriginItemKey(item)!.Value]),
-            }).ToList(),
+            }, context.TaxableUnits)).ToList(),
             FreightTerms = view.FreightTerms,
             Carrier = context.Carrier is null
                 ? null

@@ -17,6 +17,15 @@ public class ItemComplementDto
     [JsonPropertyName("CommercialFactor")]
     public decimal? CommercialFactor { get; set; }
 
+    [JsonPropertyName("TaxableUnitOfMeasureCode")]
+    public string? TaxableUnitOfMeasureCode { get; set; }
+
+    [JsonPropertyName("TaxableFactor")]
+    public decimal? TaxableFactor { get; set; }
+
     [JsonPropertyName("ControlsRoyalties")]
     public bool ControlsRoyalties { get; set; }
 }
+
+/// <summary>Unidade tributável de exportação a gravar; os dois vazios limpam a configuração.</summary>
+public sealed record ItemTaxableUnitInput(string? UnitOfMeasureCode, decimal? Factor);
