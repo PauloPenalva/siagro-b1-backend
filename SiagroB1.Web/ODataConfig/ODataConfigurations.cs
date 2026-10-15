@@ -1709,6 +1709,14 @@ public static class ODataConfigurations
         financialBacklog.Parameter<bool>("DryRun");
         financialBacklog.Returns<FinancialDocumentBacklogResultDto>();
 
+        // Spec 2026-10-15 (regra 19): firmes a receber dos documentos de saída confirmados antes do deploy.
+        var salesFirmBacklog = modelBuilder.Action("FinancialDocumentsGenerateSalesFirmBacklog");
+        salesFirmBacklog.Parameter<string>("BranchCode").Optional();
+        salesFirmBacklog.Parameter<string>("FromDate");
+        salesFirmBacklog.Parameter<string>("ToDate");
+        salesFirmBacklog.Parameter<bool>("DryRun");
+        salesFirmBacklog.Returns<SalesFirmBacklogResultDto>();
+
         modelBuilder
             .Action("PurchaseContractsTotals")
             .Returns<PurchaseContractTotalsResponseDto>()
