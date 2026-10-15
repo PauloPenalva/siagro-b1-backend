@@ -41,4 +41,13 @@ public static class FinancialDocumentTestServices
         new(db, numbers ?? new FakeDocNumberSequenceService(), new FinancialDocumentChangeLogService(db.Context),
             new UsageService(db, NullLogger<UsageService>.Instance), TestConfiguration.Erp(erp),
             new FinancialDocumentsNettingService(db));
+
+    /// <summary>Sync do firme a receber (spec 2026-10-15), com numeração em memória e a natureza lida pelo UsageService local.</summary>
+    public static FinancialDocumentsSalesFirmSyncService SalesFirmSync(
+        IUnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE")
+    {
+        var sequence = numbers ?? new FakeDocNumberSequenceService();
+        return new(db, sequence, new FinancialDocumentChangeLogService(db.Context), FirmSync(db, sequence, erp),
+            new FinancialDocumentsNettingService(db));
+    }
 }

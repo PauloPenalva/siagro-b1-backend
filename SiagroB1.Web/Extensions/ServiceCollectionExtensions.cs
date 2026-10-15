@@ -665,6 +665,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialAdvancesRefundService>();
         services.AddScoped<FinancialAdvancesRelinkContractService>();
         services.AddScoped<FinancialDocumentsFirmSyncService>();
+        services.AddScoped<FinancialDocumentsSalesFirmSyncService>();
         services.AddScoped<FinancialDocumentsComposeService>();
         services.AddScoped<FinancialDocumentsUncomposeService>();
         services.AddScoped<FinancialDocumentsDationService>();
