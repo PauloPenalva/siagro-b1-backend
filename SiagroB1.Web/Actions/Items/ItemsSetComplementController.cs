@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 
@@ -36,11 +37,20 @@ public class ItemsSetComplementController(IItemComplementService service)
             parameters.TryGetValue("CommercialFactor", out var factorObj);
             parameters.TryGetValue("ControlsRoyalties", out var royaltiesObj);
 
+            // Ausentes do corpo = inalterados (o diálogo de faturamento não os envia); presentes com null = limpar.
+            var hasTaxableUnit = parameters.TryGetValue("TaxableUnitOfMeasureCode", out var taxableUomObj);
+            var hasTaxableFactor = parameters.TryGetValue("TaxableFactor", out var taxableFactorObj);
+            var taxableUnit = hasTaxableUnit || hasTaxableFactor
+                ? new ItemTaxableUnitInput(
+                    taxableUomObj?.ToString(), taxableFactorObj is null ? null : Convert.ToDecimal(taxableFactorObj))
+                : null;
+
             var result = await service.SetAsync(
                 itemCodeObj.ToString()!,
                 uomObj?.ToString(),
                 factorObj is null ? null : Convert.ToDecimal(factorObj),
-                royaltiesObj is null ? null : Convert.ToBoolean(royaltiesObj));
+                royaltiesObj is null ? null : Convert.ToBoolean(royaltiesObj),
+                taxableUnit);
 
             return Ok(result);
         }

@@ -511,6 +511,9 @@ public static class ODataConfigurations
         itemsSetComplement.Parameter<double?>("CommercialFactor").Optional();
         // Opcional: omitido, mantém o valor atual (o diálogo de faturamento não envia este campo).
         itemsSetComplement.Parameter<bool>("ControlsRoyalties").Optional();
+        // Unidade tributável de exportação (spec 2026-10-14 §2). Omitidos = mantém; fator double pelo mesmo motivo acima.
+        itemsSetComplement.Parameter<string>("TaxableUnitOfMeasureCode").Optional();
+        itemsSetComplement.Parameter<double?>("TaxableFactor").Optional();
         itemsSetComplement.Returns<ItemComplementDto>();
 
         var salesContractsGetFiscalComplement = modelBuilder.Function("SalesContractsGetFiscalComplement");

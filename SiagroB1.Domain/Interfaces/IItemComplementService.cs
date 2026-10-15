@@ -12,11 +12,12 @@ public interface IItemComplementService
     Task<ItemComplementDto?> GetAsync(string itemCode);
 
     /// <summary>
-    /// Upsert por <c>ItemCode</c>. Os dois campos são opcionais: passar ambos nulos limpa o
-    /// complemento, que é uma operação válida. <paramref name="controlsRoyalties"/> nulo mantém o
-    /// valor atual (o diálogo de faturamento não conhece esse campo).
+    /// Upsert por <c>ItemCode</c>. Os dois campos comerciais são opcionais: passar ambos nulos limpa o
+    /// complemento, que é uma operação válida. <paramref name="controlsRoyalties"/> e
+    /// <paramref name="taxableUnit"/> nulos mantêm o valor atual (o diálogo de faturamento não conhece
+    /// esses campos).
     /// </summary>
     Task<ItemComplementDto> SetAsync(
         string itemCode, string? commercialUnitOfMeasureCode, decimal? commercialFactor,
-        bool? controlsRoyalties = null);
+        bool? controlsRoyalties = null, ItemTaxableUnitInput? taxableUnit = null);
 }
