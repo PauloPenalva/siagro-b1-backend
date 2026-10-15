@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -11,6 +12,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
@@ -31,7 +33,8 @@ public class ShipmentLoadBillingServiceTests
             names: new Dictionary<string, string> { [CardCode] = "CLIENTE TESTE" },
             states: new Dictionary<string, string> { [CardCode] = "RS" });
 
-    private ShipmentBillingCreateSalesInvoiceService Service(string complementErp = "SAPB1")
+    private ShipmentBillingCreateSalesInvoiceService Service(string complementErp = "SAPB1",
+        FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
     {
         var usages = new UsageService(_db, NullLogger<UsageService>.Instance);
         var partners = Partners();
@@ -55,7 +58,8 @@ public class ShipmentLoadBillingServiceTests
             new ShipmentLoadsBillingGuardService(_db.Context),
             new ShipmentLoadsRecalculateInvoicedService(_db, new ShipmentLoadsChangeLogService(_db.Context)),
             new ShipmentLoadsMovementLogService(_db.Context),
-            NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance);
+            NullLogger<ShipmentBillingCreateSalesInvoiceService>.Instance,
+            salesFirmSync);
     }
 
     private async Task<(ShipmentLoad Load, SalesContract Contract, SalesShipmentRelease Release,
@@ -133,6 +137,27 @@ public class ShipmentLoadBillingServiceTests
         });
 
         return invoice;
+    }
+
+    [Fact]
+    public async Task Billing_the_load_creates_the_firm_receivable()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        var usage = await new UsageService(_db, NullLogger<UsageService>.Instance).CreateAsync(new UsageModel
+        {
+            Name = "Venda", Direction = UsageDirection.Outgoing, CfopOutgoingInState = "5102", CfopOutgoingOutState = "6102",
+            CreatesFinancialDocument = true,
+        });
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.Items.Single().UsageCode = usage.Code;
+
+        await Service(salesFirmSync: FinancialDocumentTestServices.SalesFirmSync(_db)).ExecuteAsync(invoice, "tester");
+
+        var firm = await _db.Context.FinancialDocuments.AsNoTracking().SingleAsync();
+        Assert.Equal(FinancialDocumentNature.Firm, firm.Nature);
+        Assert.Equal(3_600_000m, firm.NetAmount);
+        Assert.Equal(contract.Key, firm.SalesContractKey);
+        Assert.Equal(invoice.Key, firm.SalesInvoiceKey);
     }
 
     [Fact]

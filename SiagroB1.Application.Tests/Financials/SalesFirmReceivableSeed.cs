@@ -2,6 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.SalesContracts;
+using SiagroB1.Application.Services.SalesInvoices;
+using SiagroB1.Application.Services.SalesShipmentReleases;
+using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Application.Services.ShipmentReleases;
+using SiagroB1.Commons.Resources;
 using SiagroB1.Application.Tests.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -112,6 +118,41 @@ internal sealed class SalesFirmReceivableSeed
         Context.SalesContractsAllocations.Add(
             SalesContractsAllocationTestSupport.NewAllocation(contract.Key, line.Key!.Value, volume, origin: origin));
         await Context.SaveChangesAsync();
+    }
+
+    public SalesInvoicesConfirmService Confirm() => new(Db,
+        new SalesShipmentReleasesRecalculateShippedService(Context),
+        new SalesContractsAllocationCreateService(Db, new SalesContractsFixedVolumeService(Context)),
+        new SalesContractsAllocationCreateForReturnService(Db, new SalesContractsFixedVolumeService(Context)),
+        new SalesInvoicesUsageGuardService(new UsageService(Db, NullLogger<UsageService>.Instance)),
+        new SalesContractsAllocationCreateForFiscalAdjustmentService(Db, new SalesContractsFixedVolumeService(Context)),
+        new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
+        new ShipmentLoadsClosureHookService(Context, new ShipmentLoadsChangeLogService(Context)),
+        new FakeStringLocalizer<Resource>(),
+        salesFirmSync: Sync());
+
+    public SalesInvoicesReverseConfirmService ReverseConfirm() => new(Db,
+        new SalesContractsAllocationDeleteForInvoiceService(Db),
+        new ShipmentReleasesRecalculateShippedService(Context),
+        new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
+        new ShipmentLoadsClosureHookService(Context, new ShipmentLoadsChangeLogService(Context)),
+        new FakeStringLocalizer<Resource>(),
+        salesFirmSync: Sync());
+
+    public SalesInvoicesCancelService Cancel() => new(Db,
+        new SalesShipmentReleasesRecalculateShippedService(Context),
+        new SalesContractsAllocationDeleteForInvoiceService(Db),
+        new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
+        NullLogger<SalesInvoicesCancelService>.Instance,
+        salesFirmSync: Sync());
+
+    /// <summary>Documento avulso Pendente confirmado pelo serviço REAL (ledger FiscalAdjustment + firme).</summary>
+    public async Task<(SalesInvoice Invoice, SalesInvoiceItem Line)> ConfirmedAsync(
+        decimal quantity = 1_000m, decimal unitPrice = 90m, string number = "DS000001")
+    {
+        var (invoice, line) = await AddInvoiceAsync(quantity, unitPrice, number: number);
+        await Confirm().ExecuteAsync(invoice.Key, "ana");
+        return (invoice, line);
     }
 
     public FinancialDocumentsSalesFirmSyncService Sync() => FinancialDocumentTestServices.SalesFirmSync(Db, Numbers, Erp);

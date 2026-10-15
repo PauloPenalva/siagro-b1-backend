@@ -1,6 +1,7 @@
 ﻿using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Application.Services.ShipmentLoads;
@@ -26,7 +27,8 @@ public class SalesInvoicesConfirmService(
     ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource,
     TaxCalculationGate? gate = null,
-    ShipmentLoadRefusalCompleteService? refusalComplete = null)
+    ShipmentLoadRefusalCompleteService? refusalComplete = null,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
@@ -183,6 +185,15 @@ public class SalesInvoicesConfirmService(
                     db.Context, invoice.SalesInvoiceOriginKey);
 
             await db.SaveChangesAsync();
+
+            // Spec 2026-10-15 (ponto 1): firmes a receber das linhas. Depois do SaveChanges acima — o ledger já está
+            // gravado — e na mesma transação: uma recusa desfaz a confirmação.
+            if (salesFirmSync is not null)
+            {
+                await salesFirmSync.EnqueueSyncAsync(
+                    invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
+                await db.SaveChangesAsync();
+            }
 
             // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.
             foreach (var releaseKey in affectedReleaseKeys)
