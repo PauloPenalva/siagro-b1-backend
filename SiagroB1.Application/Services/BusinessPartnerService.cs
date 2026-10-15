@@ -186,6 +186,17 @@ public class BusinessPartnerService(
             return false;
         }
 
+        // Os documentos guardam o código do parceiro sem FK (em SAPB1 o parceiro vive no SAP), então
+        // nada no banco impede a exclusão. Na CEAGUI (14/10/2026) o PN F001 foi excluído depois de virar
+        // fornecedor e local de entrega de um contrato e recadastrado como F00011: a liberação sumiu
+        // do "Expedir" da carga, que filtra pelo armazém do cadastro vivo.
+        var usage = await FindUsageAsync(code);
+        if (usage != null)
+        {
+            throw new DefaultException(
+                $"O parceiro {code} não pode ser excluído: está em uso em {usage}.");
+        }
+
         // BUSINESS_PARTNERS_ADDRESSES tem FK para o parceiro com NoAction: sem remover os endereços
         // antes, o DELETE do parceiro batia na FK (erro 547) e a tela recebia 500.
         db.Context.Addresses.RemoveRange(entity.Addresses);
@@ -196,6 +207,46 @@ public class BusinessPartnerService(
         db.Context.BusinessPartners.Remove(entity);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Primeiro documento que referencia o parceiro (como cliente/fornecedor, armazém, local de entrega
+    /// ou transportadora), ou <c>null</c>. Complemento do armazém, endereços e signatários são cadastro
+    /// do próprio parceiro e não contam.
+    /// </summary>
+    private async Task<string?> FindUsageAsync(string code)
+    {
+        var c = db.Context;
+        var checks = new (string Description, Func<Task<bool>> Exists)[]
+        {
+            ("Contrato de compra", () => c.PurchaseContracts.AnyAsync(x => x.CardCode == code || x.DeliveryLocationCode == code)),
+            ("Corretor de contrato de compra", () => c.PurchaseContractsBrokers.AnyAsync(x => x.CardCode == code)),
+            ("Contrato de venda", () => c.SalesContracts.AnyAsync(x => x.CardCode == code)),
+            ("Local de entrega de contrato de venda", () => c.SalesContractsDeliveryLocations.AnyAsync(x => x.CardCode == code)),
+            ("Liberação de entrega", () => c.ShipmentReleases.AnyAsync(x => x.DeliveryLocationCode == code)),
+            ("Liberação de entrega de venda", () => c.SalesShipmentReleases.AnyAsync(x => x.DeliveryLocationCode == code)),
+            ("Romaneio", () => c.StorageTransactions.AnyAsync(x => x.CardCode == code || x.WarehouseCode == code)),
+            ("Lote de armazenagem", () => c.StorageAddresses.AnyAsync(x => x.CardCode == code || x.WarehouseCode == code)),
+            ("Carga", () => c.ShipmentLoads.AnyAsync(x => x.CardCode == code || x.WarehouseCode == code || x.CarrierCardCode == code)),
+            ("Transbordo de carga", () => c.ShipmentLoadsTransshipments.AnyAsync(x => x.WarehouseCode == code)),
+            ("Recusa de carga", () => c.ShipmentLoadRefusals.AnyAsync(x => x.DestinationWarehouseCode == code)),
+            ("Ticket de pesagem", () => c.WeighingTickets.AnyAsync(x => x.CardCode == code)),
+            ("Documento de saída", () => c.SalesInvoices.AnyAsync(x => x.CardCode == code || x.DeliveryCardCode == code)),
+            ("Documento de entrada", () => c.PurchaseInvoices.AnyAsync(x => x.CardCode == code)),
+            ("Fatura de armazenagem", () => c.StorageInvoices.AnyAsync(x => x.CardCode == code)),
+            ("Conferência de armazém", () => c.WarehouseReconciliations.AnyAsync(x => x.CardCode == code || x.WarehouseCode == code)),
+            ("Título financeiro", () => c.FinancialDocuments.AnyAsync(x => x.CardCode == code)),
+        };
+
+        foreach (var (description, exists) in checks)
+        {
+            if (await exists())
+            {
+                return description;
+            }
+        }
+
+        return null;
     }
 
     public IQueryable<BusinessPartnerModel> QueryAll()

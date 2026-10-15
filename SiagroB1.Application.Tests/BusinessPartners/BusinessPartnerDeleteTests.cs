@@ -1,9 +1,11 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.BusinessPartners;
@@ -64,6 +66,49 @@ public class BusinessPartnerDeleteTests
 
         Assert.False(await db.Context.BusinessPartnerSignatories.AnyAsync(s => s.CardCode == "ARM900"));
         Assert.Equal(1, await db.Context.BusinessPartnerSignatories.CountAsync(s => s.CardCode == "C900"));
+    }
+
+    /// <summary>
+    /// Os documentos guardam o código do parceiro sem FK. Na CEAGUI (14/10/2026) o PN F001 foi
+    /// excluído 16 min depois de virar fornecedor e local de entrega do CC000004 e foi recadastrado
+    /// como F00011: a liberação sumiu do "Expedir" da carga, que filtra pelo armazém do cadastro vivo.
+    /// </summary>
+    [Fact]
+    public async Task Delete_of_partner_used_as_contract_supplier_is_refused()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "F001", CardName = "TAGUI" });
+        db.Context.PurchaseContracts.Add(new PurchaseContract
+        {
+            Key = Guid.NewGuid(), Code = "CC000004", CardCode = "F001", ItemCode = "SOJA", BranchCode = "01",
+            UnitOfMeasureCode = "SC", HarvestSeasonCode = "2025", DeliveryLocationCode = "F001",
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service(db).DeleteAsync("F001"));
+
+        Assert.Contains("Contrato de compra", ex.Message);
+        Assert.True(await db.Context.BusinessPartners.AnyAsync(b => b.CardCode == "F001"));
+    }
+
+    [Fact]
+    public async Task Delete_of_partner_used_as_shipment_warehouse_is_refused()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "F001", CardName = "TAGUI", QryGroup23 = "Y" });
+        db.Context.StorageTransactions.Add(new StorageTransaction
+        {
+            Key = Guid.NewGuid(), Code = "RM000045", CardCode = "OUTRO", ItemCode = "SOJA", UnitOfMeasureCode = "KG",
+            WarehouseCode = "F001", TransactionType = StorageTransactionType.Shipment,
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service(db).DeleteAsync("F001"));
+
+        Assert.Contains("Romaneio", ex.Message);
+        Assert.True(await db.Context.BusinessPartners.AnyAsync(b => b.CardCode == "F001"));
     }
 
     [Fact]
