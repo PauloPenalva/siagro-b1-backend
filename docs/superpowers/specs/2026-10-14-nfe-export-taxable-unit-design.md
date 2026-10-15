@@ -21,7 +21,7 @@ Modo alvo: `STANDALONE` (onde o SiagroB1 emite a NF-e). O cadastro vive nos dois
 | D1 | A unidade tributável é **configuração do produto**, não regra de negócio por NCM: unidade + fator, qualquer unidade (hoje TON; amanhã outra). |
 | D2 | A configuração só se aplica quando o **CFOP do item é de exportação** (lista fixa, abaixo). Fora disso, o tributável continua igual ao comercial. |
 | D3 | Quando a unidade tributável difere da comercial, o DANFE imprime **as duas** (comercial em cima, tributável embaixo). |
-| D4 | Quantidade e valor unitário no DANFE com **a maior precisão que o XML tiver**. |
+| D4 | Quantidade (até 4 casas) e valor unitário (até 4 casas) no DANFE com **a maior precisão que o XML tiver, dentro desses limites** (revisto em 15/10/2026: valor unitário limitado a 4 casas no DANFE — com 10 casas o número quebra no meio da coluna do layout da Zeus; o XML mantém até 10). |
 
 ## 1. Precisão do DANFE
 
@@ -29,7 +29,7 @@ Em `DanfeReportService.Render`, a partir do `nfeProc` já carregado, sobre **tod
 
 - `DecimaisQuantidadeItem` = maior número de casas **significativas** (sem zeros à direita) entre `qCom` e `qTrib`,
   limitado a `[2, 4]`.
-- `DecimaisValorUnitario` = idem entre `vUnCom` e `vUnTrib`, limitado a `[2, 10]`.
+- `DecimaisValorUnitario` = idem entre `vUnCom` e `vUnTrib`, limitado a `[2, 4]` (o XML mantém até 10 casas em `vUnTrib`).
 - `ImprimirUnidQtdeValor` = `Ambos` se algum item tem `uTrib ≠ uCom` ou `qTrib ≠ qCom`; senão `Comercial` (como hoje).
 
 O cálculo fica numa classe estática pura (`DanfeItemPrecision`, em `SiagroB1.Reports/Services`), testável sem
@@ -104,7 +104,7 @@ a unidade pelo NCM, o usuário configura o produto e retransmite.
 - Assembler: item 5504 com complemento → campos preenchidos; item 5102 com complemento → nulos; item 5504 sem
   complemento → nulos.
 - `NfeXmlBuilder`: XML com `uTrib=TON`, `qTrib` e `vUnTrib` convertidos; sem os campos, igual ao comercial.
-- `DanfeItemPrecisionTests`: casas mínimas 2, `30.0005` → 4, `vUnTrib` com 10 casas, limite superior, escolha
+- `DanfeItemPrecisionTests`: casas mínimas 2, `30.0005` → 4, `vUnTrib` com 10 casas → valor unitário limitado a 4, 3 casas se mantêm, limite superior, escolha
   `Ambos`/`Comercial`.
 - `ItemComplementServiceTests`: os dois juntos, fator ≤ 0, `""` limpa, ausente mantém; EDM do fator `double`.
 - Verificação final pelo caminho do usuário: configurar SOJA (TON/1000) na tela Complemento, emitir em homologação

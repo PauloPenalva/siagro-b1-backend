@@ -42,7 +42,7 @@ public class DanfeItemPrecisionTests
         ]);
 
         Assert.Equal(4, precision.QuantityDecimals);
-        Assert.Equal(7, precision.UnitPriceDecimals);
+        Assert.Equal(4, precision.UnitPriceDecimals);
         Assert.True(precision.BothUnits);
     }
 
@@ -52,7 +52,22 @@ public class DanfeItemPrecisionTests
         var precision = DanfeItemPrecision.From([Prod(1.123456m, 1.123456789912m)]);
 
         Assert.Equal(4, precision.QuantityDecimals);
-        Assert.Equal(10, precision.UnitPriceDecimals);
+        Assert.Equal(4, precision.UnitPriceDecimals);
+    }
+
+    /// <summary>Decisão de 15/10/2026: com 10 casas o preço quebra no meio da coluna do layout da Zeus; o XML mantém as 10.</summary>
+    [Fact]
+    public void Unit_price_is_capped_at_four_decimals_even_when_the_xml_has_ten()
+    {
+        var precision = DanfeItemPrecision.From([Prod(1m, 2m, "TON", 1m, 2100.0002642497m)]);
+
+        Assert.Equal(4, precision.UnitPriceDecimals);
+    }
+
+    [Fact]
+    public void A_three_decimal_unit_price_keeps_three_decimals()
+    {
+        Assert.Equal(3, DanfeItemPrecision.From([Prod(1m, 2.125m)]).UnitPriceDecimals);
     }
 
     [Fact]

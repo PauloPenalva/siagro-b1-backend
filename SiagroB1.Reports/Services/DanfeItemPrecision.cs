@@ -12,7 +12,8 @@ public sealed record DanfeItemPrecision(int QuantityDecimals, int UnitPriceDecim
 {
     private const int MinDecimals = 2;
     private const int MaxQuantityDecimals = 4;   // TDec_1104v
-    private const int MaxUnitPriceDecimals = 10; // TDec_1110v
+    // O XML vai até 10 casas, mas a coluna da Zeus não comporta: o preço quebra no meio do número (decisão de 15/10/2026).
+    private const int MaxUnitPriceDecimals = 4;
 
     public static DanfeItemPrecision From(IEnumerable<prod> products)
     {
