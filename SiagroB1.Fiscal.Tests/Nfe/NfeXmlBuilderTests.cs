@@ -712,4 +712,34 @@ public class NfeXmlBuilderTests
         var total = nfe.infNFe.total.ICMSTot;
         Assert.Equal((0m, 0m, 0m, 0m, 60000m), (total.vFrete, total.vSeg, total.vDesc, total.vOutro, total.vNF));
     }
+
+    [Fact]
+    public void Taxable_group_copies_the_commercial_one_by_default()
+    {
+        var prod = Build(NfeTestData.Input()).infNFe.det[0].prod;
+
+        Assert.Equal("KG", prod.uTrib);
+        Assert.Equal(30000m, prod.qTrib);
+        Assert.Equal(2m, prod.vUnTrib);
+    }
+
+    [Fact]
+    public void Export_item_sends_its_own_taxable_group()
+    {
+        var item = NfeTestData.Item() with
+        {
+            Cfop = "5504", TaxableUnitOfMeasure = "TON", TaxableQuantity = 30m, TaxableUnitPrice = 2000m,
+        };
+
+        var prod = Build(NfeTestData.Input() with { Items = [item] }).infNFe.det[0].prod;
+
+        Assert.Equal("TON", prod.uTrib);
+        Assert.Equal(30m, prod.qTrib);
+        Assert.Equal(2000m, prod.vUnTrib);
+        // O grupo comercial não muda: a validação 629 (qCom × vUnCom = vProd) continua sobre ele.
+        Assert.Equal("KG", prod.uCom);
+        Assert.Equal(30000m, prod.qCom);
+        Assert.Equal(2m, prod.vUnCom);
+        Assert.Equal(60000m, prod.vProd);
+    }
 }

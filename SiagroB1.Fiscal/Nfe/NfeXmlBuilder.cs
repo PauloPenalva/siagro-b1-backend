@@ -261,9 +261,9 @@ public static class NfeXmlBuilder
             vUnCom = item.UnitPrice,
             vProd = item.Total,
             cEANTrib = WithoutGtin,
-            uTrib = Truncate(item.UnitOfMeasure, 6),
-            qTrib = item.Quantity,
-            vUnTrib = item.UnitPrice,
+            uTrib = Truncate(item.TaxableUnitOfMeasure ?? item.UnitOfMeasure, 6),
+            qTrib = item.TaxableQuantity ?? item.Quantity,
+            vUnTrib = item.TaxableUnitPrice ?? item.UnitPrice,
             // Frete, seguro, desconto e outras despesas da linha: omitidos quando 0 (o leiaute permite, e a nota sem eles
             // sai idêntica à de antes).
             vFrete = Charge(item.FreightValue),

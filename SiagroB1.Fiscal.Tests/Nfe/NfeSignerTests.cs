@@ -195,4 +195,25 @@ public class NfeSignerTests
         Assert.Empty(prod.Elements().Where(e => e.Name.LocalName is "vFrete" or "vSeg" or "vDesc" or "vOutro"));
         Assert.Equal(60000m, Number(xml.Descendants(Ns + "ICMSTot").Single().Element(Ns + "vNF")));
     }
+
+    [Fact]
+    public void Export_item_with_four_decimal_qtrib_and_ten_decimal_vuntrib_passes_the_schema()
+    {
+        using var certificate = Certificate();
+        var item = NfeTestData.Item() with
+        {
+            Cfop = "5504", Quantity = 33333m, Total = 66666m,
+            TaxableUnitOfMeasure = "TON", TaxableQuantity = 33.333m, TaxableUnitPrice = 2000.0000000000m,
+        };
+        var input = NfeTestData.Input() with
+        {
+            Items = [item],
+            Payment = PaymentInstallmentCalculator.Calculate("0", PaymentStartRule.IssueDate, "99", 66666m, DateOnly.FromDateTime(NfeTestData.IssuedAt.Date)),
+        };
+
+        var signed = NfeSigner.BuildSignAndValidate(input, Settings(certificate));
+
+        Assert.Contains("<uTrib>TON</uTrib>", signed.Xml);
+        Assert.Contains("<qTrib>33.3330</qTrib>", signed.Xml);
+    }
 }
