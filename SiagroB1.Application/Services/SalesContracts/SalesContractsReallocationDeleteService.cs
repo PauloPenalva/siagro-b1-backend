@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -16,7 +17,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// </summary>
 public class SalesContractsReallocationDeleteService(
     IUnitOfWork db,
-    ILogger<SalesContractsReallocationDeleteService> logger)
+    ILogger<SalesContractsReallocationDeleteService> logger,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     public async Task ExecuteWithTransactionAsync(Guid key, string userName)
     {
@@ -143,6 +145,10 @@ public class SalesContractsReallocationDeleteService(
         // remainingItemLines.
         await SalesShipmentReleasesRecalculateShippedService.RecalculateForTouchedItemAsync(
             db.Context, itemKey, item, remainingItemLines, extraReleaseKeys: releases.Keys);
+
+        // Spec 2026-10-15 D7: desfazer a realocação junta o firme de volta (as linhas removidas já estão Deleted).
+        if (salesFirmSync is not null)
+            await salesFirmSync.EnqueueSyncAsync([itemKey], userName, SalesFirmSyncTrigger.Reallocation);
 
         await db.SaveChangesAsync();
 

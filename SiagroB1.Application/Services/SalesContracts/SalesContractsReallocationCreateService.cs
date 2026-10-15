@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesShipmentReleases;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -36,7 +37,8 @@ namespace SiagroB1.Application.Services.SalesContracts;
 /// </summary>
 public class SalesContractsReallocationCreateService(
     IUnitOfWork db,
-    SalesShipmentReleaseMovementGuardService movementGuard)
+    SalesShipmentReleaseMovementGuardService movementGuard,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     public async Task ExecuteWithTransactionAsync(Guid salesInvoiceItemKey, Guid sourceSalesContractKey,
         Guid targetSalesContractKey, Guid? targetSalesShipmentReleaseKey, decimal volume, string userName,
@@ -274,6 +276,11 @@ public class SalesContractsReallocationCreateService(
         // targetReleases; o helper reencontra a mesma instância pelo identity map.
         await SalesShipmentReleasesRecalculateShippedService.RecalculateForTouchedItemAsync(
             db.Context, salesInvoiceItemKey, item, itemLines);
+
+        // Spec 2026-10-15 D7: o firme a receber acompanha o volume. A sincronização lê o ledger com as linhas ainda
+        // pendentes no contexto e recusa (composto/baixado) antes de qualquer escrita.
+        if (salesFirmSync is not null)
+            await salesFirmSync.EnqueueSyncAsync([salesInvoiceItemKey], userName, SalesFirmSyncTrigger.Reallocation);
 
         if (commitMode == CommitMode.Auto)
             await db.SaveChangesAsync();
