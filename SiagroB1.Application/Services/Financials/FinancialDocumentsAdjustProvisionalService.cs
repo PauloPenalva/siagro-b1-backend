@@ -7,7 +7,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.Financials;
 
 /// <summary>
-/// Ajusta NO LUGAR o provisório a pagar de uma fixação cujo volume mudou por washout.
+/// Ajusta NO LUGAR o provisório (a pagar ou a receber) de uma fixação cujo volume mudou por washout.
 ///
 /// No lugar, e não cancelar-e-gerar: cancelar-e-gerar exigiria gravar o cancelamento antes do insert (índice único
 /// filtrado IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin) e buscar número por Dapper no meio da transação.
@@ -62,6 +62,63 @@ public class FinancialDocumentsAdjustProvisionalService(
         if (newAmount < document.ComposedAmount)
             throw new ApplicationException(
                 $"O washout reduziria o título {document.Code} para {newAmount.ToString("N2", PtBr)}, abaixo do valor já composto ({document.ComposedAmount.ToString("N2", PtBr)}): desfaça a composição antes.");
+
+        changeLog.Register(
+            document.Key,
+            FinancialDocumentChangeLogFields.NetAmount,
+            document.NetAmount.ToString("N2", PtBr),
+            newAmount.ToString("N2", PtBr),
+            userName);
+
+        document.NetAmount = newAmount;
+        document.UpdatedAt = DateTime.Now;
+        document.UpdatedBy = userName;
+
+        await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(context, document.Key);
+    }
+
+    /// <summary>Spec 2026-10-15 (washout de venda, §5.2).</summary>
+    public const string SalesWashedOutCancellationReason = "Volume lavado por washout";
+
+    /// <summary>
+    /// Ajuste do provisório a RECEBER da fixação de venda. Diferente da compra numa coisa: com a composição do firme a
+    /// receber (sub-projeto A), o novo valor — zero quando o volume zera — não pode ficar abaixo do já composto ou
+    /// baixado; a aprovação é recusada (V1) e o operador desfaz a composição antes.
+    /// </summary>
+    /// <param name="remainingVolume">Volume da fixação que continua a receber, já descontados os washouts aprovados.</param>
+    public async Task EnqueueForSalesFixationAsync(
+        SalesContract contract, SalesContractPriceFixation fixation, decimal remainingVolume, string userName)
+    {
+        var document = await context.FinancialDocuments.FirstOrDefaultAsync(x =>
+            x.OriginType == FinancialDocumentOrigin.SalesContractPriceFixation &&
+            x.OriginKey == fixation.Key &&
+            x.Nature == FinancialDocumentNature.Provisional &&
+            x.Status != FinancialDocumentStatus.Canceled);
+
+        if (document is null)
+        {
+            // Cancelado por volume zero (e agora estornado) ou dado antigo sem provisório.
+            if (remainingVolume > 0)
+                await generateService.EnqueueForSalesFixationAsync(contract, fixation, userName, remainingVolume);
+            return;
+        }
+
+        var newAmount = remainingVolume <= 0
+            ? 0m
+            : decimal.Round(remainingVolume * fixation.FixationPrice, 2, MidpointRounding.ToEven);
+
+        if (newAmount < Math.Max(document.ComposedAmount, document.SettledAmount))
+            throw new ApplicationException(
+                $"O provisório {document.Code} já tem {document.ComposedAmount.ToString("N2", PtBr)} composto: " +
+                $"o washout o deixaria em {newAmount.ToString("N2", PtBr)}. Desfaça a composição antes de aprovar.");
+
+        if (remainingVolume <= 0)
+        {
+            FinancialDocumentsCancelService.Cancel(document, SalesWashedOutCancellationReason, userName);
+            return;
+        }
+
+        if (newAmount == document.NetAmount) return;
 
         changeLog.Register(
             document.Key,

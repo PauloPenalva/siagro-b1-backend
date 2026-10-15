@@ -51,6 +51,13 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                 "Título gerado por washout não pode ser cancelado aqui. " +
                 $"Estorne o washout no contrato de compra {document.OriginDocNumber}.");
 
+        // Spec 2026-10-15 (washout de venda, §5.6): mesmo motivo do F4 — o washout aprovado ficaria reduzindo saldo e
+        // provisório sem título nenhum por trás.
+        if (document.OriginType == FinancialDocumentOrigin.SalesContractWashout)
+            throw new ApplicationException(
+                "Título gerado por washout não pode ser cancelado aqui. " +
+                $"Estorne o washout no contrato de venda {document.OriginDocNumber}.");
+
         // Spec 2026-10-13 (títulos firmes): cancelar o provisório composto deixaria linhas de composição órfãs
         // abatendo os firmes.
         if (document.ComposedAmount != 0m)
