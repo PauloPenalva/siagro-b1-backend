@@ -43,8 +43,9 @@ public class PurchaseInvoicesItemsCreateService(
             await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             item.NfeItemNumber = null;
 
-        // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard.
-        if (item.PurchaseContractKey is not null)
+        // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard. Linha do complemento próprio:
+        // a regra do complemento valida o contrato depois de herdar o produto e de C3 (spec 2026-10-14, D5).
+        if (item.PurchaseContractKey is not null && item.ComplementedItemKey is null)
             await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
 

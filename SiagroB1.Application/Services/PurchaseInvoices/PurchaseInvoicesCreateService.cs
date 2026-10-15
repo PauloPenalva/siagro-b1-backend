@@ -98,8 +98,10 @@ public class PurchaseInvoicesCreateService(
             item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
                 itemService, item.ItemCode, item.ItemName);
 
-            await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
-                db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
+            // Complemento próprio (spec 2026-10-14, D5): a regra do complemento valida o contrato depois de herdar o produto.
+            if (item.ComplementedItemKey is null)
+                await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                    db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
         }
 
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, invoice.Items.ToList());

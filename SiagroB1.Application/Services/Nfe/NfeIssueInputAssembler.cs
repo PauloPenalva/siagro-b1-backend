@@ -55,6 +55,7 @@ public static class NfeIssueInputAssembler
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
             // Venda: saída normal. Devolução de venda: ENTRADA com finalidade 4.
             returnOrigin is null ? NfeDirection.Outgoing : NfeDirection.Incoming,
+            returnOrigin is null ? NfePurpose.Normal : NfePurpose.Return,
             returnOrigin, referencedKeys,
             NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
             line => ((SalesInvoiceItem)line).SalesInvoiceItemOriginKey,
@@ -67,7 +68,8 @@ public static class NfeIssueInputAssembler
     /// <summary>
     /// Entrada própria: ENTRADA normal, destinatário = fornecedor; a contra-nota leva no NFref a chave da escrituração do
     /// produtor e o Funrural dela no infCpl (spec 2026-10-10 §6). Devolução de compra: SAÍDA com finalidade 4, o item da
-    /// entrada no DFeReferenciado, sem pagamento.
+    /// entrada no DFeReferenciado, sem pagamento. Complemento de valor próprio: ENTRADA com finalidade 2 e as notas
+    /// originais no NFref do cabeçalho (spec 2026-10-14, regras 9–10).
     /// </summary>
     public static NfeIssueInput Build(
         PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
@@ -76,16 +78,22 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a entrada de origem.")
             : null;
 
-        var producer = returnOrigin is null ? context.ProducerInvoice : null;
+        var complement = returnOrigin is null && invoice.InvoiceType == PurchaseInvoiceType.ValueComplement;
+        var producer = returnOrigin is null && !complement ? context.ProducerInvoice : null;
 
         IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey]
+            : complement ? context.ComplementReferencedKeys ?? throw new DefaultException("O complemento está sem as notas originais.")
             : producer is not null ? [producer.AccessKey]
             : [];
+
+        var purpose = returnOrigin is not null ? NfePurpose.Return
+            : complement ? NfePurpose.Complement
+            : NfePurpose.Normal;
 
         return Build(new NfeDocumentView(
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
             returnOrigin is null ? NfeDirection.Incoming : NfeDirection.Outgoing,
-            returnOrigin, referencedKeys,
+            purpose, returnOrigin, referencedKeys,
             NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
             line => ((PurchaseInvoiceItem)line).PurchaseInvoiceItemOriginKey,
             invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
@@ -103,7 +111,7 @@ public static class NfeIssueInputAssembler
     /// <param name="DefaultOperationNature"><c>natOp</c> quando a natureza da primeira linha não tem texto nem nome.</param>
     private sealed record NfeDocumentView(
         string TaxDocumentNumber, string TaxDocumentSeries, string RandomCode,
-        NfeDirection Direction, NfeReturnOrigin? ReturnOrigin, IReadOnlyList<string> HeaderReferencedKeys,
+        NfeDirection Direction, NfePurpose Purpose, NfeReturnOrigin? ReturnOrigin, IReadOnlyList<string> HeaderReferencedKeys,
         IReadOnlyList<INfeTaxedLine> Lines, Func<INfeTaxedLine, Guid?> OriginItemKey,
         FreightTerms FreightTerms, decimal NetWeight, decimal GrossWeight, NfeVolume? Volume,
         string? TaxPayerComments, string? TaxComments, string? FunruralText, string DefaultOperationNature,
@@ -128,7 +136,7 @@ public static class NfeIssueInputAssembler
             Number = long.Parse(view.TaxDocumentNumber, CultureInfo.InvariantCulture),
             RandomCode = view.RandomCode,
             Direction = view.Direction,
-            Purpose = returnOrigin is null ? NfePurpose.Normal : NfePurpose.Return,
+            Purpose = view.Purpose,
             ReferencedKeys = view.HeaderReferencedKeys,
             IssuedAt = issuedAt,
             OperationNature = string.IsNullOrWhiteSpace(firstUsage?.InvoiceOperationText)

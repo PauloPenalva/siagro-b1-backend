@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -15,10 +16,11 @@ namespace SiagroB1.Application.Services.Nfe;
 /// <param name="RequiresPayment">Falso na devolução própria, que não tem pagamento (tPag 90).</param>
 /// <param name="Direction">Sentido da NF-e: decide os prefixos de CFOP conferidos (5/6 na saída, 1/2 na entrada).</param>
 /// <param name="RequiresProductAndUnit">Linha cujo produto/unidade é anulável: lista a lacuna em vez de estourar no montador.</param>
+/// <param name="RequiresWeights">Falso no complemento de valor: nada é transportado (o montador omite o vol com peso 0).</param>
 public sealed record NfeReadinessRequest(
     string? BranchCode, string PartnerCode, string PartnerLabel, string? DeliveryCardCode, string? TruckingCompanyCode,
     string? TruckCode, decimal GrossWeight, decimal NetWeight, int? PaymentConditionCode, bool RequiresPayment,
-    NfeDirection Direction, IReadOnlyList<INfeTaxedLine> Lines, bool RequiresProductAndUnit);
+    NfeDirection Direction, IReadOnlyList<INfeTaxedLine> Lines, bool RequiresProductAndUnit, bool RequiresWeights = true);
 
 /// <summary>
 /// Confere o cadastro antes de reservar número (spec §9.2 passo 2). Junta TODAS as lacunas numa
@@ -43,10 +45,18 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
     /// <summary>
     /// Entrada própria (destinatário = fornecedor, CFOP 1xxx/2xxx, condição de pagamento) ou devolução de compra
     /// (CFOP 5xxx/6xxx, sem pagamento, a entrada de origem conferida). Produto e unidade em toda linha: na
-    /// entrada os dois são anuláveis (nota de terceiro pode trazer código fora do cadastro).
+    /// entrada os dois são anuláveis (nota de terceiro pode trazer código fora do cadastro). Complemento de valor próprio
+    /// (spec 2026-10-14): as notas originais recarregadas (C6) e sem pesos.
     /// </summary>
-    public Task<NfeIssueContext> ValidateAsync(PurchaseInvoice invoice) =>
-        ValidateCoreAsync(
+    public async Task<NfeIssueContext> ValidateAsync(PurchaseInvoice invoice)
+    {
+        // Regra 8 / C6: a regra 2 vale no rascunho, mas a original pode ter sido cancelada antes da transmissão. Recusa
+        // direta (não é "dado faltando"), antes de qualquer reserva de número.
+        var complementKeys = invoice.InvoiceType == PurchaseInvoiceType.ValueComplement
+            ? await LoadComplementReferencesAsync(invoice)
+            : null;
+
+        var context = await ValidateCoreAsync(
             new NfeReadinessRequest(
                 invoice.BranchCode, invoice.CardCode, "Fornecedor", DeliveryCardCode: null, invoice.TruckingCompanyCode,
                 invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
@@ -54,8 +64,12 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
                 RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None,
                 Direction: invoice.IsNfeReturn ? NfeDirection.Outgoing : NfeDirection.Incoming,
                 Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
-                RequiresProductAndUnit: true),
+                RequiresProductAndUnit: true,
+                RequiresWeights: invoice.InvoiceType != PurchaseInvoiceType.ValueComplement),
             invoice.IsNfeReturn ? problems => LoadPurchaseReturnOriginAsync(invoice, problems) : null);
+
+        return complementKeys is null ? context : context with { ComplementReferencedKeys = complementKeys };
+    }
 
     /// <summary>
     /// O núcleo, sem saber de que documento se trata: o que muda vem no <paramref name="request"/>, e a
@@ -176,8 +190,9 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         }
 
         // Volume da NF-e: só os pesos são obrigatórios (quantidade, espécie, marca e numeração não).
-        // Informados, não derivados da quantidade: a unidade pode ser saco, bag, caixa...
-        if (request.GrossWeight <= 0 || request.NetWeight <= 0)
+        // Informados, não derivados da quantidade: a unidade pode ser saco, bag, caixa... O complemento de valor não
+        // transporta nada (RequiresWeights falso); peso informado nele continua conferido.
+        if (request.RequiresWeights && (request.GrossWeight <= 0 || request.NetWeight <= 0))
             problems.Add("Documento: peso bruto e peso líquido");
         else if (request.GrossWeight < request.NetWeight)
             problems.Add("Documento: o peso bruto não pode ser menor que o peso líquido");
@@ -304,6 +319,32 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         }
 
         return new NfeReturnOrigin(origin.ChaveNFe, origin.TaxDocumentNumber!, origin.TaxDocumentSeries!, origin.IssueDate, numbers);
+    }
+
+    /// <summary>
+    /// Complemento de valor próprio (spec 2026-10-14, regras 8 e 10): recarrega a nota de cada linha, recusa a que
+    /// deixou de estar autorizada (C6) e devolve as chaves DISTINTAS, na ordem de primeira aparição pelo nItem.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> LoadComplementReferencesAsync(PurchaseInvoice invoice)
+    {
+        var lines = NfeItemNumbering.Ordered(invoice.Items);
+        var originals = await PurchaseInvoiceValueComplement.LoadOriginalsAsync(db.Context, lines);
+
+        var references = new List<string>();
+        foreach (var line in lines)
+        {
+            if (line.ComplementedItemKey is not { } key || !originals.TryGetValue(key, out var original) ||
+                original.PurchaseInvoice is not { } origin)
+                throw new DefaultException(PurchaseInvoiceValueComplement.MissingOriginalMessage(line.ItemCode));
+
+            if (!PurchaseInvoiceValueComplement.IsComplementableOrigin(origin) || origin.ChaveNFe is not { Length: 44 } accessKey)
+                throw new DefaultException(PurchaseInvoiceValueComplement.NoLongerAuthorizedMessage(origin.InvoiceNumber));
+
+            if (!references.Contains(accessKey))
+                references.Add(accessKey);
+        }
+
+        return references;
     }
 
     private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>

@@ -38,6 +38,27 @@ public class PurchaseInvoicesItemsController(
     public ActionResult<IEnumerable<PurchaseInvoiceItem>> GetByInvoice([FromRoute] Guid key) =>
         Ok(getService.QueryAll(key));
 
+    /// <summary>
+    /// Leitura de UMA linha pelo caminho do documento, <c>PurchaseInvoices({key})/Items({itemKey})</c>.
+    ///
+    /// Não é rota de tela: é o modelo relendo a linha logo depois do POST (201), com o $select/$expand
+    /// da grade, para trocar o registro provisório pelo que o servidor gravou. Sem ela a linha entra
+    /// no banco e mesmo assim a tela mostra "Communication error: 404". Só o GET precisa existir: o
+    /// UI5 apaga e altera a linha pelo caminho canônico <c>PurchaseInvoicesItems({itemKey})</c>, que o
+    /// roteamento por convenção já cobre (<see cref="Delete"/>, <see cref="Patch"/>). Mesmo padrão de
+    /// <c>NotificationGroupMembersController.GetFromMembers</c>.
+    /// </summary>
+    [HttpGet("odata/PurchaseInvoices({key:guid})/Items({itemKey:guid})")]
+    [HttpGet("odata/PurchaseInvoices/{key:guid}/Items/{itemKey:guid}")]
+    [EnableQuery]
+    public async Task<ActionResult<PurchaseInvoiceItem>> GetFromInvoice(
+        [FromRoute] Guid key, [FromRoute] Guid itemKey)
+    {
+        var item = await getService.GetByIdAsync(itemKey);
+
+        return item is null || item.PurchaseInvoiceKey != key ? NotFound() : Ok(item);
+    }
+
     [EnableQuery]
     public async Task<ActionResult<PurchaseInvoiceItem>> Get([FromRoute] Guid key)
     {
@@ -51,6 +72,34 @@ public class PurchaseInvoicesItemsController(
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        return await CreateAsync(entity);
+    }
+
+    /// <summary>
+    /// Inclusão de linha a partir do documento já gravado.
+    ///
+    /// A grade da tela de edição é ligada em <c>Items</c>, relativa ao contexto do cabeçalho, então
+    /// o <c>create()</c> do modelo posta em <c>PurchaseInvoices({key})/Items</c> — e não na coleção
+    /// <c>PurchaseInvoicesItems</c>, que é a única que o roteamento por convenção cobre. Como o GET
+    /// desse caminho já era declarado à mão (<see cref="GetByInvoice"/>), a URL existia só para GET e
+    /// o POST batia em "405 Method Not Allowed". Mesmo padrão de
+    /// <c>NotificationGroupMembersController.PostToMembers</c>.
+    /// </summary>
+    [HttpPost("odata/PurchaseInvoices({key:guid})/Items")]
+    [HttpPost("odata/PurchaseInvoices/{key:guid}/Items")]
+    public async Task<IActionResult> PostToInvoice([FromRoute] Guid key, [FromBody] PurchaseInvoiceItem entity)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Quem diz a que documento a linha pertence é a rota; vale mais que qualquer valor do corpo.
+        entity.PurchaseInvoiceKey = key;
+
+        return await CreateAsync(entity);
+    }
+
+    private async Task<IActionResult> CreateAsync(PurchaseInvoiceItem entity)
+    {
         try
         {
             await createService.ExecuteAsync(entity, User.Identity?.Name ?? "Unknown");

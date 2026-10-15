@@ -204,8 +204,10 @@ public class PurchaseInvoicesUpdateService(
             {
                 PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(existing);
 
-                await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
-                    db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
+                // Complemento próprio: a regra do complemento valida o contrato depois de C3 (spec 2026-10-14, D5).
+                if (line.ComplementedItemKey is null)
+                    await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                        db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
 
                 // Add no DbSet, e NÃO em existing.Items: Key é ValueGeneratedOnAdd, e uma entidade
                 // com chave já preenchida entrando pela NAVEGAÇÃO é lida pelo EF como registro
@@ -230,13 +232,17 @@ public class PurchaseInvoicesUpdateService(
                     DiscountValue = line.DiscountValue,
                     OtherExpensesValue = line.OtherExpensesValue,
                     ComplementAmount = line.ComplementAmount,
+                    ComplementedItemKey = line.ComplementedItemKey,
                 });
 
                 continue;
             }
 
-            await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
-                db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
+            // Complemento próprio: a regra do complemento valida o contrato DEPOIS de C3 — trocar o produtor do cabeçalho
+            // recusa por C3, e o contrato escolhido pelo operador continua passando pela guarda (spec 2026-10-14, D5).
+            if (line.ComplementedItemKey is null)
+                await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(
+                    db, line.PurchaseContractKey, line.ItemCode, existing.CardCode);
 
             // Capturado ANTES da atribuição: depois dela a comparação é sempre falsa.
             var itemCodeChanged = current.ItemCode != line.ItemCode;
@@ -256,6 +262,7 @@ public class PurchaseInvoicesUpdateService(
             current.DiscountValue = line.DiscountValue;
             current.OtherExpensesValue = line.OtherExpensesValue;
             current.ComplementAmount = line.ComplementAmount;
+            current.ComplementedItemKey = line.ComplementedItemKey;
 
             // Na devolução de compra só a quantidade e os quatro valores da linha mudam (a descrição re-resolvida também volta).
             var lineEntry = db.Context.Entry(current);

@@ -140,4 +140,18 @@ public static class NfeTestData
         Items = [Item() with { Cfop = "5202", PisCst = "49", CofinsCst = "49", Reference = new NfeItemReference(EntryAccessKey, 2) }],
         Payment = new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, []),
     };
+
+    /// <summary>
+    /// NF-e complementar própria de entrada (spec 2026-10-14, finalidade 2): só valor — quantidade e preço zero, vProd =
+    /// valor do complemento —, as notas originais no NFref do cabeçalho e nada no item (não é devolução).
+    /// </summary>
+    public static NfeIssueInput PurchaseComplementInput() => Input(recipientAddress: SaoPaulo()) with
+    {
+        OperationNature = "COMPRA DE MERCADORIA",
+        Direction = NfeDirection.Incoming,
+        Purpose = NfePurpose.Complement,
+        ReferencedKeys = [EntryAccessKey, ProducerAccessKey],
+        Recipient = NonTaxpayerProducer(),
+        Items = [Item() with { Cfop = "1102", PisCst = "74", CofinsCst = "74", Quantity = 0m, UnitPrice = 0m, Total = 60000m }],
+    };
 }

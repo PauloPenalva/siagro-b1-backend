@@ -642,6 +642,41 @@ public class NfeXmlBuilderTests
         Assert.Null(nfe.infNFe.cobr);
     }
 
+    // --- NF-e complementar própria (spec 2026-10-14) ---
+
+    [Fact]
+    public void Purchase_complement_is_an_incoming_complement_referenced_only_in_the_header()
+    {
+        var nfe = Build(NfeTestData.PurchaseComplementInput());
+
+        Assert.Equal(TipoNFe.tnEntrada, nfe.infNFe.ide.tpNF);
+        Assert.Equal(FinalidadeNFe.fnComplementar, nfe.infNFe.ide.finNFe);
+        Assert.Equal([NfeTestData.EntryAccessKey, NfeTestData.ProducerAccessKey],
+            nfe.infNFe.ide.NFref.Select(r => r.refNFe).ToArray());
+        var det = Assert.Single(nfe.infNFe.det);
+        Assert.Null(det.DFeReferenciado);
+    }
+
+    [Fact]
+    public void Purchase_complement_item_has_value_only()
+    {
+        var prod = Assert.Single(Build(NfeTestData.PurchaseComplementInput()).infNFe.det).prod;
+
+        Assert.Equal(0m, prod.qCom);
+        Assert.Equal(0m, prod.vUnCom);
+        Assert.Equal(0m, prod.qTrib);
+        Assert.Equal(0m, prod.vUnTrib);
+        Assert.Equal(60000m, prod.vProd);
+        Assert.Equal("KG", prod.uCom);
+        Assert.Equal("KG", prod.uTrib);
+    }
+
+    [Fact]
+    public void Purchase_complement_serializes_finnfe_2()
+    {
+        Assert.Contains("<finNFe>2</finNFe>", Build(NfeTestData.PurchaseComplementInput()).ObterXmlString());
+    }
+
     [Fact]
     public void Sales_return_to_a_non_taxpayer_is_not_a_final_consumer_operation()
     {

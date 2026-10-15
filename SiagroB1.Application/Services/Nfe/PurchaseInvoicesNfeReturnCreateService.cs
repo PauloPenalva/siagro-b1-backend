@@ -126,6 +126,11 @@ public class PurchaseInvoicesNfeReturnCreateService(
 
     private async Task<bool> ValidateOriginAsync(PurchaseInvoice origin)
     {
+        // Spec 2026-10-14 (C9): o complemento não tem devolução — devolve-se a original, que leva só a original (o
+        // complemento não tem PurchaseInvoiceItemOriginKey e não entra no saldo devolvível). Vale para os dois emissores.
+        if (origin.InvoiceType == PurchaseInvoiceType.ValueComplement)
+            throw new DefaultException("Complemento de valor não tem devolução.");
+
         if (origin.CustodyRole != StorageCustodyRole.None)
             throw new DefaultException(
                 "Nota de custódia (armazenagem) não é devolvida: cancele a nota ou gere a etapa seguinte pelo romaneio.");

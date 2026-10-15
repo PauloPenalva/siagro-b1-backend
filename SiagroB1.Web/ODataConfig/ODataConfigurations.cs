@@ -212,6 +212,13 @@ public static class ODataConfigurations
         purchaseInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         purchaseInvoicesNfeReturnableItems.ReturnsCollection<PurchaseInvoiceNfeReturnableItemDto>();
 
+        // Complemento de valor de emissão própria (spec 2026-10-14): itens das entradas próprias autorizadas do
+        // fornecedor e da filial do cabeçalho. Rota por atributo: as strings chegam com as aspas (o controller tira).
+        var purchaseInvoicesComplementCandidates = modelBuilder.Function("PurchaseInvoicesGetComplementCandidates");
+        purchaseInvoicesComplementCandidates.Parameter<string>("CardCode");
+        purchaseInvoicesComplementCandidates.Parameter<string>("BranchCode");
+        purchaseInvoicesComplementCandidates.ReturnsCollection<PurchaseInvoiceComplementCandidateDto>();
+
         // notifications
         modelBuilder.EntitySet<NotificationGroup>("NotificationGroups");
         modelBuilder.EntitySet<NotificationGroupMember>("NotificationGroupMembers");

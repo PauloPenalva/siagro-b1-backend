@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.Taxes;
@@ -28,7 +29,8 @@ public class PurchaseInvoicesNfeIssueServiceTests
         return new PurchaseInvoicesNfeIssueService(
             scenario.Db, new TaxCalculationGate(scenario.Db, config), new NfeReadinessValidator(scenario.Db, options),
             new BranchNfeSettingsService(scenario.Db, options, sefaz), reservation ?? new FakeNfeNumberReservationService(),
-            sefaz, Handler(scenario), options, NullLogger<PurchaseInvoicesNfeIssueService>.Instance,
+            sefaz, Handler(scenario), new UsageService(scenario.Db, NullLogger<UsageService>.Instance), options,
+            NullLogger<PurchaseInvoicesNfeIssueService>.Instance,
             NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
     }
 

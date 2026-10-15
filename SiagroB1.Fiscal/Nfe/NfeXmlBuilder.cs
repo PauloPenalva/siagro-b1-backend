@@ -108,7 +108,12 @@ public static class NfeXmlBuilder
         tpImp = TipoImpressao.tiRetrato,
         tpEmis = TipoEmissao.teNormal,
         tpAmb = Environment(input.Environment),
-        finNFe = input.Purpose == NfePurpose.Return ? FinalidadeNFe.fnDevolucao : FinalidadeNFe.fnNormal,
+        finNFe = input.Purpose switch
+        {
+            NfePurpose.Return => FinalidadeNFe.fnDevolucao,
+            NfePurpose.Complement => FinalidadeNFe.fnComplementar,
+            _ => FinalidadeNFe.fnNormal,
+        },
         // Consumidor final só existe na SAÍDA (regra 696): na entrada o destinatário é quem vende.
         indFinal = input.Direction == NfeDirection.Outgoing &&
                    input.Recipient.Indicator == StateRegistrationIndicator.NonTaxpayer

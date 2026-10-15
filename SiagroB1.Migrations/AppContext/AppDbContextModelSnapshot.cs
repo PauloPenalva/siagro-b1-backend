@@ -2759,6 +2759,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("ComplementAmount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<Guid?>("ComplementedItemKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
 
@@ -2910,6 +2913,8 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(200)");
 
                     b.HasKey("Key");
+
+                    b.HasIndex("ComplementedItemKey");
 
                     b.HasIndex("ProducerInvoiceItemKey");
 
@@ -7235,6 +7240,11 @@ namespace SiagroB1.Migrations.AppContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceItem", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoiceItem", "ComplementedItem")
+                        .WithMany()
+                        .HasForeignKey("ComplementedItemKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoiceItem", "ProducerInvoiceItem")
                         .WithMany()
                         .HasForeignKey("ProducerInvoiceItemKey")
@@ -7259,6 +7269,8 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany()
                         .HasForeignKey("SalesInvoiceItemKey")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ComplementedItem");
 
                     b.Navigation("ProducerInvoiceItem");
 

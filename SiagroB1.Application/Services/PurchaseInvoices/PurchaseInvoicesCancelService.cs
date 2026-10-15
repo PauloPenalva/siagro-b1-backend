@@ -29,7 +29,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         var invoice = await db.Context.PurchaseInvoices.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key)
                       ?? throw new NotFoundException("Documento de entrada não encontrado.");
 
-        await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus);
+        await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus, invoice.InvoiceNumber);
     }
 
     private async Task CancelAsync(Guid key, string userName, bool afterNfe)
@@ -50,7 +50,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
             PurchaseInvoiceNfeLock.EnsureCancellable(invoice);
         }
 
-        await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus);
+        await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus, invoice.InvoiceNumber);
 
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
         invoice.CanceledAt = DateTime.Now;
@@ -60,10 +60,15 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         await db.SaveChangesAsync();
     }
 
-    private async Task EnsureBusinessRulesAsync(Guid key, InvoiceStatus status)
+    private async Task EnsureBusinessRulesAsync(Guid key, InvoiceStatus status, string? invoiceNumber)
     {
         if (status == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento de entrada já está cancelado.");
+
+        // Complemento de valor próprio aponta itens desta nota (spec 2026-10-14, D4/C8). Vale para o cancelamento do
+        // documento e, pelo ensaio do handler, para o da NF-e — antes de falar com a SEFAZ. Primeira das recusas: a nº 5
+        // de referência da CEAGUI dev tem uma devolução Rejeitada ainda ativa, e o roteiro espera ver C8.
+        await PurchaseInvoiceValueComplement.EnsureNoActiveComplementAsync(db.Context, key, invoiceNumber);
 
         // A devolução referencia a chave desta nota (refNFe): cancelar a origem a deixaria apontando
         // para uma NF-e cancelada. Mesma regra que a saída já tem.

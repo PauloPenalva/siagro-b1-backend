@@ -47,7 +47,8 @@ public class PurchaseInvoicesItemsUpdateService(
 
         // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa do CardCode do pai —
         // pula a query e a chamada ao guard.
-        if (entity.PurchaseContractKey is not null)
+        // Linha do complemento próprio: a regra do complemento valida o contrato (C10 no herdado; guarda no escolhido).
+        if (entity.PurchaseContractKey is not null && entity.ComplementedItemKey is null)
         {
             var cardCode = await db.Context.PurchaseInvoices
                 .Where(x => x.Key == existing.PurchaseInvoiceKey)
@@ -73,6 +74,7 @@ public class PurchaseInvoicesItemsUpdateService(
         existing.DiscountValue = entity.DiscountValue;
         existing.OtherExpensesValue = entity.OtherExpensesValue;
         existing.ComplementAmount = entity.ComplementAmount;
+        existing.ComplementedItemKey = entity.ComplementedItemKey;
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);

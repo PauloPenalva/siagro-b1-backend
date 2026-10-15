@@ -77,13 +77,15 @@ public enum NfeDirection
 }
 
 /// <summary>
-/// Finalidade da NF-e (<c>ide/finNFe</c>): normal (1) ou devolução (4). Não decide o sentido: a devolução
-/// de venda é entrada e a devolução de compra é saída (<see cref="NfeDirection"/>).
+/// Finalidade da NF-e (<c>ide/finNFe</c>): normal (1), devolução (4) ou complementar (2, spec 2026-10-14: complemento de
+/// valor próprio, que referencia as notas originais no NFref). Não decide o sentido: a devolução de venda é entrada e a
+/// devolução de compra é saída (<see cref="NfeDirection"/>). Valor novo sempre no fim.
 /// </summary>
 public enum NfePurpose
 {
     Normal,
     Return,
+    Complement,
 }
 
 /// <summary>Item da nota original que este item devolve (<c>det/DFeReferenciado</c>, regra VC02-14).</summary>

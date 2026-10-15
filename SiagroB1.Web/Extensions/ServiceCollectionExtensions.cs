@@ -420,6 +420,7 @@ public static class ServiceCollectionExtensions
         // documento de entrada (NF de terceiro e emissão própria)
         services.AddScoped<PurchaseInvoicesGetService>();
         services.AddScoped<PurchaseInvoicesGetOriginItemsService>();
+        services.AddScoped<PurchaseInvoicesGetComplementCandidatesService>();
         services.AddScoped<PurchaseInvoicesCreateService>();
         services.AddScoped<PurchaseInvoicesUpdateService>();
         services.AddScoped<PurchaseInvoicesDeleteService>();

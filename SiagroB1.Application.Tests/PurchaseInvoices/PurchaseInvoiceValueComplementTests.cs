@@ -106,7 +106,8 @@ public class PurchaseInvoiceValueComplementTests
             await RefusalAsync(s, Document(s, null)));
         Assert.Equal($"Item SOJA: a natureza {s.NonFinancial} não gera financeiro; o complemento de valor precisa de uma natureza que gere.",
             await RefusalAsync(s, Document(s, s.NonFinancial)));
-        Assert.Equal("Complemento de valor é só escrituração por enquanto: lance-o como documento de terceiro. A emissão de NF-e de complemento vem depois.",
+        // Spec 2026-10-14: o complemento próprio só existe na filial que emite NF-e pelo Siagro (a deste cenário não emite).
+        Assert.Equal("Complemento de valor de emissão própria só existe na filial que emite NF-e pelo Siagro.",
             await RefusalAsync(s, Document(s, s.Financial, issuer: DocumentIssuerType.Own)));
         Assert.Empty(s.Db.Context.PurchaseInvoices.AsNoTracking());
     }

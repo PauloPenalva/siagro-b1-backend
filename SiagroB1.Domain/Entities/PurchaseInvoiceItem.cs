@@ -75,6 +75,15 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     public virtual PurchaseInvoiceItem? ProducerInvoiceItem { get; set; }
 
     /// <summary>
+    /// Só no complemento de valor de EMISSÃO PRÓPRIA (spec 2026-10-14): o item da nota original (entrada própria
+    /// autorizada, normal ou contra-nota) que esta linha complementa. Obrigatório nesse documento e proibido em todos os
+    /// outros (C1/C7). O NFref da NF-e complementar é derivado daqui — as chaves distintas das originais. NÃO reaproveita
+    /// <see cref="PurchaseInvoiceItemOriginKey"/>: aquele é devolução/remessa e alimenta o saldo devolvível.
+    /// </summary>
+    public Guid? ComplementedItemKey { get; set; }
+    public virtual PurchaseInvoiceItem? ComplementedItem { get; set; }
+
+    /// <summary>
     /// Natureza de operação da LINHA (<c>Usage</c>), como no SAP: cada item tem a sua,
     /// resolve o próprio CFOP e produz o próprio efeito no contrato. Um documento pode
     /// misturar naturezas.
