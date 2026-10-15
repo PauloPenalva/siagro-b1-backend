@@ -46,6 +46,16 @@ public class SalesContractsPriceFixationsCancelService(
                 "Contrato precisa estar aprovado para movimentar fixações. " +
                 "Reabra o contrato antes de estornar a fixação.");
 
+        // Voltar a fixação para InApproval deixaria o washout sem preço de referência e com o
+        // provisório já reduzido (spec 2026-10-15, washout de venda §5.6).
+        var hasActiveWashout = await context.SalesContractsWashouts.AnyAsync(w =>
+            w.PriceFixationKey == fixation.Key &&
+            (w.Status == SalesContractWashoutStatus.InApproval || w.Status == SalesContractWashoutStatus.Approved));
+
+        if (hasActiveWashout)
+            throw new ApplicationException(
+                "Fixação possui washout registrado. Rejeite ou estorne o washout antes de estornar a fixação.");
+
         // Spec 2026-10-15 (regra 18): o provisório desta fixação com composição ou baixa barra o estorno. Desfaz-se a
         // composição primeiro — os firmes não são apagados, voltam a ficar soltos.
         var provisional = await context.FinancialDocuments.AsNoTracking().FirstOrDefaultAsync(x =>

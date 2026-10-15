@@ -29,6 +29,11 @@ public class SalesContractsWithdrawApprovalService(
         if (contract.HasInvoices)
             throw new BusinessException(resource["SALES_CONTRACT_HAS_INVOICES"]);
 
+        // Em rascunho o contrato pode ser excluído, e a FK Restrict do washout (de QUALQUER status)
+        // barraria a exclusão com erro 547.
+        if (await db.Context.SalesContractsWashouts.AnyAsync(w => w.SalesContractKey == contract.Key))
+            throw new BusinessException(resource["SALES_CONTRACT_HAS_WASHOUTS"]);
+
         contract.Status = ContractStatus.Draft;
         contract.UpdatedBy = userName;
         contract.UpdatedAt = DateTime.Now;

@@ -186,6 +186,9 @@
     <data name="PURCHASE_CONTRACT_HAS_SHIPMENT_RELEASES" xml:space="preserve">
         <value>Contrato de Compra possui movimentação, não é possivel remover da aprovação.</value>
     </data>
+    <data name="SALES_CONTRACT_HAS_WASHOUTS" xml:space="preserve">
+        <value>Contrato de Venda possui washout registrado, não é possivel remover da aprovação.</value>
+    </data>
     <data name="PURCHASE_CONTRACT_HAS_WASHOUTS" xml:space="preserve">
         <value>Contrato de Compra possui washout registrado, não é possivel remover da aprovação.</value>
     </data>
