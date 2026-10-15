@@ -13,7 +13,8 @@ namespace SiagroB1.Application.Services.Nfe;
 
 /// <summary>
 /// "Emitir NF-e" do Documento de Entrada de emissão própria (spec §8.3): a entrada Normal sai como NF-e de
-/// ENTRADA (finalidade 1) e a devolução de compra como NF-e de SAÍDA (finalidade 4). Emitir é o que confirma.
+/// ENTRADA (finalidade 1) e a devolução de compra como NF-e de SAÍDA (finalidade 4); o complemento de valor próprio,
+/// como NF-e de ENTRADA complementar (finalidade 2, spec 2026-10-14). Emitir é o que confirma.
 /// </summary>
 public class PurchaseInvoicesNfeIssueService(
     IUnitOfWork db,
@@ -34,15 +35,12 @@ public class PurchaseInvoicesNfeIssueService(
 
     protected override void EnsureIssuableType(PurchaseInvoice invoice)
     {
-        // Spec 2026-10-13 D11: a NF-e de complemento (finNFe=2, NFref) é o sub-projeto 2b.
-        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
-            throw new DefaultException(
-                "Complemento de valor não é emitido como NF-e por aqui (fica para o sub-projeto 2b): lance-o como documento de terceiro.");
-
         if (invoice.IssuerType != DocumentIssuerType.Own)
             throw new DefaultException("Só o documento de emissão própria é emitido como NF-e.");
 
-        if (invoice.InvoiceType != PurchaseInvoiceType.Normal && !PurchaseInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+        // Spec 2026-10-14 (regra 6): o complemento de valor próprio sai como NF-e complementar (finNFe=2).
+        if (invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement) &&
+            !PurchaseInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             throw new DefaultException(
                 "Só a entrada Normal e a devolução criada pelo Devolver são emitidas como NF-e por aqui.");
     }

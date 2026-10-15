@@ -34,7 +34,8 @@ public class PurchaseInvoicesTaxApplyService(
     public async Task<bool> IsActiveForAsync(PurchaseInvoice invoice) =>
         invoice.ProducerInvoiceKey is null
         && (invoice.IssuerType == DocumentIssuerType.Own
-            && (invoice.InvoiceType == PurchaseInvoiceType.Normal || IsOwnNfeReturn(invoice))
+            // Spec 2026-10-14 (regra 7): o complemento de valor próprio calcula como a entrada própria (base = valor).
+            && (invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement || IsOwnNfeReturn(invoice))
             || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement)
         && await gate.IsActiveAsync(invoice.BranchCode);
 
