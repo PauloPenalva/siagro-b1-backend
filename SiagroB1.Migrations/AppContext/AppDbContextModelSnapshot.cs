@@ -1158,6 +1158,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("ControlsRoyalties")
                         .HasColumnType("bit");
 
+                    b.Property<decimal?>("TaxableFactor")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<string>("TaxableUnitOfMeasureCode")
+                        .HasColumnType("VARCHAR(6)");
+
                     b.HasKey("ItemCode");
 
                     b.ToTable("ITEM_COMPLEMENTS");

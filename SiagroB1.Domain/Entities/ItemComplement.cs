@@ -32,6 +32,18 @@ public class ItemComplement
     public decimal? CommercialFactor { get; set; }
 
     /// <summary>
+    /// <c>uTrib</c> da NF-e nos CFOPs de exportação (ex.: "TON" para a soja). Nula junto com
+    /// <see cref="TaxableFactor"/> = o grupo tributável sai igual ao comercial. Independe de
+    /// <see cref="CommercialUnitOfMeasureCode"/>, que é só de exibição.
+    /// </summary>
+    [Column(TypeName = "VARCHAR(6)")]
+    public string? TaxableUnitOfMeasureCode { get; set; }
+
+    /// <summary>Unidades da linha da NF-e (KG) por unidade tributável (ex.: 1000 para TON). Nula junto com a unidade.</summary>
+    [Column(TypeName = "DECIMAL(18,6)")]
+    public decimal? TaxableFactor { get; set; }
+
+    /// <summary>
     /// Produto sujeito ao controle de royalties (ITS): tickets e romaneios de recebimento e de compra
     /// (carregamento em terceiro) dele exigem situação de royalty e origem, e entram na lista de
     /// pendentes de baixa.

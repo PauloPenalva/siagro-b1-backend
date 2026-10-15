@@ -219,4 +219,72 @@ public class NfeIssueInputAssemblerTests
 
         Assert.Equal(("PO-77", "10"), (input.Items[0].OrderNumber, input.Items[0].OrderItem));
     }
+
+    private static async Task<NfeScenario> SeedWithTaxableUnitAsync(string? unit = "TON", decimal? factor = 1000m)
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.ItemComplements.Add(new ItemComplement
+        {
+            ItemCode = "SOJA", TaxableUnitOfMeasureCode = unit, TaxableFactor = factor,
+        });
+        await scenario.Db.SaveChangesAsync();
+        return scenario;
+    }
+
+    [Theory]
+    [InlineData("6504")]
+    [InlineData("6501")]
+    [InlineData("7101")]
+    public async Task Export_line_goes_out_in_the_product_taxable_unit(string cfop)
+    {
+        var input = await BuildAsync(await SeedWithTaxableUnitAsync(), i => i.Items.Single().Cfop = cfop);
+
+        var item = input.Items[0];
+        Assert.Equal("TON", item.TaxableUnitOfMeasure);
+        Assert.Equal(30m, item.TaxableQuantity);
+        Assert.Equal(2000m, item.TaxableUnitPrice);
+        Assert.Equal("KG", item.UnitOfMeasure);
+        Assert.Equal(30000m, item.Quantity);
+    }
+
+    [Fact]
+    public async Task Domestic_line_keeps_the_commercial_unit_even_with_the_product_configured()
+    {
+        var input = await BuildAsync(await SeedWithTaxableUnitAsync());
+
+        Assert.Null(input.Items[0].TaxableUnitOfMeasure);
+        Assert.Null(input.Items[0].TaxableQuantity);
+        Assert.Null(input.Items[0].TaxableUnitPrice);
+    }
+
+    [Fact]
+    public async Task Export_line_without_configuration_keeps_the_commercial_unit()
+    {
+        var input = await BuildAsync(await NfeTestSeed.SeedAsync(), i => i.Items.Single().Cfop = "6504");
+
+        Assert.Null(input.Items[0].TaxableUnitOfMeasure);
+    }
+
+    [Fact]
+    public async Task Complement_with_only_the_commercial_unit_is_not_a_taxable_configuration()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.ItemComplements.Add(new ItemComplement
+        {
+            ItemCode = "SOJA", CommercialUnitOfMeasureCode = "SC", CommercialFactor = 60m,
+        });
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario, i => i.Items.Single().Cfop = "6504");
+
+        Assert.Null(input.Items[0].TaxableUnitOfMeasure);
+    }
+
+    [Fact]
+    public async Task Zero_factor_written_outside_the_service_is_ignored()
+    {
+        var input = await BuildAsync(await SeedWithTaxableUnitAsync(factor: 0m), i => i.Items.Single().Cfop = "6504");
+
+        Assert.Null(input.Items[0].TaxableUnitOfMeasure);
+    }
 }

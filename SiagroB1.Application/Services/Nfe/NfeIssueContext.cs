@@ -1,4 +1,5 @@
 using SiagroB1.Domain.Entities;
+using SiagroB1.Fiscal.Nfe;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -11,6 +12,7 @@ namespace SiagroB1.Application.Services.Nfe;
 /// <param name="ReturnOrigin">Na devolução própria, a venda referenciada; nula na venda.</param>
 /// <param name="ProducerInvoice">Na contra-nota, a escrituração do produtor (NFref e Funrural); nula nos demais.</param>
 /// <param name="CustodyReferencedKey">Na devolução simbólica do beneficiamento, a chave da entrada (NFref; spec 2026-10-12 §4.3).</param>
+/// <param name="TaxableUnits">Unidade tributável de exportação por ItemCode (complemento do produto); só os itens configurados.</param>
 public sealed record NfeIssueContext(
     Branch Branch,
     Municipality BranchMunicipality,
@@ -30,7 +32,8 @@ public sealed record NfeIssueContext(
     IReadOnlyDictionary<string, string?> ItemCests,
     NfeReturnOrigin? ReturnOrigin = null,
     NfeCounterNoteOrigin? ProducerInvoice = null,
-    string? CustodyReferencedKey = null);
+    string? CustodyReferencedKey = null,
+    IReadOnlyDictionary<string, NfeTaxableUnitSetting>? TaxableUnits = null);
 
 /// <summary>
 /// A venda que a devolução própria referencia, já conferida: a chave vai no <c>NFref</c> e, com o
