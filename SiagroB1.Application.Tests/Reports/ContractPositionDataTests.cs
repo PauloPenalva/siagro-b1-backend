@@ -261,4 +261,31 @@ public class ContractPositionDataTests
         await db.Context.SaveChangesAsync();
         db.Context.ChangeTracker.Clear();
     }
+
+    // Washout de venda (spec 2026-10-15): o saldo do relatório acompanha o AvaiableVolume, que agora desconta o lavado.
+    [Fact]
+    public async Task SalesWashout_ReducesTheBalanceLikeTheDomain()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var contract = Sales("CV000001", total: 1_000m);
+        db.Context.SalesContracts.Add(contract);
+        db.Context.SalesContractsWashouts.AddRange(
+            new SiagroB1.Domain.Entities.SalesContractWashout
+            {
+                Key = Guid.NewGuid(), SalesContractKey = contract.Key, Sequence = 1, UnfixedVolume = 100m,
+                Status = SalesContractWashoutStatus.Approved, Reason = "x",
+            },
+            new SiagroB1.Domain.Entities.SalesContractWashout
+            {
+                Key = Guid.NewGuid(), SalesContractKey = contract.Key, Sequence = 2, UnfixedVolume = 50m,
+                Status = SalesContractWashoutStatus.Rejected, Reason = "x",
+            });
+        await Save(db);
+
+        var position = (await ContractPositionData.SalesPositionsAsync(
+            db.Context, ContractPositionData.SalesQuery(db.Context, new Request()))).Single();
+
+        Assert.Equal(100m, position.WashedOut);
+        Assert.Equal(900m, position.Balance);
+    }
 }

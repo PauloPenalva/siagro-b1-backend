@@ -18,6 +18,7 @@ public class SalesContractsGetShipmentReleasesAvailableService(
     /// aprovados que ainda têm o que embarcar — evita liberar em contrato já esgotado
     /// (inclusive faturado por fora de liberação, no fluxo legado). Inclui liberações e
     /// notas para os getters serializarem corretamente na coluna "Saldo a liberar".
+    /// Desconta o volume lavado (WashedOutVolume), como a propriedade.
     /// Mantenha em sincronia com o getter da entidade — inclusive o piso zero por liberação,
     /// que impede uma liberação de saldo NEGATIVO (faturada além do liberado) de reduzir a
     /// reserva e inflar o saldo físico.
@@ -30,6 +31,7 @@ public class SalesContractsGetShipmentReleasesAvailableService(
             .Where(p => p.Status == ContractStatus.Approved &&
                         (p.TotalVolume
                             - p.AllocatedVolume
+                            - p.WashedOutVolume
                             - p.SalesShipmentReleases
                                 .Where(r => r.Status == ReleaseStatus.Pending
                                             || r.Status == ReleaseStatus.Actived

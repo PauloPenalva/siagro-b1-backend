@@ -158,6 +158,15 @@ public static class ContractPositionData
         }).ToList();
     }
 
+    /// <summary>Σ (fixado + não fixado) dos washouts de venda ATIVOS (em aprovação + aprovado).</summary>
+    public static IQueryable<KeyedSum> SalesWashedOutQuery(AppDbContext context, IQueryable<Guid> contractKeys) =>
+        context.SalesContractsWashouts
+            .Where(w => contractKeys.Contains(w.SalesContractKey)
+                        && (w.Status == SalesContractWashoutStatus.InApproval
+                            || w.Status == SalesContractWashoutStatus.Approved))
+            .GroupBy(w => w.SalesContractKey)
+            .Select(g => new KeyedSum { Key = g.Key, Sum = g.Sum(w => w.FixedVolume + w.UnfixedVolume) });
+
     public static async Task<List<ContractPosition>> SalesPositionsAsync(
         AppDbContext context, IQueryable<SalesContract> query)
     {
@@ -168,10 +177,12 @@ public static class ContractPositionData
         var keys = query.Select(c => c.Key);
         var nominal = await ToDictionaryAsync(SalesNominalQuery(context, keys));
         var shortage = await ToDictionaryAsync(SalesShortageQuery(context, keys));
+        var washedOut = await ToDictionaryAsync(SalesWashedOutQuery(context, keys));
 
         return contracts.Select(c =>
         {
             var contractDelivered = Round3(nominal.GetValueOrDefault(c.Key) - shortage.GetValueOrDefault(c.Key));
+            var contractWashedOut = Round3(washedOut.GetValueOrDefault(c.Key));
             return new ContractPosition
             {
                 Side = ContractPositionSide.Sales,
@@ -191,9 +202,9 @@ public static class ContractPositionData
                 Price = c.Price,
                 Contracted = c.TotalVolume,
                 Delivered = contractDelivered,
-                WashedOut = 0m,
-                // = SalesContract.AvaiableVolume com AllocatedVolume recalculado.
-                Balance = Round3(c.TotalVolume - contractDelivered),
+                WashedOut = contractWashedOut,
+                // = SalesContract.AvaiableVolume com AllocatedVolume e WashedOutVolume recalculados.
+                Balance = Round3(c.TotalVolume - contractDelivered - contractWashedOut),
             };
         }).ToList();
     }

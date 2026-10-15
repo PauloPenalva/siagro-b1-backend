@@ -21,6 +21,7 @@ public class SalesContractsTotalsService(AppDbContext context)
         {
             TotalPrice = ctr.TotalPrice,
             TotalVolume = ctr.TotalVolume,
+            WashedOutVolume = ctr.WashedOutVolume,
         };
     }
 }

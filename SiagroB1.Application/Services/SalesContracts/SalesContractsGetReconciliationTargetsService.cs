@@ -72,7 +72,7 @@ public class SalesContractsGetReconciliationTargetsService(IUnitOfWork db)
                 AllocatedVolume = c.AllocatedVolume,
                 // Espelho em SQL de SalesContract.AvaiableVolume ([NotMapped], não traduz).
                 // Pode vir NEGATIVO — é o ponto da tela.
-                Balance = c.TotalVolume - c.AllocatedVolume,
+                Balance = c.TotalVolume - c.AllocatedVolume - c.WashedOutVolume,
                 // Mesma regra do FIFO que o create aplica: só liberações ATIVAS com saldo.
                 ActiveReleaseBalance = c.SalesShipmentReleases
                     .Where(r => r.Status == ReleaseStatus.Actived)
