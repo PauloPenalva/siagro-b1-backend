@@ -4,6 +4,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -105,13 +106,21 @@ internal static class PurchaseInvoiceLineGuard
     ///
     /// Linha SEM contrato passa: o campo é opcional por decisão de projeto.
     /// </summary>
+    public static Task EnsureContractIsCompatibleAsync(
+        IUnitOfWork db, Guid? purchaseContractKey, string? itemCode, string cardCode) =>
+        EnsureContractIsCompatibleAsync(db.Context, purchaseContractKey, itemCode, cardCode);
+
+    /// <summary>
+    /// Mesma regra, para quem só tem o contexto: a linha do complemento próprio (spec 2026-10-14, D5) roda a guarda de
+    /// dentro de <c>PurchaseInvoiceValueComplement</c>, depois de herdar o produto e de C3.
+    /// </summary>
     public static async Task EnsureContractIsCompatibleAsync(
-        IUnitOfWork db, Guid? purchaseContractKey, string? itemCode, string cardCode)
+        AppDbContext context, Guid? purchaseContractKey, string? itemCode, string cardCode)
     {
         if (purchaseContractKey is null)
             return;
 
-        var contract = await db.Context.PurchaseContracts
+        var contract = await context.PurchaseContracts
             .AsNoTracking()
             .Where(x => x.Key == purchaseContractKey)
             .Select(x => new { x.Code, x.CardCode, x.ItemCode, x.Status })

@@ -169,7 +169,8 @@ public class FinancialDocumentsFirmSyncService(
         if (invoice.InvoiceType != PurchaseInvoiceType.ValueComplement)
             return;
 
-        await PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, ErpMode.IsStandalone(configuration));
+        await PurchaseInvoiceValueComplement.EnsureAsync(
+            invoice, lines, usageService, ErpMode.IsStandalone(configuration), db.Context);
 
         var context = db.Context;
         var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);
