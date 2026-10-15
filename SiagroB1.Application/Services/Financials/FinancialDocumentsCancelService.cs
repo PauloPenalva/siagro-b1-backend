@@ -27,6 +27,12 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} já está cancelado.");
 
+        // Spec 2026-10-15 (regra 4): o firme a receber nasce e morre com o documento de saída — cancelar à mão deixaria a
+        // linha confirmada sem título, e a próxima sincronização criaria outro.
+        if (document.IsSalesFirmReceivable)
+            throw new ApplicationException(
+                "Título firme do documento de saída nasce da confirmação: cancele ou estorne o documento de saída para cancelá-lo.");
+
         // Spec 2026-10-13 (títulos firmes): cancelar à mão deixaria o vínculo vivo sem título — e a próxima gravação
         // dele criaria outro. O caminho é desfazer o vínculo na Conciliação Fiscal de Compras.
         if (document.IsPurchaseFirmPayable && document.OriginType == FinancialDocumentOrigin.PurchaseInvoice)

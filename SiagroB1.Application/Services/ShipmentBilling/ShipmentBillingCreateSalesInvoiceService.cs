@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -43,7 +44,8 @@ public class ShipmentBillingCreateSalesInvoiceService(
     ShipmentLoadsBillingGuardService loadGuard,
     ShipmentLoadsRecalculateInvoicedService loadRecalc,
     ShipmentLoadsMovementLogService movementLog,
-    ILogger<ShipmentBillingCreateSalesInvoiceService> logger)
+    ILogger<ShipmentBillingCreateSalesInvoiceService> logger,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
     {
@@ -93,6 +95,14 @@ public class ShipmentBillingCreateSalesInvoiceService(
 
             // Ledger gravado → baixa o saldo liberado a partir das alocações.
             await recalcShipped.RecalculateAsync(releaseKey);
+
+            // Spec 2026-10-15 (ponto 2): este caminho grava Confirmed direto, sem o SalesInvoicesConfirmService.
+            if (salesFirmSync is not null)
+            {
+                await salesFirmSync.EnqueueSyncAsync(
+                    salesInvoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), username);
+                await db.SaveChangesAsync();
+            }
 
             if (loadKey.HasValue)
             {

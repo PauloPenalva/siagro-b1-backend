@@ -19,9 +19,9 @@ public static class FinancialDocumentsSettlementGuardService
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} está cancelado.");
 
-        // Regra 15 (spec 2026-10-13, títulos firmes): firme e devolução da conciliação saem só por composição no
+        // Regra 15 (spec 2026-10-13, títulos firmes): firme e devolução de contrato (compra ou venda) saem só por composição no
         // provisório, dação ou encontro de contas — nunca por baixa em dinheiro.
-        if (document.IsPurchaseFirmPayable)
+        if (document.IsContractFirmDocument)
             throw new ApplicationException(
                 "Título firme não recebe baixa direta: componha no provisório ou baixe por dação.");
 

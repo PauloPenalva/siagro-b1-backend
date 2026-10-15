@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.ShipmentLoads;
@@ -21,7 +22,8 @@ public class SalesInvoicesReverseConfirmService(
     ShipmentReleasesRecalculateShippedService recalcShipped,
     ShipmentLoadsBalanceHookService loadHook,
     ShipmentLoadsClosureHookService loadClosureHook,
-    IStringLocalizer<Resource> resource)
+    IStringLocalizer<Resource> resource,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -52,6 +54,10 @@ public class SalesInvoicesReverseConfirmService(
             throw new ApplicationException(
                 "Invoice is not confirmed.");
         }
+
+        // Spec 2026-10-15: firme composto, ou com dação/encontro de contas, recusa antes de mexer em qualquer coisa.
+        if (salesFirmSync is not null)
+            await salesFirmSync.EnsureCanUndoAsync(invoice);
 
         await db.BeginTransactionAsync();
 
@@ -126,6 +132,14 @@ public class SalesInvoicesReverseConfirmService(
             await allocationDelete.ExecuteAsync(invoice.Key, userName, CommitMode.Deferred);
 
             await db.SaveChangesAsync();
+
+            // Spec 2026-10-15 (ponto 3): o documento voltou a Pendente — os títulos soltos das linhas são cancelados.
+            if (salesFirmSync is not null)
+            {
+                await salesFirmSync.EnqueueSyncAsync(
+                    invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
+                await db.SaveChangesAsync();
+            }
 
             // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
             // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é

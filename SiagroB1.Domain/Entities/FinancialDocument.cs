@@ -89,6 +89,12 @@ public class FinancialDocument : DocumentEntity
     /// </summary>
     public Guid? PurchaseInvoiceKey { get; set; }
 
+    /// <summary>
+    /// Documento de saída do firme a receber (spec 2026-10-15). Sem FK, como <see cref="OriginKey"/>: o título sobrevive
+    /// ao registro que narra.
+    /// </summary>
+    public Guid? SalesInvoiceKey { get; set; }
+
     /// <summary>Romaneio do vínculo que gerou o firme. Sem FK.</summary>
     public Guid? StorageTransactionKey { get; set; }
 
@@ -151,14 +157,14 @@ public class FinancialDocument : DocumentEntity
 
     /// <summary>
     /// Derivado, SEM coluna — uma coluna criaria uma segunda fonte de verdade. Provisório: bloqueado enquanto não houver
-    /// composto a pagar (paga-se só o que está coberto por firme). Firme e devolução da conciliação: sempre — saem só
+    /// composto a pagar (paga-se só o que está coberto por firme). Firme e devolução de contrato (compra ou venda): sempre — saem só
     /// por composição, dação ou encontro de contas. Demais (adiantamento, título a receber do washout): livres.
     /// </summary>
     [NotMapped]
     public bool IsBlockedForSettlement => Nature switch
     {
         FinancialDocumentNature.Provisional => AvailableToSettleAmount <= 0m,
-        _ => IsPurchaseFirmPayable,
+        _ => IsContractFirmDocument,
     };
 
     /// <summary>Provisório: composto − baixado (mínimo 0). Demais naturezas: o saldo em aberto.</summary>
@@ -177,6 +183,28 @@ public class FinancialDocument : DocumentEntity
         (OriginType == FinancialDocumentOrigin.PurchaseFiscalReconciliation &&
          Nature is FinancialDocumentNature.Firm or FinancialDocumentNature.PurchaseReturn) ||
         (OriginType == FinancialDocumentOrigin.PurchaseInvoice && Nature == FinancialDocumentNature.Firm);
+
+    /// <summary>
+    /// Firme ou devolução nascidos da confirmação do documento de saída (spec 2026-10-15, firmes a receber). Só em
+    /// memória (o EF não traduz) e fora do EDM.
+    /// </summary>
+    [NotMapped]
+    public bool IsSalesFirmReceivable =>
+        OriginType == FinancialDocumentOrigin.SalesInvoice &&
+        Nature is FinancialDocumentNature.Firm or FinancialDocumentNature.SalesReturn;
+
+    /// <summary>Firme ou devolução de CONTRATO, de compra ou de venda: sai só por composição, dação ou encontro de contas.</summary>
+    [NotMapped]
+    public bool IsContractFirmDocument => IsPurchaseFirmPayable || IsSalesFirmReceivable;
+
+    /// <summary>
+    /// Mesmo contrato (spec 2026-10-15, regra 13): compara o PAR compra/venda, então um título de compra nunca casa com
+    /// um de venda. Sem contrato nenhum, não casa.
+    /// </summary>
+    public bool HasSameContractAs(FinancialDocument other) =>
+        (PurchaseContractKey ?? SalesContractKey) is not null &&
+        PurchaseContractKey == other.PurchaseContractKey &&
+        SalesContractKey == other.SalesContractKey;
 
     [NotMapped]
     public bool IsOverdue => DueDate.Date < DateTime.Now.Date && OpenAmount > 0;

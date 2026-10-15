@@ -1,4 +1,8 @@
+using System.Globalization;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
@@ -12,8 +16,12 @@ public class SalesContractsCloseService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
     ContractNotificationOutboxService notificationOutbox,
-    FinancialDocumentsCancelService financialDocuments)
+    IConfiguration configuration,
+    ILogger<SalesContractsCloseService> logger)
 {
+    /// <summary>Spec 2026-10-15 (regra 16): data de corte PRÓPRIA da venda (yyyy-MM-dd) — o deploy da venda tem outra data.</summary>
+    public const string CutoverDateKey = "Financial:SalesFirmReceivablesCutoverDate";
+
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var contract = await context.SalesContracts
@@ -25,21 +33,17 @@ public class SalesContractsCloseService(
 
         await GuardNegativeBalanceAsync(contract);
 
+        await GuardFinancialDocumentsAsync(contract, userName);
+
+        await GuardAdvanceCreditAsync(contract);
+
         contract.Status = ContractStatus.Finished;
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
 
         notificationOutbox.Register(contract, NotificationEventType.Closed, userName);
 
-        // Encerrar significa que não haverá mais entrega — e o provisório significa "saldo a
-        // faturar". O que sobra nunca será faturado; deixá-lo aberto empilharia na tela um
-        // "a faturar" permanente que envenena o total.
-        await financialDocuments.EnqueueCancelByContractAsync(
-            purchaseContractKey: null,
-            salesContractKey: contract.Key,
-            reason: "Contrato encerrado",
-            userName: userName);
-
+        // Spec 2026-10-15 (regra 15): o encerramento NÃO cancela mais o provisório — ele só passa com tudo quitado.
         await context.SaveChangesAsync();
     }
 
@@ -87,5 +91,94 @@ public class SalesContractsCloseService(
                 $"Contrato faturado além do volume contratado. Contratado: {contract.TotalVolume:N3}, " +
                 $"alocado: {allocated:N3}, saldo: {balance:N3}. " +
                 "Ajuste as alocações na tela de conciliação de saldos antes de encerrar.");
+    }
+
+    /// <summary>Regra 15: nenhum firme/devolução de venda com saldo, e todo provisório não cancelado QUITADO.</summary>
+    private async Task GuardFinancialDocumentsAsync(SalesContract contract, string userName)
+    {
+        var hasOpenFirm = await context.FinancialDocuments.AnyAsync(x =>
+            x.SalesContractKey == contract.Key &&
+            x.OriginType == FinancialDocumentOrigin.SalesInvoice &&
+            (x.Nature == FinancialDocumentNature.Firm || x.Nature == FinancialDocumentNature.SalesReturn) &&
+            x.Status != FinancialDocumentStatus.Canceled &&
+            x.NetAmount > x.SettledAmount);
+
+        if (hasOpenFirm)
+            throw new ApplicationException(
+                "Há títulos firmes com saldo neste contrato: componha, compense ou baixe por dação antes de encerrar.");
+
+        await CancelLegacyUntouchedProvisionalsAsync(contract, userName);
+
+        var unsettled = await context.FinancialDocuments
+            .Where(x => x.SalesContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Provisional &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.Status != FinancialDocumentStatus.Settled)
+            .OrderBy(x => x.Code)
+            .Select(x => new { x.Key, x.Code })
+            .ToListAsync();
+        // O SQL não vê o cancelamento do legado acima, ainda só em memória: reconfere pela instância rastreada.
+        var unsettledCode = unsettled
+            .Where(x => context.FinancialDocuments.Local.FirstOrDefault(d => d.Key == x.Key) is not { Status: FinancialDocumentStatus.Canceled })
+            .Select(x => x.Code)
+            .FirstOrDefault();
+
+        if (unsettledCode is not null)
+            throw new ApplicationException(
+                $"O título {unsettledCode} não está quitado: o contrato só encerra com todos os títulos quitados.");
+    }
+
+    /// <summary>Regra 15: adiantamento de venda com crédito não aplicado barra o encerramento (mesmo texto da compra).</summary>
+    private async Task GuardAdvanceCreditAsync(SalesContract contract)
+    {
+        var advance = await context.FinancialDocuments.AsNoTracking()
+            .Where(x => x.SalesContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Advance &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.SettledAmount - x.AppliedAmount > 0m)
+            .OrderBy(x => x.Code)
+            .Select(x => new { x.Code, x.SettledAmount, x.AppliedAmount })
+            .FirstOrDefaultAsync();
+
+        if (advance is null)
+            return;
+
+        var credit = decimal.Round(advance.SettledAmount - advance.AppliedAmount, 2, MidpointRounding.ToEven);
+        throw new ApplicationException(
+            $"O adiantamento {advance.Code} tem {credit.ToString("N2", CultureInfo.GetCultureInfo("pt-BR"))} de crédito não aplicado: compense, devolva ou vincule a outro contrato antes de encerrar.");
+    }
+
+    /// <summary>
+    /// Regra 16: provisório criado ANTES da data de corte, sem composição e sem baixa, é cancelado no encerramento como
+    /// antes desta fase. Sem a chave (ou inválida), nada é isento.
+    /// </summary>
+    private async Task CancelLegacyUntouchedProvisionalsAsync(SalesContract contract, string userName)
+    {
+        var raw = configuration[CutoverDateKey];
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        if (!DateTime.TryParseExact(raw.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var cutover))
+        {
+            logger.LogWarning("{Key} inválida ({Value}): nenhum provisório é isento no encerramento.", CutoverDateKey, raw);
+            return;
+        }
+
+        var legacy = await context.FinancialDocuments
+            .Where(x => x.SalesContractKey == contract.Key &&
+                        x.Nature == FinancialDocumentNature.Provisional &&
+                        x.Status != FinancialDocumentStatus.Canceled &&
+                        x.Status != FinancialDocumentStatus.Settled &&
+                        x.CreatedAt != null && x.CreatedAt < cutover &&
+                        x.ComposedAmount == 0m && x.SettledAmount == 0m)
+            .ToListAsync();
+
+        foreach (var provisional in legacy)
+        {
+            FinancialDocumentsCancelService.Cancel(provisional, PurchaseContractsCloseService.LegacyCancellationReason, userName);
+            logger.LogInformation(
+                "Encerramento do contrato de venda {Contract}: provisório {Document} anterior à data de corte {Cutover:yyyy-MM-dd} cancelado.",
+                contract.Code, provisional.Code, cutover);
+        }
     }
 }

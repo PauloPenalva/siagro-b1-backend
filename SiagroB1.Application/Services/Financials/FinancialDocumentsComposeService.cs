@@ -93,10 +93,13 @@ public class FinancialDocumentsComposeService(IUnitOfWork db, FinancialDocumentC
     /// <summary>Regra 9: mesmo CONTRATO (não o mesmo CardCode — produtor com várias IEs é vários parceiros).</summary>
     private static void EnsureComposable(FinancialDocument provisional, FinancialDocument document)
     {
-        if (!document.IsPurchaseFirmPayable)
-            throw new ApplicationException($"O título {document.Code} não é firme nem devolução da conciliação fiscal.");
+        if (!document.IsContractFirmDocument)
+            throw new ApplicationException(provisional.SalesContractKey is null
+                ? $"O título {document.Code} não é firme nem devolução da conciliação fiscal."
+                : $"O título {document.Code} não é firme nem devolução de documento de saída.");
 
-        if (document.PurchaseContractKey != provisional.PurchaseContractKey)
+        // Spec 2026-10-15, regra 13: o PAR compra/venda — um título de compra nunca casa com um de venda.
+        if (!document.HasSameContractAs(provisional))
             throw new ApplicationException($"O título {document.Code} é de outro contrato.");
 
         // D12: o firme nasce em BRL; provisório em outra moeda (contrato em dólar) não compõe até a variação cambial.

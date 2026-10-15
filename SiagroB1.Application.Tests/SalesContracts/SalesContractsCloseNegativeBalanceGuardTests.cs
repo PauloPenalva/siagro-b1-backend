@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -19,7 +20,8 @@ public class SalesContractsCloseNegativeBalanceGuardTests
 
     private SalesContractsCloseService CloseService() =>
         new(_db.Context, new SalesContractsFixedVolumeService(_db.Context),
-            TestNotificationOutbox.For(_db.Context), FinancialDocumentTestServices.Cancel(_db.Context));
+            TestNotificationOutbox.For(_db.Context), TestConfiguration.Empty(),
+            NullLogger<SalesContractsCloseService>.Instance);
 
     private static SalesContract NewContract(decimal totalVolume, decimal allocatedVolume) => new()
     {

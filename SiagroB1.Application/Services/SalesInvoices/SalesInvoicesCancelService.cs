@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.PurchaseDischarges;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -20,7 +21,8 @@ public class SalesInvoicesCancelService(
     SalesContractsAllocationDeleteForInvoiceService allocationDelete,
     ShipmentLoadsBalanceHookService loadHook,
     ILogger<SalesInvoicesCancelService> logger,
-    ShipmentLoadRefusalCompleteService? refusalComplete = null)
+    ShipmentLoadRefusalCompleteService? refusalComplete = null,
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
 {
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
@@ -131,6 +133,18 @@ public class SalesInvoicesCancelService(
 
             await db.SaveChangesAsync();
 
+            // Spec 2026-10-15 (ponto 4): documento cancelado — os títulos soltos das linhas são cancelados.
+            if (salesFirmSync is not null)
+            {
+                var lineKeys = await db.Context.SalesInvoicesItems.AsNoTracking()
+                    .Where(i => i.SalesInvoiceKey == existingInvoice.Key)
+                    .Select(i => i.Key)
+                    .ToListAsync();
+                await salesFirmSync.EnqueueSyncAsync(
+                    lineKeys.Where(k => k != null).Select(k => k!.Value).ToList(), userName);
+                await db.SaveChangesAsync();
+            }
+
             // Romaneios voltaram a Confirmed e perderam a chave → o saldo liberado é restaurado.
             // No fluxo da CARGA a coleção nasce vazia e este laço é no-op: allocationDelete já
             // recalcula contratos E liberações a partir do ledger. Não é esquecimento.
@@ -192,6 +206,10 @@ public class SalesInvoicesCancelService(
         // item desta nota — o acerto do fornecedor ficaria órfão se a nota fosse cancelada.
         if (await PurchaseDischargeGuards.HasActiveForInvoiceAsync(db.Context, invoice.Key))
             throw new DefaultException(PurchaseDischargeGuards.InvoiceMessage);
+
+        // Spec 2026-10-15 (ponto 4): roda no ensaio antes da SEFAZ e no cancelamento.
+        if (salesFirmSync is not null)
+            await salesFirmSync.EnsureCanUndoAsync(invoice);
     }
 
     private bool HasReturn(SalesInvoice salesInvoice)

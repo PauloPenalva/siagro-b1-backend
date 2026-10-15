@@ -662,9 +662,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsSetDueDateService>();
         services.AddScoped<FinancialDocumentsGetByContractService>();
         services.AddScoped<FinancialDocumentsGenerateBacklogService>();
+        services.AddScoped<FinancialDocumentsGenerateSalesFirmBacklogService>();
         services.AddScoped<FinancialAdvancesRefundService>();
         services.AddScoped<FinancialAdvancesRelinkContractService>();
         services.AddScoped<FinancialDocumentsFirmSyncService>();
+        services.AddScoped<FinancialDocumentsSalesFirmSyncService>();
         services.AddScoped<FinancialDocumentsComposeService>();
         services.AddScoped<FinancialDocumentsUncomposeService>();
         services.AddScoped<FinancialDocumentsDationService>();

@@ -46,6 +46,18 @@ public class SalesContractsPriceFixationsCancelService(
                 "Contrato precisa estar aprovado para movimentar fixações. " +
                 "Reabra o contrato antes de estornar a fixação.");
 
+        // Spec 2026-10-15 (regra 18): o provisório desta fixação com composição ou baixa barra o estorno. Desfaz-se a
+        // composição primeiro — os firmes não são apagados, voltam a ficar soltos.
+        var provisional = await context.FinancialDocuments.AsNoTracking().FirstOrDefaultAsync(x =>
+            x.OriginType == FinancialDocumentOrigin.SalesContractPriceFixation &&
+            x.OriginKey == fixation.Key &&
+            x.Nature == FinancialDocumentNature.Provisional &&
+            x.Status != FinancialDocumentStatus.Canceled);
+
+        if (provisional is not null && (provisional.ComposedAmount != 0m || provisional.SettledAmount != 0m))
+            throw new ApplicationException(
+                $"Desfaça a composição do título {provisional.Code} antes de estornar a fixação.");
+
         await using var transaction = await context.Database.BeginTransactionAsync();
 
         var previous = ContractChangeLogFields.DescribePriceFixation(
