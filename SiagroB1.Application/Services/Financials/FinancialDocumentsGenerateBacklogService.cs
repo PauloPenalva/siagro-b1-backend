@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseContracts;
+using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -114,6 +115,13 @@ public class FinancialDocumentsGenerateBacklogService(
                     x.Status != FinancialDocumentStatus.Canceled);
 
                 if (alreadyGenerated) { result.SkippedAlreadyGenerated++; continue; }
+
+                // Espelho do F3 da compra: fixação de venda toda lavada por washout Approved não tem provisório ativo
+                // e não gera nada; sem este corte, contaria como "Generated" e ficaria pendente para sempre no DryRun.
+                var remaining = fixation.FixationVolume -
+                    await SalesContractsWashedOutVolumeService.ApprovedFixedVolumeAsync(db.Context, fixation.Key);
+
+                if (remaining <= 0) { result.SkippedFullyWashedOut++; continue; }
 
                 if ((fixation.FinancialDueDate ?? contract.StandardCashFlowDate) is null)
                 {

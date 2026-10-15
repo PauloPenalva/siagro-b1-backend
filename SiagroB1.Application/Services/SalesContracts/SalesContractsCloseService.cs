@@ -28,6 +28,9 @@ public class SalesContractsCloseService(
                            .FirstOrDefaultAsync(x => x.Key == key && x.Status == ContractStatus.Approved)
                        ?? throw new NotFoundException("Contrato não encontrado ou não está aprovado.");
 
+        // ANTES da guarda de fixação: ela desconta o washout lavado ASSUMINDO que só sobrou Approved (espelho da compra).
+        await GuardPendingWashoutsAsync(contract);
+
         if (contract.Type == ContractType.ToBeDetermined)
             await GuardPriceFixationAsync(contract);
 
@@ -48,6 +51,22 @@ public class SalesContractsCloseService(
     }
 
     /// <summary>
+    /// Washout em aprovação reserva volume mas ainda pode ser rejeitado. Encerrar com ele pendente
+    /// congelaria o contrato com um volume "lavado" que ninguém decidiu.
+    /// </summary>
+    private async Task GuardPendingWashoutsAsync(SalesContract contract)
+    {
+        var pendingCount = await context.SalesContractsWashouts
+            .CountAsync(w => w.SalesContractKey == contract.Key
+                             && w.Status == SalesContractWashoutStatus.InApproval);
+
+        if (pendingCount > 0)
+            throw new ApplicationException(
+                $"Contrato possui {pendingCount} washout(s) pendente(s) de aprovação. " +
+                "Aprove ou rejeite antes de encerrar.");
+    }
+
+    /// <summary>
     /// Um contrato a fixar não pode ser encerrado devendo preço de mercadoria já entregue.
     /// Usa o volume CONFIRMADO — volume apenas em aprovação não define preço.
     /// </summary>
@@ -65,10 +84,16 @@ public class SalesContractsCloseService(
         var confirmedVolume = await fixedVolumeService.ConfirmedVolumeAsync(contract.Key);
         var deliveredVolume = await fixedVolumeService.DeliveredVolumeAsync(contract.Key);
 
-        if (confirmedVolume < deliveredVolume)
+        // Spec 2026-10-15 (washout de venda, §4.2): o volume fixado lavado saiu do contrato e não precisa de preço.
+        // GuardPendingWashoutsAsync já rodou, então os ativos aqui são só os APROVADOS.
+        var (washedOutTotal, washedOutUnfixed) = await SalesContractsWashedOutVolumeService
+            .ActiveVolumesAsync(context, contract.Key);
+        var pricedConfirmed = confirmedVolume - (washedOutTotal - washedOutUnfixed);
+
+        if (pricedConfirmed < deliveredVolume)
             throw new ApplicationException(
                 $"Volume entregue sem preço fixado. Entregue: {deliveredVolume:N3}, " +
-                $"fixado e confirmado: {confirmedVolume:N3}. " +
+                $"fixado e confirmado (descontado o washout): {pricedConfirmed:N3}. " +
                 "Fixe o preço do volume entregue antes de encerrar o contrato.");
     }
 
@@ -84,12 +109,13 @@ public class SalesContractsCloseService(
     {
         var allocated = await SalesContractsRecalculateBalanceService
             .CalculateAllocatedAsync(context, contract.Key);
-        var balance = decimal.Round(contract.TotalVolume - allocated, 3, MidpointRounding.ToEven);
+        var (washedOut, _) = await SalesContractsWashedOutVolumeService.ActiveVolumesAsync(context, contract.Key);
+        var balance = decimal.Round(contract.TotalVolume - allocated - washedOut, 3, MidpointRounding.ToEven);
 
         if (balance < 0)
             throw new ApplicationException(
                 $"Contrato faturado além do volume contratado. Contratado: {contract.TotalVolume:N3}, " +
-                $"alocado: {allocated:N3}, saldo: {balance:N3}. " +
+                $"alocado: {allocated:N3}, washout: {washedOut:N3}, saldo: {balance:N3}. " +
                 "Ajuste as alocações na tela de conciliação de saldos antes de encerrar.");
     }
 
@@ -125,7 +151,7 @@ public class SalesContractsCloseService(
 
         if (unsettledCode is not null)
             throw new ApplicationException(
-                $"O título {unsettledCode} não está quitado: o contrato só encerra com todos os títulos quitados.");
+                $"O título {unsettledCode} não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout.");
     }
 
     /// <summary>Regra 15: adiantamento de venda com crédito não aplicado barra o encerramento (mesmo texto da compra).</summary>

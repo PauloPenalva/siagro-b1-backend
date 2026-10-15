@@ -37,6 +37,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseContractChangeLog>("PurchaseContractsChangeLogs");
         modelBuilder.EntitySet<PurchaseContractComment>("PurchaseContractsComments");
         modelBuilder.EntitySet<PurchaseContractWashout>("PurchaseContractsWashouts");
+        modelBuilder.EntitySet<SalesContractWashout>("SalesContractsWashouts");
         modelBuilder.EntitySet<Tax>("Taxes");
         modelBuilder.EntitySet<StorageAddress>("StorageAddresses");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(StorageAddress))
@@ -1247,6 +1248,28 @@ public static class ODataConfigurations
         var salesPriceFixationCancel = modelBuilder.Action("SalesContractsPriceFixationCancel");
         salesPriceFixationCancel.Parameter<Guid>("Key");
         salesPriceFixationCancel.Returns<IActionResult>();
+
+        // Washout do contrato de venda (spec 2026-10-15). A criação recebe a entidade inteira; nas demais, Key é a
+        // chave do WASHOUT, não a do contrato.
+        var salesWashoutCreate = modelBuilder.Action("SalesContractsWashoutCreate");
+        salesWashoutCreate.Parameter<Guid>("SalesContractKey");
+        salesWashoutCreate.EntityParameter<SalesContractWashout>("Washout");
+        salesWashoutCreate.Returns<IActionResult>();
+
+        var salesWashoutApproval = modelBuilder.Action("SalesContractsWashoutApproval");
+        salesWashoutApproval.Parameter<Guid>("Key");
+        salesWashoutApproval.Parameter<string>("Comments").Nullable = true;
+        salesWashoutApproval.Returns<IActionResult>();
+
+        var salesWashoutReject = modelBuilder.Action("SalesContractsWashoutReject");
+        salesWashoutReject.Parameter<Guid>("Key");
+        salesWashoutReject.Parameter<string>("Comments").Nullable = true;
+        salesWashoutReject.Returns<IActionResult>();
+
+        var salesWashoutReverse = modelBuilder.Action("SalesContractsWashoutReverse");
+        salesWashoutReverse.Parameter<Guid>("Key");
+        salesWashoutReverse.Parameter<string>("Reason").Nullable = true;
+        salesWashoutReverse.Returns<IActionResult>();
 
         // Comentários do contrato (compra e venda). Tudo por action, e não POST/PATCH na coleção
         // aninhada, por dois motivos: a mutação e a linha do log de alterações entram no mesmo

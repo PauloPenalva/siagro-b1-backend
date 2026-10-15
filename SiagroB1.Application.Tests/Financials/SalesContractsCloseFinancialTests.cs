@@ -34,7 +34,7 @@ public class SalesContractsCloseFinancialTests
 
         var error = await Assert.ThrowsAsync<ApplicationException>(() => Close(seed).ExecuteAsync(seed.Contract.Key, "ana"));
 
-        Assert.Equal("O título FN-PROV-V1 não está quitado: o contrato só encerra com todos os títulos quitados.", error.Message);
+        Assert.Equal("O título FN-PROV-V1 não está quitado: o contrato só encerra com todos os títulos quitados. Entrega a menos se resolve por washout.", error.Message);
     }
 
     [Fact]

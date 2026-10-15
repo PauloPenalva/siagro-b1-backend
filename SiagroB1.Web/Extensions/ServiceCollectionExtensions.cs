@@ -286,6 +286,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesContractsAttachmentsDeleteService>();
         services.AddScoped<SalesContractsAttachmentsGetService>();
         services.AddScoped<SalesContractsCloseService>();
+        services.AddScoped<SalesContractsWashedOutVolumeService>();
+        services.AddScoped<SalesContractsWashoutCreateService>();
+        services.AddScoped<SalesContractsWashoutApprovalService>();
+        services.AddScoped<SalesContractsWashoutRejectService>();
+        services.AddScoped<SalesContractsWashoutReverseService>();
+        services.AddScoped<SalesContractsWashoutsGetService>();
         services.AddScoped<SalesContractsSetSignatureStatusService>();
         services.AddScoped<SalesContractsReopenService>();
         services.AddScoped<SalesContractsGetShipmentReleasesAvailableService>();

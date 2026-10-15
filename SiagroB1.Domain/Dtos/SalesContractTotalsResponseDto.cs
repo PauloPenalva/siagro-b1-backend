@@ -9,5 +9,8 @@ public class SalesContractTotalsResponseDto
     
     [JsonPropertyName("TotalPrice")]
     public decimal TotalPrice { get; set; }
+
+    [JsonPropertyName("WashedOutVolume")]
+    public decimal WashedOutVolume { get; set; }
     
 }

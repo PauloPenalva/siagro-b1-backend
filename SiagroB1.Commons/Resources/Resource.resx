@@ -183,6 +183,9 @@
     <data name="PURCHASE_CONTRACT_HAS_SHIPMENT_RELEASES" xml:space="preserve">
         <value />
     </data>
+    <data name="SALES_CONTRACT_HAS_WASHOUTS" xml:space="preserve">
+        <value>Sales contract has washouts; it cannot be withdrawn from approval.</value>
+    </data>
     <data name="PURCHASE_CONTRACT_HAS_WASHOUTS" xml:space="preserve">
         <value>Purchase contract has washouts; it cannot be withdrawn from approval.</value>
     </data>
