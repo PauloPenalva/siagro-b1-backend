@@ -225,9 +225,10 @@ muda os firmes dela: G1 aceita `Returned`, e a devolução tem os títulos dela.
 
 19. Documento de saída confirmado **antes** do deploy não tem firme. Para o contrato em andamento conseguir quitar o
     provisório, existe a action `FinancialDocumentsGenerateSalesFirmBacklog(BranchCode, DateFrom, DateTo)`:
-    - restrita a ADMIN, no molde de `FinancialDocumentsGenerateBacklog`;
-    - roda a sincronização nas linhas confirmadas da janela cujo contrato está `Approved`;
-    - devolve gerados e pulados;
+    - mesma proteção e mesmo molde de `FinancialDocumentsGenerateBacklog`;
+    - `DryRun`, que por padrão só simula;
+    - roda a sincronização nas linhas confirmadas da janela (pela data do documento) cujo contrato está `Approved`;
+    - devolve linhas elegíveis, títulos gerados e linhas puladas;
     - é idempotente.
 
     Contrato encerrado não é tocado.
@@ -247,7 +248,7 @@ muda os firmes dela: G1 aceita `Returned`, e a devolução tem os títulos dela.
 | S9 | `Há títulos firmes com saldo neste contrato: componha, compense ou baixe por dação antes de encerrar.` (igual à compra) |
 | S10 | `O título {código} não está quitado: o contrato só encerra com todos os títulos quitados.` |
 | S11 | Igual à compra (adiantamento com crédito). |
-| S12 | `O título {código} da fixação tem composição ou baixa: desfaça a composição e estorne as baixas antes de cancelar a fixação.` |
+| S12 | `Desfaça a composição do título {código} antes de estornar a fixação.` (o mesmo texto da compra) |
 
 Motivo de cancelamento do firme: `Documento de saída cancelado ou estornado`. Na realocação, o firme que sai:
 `Volume realocado para outro contrato`.
@@ -256,7 +257,8 @@ Motivo de cancelamento do firme: `Documento de saída cancelado ou estornado`. N
 
 20. **Contrato de venda, seção "Financeiro"** (`view/salesContracts/Detail.view.xml`).
     - Mesmas colunas da seção da compra, só leitura, via `FinancialDocumentsGetByContract`, que já aceita venda.
-    - Sem as colunas Romaneio. Com "Documento de saída" (número) e NF.
+    - Sem a coluna Romaneio. A coluna "NF" mostra `TaxDocumentNumber`, que traz o número interno quando o documento
+      não tem NF.
     - O fragmento da compra é generalizado se couber limpo; senão, cópia com o nome de venda.
 21. **Detalhe do título** (`view/financialDocuments/fragments/Form.fragment.xml`).
     - Bloco do documento de saída (número, NF) e o link "Abrir documento de saída" (rota `salesInvoicesDetail`) quando
