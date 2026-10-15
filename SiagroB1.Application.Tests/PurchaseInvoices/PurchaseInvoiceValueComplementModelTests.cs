@@ -39,4 +39,15 @@ public class PurchaseInvoiceValueComplementModelTests
         Assert.Equal("Edm.Guid", property.Type.FullName());
         Assert.True(property.Type.IsNullable);
     }
+
+    [Fact]
+    public void Candidates_function_takes_supplier_and_branch_and_returns_a_collection()
+    {
+        var function = EdmModel().SchemaElements.OfType<IEdmFunction>()
+            .Single(f => f.Name == "PurchaseInvoicesGetComplementCandidates");
+
+        Assert.Equal("Edm.String", function.Parameters.Single(p => p.Name == "CardCode").Type.FullName());
+        Assert.Equal("Edm.String", function.Parameters.Single(p => p.Name == "BranchCode").Type.FullName());
+        Assert.True(function.ReturnType.IsCollection());
+    }
 }
