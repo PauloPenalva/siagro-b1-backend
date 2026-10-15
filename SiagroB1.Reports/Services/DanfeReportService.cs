@@ -14,7 +14,7 @@ namespace SiagroB1.Reports.Services;
 /// <summary>
 /// DANFE da NF-e autorizada e PDF da carta de correção (CC-e), a partir do procNFe gravado, com o layout FastReport da Zeus
 /// (ThirdParty/Zeus-LGPL, DLL própria NFe.Danfe.Base, sem alteração). Homologação sai com a marca
-/// "sem valor fiscal" do próprio layout. ⚠️ O caminho padrão do .frx na Zeus usa barra invertida e
+/// "sem valor fiscal" do próprio layout. Casas decimais e unidades impressas saem do XML (<see cref="DanfeItemPrecision"/>). ⚠️ O caminho padrão do .frx na Zeus usa barra invertida e
 /// falha no Linux: o caminho vai absoluto. ⚠️ O script do .frx usa <c>Environment.NewLine</c>: exige
 /// desligar os stubs de script do FastReport (ver <see cref="DisableScriptStubs"/>).
 /// </summary>
@@ -98,8 +98,17 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
 
         FastReport.Utils.Config.WebMode = true;
 
+        // Precisão e unidades vêm do próprio XML (spec 2026-10-14 §1): o padrão da Zeus (2 casas) arredonda o que foi autorizado.
+        var precision = DanfeItemPrecision.From(proc.NFe.infNFe.det.Select(d => d.prod));
+        var configuration = new ConfiguracaoDanfeNfe(DanfeLogo.FitToBox(header.LogoBytes()), documentoCancelado: cancelled)
+        {
+            DecimaisQuantidadeItem = precision.QuantityDecimals,
+            DecimaisValorUnitario = precision.UnitPriceDecimals,
+            ImprimirUnidQtdeValor = precision.BothUnits ? ImprimirUnidQtdeValor.Ambos : ImprimirUnidQtdeValor.Comercial,
+        };
+
         // NF-e cancelada: a Zeus estampa "DOCUMENTO CANCELADO" no layout.
-        var danfe = new DanfeFrNfe(proc, new ConfiguracaoDanfeNfe(DanfeLogo.FitToBox(header.LogoBytes()), documentoCancelado: cancelled),
+        var danfe = new DanfeFrNfe(proc, configuration,
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
         using var report = danfe.Relatorio;
 
