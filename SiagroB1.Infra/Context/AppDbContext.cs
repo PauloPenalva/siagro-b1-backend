@@ -564,9 +564,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // Par do índice acima para o firme e a devolução: um título ativo por vínculo de conciliação. Também cobre o
         // título a receber do washout (Firm, origem própria), que já é um por washout.
         modelBuilder.Entity<FinancialDocument>()
-            .HasIndex(x => new { x.OriginType, x.OriginKey }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
+            // Spec 2026-10-15: o firme a receber é por linha × CONTRATO (a realocação desmembra), então o contrato de venda
+            // entra na chave. Na compra ele é sempre NULL, e o índice único do SQL Server trata NULLs como iguais: a
+            // unicidade da compra não muda.
+            .HasIndex(x => new { x.OriginType, x.OriginKey, x.SalesContractKey }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
             .IsUnique()
-            .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}) " +
+            .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
                        "AND [OriginKey] IS NOT NULL");
 

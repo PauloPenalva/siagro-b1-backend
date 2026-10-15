@@ -844,6 +844,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("SalesContractKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("SalesInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("SettledAmount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
@@ -883,9 +886,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex("Direction", "Status", "DueDate");
 
-                    b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
+                    b.HasIndex(new[] { "OriginType", "OriginKey", "SalesContractKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
                         .IsUnique()
-                        .HasFilter("[Nature] IN (1, 4) AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
+                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
                         .IsUnique()

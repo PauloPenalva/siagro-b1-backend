@@ -11,5 +11,12 @@ public enum FinancialDocumentNature
     /// Título de DEVOLUÇÃO de compra (spec 2026-10-13, títulos firmes): nasce do vínculo de uma NF de devolução com o
     /// romaneio 9/16. Compensa o firme normal (encontro de contas) ou entra NEGATIVO na composição do provisório.
     /// </summary>
-    PurchaseReturn = 4
+    PurchaseReturn = 4,
+
+    /// <summary>
+    /// Título de DEVOLUÇÃO de venda (spec 2026-10-15, firmes a receber): nasce da confirmação de um documento de saída tipo
+    /// Devolução, um por linha × contrato. Compensa o firme da linha de origem (encontro de contas) ou entra NEGATIVO na
+    /// composição do provisório a receber.
+    /// </summary>
+    SalesReturn = 5
 }
