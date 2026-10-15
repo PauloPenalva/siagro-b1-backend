@@ -220,12 +220,12 @@ public class NfeIssueInputAssemblerTests
         Assert.Equal(("PO-77", "10"), (input.Items[0].OrderNumber, input.Items[0].OrderItem));
     }
 
-    private static async Task<NfeScenario> SeedWithTaxableUnitAsync(string? unit = "TON", decimal? factor = 1000m)
+    private static async Task<NfeScenario> SeedWithTaxableUnitAsync(string? unit = "TON", decimal? factor = 1000m, string complementItemCode = "SOJA")
     {
         var scenario = await NfeTestSeed.SeedAsync();
         scenario.Db.Context.ItemComplements.Add(new ItemComplement
         {
-            ItemCode = "SOJA", TaxableUnitOfMeasureCode = unit, TaxableFactor = factor,
+            ItemCode = complementItemCode, TaxableUnitOfMeasureCode = unit, TaxableFactor = factor,
         });
         await scenario.Db.SaveChangesAsync();
         return scenario;
@@ -245,6 +245,15 @@ public class NfeIssueInputAssemblerTests
         Assert.Equal(2000m, item.TaxableUnitPrice);
         Assert.Equal("KG", item.UnitOfMeasure);
         Assert.Equal(30000m, item.Quantity);
+    }
+
+    [Fact]
+    public async Task Taxable_unit_matches_the_item_code_ignoring_case()
+    {
+        // O SQL Server compara sem diferenciar maiúsculas; o dicionário em memória também precisa.
+        var input = await BuildAsync(await SeedWithTaxableUnitAsync(complementItemCode: "soja"), i => i.Items.Single().Cfop = "6504");
+
+        Assert.Equal("TON", input.Items[0].TaxableUnitOfMeasure);
     }
 
     [Fact]

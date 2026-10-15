@@ -213,9 +213,12 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             .Where(i => itemCodes.Contains(i.ItemCode))
             .ToDictionaryAsync(i => i.ItemCode, i => i.Cest);
         // Fator > 0: o Convert divide por ele, e um 0 gravado fora do serviço não pode derrubar a emissão.
+        // O SQL Server compara sem diferenciar maiúsculas; o filtro (UPPER) e o dicionário seguem a mesma regra.
+        var upperItemCodes = itemCodes.Select(c => c.ToUpperInvariant()).ToList();
         var taxableUnits = await db.Context.ItemComplements.AsNoTracking()
-            .Where(c => itemCodes.Contains(c.ItemCode) && c.TaxableUnitOfMeasureCode != null && c.TaxableFactor != null && c.TaxableFactor > 0)
-            .ToDictionaryAsync(c => c.ItemCode, c => new NfeTaxableUnitSetting(c.TaxableUnitOfMeasureCode!, c.TaxableFactor!.Value));
+            .Where(c => upperItemCodes.Contains(c.ItemCode.ToUpper()) && c.TaxableUnitOfMeasureCode != null && c.TaxableFactor != null && c.TaxableFactor > 0)
+            .ToDictionaryAsync(c => c.ItemCode, c => new NfeTaxableUnitSetting(c.TaxableUnitOfMeasureCode!, c.TaxableFactor!.Value),
+                StringComparer.OrdinalIgnoreCase);
 
         return new NfeIssueContext(
             branch, branch.Municipality!, settings!, customer!, customerAddress!, customerAddress!.Municipality!,

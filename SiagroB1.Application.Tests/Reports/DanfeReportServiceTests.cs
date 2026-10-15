@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using NFe.Classes;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -44,7 +45,7 @@ public class DanfeReportServiceTests
     }
 
     [Fact]
-    public async Task Export_nfe_with_taxable_unit_renders_both_units()
+    public async Task Export_nfe_with_taxable_unit_renders_a_pdf()
     {
         var db = TestDb.CreateUnitOfWork();
         using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx(), TestCertificates.Password);
@@ -55,10 +56,11 @@ public class DanfeReportServiceTests
         };
         var signed = NfeSigner.BuildSignAndValidate(NfeTestData.Input() with { Items = [item] }, settings);
         var invoiceKey = Guid.NewGuid();
+        var procXml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!);
         db.Context.SalesInvoiceNfeXmls.Add(new SalesInvoiceNfeXml
         {
             Key = Guid.NewGuid(), SalesInvoiceKey = invoiceKey, Kind = NfeXmlKind.Authorized, CreatedAt = DateTime.Now,
-            Xml = NfeProcComposer.Compose(signed.Xml, FakeNfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!),
+            Xml = procXml,
         });
         await db.SaveChangesAsync();
 
@@ -72,6 +74,9 @@ public class DanfeReportServiceTests
         var (pdf, _) = await new DanfeReportService(db, environment, header).GeneratePdfAsync(invoiceKey);
 
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
+        // As duas unidades só saem impressas se a precisão lida do XML pedir "Ambos".
+        var proc = new nfeProc().CarregarDeXmlString(procXml);
+        Assert.True(DanfeItemPrecision.From(proc.NFe.infNFe.det.Select(d => d.prod)).BothUnits);
     }
 
     [Fact]
