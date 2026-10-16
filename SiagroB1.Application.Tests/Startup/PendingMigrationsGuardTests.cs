@@ -79,4 +79,16 @@ public class PendingMigrationsGuardTests
 
         Assert.Equal(PendingMigrationsOutcome.Proceed, decision.Outcome);
     }
+
+    [Fact]
+    public void Evaluate_WithPerCompanyKeys_NamesTheCompanyInTheMessage()
+    {
+        var decision = PendingMigrationsGuard.Evaluate(
+            Pending(("AppDbContext[0001]", []), ("AppDbContext[0002]", ["20261016_X"]), ("CommonDbContext", [])),
+            allowPending: false);
+
+        Assert.Equal(PendingMigrationsOutcome.Block, decision.Outcome);
+        Assert.Contains("AppDbContext[0002]: 20261016_X", decision.Message);
+        Assert.Contains("--connection", decision.Message);
+    }
 }

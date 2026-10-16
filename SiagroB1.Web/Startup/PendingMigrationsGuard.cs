@@ -1,5 +1,7 @@
 using System.Data.Common;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Web.Startup;
@@ -14,8 +16,8 @@ public enum PendingMigrationsOutcome
 public sealed record PendingMigrationsDecision(PendingMigrationsOutcome Outcome, string Message);
 
 /// <summary>
-/// Recusa subir o Web enquanto houver migration pendente no <see cref="AppDbContext"/> ou no
-/// <see cref="CommonDbContext"/>.
+/// Recusa subir o Web enquanto houver migration pendente no <see cref="CommonDbContext"/> ou no
+/// <see cref="AppDbContext"/> de qualquer banco de negócio cadastrado (uma empresa por banco).
 ///
 /// Migration é aplicada à mão no deploy. Quando alguém esquece, nada acusa: o sistema sobe e só a
 /// tela que usa a tabela nova quebra, muitas vezes em silêncio - foi assim que o layout das tabelas
@@ -63,39 +65,82 @@ public static class PendingMigrationsGuard
             PendingMigrationsOutcome.Block,
             "O SiagroB1.Web não vai subir: há migrations pendentes. Aplique-as com " +
             "`dotnet ef database update --context <Contexto>` apontando para o banco deste ambiente " +
+            "(para o banco de uma empresa, acrescente --connection \"<string>\") " +
             $"(ou, só em emergência, configure {AllowPendingConfigurationKey}=true). {list}");
     }
 
-    public static async Task EnsureNoPendingMigrationsAsync(
+    /// <summary>Só a COMMON — roda ANTES do bootstrap de empresas, que precisa das colunas novas dela.</summary>
+    public static async Task EnsureNoPendingCommonMigrationsAsync(
         WebApplication app, CancellationToken cancellationToken = default)
     {
-        var logger = app.Services.GetRequiredService<ILoggerFactory>()
-            .CreateLogger(nameof(PendingMigrationsGuard));
-
+        var logger = CreateLogger(app);
         Dictionary<string, IReadOnlyList<string>> pending;
 
         try
         {
             using var scope = app.Services.CreateScope();
-
             pending = new Dictionary<string, IReadOnlyList<string>>
             {
-                [nameof(AppDbContext)] = await PendingOf<AppDbContext>(scope, cancellationToken),
                 [nameof(CommonDbContext)] = await PendingOf<CommonDbContext>(scope, cancellationToken)
             };
         }
         catch (DbException ex)
         {
-            // Banco fora do ar no boot não é o que esta trava protege: sem a checagem o Web sobe como
-            // sempre subiu, e uma queda momentânea do SQL Server não o deixa parado até alguém
-            // reiniciar o serviço.
-            logger.LogError(ex,
-                "Não foi possível verificar as migrations pendentes (banco inacessível). O boot segue.");
+            logger.LogError(ex, "Não foi possível verificar as migrations pendentes da COMMON (banco inacessível). O boot segue.");
             return;
         }
 
-        var decision = Evaluate(
-            pending, app.Configuration.GetValue<bool>(AllowPendingConfigurationKey));
+        Decide(app, logger, pending);
+    }
+
+    /// <summary>
+    /// O AppDbContext de CADA empresa cadastrada, mais o banco de ConnectionStrings:SiagroDB quando ele
+    /// não está entre elas. Uma empresa inacessível só gera log — indisponibilidade não é o que esta
+    /// trava protege.
+    /// </summary>
+    public static async Task EnsureNoPendingCompanyMigrationsAsync(
+        WebApplication app, CancellationToken cancellationToken = default)
+    {
+        var logger = CreateLogger(app);
+        var pending = new Dictionary<string, IReadOnlyList<string>>();
+
+        List<CompanyInfo> targets;
+        try
+        {
+            targets = [.. await app.Services.GetRequiredService<ICompanyCatalog>().GetAllAsync(cancellationToken)];
+        }
+        catch (DbException ex)
+        {
+            logger.LogError(ex, "Não foi possível ler as empresas para verificar as migrations (banco inacessível). O boot segue.");
+            return;
+        }
+
+        var fallback = app.Configuration.GetConnectionString(CompanyContext.FallbackConnectionStringName);
+        if (fallback is not null && !targets.Any(t => SameDatabase(t.ConnectionString, fallback)))
+        {
+            targets.Add(new CompanyInfo("CFG", "ConnectionStrings:SiagroDB", fallback));
+        }
+
+        foreach (var company in targets)
+        {
+            try
+            {
+                using var scope = app.Services.CreateScope();
+                scope.ServiceProvider.GetRequiredService<ICompanyContext>().Set(company);
+                pending[$"{nameof(AppDbContext)}[{company.Code}]"] = await PendingOf<AppDbContext>(scope, cancellationToken);
+            }
+            catch (DbException ex)
+            {
+                logger.LogError(ex, "Banco da empresa {Code} inacessível; o boot segue sem verificar as migrations dela.", company.Code);
+            }
+        }
+
+        Decide(app, logger, pending);
+    }
+
+    private static void Decide(WebApplication app, ILogger logger, Dictionary<string, IReadOnlyList<string>> pending)
+    {
+        var decision = Evaluate(pending, app.Configuration.GetValue<bool>(AllowPendingConfigurationKey));
 
         switch (decision.Outcome)
         {
@@ -108,8 +153,27 @@ public static class PendingMigrationsGuard
                 break;
 
             default:
-                logger.LogInformation("Nenhuma migration pendente.");
+                logger.LogInformation("Nenhuma migration pendente em {Contexts}.", string.Join(", ", pending.Keys));
                 break;
+        }
+    }
+
+    private static ILogger CreateLogger(WebApplication app) =>
+        app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(PendingMigrationsGuard));
+
+    /// <summary>Mesmo servidor e mesmo catálogo; a comparação textual falharia por diferença de ordem ou caixa.</summary>
+    private static bool SameDatabase(string a, string b)
+    {
+        try
+        {
+            var x = new SqlConnectionStringBuilder(a);
+            var y = new SqlConnectionStringBuilder(b);
+            return string.Equals(x.DataSource, y.DataSource, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.InitialCatalog, y.InitialCatalog, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (ArgumentException)
+        {
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -117,7 +181,6 @@ public static class PendingMigrationsGuard
         IServiceScope scope, CancellationToken cancellationToken) where TContext : DbContext
     {
         var context = scope.ServiceProvider.GetRequiredService<TContext>();
-
         return (await context.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
     }
 }

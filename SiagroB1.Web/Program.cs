@@ -24,6 +24,7 @@ using SiagroB1.Infra.WhatsApp;
 using SiagroB1.Web.Security;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
+using SiagroB1.Security.Startup;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
 using SiagroB1.Web.Hooks;
@@ -205,7 +206,11 @@ var app = builder.Build();
 
 // Antes de qualquer job ou requisição: com migration pendente o Web se recusa a subir. O `dotnet ef`
 // encerra o host dentro do Build(), então isto não trava o próprio `database update`.
-await PendingMigrationsGuard.EnsureNoPendingMigrationsAsync(app);
+// Ordem importa: a COMMON primeiro (o bootstrap precisa das colunas novas dela), depois o bootstrap
+// cadastra a empresa padrão, e só então há como saber QUAIS bancos de negócio verificar.
+await PendingMigrationsGuard.EnsureNoPendingCommonMigrationsAsync(app);
+await CompanyBootstrap.RunAsync(app.Services);
+await PendingMigrationsGuard.EnsureNoPendingCompanyMigrationsAsync(app);
 
 app.UseRequestLocalization(localizationOptions);
 

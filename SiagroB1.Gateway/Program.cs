@@ -9,6 +9,7 @@ using SiagroB1.Infra.Email;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Interfaces;
 using SiagroB1.Security.Middlewares;
+using SiagroB1.Security.Startup;
 using SiagroB1.Security.Services;
 using SiagroB1.Security.Services.SapUsers;
 using SiagroB1.Security.Shared;
@@ -101,6 +102,10 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+
+// O login lista as empresas de COMPANIES: um deploy antigo (tabela vazia) precisa da empresa padrão
+// antes do primeiro login, e o Gateway pode subir antes do Web.
+await CompanyBootstrap.RunAsync(app.Services);
 
 WarnIfPasswordRecoveryCannotSendEmail(app);
 
