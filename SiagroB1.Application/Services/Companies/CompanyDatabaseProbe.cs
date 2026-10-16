@@ -25,11 +25,18 @@ public sealed class CompanyDatabaseProbe : ICompanyDatabaseProbe
 
         try
         {
+            // Abre o banco antes do EF: GetPendingMigrationsAsync não falha quando o banco não existe
+            // (devolvia "conectado com todas as migrations pendentes"); aqui o SqlException acusa.
+            await using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync(ct);
+            }
+
             await using var context = new AppDbContext(options);
             var pending = (await context.Database.GetPendingMigrationsAsync(ct)).ToList();
             return new CompanyProbeResult(true, null, pending, builder.DataSource, builder.InitialCatalog);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             return new CompanyProbeResult(false, e.Message, [], builder.DataSource, builder.InitialCatalog);
         }

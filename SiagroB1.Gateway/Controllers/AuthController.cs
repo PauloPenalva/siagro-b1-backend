@@ -16,7 +16,10 @@ public class AuthController(
     IAuthService authService,
     ILogger<AuthController> logger,
     IConfiguration configuration,
-    BranchService branchService,
+    // BranchService NÃO é injetado no construtor: ele depende do AppDbContext, cujas opções leem a
+    // empresa da sessão na ativação do controller — no login isso acontece antes de AuthService.Set
+    // e caía no fallback. Só os endpoints de filial o resolvem, e esses já chegam com o cookie.
+    IServiceProvider serviceProvider,
     MenuService menuService,
     IPasswordResetService passwordResetService,
     PasswordPolicy passwordPolicy,
@@ -278,7 +281,7 @@ public class AuthController(
         
         try
         {
-            await branchService.SetDefaultBranch(sessionId, branchRequest.BranchCode);
+            await serviceProvider.GetRequiredService<BranchService>().SetDefaultBranch(sessionId, branchRequest.BranchCode);
             return Ok();
         }
         catch (Exception e)
@@ -297,7 +300,7 @@ public class AuthController(
         {
             Request.Cookies.TryGetValue("SIAGROB1.User", out var userCookie);
                 
-            var branchInfo = await branchService.GetDefaultBranchInfo(sessionId);
+            var branchInfo = await serviceProvider.GetRequiredService<BranchService>().GetDefaultBranchInfo(sessionId);
             return Ok(branchInfo);
         }
         catch (Exception e)
