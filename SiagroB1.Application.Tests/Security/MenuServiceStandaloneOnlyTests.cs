@@ -20,7 +20,7 @@ public class MenuServiceStandaloneOnlyTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
-        db.UserProfiles.Add(new UserProfile { UserId = UserId, ProfileCode = "P1" });
+        db.UserProfiles.Add(new UserProfile { UserId = UserId, ProfileCode = "P1", CompanyCode = "0001" });
         db.ProfileRoles.Add(new ProfileRole { ProfileCode = "P1", RoleCode = "ADMIN" });
         db.MenuItems.AddRange(
             new MenuItem { Key = "registers", Title = "Cadastros", Order = 2 },
@@ -38,7 +38,7 @@ public class MenuServiceStandaloneOnlyTests
     private static async Task<List<string?>> ChildKeysAsync(string? erp)
     {
         var db = await SeedAsync();
-        var menu = await new MenuService(db, TaxTestServices.Config(erp)).GetMenuAsync(UserId);
+        var menu = await new MenuService(db, TaxTestServices.Config(erp), new FakeCompanyContext("0001")).GetMenuAsync(UserId);
 
         return Assert.Single(menu.Navigation).Items!.Select(i => i.Key).Order().ToList();
     }

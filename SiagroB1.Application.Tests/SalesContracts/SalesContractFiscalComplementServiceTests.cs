@@ -123,7 +123,7 @@ public class SalesContractFiscalComplementServiceTests
         await common.SaveChangesAsync();
 
         var service = new SalesContractFiscalComplementService(
-            _db, new UsageService(_db, NullLogger<UsageService>.Instance), new UserPermissionsService(common));
+            _db, new UsageService(_db, NullLogger<UsageService>.Instance), new UserPermissionsService(common, new FakeCompanyContext("0001")));
 
         var saved = await service.SetAsync(key, Input(order: "PED-9"), "chefe");
         Assert.Equal("PED-9", saved.CustomerOrderNumber);

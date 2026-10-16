@@ -2,11 +2,12 @@
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Dtos.Common;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Security.Services;
 
-public class MenuService(CommonDbContext context, IConfiguration configuration)
+public class MenuService(CommonDbContext context, IConfiguration configuration, ICompanyContext companyContext)
 {
     public async Task<NavigationResponseDto> GetMenuAsync(Guid userId)
     {
@@ -22,7 +23,7 @@ public class MenuService(CommonDbContext context, IConfiguration configuration)
             join menu in context.MenuItems
                 on rm.MenuItemKey equals menu.Key
 
-            where up.UserId == userId
+            where up.UserId == userId && up.CompanyCode == companyContext.CompanyCode
 
             select new
             {
