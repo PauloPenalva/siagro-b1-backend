@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Interfaces;
@@ -29,6 +30,15 @@ public sealed class CompanyScopedJobRunner(
             [ContractNotificationSweep] = (sp, ct) => sp.GetRequiredService<IContractNotificationSweepJob>().ExecuteAsync(ct),
             [ContractDraftsReconcile] = (sp, ct) => sp.GetRequiredService<ContractDraftsReconcileJob>().ExecuteAsync(ct),
         };
+
+    /// <summary>
+    /// Mesma execução, sem retry do Hangfire: para os jobs que já rodam a cada minuto/30 min, a
+    /// próxima execução É a retentativa — com retry, uma empresa fora do ar multiplicaria as
+    /// execuções das demais. O método é separado porque o Hangfire lê os atributos do MÉTODO invocado.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
+    [DisplayName("{0} (todas as empresas)")]
+    public Task RunForAllCompaniesWithoutRetryAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
 
     [DisplayName("{0} (todas as empresas)")]
     public async Task RunForAllCompaniesAsync(string jobKey, CancellationToken ct)

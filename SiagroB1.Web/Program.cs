@@ -271,7 +271,7 @@ RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
 // de negócio, não achar a linha e desistir em silêncio.
 RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
     "contract-notification-sweep",
-    runner => runner.RunForAllCompaniesAsync(CompanyScopedJobRunner.ContractNotificationSweep, CancellationToken.None),
+    runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractNotificationSweep, CancellationToken.None),
     Cron.Minutely());
 
 // Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que
@@ -295,7 +295,7 @@ if (app.Configuration.GetValue("Signature:Enabled", false))
 {
     RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
         ContractDraftsReconcileJob.RecurringJobId,
-        runner => runner.RunForAllCompaniesAsync(CompanyScopedJobRunner.ContractDraftsReconcile, CancellationToken.None),
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractDraftsReconcile, CancellationToken.None),
         ContractDraftsReconcileJob.CronExpression);
 }
 else

@@ -25,7 +25,7 @@ public class CompaniesDeleteService(
         if (await db.UserProfiles.AnyAsync(p => p.CompanyCode == code))
             throw new ApplicationException("A empresa tem perfis de usuário atribuídos. Remova-os antes de excluí-la.");
 
-        if (await db.UserSessions.AnyAsync(s => s.CompanyCode == code && s.IsActive))
+        if (await db.UserSessions.AnyAsync(s => s.CompanyCode == code && s.IsActive && s.ExpiresAt > DateTime.UtcNow))
             throw new ApplicationException("Há sessões ativas nesta empresa. Aguarde ou encerre-as antes de excluí-la.");
 
         db.Companies.Remove(company);

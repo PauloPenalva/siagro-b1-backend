@@ -51,4 +51,35 @@ public class CompaniesDeleteServiceTests
         Assert.Single(_db.Companies);
         Assert.Equal(1, _catalog.Invalidations);
     }
+
+    private void SeedSession(DateTime expiresAt)
+    {
+        var user = new User { Username = "s", FullName = "s" };
+        _db.Users.Add(user);
+        _db.UserSessions.Add(new UserSession
+        {
+            SessionId = Guid.NewGuid().ToString(), UserId = user.Id, IsActive = true,
+            ExpiresAt = expiresAt, CompanyCode = "0002"
+        });
+        _db.SaveChanges();
+    }
+
+    [Fact]
+    public async Task Company_with_a_live_session_cannot_be_deleted()
+    {
+        SeedSession(DateTime.UtcNow.AddHours(1));
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => Create().ExecuteAsync("0002"));
+        Assert.Contains("sessões", ex.Message);
+    }
+
+    [Fact]
+    public async Task Company_with_only_expired_sessions_can_be_deleted()
+    {
+        SeedSession(DateTime.UtcNow.AddHours(-1));
+
+        await Create().ExecuteAsync("0002");
+
+        Assert.Single(_db.Companies);
+    }
 }

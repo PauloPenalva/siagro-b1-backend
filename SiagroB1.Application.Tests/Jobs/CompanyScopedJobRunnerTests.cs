@@ -72,4 +72,17 @@ public class CompanyScopedJobRunnerTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             runner.RunForAllCompaniesAsync("nao-existe", CancellationToken.None));
     }
+
+    [Fact]
+    public void Only_the_without_retry_entry_point_disables_hangfire_retries()
+    {
+        var type = typeof(CompanyScopedJobRunner);
+        var withoutRetry = type.GetMethod(nameof(CompanyScopedJobRunner.RunForAllCompaniesWithoutRetryAsync))!
+            .GetCustomAttributes(typeof(Hangfire.AutomaticRetryAttribute), false)
+            .Cast<Hangfire.AutomaticRetryAttribute>().Single();
+        Assert.Equal(0, withoutRetry.Attempts);
+
+        Assert.Empty(type.GetMethod(nameof(CompanyScopedJobRunner.RunForAllCompaniesAsync))!
+            .GetCustomAttributes(typeof(Hangfire.AutomaticRetryAttribute), false));
+    }
 }
