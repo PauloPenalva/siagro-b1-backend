@@ -40,6 +40,16 @@ public class CompaniesCreateServiceTests
         Assert.Equal([Cs], _probe.Probed);
     }
 
+    [Fact]
+    public async Task Returned_company_has_the_password_masked_but_the_stored_row_keeps_it()
+    {
+        var saved = await Create().ExecuteAsync(Entity());
+
+        Assert.Contains(CompanyConnectionStrings.Mask, saved.ConnectionString);
+        Assert.DoesNotContain("Password=x", saved.ConnectionString);
+        Assert.Equal(Cs, _db.Companies.AsNoTracking().Single().ConnectionString);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("12345")]

@@ -54,6 +54,14 @@ public partial class CompaniesCreateService(
         }
 
         catalog.Invalidate();
-        return entity;
+
+        // A resposta vai para o cliente: a senha nunca sai do servidor. A linha salva fica intacta.
+        return new Company
+        {
+            Code = entity.Code,
+            CompanyName = entity.CompanyName,
+            ConnectionString = CompanyConnectionStrings.MaskPassword(entity.ConnectionString),
+            SapCompanyDb = entity.SapCompanyDb,
+        };
     }
 }

@@ -64,9 +64,10 @@ public class CompaniesController(
             
         try
         {
-            await createService.ExecuteAsync(entity);
+            // O serviço devolve a cópia com a senha mascarada.
+            var saved = await createService.ExecuteAsync(entity);
 
-            return Created(entity);
+            return Created(saved);
         }
         catch (Exception ex)
         {

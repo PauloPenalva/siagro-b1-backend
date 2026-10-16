@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
@@ -11,6 +12,7 @@ public class CompaniesUpdateService(
     CommonDbContext db,
     ICompanyDatabaseProbe probe,
     ICompanyCatalog catalog,
+    IConfiguration configuration,
     ILogger<CompaniesUpdateService> logger)
 {
     public async Task<Company?> ExecuteAsync(string code, Company entity)
@@ -28,7 +30,7 @@ public class CompaniesUpdateService(
         if (CompanyConnectionStrings.AreEquivalent(connectionString, existing.ConnectionString))
             connectionString = existing.ConnectionString;
         else
-            await CompanyDatabaseRules.ValidateConnectionStringAsync(connectionString, probe, commonConnectionString: null);
+            await CompanyDatabaseRules.ValidateConnectionStringAsync(connectionString, probe, configuration.GetConnectionString("SiagroCommon"));
 
         // Code é imutável: é a chave que sessões, perfis e jobs carregam.
         existing.CompanyName = name;

@@ -23,7 +23,9 @@ public class CompaniesUpdateServiceTests
         _db.SaveChanges();
     }
 
-    private CompaniesUpdateService Create() => new(_db, _probe, _catalog, NullLogger<CompaniesUpdateService>.Instance);
+    private CompaniesUpdateService Create() => new(_db, _probe, _catalog,
+        TestConfiguration.With(("ConnectionStrings:SiagroCommon", "Server=db;Database=CEAGUI_SIAGRO_COMMON;User Id=app;Password=x")),
+        NullLogger<CompaniesUpdateService>.Instance);
 
     [Fact]
     public async Task Masked_password_keeps_the_stored_one_and_does_not_probe_when_nothing_else_changed()
@@ -48,6 +50,18 @@ public class CompaniesUpdateServiceTests
         await Assert.ThrowsAsync<DefaultException>(() => Create().ExecuteAsync("0002", incoming));
 
         Assert.Single(_probe.Probed);
+        Assert.Equal(Stored, _db.Companies.Single().ConnectionString);
+    }
+
+    [Fact]
+    public async Task Changed_connection_string_pointing_to_the_common_database_is_refused()
+    {
+        var incoming = new Company { Code = "0002", CompanyName = "LM", ConnectionString = "Server=db;Database=CEAGUI_SIAGRO_COMMON;User Id=app;Password=x" };
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Create().ExecuteAsync("0002", incoming));
+
+        Assert.Contains("COMMON", ex.Message);
+        Assert.Empty(_probe.Probed);
         Assert.Equal(Stored, _db.Companies.Single().ConnectionString);
     }
 
