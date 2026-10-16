@@ -1,6 +1,5 @@
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
-using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.CompanySignatories;
@@ -344,6 +343,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ContractDraftsCancelService>();
         services.AddScoped<ContractDraftsRefreshStateService>();
         services.AddScoped<ContractDraftsReconcileJob>();
+        services.AddScoped<CompanyScopedJobRunner>();
 
         // sales invoices
         services.AddScoped<SalesInvoicesCancelService>();
