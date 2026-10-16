@@ -3708,8 +3708,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ## Notas de deploy (para o `README`/memória, não para o código)
 
+0. ANTES do deploy, rodar `SELECT * FROM COMPANIES` em cada COMMON: a tabela existe desde a migration Initial. Se tiver linhas antigas, o bootstrap NÃO cadastra a empresa padrão e os perfis/sessões legados são vinculados ao código configurado ou à primeira linha — limpe ou corrija as linhas antes.
 1. Aplicar as duas migrations da COMMON (`AddCompanyCodeToUserSessionsAndUsersProfiles`, `AddCompaniesMenu`) antes de subir.
 2. Opcional: `Company:Code` e `Company:Name` no `appsettings.<env>.json` do Web e do Gateway (padrão `0001` e `CompanyName`).
 3. Primeiro boot: a empresa padrão é cadastrada sozinha; conferir `COMPANIES` e `USERS_PROFILES.CompanyCode`.
-4. Hangfire cria o schema `HangFire` na COMMON (o usuário de runtime precisa de DDL nessa primeira subida, ou crie o schema antes).
+4. Hangfire cria o schema `HangFire` na COMMON (o login de runtime precisa de permissão de DDL uma vez, na primeira subida, ou crie o schema `HangFire` antes).
+6. Rollback: o `Down()` de `AddCompanyCodeToUserSessionsAndUsersProfiles` recria o índice único sem filtro `(UserId, ProfileCode)` e FALHA assim que um usuário tiver o mesmo perfil em duas empresas — remova as duplicatas antes de reverter.
 5. Segunda empresa: criar o banco → `dotnet ef database update --context AppDbContext --connection "<cs>"` → cadastrar na tela → atribuir perfis → (opcional) `wwwroot/images/logo-<Code>.png` no Reports.
