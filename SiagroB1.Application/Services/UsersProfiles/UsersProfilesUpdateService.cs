@@ -20,6 +20,8 @@ public class UsersProfilesUpdateService(
             throw new NotFoundException(resource["USER_PROFILE_NOT_FOUND"].Value);
         
         userProfile.ProfileCode = entity.ProfileCode;
+        if (!string.IsNullOrWhiteSpace(entity.CompanyCode))
+            userProfile.CompanyCode = entity.CompanyCode.Trim().ToUpperInvariant();
         
         try
         {
@@ -45,6 +47,8 @@ public class UsersProfilesUpdateService(
         
         userProfile.UserId = userId;
         userProfile.ProfileCode = entity.ProfileCode;
+        if (!string.IsNullOrWhiteSpace(entity.CompanyCode))
+            userProfile.CompanyCode = entity.CompanyCode.Trim().ToUpperInvariant();
         
         try
         {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Dtos.Common;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
@@ -91,6 +92,11 @@ public static class ODataConfigurations
         var branchNfeSettingsTestConnection = modelBuilder.Action("BranchNfeSettingsTestConnection");
         branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
         branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
+
+        var companiesTestConnection = modelBuilder.Action("CompaniesTestConnection");
+        companiesTestConnection.Parameter<string>("Code");
+        companiesTestConnection.Parameter<string>("ConnectionString");
+        companiesTestConnection.Returns<CompanyTestConnectionResult>();
 
         var salesInvoicesIssueNfe = modelBuilder.Action("SalesInvoicesIssueNfe");
         salesInvoicesIssueNfe.Parameter<Guid>("Key");

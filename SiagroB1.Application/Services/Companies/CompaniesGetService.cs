@@ -1,30 +1,27 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
-using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Companies;
 
-public class CompaniesGetService(CommonDbContext db, ILogger<CompaniesUpdateService> logger)
+/// <summary>A string de conexão sai sempre com a senha mascarada.</summary>
+public class CompaniesGetService(CommonDbContext db)
 {
     public async Task<Company?> GetByIdAsync(string code)
     {
-        try
-        {
-            logger.LogInformation("Fetching entity with ID {Id}", code);
-            return await db.Companies
-                .FirstOrDefaultAsync(p => p.Code == code);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,"Error fetching entity with ID {Id}", code);
-            throw new DefaultException("Error fetching entity");
-        }
+        var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(p => p.Code == code);
+        return company is null ? null : Masked(company);
     }
 
-    public IQueryable<Company> QueryAll()
+    /// <summary>Poucas linhas: materializa e mascara em memória (o $filter do OData passa a ser aplicado em memória).</summary>
+    public IQueryable<Company> QueryAll() =>
+        db.Companies.AsNoTracking().AsEnumerable().Select(Masked).AsQueryable();
+
+    private static Company Masked(Company c) => new()
     {
-        return db.Companies.AsNoTracking();
-    }
+        Code = c.Code,
+        CompanyName = c.CompanyName,
+        ConnectionString = CompanyConnectionStrings.MaskPassword(c.ConnectionString),
+        SapCompanyDb = c.SapCompanyDb,
+    };
 }

@@ -184,6 +184,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CompaniesDeleteService>();
         services.AddScoped<CompaniesGetService>();
         services.AddScoped<CompaniesUpdateService>();
+        services.AddScoped<ICompanyDatabaseProbe, CompanyDatabaseProbe>();
+        services.AddScoped<CompaniesTestConnectionService>();
 
         // doc numbers
         services.AddScoped<DocNumberSequenceService>();
