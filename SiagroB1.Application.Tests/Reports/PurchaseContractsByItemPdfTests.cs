@@ -87,7 +87,7 @@ public class PurchaseContractsByItemPdfTests : IDisposable
         var fastReport = new FastReportService(
             env,
             configuration,
-            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>()));
+            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()), FakeCompanyContext.Unresolved());
 
         var pdf = await new PurchaseContractsByItemReportService(db, fastReport)
             .ExecuteAsync(new PurchaseContractsByItemRequest

@@ -2,6 +2,7 @@ using FastReport;
 using FastReport.Data;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Application.Tests.Reports;
@@ -160,7 +161,47 @@ public class ReportHeaderServiceTests : IDisposable
         Assert.NotSame(firstImage, secondImage);
     }
 
-    private ReportHeaderService CreateService(string? companyName, string? logoPath)
+    [Fact]
+    public void Apply_UsesTheSessionCompanyName_OverConfiguration()
+    {
+        var service = CreateService(companyName: "DA CONFIG", logoPath: null,
+            companyContext: new FakeCompanyContext("0002"));
+        using var report = CreateReport(withLogoObject: false);
+
+        service.Apply(report);
+
+        Assert.Equal("Empresa 0002", report.GetParameterValue("pCompanyName"));
+    }
+
+    [Fact]
+    public void Apply_PrefersThePerCompanyLogo_AndFallsBackToTheConfiguredOne()
+    {
+        var shared = WriteLogo(Path.Combine("wwwroot", "images", "logo.png"));
+        var perCompany = WriteLogo(Path.Combine("wwwroot", "images", "logo-0002.png"));
+        File.AppendAllText(perCompany, "x"); // distingue os dois arquivos (PNG tolera lixo após o IEND)
+
+        var withOwnLogo = CreateService("ACME", "wwwroot/images/logo.png", new FakeCompanyContext("0002"));
+        var withoutOwnLogo = CreateService("ACME", "wwwroot/images/logo.png", new FakeCompanyContext("0001"));
+
+        Assert.Equal(File.ReadAllBytes(perCompany), withOwnLogo.LogoBytes());
+        Assert.Equal(File.ReadAllBytes(shared), withoutOwnLogo.LogoBytes());
+    }
+
+    [Fact]
+    public void LogoCache_KeepsOneEntryPerPath_SoTwoCompaniesDoNotEvictEachOther()
+    {
+        WriteLogo(Path.Combine("wwwroot", "images", "logo-0001.png"));
+        WriteLogo(Path.Combine("wwwroot", "images", "logo-0002.png"));
+        var a = CreateService("ACME", null, new FakeCompanyContext("0001"));
+        var b = CreateService("ACME", null, new FakeCompanyContext("0002"));
+
+        var first = a.LogoBytes();
+        _ = b.LogoBytes();
+
+        Assert.Same(first, a.LogoBytes());   // mesma instância do cache, não relido
+    }
+
+    private ReportHeaderService CreateService(string? companyName, string? logoPath, ICompanyContext? companyContext = null)
     {
         var settings = new Dictionary<string, string?>();
         if (companyName is not null) settings["CompanyName"] = companyName;
@@ -170,7 +211,8 @@ public class ReportHeaderServiceTests : IDisposable
             .AddInMemoryCollection(settings)
             .Build();
 
-        return new ReportHeaderService(new TestWebHostEnvironment(_contentRoot), configuration, new TestLogger<ReportHeaderService>());
+        return new ReportHeaderService(new TestWebHostEnvironment(_contentRoot), configuration,
+            new TestLogger<ReportHeaderService>(), companyContext ?? FakeCompanyContext.Unresolved());
     }
 
     private string WriteLogo(string relativePath)

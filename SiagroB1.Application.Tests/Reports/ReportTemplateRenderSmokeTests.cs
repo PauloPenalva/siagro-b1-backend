@@ -59,7 +59,7 @@ public class ReportTemplateRenderSmokeTests
         new ReportHeaderService(
             new TestWebHostEnvironment(contentRoot),
             configuration,
-            new TestLogger<ReportHeaderService>()).Apply(report);
+            new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()).Apply(report);
 
         Assert.NotNull(((PictureObject)report.FindObject("picLogo")).Image);
 

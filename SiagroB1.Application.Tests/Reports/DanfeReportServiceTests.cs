@@ -36,7 +36,7 @@ public class DanfeReportServiceTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
             .Build();
         var environment = new TestWebHostEnvironment(contentRoot);
-        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved());
 
         var (pdf, fileName) = await new DanfeReportService(db, environment, header).GeneratePdfAsync(invoiceKey);
 
@@ -69,7 +69,7 @@ public class DanfeReportServiceTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
             .Build();
         var environment = new TestWebHostEnvironment(contentRoot);
-        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved());
 
         var (pdf, _) = await new DanfeReportService(db, environment, header).GeneratePdfAsync(invoiceKey);
 
@@ -85,7 +85,7 @@ public class DanfeReportServiceTests
         var db = TestDb.CreateUnitOfWork();
         var contentRoot = Path.Combine(AppContext.BaseDirectory, "ReportsContentRoot");
         var environment = new TestWebHostEnvironment(contentRoot);
-        var header = new ReportHeaderService(environment, new ConfigurationBuilder().Build(), NullLogger<ReportHeaderService>.Instance);
+        var header = new ReportHeaderService(environment, new ConfigurationBuilder().Build(), NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved());
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             new DanfeReportService(db, environment, header).GeneratePdfAsync(Guid.NewGuid()));
@@ -111,7 +111,7 @@ public class DanfeReportServiceTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
             .Build();
         var environment = new TestWebHostEnvironment(contentRoot);
-        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved());
 
         var (pdf, fileName) = await new DanfeReportService(db, environment, header).GeneratePurchasePdfAsync(invoiceKey);
 
@@ -140,7 +140,7 @@ public class DanfeReportServiceTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
             .Build();
         var environment = new TestWebHostEnvironment(contentRoot);
-        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance);
+        var header = new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved());
 
         var (pdf, _) = await new DanfeReportService(db, environment, header).GeneratePdfAsync(invoiceKey);
 
@@ -189,7 +189,7 @@ public class DanfeReportServiceTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["CompanyLogoPath"] = "wwwroot/images/logo.png" })
             .Build();
         return new DanfeReportService(db, environment,
-            new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance));
+            new ReportHeaderService(environment, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved()));
     }
 
     /// <summary>procEventoNFe real de CC-e (serializado pela Zeus), como o envio grava.</summary>

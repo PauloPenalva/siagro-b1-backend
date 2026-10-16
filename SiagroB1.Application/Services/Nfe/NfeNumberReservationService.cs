@@ -1,8 +1,8 @@
 using System.Data;
 using Dapper;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Companies;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -11,16 +11,16 @@ namespace SiagroB1.Application.Services.Nfe;
 /// ⚠️ Roda numa conexão Dapper própria, fora da transação do EF: chame antes de abrir transação.
 /// O InMemory dos testes não roda SQL cru — use o fake.
 /// </summary>
-public class NfeNumberReservationService(IDbConnection connection, IConfiguration configuration)
+public class NfeNumberReservationService(IDbConnection connection, ICompanyContext companyContext)
 {
     /// <summary>
-    /// String da conexão da trava: a da CONFIGURAÇÃO (a da conexão da requisição perde a senha
+    /// String da conexão da trava: a da EMPRESA da execução (a da conexão da requisição perde a senha
     /// depois de aberta, com Persist Security Info=False) e SEM pool — com pool, fechar devolve a
     /// conexão ociosa ao pool ainda segurando a trava de sessão, e o documento responderia
     /// "em andamento" até a conexão ser reaproveitada.
     /// </summary>
     public string EmissionLockConnectionString() =>
-        new SqlConnectionStringBuilder(configuration.GetConnectionString("SiagroDB") ?? connection.ConnectionString)
+        new SqlConnectionStringBuilder(companyContext.ConnectionString)
         {
             Pooling = false,
         }.ConnectionString;
