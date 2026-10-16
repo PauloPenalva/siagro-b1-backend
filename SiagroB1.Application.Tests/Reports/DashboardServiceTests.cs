@@ -231,6 +231,100 @@ public class DashboardServiceTests
         Assert.All(days, d => { Assert.Equal(0, d.Count); Assert.Empty(d.Quantities); });
     }
 
+    // ---------- Estoque por produto (§4.2) ----------
+
+    [Fact]
+    public async Task Stock_PhysicalSumsAllWarehousesWithSignByType()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.StorageTransactions.AddRange(
+            St(StorageTransactionType.Purchase, 1000m, wh: "W1"),
+            St(StorageTransactionType.Purchase, 500m, wh: "W2"),
+            St(StorageTransactionType.SalesShipment, 300m),
+            St(StorageTransactionType.WarehouseGain, 50m),
+            St(StorageTransactionType.WarehouseLoss, 20m),
+            St(StorageTransactionType.PurchaseReturn, 100m));
+        await Save(db);
+
+        var row = Assert.Single((await Service(db).BuildAsync(Today)).Stock);
+
+        Assert.Equal(("10001", "KG", 1130m), (row.ItemCode, row.UnitOfMeasure, row.Physical));
+    }
+
+    [Fact]
+    public async Task Stock_PendingAndCancelledTransactionsAreOut()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.StorageTransactions.AddRange(
+            St(StorageTransactionType.Purchase, 1000m),
+            St(StorageTransactionType.Purchase, 999m, status: StorageTransactionsStatus.Pending),
+            St(StorageTransactionType.Purchase, 999m, status: StorageTransactionsStatus.Cancelled),
+            St(StorageTransactionType.Purchase, 200m, status: StorageTransactionsStatus.Invoiced));
+        await Save(db);
+
+        var row = Assert.Single((await Service(db).BuildAsync(Today)).Stock);
+
+        Assert.Equal(1200m, row.Physical);
+    }
+
+    [Fact]
+    public async Task Stock_NetUsesContractsAndInLoad()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.StorageTransactions.Add(St(StorageTransactionType.Purchase, 1000m));
+        db.Context.PurchaseContracts.Add(Purchase("PC000001", total: 800m, deliveryEnd: Today.AddDays(10)));
+        db.Context.SalesContracts.Add(Sales("CV000001", total: 1500m, deliveryEnd: Today.AddDays(10)));
+        var load = Load(ShipmentLoadStatus.Open, Today, 400m);
+        load.InvoicedQuantity = 100m;
+        db.Context.ShipmentLoads.Add(load);
+        await Save(db);
+
+        var row = Assert.Single((await Service(db).BuildAsync(Today)).Stock);
+
+        Assert.Equal((1000m, 300m, 800m, 1500m, 600m), (row.Physical, row.InLoad, row.PurchaseToDeliver, row.SalesToDeliver, row.Net));
+    }
+
+    [Fact]
+    public async Task Stock_ContractUomWithoutStockGetsOwnRowWithoutPhysical()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.StorageTransactions.Add(St(StorageTransactionType.Purchase, 1000m));
+        db.Context.SalesContracts.Add(Sales("CV000001", total: 50m, uom: "SC", deliveryEnd: Today.AddDays(10)));
+        await Save(db);
+
+        var stock = (await Service(db).BuildAsync(Today)).Stock;
+
+        Assert.Equal(2, stock.Count);
+        var sc = Assert.Single(stock, r => r.UnitOfMeasure == "SC");
+        Assert.Equal((null, null, 50m), (sc.Physical, sc.Net, sc.SalesToDeliver));
+    }
+
+    [Fact]
+    public async Task Stock_ItemWithoutAnythingDoesNotAppear()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseContracts.Add(Purchase("PC000001", total: 800m, status: ContractStatus.Finished));
+        await Save(db);
+
+        Assert.Empty((await Service(db).BuildAsync(Today)).Stock);
+    }
+
+    private static StorageTransaction St(
+        StorageTransactionType type, decimal net,
+        StorageTransactionsStatus status = StorageTransactionsStatus.Confirmed,
+        string item = "10001", string uom = "KG", string wh = "W1") => new()
+    {
+        Key = Guid.NewGuid(),
+        TransactionType = type,
+        TransactionStatus = status,
+        NetWeight = net,
+        ItemCode = item,
+        ItemName = "SOJA EM GRÃOS",
+        UnitOfMeasureCode = uom,
+        WarehouseCode = wh,
+        CardCode = "F001",
+    };
+
     private static ShipmentLoad Load(ShipmentLoadStatus status, DateTime date, decimal qty = 30_000m, string uom = "KG") => new()
     {
         Key = Guid.NewGuid(),

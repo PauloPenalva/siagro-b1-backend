@@ -33,6 +33,7 @@ public class DashboardService(IUnitOfWork db, ContractMonthlyPositionReportServi
             Financial = await FinancialAsync(db.Context, today),
             OverdueContracts = Overdue(positions, today),
             LoadsInProgress = await LoadsInProgressAsync(db.Context),
+            Stock = await StockAsync(db.Context, positions),
             RecentLoads = await RecentLoadsAsync(db.Context, today),
             SalesToDeliver = Queue(positions.Where(p => p.Side == ContractPositionSide.Sales), today),
             PurchasesToReceive = Queue(positions.Where(p => p.Side == ContractPositionSide.Purchase), today),
@@ -40,6 +41,89 @@ public class DashboardService(IUnitOfWork db, ContractMonthlyPositionReportServi
     }
 
     private const int QueueSize = 10;
+
+    /// <summary>
+    /// Físico por item + UM com a MESMA fórmula de <c>StorageTransactionsWarehouseBalanceService</c>
+    /// (status Confirmado/Faturado, sete tipos, sinal por tipo), somando todos os armazéns numa
+    /// consulta agrupada. "Em carga" = embarcado e ainda não faturado: já saiu do físico, mas a
+    /// alocação na venda só nasce no faturamento — sem a coluna o líquido descontaria duas vezes.
+    /// </summary>
+    private static async Task<List<DashboardStockRowDto>> StockAsync(AppDbContext context, List<ContractPosition> positions)
+    {
+        var physical = await context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
+                         x.TransactionStatus == StorageTransactionsStatus.Invoiced) &&
+                        (x.TransactionType == StorageTransactionType.Purchase ||
+                         x.TransactionType == StorageTransactionType.PurchaseReturn ||
+                         x.TransactionType == StorageTransactionType.SalesShipment ||
+                         x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                         x.TransactionType == StorageTransactionType.TransshipmentReceipt ||
+                         x.TransactionType == StorageTransactionType.WarehouseLoss ||
+                         x.TransactionType == StorageTransactionType.WarehouseGain))
+            .GroupBy(x => new { x.ItemCode, x.UnitOfMeasureCode })
+            .Select(g => new
+            {
+                g.Key.ItemCode,
+                Uom = g.Key.UnitOfMeasureCode,
+                ItemName = g.Max(x => x.ItemName),
+                Quantity = g.Sum(x => (x.TransactionType == StorageTransactionType.Purchase ||
+                                       x.TransactionType == StorageTransactionType.SalesShipmentReturn ||
+                                       x.TransactionType == StorageTransactionType.TransshipmentReceipt ||
+                                       x.TransactionType == StorageTransactionType.WarehouseGain)
+                    ? x.NetWeight
+                    : -x.NetWeight),
+            })
+            .ToListAsync();
+
+        var inLoad = await context.ShipmentLoads
+            .AsNoTracking()
+            .Where(l => l.Status == ShipmentLoadStatus.Open || l.Status == ShipmentLoadStatus.PartiallyInvoiced)
+            .GroupBy(l => new { l.ItemCode, l.UnitOfMeasureCode })
+            .Select(g => new
+            {
+                g.Key.ItemCode,
+                Uom = g.Key.UnitOfMeasureCode,
+                ItemName = g.Max(l => l.ItemName),
+                Quantity = g.Sum(l => l.TotalQuantity - l.InvoicedQuantity),
+            })
+            .ToListAsync();
+
+        var rows = new Dictionary<(string Item, string Uom), DashboardStockRowDto>();
+
+        DashboardStockRowDto Row(string item, string? uom, string? name)
+        {
+            var key = (item, Uom(uom));
+            if (!rows.TryGetValue(key, out var row))
+                rows[key] = row = new DashboardStockRowDto { ItemCode = item, UnitOfMeasure = key.Item2 };
+            if (string.IsNullOrWhiteSpace(row.ItemName) && !string.IsNullOrWhiteSpace(name))
+                row.ItemName = name;
+            return row;
+        }
+
+        foreach (var p in physical)
+            Row(p.ItemCode, p.Uom, p.ItemName).Physical = p.Quantity;
+        foreach (var l in inLoad)
+            Row(l.ItemCode, l.Uom, l.ItemName).InLoad = l.Quantity;
+        foreach (var p in positions.Where(p => p.ToDeliver > 0m))
+        {
+            var row = Row(p.ItemCode, p.UnitOfMeasureCode, p.ItemName);
+            if (p.Side == ContractPositionSide.Purchase) row.PurchaseToDeliver += p.ToDeliver;
+            else row.SalesToDeliver += p.ToDeliver;
+        }
+
+        foreach (var row in rows.Values)
+            row.Net = row.Physical is { } physicalQty
+                ? physicalQty + row.InLoad + row.PurchaseToDeliver - row.SalesToDeliver
+                : null;
+
+        return rows.Values
+            .Where(r => r.Physical is not null || r.InLoad != 0m || r.PurchaseToDeliver != 0m || r.SalesToDeliver != 0m)
+            .OrderBy(r => r.ItemName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(r => r.ItemCode, StringComparer.Ordinal)
+            .ThenBy(r => r.UnitOfMeasure, StringComparer.Ordinal)
+            .ToList();
+    }
     private const int RecentDays = 7;
 
     /// <summary>
