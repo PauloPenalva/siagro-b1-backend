@@ -1,10 +1,11 @@
-﻿
+
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra.Context;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Infra.Companies;
 using SiagroB1.Security.Shared;
@@ -23,7 +24,8 @@ public class CookieAuthMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         IServiceScopeFactory scopeFactory,
-        ICompanyCatalog catalog)
+        ICompanyCatalog catalog,
+        ILogger<CookieAuthMiddleware> logger)
     {
         // Se já está autenticado, não precisa fazer nada
         if (context.User?.Identity?.IsAuthenticated != true)
@@ -48,17 +50,24 @@ public class CookieAuthMiddleware
                     // é o escopo da requisição que vai resolver o AppDbContext do controller.
                     var company = await catalog.GetByCodeAsync(session.CompanyCode ?? catalog.DefaultCompanyCode);
 
-                    if (company is not null)
+                    if (company is null)
+                    {
+                        // Sem empresa resolvida o AppDbContext cairia no banco de fallback: não autentica.
+                        logger.LogWarning(
+                            "Sessão {SessionId} aponta para a empresa {Code}, que não está cadastrada; sessão não autenticada.",
+                            sessionId, session.CompanyCode ?? catalog.DefaultCompanyCode);
+                    }
+                    else
                     {
                         context.RequestServices.GetRequiredService<ICompanyContext>().Set(company);
-                    }
 
-                    // Criar identidade do usuário
-                    context.User = CreateUserPrincipal(session.User, company?.Code);
-                    
-                    // Atualizar atividade
-                    session.LastActivityAt = DateTime.UtcNow;
-                    await dbContext.SaveChangesAsync();
+                        // Criar identidade do usuário
+                        context.User = CreateUserPrincipal(session.User, company.Code);
+
+                        // Atualizar atividade
+                        session.LastActivityAt = DateTime.UtcNow;
+                        await dbContext.SaveChangesAsync();
+                    }
                 }
             }
         }

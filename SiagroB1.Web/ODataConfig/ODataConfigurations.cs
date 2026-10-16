@@ -579,6 +579,9 @@ public static class ODataConfigurations
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(User))
             .AddProperty(typeof(User).GetProperty(nameof(User.Password)));
         modelBuilder.EntitySet<UserProfile>("UsersProfiles");
+        // A navegação para a empresa fica fora do EDM: a string de conexão (com a senha do banco)
+        // nunca pode sair pela navegação ($expand=Company) do perfil do usuário.
+        modelBuilder.EntityType<UserProfile>().Ignore(p => p.Company);
         modelBuilder.EntitySet<Profile>("Profiles");
         modelBuilder.EntitySet<ProfileRole>("ProfilesRoles");
         modelBuilder.EntitySet<Role>("Roles");

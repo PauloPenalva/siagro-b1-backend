@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Infra.Companies;
@@ -57,7 +58,7 @@ public class CookieAuthMiddlewareCompanyTests
 
         var middleware = new CookieAuthMiddleware(_ => Task.CompletedTask);
         await middleware.InvokeAsync(http, provider.GetRequiredService<IServiceScopeFactory>(),
-            provider.GetRequiredService<ICompanyCatalog>());
+            provider.GetRequiredService<ICompanyCatalog>(), NullLogger<CookieAuthMiddleware>.Instance);
 
         return (http, scope.ServiceProvider.GetRequiredService<ICompanyContext>());
     }
@@ -93,6 +94,18 @@ public class CookieAuthMiddlewareCompanyTests
         using var provider = BuildProvider();
 
         var (http, company) = await Invoke(provider, Guid.NewGuid().ToString());
+
+        Assert.False(http.User?.Identity?.IsAuthenticated ?? false);
+        Assert.False(company.IsResolved);
+    }
+
+    [Fact]
+    public async Task Session_whose_company_is_missing_is_not_authenticated()
+    {
+        using var provider = BuildProvider();
+        var sessionId = SeedSession(provider, "9999");
+
+        var (http, company) = await Invoke(provider, sessionId);
 
         Assert.False(http.User?.Identity?.IsAuthenticated ?? false);
         Assert.False(company.IsResolved);

@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -147,13 +147,18 @@ public class BasicAuthenticationHandler(
             await context.SaveChangesAsync();
 
             var company = await catalog.GetByCodeAsync(session.CompanyCode ?? catalog.DefaultCompanyCode);
-            if (company is not null)
+            if (company is null)
             {
-                companyContext.Set(company);
+                // Sem empresa resolvida o AppDbContext cairia no banco de fallback: não autentica.
+                _logger.LogWarning(
+                    "Sessão {SessionId} aponta para a empresa {Code}, que não está cadastrada; sessão não autenticada.",
+                    sessionId, session.CompanyCode ?? catalog.DefaultCompanyCode);
+                return null;
             }
+            companyContext.Set(company);
 
             // Criar claims do usuário
-            var claims = CreateUserClaims(session.User, company?.Code);
+            var claims = CreateUserClaims(session.User, company.Code);
             
             // Adicionar claim da sessão
             claims.Add(new Claim("SessionId", sessionId));

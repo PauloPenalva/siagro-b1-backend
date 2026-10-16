@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -331,14 +331,15 @@ public class AuthService(
         /// </summary>
         private async Task<(CompanyInfo? Company, string? Error)> ResolveLoginCompanyAsync(string? companyCode)
         {
-            var companies = await catalog.GetAllAsync();
-
             if (!string.IsNullOrWhiteSpace(companyCode))
             {
-                var found = companies.FirstOrDefault(c =>
-                    string.Equals(c.Code, companyCode.Trim(), StringComparison.OrdinalIgnoreCase));
+                // GetByCodeAsync recarrega o catálogo uma vez num miss: empresa recém-cadastrada
+                // já entra, sem esperar o TTL do GetAllAsync.
+                var found = await catalog.GetByCodeAsync(companyCode.Trim());
                 return found is null ? (null, "Empresa inválida.") : (found, null);
             }
+
+            var companies = await catalog.GetAllAsync();
 
             return companies.Count switch
             {
