@@ -309,6 +309,23 @@ public class DashboardServiceTests
         Assert.Empty((await Service(db).BuildAsync(Today)).Stock);
     }
 
+    // ---------- Comprado x vendido por mês (§4.3) ----------
+
+    [Fact]
+    public async Task MonthlyPosition_IsTheReportRows()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseContracts.Add(Purchase("PC000001", total: 1000m, deliveryEnd: Today.AddDays(-1)));
+        db.Context.SalesContracts.Add(Sales("CV000001", total: 300m, deliveryEnd: new DateTime(2026, 12, 1)));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Today)).MonthlyPosition;
+
+        Assert.Equal(new[] { "Vencido", "12/2026" }, rows.Select(r => r.Bucket));
+        Assert.Equal(new[] { 1000m, 0m }, rows.Select(r => r.PurchaseQuantity));
+        Assert.Equal(new[] { 0m, 300m }, rows.Select(r => r.SalesQuantity));
+    }
+
     private static StorageTransaction St(
         StorageTransactionType type, decimal net,
         StorageTransactionsStatus status = StorageTransactionsStatus.Confirmed,

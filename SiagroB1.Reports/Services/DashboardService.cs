@@ -34,6 +34,7 @@ public class DashboardService(IUnitOfWork db, ContractMonthlyPositionReportServi
             OverdueContracts = Overdue(positions, today),
             LoadsInProgress = await LoadsInProgressAsync(db.Context),
             Stock = await StockAsync(db.Context, positions),
+            MonthlyPosition = await monthlyPosition.BuildRowsAsync(request, today),
             RecentLoads = await RecentLoadsAsync(db.Context, today),
             SalesToDeliver = Queue(positions.Where(p => p.Side == ContractPositionSide.Sales), today),
             PurchasesToReceive = Queue(positions.Where(p => p.Side == ContractPositionSide.Purchase), today),
