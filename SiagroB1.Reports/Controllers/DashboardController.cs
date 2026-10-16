@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SiagroB1.Reports.Helpers;
 using SiagroB1.Reports.Services;
 
 namespace SiagroB1.Reports.Controllers;
@@ -15,6 +16,6 @@ public class DashboardController(DashboardService service, IConfiguration config
         if (!string.Equals(erp, "STANDALONE", StringComparison.OrdinalIgnoreCase))
             return NotFound();
 
-        return Ok(await service.BuildAsync(DateTime.Today));
+        return Ok(await service.BuildAsync(DashboardClock.Today()));
     }
 }
