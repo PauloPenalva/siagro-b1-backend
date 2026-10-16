@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Reports.DI;
 using SiagroB1.Reports.PartnerSources;
@@ -30,10 +31,12 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddCompanyContext();
+
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
         options.UseSqlServer(
-            builder.Configuration.GetConnectionString("SiagroDB"),
+            sp.GetRequiredService<ICompanyContext>().ConnectionString,
             b =>
             {
                 b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
@@ -66,11 +69,7 @@ else
 }
 
 builder.Services.AddScoped<IDbConnection>(sp =>
-{
-    var configuration = sp.GetRequiredService<IConfiguration>();
-    var connectionString = configuration.GetConnectionString("SiagroDB");
-    return new SqlConnection(connectionString);
-});
+    new SqlConnection(sp.GetRequiredService<ICompanyContext>().ConnectionString));
 
 FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDataConnection));
 

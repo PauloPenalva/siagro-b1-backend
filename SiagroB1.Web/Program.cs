@@ -15,6 +15,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Infra.ESignature.D4Sign;
 using SiagroB1.Infra.Interceptors;
@@ -60,27 +61,34 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddCompanyContext();
+
+// Singletons de propósito: com o overload (sp, options) o lambda roda a cada ESCOPO, e um `new`
+// de interceptor por escopo mudaria o hash das opções e faria o EF montar um service provider
+// interno por requisição (ManyServiceProvidersCreatedWarning).
+builder.Services.AddSingleton<FinishedContractMutationGuardInterceptor>();
+builder.Services.AddSingleton(new PurchaseFiscalReconciliationCleanupInterceptor(ErpMode.IsStandalone(builder.Configuration)));
+
+// A connection string vem da EMPRESA do escopo (sessão ou job); sem empresa resolvida cai em
+// ConnectionStrings:SiagroDB — é o que o `dotnet ef` e o guard de migrations usam.
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
         options.UseSqlServer(
-            builder.Configuration.GetConnectionString("SiagroDB"),
+            sp.GetRequiredService<ICompanyContext>().ConnectionString,
             b =>
             {
                 b.MigrationsAssembly("SiagroB1.Migrations");
                 b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
-        options.AddInterceptors(new FinishedContractMutationGuardInterceptor());
-        options.AddInterceptors(new PurchaseFiscalReconciliationCleanupInterceptor(ErpMode.IsStandalone(builder.Configuration)));
+        options.AddInterceptors(
+            sp.GetRequiredService<FinishedContractMutationGuardInterceptor>(),
+            sp.GetRequiredService<PurchaseFiscalReconciliationCleanupInterceptor>());
         options.EnableSensitiveDataLogging();
     }
 );
 
 builder.Services.AddScoped<IDbConnection>(sp =>
-{
-    var configuration = sp.GetRequiredService<IConfiguration>();
-    var connectionString = configuration.GetConnectionString("SiagroDB");
-    return new SqlConnection(connectionString);
-});
+    new SqlConnection(sp.GetRequiredService<ICompanyContext>().ConnectionString));
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<UserService>();
