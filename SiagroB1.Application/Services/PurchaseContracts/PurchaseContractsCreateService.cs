@@ -58,6 +58,8 @@ public class PurchaseContractsCreateService(
             if (entity.Type == ContractType.Fixed)
             {
                 await CreatePriceFixation(entity);
+                // Igual à venda: a fixação automática cobre o contrato inteiro.
+                entity.FixedVolume = entity.TotalVolume;
             }
             else
             {

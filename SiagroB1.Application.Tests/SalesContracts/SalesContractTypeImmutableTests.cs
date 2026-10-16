@@ -41,6 +41,14 @@ public class SalesContractTypeImmutableTests
         };
 
         _db.Context.SalesContracts.Add(contract);
+        // Contrato real sempre tem a fixação automática (criação) — o update a sincroniza.
+        _db.Context.SalesContractsPriceFixations.Add(new SalesContractPriceFixation
+        {
+            Key = Guid.NewGuid(),
+            SalesContractKey = contract.Key,
+            FixationVolume = 100_000m,
+            Status = PriceFixationStatus.Confirmed,
+        });
         await _db.Context.SaveChangesAsync();
 
         return contract;
