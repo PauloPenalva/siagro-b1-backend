@@ -32,15 +32,84 @@ public class DashboardService(IUnitOfWork db, ContractMonthlyPositionReportServi
             GeneratedAt = today,
             Financial = await FinancialAsync(db.Context, today),
             OverdueContracts = Overdue(positions, today),
-            RecentLoads = Enumerable.Range(0, 7)
-                .Select(i => new DashboardDayLoadsDto { Date = today.AddDays(-i) })
-                .ToList(),
+            LoadsInProgress = await LoadsInProgressAsync(db.Context),
+            RecentLoads = await RecentLoadsAsync(db.Context, today),
             SalesToDeliver = Queue(positions.Where(p => p.Side == ContractPositionSide.Sales), today),
             PurchasesToReceive = Queue(positions.Where(p => p.Side == ContractPositionSide.Purchase), today),
         };
     }
 
     private const int QueueSize = 10;
+    private const int RecentDays = 7;
+
+    /// <summary>
+    /// Planejada, em carregamento (Open + PartiallyInvoiced), em transbordo, em trânsito (Invoiced:
+    /// faturada e ainda não descarregada) e recusa pendente. Descarregada, concluída, devolvida e
+    /// cancelada já chegaram ou morreram — não são "em andamento".
+    /// </summary>
+    private static async Task<DashboardLoadsInProgressDto> LoadsInProgressAsync(AppDbContext context)
+    {
+        var counts = await context.ShipmentLoads
+            .AsNoTracking()
+            .Where(l => l.Status == ShipmentLoadStatus.Planned
+                        || l.Status == ShipmentLoadStatus.Open
+                        || l.Status == ShipmentLoadStatus.PartiallyInvoiced
+                        || l.Status == ShipmentLoadStatus.InTransshipment
+                        || l.Status == ShipmentLoadStatus.Invoiced
+                        || l.Status == ShipmentLoadStatus.RefusalPending)
+            .GroupBy(l => l.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        int Of(params ShipmentLoadStatus[] statuses) => counts.Where(c => statuses.Contains(c.Status)).Sum(c => c.Count);
+
+        return new DashboardLoadsInProgressDto
+        {
+            Total = counts.Sum(c => c.Count),
+            Planned = Of(ShipmentLoadStatus.Planned),
+            Loading = Of(ShipmentLoadStatus.Open, ShipmentLoadStatus.PartiallyInvoiced),
+            InTransshipment = Of(ShipmentLoadStatus.InTransshipment),
+            InTransit = Of(ShipmentLoadStatus.Invoiced),
+            RefusalPending = Of(ShipmentLoadStatus.RefusalPending),
+        };
+    }
+
+    /// <summary>
+    /// Últimos 7 dias pela data da carga, hoje primeiro, dia vazio com zero. Planejada fica de
+    /// fora: sem romaneio nada foi carregado — o usuário pediu "carregamentos", não cargas abertas.
+    /// </summary>
+    private static async Task<List<DashboardDayLoadsDto>> RecentLoadsAsync(AppDbContext context, DateTime today)
+    {
+        var from = today.AddDays(-(RecentDays - 1));
+        var to = today.AddDays(1);
+
+        var rows = await context.ShipmentLoads
+            .AsNoTracking()
+            .Where(l => l.LoadDate >= from && l.LoadDate < to
+                        && l.Status != ShipmentLoadStatus.Planned
+                        && l.Status != ShipmentLoadStatus.Cancelled)
+            .GroupBy(l => new { Date = l.LoadDate.Date, Uom = l.UnitOfMeasureCode })
+            .Select(g => new { g.Key.Date, g.Key.Uom, Count = g.Count(), Quantity = g.Sum(l => l.TotalQuantity) })
+            .ToListAsync();
+
+        return Enumerable.Range(0, RecentDays)
+            .Select(i => today.AddDays(-i))
+            .Select(date =>
+            {
+                var ofDay = rows.Where(r => r.Date == date).ToList();
+                return new DashboardDayLoadsDto
+                {
+                    Date = date,
+                    Count = ofDay.Sum(r => r.Count),
+                    Quantities = ofDay
+                        .GroupBy(r => Uom(r.Uom))
+                        .OrderBy(g => g.Key, StringComparer.Ordinal)
+                        .Select(g => new DashboardQuantityDto { UnitOfMeasure = g.Key, Quantity = g.Sum(r => r.Quantity) })
+                        .ToList(),
+                };
+            })
+            .ToList();
+    }
 
     /// <summary>"KG" e "kg " são a mesma UM: o snapshot do contrato pode vir com caixa/espaço diferente.</summary>
     private static string Uom(string? code) => (code ?? "").Trim().ToUpperInvariant();

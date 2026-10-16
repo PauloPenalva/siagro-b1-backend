@@ -183,6 +183,68 @@ public class DashboardServiceTests
         Assert.Equal(1, q.Total);
     }
 
+    // ---------- Cargas (§4.1 e §4.4) ----------
+
+    [Fact]
+    public async Task LoadsInProgress_GroupsByStatus()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        foreach (var status in Enum.GetValues<ShipmentLoadStatus>())
+            db.Context.ShipmentLoads.Add(Load(status, Today));
+        await Save(db);
+
+        var l = (await Service(db).BuildAsync(Today)).LoadsInProgress;
+
+        Assert.Equal((6, 1, 2, 1, 1, 1), (l.Total, l.Planned, l.Loading, l.InTransshipment, l.InTransit, l.RefusalPending));
+    }
+
+    [Fact]
+    public async Task RecentLoads_SevenDaysTodayFirst_PlannedAndCancelledOut()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.ShipmentLoads.AddRange(
+            Load(ShipmentLoadStatus.Open, Today, 30_000m),
+            Load(ShipmentLoadStatus.Open, Today.AddDays(-1), 20_000m),
+            Load(ShipmentLoadStatus.Open, Today.AddDays(-1), 10_000m),
+            Load(ShipmentLoadStatus.Planned, Today.AddDays(-1)),
+            Load(ShipmentLoadStatus.Cancelled, Today.AddDays(-2)),
+            Load(ShipmentLoadStatus.Invoiced, Today.AddDays(-6), 5_000m),
+            Load(ShipmentLoadStatus.Open, Today.AddDays(-7)));
+        await Save(db);
+
+        var days = (await Service(db).BuildAsync(Today)).RecentLoads;
+
+        Assert.Equal(Enumerable.Range(0, 7).Select(i => Today.AddDays(-i)), days.Select(d => d.Date));
+        Assert.Equal(new[] { 1, 2, 0, 0, 0, 0, 1 }, days.Select(d => d.Count));
+        var yesterday = Assert.Single(days[1].Quantities);
+        Assert.Equal(("KG", 30_000m), (yesterday.UnitOfMeasure, yesterday.Quantity));
+    }
+
+    [Fact]
+    public async Task RecentLoads_EmptyDayIsZero()
+    {
+        var db = TestDb.CreateUnitOfWork();
+
+        var days = (await Service(db).BuildAsync(Today)).RecentLoads;
+
+        Assert.Equal(7, days.Count);
+        Assert.All(days, d => { Assert.Equal(0, d.Count); Assert.Empty(d.Quantities); });
+    }
+
+    private static ShipmentLoad Load(ShipmentLoadStatus status, DateTime date, decimal qty = 30_000m, string uom = "KG") => new()
+    {
+        Key = Guid.NewGuid(),
+        Code = Guid.NewGuid().ToString("N")[..10],
+        Status = status,
+        LoadDate = date,
+        TotalQuantity = qty,
+        ItemCode = "10001",
+        ItemName = "SOJA EM GRÃOS",
+        UnitOfMeasureCode = uom,
+        TruckCode = "T1",
+        WarehouseCode = "W1",
+    };
+
     private static FinancialDocument Fin(
         FinancialDirection dir, DateTime due, decimal net, decimal settled = 0m,
         FinancialDocumentStatus status = FinancialDocumentStatus.Open,
