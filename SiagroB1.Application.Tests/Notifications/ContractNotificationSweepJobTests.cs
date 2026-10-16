@@ -20,7 +20,7 @@ public class ContractNotificationSweepJobTests
     private readonly FakeBackgroundJobClient _jobClient = new();
 
     private ContractNotificationSweepJob CreateJob() =>
-        new(_db.Context, _jobClient, NullLogger<ContractNotificationSweepJob>.Instance);
+        new(_db.Context, _jobClient, new FakeCompanyContext("0002"), NullLogger<ContractNotificationSweepJob>.Instance);
 
     private NotificationOutboxMessage Seed(NotificationOutboxStatus status, DateTime occurredAt)
     {
@@ -49,6 +49,7 @@ public class ContractNotificationSweepJobTests
         await CreateJob().ExecuteAsync();
 
         Assert.Equal(message.Key, Assert.Single(_jobClient.EnqueuedOutboxKeys));
+        Assert.Equal(["0002"], _jobClient.EnqueuedCompanyCodes);
     }
 
     /// <summary>

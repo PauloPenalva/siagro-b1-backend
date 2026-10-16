@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces.Notifications;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Notifications;
@@ -15,7 +16,8 @@ namespace SiagroB1.Application.Services.Notifications;
 /// </summary>
 public class NotificationOutboxResendService(
     AppDbContext context,
-    IBackgroundJobClient backgroundJobClient)
+    IBackgroundJobClient backgroundJobClient,
+    ICompanyContext companyContext)
 {
     public async Task ExecuteAsync(Guid outboxKey, string userName)
     {
@@ -35,6 +37,6 @@ public class NotificationOutboxResendService(
         await context.SaveChangesAsync();
 
         backgroundJobClient.Enqueue<IContractNotificationDispatchJob>(
-            job => job.ExecuteAsync(outboxKey, CancellationToken.None));
+            job => job.ExecuteAsync(companyContext.CompanyCode, outboxKey, CancellationToken.None));
     }
 }

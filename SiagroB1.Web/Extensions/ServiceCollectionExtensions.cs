@@ -1,4 +1,5 @@
 using SiagroB1.Application.Jobs;
+using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
