@@ -12,7 +12,7 @@ public class WithholdingTaxSettingsService(IUnitOfWork db, IBusinessPartnerServi
 {
     public IQueryable<WithholdingTaxSetting> QueryAll() => db.Context.WithholdingTaxSettings.AsNoTracking();
 
-    public async Task<WithholdingTaxSetting?> GetByIdAsync(WithholdingTaxType taxType) =>
+    public async Task<WithholdingTaxSetting?> GetByIdAsync(int taxType) =>
         await db.Context.WithholdingTaxSettings.FindAsync(taxType);
 
     public async Task<WithholdingTaxSetting> CreateAsync(WithholdingTaxSetting entity)
@@ -20,7 +20,7 @@ public class WithholdingTaxSettingsService(IUnitOfWork db, IBusinessPartnerServi
         await NormalizeAsync(entity);
 
         if (await db.Context.WithholdingTaxSettings.AnyAsync(s => s.TaxType == entity.TaxType))
-            throw new DefaultException($"Já existe configuração para o tributo {Label(entity.TaxType)}; edite a existente.");
+            throw new DefaultException($"Já existe configuração para o tributo {Label((WithholdingTaxType)entity.TaxType)}; edite a existente.");
 
         db.Context.WithholdingTaxSettings.Add(entity);
         await db.SaveChangesAsync();
@@ -37,7 +37,7 @@ public class WithholdingTaxSettingsService(IUnitOfWork db, IBusinessPartnerServi
         return entity;
     }
 
-    public async Task<bool> DeleteAsync(WithholdingTaxType taxType)
+    public async Task<bool> DeleteAsync(int taxType)
     {
         var entity = await db.Context.WithholdingTaxSettings.FindAsync(taxType);
 
@@ -52,7 +52,7 @@ public class WithholdingTaxSettingsService(IUnitOfWork db, IBusinessPartnerServi
 
     private async Task NormalizeAsync(WithholdingTaxSetting entity)
     {
-        if (!Enum.IsDefined(entity.TaxType))
+        if (!Enum.IsDefined(typeof(WithholdingTaxType), entity.TaxType))
             throw new DefaultException("Tributo inválido.");
 
         if (entity.DueDay is < 1 or > 31)

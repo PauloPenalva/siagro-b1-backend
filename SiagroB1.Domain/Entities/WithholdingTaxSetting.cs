@@ -13,7 +13,13 @@ public class WithholdingTaxSetting
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.None)]
-    public WithholdingTaxType TaxType { get; set; }
+    public int TaxType { get; set; }
+
+    /// <summary>
+    /// A chave é INT (e não o enum) porque o OData V4 do UI5 não resolve chave enum no PATCH/DELETE. Este atalho é para o
+    /// código: busque por <c>(int)WithholdingTaxType.Iss</c> e leia o tributo com <c>GetTax()</c>.
+    /// </summary>
+    public WithholdingTaxType GetTax() => (WithholdingTaxType)TaxType;
 
     /// <summary>Parceiro (fornecedor) credor do tributo.</summary>
     [Column(TypeName = "VARCHAR(15) NOT NULL")]

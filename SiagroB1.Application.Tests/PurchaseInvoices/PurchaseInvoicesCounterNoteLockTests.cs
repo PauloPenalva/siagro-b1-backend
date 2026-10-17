@@ -94,7 +94,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, _, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesItemsDeleteService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()))
+            new PurchaseInvoicesItemsDeleteService(scenario.Db, TaxTestServices.PurchaseApply(scenario.Db, new FakeBusinessPartnerService()))
                 .ExecuteAsync(note.Items.First().Key!.Value));
 
         Assert.Equal(LinesMessage, e.Message);
@@ -205,7 +205,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var line = producer.Items.Single(i => i.ItemCode == "TRIGO");
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesItemsDeleteService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()))
+            new PurchaseInvoicesItemsDeleteService(scenario.Db, TaxTestServices.PurchaseApply(scenario.Db, new FakeBusinessPartnerService()))
                 .ExecuteAsync(line.Key!.Value));
 
         Assert.Equal("O item TRIGO foi reproduzido numa contra-nota e não pode ser excluído.", e.Message);

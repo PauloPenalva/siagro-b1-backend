@@ -125,6 +125,9 @@ public class PurchaseInvoicesItemsUpdateService(
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             await PurchaseInvoiceDeclaredTotal.ApplyAsync(db, invoice, existing.Key, existing);
 
+        // Retenções de serviço (spec 2026-10-17 §2): a base muda com a linha editada.
+        await taxApply.ApplyWithholdingsAsync(invoice, [.. others, existing]);
+
         await db.SaveChangesAsync();
     }
 }

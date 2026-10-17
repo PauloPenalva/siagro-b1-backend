@@ -12,8 +12,14 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// </summary>
 public static class PurchaseInvoiceWithholdings
 {
-    public static async Task ApplyAsync(PurchaseInvoice invoice, IUsage usages, bool otherPurchase)
+    /// <param name="lines">
+    /// Linhas FINAIS do documento. Os endpoints de linha gravam sem carregar <c>invoice.Items</c>, então passam a lista
+    /// que montaram; sem ela vale a coleção do documento.
+    /// </param>
+    public static async Task ApplyAsync(
+        PurchaseInvoice invoice, IUsage usages, bool otherPurchase, IReadOnlyList<PurchaseInvoiceItem>? lines = null)
     {
+        lines ??= invoice.Items.ToList();
         if (!otherPurchase)
         {
             Write(invoice, 0m, 0m, 0m, 0m, 0m, 0m, 0m);
@@ -23,20 +29,20 @@ public static class PurchaseInvoiceWithholdings
 
         if (!invoice.WithholdingsManual)
         {
-            var rates = await ResolveRatesAsync(invoice, usages);
-            var baseValue = invoice.GrandTotal;
+            var rates = await ResolveRatesAsync(lines, usages);
+            var baseValue = lines.Sum(i => i.GrandTotal);
             decimal Value(decimal rate) => decimal.Round(baseValue * rate / 100m, 2, MidpointRounding.ToEven);
 
             Write(invoice, baseValue, Value(rates[0]), Value(rates[1]), Value(rates[2]),
                 Value(rates[3]), Value(rates[4]), Value(rates[5]));
         }
 
-        Validate(invoice);
+        Validate(invoice, lines.Sum(i => i.GrandTotal));
     }
 
-    private static async Task<decimal[]> ResolveRatesAsync(PurchaseInvoice invoice, IUsage usages)
+    private static async Task<decimal[]> ResolveRatesAsync(IReadOnlyList<PurchaseInvoiceItem> lines, IUsage usages)
     {
-        var codes = invoice.Items.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
+        var codes = lines.Where(i => i.UsageCode is not null).Select(i => i.UsageCode!.Value).Distinct().ToList();
         decimal[]? first = null;
 
         foreach (var code in codes)
@@ -61,13 +67,13 @@ public static class PurchaseInvoiceWithholdings
         u.WithholdingPisRate ?? 0m, u.WithholdingCofinsRate ?? 0m, u.WithholdingCsllRate ?? 0m,
     ];
 
-    private static void Validate(PurchaseInvoice invoice)
+    private static void Validate(PurchaseInvoice invoice, decimal grandTotal)
     {
         if (invoice.WithholdingBase < 0m || invoice.WithheldIss < 0m || invoice.WithheldIrrf < 0m || invoice.WithheldInss < 0m
             || invoice.WithheldPis < 0m || invoice.WithheldCofins < 0m || invoice.WithheldCsll < 0m)
             throw new DefaultException("O valor retido não pode ser negativo.");
 
-        if (invoice.TotalWithheld > invoice.GrandTotal)
+        if (invoice.TotalWithheld > grandTotal)
             throw new DefaultException("O total retido não pode ser maior que o total do documento.");
     }
 

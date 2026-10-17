@@ -140,7 +140,7 @@ public class PurchaseInvoiceWithholdingsTests
         var service = new WithholdingTaxSettingsService(TestDb.CreateUnitOfWork(), null!);
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CreateAsync(
-            new WithholdingTaxSetting { TaxType = WithholdingTaxType.Iss, CardCode = "TRIB-MUNICIPAL", DueDay = dueDay }));
+            new WithholdingTaxSetting { TaxType = (int)WithholdingTaxType.Iss, CardCode = "TRIB-MUNICIPAL", DueDay = dueDay }));
 
         Assert.Equal("O dia de vencimento deve estar entre 1 e 31.", ex.Message);
     }

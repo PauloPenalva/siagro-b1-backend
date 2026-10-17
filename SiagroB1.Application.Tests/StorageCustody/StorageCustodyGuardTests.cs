@@ -324,7 +324,7 @@ public class StorageCustodyGuardTests
         var saved = await seed.AddPurchaseDocumentAsync(t, StorageCustodyRole.ProcessingEntry, 30_000m);
 
         await Assert.ThrowsAsync<DefaultException>(() =>
-            new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesItemsDeleteService(db, TaxTestServices.Gate(db, "STANDALONE"))
+            new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesItemsDeleteService(db, TaxTestServices.PurchaseApply(db, new FakeBusinessPartnerService()))
                 .ExecuteAsync(saved.Items.Single().Key!.Value));
     }
 }

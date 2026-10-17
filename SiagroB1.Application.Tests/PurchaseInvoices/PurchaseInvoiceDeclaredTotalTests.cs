@@ -93,7 +93,7 @@ public class PurchaseInvoiceDeclaredTotalTests
         Assert.Equal(1520m, await DeclaredAsync(db, invoice.Key));
 
         db.Context.ChangeTracker.Clear();
-        await new PurchaseInvoicesItemsDeleteService(db, TaxTestServices.Gate(db, "STANDALONE")).ExecuteAsync(added.Key!.Value);
+        await new PurchaseInvoicesItemsDeleteService(db, TaxTestServices.PurchaseApply(db, new FakeBusinessPartnerService())).ExecuteAsync(added.Key!.Value);
         Assert.Equal(1500m, await DeclaredAsync(db, invoice.Key));
     }
 

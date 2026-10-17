@@ -156,7 +156,7 @@ public class PurchaseInvoicesUpdateService(
 
         await taxApply.ApplyAsync(existing, existing.Items);
 
-        // Retenções de serviço (spec 2026-10-17 §2): os valores e o "manual" que o cliente mandou, copiados abaixo, valem
+        // Retenções de serviço (spec 2026-10-17 §2): os valores e o "manual" que o cliente mandou, copiados acima, valem
         // enquanto o usuário os editou; senão são recalculados pela natureza.
         await taxApply.ApplyWithholdingsAsync(existing);
 

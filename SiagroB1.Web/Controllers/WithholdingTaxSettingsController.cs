@@ -30,7 +30,7 @@ public class WithholdingTaxSettingsController(WithholdingTaxSettingsService serv
     }
 
     [EnableQuery]
-    public async Task<ActionResult> Get([FromRoute] WithholdingTaxType key)
+    public async Task<ActionResult> Get([FromRoute] int key)
     {
         if (!IsStandalone) return BadRequest(StandaloneOnly);
 
@@ -58,7 +58,7 @@ public class WithholdingTaxSettingsController(WithholdingTaxSettingsService serv
     }
 
     [AcceptVerbs("PATCH", "MERGE")]
-    public async Task<IActionResult> Patch([FromODataUri] WithholdingTaxType key, [FromBody] Delta<WithholdingTaxSetting> patch)
+    public async Task<IActionResult> Patch([FromODataUri] int key, [FromBody] Delta<WithholdingTaxSetting> patch)
     {
         if (!IsStandalone) return BadRequest(StandaloneOnly);
 
@@ -70,6 +70,10 @@ public class WithholdingTaxSettingsController(WithholdingTaxSettingsService serv
 
         try
         {
+            // A chave é o tributo: trocá-la num PATCH quebraria a entidade rastreada.
+            if (patch.GetChangedPropertyNames().Contains(nameof(WithholdingTaxSetting.TaxType)))
+                return BadRequest("O tributo não pode ser alterado; exclua a configuração e crie outra.");
+
             patch.Patch(setting);
             await service.UpdateAsync(setting);
         }
@@ -81,7 +85,7 @@ public class WithholdingTaxSettingsController(WithholdingTaxSettingsService serv
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromODataUri] WithholdingTaxType key)
+    public async Task<IActionResult> Delete([FromODataUri] int key)
     {
         if (!IsStandalone) return BadRequest(StandaloneOnly);
 
