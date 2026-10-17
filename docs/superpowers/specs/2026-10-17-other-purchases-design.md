@@ -106,7 +106,7 @@ nunca push. context7 para EF Core/OData quando necessário.
 1. `dotnet test` no `SiagroB1.Application.Tests`, com testes novos para:
    - guard de contrato por natureza nos 4 pontos;
    - backfill que preserva o comportamento;
-   - parcelas pela condição e retenção descontada da 1ª parcela;
+   - parcelas pela condição sobre o líquido (total menos retenções);
    - títulos de recolhimento com credor e vencimento;
    - baixa direta aceita;
    - estorno com e sem baixa;
