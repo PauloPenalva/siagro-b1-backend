@@ -107,7 +107,7 @@ public class PurchaseInvoicesUpdateService(
         if (storedAuthorizationScope.TaxDocumentKind == TaxDocumentKind.Cte && existing.TaxDocumentKind != TaxDocumentKind.Cte)
         {
             if (await db.Context.PurchaseInvoiceTransportedDocuments.AnyAsync(x => x.PurchaseInvoiceKey == existing.Key))
-                throw new DefaultException("Remova os vínculos de NF-e Referenciadas antes de mudar o tipo do documento.");
+                throw new DefaultException("Remova os vínculos de NF-e Referenciada(s) antes de mudar o tipo do documento.");
 
             existing.CteIcmsCst = null;
             existing.CteIcmsValue = null;

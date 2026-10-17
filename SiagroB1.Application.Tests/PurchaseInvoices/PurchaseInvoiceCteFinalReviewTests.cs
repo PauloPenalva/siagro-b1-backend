@@ -133,7 +133,7 @@ public class PurchaseInvoiceCteFinalReviewTests
         body.TaxDocumentKind = TaxDocumentKind.Other;
         var e = await Assert.ThrowsAsync<DefaultException>(() => update.ExecuteAsync(saved.Key, body, "ana"));
 
-        Assert.Equal("Remova os vínculos de NF-e Referenciadas antes de mudar o tipo do documento.", e.Message);
+        Assert.Equal("Remova os vínculos de NF-e Referenciada(s) antes de mudar o tipo do documento.", e.Message);
     }
 
     [Fact]
