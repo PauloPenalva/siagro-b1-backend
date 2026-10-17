@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Security;
@@ -8,7 +9,7 @@ namespace SiagroB1.Application.Services.Security;
 /// Permissões efetivas de um usuário: usuário -> perfis -> papéis -> permissões. Administrador
 /// passa por cima de tudo, como já acontece no resto do sistema.
 /// </summary>
-public class UserPermissionsService(CommonDbContext db) : IUserPermissions
+public class UserPermissionsService(CommonDbContext db, ICompanyContext companyContext) : IUserPermissions
 {
     public async Task<bool> HasAsync(string username, string permissionCode)
     {
@@ -22,12 +23,15 @@ public class UserPermissionsService(CommonDbContext db) : IUserPermissions
 
     public async Task<List<string>> GetAsync(string username)
     {
+        // Administrador: os perfis dele valem em todas as empresas.
+        var isAdmin = await IsAdminAsync(username);
+
         var query =
             from u in db.Users
             join up in db.UserProfiles on u.Id equals up.UserId
             join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
             join rp in db.RolesPermissions on pr.RoleCode equals rp.RoleCode
-            where u.Username == username && u.IsActive
+            where u.Username == username && u.IsActive && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
             select rp.PermissionCode;
 
         return await query.Distinct().ToListAsync();
@@ -41,11 +45,13 @@ public class UserPermissionsService(CommonDbContext db) : IUserPermissions
     /// <summary>Papel atribuído via perfil, sem o bypass de <c>IsAdmin</c> — para checar o papel em si.</summary>
     public async Task<bool> HasRoleAsync(string username, string roleCode)
     {
+        var isAdmin = await IsAdminAsync(username);
+
         var query =
             from u in db.Users
             join up in db.UserProfiles on u.Id equals up.UserId
             join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
-            where u.Username == username && u.IsActive && pr.RoleCode == roleCode
+            where u.Username == username && u.IsActive && pr.RoleCode == roleCode && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
             select pr;
 
         return await query.AnyAsync();

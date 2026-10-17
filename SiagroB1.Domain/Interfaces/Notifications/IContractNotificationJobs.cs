@@ -6,7 +6,8 @@ namespace SiagroB1.Domain.Interfaces.Notifications;
 /// </summary>
 public interface IContractNotificationDispatchJob
 {
-    Task ExecuteAsync(Guid outboxKey, CancellationToken ct = default);
+    /// <param name="companyCode">Consumido pelo CompanyJobFilter: define o banco em que o job roda.</param>
+    Task ExecuteAsync(string companyCode, Guid outboxKey, CancellationToken ct = default);
 }
 
 /// <summary>

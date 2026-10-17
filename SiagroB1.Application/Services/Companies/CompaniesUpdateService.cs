@@ -1,22 +1,44 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Companies;
 
-public class CompaniesUpdateService(CommonDbContext db, ILogger<CompaniesUpdateService> logger)
+public class CompaniesUpdateService(
+    CommonDbContext db,
+    ICompanyDatabaseProbe probe,
+    ICompanyCatalog catalog,
+    IConfiguration configuration,
+    ILogger<CompaniesUpdateService> logger)
 {
     public async Task<Company?> ExecuteAsync(string code, Company entity)
     {
-        var existingEntity = await db.Companies
-            .FirstOrDefaultAsync(tc => tc.Code == code) ?? 
-                             throw new NotFoundException("Empresa não encontrada.");
+        var existing = await db.Companies.FirstOrDefaultAsync(c => c.Code == code)
+                       ?? throw new NotFoundException("Empresa não encontrada.");
+
+        var name = (entity.CompanyName ?? string.Empty).Trim();
+        if (name.Length == 0) throw new DefaultException("Informe o nome da empresa.");
+
+        // Senha mascarada = o admin não mexeu nela: mantém a armazenada.
+        var connectionString = CompanyConnectionStrings.MergeMaskedPassword(entity.ConnectionString ?? string.Empty, existing.ConnectionString);
+
+        // Equivalência pelo builder: o merge devolve a forma normalizada, que textualmente sempre "mudaria".
+        if (CompanyConnectionStrings.AreEquivalent(connectionString, existing.ConnectionString))
+            connectionString = existing.ConnectionString;
+        else
+            await CompanyDatabaseRules.ValidateConnectionStringAsync(connectionString, probe, configuration.GetConnectionString("SiagroCommon"));
+
+        // Code é imutável: é a chave que sessões, perfis e jobs carregam.
+        existing.CompanyName = name;
+        existing.ConnectionString = connectionString;
+        existing.SapCompanyDb = entity.SapCompanyDb;
+
         try
         {
-            db.Entry(existingEntity).CurrentValues.SetValues(entity);
-
             await db.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
@@ -25,7 +47,7 @@ public class CompaniesUpdateService(CommonDbContext db, ILogger<CompaniesUpdateS
             throw new ApplicationException("Error updating entity due to concurrency issues.");
         }
 
-        return entity;
+        catalog.Invalidate();
+        return existing;
     }
-    
 }

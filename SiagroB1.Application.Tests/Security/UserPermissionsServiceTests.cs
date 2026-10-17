@@ -1,5 +1,6 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Security;
+using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Infra.Context;
 
@@ -24,7 +25,7 @@ public class UserPermissionsServiceTests
         db.Profiles.Add(new Profile { Code = "BALANCA", Description = "Balança" });
         db.RolesPermissions.Add(new RolePermission { RoleCode = "OPERADOR", PermissionCode = permissionCode });
         db.ProfileRoles.Add(new ProfileRole { ProfileCode = "BALANCA", RoleCode = "OPERADOR" });
-        db.UserProfiles.Add(new UserProfile { UserId = user.Id, ProfileCode = "BALANCA" });
+        db.UserProfiles.Add(new UserProfile { UserId = user.Id, ProfileCode = "BALANCA", CompanyCode = "0001" });
 
         db.SaveChanges();
     }
@@ -35,7 +36,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.True(await service.HasAsync("joao", "WEIGHING_MANUAL_ENTRY"));
         Assert.Equal(["WEIGHING_MANUAL_ENTRY"], await service.GetAsync("joao"));
@@ -47,7 +48,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "joao", "SOME_OTHER_PERMISSION");
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.False(await service.HasAsync("joao", "WEIGHING_MANUAL_ENTRY"));
     }
@@ -58,7 +59,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "admin", "SOME_OTHER_PERMISSION", isAdmin: true);
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.True(await service.HasAsync("admin", "WEIGHING_MANUAL_ENTRY"));
     }
@@ -68,7 +69,7 @@ public class UserPermissionsServiceTests
     {
         using var db = CreateDb();
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.False(await service.HasAsync("ninguem", "WEIGHING_MANUAL_ENTRY"));
         Assert.Empty(await service.GetAsync("ninguem"));
@@ -89,7 +90,7 @@ public class UserPermissionsServiceTests
         db.ProfileRoles.Add(new ProfileRole { ProfileCode = "BALANCA", RoleCode = "SUPERVISOR" });
         await db.SaveChangesAsync();
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.Single(await service.GetAsync("joao"));
     }
@@ -100,7 +101,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.True(await service.HasRoleAsync("joao", "OPERADOR"));
     }
@@ -111,7 +112,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "admin", "SOME_OTHER_PERMISSION", isAdmin: true);
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.False(await service.HasRoleAsync("admin", "ADMIN"));
     }
@@ -122,7 +123,7 @@ public class UserPermissionsServiceTests
         using var db = CreateDb();
         GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.False(await service.HasRoleAsync("joao", "ADMIN"));
     }
@@ -132,8 +133,42 @@ public class UserPermissionsServiceTests
     {
         using var db = CreateDb();
 
-        var service = new UserPermissionsService(db);
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0001"));
 
         Assert.False(await service.HasRoleAsync("ninguem", "ADMIN"));
+    }
+
+    [Fact]
+    public async Task A_profile_in_another_company_does_not_leak_into_this_session()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "joao", "WEIGHING_MANUAL_ENTRY");                 // perfil na 0001
+        db.Roles.Add(new Role { Code = "SUPERVISOR" });
+        db.RolesPermissions.Add(new RolePermission { RoleCode = "SUPERVISOR", PermissionCode = "OTHER_COMPANY_ONLY" });
+        db.Profiles.Add(new Profile { Code = "SUP", Description = "Supervisor" });
+        db.ProfileRoles.Add(new ProfileRole { ProfileCode = "SUP", RoleCode = "SUPERVISOR" });
+        var userId = db.Users.Single(u => u.Username == "joao").Id;
+        db.UserProfiles.Add(new UserProfile { UserId = userId, ProfileCode = "SUP", CompanyCode = "0002" });
+        await db.SaveChangesAsync();
+
+        var inCompany1 = new UserPermissionsService(db, new FakeCompanyContext("0001"));
+        var inCompany2 = new UserPermissionsService(db, new FakeCompanyContext("0002"));
+
+        Assert.Equal(["WEIGHING_MANUAL_ENTRY"], await inCompany1.GetAsync("joao"));
+        Assert.False(await inCompany1.HasRoleAsync("joao", "SUPERVISOR"));
+        Assert.Equal(["OTHER_COMPANY_ONLY"], await inCompany2.GetAsync("joao"));
+        Assert.True(await inCompany2.HasRoleAsync("joao", "SUPERVISOR"));
+    }
+
+    [Fact]
+    public async Task An_admin_keeps_profile_roles_from_other_companies()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "admin", "WEIGHING_MANUAL_ENTRY", isAdmin: true);   // perfil na 0001
+
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0002"));
+
+        Assert.True(await service.HasRoleAsync("admin", "OPERADOR"));
+        Assert.Contains("WEIGHING_MANUAL_ENTRY", await service.GetAsync("admin"));
     }
 }

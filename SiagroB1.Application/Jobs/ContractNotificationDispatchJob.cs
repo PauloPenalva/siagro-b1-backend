@@ -18,7 +18,10 @@ namespace SiagroB1.Application.Jobs;
 /// Roda numa fila própria com um único worker: envio em rajada é o que faz um provedor
 /// não-oficial banir o número da empresa.
 ///
-/// O argumento do job é APENAS a Key da outbox — nunca o telefone ou o texto. O painel do
+/// O primeiro argumento é a empresa (código, não sensível): quem o usa é o CompanyJobFilter,
+/// que define o banco antes de o escopo abrir. O corpo do job não o lê.
+///
+/// O outro argumento do job é APENAS a Key da outbox — nunca o telefone ou o texto. O painel do
 /// Hangfire exibe os argumentos de todo job, e ele não tem o mesmo controle de acesso das
 /// telas do sistema.
 /// </summary>
@@ -33,7 +36,7 @@ public class ContractNotificationDispatchJob(
 {
     public const string QueueName = "whatsapp";
 
-    public async Task ExecuteAsync(Guid outboxKey, CancellationToken ct = default)
+    public async Task ExecuteAsync(string companyCode, Guid outboxKey, CancellationToken ct = default)
     {
         var message = await context.NotificationOutboxMessages
             .FirstOrDefaultAsync(m => m.Key == outboxKey, ct);

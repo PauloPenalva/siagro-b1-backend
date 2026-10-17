@@ -26,4 +26,11 @@ public class UserSession
     
     [Column(TypeName = "VARCHAR(14)")]
     public string BranchCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Empresa escolhida no login. Sem FK de propósito: sessão é histórico e não pode impedir a
+    /// exclusão de uma empresa. Nulo só em sessões anteriores ao recurso (o middleware cai na padrão).
+    /// </summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string? CompanyCode { get; set; }
 }

@@ -12,10 +12,13 @@ public sealed class FakeBackgroundJobClient : IBackgroundJobClient
 {
     public List<Job> Enqueued { get; } = [];
 
-    /// <summary>Argumentos do primeiro parâmetro de cada job — no caso, a Key da outbox.</summary>
+    /// <summary>A Key da outbox de cada job: o primeiro argumento Guid (o primeiro string é a empresa).</summary>
     public List<Guid> EnqueuedOutboxKeys =>
-        [.. Enqueued.Where(job => job.Args.Count > 0 && job.Args[0] is Guid)
-                    .Select(job => (Guid)job.Args[0]!)];
+        [.. Enqueued.Select(job => job.Args.OfType<Guid>().FirstOrDefault()).Where(key => key != Guid.Empty)];
+
+    /// <summary>A empresa de cada job enfileirado (parâmetro `companyCode`).</summary>
+    public List<string> EnqueuedCompanyCodes =>
+        [.. Enqueued.Select(job => job.Args.OfType<string>().FirstOrDefault()).Where(code => code is not null)!];
 
     public string Create(Job job, IState state)
     {

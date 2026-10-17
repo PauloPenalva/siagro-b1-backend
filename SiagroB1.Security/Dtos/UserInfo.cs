@@ -23,4 +23,8 @@ public class UserInfo
 
     /// <summary>Papéis atribuídos pelos perfis. Mesma finalidade das permissões: só orienta a tela.</summary>
     public List<string> Roles { get; set; } = [];
+
+    /// <summary>Empresa da sessão (código e nome). A shell mostra o nome; a tela de usuários usa o código como padrão do perfil.</summary>
+    public string? CompanyCode { get; set; }
+    public string? CompanyName { get; set; }
 }

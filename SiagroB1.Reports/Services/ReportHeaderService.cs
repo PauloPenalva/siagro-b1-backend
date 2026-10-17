@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using FastReport;
+using SiagroB1.Infra.Companies;
 
 namespace SiagroB1.Reports.Services;
 
@@ -13,20 +15,22 @@ namespace SiagroB1.Reports.Services;
 public class ReportHeaderService(
     IWebHostEnvironment env,
     IConfiguration configuration,
-    ILogger<ReportHeaderService> logger)
+    ILogger<ReportHeaderService> logger,
+    ICompanyContext companyContext)
 {
     public const string CompanyNameParameter = "pCompanyName";
     public const string LogoObjectName = "picLogo";
 
+    // Bytes por CAMINHO: duas empresas com logos diferentes não podem ficar se expulsando de um
+    // cache de um slot só. Só caminhos encontrados entram; arquivo ausente é reconsultado.
     // The bytes are cached, not the Image: System.Drawing images are not safe to
     // share between reports rendering concurrently, so each report gets its own.
-    private static byte[]? _cachedLogo;
-    private static string? _cachedLogoPath;
-    private static readonly Lock CacheLock = new();
+    private static readonly ConcurrentDictionary<string, byte[]> LogoCache = new(StringComparer.OrdinalIgnoreCase);
 
     public void Apply(Report report)
     {
-        report.SetParameterValue(CompanyNameParameter, configuration.GetValue<string>("CompanyName") ?? "");
+        report.SetParameterValue(CompanyNameParameter,
+            companyContext.Current?.CompanyName ?? configuration.GetValue<string>("CompanyName") ?? "");
 
         if (report.FindObject(LogoObjectName) is not PictureObject picLogo)
             return;
@@ -58,28 +62,35 @@ public class ReportHeaderService(
 
     private byte[]? LoadLogo()
     {
-        var configuredPath = configuration.GetValue<string>("CompanyLogoPath");
-        if (string.IsNullOrWhiteSpace(configuredPath))
-            return null;
-
-        var fullPath = Path.IsPathRooted(configuredPath)
-            ? configuredPath
-            : Path.Combine(env.ContentRootPath, configuredPath);
-
-        lock (CacheLock)
+        var candidates = LogoCandidates().ToList();
+        foreach (var fullPath in candidates)
         {
-            if (_cachedLogo is not null && _cachedLogoPath == fullPath)
-                return _cachedLogo;
+            if (LogoCache.TryGetValue(fullPath, out var cached))
+                return cached;
 
             if (!File.Exists(fullPath))
-            {
-                logger.LogWarning("Company logo not found at {LogoPath}; reports will be generated without it.", fullPath);
-                return null;
-            }
+                continue;
 
-            _cachedLogo = File.ReadAllBytes(fullPath);
-            _cachedLogoPath = fullPath;
-            return _cachedLogo;
+            var bytes = File.ReadAllBytes(fullPath);
+            LogoCache[fullPath] = bytes;
+            return bytes;
         }
+
+        if (candidates.Count > 0)
+            logger.LogWarning("Logo da empresa não encontrado em {Paths}; o relatório sai sem logo.", string.Join(" | ", candidates));
+
+        return null;
+    }
+
+    /// <summary>Convenção por empresa (wwwroot/images/logo-{Code}.png) primeiro; depois CompanyLogoPath.</summary>
+    private IEnumerable<string> LogoCandidates()
+    {
+        var code = companyContext.Current?.Code;
+        if (!string.IsNullOrWhiteSpace(code))
+            yield return Path.Combine(env.ContentRootPath, "wwwroot", "images", $"logo-{code}.png");
+
+        var configured = configuration.GetValue<string>("CompanyLogoPath");
+        if (!string.IsNullOrWhiteSpace(configured))
+            yield return Path.IsPathRooted(configured) ? configured : Path.Combine(env.ContentRootPath, configured);
     }
 }

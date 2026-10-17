@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces.Notifications;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Jobs;
@@ -20,6 +21,7 @@ namespace SiagroB1.Application.Jobs;
 public class ContractNotificationSweepJob(
     AppDbContext context,
     IBackgroundJobClient backgroundJobClient,
+    ICompanyContext companyContext,
     ILogger<ContractNotificationSweepJob> logger) : IContractNotificationSweepJob
 {
     /// <summary>
@@ -49,12 +51,14 @@ public class ContractNotificationSweepJob(
         if (pending.Count == 0)
             return;
 
+        var companyCode = companyContext.CompanyCode;
+
         foreach (var outboxKey in pending)
         {
             // Reenfileirar uma linha já enfileirada é inofensivo: o job de envio só age em
             // Pending, então a segunda execução sai sem fazer nada.
             backgroundJobClient.Enqueue<IContractNotificationDispatchJob>(
-                job => job.ExecuteAsync(outboxKey, CancellationToken.None));
+                job => job.ExecuteAsync(companyCode, outboxKey, CancellationToken.None));
         }
 
         logger.LogInformation("{Count} notificações enfileiradas para envio.", pending.Count);

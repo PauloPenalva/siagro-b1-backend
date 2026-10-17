@@ -33,10 +33,10 @@ namespace SiagroB1.Migrations.CommonContext
 
                     b.Property<string>("ConnectionString")
                         .IsRequired()
-                        .HasColumnType("VARCHAR(200) NOT NULL");
+                        .HasColumnType("VARCHAR(500) NOT NULL");
 
                     b.Property<string>("SapCompanyDb")
-                        .HasColumnType("VARCHAR(100) NOT NULL");
+                        .HasColumnType("VARCHAR(100)");
 
                     b.HasKey("Code");
 
@@ -283,6 +283,9 @@ namespace SiagroB1.Migrations.CommonContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CompanyCode")
+                        .HasColumnType("VARCHAR(4)");
+
                     b.Property<string>("ProfileCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(50)");
@@ -292,10 +295,13 @@ namespace SiagroB1.Migrations.CommonContext
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CompanyCode");
+
                     b.HasIndex("ProfileCode");
 
-                    b.HasIndex("UserId", "ProfileCode")
-                        .IsUnique();
+                    b.HasIndex("UserId", "ProfileCode", "CompanyCode")
+                        .IsUnique()
+                        .HasFilter("[CompanyCode] IS NOT NULL");
 
                     b.ToTable("USERS_PROFILES");
                 });
@@ -308,6 +314,9 @@ namespace SiagroB1.Migrations.CommonContext
                     b.Property<string>("BranchCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("CompanyCode")
+                        .HasColumnType("VARCHAR(4)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -441,6 +450,10 @@ namespace SiagroB1.Migrations.CommonContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Common.UserProfile", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.Common.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyCode");
+
                     b.HasOne("SiagroB1.Domain.Entities.Common.Profile", "Profile")
                         .WithMany()
                         .HasForeignKey("ProfileCode")
@@ -452,6 +465,8 @@ namespace SiagroB1.Migrations.CommonContext
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Company");
 
                     b.Navigation("Profile");
 

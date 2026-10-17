@@ -114,7 +114,7 @@ public class ContractNotificationDispatchJobTests
     {
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender).ExecuteAsync(Guid.NewGuid());
+        await CreateJob(sender).ExecuteAsync("0001", Guid.NewGuid());
 
         Assert.Empty(sender.Sent);
     }
@@ -130,7 +130,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998888");
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         Assert.Empty(sender.Sent);
     }
@@ -142,7 +142,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998881", "5566999998882", "5566999998883");
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         Assert.Equal(3, sender.Sent.Count);
         Assert.Equal(3, _db.Context.NotificationDeliveryLogs.Count());
@@ -156,7 +156,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998888");
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         var (_, text) = Assert.Single(sender.Sent);
         Assert.Contains("PC-000123", text);
@@ -175,7 +175,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998881", "5566999998882");
         var sender = new FakeWhatsAppSender().FailsPermanently("5566999998882");
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         Assert.Equal(NotificationOutboxStatus.PartiallySent, Reload(message.Key).Status);
         Assert.Equal(1, _db.Context.NotificationDeliveryLogs.Count(l => l.Status == NotificationDeliveryStatus.Failed));
@@ -189,7 +189,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998881");
         var sender = new FakeWhatsAppSender().FailsPermanently("5566999998881");
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         Assert.Equal(NotificationOutboxStatus.Failed, Reload(message.Key).Status);
     }
@@ -206,7 +206,7 @@ public class ContractNotificationDispatchJobTests
 
         // Tipo específico de propósito: ThrowsAnyAsync<Exception> passaria também com o
         // NotImplementedException de um stub, escondendo que o job nem chegou a rodar.
-        await Assert.ThrowsAsync<ApplicationException>(() => CreateJob(sender).ExecuteAsync(message.Key));
+        await Assert.ThrowsAsync<ApplicationException>(() => CreateJob(sender).ExecuteAsync("0001", message.Key));
 
         Assert.Single(sender.Sent);
         // Continua pendente: a retentativa do Hangfire precisa reprocessá-la.
@@ -219,7 +219,7 @@ public class ContractNotificationDispatchJobTests
         var message = SeedOutbox();
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender).ExecuteAsync(message.Key);
+        await CreateJob(sender).ExecuteAsync("0001", message.Key);
 
         Assert.Empty(sender.Sent);
         Assert.Equal(NotificationOutboxStatus.Skipped, Reload(message.Key).Status);
@@ -237,7 +237,7 @@ public class ContractNotificationDispatchJobTests
         SeedSubscribers("5566999998888");
         var sender = new FakeWhatsAppSender();
 
-        await CreateJob(sender, enabled: false).ExecuteAsync(message.Key);
+        await CreateJob(sender, enabled: false).ExecuteAsync("0001", message.Key);
 
         Assert.Empty(sender.Sent);
         Assert.Equal(NotificationOutboxStatus.Skipped, Reload(message.Key).Status);
@@ -249,7 +249,7 @@ public class ContractNotificationDispatchJobTests
         var message = SeedOutbox();
         SeedSubscribers("5566999998888");
 
-        await CreateJob(new FakeWhatsAppSender()).ExecuteAsync(message.Key);
+        await CreateJob(new FakeWhatsAppSender()).ExecuteAsync("0001", message.Key);
 
         var log = Assert.Single(_db.Context.NotificationDeliveryLogs);
         Assert.Equal("5566999998888", log.RecipientPhone);

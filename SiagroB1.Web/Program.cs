@@ -9,12 +9,14 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Jobs;
+using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.Users;
 using SiagroB1.Commons.Scales;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Interfaces.Notifications;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Infra.ESignature.D4Sign;
 using SiagroB1.Infra.Interceptors;
@@ -23,6 +25,7 @@ using SiagroB1.Infra.WhatsApp;
 using SiagroB1.Web.Security;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Middlewares;
+using SiagroB1.Security.Startup;
 using SiagroB1.Security.Services;
 using SiagroB1.Web.Extensions;
 using SiagroB1.Web.Hooks;
@@ -60,27 +63,34 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddCompanyContext();
+
+// Singletons de propósito: com o overload (sp, options) o lambda roda a cada ESCOPO, e um `new`
+// de interceptor por escopo mudaria o hash das opções e faria o EF montar um service provider
+// interno por requisição (ManyServiceProvidersCreatedWarning).
+builder.Services.AddSingleton<FinishedContractMutationGuardInterceptor>();
+builder.Services.AddSingleton(new PurchaseFiscalReconciliationCleanupInterceptor(ErpMode.IsStandalone(builder.Configuration)));
+
+// A connection string vem da EMPRESA do escopo (sessão ou job); sem empresa resolvida cai em
+// ConnectionStrings:SiagroDB — é o que o `dotnet ef` e o guard de migrations usam.
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     {
         options.UseSqlServer(
-            builder.Configuration.GetConnectionString("SiagroDB"),
+            sp.GetRequiredService<ICompanyContext>().ConnectionString,
             b =>
             {
                 b.MigrationsAssembly("SiagroB1.Migrations");
                 b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });
-        options.AddInterceptors(new FinishedContractMutationGuardInterceptor());
-        options.AddInterceptors(new PurchaseFiscalReconciliationCleanupInterceptor(ErpMode.IsStandalone(builder.Configuration)));
+        options.AddInterceptors(
+            sp.GetRequiredService<FinishedContractMutationGuardInterceptor>(),
+            sp.GetRequiredService<PurchaseFiscalReconciliationCleanupInterceptor>());
         options.EnableSensitiveDataLogging();
     }
 );
 
 builder.Services.AddScoped<IDbConnection>(sp =>
-{
-    var configuration = sp.GetRequiredService<IConfiguration>();
-    var connectionString = configuration.GetConnectionString("SiagroDB");
-    return new SqlConnection(connectionString);
-});
+    new SqlConnection(sp.GetRequiredService<ICompanyContext>().ConnectionString));
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<UserService>();
@@ -129,8 +139,11 @@ switch (erp.ToUpper().Trim())
 
 builder.Services.AddApplicationServices();
 
-builder.Services.AddHangfire(config =>
-    config.UseSqlServerStorage(builder.Configuration.GetConnectionString("SiagroDB")));
+// Storage na COMMON: a fila é do deploy, não de uma empresa. O filtro entrega a empresa dos
+// argumentos ao escopo de cada job.
+builder.Services.AddHangfire(config => config
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("SiagroCommon"))
+    .UseFilter(new CompanyJobFilter()));
 
 builder.Services.AddHangfireServer(options => options.Queues = ["default"]);
 
@@ -197,7 +210,11 @@ var app = builder.Build();
 
 // Antes de qualquer job ou requisição: com migration pendente o Web se recusa a subir. O `dotnet ef`
 // encerra o host dentro do Build(), então isto não trava o próprio `database update`.
-await PendingMigrationsGuard.EnsureNoPendingMigrationsAsync(app);
+// Ordem importa: a COMMON primeiro (o bootstrap precisa das colunas novas dela), depois o bootstrap
+// cadastra a empresa padrão, e só então há como saber QUAIS bancos de negócio verificar.
+await PendingMigrationsGuard.EnsureNoPendingCommonMigrationsAsync(app);
+await CompanyBootstrap.RunAsync(app.Services);
+await PendingMigrationsGuard.EnsureNoPendingCompanyMigrationsAsync(app);
 
 app.UseRequestLocalization(localizationOptions);
 
@@ -231,8 +248,8 @@ app.UseAuthorization();
 
 // DEPOIS de UseAuthorization, de propósito: o dashboard estava registrado antes de
 // UseAuthentication, então qualquer filtro de autorização leria um User vazio e não protegeria
-// nada. Os argumentos dos jobs de notificação são só o Guid da outbox — telefone e texto da
-// mensagem nunca aparecem aqui. Mantenha essa invariante.
+// nada. Os argumentos dos jobs de notificação são só a empresa (código) e o Guid da outbox —
+// telefone e texto da mensagem nunca aparecem aqui. Mantenha essa invariante.
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = [new HangfireDashboardAuthorizationFilter()],
@@ -244,17 +261,17 @@ app.UseRouting()
         .WithOpenApi()
     );
 
-RecurringJob.AddOrUpdate<IStorageAddressesDailyCalculationJob>(
+RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
     "storage-daily-calculation-job",
-    job => job.ExecuteAsync(null, CancellationToken.None),
+    runner => runner.RunForAllCompaniesAsync(CompanyScopedJobRunner.StorageDailyCalculation, CancellationToken.None),
     "0 1 * * *");
 
 // O varredor é o mecanismo de ENTREGA das notificações, não uma rede de segurança: enfileirar
 // direto no serviço de mutação faria o worker poder ler a outbox antes do COMMIT da transação
 // de negócio, não achar a linha e desistir em silêncio.
-RecurringJob.AddOrUpdate<IContractNotificationSweepJob>(
+RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
     "contract-notification-sweep",
-    job => job.ExecuteAsync(CancellationToken.None),
+    runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractNotificationSweep, CancellationToken.None),
     Cron.Minutely());
 
 // Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que
@@ -276,9 +293,9 @@ else
 // Rede de segurança do webhook do D4Sign — só faz sentido rodar com a assinatura habilitada.
 if (app.Configuration.GetValue("Signature:Enabled", false))
 {
-    RecurringJob.AddOrUpdate<ContractDraftsReconcileJob>(
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
         ContractDraftsReconcileJob.RecurringJobId,
-        job => job.ExecuteAsync(CancellationToken.None),
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractDraftsReconcile, CancellationToken.None),
         ContractDraftsReconcileJob.CronExpression);
 }
 else

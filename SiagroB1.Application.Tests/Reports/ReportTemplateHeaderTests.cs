@@ -73,6 +73,6 @@ public class ReportTemplateHeaderTests
         return new ReportHeaderService(
             new TestWebHostEnvironment(AppContext.BaseDirectory),
             configuration,
-            new TestLogger<ReportHeaderService>());
+            new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved());
     }
 }

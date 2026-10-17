@@ -146,7 +146,7 @@ public class LogisticsReportsPdfTests : IDisposable
     {
         var env = new TestWebHostEnvironment(_contentRoot);
         return new FastReportService(env, configuration,
-            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>()));
+            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()), FakeCompanyContext.Unresolved());
     }
 
     [Theory]

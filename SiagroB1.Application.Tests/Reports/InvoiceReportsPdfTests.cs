@@ -339,7 +339,7 @@ public class InvoiceReportsPdfTests : IDisposable
     {
         var env = new TestWebHostEnvironment(_contentRoot);
         return new FastReportService(env, configuration,
-            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>()));
+            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()), FakeCompanyContext.Unresolved());
     }
 
     private static IConfiguration Configuration(string erp) =>

@@ -1,10 +1,11 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Common;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Dtos;
 using SiagroB1.Security.Interfaces;
@@ -16,13 +17,21 @@ public class AuthService(
     CommonDbContext db,
     IHttpContextAccessor httpContextAccessor,
     ISapUserProvisioner sapUserProvisioner,
-    ILogger<AuthService> logger) : IAuthService
+    ILogger<AuthService> logger,
+    ICompanyCatalog catalog,
+    ICompanyContext companyContext) : IAuthService
 {
 
-    public async Task<LoginResponse> LoginAsync(string username, string password)
+    public async Task<LoginResponse> LoginAsync(string username, string password, string? companyCode)
         {
             try
             {
+                var (company, companyError) = await ResolveLoginCompanyAsync(companyCode);
+                if (company is null)
+                {
+                    return new LoginResponse { Success = false, Message = companyError! };
+                }
+
                 // Em modo SAPB1 o cadastro é mantido no SAP: espelha a linha do OUSR antes de
                 // procurar o usuário, para que quem foi criado no SAP não precise esperar a
                 // varredura periódica. Fora desse modo, é no-op.
@@ -59,12 +68,19 @@ public class AuthService(
                     logger.LogInformation("Hash de senha migrado para PBKDF2: {Username}", user.Username);
                 }
 
+                // Depois da senha, de propósito: antes dela, a mensagem revelaria que o usuário existe.
+                if (!await CompanyAccessPolicy.CanLoginAsync(db, user, company.Code))
+                {
+                    return new LoginResponse { Success = false, Message = CompanyAccessPolicy.NoAccessMessage(company.CompanyName) };
+                }
+
                 // Criar sessão
                 var sessionId = Guid.NewGuid().ToString();
                 var session = new UserSession
                 {
                     SessionId = sessionId,
                     UserId = user.Id,
+                    CompanyCode = company.Code,
                     IpAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString(),
                     UserAgent = httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString(),
                     CreatedAt = DateTime.Now,
@@ -117,11 +133,16 @@ public class AuthService(
                 }
 
                 // Criar claims para o usuário
-                var claims = CreateClaims(user);
+                // Permissões, papéis e menu desta sessão são os da empresa escolhida.
+                companyContext.Set(company);
+
+                var claims = CreateClaims(user, company.Code);
 
                 var loggedUser = ToUserInfo(user);
-                loggedUser.Permissions = await GetPermissionsAsync(user.Id);
-                loggedUser.Roles = await GetRolesAsync(user.Id);
+                loggedUser.CompanyCode = company.Code;
+                loggedUser.CompanyName = company.CompanyName;
+                loggedUser.Permissions = await GetPermissionsAsync(user.Id, user.IsAdmin);
+                loggedUser.Roles = await GetRolesAsync(user.Id, user.IsAdmin);
 
                 return new LoginResponse()
                 {
@@ -144,7 +165,7 @@ public class AuthService(
             }
         }
 
-        public async Task<LoginResponse> LoginWithBasicAuthAsync(string authorizationHeader)
+        public async Task<LoginResponse> LoginWithBasicAuthAsync(string authorizationHeader, string? companyCode)
         {
             if (string.IsNullOrEmpty(authorizationHeader) || 
                 !authorizationHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
@@ -175,7 +196,7 @@ public class AuthService(
                 var username = credentials.Substring(0, separatorIndex);
                 var password = credentials.Substring(separatorIndex + 1);
 
-                return await LoginAsync(username, password);
+                return await LoginAsync(username, password, companyCode);
             }
             catch (Exception ex)
             {
@@ -236,33 +257,35 @@ public class AuthService(
 
             if (info != null)
             {
-                info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id));
-                info.Roles = await GetRolesAsync(Guid.Parse(info.Id));
+                info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id), info.IsAdmin);
+                info.Roles = await GetRolesAsync(Guid.Parse(info.Id), info.IsAdmin);
+                info.CompanyCode = companyContext.Current?.Code;
+                info.CompanyName = companyContext.Current?.CompanyName;
             }
 
             return info;
         }
 
-        /// <summary>Papéis efetivos: usuário -> perfis -> papéis.</summary>
-        private async Task<List<string>> GetRolesAsync(Guid userId)
+        /// <summary>Papéis efetivos: usuário -> perfis -> papéis. Administrador: perfis de qualquer empresa.</summary>
+        private async Task<List<string>> GetRolesAsync(Guid userId, bool isAdmin)
         {
             var query =
                 from up in db.UserProfiles
                 join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
-                where up.UserId == userId
+                where up.UserId == userId && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
                 select pr.RoleCode;
 
             return await query.Distinct().ToListAsync();
         }
 
         /// <summary>Permissões efetivas: usuário -> perfis -> papéis -> permissões.</summary>
-        private async Task<List<string>> GetPermissionsAsync(Guid userId)
+        private async Task<List<string>> GetPermissionsAsync(Guid userId, bool isAdmin)
         {
             var query =
                 from up in db.UserProfiles
                 join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
                 join rp in db.RolesPermissions on pr.RoleCode equals rp.RoleCode
-                where up.UserId == userId
+                where up.UserId == userId && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
                 select rp.PermissionCode;
 
             return await query.Distinct().ToListAsync();
@@ -280,7 +303,7 @@ public class AuthService(
             HasPhoto = user.PhotoContent != null && user.PhotoContent.Length > 0
         };
 
-        private List<Claim> CreateClaims(User user)
+        private List<Claim> CreateClaims(User user, string companyCode)
         {
             return new List<Claim>
             {
@@ -288,7 +311,41 @@ public class AuthService(
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.GivenName, user.FullName),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-                new Claim("IsAdmin", user.IsAdmin.ToString())
+                new Claim("IsAdmin", user.IsAdmin.ToString()),
+                new Claim(CompanyClaims.CompanyCode, companyCode)
+            };
+        }
+
+        public async Task<IReadOnlyList<CompanyOption>> ListCompaniesAsync()
+        {
+            var all = await catalog.GetAllAsync();
+            return all
+                .Select(c => new CompanyOption { Code = c.Code, CompanyName = c.CompanyName })
+                .OrderBy(c => c.CompanyName, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Empresa do login. Código informado tem de existir; sem código, só há resposta certa quando
+        /// existe UMA empresa (frontend antigo em cache, login/basic sem X-Company).
+        /// </summary>
+        private async Task<(CompanyInfo? Company, string? Error)> ResolveLoginCompanyAsync(string? companyCode)
+        {
+            if (!string.IsNullOrWhiteSpace(companyCode))
+            {
+                // GetByCodeAsync recarrega o catálogo uma vez num miss: empresa recém-cadastrada
+                // já entra, sem esperar o TTL do GetAllAsync.
+                var found = await catalog.GetByCodeAsync(companyCode.Trim());
+                return found is null ? (null, "Empresa inválida.") : (found, null);
+            }
+
+            var companies = await catalog.GetAllAsync();
+
+            return companies.Count switch
+            {
+                1 => (companies[0], null),
+                0 => (null, "Nenhuma empresa cadastrada. Contate o administrador."),
+                _ => (null, "Selecione a empresa."),
             };
         }
 

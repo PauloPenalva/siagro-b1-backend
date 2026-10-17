@@ -1,13 +1,15 @@
 ﻿using FastReport;
 using FastReport.Export.PdfSimple;
 using FastReport.Data;
+using SiagroB1.Infra.Companies;
 
 namespace SiagroB1.Reports.Services;
 
 public class FastReportService(
     IWebHostEnvironment env,
     IConfiguration configuration,
-    ReportHeaderService reportHeader) : IFastReportService
+    ReportHeaderService reportHeader,
+    ICompanyContext companyContext) : IFastReportService
 {
     /// <summary>
     /// Parâmetro reservado: com <c>false</c> (modo SAPB1) os objetos cujo nome começa com
@@ -72,8 +74,7 @@ public class FastReportService(
         if (sqlConn == null)
             throw new InvalidOperationException("MsSql connection not found in report.");
 
-        sqlConn.ConnectionString =
-            configuration.GetConnectionString("SiagroDB");
+        sqlConn.ConnectionString = companyContext.ConnectionString;
         
         ApplyParameters(report, parameters);
 

@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Security.Dtos;
 using SiagroB1.Security.Interfaces;
 using SiagroB1.Security.Services;
@@ -15,10 +16,14 @@ public class AuthController(
     IAuthService authService,
     ILogger<AuthController> logger,
     IConfiguration configuration,
-    BranchService branchService,
+    // BranchService NÃO é injetado no construtor: ele depende do AppDbContext, cujas opções leem a
+    // empresa da sessão na ativação do controller — no login isso acontece antes de AuthService.Set
+    // e caía no fallback. Só os endpoints de filial o resolvem, e esses já chegam com o cookie.
+    IServiceProvider serviceProvider,
     MenuService menuService,
     IPasswordResetService passwordResetService,
-    PasswordPolicy passwordPolicy
+    PasswordPolicy passwordPolicy,
+    ICompanyContext companyContext
     ) : ControllerBase
 {
     /// <summary>
@@ -73,6 +78,10 @@ public class AuthController(
         return Ok(new { Success = true, result.Message });
     }
 
+    /// <summary>Lista do seletor de empresa da tela de login. Anônimo e mínimo (código e nome).</summary>
+    [HttpGet("companies")]
+    public async Task<IActionResult> GetCompanies() => Ok(await authService.ListCompaniesAsync());
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
@@ -81,11 +90,11 @@ public class AuthController(
             return BadRequest(new { message = "Usuário e senha são obrigatórios" });
         }
 
-        var result = await authService.LoginAsync(request.Username, request.Password);
+        var result = await authService.LoginAsync(request.Username, request.Password, request.CompanyCode);
 
         if (result.Success)
         {
-            logger.LogInformation("Login bem-sucedido para: {Username}", request.Username);
+            logger.LogInformation("Login bem-sucedido para: {Username} na empresa {Company}", request.Username, result.User?.CompanyCode);
             return Ok(new LoginResponse
             {
                 Success = true,
@@ -167,6 +176,8 @@ public class AuthController(
                                 // uma vez por sessão.
                                 Permissions = userInfo.Permissions,
                                 Roles = userInfo.Roles,
+                                CompanyCode = userInfo.CompanyCode,
+                                CompanyName = userInfo.CompanyName,
                                 // Mesma razão das permissões: a tela que pede senha precisa
                                 // mostrar a regra vigente, e a política é configurável.
                                 PasswordRequirements = passwordPolicy.Description,
@@ -205,6 +216,8 @@ public class AuthController(
             HasPhoto = userInfoFromDb?.HasPhoto ?? false,
             Permissions = userInfoFromDb?.Permissions ?? [],
             Roles = userInfoFromDb?.Roles ?? [],
+            CompanyCode = userInfoFromDb?.CompanyCode,
+            CompanyName = userInfoFromDb?.CompanyName,
             PasswordRequirements = passwordPolicy.Description,
             Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
             SessionId = Request.Cookies["SIAGROB1.Session"],
@@ -225,7 +238,8 @@ public class AuthController(
             AuthenticationMethods = new[] { "Basic", "Cookie" },
             Supports = new[] { "Login", "Logout", "Session Management" },
             Timestamp = DateTime.UtcNow,
-            CompanyName = configuration["CompanyName"] ?? "COMPANY NAME",
+            CompanyName = companyContext.Current?.CompanyName ?? configuration["CompanyName"] ?? "COMPANY NAME",
+            CompanyCode = companyContext.Current?.Code,
             // Modo de integração: em SAPB1 o cadastro de usuários é mantido no SAP, e as telas
             // precisam saber disso para não oferecer uma edição que a sincronização vai desfazer.
             Erp = configuration["Erp"] ?? "STANDALONE",
@@ -234,14 +248,14 @@ public class AuthController(
 
     // Endpoint para Basic Auth (compatibilidade)
     [HttpPost("login/basic")]
-    public async Task<IActionResult> LoginBasic([FromHeader(Name = "Authorization")] string authorization)
+    public async Task<IActionResult> LoginBasic([FromHeader(Name = "Authorization")] string authorization, [FromHeader(Name = "X-Company")] string? companyCode)
     {
         if (string.IsNullOrEmpty(authorization))
         {
             return BadRequest(new { message = "Header Authorization é obrigatório" });
         }
 
-        var result = await authService.LoginWithBasicAuthAsync(authorization);
+        var result = await authService.LoginWithBasicAuthAsync(authorization, companyCode);
 
         if (result.Success)
         {
@@ -267,7 +281,7 @@ public class AuthController(
         
         try
         {
-            await branchService.SetDefaultBranch(sessionId, branchRequest.BranchCode);
+            await serviceProvider.GetRequiredService<BranchService>().SetDefaultBranch(sessionId, branchRequest.BranchCode);
             return Ok();
         }
         catch (Exception e)
@@ -286,7 +300,7 @@ public class AuthController(
         {
             Request.Cookies.TryGetValue("SIAGROB1.User", out var userCookie);
                 
-            var branchInfo = await branchService.GetDefaultBranchInfo(sessionId);
+            var branchInfo = await serviceProvider.GetRequiredService<BranchService>().GetDefaultBranchInfo(sessionId);
             return Ok(branchInfo);
         }
         catch (Exception e)

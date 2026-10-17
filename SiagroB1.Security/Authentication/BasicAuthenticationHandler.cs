@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SiagroB1.Domain.Entities.Common;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Security.Shared;
 
@@ -20,7 +21,9 @@ public class BasicAuthenticationHandler(
     UrlEncoder encoder,
     ISystemClock clock,
     CommonDbContext context,
-    IHttpContextAccessor httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor,
+    ICompanyCatalog catalog,
+    ICompanyContext companyContext)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder, clock)
 {
     private readonly ILogger<BasicAuthenticationHandler> _logger = logger.CreateLogger<BasicAuthenticationHandler>();
@@ -72,15 +75,30 @@ public class BasicAuthenticationHandler(
                 return AuthenticateResult.Fail("Invalid Username or Password");
             }
 
+            // Empresa: header X-Company; sem header, só há resposta certa quando existe UMA empresa.
+            var requestedCompany = httpContext?.Request.Headers["X-Company"].ToString();
+            var company = await ResolveCompanyAsync(requestedCompany);
+            if (company is null)
+            {
+                return AuthenticateResult.Fail("Informe a empresa no cabeçalho X-Company.");
+            }
+
+            if (!await CompanyAccessPolicy.CanLoginAsync(context, user, company.Code))
+            {
+                return AuthenticateResult.Fail(CompanyAccessPolicy.NoAccessMessage(company.CompanyName));
+            }
+
+            companyContext.Set(company);
+
             // ✅ 3. CRIAR COOKIES DE SESSÃO
-            await CreateSessionCookiesAsync(user);
+            await CreateSessionCookiesAsync(user, company.Code);
 
             // Atualizar último login
             user.LastLoginAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
 
             // Criar claims
-            var claims = CreateUserClaims(user);
+            var claims = CreateUserClaims(user, company.Code);
             var identity = new ClaimsIdentity(claims, Scheme.Name);
             var principal = new ClaimsPrincipal(identity);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
@@ -128,8 +146,19 @@ public class BasicAuthenticationHandler(
             session.LastActivityAt = DateTime.UtcNow;
             await context.SaveChangesAsync();
 
+            var company = await catalog.GetByCodeAsync(session.CompanyCode ?? catalog.DefaultCompanyCode);
+            if (company is null)
+            {
+                // Sem empresa resolvida o AppDbContext cairia no banco de fallback: não autentica.
+                _logger.LogWarning(
+                    "Sessão {SessionId} aponta para a empresa {Code}, que não está cadastrada; sessão não autenticada.",
+                    sessionId, session.CompanyCode ?? catalog.DefaultCompanyCode);
+                return null;
+            }
+            companyContext.Set(company);
+
             // Criar claims do usuário
-            var claims = CreateUserClaims(session.User);
+            var claims = CreateUserClaims(session.User, company.Code);
             
             // Adicionar claim da sessão
             claims.Add(new Claim("SessionId", sessionId));
@@ -146,7 +175,7 @@ public class BasicAuthenticationHandler(
         }
     }
 
-    private async Task CreateSessionCookiesAsync(User user)
+    private async Task CreateSessionCookiesAsync(User user, string companyCode)
     {
         // ✅ 1. Criar Session ID
         var sessionId = Guid.NewGuid().ToString();
@@ -161,7 +190,8 @@ public class BasicAuthenticationHandler(
             CreatedAt = DateTime.Now,
             LastActivityAt = DateTime.Now,
             ExpiresAt = DateTime.Now.AddHours(8), // 8 horas de sessão
-            IsActive = true
+            IsActive = true,
+            CompanyCode = companyCode
         };
         
         context.UserSessions.Add(session);
@@ -202,24 +232,19 @@ public class BasicAuthenticationHandler(
             base64UserInfo, 
             userCookieOptions);
 
-        // ✅ 5. Se usuário tem empresa padrão, selecionar automaticamente
-        // if (!string.IsNullOrEmpty(user.DefaultCompanyCode))
-        // {
-        //     try
-        //     {
-        //         await _companyService.SetCurrentCompanyAsync(user.DefaultCompanyCode);
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         _logger.LogWarning(ex, "Could not set default company for user {Username}", 
-        //             user.Username);
-        //     }
-        // }
-
         _logger.LogDebug("Session cookies created for user: {Username}", user.Username);
     }
 
-    private List<Claim> CreateUserClaims(User user)
+    private async Task<CompanyInfo?> ResolveCompanyAsync(string? requestedCode)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedCode))
+            return await catalog.GetByCodeAsync(requestedCode.Trim());
+
+        var all = await catalog.GetAllAsync();
+        return all.Count == 1 ? all[0] : null;
+    }
+
+    private List<Claim> CreateUserClaims(User user, string? companyCode)
     {
         var claims = new List<Claim>
         {
@@ -228,20 +253,12 @@ public class BasicAuthenticationHandler(
             new Claim(ClaimTypes.GivenName, user.FullName),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
             new Claim("IsAdmin", user.IsAdmin.ToString()),
-            //new Claim("DefaultCompanyCode", user.DefaultCompanyCode ?? string.Empty)
         };
 
-        // // Adicionar empresas que o usuário tem acesso
-        // var userCompanies = context.UserCompanyAccesses
-        //     .Where(uca => uca.UserId == user.Id && uca.IsActive)
-        //     .Include(uca => uca.Company)
-        //     .Select(uca => uca.Company!.Code)
-        //     .ToList();
-        //
-        // foreach (var companyCode in userCompanies)
-        // {
-        //     claims.Add(new Claim("HasAccessToCompany", companyCode));
-        // }
+        if (companyCode is not null)
+        {
+            claims.Add(new Claim(CompanyClaims.CompanyCode, companyCode));
+        }
 
         return claims;
     }

@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 using SiagroB1.Infra.Email;
 using SiagroB1.Security.Authentication;
 using SiagroB1.Security.Interfaces;
 using SiagroB1.Security.Middlewares;
+using SiagroB1.Security.Startup;
 using SiagroB1.Security.Services;
 using SiagroB1.Security.Services.SapUsers;
 using SiagroB1.Security.Shared;
@@ -28,9 +30,13 @@ builder.Services.AddDbContext<CommonDbContext>(options =>
         })
 );
 
-builder.Services.AddDbContext<AppDbContext>(options => 
+builder.Services.AddCompanyContext();
+
+// O Gateway abre o banco de negócio só para a filial da sessão (BranchService): a empresa vem do
+// cookie, resolvida pelo CookieAuthMiddleware antes de o controller ser ativado.
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("SiagroDB"),
+        sp.GetRequiredService<ICompanyContext>().ConnectionString,
         b =>
         {
             b.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
@@ -96,6 +102,10 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
 var app = builder.Build();
+
+// O login lista as empresas de COMPANIES: um deploy antigo (tabela vazia) precisa da empresa padrão
+// antes do primeiro login, e o Gateway pode subir antes do Web.
+await CompanyBootstrap.RunAsync(app.Services);
 
 WarnIfPasswordRecoveryCannotSendEmail(app);
 

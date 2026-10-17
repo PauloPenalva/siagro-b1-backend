@@ -25,7 +25,7 @@ public class PrePurchaseContractReportServiceTests
         var configuration = new ConfigurationBuilder().Build();
         return new PrePurchaseContractReportService(
             db, env, partners, configuration,
-            new ReportHeaderService(env, configuration, NullLogger<ReportHeaderService>.Instance));
+            new ReportHeaderService(env, configuration, NullLogger<ReportHeaderService>.Instance, FakeCompanyContext.Unresolved()));
     }
 
     /// <summary>Filial e safra semeadas: o Include de FK obrigatória vira INNER JOIN e esconderia o contrato.</summary>
