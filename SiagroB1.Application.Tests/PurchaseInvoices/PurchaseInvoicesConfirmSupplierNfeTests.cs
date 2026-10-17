@@ -149,6 +149,21 @@ public class PurchaseInvoicesConfirmSupplierNfeTests
     }
 
     [Fact]
+    public async Task Cte_confirmation_does_not_consult_sefaz()
+    {
+        var first43 = "3526" + "10" + "00052998224725" + "57" + "001" + "000000456" + "1" + "12345678";
+        var key = first43 + SiagroB1.Application.Services.PurchaseInvoices.SupplierNfeKeyGuard.CheckDigit(first43);
+        var (db, doc) = await SeedAsync(NfeEnvironment.Production, key, TaxDocumentKind.Cte);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.ConsultResponses.Enqueue(_ => throw new InvalidOperationException("CT-e não pode consultar a SEFAZ"));
+
+        await ConfirmAsync(db, doc, sefaz);
+
+        Assert.Equal(InvoiceStatus.Confirmed, (await LoadAsync(db, doc)).InvoiceStatus);
+        Assert.Empty(sefaz.Consulted);
+    }
+
+    [Fact]
     public async Task Other_document_confirms_without_key_and_without_consulting()
     {
         var (db, doc) = await SeedAsync(key: null, kind: TaxDocumentKind.Other);

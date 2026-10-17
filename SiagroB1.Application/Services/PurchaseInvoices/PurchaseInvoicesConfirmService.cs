@@ -51,7 +51,9 @@ public class PurchaseInvoicesConfirmService(
         if (SupplierNfeKeyGuard.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))
         {
             SupplierNfeKeyGuard.Ensure(invoice, (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.TaxId);
-            await supplierNfe.EnsureAuthorizedAsync(invoice);
+            // O CT-e não é consultado na SEFAZ (spec 2026-10-17): só a conferência local da chave.
+            if (invoice.TaxDocumentKind == TaxDocumentKind.Nfe)
+                await supplierNfe.EnsureAuthorizedAsync(invoice);
         }
 
         // A escrituração/entrada de custódia precisa continuar batendo com o romaneio (spec 2026-10-12 §4.4).
