@@ -19,7 +19,7 @@ public class ItemsController(IItemService service) : ODataController
     }
     
     /// <summary>Qualquer produto ativo, de qualquer grupo (linha de "outra compra"). Em SAPB1 devolve o mesmo que o Get.</summary>
-    [HttpGet("odata/Items/ActiveItems()")]
+    [HttpGet("odata/ActiveItems()")]
     [EnableQuery]
     public virtual ActionResult GetActiveItems()
     {

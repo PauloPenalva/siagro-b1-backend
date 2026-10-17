@@ -97,7 +97,7 @@ OpenUI5 TypeScript.
 - Produces:
   - `IItemService.QueryAllActive(): IQueryable<ItemModel>` (Enabled = "SIM", qualquer grupo) e
     `GetActiveByIdAsync(string code): Task<ItemModel?>`.
-  - Função OData `GET /odata/Items/ActiveItems()`, que devolve `QueryAllActive()` com `[EnableQuery]`.
+  - Função OData `GET /odata/ActiveItems()`, que devolve `QueryAllActive()` com `[EnableQuery]`.
   - Em SAPB1, os dois métodos delegam ao filtro atual.
 
 - [ ] **Step 1: testes que falham**
@@ -282,7 +282,7 @@ Regras:
 
 **Files:**
 - Modify: `webapp/controller/purchaseInvoices/BaseController.ts`:
-  - o value help de produto usa `/Items/ActiveItems()` quando a natureza da linha não exige contrato;
+  - o value help de produto usa `/ActiveItems()` quando a natureza da linha não exige contrato;
   - a coluna/Input de contrato fica desabilitada nessas linhas e é limpa ao escolher uma natureza de outra compra
     (padrão `openLineItemValueHelp`, ver [[purchase-invoice-contract-reference-feature]], armadilha 1).
 - Modify: `webapp/view/purchaseInvoices/fragments/Form.fragment.xml`, com a seção "Retenções":

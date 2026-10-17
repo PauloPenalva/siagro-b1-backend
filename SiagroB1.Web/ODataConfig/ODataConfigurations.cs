@@ -499,7 +499,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ItemModel>("Items");
 
         // Qualquer produto ativo, de qualquer grupo: value help da linha de "outra compra" (spec 2026-10-17 §2).
-        modelBuilder.EntityType<ItemModel>().Collection.Function("ActiveItems").ReturnsFromEntitySet<ItemModel>("Items");
+        modelBuilder.Function("ActiveItems").ReturnsCollectionFromEntitySet<ItemModel>("Items");
 
         // Parametros como string: datas yyyy-MM-dd e enum pelo nome; vazio/null = sem filtro.
         var royaltyBalanceTotals = modelBuilder.Function("RoyaltyBalanceTotals");
