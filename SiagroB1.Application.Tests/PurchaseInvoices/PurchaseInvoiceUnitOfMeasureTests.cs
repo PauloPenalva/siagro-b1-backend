@@ -82,6 +82,25 @@ public class PurchaseInvoiceUnitOfMeasureTests
     }
 
     [Fact]
+    public async Task Create_does_not_require_unit_on_a_cte_line()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.Branchs.Add(new Branch { Code = "01", BranchName = "MATRIZ", ShortName = "MATRIZ", TaxId = "12345678000195" });
+        await db.Context.SaveChangesAsync();
+        var invoice = Invoice(null);
+        invoice.BranchCode = "01";
+        invoice.TaxDocumentKind = TaxDocumentKind.Cte;
+        invoice.ChaveNFe = "35260800000000000000570010000001231000000017";
+        invoice.FreightStartState = "SP";
+        invoice.FreightEndState = "PR";
+        invoice.FreightPayerTaxId = "12345678000195";
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Single(await db.Context.PurchaseInvoices.ToListAsync());
+    }
+
+    [Fact]
     public async Task Header_update_refuses_a_line_that_loses_its_unit()
     {
         var (db, saved) = await SeedAsync();

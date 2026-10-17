@@ -36,7 +36,8 @@ public class PurchaseInvoicesImportCteTests
 
     private static byte[] Bytes(string xml) => Encoding.UTF8.GetBytes(xml);
 
-    private static async Task<PurchaseInvoicesImportXmlService> ServiceAsync(string? freightItem = "FRETE")
+    private static async Task<PurchaseInvoicesImportXmlService> ServiceAsync(
+        string? freightItem = "FRETE", string? complementUnit = null, bool seedItem = true)
     {
         var db = TestDb.CreateUnitOfWork();
         db.Context.Branchs.Add(new Branch
@@ -44,7 +45,10 @@ public class PurchaseInvoicesImportCteTests
             Code = "01", BranchName = "MATRIZ", ShortName = "MATRIZ",
             TaxId = "55.555.555/0001-91", FreightServiceItemCode = freightItem,
         });
-        db.Context.Items.Add(new Item { ItemCode = "FRETE", ItemName = "FRETE SOBRE COMPRAS" });
+        if (seedItem)
+            db.Context.Items.Add(new Item { ItemCode = "FRETE", ItemName = "FRETE SOBRE COMPRAS" });
+        if (complementUnit != null)
+            db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "FRETE", CommercialUnitOfMeasureCode = complementUnit });
         await db.Context.SaveChangesAsync();
 
         return new PurchaseInvoicesImportXmlService(new FakeBusinessPartnerService(
@@ -82,6 +86,25 @@ public class PurchaseInvoicesImportCteTests
         Assert.Equal(1m, line.Quantity);
         Assert.Equal(1500.00m, line.UnitPrice);
         Assert.Null(line.UnitOfMeasureCode);
+    }
+
+    [Fact]
+    public async Task Line_unit_comes_from_the_item_complement()
+    {
+        var draft = await (await ServiceAsync(complementUnit: "SV")).ExecuteAsync(Bytes(CteXml()), "cte.xml");
+
+        Assert.Equal("SV", Assert.Single(draft.Items).UnitOfMeasureCode);
+    }
+
+    [Fact]
+    public async Task Unregistered_freight_item_warns_and_leaves_line_without_product()
+    {
+        var draft = await (await ServiceAsync(seedItem: false)).ExecuteAsync(Bytes(CteXml()), "cte.xml");
+
+        Assert.Equal(["O produto padrão de frete da filial (FRETE) não está cadastrado."], draft.Warnings);
+        var line = Assert.Single(draft.Items);
+        Assert.Null(line.ItemCode);
+        Assert.Equal("SERVIÇO DE TRANSPORTE", line.ItemName);
     }
 
     [Fact]

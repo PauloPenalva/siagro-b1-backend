@@ -103,7 +103,7 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
 
         var cardCode = ResolveCardCode(cte.IssuerTaxId);
 
-        // A UF/dígitos não são traduzíveis pelo EF: traz as filiais e compara os dígitos em memória.
+        // Os dígitos não são traduzíveis pelo EF: traz as filiais e compara os dígitos em memória.
         var payerDigits = Digits(cte.PayerTaxId ?? string.Empty);
         var branch = payerDigits.Length == 0
             ? null
@@ -144,18 +144,32 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
                 $"(R$ {cte.ServiceTotal.ToString("N2", br)}); confira o título a pagar.");
 
         string? itemName = null;
+        string? itemCode = null;
+        string? unit = null;
         if (string.IsNullOrWhiteSpace(branch.FreightServiceItemCode))
             draft.Warnings.Add("Filial sem produto padrão de frete: informe o produto da linha.");
         else
+        {
+            var code = branch.FreightServiceItemCode;
             itemName = await db.Context.Items.AsNoTracking()
-                .Where(i => i.ItemCode == branch.FreightServiceItemCode)
-                .Select(i => i.ItemName).FirstOrDefaultAsync();
+                .Where(i => i.ItemCode == code).Select(i => i.ItemName).FirstOrDefaultAsync();
 
-        // O Item não tem unidade padrão: UnitOfMeasureCode fica nulo e o operador informa na linha.
+            if (itemName == null)
+                draft.Warnings.Add($"O produto padrão de frete da filial ({code}) não está cadastrado.");
+            else
+            {
+                itemCode = code;
+                // Unidade comercial do complemento do produto; sem complemento, a linha segue sem unidade.
+                unit = await db.Context.ItemComplements.AsNoTracking()
+                    .Where(c => c.ItemCode == code).Select(c => c.CommercialUnitOfMeasureCode).FirstOrDefaultAsync();
+            }
+        }
+
         draft.Items.Add(new PurchaseInvoiceDraftItemDto
         {
-            ItemCode = string.IsNullOrWhiteSpace(branch.FreightServiceItemCode) ? null : branch.FreightServiceItemCode,
+            ItemCode = itemCode,
             ItemName = itemName ?? "SERVIÇO DE TRANSPORTE",
+            UnitOfMeasureCode = string.IsNullOrWhiteSpace(unit) ? null : unit,
             Quantity = 1m,
             UnitPrice = cte.ServiceTotal,
         });
