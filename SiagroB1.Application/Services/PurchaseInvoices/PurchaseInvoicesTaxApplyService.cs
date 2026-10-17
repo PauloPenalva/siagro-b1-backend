@@ -73,10 +73,22 @@ public class PurchaseInvoicesTaxApplyService(
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
             return;
 
-        lines ??= invoice.Items.ToList();
-        var engineActive = await IsActiveForAsync(invoice);
-        var outcomes = await PurchaseInvoiceDifal.EvaluateAsync(
-            db.Context, usageService, businessPartnerService, gate.IsStandalone, engineActive, invoice, lines);
+        foreach (var o in await EvaluateDifalAsync(invoice, lines))
+            PurchaseInvoiceDifal.Store(o.Line, o.Result);
+    }
+
+    /// <summary>Calcula o DIFAL de cada linha sem gravar; <c>Error</c> preenchido = a confirmação deve recusar.</summary>
+    internal async Task<List<PurchaseInvoiceDifal.LineOutcome>> EvaluateDifalAsync(
+        PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem>? lines = null) =>
+        await PurchaseInvoiceDifal.EvaluateAsync(
+            db.Context, usageService, businessPartnerService, gate.IsStandalone, invoice, lines ?? invoice.Items.ToList());
+
+    /// <summary>Confirmação: recusa se faltar a alíquota da UF e regrava o DIFAL de cada linha (a UF pode ter sido cadastrada depois da gravação).</summary>
+    public async Task RefreshDifalForConfirmAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        var outcomes = await EvaluateDifalAsync(invoice, lines);
+        if (outcomes.FirstOrDefault(o => o.Error is not null) is { } refused)
+            throw new DefaultException(refused.Error!);
 
         foreach (var o in outcomes)
             PurchaseInvoiceDifal.Store(o.Line, o.Result);

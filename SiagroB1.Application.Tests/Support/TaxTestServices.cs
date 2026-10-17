@@ -59,6 +59,6 @@ public static class TaxTestServices
             new SupplierNfeAuthorizationService(db, new BranchNfeSettingsService(db, new NfeOptions(config), sefaz), sefaz),
             FinancialDocumentTestServices.FirmSync(db, firmNumbers, erp ?? "STANDALONE"),
             FinancialDocumentTestServices.OtherPurchase(db, firmNumbers, erp ?? "STANDALONE", partners ?? new FakeBusinessPartnerService()),
-            new UsageService(db, NullLogger<UsageService>.Instance));
+            PurchaseApply(db, partners ?? new FakeBusinessPartnerService(), erp ?? "STANDALONE"));
     }
 }

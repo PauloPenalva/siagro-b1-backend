@@ -28,9 +28,9 @@ internal static class PurchaseInvoiceDifal
         line.FcpValue = r.FcpValue;
     }
 
-    /// <param name="engineActive">Motor de tributos ativo: a alíquota interestadual é o <c>IcmsRate</c> já calculado na linha.</param>
+    /// <remarks>Alíquota interestadual: o <c>IcmsRate</c> da linha (calculado pelo motor, informado ou do XML) quando maior que zero; senão <c>Resolve</c>.</remarks>
     public static async Task<List<LineOutcome>> EvaluateAsync(
-        AppDbContext ctx, IUsage usages, IBusinessPartnerService partners, bool standalone, bool engineActive,
+        AppDbContext ctx, IUsage usages, IBusinessPartnerService partners, bool standalone,
         PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> lines)
     {
         var list = lines.ToList();
@@ -84,7 +84,7 @@ internal static class PurchaseInvoiceDifal
                 continue;
             }
 
-            var interstate = engineActive || line.IcmsRate > 0m
+            var interstate = line.IcmsRate > 0m
                 ? line.IcmsRate
                 : InterstateIcmsRate.Resolve(supplierState, branchState, await GoodsOriginAsync(ctx, line));
 

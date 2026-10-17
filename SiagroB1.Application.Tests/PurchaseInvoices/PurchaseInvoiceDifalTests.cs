@@ -29,14 +29,14 @@ public class PurchaseInvoiceDifalTests
 
     private async Task<Scenario> SeedAsync(
         bool stateSetting = true, DocumentIssuerType issuer = DocumentIssuerType.ThirdParty,
-        PurchaseInvoiceType type = PurchaseInvoiceType.Normal)
+        PurchaseInvoiceType type = PurchaseInvoiceType.Normal, bool engine = false, bool nfeReturn = false)
     {
         _db.Context.Branchs.Add(new Branch
         {
             Code = "01", BranchName = "FILIAL", ShortName = "FILIAL", TaxId = "12345678000195", StateCode = "SP",
-            TaxRegime = TaxRegime.Normal, IssuesNfe = false,
+            TaxRegime = TaxRegime.Normal, IssuesNfe = engine,
         });
-        _db.Context.Items.Add(new Item { ItemCode = ItemCode, ItemName = "BOMBA D'AGUA", GoodsOrigin = 0 });
+        _db.Context.Items.Add(new Item { ItemCode = ItemCode, ItemName = "BOMBA D'AGUA", Ncm = "84137010", GoodsOrigin = 0 });
         if (stateSetting)
             _db.Context.IcmsStateSettings.Add(new IcmsStateSetting
                 { StateCode = "SP", InternalRate = 18m, FcpRate = 0m, DifalBaseRule = DifalBaseRule.Double });
@@ -48,7 +48,7 @@ public class PurchaseInvoiceDifalTests
         var invoice = new PurchaseInvoice
         {
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = Supplier, InvoiceType = type, IssuerType = issuer,
-            InvoiceStatus = InvoiceStatus.Pending, TaxDocumentNumber = "9001", TaxDocumentSeries = "1",
+            InvoiceStatus = InvoiceStatus.Pending, IsNfeReturn = nfeReturn, TaxDocumentNumber = "9001", TaxDocumentSeries = "1",
             IssueDate = new DateTime(2026, 10, 12),
         };
         _db.Context.PurchaseInvoices.Add(invoice);
@@ -59,7 +59,7 @@ public class PurchaseInvoiceDifalTests
 
     private static UsageModel Usage(string name, PurchasePurpose purpose) => new()
     {
-        Name = name, Direction = UsageDirection.Incoming, CfopIncomingInState = "1556", CfopIncomingOutState = "2556",
+        Name = name, Direction = UsageDirection.Incoming, CfopIncomingInState = "1556", CfopIncomingOutState = "2556", IcmsOutStateCst = "41", PisCst = "74", CofinsCst = "74",
         PurchasePurpose = purpose,
     };
 
@@ -200,5 +200,74 @@ public class PurchaseInvoiceDifalTests
         await AddAsync(line, erp: "SAPB1");
 
         Assert.Equal((0m, 0m), ((await ReloadAsync(line.Key)).DifalBase, (await ReloadAsync(line.Key)).DifalValue));
+    }
+
+    [Fact]
+    public async Task Confirm_recomputes_stale_difal()
+    {
+        var s = await SeedAsync(stateSetting: false);
+        var line = Line(s.Invoice.Key, s.Consumption);
+        await AddAsync(line);
+        Assert.Equal(0m, (await ReloadAsync(line.Key)).DifalValue);
+
+        _db.Context.IcmsStateSettings.Add(new IcmsStateSetting
+            { StateCode = "SP", InternalRate = 18m, FcpRate = 0m, DifalBaseRule = DifalBaseRule.Double });
+        await _db.Context.SaveChangesAsync();
+
+        await TaxTestServices.PurchaseConfirm(_db, "STANDALONE", Partners()).ExecuteAsync(s.Invoice.Key, "tester");
+
+        Assert.Equal(73.17m, (await ReloadAsync(line.Key)).DifalValue);
+    }
+
+    [Fact]
+    public async Task Engine_active_zero_icms_rate_falls_back_to_resolve()
+    {
+        var s = await SeedAsync(engine: true);
+        var line = Line(s.Invoice.Key, s.Consumption);
+
+        await AddAsync(line);
+
+        var saved = await ReloadAsync(line.Key);
+        Assert.Equal(0m, saved.IcmsRate);
+        Assert.Equal((12m, 73.17m), (saved.DifalInterstateRate, saved.DifalValue));
+    }
+
+    [Fact]
+    public async Task Stored_icms_rate_overrides_resolve()
+    {
+        var s = await SeedAsync();
+        var line = Line(s.Invoice.Key, s.Consumption, icmsRate: 7m);
+
+        await AddAsync(line);
+
+        var saved = await ReloadAsync(line.Key);
+        Assert.Equal(7m, saved.DifalInterstateRate);
+        Assert.Equal(decimal.Round((1000m - 70m) / 0.82m * 0.18m - 70m, 2, MidpointRounding.ToEven), saved.DifalValue);
+    }
+
+    [Fact]
+    public async Task Fixed_asset_purpose_computes_difal()
+    {
+        var s = await SeedAsync();
+        var asset = (await new UsageService(_db, NullLogger<UsageService>.Instance)
+            .CreateAsync(Usage("Ativo", PurchasePurpose.FixedAsset))).Code;
+        var line = Line(s.Invoice.Key, asset);
+
+        await AddAsync(line);
+
+        Assert.Equal(73.17m, (await ReloadAsync(line.Key)).DifalValue);
+    }
+
+    [Fact]
+    public async Task Nfe_return_has_no_difal()
+    {
+        var s = await SeedAsync(nfeReturn: true);
+        var line = Line(s.Invoice.Key, s.Consumption);
+        var invoice = await _db.Context.PurchaseInvoices.FirstAsync(x => x.Key == s.Invoice.Key);
+        line.DifalValue = 99m;
+
+        await Apply().ApplyDifalAsync(invoice, [line]);
+
+        Assert.Equal(0m, line.DifalValue);
     }
 }
