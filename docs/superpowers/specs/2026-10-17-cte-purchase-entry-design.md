@@ -88,8 +88,10 @@ fechar a porta para ela (ver §8).
   - O ICMS do XML **não** é guardado na linha. O XML continua anexado em `XmlData` para consulta.
   - CT-e sem destaque (CST 60, ICMS por substituição): o usuário escolhe uma natureza sem crédito, por exemplo
     "Frete com ICMS-ST", com CST 90/41 e sem valor. O débito do tomador substituto fica para a contra-nota (fila).
-  - *Minha decisão:* a importação **avisa**, sem recusar, quando o ICMS do XML diverge do recalculado (CST com e sem
-    destaque, ou diferença de valor maior que R$ 0,01). Isso pega a natureza errada antes da confirmação.
+  - *Minha decisão:* o CST e o valor do ICMS do XML ficam guardados no cabeçalho só como informação (`CteIcmsCst`,
+    `CteIcmsValue`). O Detail **avisa**, sem recusar, quando eles divergem do recalculado: CST diferente ou diferença de
+    valor maior que R$ 0,01. Isso pega a natureza errada antes da confirmação. O aviso fica no Detail, e não na
+    importação, porque a importação ainda não conhece a natureza.
 - **DIFAL:** o CT-e fica **fora** do `PurchaseInvoiceDifal` nesta entrega. *Minha decisão:* o DIFAL hoje usa a UF do
   fornecedor, que para o CT-e é a transportadora e daria a UF errada. Além disso, o frete de venda e o de compra para
   revenda estão vinculados a uma operação seguinte, então não têm DIFAL (LC 87/96, art. 2º, IV). DIFAL de frete de uso
@@ -137,13 +139,14 @@ fechar a porta para ela (ver §8).
   - `AccessKey` (44);
   - `SalesInvoiceKey?` (FK Restrict para o documento de saída);
   - `TransportedPurchaseInvoiceKey?` (FK Restrict para outro Documento de Entrada).
-- Na importação, cada chave do XML é procurada pela `ChaveNFe`:
+- Os vínculos nascem **na gravação** do CT-e, a partir do XML guardado. O rascunho da importação não os leva. Cada chave
+  do XML é procurada pela `ChaveNFe`:
   - entre os documentos de saída;
   - entre os de entrada de **outros** documentos.
   - Achou: preenche a FK.
   - Não achou: guarda só a chave. *Minha decisão:* a nota pode ainda não ter sido lançada; o vínculo pode ser refeito
     depois por um botão "Refazer vínculos".
-- Na digitação, o usuário inclui ou remove chaves, ou escolhe o documento por value help.
+- Com o CT-e pendente, o usuário inclui uma chave (44 dígitos) ou remove um vínculo.
 - *Minha decisão:* o vínculo é **informativo** nesta entrega. Não muda saldo, título nem tributo, e o CT-e pode ser
   confirmado sem nenhuma nota vinculada.
 - O Detail do Documento de Saída e o do Documento de Entrada transportado ganham a seção somente leitura "CT-e de
@@ -180,7 +183,6 @@ feita, esses dois pontos precisam ignorar o `ProducerInvoiceKey` preenchido, ou 
 - O caminho da NF-e modelo 55, a contra-nota do produtor e os títulos de grão não mudam.
 
 ## Deixado ao construtor
-- Onde guardar o produto padrão de frete (natureza ou filial).
 - Nome exato das colunas e dos serviços.
 - Como generalizar o guard de chave: um guard com o modelo como parâmetro ou dois guards.
 
