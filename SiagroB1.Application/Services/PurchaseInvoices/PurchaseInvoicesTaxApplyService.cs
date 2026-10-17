@@ -43,11 +43,17 @@ public class PurchaseInvoicesTaxApplyService(
     public static bool IsOwnNfeReturn(PurchaseInvoice invoice) =>
         invoice.InvoiceType == PurchaseInvoiceType.Return && invoice.IsNfeReturn;
 
-    /// <summary>Spec 2026-10-13 D11: regras do documento "Complemento de valor" (e do valor de complemento nos demais tipos).</summary>
-    public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
-        PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
+    /// <summary>
+    /// Regras dos complementos — "Complemento de valor" (spec 2026-10-13 D11) e "Complemento de ICMS" (spec 2026-10-17) —
+    /// e do valor de complemento nos demais tipos.
+    /// </summary>
+    public Task EnsureComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        PurchaseInvoiceComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
 
-    /// <summary>Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE, tipo Normal).</summary>
+    /// <summary>
+    /// Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE; tipo Normal e,
+    /// pela D3 dos complementos, os dois complementos).
+    /// </summary>
     public Task EnsureUsageContractRuleAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(usageService, gate.IsStandalone, invoice, lines);
 

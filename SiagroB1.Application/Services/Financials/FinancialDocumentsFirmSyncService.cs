@@ -170,7 +170,7 @@ public class FinancialDocumentsFirmSyncService(
         if (invoice.InvoiceType != PurchaseInvoiceType.ValueComplement)
             return;
 
-        await PurchaseInvoiceValueComplement.EnsureAsync(
+        await PurchaseInvoiceComplement.EnsureAsync(
             invoice, lines, usageService, new TaxCalculationGate(db, configuration), db.Context);
 
         var context = db.Context;

@@ -63,6 +63,8 @@ public static class ValueComplementNfeSeed
         // STANDALONE: a linha do complemento exige natureza com "Gera financeiro" (spec 2026-10-13 D10).
         var usage = await context.Usages.SingleAsync(u => u.Name == "COMPRA DE MERCADORIA");
         usage.CreatesFinancialDocument = true;
+        // Compra de grão: a natureza exige o contrato (spec 2026-10-17 D3 — no complemento, quem manda no contrato é ela).
+        context.UsageEffects.Add(new UsageEffect { UsageCode = usage.Code, RequiresContract = true });
 
         var contract = await AddContractAsync(purchase.Db, "PC-TRIGO");
 

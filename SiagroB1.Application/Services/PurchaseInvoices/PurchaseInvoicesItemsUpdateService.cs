@@ -90,7 +90,7 @@ public class PurchaseInvoicesItemsUpdateService(
         var inGridOrder = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey).Select(x => x.Key).ToListAsync();
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, [.. inGridOrder.Select(k => k == existing.Key ? existing : others.First(o => o.Key == k))]);
-        await taxApply.EnsureValueComplementAsync(invoice, [.. others, existing]);
+        await taxApply.EnsureComplementAsync(invoice, [.. others, existing]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, existing]);
 

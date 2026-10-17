@@ -61,7 +61,7 @@ public class PurchaseInvoicesNfeIssueService(
         // Complemento de valor próprio: a regra das linhas de novo (contrato, natureza, valor, originais), porque a
         // confirmação, que também a roda, só vem depois da autorização (spec 2026-10-14).
         if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
-            await PurchaseInvoiceValueComplement.EnsureIssuableAsync(invoice.Key, usageService, _gate, _db.Context);
+            await PurchaseInvoiceComplement.EnsureIssuableAsync(invoice.Key, usageService, _gate, _db.Context);
     }
 
     protected override DateTime? DocumentDate(PurchaseInvoice invoice) => invoice.IssueDate;

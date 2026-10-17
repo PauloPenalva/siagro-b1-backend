@@ -26,7 +26,7 @@ public class PurchaseInvoicesGetComplementCandidatesService(IUnitOfWork db)
             .ToListAsync();
 
         return invoices
-            .Where(PurchaseInvoiceValueComplement.IsComplementableOrigin)
+            .Where(PurchaseInvoiceComplement.IsComplementableOrigin)
             .OrderByDescending(i => i.IssueDate).ThenByDescending(i => i.InvoiceNumber)
             .SelectMany(invoice => NfeItemNumbering.Ordered(invoice.Items)
                 .Select(item => new PurchaseInvoiceComplementCandidateDto

@@ -32,7 +32,7 @@ internal sealed class FirmPayableSeed
     public FinancialDocument Provisional { get; private set; } = null!;
     public string Erp { get; private set; } = "STANDALONE";
 
-    /// <summary>Natureza de entrada com "Gera financeiro" (D10).</summary>
+    /// <summary>Natureza de entrada com "Gera financeiro" (D10) que exige contrato — a compra de grão.</summary>
     public int FinancialUsageCode { get; private set; }
 
     /// <summary>Natureza de entrada SEM "Gera financeiro".</summary>
@@ -50,7 +50,9 @@ internal sealed class FirmPayableSeed
             Code = "CX01", Name = "Caixa", Type = FinancialAccountType.Cash, Currency = CurrencyType.Brl,
         });
         var usages = new UsageService(db, NullLogger<UsageService>.Instance);
-        seed.FinancialUsageCode = (await usages.CreateAsync(Usage("Compra para comercialização", createsFinancial: true))).Code;
+        var grain = Usage("Compra para comercialização", createsFinancial: true);
+        grain.RequiresContract = true;
+        seed.FinancialUsageCode = (await usages.CreateAsync(grain)).Code;
         seed.NonFinancialUsageCode = (await usages.CreateAsync(Usage("Entrada sem financeiro", createsFinancial: false))).Code;
         seed.Contract = await seed.Fiscal.AddContractAsync();
         seed.Provisional = await seed.AddProvisionalAsync(seed.Contract, provisionalAmount, "FN-PROV-1");

@@ -337,17 +337,17 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
     private async Task<IReadOnlyList<string>> LoadComplementReferencesAsync(PurchaseInvoice invoice)
     {
         var lines = NfeItemNumbering.Ordered(invoice.Items);
-        var originals = await PurchaseInvoiceValueComplement.LoadOriginalsAsync(db.Context, lines);
+        var originals = await PurchaseInvoiceComplement.LoadOriginalsAsync(db.Context, lines);
 
         var references = new List<string>();
         foreach (var line in lines)
         {
             if (line.ComplementedItemKey is not { } key || !originals.TryGetValue(key, out var original) ||
                 original.PurchaseInvoice is not { } origin)
-                throw new DefaultException(PurchaseInvoiceValueComplement.MissingOriginalMessage(line.ItemCode));
+                throw new DefaultException(PurchaseInvoiceComplement.MissingOriginalMessage(line.ItemCode, invoice.InvoiceType));
 
-            if (!PurchaseInvoiceValueComplement.IsComplementableOrigin(origin) || origin.ChaveNFe is not { Length: 44 } accessKey)
-                throw new DefaultException(PurchaseInvoiceValueComplement.NoLongerAuthorizedMessage(origin.InvoiceNumber));
+            if (!PurchaseInvoiceComplement.IsComplementableOrigin(origin) || origin.ChaveNFe is not { Length: 44 } accessKey)
+                throw new DefaultException(PurchaseInvoiceComplement.NoLongerAuthorizedMessage(origin.InvoiceNumber));
 
             if (!references.Contains(accessKey))
                 references.Add(accessKey);
