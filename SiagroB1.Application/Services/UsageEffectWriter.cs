@@ -92,6 +92,7 @@ internal static class UsageEffectWriter
         effect.IsDefault = model.IsDefault;
         effect.StorageDepositRole = model.StorageDepositRole;
         effect.StorageCustodyRole = model.StorageCustodyRole;
+        effect.PurchasePurpose = model.PurchasePurpose;
 
         await ClearOtherDefaultsAsync(db, usageCode, model.IsDefault);
     }

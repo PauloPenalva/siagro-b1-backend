@@ -50,6 +50,9 @@ namespace SiagroB1.Domain.Entities
         /// </summary>
         public int? ThirdPartyPurchaseReturnUsageCode { get; set; }
 
+        /// <summary>Regime de PIS/COFINS (spec 2026-10-17 §1): cumulativo (Lucro Presumido, padrão) ou não cumulativo (Lucro Real).</summary>
+        public PisCofinsRegime PisCofinsRegime { get; set; } = PisCofinsRegime.Cumulative;
+
         // --- Emitente da NF-e STANDALONE (ocultos e não validados em SAPB1). ---
 
         /// <summary>Razão social do emitente (<c>emit/xNome</c>). O <see cref="BranchName"/> é rótulo interno.</summary>

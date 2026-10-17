@@ -115,6 +115,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Phone")
                         .HasColumnType("VARCHAR(14)");
 
+                    b.Property<int>("PisCofinsRegime")
+                        .HasColumnType("int");
+
                     b.Property<string>("ShortName")
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
@@ -1126,6 +1129,53 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("IBS_CBS_RATES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.IcmsItemStateRate", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal>("InternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("StateCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ItemCode", "StateCode")
+                        .IsUnique();
+
+                    b.ToTable("ICMS_ITEM_STATE_RATES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.IcmsStateSetting", b =>
+                {
+                    b.Property<string>("StateCode")
+                        .HasColumnType("VARCHAR(2) NOT NULL");
+
+                    b.Property<int>("DifalBaseRule")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("InternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.HasKey("StateCode");
+
+                    b.ToTable("ICMS_STATE_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Item", b =>
@@ -2817,7 +2867,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CstPis")
                         .HasColumnType("VARCHAR(3)");
 
+                    b.Property<decimal>("DifalBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("DifalInternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("DifalInterstateRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("DifalValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<decimal>("DiscountValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("FcpValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
                     b.Property<decimal>("FreightValue")
@@ -6349,6 +6417,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("bit");
+
+                    b.Property<int>("PurchasePurpose")
+                        .HasColumnType("int");
 
                     b.Property<bool>("RequiresContract")
                         .HasColumnType("bit");

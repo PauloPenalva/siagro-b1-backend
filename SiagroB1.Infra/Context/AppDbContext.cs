@@ -48,6 +48,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Country> Countries { get; set; }
     public DbSet<PaymentCondition> PaymentConditions { get; set; }
     public DbSet<WithholdingTaxSetting> WithholdingTaxSettings { get; set; }
+    public DbSet<IcmsStateSetting> IcmsStateSettings { get; set; }
+    public DbSet<IcmsItemStateRate> IcmsItemStateRates { get; set; }
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }

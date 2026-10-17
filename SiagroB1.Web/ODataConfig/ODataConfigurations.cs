@@ -62,6 +62,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
         modelBuilder.EntitySet<WithholdingTaxSetting>("WithholdingTaxSettings");
+        modelBuilder.EntitySet<IcmsStateSetting>("IcmsStateSettings");
+        modelBuilder.EntitySet<IcmsItemStateRate>("IcmsItemStateRates");
 
         // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
         var paymentConditionsPreview = modelBuilder.Function("PaymentConditionsPreview");

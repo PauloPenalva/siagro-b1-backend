@@ -228,6 +228,30 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     public decimal ComplementAmount { get; set; }
 
     /// <summary>INSS + RAT + SENAR retidos na linha.</summary>
+    // --- DIFAL e FCP (spec 2026-10-17 §2): fotografia informativa, fora de NetPayable, GrandTotal e do XML da NF-e. ---
+
+    /// <summary>Base de cálculo do DIFAL.</summary>
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal DifalBase { get; set; }
+
+    /// <summary>Alíquota interna da UF da filial (percentual).</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal DifalInternalRate { get; set; }
+
+    /// <summary>Alíquota interestadual da operação (percentual).</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal DifalInterstateRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal DifalValue { get; set; }
+
+    /// <summary>FCP da UF de destino (percentual).</summary>
+    [Column(TypeName = "DECIMAL(7,4) DEFAULT 0")]
+    public decimal FcpRate { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,2) DEFAULT 0")]
+    public decimal FcpValue { get; set; }
+
     [NotMapped]
     public decimal FunruralValue => FunruralInssValue + FunruralRatValue + FunruralSenarValue;
 

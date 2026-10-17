@@ -358,6 +358,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();
         services.AddScoped<WithholdingTaxSettingsService>();
+        services.AddScoped<IcmsStateSettingsService>();
+        services.AddScoped<IcmsItemStateRatesService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
         services.AddScoped<SupplierNfeAuthorizationService>();

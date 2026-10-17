@@ -83,6 +83,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     IsDefault = effect != null && effect.IsDefault,
                     StorageDepositRole = effect != null ? effect.StorageDepositRole : StorageDepositRole.None,
                     StorageCustodyRole = effect != null ? effect.StorageCustodyRole : StorageCustodyRole.None,
+                    PurchasePurpose = effect != null ? effect.PurchasePurpose : PurchasePurpose.ResaleOrInput,
                     HasConfiguredEffects = effect != null,
                 })
             .AsNoTracking();

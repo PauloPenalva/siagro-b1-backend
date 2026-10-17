@@ -106,6 +106,9 @@ public class UsageModel
     /// <summary>Papel nas notas de custódia — ver <see cref="Entities.UsageEffect.StorageCustodyRole"/>.</summary>
     public StorageCustodyRole StorageCustodyRole { get; set; }
 
+    /// <summary>Destinação da mercadoria — ver <see cref="Entities.UsageEffect.PurchasePurpose"/>.</summary>
+    public PurchasePurpose PurchasePurpose { get; set; }
+
     /// <summary>
     /// Existe linha de efeito cadastrada para esta natureza?
     ///
