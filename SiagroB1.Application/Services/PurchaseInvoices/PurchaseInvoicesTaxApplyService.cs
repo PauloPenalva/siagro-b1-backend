@@ -55,6 +55,14 @@ public class PurchaseInvoicesTaxApplyService(
     public Task<bool> IsOtherPurchaseLineAsync(PurchaseInvoice invoice, PurchaseInvoiceItem line) =>
         PurchaseInvoiceLineGuard.IsOtherPurchaseLineAsync(usageService, gate.IsStandalone, invoice, line);
 
+    /// <summary>Spec 2026-10-17 §2: retenções de serviço do cabeçalho (zeradas fora de "outra compra"; só STANDALONE).</summary>
+    public async Task ApplyWithholdingsAsync(PurchaseInvoice invoice)
+    {
+        var otherPurchase = await PurchaseInvoiceLineGuard.IsOtherPurchaseDocumentAsync(
+            usageService, gate.IsStandalone, invoice, invoice.Items.ToList());
+        await PurchaseInvoiceWithholdings.ApplyAsync(invoice, usageService, otherPurchase);
+    }
+
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)

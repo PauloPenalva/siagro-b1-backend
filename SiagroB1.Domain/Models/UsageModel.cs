@@ -67,6 +67,14 @@ public class UsageModel
     public decimal? FunruralRatRate { get; set; }
     public decimal? FunruralSenarRate { get; set; }
 
+    /// <summary>Retenções de serviço: alíquotas padrão (%) da natureza. Vazio = não retém. SAPB1 devolve nulo.</summary>
+    public decimal? WithholdingIssRate { get; set; }
+    public decimal? WithholdingIrrfRate { get; set; }
+    public decimal? WithholdingInssRate { get; set; }
+    public decimal? WithholdingPisRate { get; set; }
+    public decimal? WithholdingCofinsRate { get; set; }
+    public decimal? WithholdingCsllRate { get; set; }
+
     /// <summary>
     /// Natureza da NF-e de devolução, da direção OPOSTA à desta (venda → devolução de venda, de Entrada;
     /// compra → devolução de compra, de Saída). Só STANDALONE.

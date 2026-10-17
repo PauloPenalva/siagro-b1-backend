@@ -45,6 +45,12 @@ public static class UsageTaxationValidator
         ValidatePercent(model.FunruralInssRate, "Alíquota de INSS do Funrural");
         ValidatePercent(model.FunruralRatRate, "Alíquota de RAT do Funrural");
         ValidatePercent(model.FunruralSenarRate, "Alíquota de SENAR do Funrural");
+        ValidatePercent(model.WithholdingIssRate, "Alíquota de retenção de ISS");
+        ValidatePercent(model.WithholdingIrrfRate, "Alíquota de retenção de IRRF");
+        ValidatePercent(model.WithholdingInssRate, "Alíquota de retenção de INSS");
+        ValidatePercent(model.WithholdingPisRate, "Alíquota de retenção de PIS");
+        ValidatePercent(model.WithholdingCofinsRate, "Alíquota de retenção de COFINS");
+        ValidatePercent(model.WithholdingCsllRate, "Alíquota de retenção de CSLL");
     }
 
     private static void ValidateCfop(string? cfop, char prefix, string label)

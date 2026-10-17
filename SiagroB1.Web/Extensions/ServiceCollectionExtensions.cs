@@ -9,6 +9,7 @@ using SiagroB1.Application.Services.ContractTemplates;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.PaymentConditions;
+using SiagroB1.Application.Services.WithholdingTaxSettings;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Notifications;
@@ -356,6 +357,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<MunicipalityService>();
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();
+        services.AddScoped<WithholdingTaxSettingsService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
         services.AddScoped<SupplierNfeAuthorizationService>();

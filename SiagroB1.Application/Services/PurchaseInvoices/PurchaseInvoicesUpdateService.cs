@@ -81,6 +81,14 @@ public class PurchaseInvoicesUpdateService(
         existing.FreightTerms = entity.FreightTerms;
         existing.BranchCode = entity.BranchCode;
         existing.PaymentConditionCode = entity.PaymentConditionCode;
+        existing.WithholdingsManual = entity.WithholdingsManual;
+        existing.WithholdingBase = entity.WithholdingBase;
+        existing.WithheldIss = entity.WithheldIss;
+        existing.WithheldIrrf = entity.WithheldIrrf;
+        existing.WithheldInss = entity.WithheldInss;
+        existing.WithheldPis = entity.WithheldPis;
+        existing.WithheldCofins = entity.WithheldCofins;
+        existing.WithheldCsll = entity.WithheldCsll;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.CustodyStorageTransactionKey = entity.CustodyStorageTransactionKey;
         existing.UpdatedAt = DateTime.Now;
@@ -147,6 +155,10 @@ public class PurchaseInvoicesUpdateService(
                 PurchaseInvoiceFunrural.Clear(item);
 
         await taxApply.ApplyAsync(existing, existing.Items);
+
+        // Retenções de serviço (spec 2026-10-17 §2): os valores e o "manual" que o cliente mandou, copiados abaixo, valem
+        // enquanto o usuário os editou; senão são recalculados pela natureza.
+        await taxApply.ApplyWithholdingsAsync(existing);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))

@@ -111,6 +111,14 @@ public class Usage
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? FunruralRatRate { get; set; }
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? FunruralSenarRate { get; set; }
 
+    // Retenções de serviço (spec 2026-10-17 §2): alíquotas padrão da natureza, em percentual (5 = 5 %). Vazio/zero = não retém.
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingIssRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingIrrfRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingInssRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingPisRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingCofinsRate { get; set; }
+    [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingCsllRate { get; set; }
+
     /// <summary>
     /// Natureza de devolução, SEMPRE da direção OPOSTA à desta (só STANDALONE): a natureza de Saída
     /// (venda) aponta a de Entrada que a devolução de venda usa; a de Entrada (compra) aponta a de

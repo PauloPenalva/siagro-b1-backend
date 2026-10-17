@@ -61,6 +61,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
+        modelBuilder.EntitySet<WithholdingTaxSetting>("WithholdingTaxSettings");
 
         // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
         var paymentConditionsPreview = modelBuilder.Function("PaymentConditionsPreview");
@@ -413,6 +414,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalFunrural)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.NetPayable)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalWithheld)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.FunruralValue)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))

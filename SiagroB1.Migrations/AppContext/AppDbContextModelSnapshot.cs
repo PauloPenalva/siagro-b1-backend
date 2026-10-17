@@ -2655,6 +2655,30 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("VolumeSpecies")
                         .HasColumnType("VARCHAR(60)");
 
+                    b.Property<decimal>("WithheldCofins")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldCsll")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldInss")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldIrrf")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldIss")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldPis")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithholdingBase")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<bool>("WithholdingsManual")
+                        .HasColumnType("bit");
+
                     b.Property<byte[]>("XmlData")
                         .HasColumnType("VARBINARY(MAX)");
 
@@ -6277,6 +6301,24 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int?>("ReturnUsageCode")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("WithholdingCofinsRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingCsllRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingInssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingIrrfRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingIssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingPisRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
                     b.HasKey("Code");
 
                     b.HasIndex("ReturnUsageCode");
@@ -6790,6 +6832,26 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("TruckDriverCode");
 
                     b.ToTable("WEIGHING_TICKETS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WithholdingTaxSetting", b =>
+                {
+                    b.Property<int>("TaxType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("int");
+
+                    b.HasKey("TaxType");
+
+                    b.ToTable("WITHHOLDING_TAX_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Address", b =>

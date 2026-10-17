@@ -62,6 +62,12 @@ internal static class UsageTaxationMapper
         usage.FunruralInssRate = model.FunruralInssRate;
         usage.FunruralRatRate = model.FunruralRatRate;
         usage.FunruralSenarRate = model.FunruralSenarRate;
+        usage.WithholdingIssRate = model.WithholdingIssRate;
+        usage.WithholdingIrrfRate = model.WithholdingIrrfRate;
+        usage.WithholdingInssRate = model.WithholdingInssRate;
+        usage.WithholdingPisRate = model.WithholdingPisRate;
+        usage.WithholdingCofinsRate = model.WithholdingCofinsRate;
+        usage.WithholdingCsllRate = model.WithholdingCsllRate;
 
         // A natureza de devolução vale nos dois sentidos (venda → devolução de venda, compra → devolução
         // de compra); o sentido oposto é validado pelo UsageService antes de chegar aqui.
