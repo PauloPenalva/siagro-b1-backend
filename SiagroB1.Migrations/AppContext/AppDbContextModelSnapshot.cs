@@ -806,6 +806,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("InstallmentNumber")
+                        .HasColumnType("int");
+
                     b.Property<int>("Nature")
                         .HasColumnType("int");
 
@@ -868,6 +871,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<int?>("WithholdingTaxType")
+                        .HasColumnType("int");
+
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
@@ -888,7 +894,7 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "SalesContractKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
                         .IsUnique()
-                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
+                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
                         .IsUnique()

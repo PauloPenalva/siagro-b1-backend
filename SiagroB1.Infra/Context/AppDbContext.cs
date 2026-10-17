@@ -586,7 +586,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
-                       "AND [OriginKey] IS NOT NULL");
+                       "AND [OriginKey] IS NOT NULL " +
+                       // Outra compra: N parcelas (e N retenções) com o mesmo OriginKey — a idempotência é do serviço.
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice}");
 
         // Impede estornar a mesma baixa duas vezes.
         modelBuilder.Entity<FinancialSettlement>()

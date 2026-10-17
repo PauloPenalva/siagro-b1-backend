@@ -27,7 +27,8 @@ public class PurchaseInvoicesConfirmService(
     TaxCalculationGate gate,
     IBusinessPartnerService businessPartnerService,
     SupplierNfeAuthorizationService supplierNfe,
-    FinancialDocumentsFirmSyncService firmSync)
+    FinancialDocumentsFirmSyncService firmSync,
+    FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -59,6 +60,10 @@ public class PurchaseInvoicesConfirmService(
 
         // Spec 2026-10-13 D11: o complemento de valor cria os títulos firmes aqui, no MESMO SaveChanges da confirmação.
         await firmSync.EnqueueForValueComplementAsync(invoice, lines, userName);
+
+        // Spec 2026-10-17 §3: a "outra compra" cria as parcelas a pagar e os títulos de retenção, também no MESMO SaveChanges.
+        // Qualquer recusa (retenção que consome a nota, credor ausente) sai antes de gravar: o documento segue Pendente.
+        await otherPurchaseTitles.EnqueueAsync(invoice, lines, userName);
 
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
@@ -50,4 +51,10 @@ public static class FinancialDocumentTestServices
         return new(db, sequence, new FinancialDocumentChangeLogService(db.Context), FirmSync(db, sequence, erp),
             new FinancialDocumentsNettingService(db));
     }
+
+    /// <summary>Títulos da "outra compra" (spec 2026-10-17 §3), com numeração em memória e a natureza lida pelo UsageService local.</summary>
+    public static FinancialDocumentsOtherPurchaseService OtherPurchase(
+        IUnitOfWork db, FakeDocNumberSequenceService? numbers, string erp, IBusinessPartnerService partners) =>
+        new(db, numbers ?? new FakeDocNumberSequenceService(), new UsageService(db, NullLogger<UsageService>.Instance),
+            TestConfiguration.Erp(erp), partners);
 }
