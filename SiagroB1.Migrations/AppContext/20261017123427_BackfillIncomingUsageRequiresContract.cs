@@ -14,12 +14,13 @@ namespace SiagroB1.Migrations.AppContext
             // Só dado, sem mudar o esquema. Sem este backfill, naturezas de entrada de hoje virariam "outra compra" ou
             // passariam a recusar o contrato que as linhas de grão já carregam.
             //
-            // a) Natureza de entrada SEM linha em USAGE_EFFECTS lê RequiresContract = false; ganha a linha com o contrato
-            //    exigido (os demais campos no padrão da entidade: RequiresQuantity = 1, o resto 0).
+            // a) Natureza de entrada SEM linha em USAGE_EFFECTS lê RequiresContract = false; ganha a linha com
+            //    RequiresContract = 0 (ruling R8: quem decide é o passo b) e os demais campos no padrão da entidade
+            //    (RequiresQuantity = 1, o resto 0).
             migrationBuilder.Sql(@"
 INSERT INTO USAGE_EFFECTS (UsageCode, ContractBalanceEffect, ContractValueEffect, IsDefault, RequiresContract,
                            RequiresQuantity, RequiresWeight, StorageCustodyRole, StorageDepositRole)
-SELECT u.Code, 0, 0, 0, 1, 1, 0, 0, 0
+SELECT u.Code, 0, 0, 0, 0, 1, 0, 0, 0
 FROM USAGES u
 WHERE u.Direction = 2
   AND NOT EXISTS (SELECT 1 FROM USAGE_EFFECTS e WHERE e.UsageCode = u.Code);");
