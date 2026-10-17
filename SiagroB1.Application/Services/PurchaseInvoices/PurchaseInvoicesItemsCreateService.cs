@@ -29,10 +29,11 @@ public class PurchaseInvoicesItemsCreateService(
 
         await PurchaseInvoiceLineGuard.EnsureParentIsPendingAsync(db, item.PurchaseInvoiceKey);
 
-        item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-            itemService, item.ItemCode, item.ItemName);
-
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == item.PurchaseInvoiceKey);
+
+        item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
+            itemService, item.ItemCode, item.ItemName,
+            otherPurchase: await taxApply.IsOtherPurchaseLineAsync(invoice, item));
 
         PurchaseInvoiceNfeLock.EnsureLineCanBeAdded(invoice);
 

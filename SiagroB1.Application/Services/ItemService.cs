@@ -35,6 +35,11 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
     
     public IQueryable<ItemModel> QueryAll()
     {
+        return QueryAllActive().Where(x => x.ItmsGrpCod == 105);
+    }
+
+    public IQueryable<ItemModel> QueryAllActive()
+    {
         return db.Context.Items
             .Select(x => new ItemModel()
             {
@@ -47,8 +52,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
                 Cest = x.Cest,
             })
             .AsNoTracking()
-            .Where(x => x.ItmsGrpCod == 105 && 
-                        x.Enabled != null  && 
+            .Where(x => x.Enabled != null &&
                         x.Enabled.ToUpper() == "SIM");
     }
 
@@ -62,26 +66,16 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
         throw new NotImplementedException();
     }
 
-    public async Task<ItemModel?> GetByIdAsync(string code)
+    public Task<ItemModel?> GetByIdAsync(string code) => FetchAsync(code, grainOnly: true);
+
+    public Task<ItemModel?> GetActiveByIdAsync(string code) => FetchAsync(code, grainOnly: false);
+
+    private async Task<ItemModel?> FetchAsync(string code, bool grainOnly)
     {
         try
         {
-            return await db.Context.Items
-                .Select(x => new ItemModel()
-                {
-                    ItemCode = x.ItemCode,
-                    ItemName = x.ItemName,
-                    ItmsGrpCod = x.ItmsGrpCod,
-                    Enabled = x.Enabled,
-                    GoodsOrigin = x.GoodsOrigin,
-                    Ncm = x.Ncm,
-                    Cest = x.Cest,
-                })
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ItemCode == code && 
-                                          x.ItmsGrpCod == 105 &&
-                                          x.Enabled != null &&
-                                          x.Enabled.ToUpper() == "SIM");
+            var query = grainOnly ? QueryAll() : QueryAllActive();
+            return await query.FirstOrDefaultAsync(x => x.ItemCode == code);
         }
         catch (Exception ex)
         {

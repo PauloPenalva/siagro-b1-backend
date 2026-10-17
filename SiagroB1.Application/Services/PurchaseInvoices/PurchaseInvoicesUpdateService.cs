@@ -222,7 +222,8 @@ public class PurchaseInvoicesUpdateService(
                     PurchaseInvoiceKey = existing.Key,
                     ItemCode = line.ItemCode,
                     ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-                        itemService, line.ItemCode, line.ItemName),
+                        itemService, line.ItemCode, line.ItemName,
+                        otherPurchase: await taxApply.IsOtherPurchaseLineAsync(existing, line)),
                     Quantity = line.Quantity,
                     UnitPrice = line.UnitPrice,
                     UnitOfMeasureCode = line.UnitOfMeasureCode,
@@ -252,7 +253,8 @@ public class PurchaseInvoicesUpdateService(
 
             current.ItemCode = line.ItemCode;
             current.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-                itemService, line.ItemCode, line.ItemName, itemCodeChanged);
+                itemService, line.ItemCode, line.ItemName, itemCodeChanged,
+                otherPurchase: await taxApply.IsOtherPurchaseLineAsync(existing, line));
             current.Quantity = line.Quantity;
             current.UnitPrice = line.UnitPrice;
             current.UnitOfMeasureCode = line.UnitOfMeasureCode;

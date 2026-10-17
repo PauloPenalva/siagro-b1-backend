@@ -60,8 +60,10 @@ public class PurchaseInvoicesItemsUpdateService(
         }
 
         existing.ItemCode = entity.ItemCode;
+        var parent = await db.Context.PurchaseInvoices.AsNoTracking().FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
         existing.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-            itemService, entity.ItemCode, entity.ItemName, itemCodeChanged);
+            itemService, entity.ItemCode, entity.ItemName, itemCodeChanged,
+            otherPurchase: await taxApply.IsOtherPurchaseLineAsync(parent, entity));
         existing.Quantity = entity.Quantity;
         existing.UnitPrice = entity.UnitPrice;
         existing.UnitOfMeasureCode = entity.UnitOfMeasureCode;

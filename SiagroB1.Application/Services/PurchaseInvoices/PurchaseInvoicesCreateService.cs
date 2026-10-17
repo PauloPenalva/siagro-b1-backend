@@ -96,7 +96,8 @@ public class PurchaseInvoicesCreateService(
         foreach (var item in invoice.Items)
         {
             item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-                itemService, item.ItemCode, item.ItemName);
+                itemService, item.ItemCode, item.ItemName,
+                otherPurchase: await taxApply.IsOtherPurchaseLineAsync(invoice, item));
         }
 
         // A natureza decide se a linha exige ou recusa o contrato (spec 2026-10-17 §1): antes da amarração, depois do nome.

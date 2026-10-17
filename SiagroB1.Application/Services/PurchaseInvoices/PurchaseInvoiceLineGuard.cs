@@ -58,19 +58,37 @@ internal static class PurchaseInvoiceLineGuard
     /// produto e a descrição de outro.
     /// </param>
     public static async Task<string?> ResolveItemNameAsync(
-        IItemService itemService, string? itemCode, string? itemName, bool itemCodeChanged = false)
+        IItemService itemService, string? itemCode, string? itemName, bool itemCodeChanged = false,
+        bool otherPurchase = false)
     {
         if (string.IsNullOrWhiteSpace(itemCode))
             return itemName;
 
+        // Linha de outra compra (STANDALONE, natureza sem contrato que gera financeiro) aceita qualquer produto ativo;
+        // a de grão segue só o grupo de grãos.
+        Task<ItemModel?> Lookup() => otherPurchase
+            ? itemService.GetActiveByIdAsync(itemCode)
+            : itemService.GetByIdAsync(itemCode);
+
         if (!itemCodeChanged)
             return string.IsNullOrWhiteSpace(itemName)
-                ? (await itemService.GetByIdAsync(itemCode))?.ItemName
+                ? (await Lookup())?.ItemName
                 : itemName;
 
         // Produto trocado por um código fora do cadastro (o value help filtra por grupo, o XML
         // não): manter a descrição que veio é melhor que esvaziar a linha.
-        return (await itemService.GetByIdAsync(itemCode))?.ItemName ?? itemName;
+        return (await Lookup())?.ItemName ?? itemName;
+    }
+
+    /// <summary>A linha é de outra compra: STANDALONE, documento Normal (não devolução) e natureza de outra compra.</summary>
+    internal static async Task<bool> IsOtherPurchaseLineAsync(
+        IUsage usages, bool standalone, PurchaseInvoice invoice, PurchaseInvoiceItem line)
+    {
+        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn || line.UsageCode is null)
+            return false;
+
+        var usage = await usages.GetByIdAsync(line.UsageCode.Value);
+        return usage is not null && IsOtherPurchase(usage);
     }
 
     /// <summary>

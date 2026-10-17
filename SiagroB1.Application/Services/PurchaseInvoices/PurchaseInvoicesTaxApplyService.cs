@@ -51,6 +51,10 @@ public class PurchaseInvoicesTaxApplyService(
     public Task EnsureUsageContractRuleAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(usageService, gate.IsStandalone, invoice, lines);
 
+    /// <summary>Spec 2026-10-17 §2: a linha de outra compra aceita qualquer produto ativo (só STANDALONE).</summary>
+    public Task<bool> IsOtherPurchaseLineAsync(PurchaseInvoice invoice, PurchaseInvoiceItem line) =>
+        PurchaseInvoiceLineGuard.IsOtherPurchaseLineAsync(usageService, gate.IsStandalone, invoice, line);
+
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
