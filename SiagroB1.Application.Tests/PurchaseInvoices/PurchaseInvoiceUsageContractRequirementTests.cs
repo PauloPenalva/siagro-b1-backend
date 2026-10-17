@@ -17,10 +17,9 @@ namespace SiagroB1.Application.Tests.PurchaseInvoices;
 /// entrada exige, ou recusa, o contrato de compra — e o documento não mistura os dois tipos de linha.
 ///
 /// Backfill da migration <c>BackfillIncomingUsageRequiresContract</c> (SQL puro, sem harness relacional nos testes, ruling R1):
-/// <code>
-/// UPDATE e SET RequiresContract = 1 FROM USAGE_EFFECTS e JOIN USAGES u ON u.Code = e.UsageCode
-/// WHERE u.Direction = 2 AND u.CreatesFinancialDocument = 1
-/// </code>
+/// (a) natureza de entrada (Direction = 2) sem linha em USAGE_EFFECTS ganha a linha com RequiresContract = 1 e os demais
+/// campos no padrão; (b) <c>UPDATE USAGE_EFFECTS SET RequiresContract = 1</c> para natureza de entrada com
+/// CreatesFinancialDocument = 1 OU usada em PURCHASE_INVOICES_ITEMS com PurchaseContractKey preenchido.
 /// </summary>
 public class PurchaseInvoiceUsageContractRequirementTests
 {
@@ -121,6 +120,17 @@ public class PurchaseInvoiceUsageContractRequirementTests
         await Create(s.Db).ExecuteAsync(Normal(Line(s.WithoutContract, null)), "ana");
 
         Assert.Single(s.Db.Context.PurchaseInvoices.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task Line_without_usage_passes_with_no_rule()
+    {
+        var s = await SeedAsync();
+
+        await Create(s.Db).ExecuteAsync(Normal(Line(null, null)), "ana");
+        await Create(s.Db).ExecuteAsync(Normal(Line(null, s.Contract.Key)), "ana");
+
+        Assert.Equal(2, s.Db.Context.PurchaseInvoices.AsNoTracking().Count());
     }
 
     [Fact]
