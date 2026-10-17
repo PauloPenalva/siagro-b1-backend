@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
@@ -31,50 +32,109 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
 
         var settings = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).FirstOrDefaultAsync(s => s.BranchCode == branchCode);
 
-        return ToModel(settings ?? new BranchNfeSettings { BranchCode = branchCode });
+        if (settings is null)
+        {
+            settings = new BranchNfeSettings { BranchCode = branchCode };
+            settings.SeriesList.Add(DefaultSeriesRow(branchCode));
+        }
+
+        return await ToModelAsync(settings);
     }
 
     public async Task<BranchNfeSettingsModel> SaveAsync(
-        string branchCode, NfeEnvironment environment, int series, int nextNumber, string userName)
+        string branchCode, NfeEnvironment environment, int defaultSeries,
+        IReadOnlyList<BranchNfeSeriesInput> series, string userName)
     {
         EnsureStandalone();
 
         if (!Enum.IsDefined(environment))
             throw new DefaultException("Escolha o ambiente: produção ou homologação.");
 
-        if (series is < 0 or > 999)
-            throw new DefaultException("A série da NF-e vai de 0 a 999.");
+        if (series.Count == 0)
+            throw new DefaultException("Cadastre ao menos uma série.");
 
-        if (nextNumber is < 1 or > 999_999_999)
-            throw new DefaultException("O próximo número da NF-e vai de 1 a 999.999.999.");
+        foreach (var item in series)
+        {
+            if (item.Series is < 0 or > 999)
+                throw new DefaultException("A série da NF-e vai de 0 a 999.");
+
+            if (item.NextNumber is < 1 or > 999_999_999)
+                throw new DefaultException("O próximo número da NF-e vai de 1 a 999.999.999.");
+
+            var description = item.Description?.Trim() ?? string.Empty;
+
+            if (description.Length == 0)
+                throw new DefaultException($"Informe a descrição da série {item.Series}.");
+
+            if (description.Length > 60)
+                throw new DefaultException($"A descrição da série {item.Series} vai até 60 caracteres.");
+        }
+
+        var duplicate = series.GroupBy(x => x.Series).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null)
+            throw new DefaultException($"A série {duplicate.Key} aparece mais de uma vez.");
+
+        if (series.All(x => x.Series != defaultSeries))
+            throw new DefaultException("Escolha a série padrão entre as séries cadastradas.");
 
         var settings = await LoadOrCreateAsync(branchCode);
 
-        // Voltar a numeração com o mesmo ambiente e série reemitiria números já usados (rejeição
-        // 539). Trocar a série ou o ambiente começa outra numeração e libera qualquer número.
-        var row = settings.SeriesList.FirstOrDefault(x => x.Series == series);
+        // Voltar a numeração com o mesmo ambiente reemitiria números já usados (rejeição 539).
+        // Trocar o ambiente começa outra numeração e libera qualquer número; série nova também.
+        if (settings.Environment == environment)
+        {
+            foreach (var item in series)
+            {
+                var existing = settings.SeriesList.FirstOrDefault(x => x.Series == item.Series);
 
-        if (settings.Environment == environment && settings.DefaultSeries == series && row is not null && nextNumber < row.NextNumber)
-            throw new DefaultException(
-                "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. " +
-                "Para recomeçar, troque a série ou o ambiente.");
+                if (existing is not null && item.NextNumber < existing.NextNumber)
+                    throw new DefaultException(
+                        $"O próximo número da série {item.Series} não pode voltar: a numeração já usada geraria " +
+                        "rejeição 539. Para recomeçar, troque o ambiente ou cadastre outra série.");
+            }
+        }
+
+        var removed = settings.SeriesList.Where(x => series.All(i => i.Series != x.Series)).ToList();
+
+        if (removed.Count > 0)
+        {
+            var used = await UsedSeriesAsync(branchCode);
+            var blocked = removed.Where(x => used.Contains(x.Series)).OrderBy(x => x.Series).FirstOrDefault();
+
+            if (blocked is not null)
+                throw new DefaultException($"A série {blocked.Series} já foi usada em NF-e e não pode ser excluída.");
+        }
 
         settings.Environment = environment;
-        settings.DefaultSeries = series;
+        settings.DefaultSeries = defaultSeries;
 
-        if (row is null)
-            settings.SeriesList.Add(new BranchNfeSeries
+        foreach (var row in removed)
+        {
+            settings.SeriesList.Remove(row);
+            db.Context.BranchNfeSeries.Remove(row);
+        }
+
+        foreach (var item in series)
+        {
+            var row = settings.SeriesList.FirstOrDefault(x => x.Series == item.Series);
+
+            if (row is null)
+                settings.SeriesList.Add(new BranchNfeSeries
+                {
+                    BranchCode = branchCode, Series = item.Series, Description = item.Description.Trim(), NextNumber = item.NextNumber,
+                });
+            else
             {
-                BranchCode = branchCode, Series = series, Description = "Padrão", NextNumber = nextNumber,
-            });
-        else
-            row.NextNumber = nextNumber;
+                row.Description = item.Description.Trim();
+                row.NextNumber = item.NextNumber;
+            }
+        }
 
         Stamp(settings, userName);
 
         await db.SaveChangesAsync();
 
-        return ToModel(settings);
+        return await ToModelAsync(settings);
     }
 
     public async Task<BranchNfeSettingsModel> UploadCertificateAsync(
@@ -115,7 +175,7 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
 
         await db.SaveChangesAsync();
 
-        return ToModel(settings);
+        return await ToModelAsync(settings);
     }
 
     public async Task<NfeServiceStatusDto> TestConnectionAsync(string branchCode)
@@ -176,6 +236,8 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
             throw new DefaultException($"Filial {branchCode} não encontrada.");
 
         settings = new BranchNfeSettings { BranchCode = branchCode };
+        // Toda configuração nasce com a série padrão: a emissão sempre encontra o contador.
+        settings.SeriesList.Add(DefaultSeriesRow(branchCode));
         db.Context.BranchNfeSettings.Add(settings);
 
         return settings;
@@ -187,18 +249,48 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
         settings.UpdatedBy = userName;
     }
 
-    private BranchNfeSettingsModel ToModel(BranchNfeSettings settings) => new()
+    private static BranchNfeSeries DefaultSeriesRow(string branchCode) =>
+        new() { BranchCode = branchCode, Series = 1, Description = "Padrão", NextNumber = 1 };
+
+    /// <summary>
+    /// Séries já vistas em NF-e própria da filial (documento com ambiente preenchido): qualquer
+    /// saída, ou entrada de emissão própria. Série de nota de terceiro não conta.
+    /// </summary>
+    private async Task<HashSet<int>> UsedSeriesAsync(string branchCode)
     {
-        BranchCode = settings.BranchCode,
-        Environment = settings.Environment,
-        Series = settings.DefaultSeries,
-        NextNumber = settings.SeriesList.FirstOrDefault(x => x.Series == settings.DefaultSeries)?.NextNumber ?? 1,
-        HasCertificate = settings.CertificatePfx is not null,
-        CertificateSubject = settings.CertificateSubject,
-        CertificateTaxId = settings.CertificateTaxId,
-        CertificateValidUntil = settings.CertificateValidUntil,
-        UpdatedAt = settings.UpdatedAt,
-        UpdatedBy = settings.UpdatedBy,
-        ServerKeyConfigured = options.HasCertificateKey,
-    };
+        var sales = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(i => i.BranchCode == branchCode && i.NfeEnvironment != null)
+            .Select(i => i.TaxDocumentSeries).Distinct().ToListAsync();
+
+        var purchases = await db.Context.PurchaseInvoices.AsNoTracking()
+            .Where(i => i.BranchCode == branchCode && i.NfeEnvironment != null && i.IssuerType == DocumentIssuerType.Own)
+            .Select(i => i.TaxDocumentSeries).Distinct().ToListAsync();
+
+        return sales.Concat(purchases)
+            .Select(x => int.TryParse(x, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? (int?)n : null)
+            .Where(n => n is not null).Select(n => n!.Value).ToHashSet();
+    }
+
+    private async Task<BranchNfeSettingsModel> ToModelAsync(BranchNfeSettings settings)
+    {
+        var used = await UsedSeriesAsync(settings.BranchCode);
+
+        return new BranchNfeSettingsModel
+        {
+            BranchCode = settings.BranchCode,
+            Environment = settings.Environment,
+            DefaultSeries = settings.DefaultSeries,
+            SeriesList = settings.SeriesList.OrderBy(x => x.Series).Select(x => new BranchNfeSeriesModel
+            {
+                Series = x.Series, Description = x.Description, NextNumber = x.NextNumber, IsUsed = used.Contains(x.Series),
+            }).ToList(),
+            HasCertificate = settings.CertificatePfx is not null,
+            CertificateSubject = settings.CertificateSubject,
+            CertificateTaxId = settings.CertificateTaxId,
+            CertificateValidUntil = settings.CertificateValidUntil,
+            UpdatedAt = settings.UpdatedAt,
+            UpdatedBy = settings.UpdatedBy,
+            ServerKeyConfigured = options.HasCertificateKey,
+        };
+    }
 }

@@ -5,6 +5,7 @@ using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Models;
 using SiagroB1.Fiscal.Certificates;
 using SiagroB1.Fiscal.Tests.Support;
 using SiagroB1.Infra;
@@ -37,48 +38,240 @@ public class BranchNfeSettingsServiceTests
     private static BranchNfeSettingsService Service(UnitOfWork db, IConfiguration? config = null, FakeNfeSefazClient? sefaz = null) =>
         new(db, new NfeOptions(config ?? Config()), sefaz ?? new FakeNfeSefazClient());
 
+    private static BranchNfeSeriesInput[] One(int series = 1, int next = 1, string description = "Padrão") =>
+        [new BranchNfeSeriesInput(series, description, next)];
+
+    private static Task<BranchNfeSettingsModel> SaveOne(BranchNfeSettingsService service, NfeEnvironment environment, int series, int next) =>
+        service.SaveAsync("01", environment, series, One(series, next), "tester");
+
     [Fact]
-    public async Task Get_returns_defaults_when_not_configured()
+    public async Task Get_returns_one_default_series_when_not_configured()
     {
         var db = await SeedAsync();
 
         var model = await Service(db).GetAsync("01");
 
         Assert.Equal(NfeEnvironment.Homologation, model.Environment);
-        Assert.Equal(1, model.Series);
-        Assert.Equal(1, model.NextNumber);
+        Assert.Equal(1, model.DefaultSeries);
+        var row = Assert.Single(model.SeriesList);
+        Assert.Equal((1, "Padrão", 1, false), (row.Series, row.Description, row.NextNumber, row.IsUsed));
         Assert.False(model.HasCertificate);
         Assert.True(model.ServerKeyConfigured);
     }
 
     [Fact]
-    public async Task Save_creates_and_then_updates()
+    public async Task Save_creates_and_updates_the_series_list()
     {
         var db = await SeedAsync();
         var service = Service(db);
 
-        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 10, "tester");
-        await service.SaveAsync("01", NfeEnvironment.Production, 2, 500, "tester");
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 300,
+            [new(300, "Remessa", 1), new(1, "Venda", 10)], "tester");
+        var model = await service.GetAsync("01");
 
-        var saved = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).SingleAsync();
-        Assert.Equal(NfeEnvironment.Production, saved.Environment);
-        Assert.Equal(2, saved.DefaultSeries);
-        Assert.Equal(500, saved.SeriesList.Single(x => x.Series == 2).NextNumber);
+        Assert.Equal(300, model.DefaultSeries);
+        Assert.Equal([1, 300], model.SeriesList.Select(x => x.Series));
+        Assert.Equal(["Venda", "Remessa"], model.SeriesList.Select(x => x.Description));
+        Assert.Equal([10, 1], model.SeriesList.Select(x => x.NextNumber));
+        var saved = await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync();
         Assert.Equal("tester", saved.UpdatedBy);
     }
 
+    [Fact]
+    public async Task Save_refuses_lowering_next_number_in_the_same_environment()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await SaveOne(service, NfeEnvironment.Homologation, 1, 10);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => SaveOne(service, NfeEnvironment.Homologation, 1, 5));
+
+        Assert.Contains("O próximo número da série 1 não pode voltar", ex.Message);
+        Assert.Equal(10, (await db.Context.BranchNfeSeries.AsNoTracking().SingleAsync()).NextNumber);
+    }
+
+    [Fact]
+    public async Task Save_refuses_lowering_a_non_default_series_too()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "Remessa", 20)], "tester");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "Remessa", 5)], "tester"));
+
+        Assert.Contains("O próximo número da série 300 não pode voltar", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_allows_any_next_number_when_the_environment_changes()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await SaveOne(service, NfeEnvironment.Homologation, 1, 50);
+
+        var model = await SaveOne(service, NfeEnvironment.Production, 1, 1);
+
+        Assert.Equal(1, Assert.Single(model.SeriesList).NextNumber);
+        Assert.Equal(NfeEnvironment.Production, model.Environment);
+    }
+
+    [Fact]
+    public async Task Save_allows_a_new_series_with_any_number_and_raising_existing_ones()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await SaveOne(service, NfeEnvironment.Homologation, 1, 50);
+
+        var model = await service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Padrão", 60), new(2, "Nova", 1)], "tester");
+
+        Assert.Equal([60, 1], model.SeriesList.Select(x => x.NextNumber));
+    }
+
+    [Fact]
+    public async Task Save_refuses_a_default_outside_the_list()
+    {
+        var db = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(db).SaveAsync("01", NfeEnvironment.Homologation, 2, One(), "tester"));
+
+        Assert.Equal("Escolha a série padrão entre as séries cadastradas.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_refuses_duplicate_series()
+    {
+        var db = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service(db).SaveAsync(
+            "01", NfeEnvironment.Homologation, 1, [new(1, "A", 1), new(1, "B", 2)], "tester"));
+
+        Assert.Equal("A série 1 aparece mais de uma vez.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_refuses_empty_list()
+    {
+        var db = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(db).SaveAsync("01", NfeEnvironment.Homologation, 1, [], "tester"));
+
+        Assert.Equal("Cadastre ao menos uma série.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_refuses_blank_description()
+    {
+        var db = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service(db).SaveAsync(
+            "01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "  ", 1)], "tester"));
+
+        Assert.Equal("Informe a descrição da série 300.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_trims_the_description_and_refuses_more_than_60_characters()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+
+        var model = await service.SaveAsync("01", NfeEnvironment.Homologation, 1, One(description: "  Venda  "), "tester");
+        Assert.Equal("Venda", Assert.Single(model.SeriesList).Description);
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            service.SaveAsync("01", NfeEnvironment.Homologation, 1, One(description: new string('x', 61)), "tester"));
+    }
+
     [Theory]
-    [InlineData(-1, 1, "série")]
-    [InlineData(1000, 1, "série")]
-    [InlineData(1, 0, "próximo número")]
+    [InlineData(-1, 1, "A série da NF-e vai de 0 a 999.")]
+    [InlineData(1000, 1, "A série da NF-e vai de 0 a 999.")]
+    [InlineData(1, 0, "O próximo número da NF-e vai de 1 a 999.999.999.")]
     public async Task Save_validates_series_and_next_number(int series, int next, string expected)
     {
         var db = await SeedAsync();
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            Service(db).SaveAsync("01", NfeEnvironment.Homologation, series, next, "tester"));
+            Service(db).SaveAsync("01", NfeEnvironment.Homologation, series, One(series, next), "tester"));
 
-        Assert.Contains(expected, ex.Message);
+        Assert.Equal(expected, ex.Message);
+    }
+
+    private static async Task SeedDocumentAsync(UnitOfWork db, int series, bool thirdParty = false)
+    {
+        if (thirdParty)
+        {
+            db.Context.PurchaseInvoices.Add(new PurchaseInvoice
+            {
+                Key = Guid.NewGuid(), BranchCode = "01", CardCode = "C1", CardName = "X", IssuerType = DocumentIssuerType.ThirdParty,
+                TaxDocumentSeries = series.ToString(), NfeEnvironment = NfeEnvironment.Homologation,
+            });
+        }
+        else
+        {
+            db.Context.SalesInvoices.Add(new SalesInvoice
+            {
+                Key = Guid.NewGuid(), BranchCode = "01", CardCode = "C1", CardName = "X", TaxDocumentSeries = series.ToString(),
+                NfeStatus = NfeStatus.Rejected, NfeEnvironment = NfeEnvironment.Homologation,
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Save_refuses_removing_a_series_used_by_a_rejected_document()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "Remessa", 1)], "tester");
+        await SeedDocumentAsync(db, 300);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.SaveAsync("01", NfeEnvironment.Homologation, 1, One(), "tester"));
+
+        Assert.Equal("A série 300 já foi usada em NF-e e não pode ser excluída.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_allows_removing_a_series_only_seen_on_third_party_entries()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "Remessa", 1)], "tester");
+        await SeedDocumentAsync(db, 300, thirdParty: true);
+
+        var model = await service.SaveAsync("01", NfeEnvironment.Homologation, 1, One(), "tester");
+
+        Assert.Equal([1], model.SeriesList.Select(x => x.Series));
+    }
+
+    [Fact]
+    public async Task Get_marks_used_series()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, [new(1, "Venda", 1), new(300, "Remessa", 1)], "tester");
+        await SeedDocumentAsync(db, 300);
+
+        var model = await service.GetAsync("01");
+
+        Assert.Equal([false, true], model.SeriesList.Select(x => x.IsUsed));
+    }
+
+    [Fact]
+    public async Task Upload_certificate_on_new_settings_creates_the_default_series()
+    {
+        var db = await SeedAsync();
+        var service = Service(db);
+
+        await service.UploadCertificateAsync("01", TestCertificates.CreatePfx(), TestCertificates.Password, "tester");
+        var model = await service.GetAsync("01");
+
+        Assert.Equal(1, model.DefaultSeries);
+        var row = Assert.Single(model.SeriesList);
+        Assert.Equal((1, "Padrão", 1), (row.Series, row.Description, row.NextNumber));
     }
 
     [Fact]
@@ -202,42 +395,10 @@ public class BranchNfeSettingsServiceTests
     public async Task Test_connection_without_certificate_is_refused()
     {
         var db = await SeedAsync();
-        await Service(db).SaveAsync("01", NfeEnvironment.Homologation, 1, 1, "tester");
+        await SaveOne(Service(db), NfeEnvironment.Homologation, 1, 1);
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => Service(db).TestConnectionAsync("01"));
 
         Assert.Contains("certificado", ex.Message);
-    }
-
-    [Fact]
-    public async Task Save_refuses_to_lower_the_next_number_in_the_same_environment_and_series()
-    {
-        var db = await SeedAsync();
-        var service = Service(db);
-        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 50, "tester");
-
-        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            service.SaveAsync("01", NfeEnvironment.Homologation, 1, 10, "tester"));
-
-        Assert.Equal(
-            "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. Para recomeçar, troque a série ou o ambiente.",
-            ex.Message);
-        Assert.Equal(50, (await db.Context.BranchNfeSeries.AsNoTracking().SingleAsync()).NextNumber);
-    }
-
-    [Fact]
-    public async Task Save_allows_a_lower_number_when_the_series_or_environment_changes_and_a_higher_one_always()
-    {
-        var db = await SeedAsync();
-        var service = Service(db);
-        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 50, "tester");
-
-        await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 60, "tester");
-        await service.SaveAsync("01", NfeEnvironment.Homologation, 2, 1, "tester");
-        await service.SaveAsync("01", NfeEnvironment.Production, 2, 1, "tester");
-
-        var saved = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).SingleAsync();
-        Assert.Equal(NfeEnvironment.Production, saved.Environment);
-        Assert.Equal(1, saved.SeriesList.Single(x => x.Series == 2).NextNumber);
     }
 }

@@ -82,8 +82,10 @@ public static class ODataConfigurations
         var branchNfeSettingsSave = modelBuilder.Action("BranchNfeSettingsSave");
         branchNfeSettingsSave.Parameter<string>("BranchCode");
         branchNfeSettingsSave.Parameter<int>("Environment");
-        branchNfeSettingsSave.Parameter<int>("Series");
-        branchNfeSettingsSave.Parameter<int>("NextNumber");
+        branchNfeSettingsSave.Parameter<int>("DefaultSeries");
+        branchNfeSettingsSave.CollectionParameter<int>("Series");
+        branchNfeSettingsSave.CollectionParameter<string>("Descriptions");
+        branchNfeSettingsSave.CollectionParameter<int>("NextNumbers");
         branchNfeSettingsSave.Returns<BranchNfeSettingsModel>();
 
         var branchNfeSettingsUploadCertificate = modelBuilder.Action("BranchNfeSettingsUploadCertificate");
