@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.PurchaseInvoices;
@@ -17,8 +17,8 @@ namespace SiagroB1.Application.Tests.PurchaseInvoices;
 /// entrada exige, ou recusa, o contrato de compra — e o documento não mistura os dois tipos de linha.
 ///
 /// Backfill da migration <c>BackfillIncomingUsageRequiresContract</c> (SQL puro, sem harness relacional nos testes, ruling R1):
-/// (a) natureza de entrada (Direction = 2) sem linha em USAGE_EFFECTS ganha a linha com RequiresContract = 1 e os demais
-/// campos no padrão; (b) <c>UPDATE USAGE_EFFECTS SET RequiresContract = 1</c> para natureza de entrada com
+/// (a) natureza de entrada (Direction = 2) sem linha em USAGE_EFFECTS ganha a linha com RequiresContract = 0 e os demais
+/// campos no padrão, mas RequiresContract = 0 (ruling R8: quem decide é o passo b); (b) <c>UPDATE USAGE_EFFECTS SET RequiresContract = 1</c> para natureza de entrada com
 /// CreatesFinancialDocument = 1 OU usada em PURCHASE_INVOICES_ITEMS com PurchaseContractKey preenchido.
 /// </summary>
 public class PurchaseInvoiceUsageContractRequirementTests
@@ -100,6 +100,56 @@ public class PurchaseInvoiceUsageContractRequirementTests
         var message = await RefusalAsync(s, Normal(Line(s.WithContract, s.Contract.Key), Line(s.WithoutContract, null)));
 
         Assert.Equal("Um documento não mistura linhas de contrato com linhas de outras compras.", message);
+    }
+
+    private const string NoFinancialMixMessage =
+        "Um documento de outras compras não mistura linhas com natureza que não gera financeiro.";
+
+    private static async Task<int> NoFinancialUsageAsync(Scenario s)
+    {
+        var usages = new UsageService(s.Db, NullLogger<UsageService>.Instance);
+        var model = Usage("Remessa sem financeiro", requiresContract: false);
+        model.CreatesFinancialDocument = false;
+        return (await usages.CreateAsync(model)).Code;
+    }
+
+    [Fact]
+    public async Task Mixing_other_purchase_and_no_financial_lines_is_refused_on_create()
+    {
+        var s = await SeedAsync();
+        var noFinancial = await NoFinancialUsageAsync(s);
+
+        var message = await RefusalAsync(s, Normal(Line(s.WithoutContract, null), Line(noFinancial, null)));
+
+        Assert.Equal(NoFinancialMixMessage, message);
+        Assert.Empty(s.Db.Context.PurchaseInvoices.AsNoTracking());
+    }
+
+    [Fact]
+    public async Task Mixing_other_purchase_and_no_financial_lines_is_refused_on_items_create()
+    {
+        var s = await SeedAsync();
+        var noFinancial = await NoFinancialUsageAsync(s);
+        var invoice = Normal(Line(s.WithoutContract, null));
+        await Create(s.Db).ExecuteAsync(invoice, "ana");
+        var apply = TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService(), "STANDALONE");
+
+        var refused = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsCreateService(s.Db, new FakeItemService(), apply)
+                .ExecuteAsync(Line(noFinancial, null, invoice.Key), "ana"));
+
+        Assert.Equal(NoFinancialMixMessage, refused.Message);
+    }
+
+    [Fact]
+    public async Task No_financial_line_alone_is_saved()
+    {
+        var s = await SeedAsync();
+        var noFinancial = await NoFinancialUsageAsync(s);
+
+        await Create(s.Db).ExecuteAsync(Normal(Line(noFinancial, null)), "ana");
+
+        Assert.Single(s.Db.Context.PurchaseInvoices.AsNoTracking());
     }
 
     [Fact]
