@@ -65,6 +65,10 @@ public class PurchaseInvoicesItemsCreateService(
         // Funrural é calculado, nunca digitado (ver PurchaseInvoicesCreateService).
         PurchaseInvoiceFunrural.Clear(item);
 
+        // CT-e: as regras do documento (uma única linha, UFs, tomador) valem também pela rota de itens.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, [.. existingLines, item]);
+
         // Tributos pela natureza (no-op com a regra inativa, devolução do cliente ou documento confirmado).
         await taxApply.ApplyAsync(invoice, [item]);
 

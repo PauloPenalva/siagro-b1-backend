@@ -123,8 +123,10 @@ public class PurchaseInvoicesTaxApplyService(
         var destinationState = branch.StateCode!;
         if (cte)
         {
-            var start = invoice.FreightStartState!.Trim().ToUpperInvariant();
-            var end = invoice.FreightEndState!.Trim().ToUpperInvariant();
+            var start = (invoice.FreightStartState ?? string.Empty).Trim().ToUpperInvariant();
+            var end = (invoice.FreightEndState ?? string.Empty).Trim().ToUpperInvariant();
+            if (start.Length == 0 || end.Length == 0)
+                throw new DefaultException(PurchaseInvoiceCteRules.MissingStatesMessage);
             inState = start == end;
             originState = start;
             destinationState = end;

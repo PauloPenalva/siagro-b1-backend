@@ -14,6 +14,8 @@ public static class PurchaseInvoiceCteRules
 {
     public static bool IsCte(PurchaseInvoice invoice) => invoice.TaxDocumentKind == TaxDocumentKind.Cte;
 
+    public const string MissingStatesMessage = "Informe a UF de início e a UF de fim da prestação do CT-e.";
+
     public const string OwnIssuerMessage = "CT-e é sempre documento de terceiro.";
 
     /// <summary>Recusa na ordem da spec; normaliza as UFs (maiúsculas) e o tomador (só dígitos).</summary>
@@ -28,7 +30,7 @@ public static class PurchaseInvoiceCteRules
         var start = (invoice.FreightStartState ?? string.Empty).Trim().ToUpperInvariant();
         var end = (invoice.FreightEndState ?? string.Empty).Trim().ToUpperInvariant();
         if (start.Length != 2 || end.Length != 2)
-            throw new DefaultException("Informe a UF de início e a UF de fim da prestação do CT-e.");
+            throw new DefaultException(MissingStatesMessage);
 
         invoice.FreightStartState = start;
         invoice.FreightEndState = end;

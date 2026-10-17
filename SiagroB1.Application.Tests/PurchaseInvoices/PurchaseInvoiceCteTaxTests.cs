@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Infra;
@@ -103,7 +104,7 @@ public class PurchaseInvoiceCteTaxTests
     {
         var s = await SeedAsync();
 
-        var line = await RunAsync(Cte(s.FreightUsage, "PR", "PR"));
+        var line = await RunAsync(Cte(s.FreightUsage, "PR", "PR"), carrierState: "MT");
 
         Assert.Equal("2353", line.Cfop);
         Assert.Equal(12m, line.IcmsRate);
@@ -150,5 +151,48 @@ public class PurchaseInvoiceCteTaxTests
 
         Assert.Equal("2353", line.Cfop);
         Assert.Equal(12m, line.IcmsRate);
+    }
+
+    private async Task<PurchaseInvoice> PersistAsync(PurchaseInvoice invoice)
+    {
+        invoice.FreightPayerTaxId = "12345678000195";
+        _db.Context.PurchaseInvoices.Add(invoice);
+        await _db.SaveChangesAsync();
+        return invoice;
+    }
+
+    private static PurchaseInvoiceItem NewLine(Guid invoice, int usage) => new()
+    {
+        Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice, ItemCode = "FRETE", ItemName = "FRETE",
+        UnitOfMeasureCode = "UN", Quantity = 1m, UnitPrice = 100m, UsageCode = usage,
+    };
+
+    private static FakeItemService Catalog() => new(new Dictionary<string, string> { ["FRETE"] = "FRETE" });
+
+    [Fact]
+    public async Task Item_edit_on_cte_without_states_is_refused_in_portuguese()
+    {
+        var s = await SeedAsync();
+        var invoice = await PersistAsync(Cte(s.FreightUsage, "", ""));
+        var lineKey = invoice.Items.Single().Key!.Value;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsUpdateService(_db, Catalog(), Apply())
+                .ExecuteAsync(lineKey, NewLine(invoice.Key, s.FreightUsage), "tester"));
+
+        Assert.Equal("Informe a UF de início e a UF de fim da prestação do CT-e.", e.Message);
+    }
+
+    [Fact]
+    public async Task Second_line_on_cte_via_items_route_is_refused()
+    {
+        var s = await SeedAsync();
+        var invoice = await PersistAsync(Cte(s.FreightUsage, "SP", "MT"));
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            new PurchaseInvoicesItemsCreateService(_db, Catalog(), Apply())
+                .ExecuteAsync(NewLine(invoice.Key, s.FreightUsage), "tester"));
+
+        Assert.Equal("O CT-e tem uma única linha: o serviço de transporte.", e.Message);
     }
 }
