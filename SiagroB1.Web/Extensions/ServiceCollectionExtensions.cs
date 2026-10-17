@@ -437,6 +437,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseInvoicesCreateService>();
         services.AddScoped<PurchaseInvoicesUpdateService>();
         services.AddScoped<PurchaseInvoicesDeleteService>();
+        services.AddScoped<PurchaseInvoicesTransportedDocumentsService>();
         services.AddScoped<PurchaseInvoicesConfirmService>();
         services.AddScoped<PurchaseInvoicesReverseConfirmService>();
         services.AddScoped<PurchaseInvoicesCancelService>();

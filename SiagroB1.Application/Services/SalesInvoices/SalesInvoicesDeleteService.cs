@@ -50,6 +50,11 @@ public class SalesInvoicesDeleteService(
             db.Context.SalesInvoiceNfeXmls.RemoveRange(
                 await db.Context.SalesInvoiceNfeXmls.Where(x => x.SalesInvoiceKey == entity.Key).ToListAsync());
 
+            // Vínculo de CT-e (FK Restrict): o CT-e guarda a chave de acesso e perde só o vínculo, no mesmo SaveChanges.
+            foreach (var link in await db.Context.PurchaseInvoiceTransportedDocuments
+                         .Where(x => x.SalesInvoiceKey == entity.Key).ToListAsync())
+                link.SalesInvoiceKey = null;
+
             await db.Context.Entry(entity).Collection(e => e.Items).LoadAsync();
 
             // Excluir um RETORNO tem o mesmo efeito do cancelamento sobre a origem: o

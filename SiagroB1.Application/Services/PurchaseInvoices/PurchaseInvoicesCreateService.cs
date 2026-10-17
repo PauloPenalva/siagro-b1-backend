@@ -157,6 +157,10 @@ public class PurchaseInvoicesCreateService(
         invoice.DocNumberKey = await numberSequenceService.GetKeyByTransactionCode(TransactionCode.PurchaseInvoice);
         invoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) invoice.DocNumberKey);
 
+        // CT-e importado: uma chave de NF-e transportada por vínculo, já resolvida contra as saídas e entradas do sistema.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            await PurchaseInvoiceTransportedDocuments.SeedFromXmlAsync(db.Context, invoice);
+
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();
     }
