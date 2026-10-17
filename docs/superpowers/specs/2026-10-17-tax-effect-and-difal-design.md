@@ -80,7 +80,8 @@ Entradas:
 - `aFcp`: o FCP do produto na UF ou, se não houver, o da UF.
 
 Fórmulas, com arredondamento em 2 casas, ToEven:
-- **Base única:** `BaseDifal = V`. Então `DIFAL = V × (aInt − aInter)` e `FCP = V × aFcp`.
+- **Base única:** `BaseDifal = V`. Então `DIFAL = V × aInt − ICMSorig` e `FCP = V × aFcp`. No caso normal isso dá
+  `V × (aInt − aInter)`; com base reduzida na origem, desconta o ICMS realmente destacado.
 - **Base dupla:**
   - `BaseDifal = (V − ICMSorig) ÷ (1 − (aInt + aFcp))`;
   - `DIFAL = BaseDifal × aInt − ICMSorig`;
