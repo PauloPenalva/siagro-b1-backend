@@ -17,9 +17,13 @@ public sealed class FakeNfeNumberReservationService(int next = 1) : NfeNumberRes
 
     public int LocksHeld { get; private set; }
 
-    public override Task<int> ReserveAsync(string branchCode)
+    /// <summary>As séries pedidas, em ordem.</summary>
+    public List<int> ReservedSeries { get; } = [];
+
+    public override Task<int> ReserveAsync(string branchCode, int series)
     {
         Calls++;
+        ReservedSeries.Add(series);
         return Task.FromResult(_next++);
     }
 

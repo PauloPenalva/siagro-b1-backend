@@ -7,8 +7,8 @@ public class BranchNfeSettingsModel
 {
     public string BranchCode { get; set; } = string.Empty;
     public NfeEnvironment Environment { get; set; }
-    public int Series { get; set; }
-    public int NextNumber { get; set; }
+    public int DefaultSeries { get; set; }
+    public List<BranchNfeSeriesModel> SeriesList { get; set; } = [];
     public bool HasCertificate { get; set; }
     public string? CertificateSubject { get; set; }
     public string? CertificateTaxId { get; set; }

@@ -82,8 +82,10 @@ public static class ODataConfigurations
         var branchNfeSettingsSave = modelBuilder.Action("BranchNfeSettingsSave");
         branchNfeSettingsSave.Parameter<string>("BranchCode");
         branchNfeSettingsSave.Parameter<int>("Environment");
-        branchNfeSettingsSave.Parameter<int>("Series");
-        branchNfeSettingsSave.Parameter<int>("NextNumber");
+        branchNfeSettingsSave.Parameter<int>("DefaultSeries");
+        branchNfeSettingsSave.CollectionParameter<int>("Series");
+        branchNfeSettingsSave.CollectionParameter<string>("Descriptions");
+        branchNfeSettingsSave.CollectionParameter<int>("NextNumbers");
         branchNfeSettingsSave.Returns<BranchNfeSettingsModel>();
 
         var branchNfeSettingsUploadCertificate = modelBuilder.Action("BranchNfeSettingsUploadCertificate");
@@ -103,6 +105,7 @@ public static class ODataConfigurations
 
         var salesInvoicesIssueNfe = modelBuilder.Action("SalesInvoicesIssueNfe");
         salesInvoicesIssueNfe.Parameter<Guid>("Key");
+        salesInvoicesIssueNfe.Parameter<int>("Series");
         salesInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
 
         var salesInvoicesConsultNfe = modelBuilder.Action("SalesInvoicesConsultNfe");
@@ -116,6 +119,7 @@ public static class ODataConfigurations
         // NF-e de entrada própria (spec 2026-10-05).
         var purchaseInvoicesIssueNfe = modelBuilder.Action("PurchaseInvoicesIssueNfe");
         purchaseInvoicesIssueNfe.Parameter<Guid>("Key");
+        purchaseInvoicesIssueNfe.Parameter<int>("Series");
         purchaseInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
 
         var purchaseInvoicesConsultNfe = modelBuilder.Action("PurchaseInvoicesConsultNfe");

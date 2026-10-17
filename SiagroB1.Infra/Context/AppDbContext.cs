@@ -51,6 +51,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<IcmsStateSetting> IcmsStateSettings { get; set; }
     public DbSet<IcmsItemStateRate> IcmsItemStateRates { get; set; }
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
+    public DbSet<BranchNfeSeries> BranchNfeSeries { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractWashout> SalesContractsWashouts { get; set; }
@@ -303,6 +304,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
+
+        modelBuilder.Entity<BranchNfeSeries>(e =>
+        {
+            e.HasKey(x => new { x.BranchCode, x.Series });
+            e.HasOne(x => x.Settings)
+                .WithMany(x => x.SeriesList)
+                .HasForeignKey(x => x.BranchCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<ItemComplement>()
             .HasKey(x => x.ItemCode);

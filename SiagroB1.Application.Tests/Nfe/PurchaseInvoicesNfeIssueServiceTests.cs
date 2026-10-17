@@ -49,6 +49,33 @@ public class PurchaseInvoicesNfeIssueServiceTests
     }
 
     [Fact]
+    public async Task Issue_with_chosen_series_reserves_and_stamps_it()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+
+        await Issue(scenario, sefaz, reservation).ExecuteAsync(scenario.InvoiceKey, "tester", 300);
+
+        Assert.Equal([300], reservation.ReservedSeries);
+        Assert.Equal("300", (await ReloadAsync(scenario)).TaxDocumentSeries);
+    }
+
+    [Fact]
+    public async Task Issue_refuses_a_series_not_registered_for_the_branch()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        var reservation = new FakeNfeNumberReservationService();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, new FakeNfeSefazClient(), reservation).ExecuteAsync(scenario.InvoiceKey, "tester", 55));
+
+        Assert.Equal("A série 55 não está cadastrada na Configuração da NF-e da filial 01.", ex.Message);
+        Assert.Equal(0, reservation.Calls);
+    }
+
+    [Fact]
     public async Task Authorized_entry_is_saved_and_the_document_confirmed()
     {
         var scenario = await PurchaseNfeTestSeed.SeedAsync();

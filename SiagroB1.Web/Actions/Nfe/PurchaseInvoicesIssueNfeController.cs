@@ -15,12 +15,13 @@ public class PurchaseInvoicesIssueNfeController(PurchaseInvoicesNfeIssueService 
     [HttpPost("odata/PurchaseInvoicesIssueNfe")]
     public async Task<IActionResult> PostAsync([FromBody] ODataActionParameters parameters)
     {
-        if (parameters is null || !parameters.TryGetValue("Key", out var keyObj) || !Guid.TryParse(keyObj?.ToString(), out var key))
-            return BadRequest("Parâmetro obrigatório: Key.");
+        if (parameters is null || !parameters.TryGetValue("Key", out var keyObj) || !Guid.TryParse(keyObj?.ToString(), out var key) ||
+            NfeReturnActionParameters.Series(parameters) is not { } series)
+            return BadRequest("Parâmetros obrigatórios: Key, Series.");
 
         try
         {
-            return Ok(await service.ExecuteAsync(key, User.Identity?.Name ?? "Unknown"));
+            return Ok(await service.ExecuteAsync(key, User.Identity?.Name ?? "Unknown", series));
         }
         catch (NotFoundException e)
         {

@@ -158,6 +158,26 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("BRANCHS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSeries", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("Series")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("BranchCode", "Series");
+
+                    b.ToTable("BRANCH_NFE_SERIES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSettings", b =>
                 {
                     b.Property<string>("BranchCode")
@@ -178,13 +198,10 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<DateTime?>("CertificateValidUntil")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DefaultSeries")
+                        .HasColumnType("int");
+
                     b.Property<int>("Environment")
-                        .HasColumnType("int");
-
-                    b.Property<int>("NextNumber")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Series")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -7018,6 +7035,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Municipality");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSeries", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.BranchNfeSettings", "Settings")
+                        .WithMany("SeriesList")
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Settings");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSettings", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -8604,6 +8632,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Truck");
 
                     b.Navigation("TruckDriver");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSettings", b =>
+                {
+                    b.Navigation("SeriesList");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>

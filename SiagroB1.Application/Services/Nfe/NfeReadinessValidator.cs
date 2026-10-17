@@ -94,13 +94,15 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
         if (branch.TaxRegime is null) branchGaps.Add("regime tributário (CRT)");
         Report(problems, $"Filial {branch.Code}", branchGaps);
 
-        var settings = await db.Context.BranchNfeSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == branch.Code);
+        var settings = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).FirstOrDefaultAsync(s => s.BranchCode == branch.Code);
         if (settings is null)
             problems.Add("Configuração da NF-e da filial não cadastrada");
         else if (settings.CertificatePfx is null)
             problems.Add("Certificado digital não enviado (Configuração da NF-e)");
         else if (settings.CertificateValidUntil < DateTime.Now)
             problems.Add($"Certificado digital vencido em {settings.CertificateValidUntil:dd/MM/yyyy}");
+        else if (settings.SeriesList.Count == 0)
+            problems.Add("Nenhuma série cadastrada (Configuração da NF-e)");
 
         if (!options.HasCertificateKey)
             problems.Add("Chave Nfe:CertificateKey não configurada no servidor");

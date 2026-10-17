@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Domain.Dtos.Nfe;
@@ -46,7 +47,7 @@ public abstract class NfeIssueServiceBase<TDocument>(
     // fuso do SERVIDOR (TimeZoneInfo.Local), que na VPS é UTC.
     private readonly TimeZoneInfo _storageZone = storageZone ?? TimeZoneInfo.Local;
 
-    public async Task<NfeIssueOutcomeDto> ExecuteAsync(Guid key, string userName)
+    public async Task<NfeIssueOutcomeDto> ExecuteAsync(Guid key, string userName, int? series = null)
     {
         // Antes de ler o documento: duas requisições da primeira tentativa transmitiriam duas NF-e.
         await using var emissionLock = await reservation.AcquireEmissionLockAsync(key);
@@ -69,9 +70,19 @@ public abstract class NfeIssueServiceBase<TDocument>(
                 },
             };
 
+        // Nulo = série padrão (testes e chamadas internas); a tela sempre manda a escolhida.
+        var chosenSeries = series ?? context.Settings.DefaultSeries;
+
+        if (!await db.Context.BranchNfeSeries.AsNoTracking()
+                .AnyAsync(x => x.BranchCode == invoice.BranchCode && x.Series == chosenSeries))
+        {
+            throw new DefaultException(
+                $"A série {chosenSeries} não está cadastrada na Configuração da NF-e da filial {invoice.BranchCode}.");
+        }
+
         using var service = await settingsService.OpenAsync(invoice.BranchCode!);
 
-        await ReserveNumberAsync(invoice, context.Settings);
+        await ReserveNumberAsync(invoice, context.Settings, chosenSeries);
 
         // nItem fixo e gravado junto com o XML assinado (o SaveChanges do "Em processamento" ou da
         // rejeição local leva os números): a devolução referencia o item da operação original por ele.
@@ -255,13 +266,13 @@ public abstract class NfeIssueServiceBase<TDocument>(
     /// Primeira tentativa: reserva o número (conexão própria, fora de transação) e gera o cNF. As
     /// seguintes reaproveitam os dois. Salva já: a retentativa depois de uma queda acha o número.
     /// </summary>
-    private async Task ReserveNumberAsync(TDocument invoice, BranchNfeSettings settings)
+    private async Task ReserveNumberAsync(TDocument invoice, BranchNfeSettings settings, int series)
     {
         // Retentativa que não pode reaproveitar a reserva: a série ou o ambiente mudou — a
         // numeração é por ambiente e série. O ambiente é o gravado NA RESERVA, que vale também
         // quando a tentativa anterior parou na validação local (sem XML assinado).
         if (invoice.NfeRandomCode is not null &&
-            (invoice.TaxDocumentSeries != settings.Series.ToString(CultureInfo.InvariantCulture) ||
+            (invoice.TaxDocumentSeries != series.ToString(CultureInfo.InvariantCulture) ||
              invoice.NfeEnvironment != settings.Environment))
         {
             invoice.NfeRandomCode = null;
@@ -270,9 +281,9 @@ public abstract class NfeIssueServiceBase<TDocument>(
         // Sem cNF = primeira tentativa: número/série digitados à mão não valem, sempre reserva.
         if (invoice.NfeRandomCode is null)
         {
-            var number = await reservation.ReserveAsync(invoice.BranchCode!);
+            var number = await reservation.ReserveAsync(invoice.BranchCode!, series);
             invoice.TaxDocumentNumber = number.ToString("D9", CultureInfo.InvariantCulture);
-            invoice.TaxDocumentSeries = settings.Series.ToString(CultureInfo.InvariantCulture);
+            invoice.TaxDocumentSeries = series.ToString(CultureInfo.InvariantCulture);
             invoice.NfeEnvironment = settings.Environment;
         }
 

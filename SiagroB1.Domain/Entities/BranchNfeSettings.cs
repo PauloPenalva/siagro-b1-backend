@@ -21,10 +21,11 @@ public class BranchNfeSettings
 
     public NfeEnvironment Environment { get; set; } = NfeEnvironment.Homologation;
 
-    public int Series { get; set; } = 1;
+    /// <summary>Série usada na emissão quando nenhuma outra é escolhida.</summary>
+    public int DefaultSeries { get; set; } = 1;
 
-    /// <summary>Próximo número a reservar — ver <c>NfeNumberReservationService</c>.</summary>
-    public int NextNumber { get; set; } = 1;
+    /// <summary>Séries da filial, cada uma com o próprio contador de número.</summary>
+    public virtual ICollection<BranchNfeSeries> SeriesList { get; set; } = new List<BranchNfeSeries>();
 
     [Column(TypeName = "VARBINARY(MAX)")]
     public byte[]? CertificatePfx { get; set; }
