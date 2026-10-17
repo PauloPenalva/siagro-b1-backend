@@ -66,6 +66,7 @@ public class PurchaseInvoicesImportCteTests
         Assert.Equal(Key, draft.ChaveNFe);
         Assert.Equal("T0001", draft.CardCode);
         Assert.Equal("T0001", draft.TruckingCompanyCode);
+        Assert.Equal("TRANSPORTADORA", draft.TruckingCompanyName);
         Assert.Equal("TRANSPORTADORA TESTE", draft.CardName);
         Assert.Equal("01", draft.BranchCode);
         Assert.Equal("123", draft.TaxDocumentNumber);

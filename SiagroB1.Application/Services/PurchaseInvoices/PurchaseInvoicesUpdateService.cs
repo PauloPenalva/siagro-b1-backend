@@ -102,6 +102,17 @@ public class PurchaseInvoicesUpdateService(
         existing.CteIcmsValue = entity.CteIcmsValue;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.CustodyStorageTransactionKey = entity.CustodyStorageTransactionKey;
+
+        // Sair de CT-e: os vínculos com NF-e transportadas só fazem sentido no CT-e, e o ICMS do CT-e também.
+        if (storedAuthorizationScope.TaxDocumentKind == TaxDocumentKind.Cte && existing.TaxDocumentKind != TaxDocumentKind.Cte)
+        {
+            if (await db.Context.PurchaseInvoiceTransportedDocuments.AnyAsync(x => x.PurchaseInvoiceKey == existing.Key))
+                throw new DefaultException("Remova os vínculos de NF-e Referenciadas antes de mudar o tipo do documento.");
+
+            existing.CteIcmsCst = null;
+            existing.CteIcmsValue = null;
+        }
+
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
@@ -120,8 +131,10 @@ public class PurchaseInvoicesUpdateService(
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
 
+        // O CT-e vale pela chave em qualquer filial, com ou sem a regra fiscal ativa (a NF-e segue a regra da filial).
         // Documento eletrônico de terceiro: chave coerente com o fornecedor, número e série (spec terceiro-chave §7).
-        if (SupplierNfeKeyGuard.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
+        if (SupplierNfeKeyGuard.AppliesTo(existing) &&
+            (existing.TaxDocumentKind == TaxDocumentKind.Cte || await taxApply.IsBranchActiveAsync(existing.BranchCode)))
             SupplierNfeKeyGuard.Ensure(existing, (await businessPartnerService.GetByIdAsync(existing.CardCode))?.TaxId);
 
         // A consulta à SEFAZ vale para a chave, o tipo e o emitente de quando foi feita (spec terceiro-chave §8): se

@@ -129,7 +129,7 @@ public class PurchaseInvoiceCteLifecycleTests
         var second = f.Cte(f.OtherPurchaseUsage);
         var e = await Assert.ThrowsAsync<DefaultException>(() => f.CreateAsync(second));
 
-        Assert.Equal($"Já existe documento de entrada com a chave de NF-e {CteKey()}.", e.Message);
+        Assert.Equal($"Já existe documento de entrada com a chave de acesso {CteKey()}.", e.Message);
         Assert.Equal(2, (await f.TitlesAsync(first)).Count);
         Assert.Empty(await f.TitlesAsync(second));
     }

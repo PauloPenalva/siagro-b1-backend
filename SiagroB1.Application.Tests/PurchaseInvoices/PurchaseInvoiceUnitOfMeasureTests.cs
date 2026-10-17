@@ -19,7 +19,8 @@ public class PurchaseInvoiceUnitOfMeasureTests
 
     private static FakeItemService Catalog() => new(names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" });
 
-    private static FakeBusinessPartnerService Partners() => new(names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR" });
+    private static FakeBusinessPartnerService Partners() => new(names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR" },
+            taxIds: new Dictionary<string, string> { ["F0001"] = "52998224725" });
 
     private static PurchaseInvoice Invoice(string? unit, PurchaseInvoiceType type = PurchaseInvoiceType.Normal)
     {
@@ -90,7 +91,9 @@ public class PurchaseInvoiceUnitOfMeasureTests
         var invoice = Invoice(null);
         invoice.BranchCode = "01";
         invoice.TaxDocumentKind = TaxDocumentKind.Cte;
-        invoice.ChaveNFe = "35260800000000000000570010000001231000000017";
+        // O CT-e vale pela chave em toda filial: chave válida do fornecedor F0001 (CPF 52998224725).
+        var first43 = "3526" + "08" + "00052998224725" + "57" + "001" + "000000123" + "1" + "00000001";
+        invoice.ChaveNFe = first43 + SupplierNfeKeyGuard.CheckDigit(first43);
         invoice.FreightStartState = "SP";
         invoice.FreightEndState = "PR";
         invoice.FreightPayerTaxId = "12345678000195";

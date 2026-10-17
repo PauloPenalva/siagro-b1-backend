@@ -243,7 +243,7 @@ public class SupplierNfeKeyGuardTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesUpdateService(db, PurchaseNfeTestSeed.Partners(),
             new FakeItemService(), TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners())).ExecuteAsync(changed.Key, changed, "tester"));
 
-        Assert.Equal($"Já existe documento de entrada com a chave de NF-e {SupplierNfeXml.AccessKey}.", e.Message);
+        Assert.Equal($"Já existe documento de entrada com a chave de acesso {SupplierNfeXml.AccessKey}.", e.Message);
     }
 
     private static PurchaseInvoicesUpdateService Update(UnitOfWork db) =>

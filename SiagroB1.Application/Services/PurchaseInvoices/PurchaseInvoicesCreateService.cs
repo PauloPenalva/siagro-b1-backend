@@ -35,6 +35,9 @@ public class PurchaseInvoicesCreateService(
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);
 
+        // Os vínculos com as NF-e transportadas nascem só do XML (SeedFromXmlAsync); o que vier no corpo é descartado.
+        invoice.TransportedDocuments = [];
+
         // O Own vira NF-e logo abaixo, e o CT-e sumiria em silêncio: recusa antes (spec 2026-10-17).
         if (invoice.IssuerType == DocumentIssuerType.Own && PurchaseInvoiceCteRules.IsCte(invoice))
             throw new DefaultException(PurchaseInvoiceCteRules.OwnIssuerMessage);
@@ -79,9 +82,11 @@ public class PurchaseInvoicesCreateService(
         // O parceiro é carregado UMA vez: serve ao nome e à condição de pagamento padrão.
         var partner = await businessPartnerService.GetByIdAsync(invoice.CardCode);
 
+        // O CT-e vale pela chave em qualquer filial, com ou sem a regra fiscal ativa (a NF-e segue a regra da filial).
         // Documento eletrônico de terceiro: chave coerente com o fornecedor, número e série (spec terceiro-chave §7).
         // Antes da unicidade: o guard normaliza a chave colada com espaços.
-        if (SupplierNfeKeyGuard.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
+        if (SupplierNfeKeyGuard.AppliesTo(invoice) &&
+            (invoice.TaxDocumentKind == TaxDocumentKind.Cte || await taxApply.IsBranchActiveAsync(invoice.BranchCode)))
             SupplierNfeKeyGuard.Ensure(invoice, partner?.TaxId);
 
         await PurchaseInvoiceChaveNFe.EnsureFreeAsync(db, invoice.ChaveNFe, invoice.Key);

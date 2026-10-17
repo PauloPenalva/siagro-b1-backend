@@ -127,6 +127,7 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
             CardName = cte.IssuerName,
             CardCode = cardCode,
             TruckingCompanyCode = cardCode,
+            TruckingCompanyName = (await businessPartnerService.GetByIdAsync(cardCode))?.CardName ?? cte.IssuerName,
             BranchCode = branch.Code,
             XmlFileName = fileName,
             FreightStartState = cte.StartState,

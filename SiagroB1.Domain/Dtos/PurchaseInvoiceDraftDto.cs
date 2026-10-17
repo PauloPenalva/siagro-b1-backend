@@ -61,6 +61,9 @@ public class PurchaseInvoiceDraftDto
     /// <summary>CT-e: transportadora (emitente do CT-e); o mesmo parceiro de <see cref="CardCode"/>.</summary>
     public string? TruckingCompanyCode { get; set; }
 
+    /// <summary>CT-e: nome da transportadora (cadastro; na falta, o emitente do XML).</summary>
+    public string? TruckingCompanyName { get; set; }
+
     /// <summary>Avisos que não impedem a importação; a tela os mostra ao operador.</summary>
     public List<string> Warnings { get; set; } = [];
 

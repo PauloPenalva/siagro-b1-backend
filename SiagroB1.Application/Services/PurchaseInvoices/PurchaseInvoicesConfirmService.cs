@@ -48,11 +48,13 @@ public class PurchaseInvoicesConfirmService(
 
         // Documento eletrônico de terceiro (spec terceiro-chave §7/§8): a chave é conferida de novo e, com a filial em
         // Produção, a NF-e do fornecedor precisa estar autorizada na SEFAZ. A recusa deixa o documento Pendente.
-        if (SupplierNfeKeyGuard.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))
+        // O CT-e é conferido em qualquer filial (a chave é obrigatória); a NF-e só com a regra ativa.
+        var gateActive = await gate.IsActiveAsync(invoice.BranchCode);
+        if (SupplierNfeKeyGuard.AppliesTo(invoice) && (invoice.TaxDocumentKind == TaxDocumentKind.Cte || gateActive))
         {
             SupplierNfeKeyGuard.Ensure(invoice, (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.TaxId);
             // O CT-e não é consultado na SEFAZ (spec 2026-10-17): só a conferência local da chave.
-            if (invoice.TaxDocumentKind == TaxDocumentKind.Nfe)
+            if (invoice.TaxDocumentKind == TaxDocumentKind.Nfe && gateActive)
                 await supplierNfe.EnsureAuthorizedAsync(invoice);
         }
 

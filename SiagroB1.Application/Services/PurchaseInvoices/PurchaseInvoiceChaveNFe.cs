@@ -23,6 +23,6 @@ public static class PurchaseInvoiceChaveNFe
             .AnyAsync(x => x.ChaveNFe == chaveNFe && x.InvoiceStatus != InvoiceStatus.Cancelled && x.Key != key);
 
         if (duplicated)
-            throw new DefaultException($"Já existe documento de entrada com a chave de NF-e {chaveNFe}.");
+            throw new DefaultException($"Já existe documento de entrada com a chave de acesso {chaveNFe}.");
     }
 }
