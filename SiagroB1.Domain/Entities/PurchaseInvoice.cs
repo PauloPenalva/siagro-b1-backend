@@ -231,6 +231,37 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
 
     public ICollection<PurchaseInvoiceItem> Items { get; set; } = [];
 
+    /// <summary>UF de início da prestação do frete (CT-e, <c>UFIni</c>).</summary>
+    [Column(TypeName = "VARCHAR(2)")]
+    public string? FreightStartState { get; set; }
+
+    /// <summary>UF de término da prestação do frete (CT-e, <c>UFFim</c>).</summary>
+    [Column(TypeName = "VARCHAR(2)")]
+    public string? FreightEndState { get; set; }
+
+    /// <summary>Município de início da prestação (CT-e, <c>xMunIni</c>).</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? FreightStartCity { get; set; }
+
+    /// <summary>Município de término da prestação (CT-e, <c>xMunFim</c>).</summary>
+    [Column(TypeName = "VARCHAR(60)")]
+    public string? FreightEndCity { get; set; }
+
+    /// <summary>CNPJ/CPF do tomador do frete, só dígitos.</summary>
+    [Column(TypeName = "VARCHAR(14)")]
+    public string? FreightPayerTaxId { get; set; }
+
+    /// <summary>CST do ICMS lido do XML do CT-e; informativo.</summary>
+    [Column(TypeName = "VARCHAR(3)")]
+    public string? CteIcmsCst { get; set; }
+
+    /// <summary>Valor do ICMS lido do XML do CT-e; informativo.</summary>
+    [Column(TypeName = "DECIMAL(19,2)")]
+    public decimal? CteIcmsValue { get; set; }
+
+    /// <summary>Documentos transportados pelo CT-e (<c>infDoc</c>), por chave de acesso.</summary>
+    public ICollection<PurchaseInvoiceTransportedDocument> TransportedDocuments { get; set; } = [];
+
     /// <summary>
     /// Comentários do documento: anotações com data, hora e autor, editáveis a qualquer tempo.
     /// Chama-se <c>CommentEntries</c>, e não <c>Comments</c>, porque <see cref="Comments"/> já é o

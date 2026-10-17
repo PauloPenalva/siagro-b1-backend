@@ -9,4 +9,7 @@ public enum TaxDocumentKind
 {
     Nfe = 0,
     Other = 1,
+
+    /// <summary>CT-e, modelo 57: frete tomado; chave obrigatória e conferida.</summary>
+    Cte = 2,
 }

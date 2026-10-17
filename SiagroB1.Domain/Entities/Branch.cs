@@ -44,6 +44,10 @@ namespace SiagroB1.Domain.Entities
         /// </summary>
         public bool IssuesNfe { get; set; }
 
+        /// <summary>Produto padrão do CT-e importado: a importação ainda não conhece a natureza do frete.</summary>
+        [Column(TypeName = "VARCHAR(50)")]
+        public string? FreightServiceItemCode { get; set; }
+
         /// <summary>
         /// Natureza de devolução de compra de terceiro (spec terceiro D3): aplicada sozinha a todas as linhas da devolução
         /// de uma entrada de terceiro. De Saída e ativa. Sem FK, como as demais referências a natureza.
