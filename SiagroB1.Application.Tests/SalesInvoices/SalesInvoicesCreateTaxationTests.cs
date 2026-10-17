@@ -138,6 +138,36 @@ public class SalesInvoicesCreateTaxationTests
     }
 
     [Fact]
+    public async Task Sales_invoice_rejects_cte_kind()
+    {
+        var db = await Seed();
+        var invoice = Invoice();
+        invoice.TaxDocumentKind = TaxDocumentKind.Cte;
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Create(db).ExecuteAsync(invoice, "tester"));
+
+        Assert.Equal("CT-e não é documento de saída.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Sales_invoice_update_rejects_cte_kind()
+    {
+        var db = await Seed();
+        var invoice = Invoice();
+        await Create(db).ExecuteAsync(invoice, "tester");
+        db.Context.ChangeTracker.Clear();
+
+        var incoming = await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key);
+        incoming.TaxDocumentKind = TaxDocumentKind.Cte;
+        var update = new SalesInvoicesUpdateService(db, Partners(), TaxTestServices.Apply(db, Partners()),
+            TaxTestServices.InactiveFiscalComplement(db), NullLogger<SalesInvoicesUpdateService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => update.ExecuteAsync(invoice.Key, incoming, "tester"));
+
+        Assert.Equal("CT-e não é documento de saída.", ex.Message);
+    }
+
+    [Fact]
     public async Task Shipment_billing_with_rule_active_fails_without_cfop()
     {
         var db = await Seed(outStateCfop: false);

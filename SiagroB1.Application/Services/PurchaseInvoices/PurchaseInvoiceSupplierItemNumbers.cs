@@ -13,6 +13,9 @@ public static class PurchaseInvoiceSupplierItemNumbers
 {
     public static void Ensure(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            return;
+
         if (invoice.IssuerType != DocumentIssuerType.ThirdParty || invoice.InvoiceType != PurchaseInvoiceType.Normal ||
             invoice.XmlData is not { Length: > 0 })
             return;

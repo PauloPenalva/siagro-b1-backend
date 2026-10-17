@@ -27,6 +27,9 @@ public class PurchaseInvoicesConfirmSupplierNfeTests
             Key = Guid.NewGuid(), BranchCode = "01", CardCode = PurchaseNfeTestSeed.Supplier,
             IssuerType = DocumentIssuerType.ThirdParty, InvoiceType = type, InvoiceStatus = InvoiceStatus.Pending,
             TaxDocumentKind = kind, ChaveNFe = key, TaxDocumentNumber = "456", TaxDocumentSeries = "1",
+            // CT-e: o confirmar reaplica as regras do documento (UFs e tomador = filial).
+            FreightStartState = kind == TaxDocumentKind.Cte ? "SP" : null, FreightEndState = kind == TaxDocumentKind.Cte ? "PR" : null,
+            FreightPayerTaxId = kind == TaxDocumentKind.Cte ? "12345678000195" : null,
         };
         doc.AddItem(new PurchaseInvoiceItem
         {

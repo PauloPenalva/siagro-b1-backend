@@ -59,6 +59,10 @@ public class PurchaseInvoicesConfirmService(
         // A escrituração/entrada de custódia precisa continuar batendo com o romaneio (spec 2026-10-12 §4.4).
         var lines = await db.Context.PurchaseInvoicesItems
             .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
+
+        // CT-e (spec 2026-10-17): as regras do documento valem de novo na confirmação.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, lines);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
 
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).

@@ -20,6 +20,10 @@ public class SalesInvoicesUpdateService(
     {
         var existingEntity = await db.Context.SalesInvoices
             .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
+
+        // O CT-e é só documento de entrada (spec 2026-10-17): o enum é compartilhado, o documento de saída o recusa.
+        if (entity.TaxDocumentKind == TaxDocumentKind.Cte)
+            throw new DefaultException("CT-e não é documento de saída.");
         
         try
         {
