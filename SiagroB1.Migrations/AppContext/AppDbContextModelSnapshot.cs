@@ -896,6 +896,10 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique()
                         .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9");
 
+                    b.HasIndex(new[] { "OriginType", "OriginKey", "InstallmentNumber", "WithholdingTaxType" }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
+                        .IsUnique()
+                        .HasFilter("[OriginType] = 9 AND [Status] <> 3");
+
                     b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
                         .IsUnique()
                         .HasFilter("[Nature] = 0 AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
