@@ -130,7 +130,7 @@ public class StorageReturnReconciliationsServiceTests
         var s1 = await seed.AddShipmentAsync(30_000m);
         await Service(db).ReconcileAsync(ret.Key, [s1.Key], "tester");
 
-        await new PurchaseInvoicesCancelService(db).ExecuteAsync(ret.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(ret.Key, "tester");
 
         Assert.False(await db.Context.StorageReturnReconciliations.AnyAsync());
     }

@@ -43,6 +43,12 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
             throw new ApplicationException(
                 "Título firme nasce e morre com o vínculo da Conciliação Fiscal de Compras: desfaça o vínculo para cancelá-lo.");
 
+        // Spec 2026-10-17 §3: parcelas e retenções da outra compra nascem e morrem com o documento de entrada. O desfazer
+        // (FinancialDocumentsOtherPurchaseService.EnqueueUndo) grava direto, sem passar por aqui.
+        if (document.OriginType == FinancialDocumentOrigin.OtherPurchaseInvoice)
+            throw new ApplicationException(
+                "Título da outra compra nasce da confirmação do documento de entrada: estorne a confirmação ou cancele o documento para cancelá-lo.");
+
         // F4 (revisão final): cancelar o título de washout por aqui deixaria o washout Approved
         // reduzindo saldo e provisório sem título nenhum por trás — e um Estorno depois passaria
         // em silêncio, porque EnqueueCancelByKeyAsync trata documento já cancelado como no-op.

@@ -94,7 +94,7 @@ public class FinancialDocumentsDationTests
         await Dation(seed).ExecuteAsync(c.Firm!.Key, 1_000m, DateTime.Today, "Sobra", "ana");
 
         var error = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(() =>
-            new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(c.Invoice.Key));
+            SiagroB1.Application.Tests.Support.FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(c.Invoice.Key));
 
         Assert.Equal(
             "O título ST-0001 do vínculo já tem baixa por dação ou encontro de contas: estorne-a antes de alterar a conciliação.",

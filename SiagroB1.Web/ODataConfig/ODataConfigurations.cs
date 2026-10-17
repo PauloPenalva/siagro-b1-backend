@@ -61,6 +61,9 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
+        modelBuilder.EntitySet<WithholdingTaxSetting>("WithholdingTaxSettings");
+        modelBuilder.EntitySet<IcmsStateSetting>("IcmsStateSettings");
+        modelBuilder.EntitySet<IcmsItemStateRate>("IcmsItemStateRates");
 
         // Prévia das parcelas da condição de pagamento (mesmo cálculo da emissão da NF-e).
         var paymentConditionsPreview = modelBuilder.Function("PaymentConditionsPreview");
@@ -413,6 +416,8 @@ public static class ODataConfigurations
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalFunrural)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
             .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.NetPayable)));
+        modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoice))
+            .AddProperty(typeof(PurchaseInvoice).GetProperty(nameof(PurchaseInvoice.TotalWithheld)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
             .AddProperty(typeof(PurchaseInvoiceItem).GetProperty(nameof(PurchaseInvoiceItem.FunruralValue)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(PurchaseInvoiceItem))
@@ -497,6 +502,9 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SystemSetup>("SystemSetup");
         modelBuilder.EntitySet<UnitOfMeasureModel>("UnitsOfMeasure");
         modelBuilder.EntitySet<ItemModel>("Items");
+
+        // Qualquer produto ativo, de qualquer grupo: value help da linha de "outra compra" (spec 2026-10-17 §2).
+        modelBuilder.Function("ActiveItems").ReturnsCollectionFromEntitySet<ItemModel>("Items");
 
         // Parametros como string: datas yyyy-MM-dd e enum pelo nome; vazio/null = sem filtro.
         var royaltyBalanceTotals = modelBuilder.Function("RoyaltyBalanceTotals");

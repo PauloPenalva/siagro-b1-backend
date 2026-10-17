@@ -17,6 +17,9 @@ public sealed class FakeItemService(Dictionary<string, string>? names = null) : 
             ? new ItemModel { ItemCode = code, ItemName = name }
             : null);
 
+    public Task<ItemModel?> GetActiveByIdAsync(string code) => GetByIdAsync(code);
+    public IQueryable<ItemModel> QueryAllActive() => throw new NotImplementedException();
+
     public Task<IEnumerable<ItemModel>> GetAllAsync() => throw new NotImplementedException();
     public Task<ItemModel> CreateAsync(ItemModel entity) => throw new NotImplementedException();
     public Task<ItemModel?> UpdateAsync(string code, ItemModel entity) => throw new NotImplementedException();

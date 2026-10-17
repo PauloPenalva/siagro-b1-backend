@@ -23,7 +23,7 @@ public class PurchaseInvoicesCancelServiceTests
         await scenario.Db.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(scenario.Db).ExecuteAsync(scenario.InvoiceKey, "tester"));
+            FinancialDocumentTestServices.PurchaseCancel(scenario.Db).ExecuteAsync(scenario.InvoiceKey, "tester"));
 
         Assert.Equal("Documento de entrada possui devolução.", ex.Message);
     }
@@ -41,7 +41,7 @@ public class PurchaseInvoicesCancelServiceTests
         });
         await scenario.Db.SaveChangesAsync();
 
-        await new PurchaseInvoicesCancelService(scenario.Db).ExecuteAsync(scenario.InvoiceKey, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(scenario.Db).ExecuteAsync(scenario.InvoiceKey, "tester");
 
         Assert.Equal(InvoiceStatus.Cancelled,
             (await scenario.Db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(x => x.Key == scenario.InvoiceKey)).InvoiceStatus);
@@ -51,7 +51,7 @@ public class PurchaseInvoicesCancelServiceTests
     public async Task Cancel_after_nfe_requires_the_nfe_cancelled_and_skips_the_lock()
     {
         var scenario = await PurchaseNfeTestSeed.SeedAsync();
-        var service = new PurchaseInvoicesCancelService(scenario.Db);
+        var service = FinancialDocumentTestServices.PurchaseCancel(scenario.Db);
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CancelAfterNfeAsync(scenario.InvoiceKey, "tester"));
         Assert.Equal("A NF-e deste documento não está cancelada na SEFAZ.", ex.Message);

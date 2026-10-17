@@ -27,6 +27,11 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
                         x.Enabled.ToUpper() == "SIM");
     }
     
+    /// <summary>SAPB1: nada muda, "outra compra" só existe em STANDALONE.</summary>
+    public IQueryable<ItemModel> QueryAllActive() => QueryAll();
+
+    public Task<ItemModel?> GetActiveByIdAsync(string code) => GetByIdAsync(code);
+
     public async Task<ItemModel?> GetByIdAsync(string code)
     {
         try

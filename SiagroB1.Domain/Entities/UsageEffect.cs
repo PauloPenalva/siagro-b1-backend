@@ -56,4 +56,10 @@ public class UsageEffect
     /// <see cref="StorageDepositRole"/>: nasce pronto para o modo SAPB1, embora a feature seja só STANDALONE.
     /// </summary>
     public StorageCustodyRole StorageCustodyRole { get; set; }
+
+    /// <summary>
+    /// Destinação da mercadoria (spec 2026-10-17 §1): uso e consumo ou ativo imobilizado ligam o DIFAL nas entradas
+    /// interestaduais. Mora aqui para valer nos dois modos (STANDALONE e SAPB1).
+    /// </summary>
+    public PurchasePurpose PurchasePurpose { get; set; }
 }

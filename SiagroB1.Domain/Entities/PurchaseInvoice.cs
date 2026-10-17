@@ -142,6 +142,19 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     /// </summary>
     public bool IsNfeReturn { get; set; }
 
+    // --- Retenções de serviço (spec 2026-10-17 §2): fotografia das alíquotas da natureza, editável enquanto Pendente ---
+    /// <summary>Base das retenções: Σ total geral das linhas (ou o que o usuário informou, com <see cref="WithholdingsManual"/>).</summary>
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithholdingBase { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldIss { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldIrrf { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldInss { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldPis { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldCofins { get; set; }
+    [Column(TypeName = "DECIMAL(18,2)")] public decimal WithheldCsll { get; set; }
+
+    /// <summary>Verdadeiro quando o usuário editou os valores: o recálculo preserva e só valida.</summary>
+    public bool WithholdingsManual { get; set; }
+
     // --- NF-e (mesmas colunas do documento de saída, spec 2a §9.1) ---
     public NfeStatus NfeStatus { get; set; } = NfeStatus.None;
 
@@ -269,7 +282,11 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
     /// financeiro vai usar quando o título nascer da nota.
     /// </summary>
     [NotMapped]
-    public decimal NetPayable => GrandTotal - TotalFunrural;
+    public decimal NetPayable => GrandTotal - TotalFunrural - TotalWithheld;
+
+    /// <summary>Retenções de serviço do cabeçalho (ISS, IRRF, INSS, PIS, COFINS, CSLL — spec 2026-10-17 §2).</summary>
+    [NotMapped]
+    public decimal TotalWithheld => WithheldIss + WithheldIrrf + WithheldInss + WithheldPis + WithheldCofins + WithheldCsll;
 
     public void AddItem(PurchaseInvoiceItem item)
     {

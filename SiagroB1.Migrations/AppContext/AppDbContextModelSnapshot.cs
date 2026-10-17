@@ -115,6 +115,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Phone")
                         .HasColumnType("VARCHAR(14)");
 
+                    b.Property<int>("PisCofinsRegime")
+                        .HasColumnType("int");
+
                     b.Property<string>("ShortName")
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
@@ -806,6 +809,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<DateTime>("DueDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("InstallmentNumber")
+                        .HasColumnType("int");
+
                     b.Property<int>("Nature")
                         .HasColumnType("int");
 
@@ -868,6 +874,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<int?>("WithholdingTaxType")
+                        .HasColumnType("int");
+
                     b.HasKey("Key");
 
                     b.HasIndex("BranchCode");
@@ -888,7 +897,11 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "SalesContractKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
                         .IsUnique()
-                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL");
+                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9");
+
+                    b.HasIndex(new[] { "OriginType", "OriginKey", "InstallmentNumber", "WithholdingTaxType" }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
+                        .IsUnique()
+                        .HasFilter("[OriginType] = 9 AND [Status] <> 3");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey" }, "IX_FINANCIAL_DOCUMENTS_ProvisionalOrigin")
                         .IsUnique()
@@ -1116,6 +1129,53 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("IBS_CBS_RATES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.IcmsItemStateRate", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal>("InternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("StateCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2) NOT NULL");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ItemCode", "StateCode")
+                        .IsUnique();
+
+                    b.ToTable("ICMS_ITEM_STATE_RATES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.IcmsStateSetting", b =>
+                {
+                    b.Property<string>("StateCode")
+                        .HasColumnType("VARCHAR(2) NOT NULL");
+
+                    b.Property<int>("DifalBaseRule")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("InternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.HasKey("StateCode");
+
+                    b.ToTable("ICMS_STATE_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Item", b =>
@@ -2655,6 +2715,30 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("VolumeSpecies")
                         .HasColumnType("VARCHAR(60)");
 
+                    b.Property<decimal>("WithheldCofins")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldCsll")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldInss")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldIrrf")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldIss")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithheldPis")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("WithholdingBase")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<bool>("WithholdingsManual")
+                        .HasColumnType("bit");
+
                     b.Property<byte[]>("XmlData")
                         .HasColumnType("VARBINARY(MAX)");
 
@@ -2783,7 +2867,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CstPis")
                         .HasColumnType("VARCHAR(3)");
 
+                    b.Property<decimal>("DifalBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("DifalInternalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("DifalInterstateRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("DifalValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
                     b.Property<decimal>("DiscountValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("FcpRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("FcpValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
                     b.Property<decimal>("FreightValue")
@@ -6277,6 +6379,24 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int?>("ReturnUsageCode")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("WithholdingCofinsRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingCsllRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingInssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingIrrfRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingIssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal?>("WithholdingPisRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
                     b.HasKey("Code");
 
                     b.HasIndex("ReturnUsageCode");
@@ -6297,6 +6417,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("bit");
+
+                    b.Property<int>("PurchasePurpose")
+                        .HasColumnType("int");
 
                     b.Property<bool>("RequiresContract")
                         .HasColumnType("bit");
@@ -6790,6 +6913,26 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("TruckDriverCode");
 
                     b.ToTable("WEIGHING_TICKETS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.WithholdingTaxSetting", b =>
+                {
+                    b.Property<int>("TaxType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.Property<string>("CardName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("int");
+
+                    b.HasKey("TaxType");
+
+                    b.ToTable("WITHHOLDING_TAX_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Address", b =>

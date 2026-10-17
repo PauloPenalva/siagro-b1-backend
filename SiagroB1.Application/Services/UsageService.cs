@@ -66,6 +66,12 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     FunruralInssRate = x.usage.FunruralInssRate,
                     FunruralRatRate = x.usage.FunruralRatRate,
                     FunruralSenarRate = x.usage.FunruralSenarRate,
+                    WithholdingIssRate = x.usage.WithholdingIssRate,
+                    WithholdingIrrfRate = x.usage.WithholdingIrrfRate,
+                    WithholdingInssRate = x.usage.WithholdingInssRate,
+                    WithholdingPisRate = x.usage.WithholdingPisRate,
+                    WithholdingCofinsRate = x.usage.WithholdingCofinsRate,
+                    WithholdingCsllRate = x.usage.WithholdingCsllRate,
                     ReturnUsageCode = x.usage.ReturnUsageCode,
                     ReturnUsageName = x.usage.ReturnUsage != null ? x.usage.ReturnUsage.Name : null,
                     AllowsCounterNote = x.usage.AllowsCounterNote,
@@ -77,6 +83,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     IsDefault = effect != null && effect.IsDefault,
                     StorageDepositRole = effect != null ? effect.StorageDepositRole : StorageDepositRole.None,
                     StorageCustodyRole = effect != null ? effect.StorageCustodyRole : StorageCustodyRole.None,
+                    PurchasePurpose = effect != null ? effect.PurchasePurpose : PurchasePurpose.ResaleOrInput,
                     HasConfiguredEffects = effect != null,
                 })
             .AsNoTracking();

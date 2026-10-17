@@ -62,6 +62,7 @@ public class UsageService(
                 IsDefault = x.effect?.IsDefault ?? false,
                 StorageDepositRole = x.effect?.StorageDepositRole ?? StorageDepositRole.None,
                 StorageCustodyRole = x.effect?.StorageCustodyRole ?? StorageCustodyRole.None,
+                PurchasePurpose = x.effect?.PurchasePurpose ?? PurchasePurpose.ResaleOrInput,
                 HasConfiguredEffects = x.effect != null,
             })
             .AsQueryable();

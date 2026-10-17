@@ -47,6 +47,53 @@ public class PurchaseInvoicesTaxApplyService(
     public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
 
+    /// <summary>Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE, tipo Normal).</summary>
+    public Task EnsureUsageContractRuleAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(usageService, gate.IsStandalone, invoice, lines);
+
+    /// <summary>Spec 2026-10-17 §2: a linha de outra compra aceita qualquer produto ativo (só STANDALONE).</summary>
+    public Task<bool> IsOtherPurchaseLineAsync(PurchaseInvoice invoice, PurchaseInvoiceItem line) =>
+        PurchaseInvoiceLineGuard.IsOtherPurchaseLineAsync(usageService, gate.IsStandalone, invoice, line);
+
+    /// <summary>Spec 2026-10-17 §2: retenções de serviço do cabeçalho (zeradas fora de "outra compra"; só STANDALONE).</summary>
+    public async Task ApplyWithholdingsAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem>? lines = null)
+    {
+        lines ??= invoice.Items.ToList();
+        var otherPurchase = await PurchaseInvoiceLineGuard.IsOtherPurchaseDocumentAsync(
+            usageService, gate.IsStandalone, invoice, lines);
+        await PurchaseInvoiceWithholdings.ApplyAsync(invoice, usageService, otherPurchase, lines);
+    }
+
+    /// <summary>
+    /// Spec 2026-10-17 §2: DIFAL e FCP da linha (fotografia informativa; fora de NetPayable, GrandTotal e NF-e). Zera os seis
+    /// campos quando as condições deixam de valer. Sem alíquota interna da UF a gravação passa com zeros: só a confirmação recusa.
+    /// </summary>
+    public async Task ApplyDifalAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem>? lines = null)
+    {
+        if (invoice.InvoiceStatus != InvoiceStatus.Pending)
+            return;
+
+        foreach (var o in await EvaluateDifalAsync(invoice, lines))
+            PurchaseInvoiceDifal.Store(o.Line, o.Result);
+    }
+
+    /// <summary>Calcula o DIFAL de cada linha sem gravar; <c>Error</c> preenchido = a confirmação deve recusar.</summary>
+    internal async Task<List<PurchaseInvoiceDifal.LineOutcome>> EvaluateDifalAsync(
+        PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem>? lines = null) =>
+        await PurchaseInvoiceDifal.EvaluateAsync(
+            db.Context, usageService, businessPartnerService, gate.IsStandalone, invoice, lines ?? invoice.Items.ToList());
+
+    /// <summary>Confirmação: recusa se faltar a alíquota da UF e regrava o DIFAL de cada linha (a UF pode ter sido cadastrada depois da gravação).</summary>
+    public async Task RefreshDifalForConfirmAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        var outcomes = await EvaluateDifalAsync(invoice, lines);
+        if (outcomes.FirstOrDefault(o => o.Error is not null) is { } refused)
+            throw new DefaultException(refused.Error!);
+
+        foreach (var o in outcomes)
+            PurchaseInvoiceDifal.Store(o.Line, o.Result);
+    }
+
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)

@@ -94,7 +94,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, _, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesItemsDeleteService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()))
+            new PurchaseInvoicesItemsDeleteService(scenario.Db, TaxTestServices.PurchaseApply(scenario.Db, new FakeBusinessPartnerService()))
                 .ExecuteAsync(note.Items.First().Key!.Value));
 
         Assert.Equal(LinesMessage, e.Message);
@@ -106,7 +106,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, producer, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester"));
+            FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester"));
 
         Assert.Equal($"A escrituração tem a contra-nota {note.InvoiceNumber}: cancele ou exclua a contra-nota antes de estornar a confirmação.", e.Message);
     }
@@ -117,7 +117,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, producer, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(scenario.Db).ExecuteAsync(producer.Key, "tester"));
+            FinancialDocumentTestServices.PurchaseCancel(scenario.Db).ExecuteAsync(producer.Key, "tester"));
 
         Assert.Equal($"A escrituração tem a contra-nota {note.InvoiceNumber}: cancele ou exclua a contra-nota antes de cancelar a escrituração.", e.Message);
     }
@@ -129,7 +129,7 @@ public class PurchaseInvoicesCounterNoteLockTests
 
         await new PurchaseInvoicesDeleteService(scenario.Db).ExecuteAsync(note.Key);
         scenario.Db.Context.ChangeTracker.Clear();
-        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Pending, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key)).InvoiceStatus);
     }
@@ -181,7 +181,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         await scenario.Db.SaveChangesAsync();
         scenario.Db.Context.ChangeTracker.Clear();
 
-        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester");
         scenario.Db.Context.ChangeTracker.Clear();
 
         return (scenario, await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key), note);
@@ -205,7 +205,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var line = producer.Items.Single(i => i.ItemCode == "TRIGO");
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesItemsDeleteService(scenario.Db, new TaxCalculationGate(scenario.Db, NfeTestSeed.Config()))
+            new PurchaseInvoicesItemsDeleteService(scenario.Db, TaxTestServices.PurchaseApply(scenario.Db, new FakeBusinessPartnerService()))
                 .ExecuteAsync(line.Key!.Value));
 
         Assert.Equal("O item TRIGO foi reproduzido numa contra-nota e não pode ser excluído.", e.Message);

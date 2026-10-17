@@ -25,6 +25,9 @@ internal static class UsageEffectWriter
     /// </summary>
     internal static void ValidateEffects(UsageModel model)
     {
+        if (!Enum.IsDefined(model.PurchasePurpose))
+            throw new DefaultException("Destinação da natureza inválida.");
+
         var hasEffect = model.ContractBalanceEffect != ContractBalanceEffect.None
                         || model.ContractValueEffect != ContractValueEffect.None;
 
@@ -92,6 +95,7 @@ internal static class UsageEffectWriter
         effect.IsDefault = model.IsDefault;
         effect.StorageDepositRole = model.StorageDepositRole;
         effect.StorageCustodyRole = model.StorageCustodyRole;
+        effect.PurchasePurpose = model.PurchasePurpose;
 
         await ClearOtherDefaultsAsync(db, usageCode, model.IsDefault);
     }

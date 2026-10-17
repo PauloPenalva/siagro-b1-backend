@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
@@ -47,6 +47,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Municipality> Municipalities { get; set; }
     public DbSet<Country> Countries { get; set; }
     public DbSet<PaymentCondition> PaymentConditions { get; set; }
+    public DbSet<WithholdingTaxSetting> WithholdingTaxSettings { get; set; }
+    public DbSet<IcmsStateSetting> IcmsStateSettings { get; set; }
+    public DbSet<IcmsItemStateRate> IcmsItemStateRates { get; set; }
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
@@ -585,7 +588,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
-                       "AND [OriginKey] IS NOT NULL");
+                       "AND [OriginKey] IS NOT NULL " +
+                       // Outra compra: N parcelas (e N retenções) com o mesmo OriginKey — a idempotência é do serviço.
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice}");
+
+        // Outra compra: o índice acima a exclui (N parcelas e N retenções por documento), então a rede de segurança da
+        // confirmação idempotente é esta chave: documento × parcela × tributo. Título cancelado libera a chave.
+        modelBuilder.Entity<FinancialDocument>()
+            .HasIndex(x => new { x.OriginType, x.OriginKey, x.InstallmentNumber, x.WithholdingTaxType }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
+            .IsUnique()
+            .HasFilter($"[OriginType] = {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} " +
+                       $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled}");
 
         // Impede estornar a mesma baixa duas vezes.
         modelBuilder.Entity<FinancialSettlement>()

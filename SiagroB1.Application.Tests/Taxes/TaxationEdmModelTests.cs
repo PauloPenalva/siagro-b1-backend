@@ -40,6 +40,18 @@ public class TaxationEdmModelTests
     }
 
     [Fact]
+    public void ActiveItems_is_an_unbound_function_returning_the_items_set()
+    {
+        var model = Model();
+        var function = model.SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "ActiveItems");
+
+        Assert.False(function.IsBound);
+        Assert.Equal("Collection(SiagroB1.Domain.Models.ItemModel)", function.ReturnType.FullName());
+        var import = model.EntityContainer.Elements.OfType<IEdmFunctionImport>().Single(f => f.Name == "ActiveItems");
+        Assert.Equal("Items", ((IEdmPathExpression)import.EntitySet).PathSegments.Single());
+    }
+
+    [Fact]
     public void Funrural_totals_are_exposed()
     {
         var model = Model();

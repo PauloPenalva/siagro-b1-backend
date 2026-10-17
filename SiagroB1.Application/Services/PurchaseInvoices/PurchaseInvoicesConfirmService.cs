@@ -27,7 +27,9 @@ public class PurchaseInvoicesConfirmService(
     TaxCalculationGate gate,
     IBusinessPartnerService businessPartnerService,
     SupplierNfeAuthorizationService supplierNfe,
-    FinancialDocumentsFirmSyncService firmSync)
+    FinancialDocumentsFirmSyncService firmSync,
+    FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
+    PurchaseInvoicesTaxApplyService taxApply)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -53,12 +55,19 @@ public class PurchaseInvoicesConfirmService(
         }
 
         // A escrituração/entrada de custódia precisa continuar batendo com o romaneio (spec 2026-10-12 §4.4).
-        var lines = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+        var lines = await db.Context.PurchaseInvoicesItems
             .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
 
+        // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).
+        await taxApply.RefreshDifalForConfirmAsync(invoice, lines);
+
         // Spec 2026-10-13 D11: o complemento de valor cria os títulos firmes aqui, no MESMO SaveChanges da confirmação.
         await firmSync.EnqueueForValueComplementAsync(invoice, lines, userName);
+
+        // Spec 2026-10-17 §3: a "outra compra" cria as parcelas a pagar e os títulos de retenção, também no MESMO SaveChanges.
+        // Qualquer recusa (retenção que consome a nota, credor ausente) sai antes de gravar: o documento segue Pendente.
+        await otherPurchaseTitles.EnqueueAsync(invoice, lines, userName);
 
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;

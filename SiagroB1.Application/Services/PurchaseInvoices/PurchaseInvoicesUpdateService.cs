@@ -81,6 +81,14 @@ public class PurchaseInvoicesUpdateService(
         existing.FreightTerms = entity.FreightTerms;
         existing.BranchCode = entity.BranchCode;
         existing.PaymentConditionCode = entity.PaymentConditionCode;
+        existing.WithholdingsManual = entity.WithholdingsManual;
+        existing.WithholdingBase = entity.WithholdingBase;
+        existing.WithheldIss = entity.WithheldIss;
+        existing.WithheldIrrf = entity.WithheldIrrf;
+        existing.WithheldInss = entity.WithheldInss;
+        existing.WithheldPis = entity.WithheldPis;
+        existing.WithheldCofins = entity.WithheldCofins;
+        existing.WithheldCsll = entity.WithheldCsll;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.CustodyStorageTransactionKey = entity.CustodyStorageTransactionKey;
         existing.UpdatedAt = DateTime.Now;
@@ -117,6 +125,9 @@ public class PurchaseInvoicesUpdateService(
 
         await SyncItemsAsync(existing, entity);
 
+        // A natureza decide se a linha exige ou recusa o contrato, sobre a lista final (spec 2026-10-17 §1).
+        await taxApply.EnsureUsageContractRuleAsync(existing, existing.Items.ToList());
+
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(existing, existing.Items.ToList());
 
         // Spec 2026-10-13 D11 (o tipo é editável enquanto Pendente: a regra vale sobre a lista final).
@@ -144,6 +155,11 @@ public class PurchaseInvoicesUpdateService(
                 PurchaseInvoiceFunrural.Clear(item);
 
         await taxApply.ApplyAsync(existing, existing.Items);
+
+        // Retenções de serviço (spec 2026-10-17 §2): os valores e o "manual" que o cliente mandou, copiados acima, valem
+        // enquanto o usuário os editou; senão são recalculados pela natureza.
+        await taxApply.ApplyWithholdingsAsync(existing);
+        await taxApply.ApplyDifalAsync(existing);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
@@ -219,7 +235,8 @@ public class PurchaseInvoicesUpdateService(
                     PurchaseInvoiceKey = existing.Key,
                     ItemCode = line.ItemCode,
                     ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-                        itemService, line.ItemCode, line.ItemName),
+                        itemService, line.ItemCode, line.ItemName,
+                        otherPurchase: await taxApply.IsOtherPurchaseLineAsync(existing, line)),
                     Quantity = line.Quantity,
                     UnitPrice = line.UnitPrice,
                     UnitOfMeasureCode = line.UnitOfMeasureCode,
@@ -249,7 +266,8 @@ public class PurchaseInvoicesUpdateService(
 
             current.ItemCode = line.ItemCode;
             current.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-                itemService, line.ItemCode, line.ItemName, itemCodeChanged);
+                itemService, line.ItemCode, line.ItemName, itemCodeChanged,
+                otherPurchase: await taxApply.IsOtherPurchaseLineAsync(existing, line));
             current.Quantity = line.Quantity;
             current.UnitPrice = line.UnitPrice;
             current.UnitOfMeasureCode = line.UnitOfMeasureCode;

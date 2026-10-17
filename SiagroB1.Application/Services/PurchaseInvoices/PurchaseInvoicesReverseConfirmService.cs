@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -9,11 +10,12 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// <summary>
 /// Estorna a confirmação, devolvendo o documento a pendente para poder ser corrigido.
 ///
-/// Nesta fase não há efeito a desfazer — ver <see cref="PurchaseInvoicesConfirmService"/>. O que o
-/// estorno faz é reabrir a edição e LIMPAR o carimbo de aprovação: documento pendente com
-/// aprovador preenchido mente na tela e no relatório.
+/// Reabre a edição e LIMPA o carimbo de aprovação: documento pendente com aprovador preenchido mente na tela e no
+/// relatório. O único efeito a desfazer é o da "outra compra" (spec 2026-10-17 §3): as parcelas e as retenções nascidas na
+/// confirmação são canceladas no mesmo SaveChanges, e recusadas se já tiverem baixa. A confirmação é idempotente por
+/// título ativo, então sem este cancelamento um estorno + edição + nova confirmação manteria títulos velhos.
 /// </summary>
-public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db)
+public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db, FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -31,6 +33,9 @@ public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db)
 
         // A contra-nota referencia a chave desta escrituração (spec 2026-10-10 D10).
         await PurchaseInvoiceCounterNote.EnsureNoValidAsync(db.Context, invoice.Key, "estornar a confirmação");
+
+        await otherPurchaseTitles.EnsureCanUndoAsync(invoice.Key);
+        otherPurchaseTitles.EnqueueUndo(invoice.Key, userName);
 
         invoice.InvoiceStatus = InvoiceStatus.Pending;
         invoice.ApprovedAt = null;

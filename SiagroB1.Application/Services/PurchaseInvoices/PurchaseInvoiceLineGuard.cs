@@ -1,8 +1,10 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
+using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
@@ -56,19 +58,37 @@ internal static class PurchaseInvoiceLineGuard
     /// produto e a descrição de outro.
     /// </param>
     public static async Task<string?> ResolveItemNameAsync(
-        IItemService itemService, string? itemCode, string? itemName, bool itemCodeChanged = false)
+        IItemService itemService, string? itemCode, string? itemName, bool itemCodeChanged = false,
+        bool otherPurchase = false)
     {
         if (string.IsNullOrWhiteSpace(itemCode))
             return itemName;
 
+        // Linha de outra compra (STANDALONE, natureza sem contrato que gera financeiro) aceita qualquer produto ativo;
+        // a de grão segue só o grupo de grãos.
+        Task<ItemModel?> Lookup() => otherPurchase
+            ? itemService.GetActiveByIdAsync(itemCode)
+            : itemService.GetByIdAsync(itemCode);
+
         if (!itemCodeChanged)
             return string.IsNullOrWhiteSpace(itemName)
-                ? (await itemService.GetByIdAsync(itemCode))?.ItemName
+                ? (await Lookup())?.ItemName
                 : itemName;
 
         // Produto trocado por um código fora do cadastro (o value help filtra por grupo, o XML
         // não): manter a descrição que veio é melhor que esvaziar a linha.
-        return (await itemService.GetByIdAsync(itemCode))?.ItemName ?? itemName;
+        return (await Lookup())?.ItemName ?? itemName;
+    }
+
+    /// <summary>A linha é de outra compra: STANDALONE, documento Normal (não devolução) e natureza de outra compra.</summary>
+    internal static async Task<bool> IsOtherPurchaseLineAsync(
+        IUsage usages, bool standalone, PurchaseInvoice invoice, PurchaseInvoiceItem line)
+    {
+        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn || line.UsageCode is null)
+            return false;
+
+        var usage = await usages.GetByIdAsync(line.UsageCode.Value);
+        return usage is not null && IsOtherPurchase(usage);
     }
 
     /// <summary>
@@ -92,6 +112,103 @@ internal static class PurchaseInvoiceLineGuard
             if (string.IsNullOrWhiteSpace(lines[i].UnitOfMeasureCode))
                 throw new DefaultException($"Informe a unidade de medida da linha {i + 1} ({lines[i].ItemCode}).");
         }
+    }
+
+    /// <summary>
+    /// "Outra compra" (spec 2026-10-17 §1): natureza de entrada que NÃO exige contrato e gera financeiro — serviço, uso e
+    /// consumo, insumo, ativo. O caminho do grão (contrato) nunca cai aqui.
+    /// </summary>
+    public static bool IsOtherPurchase(UsageModel usage) => !usage.RequiresContract && usage.CreatesFinancialDocument;
+
+    /// <summary>
+    /// O documento inteiro é de outra compra: STANDALONE, tipo Normal, não é devolução e TODA linha com natureza é
+    /// outra compra (há ao menos uma). Devolução e complemento de valor seguem o caminho de hoje.
+    /// </summary>
+    public static Task<bool> IsOtherPurchaseDocumentAsync(
+        IUsage usages, IConfiguration cfg, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        IsOtherPurchaseDocumentAsync(usages, ErpMode.IsStandalone(cfg), invoice, lines);
+
+    internal static async Task<bool> IsOtherPurchaseDocumentAsync(
+        IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn)
+            return false;
+
+        var byCode = await LoadUsagesAsync(usages, lines);
+        var withUsage = lines.Where(l => l.UsageCode is not null && byCode.ContainsKey(l.UsageCode.Value)).ToList();
+
+        return withUsage.Count > 0 && withUsage.All(l => IsOtherPurchase(byCode[l.UsageCode!.Value]));
+    }
+
+    /// <summary>
+    /// A natureza da linha decide se o contrato é exigido (spec 2026-10-17 §1): exige → contrato obrigatório; não exige →
+    /// contrato recusado; e o documento não mistura linhas de contrato com linhas de outras compras.
+    ///
+    /// Só STANDALONE e tipo Normal: em SAPB1 a natureza (OUSG) não carrega a flag, o complemento de valor já exige contrato
+    /// (<c>PurchaseInvoiceValueComplement</c>) e a devolução mantém o contrato opcional. Linha sem natureza passa sem regra.
+    /// Recebe a lista FINAL de linhas do documento, porque a mistura é uma regra do conjunto.
+    /// </summary>
+    public static Task EnsureUsageContractRuleAsync(
+        IUnitOfWork db, IUsage usages, IConfiguration cfg, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        EnsureUsageContractRuleAsync(usages, ErpMode.IsStandalone(cfg), invoice, lines);
+
+    internal static async Task EnsureUsageContractRuleAsync(
+        IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn)
+            return;
+
+        // Valor de complemento em documento Normal é recusado pela regra do complemento (EnsureValueComplementAsync), com
+        // a mensagem certa; esta regra não se antecipa a ela.
+        if (lines.Any(l => l.ComplementAmount != 0m))
+            return;
+
+        var byCode = await LoadUsagesAsync(usages, lines);
+
+        foreach (var line in lines)
+        {
+            if (line.UsageCode is null || !byCode.TryGetValue(line.UsageCode.Value, out var usage))
+                continue;
+
+            if (usage.RequiresContract && line.PurchaseContractKey is null)
+                throw new DefaultException(
+                    $"A natureza {usage.Name} exige contrato de compra na linha do produto {line.ItemCode}.");
+
+            if (!usage.RequiresContract && line.PurchaseContractKey is not null)
+                throw new DefaultException(
+                    $"A natureza {usage.Name} não aceita contrato de compra: retire o contrato da linha do produto {line.ItemCode}.");
+        }
+
+        var hasContractLine = lines.Any(l => l.PurchaseContractKey is not null);
+        var hasOtherPurchaseLine = lines.Any(l =>
+            l.UsageCode is not null && byCode.TryGetValue(l.UsageCode.Value, out var u) && IsOtherPurchase(u));
+
+        if (hasContractLine && hasOtherPurchaseLine)
+            throw new DefaultException("Um documento não mistura linhas de contrato com linhas de outras compras.");
+
+        // Outra compra gera títulos para o documento inteiro; uma linha cuja natureza não gera financeiro (e também não
+        // exige contrato) ficaria sem título em silêncio, então os dois tipos não convivem.
+        var hasNoFinancialLine = lines.Any(l =>
+            l.UsageCode is not null && byCode.TryGetValue(l.UsageCode.Value, out var u)
+            && !u.RequiresContract && !u.CreatesFinancialDocument);
+
+        if (hasOtherPurchaseLine && hasNoFinancialLine)
+            throw new DefaultException(
+                "Um documento de outras compras não mistura linhas com natureza que não gera financeiro.");
+    }
+
+    private static async Task<Dictionary<int, UsageModel>> LoadUsagesAsync(
+        IUsage usages, IReadOnlyList<PurchaseInvoiceItem> lines)
+    {
+        var codes = lines.Where(l => l.UsageCode is not null).Select(l => l.UsageCode!.Value).ToHashSet();
+        var result = new Dictionary<int, UsageModel>();
+        foreach (var code in codes)
+        {
+            var usage = await usages.GetByIdAsync(code);
+            if (usage is not null)
+                result[code] = usage;
+        }
+        return result;
     }
 
     /// <summary>

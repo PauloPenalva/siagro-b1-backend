@@ -49,7 +49,7 @@ public class PurchaseInvoiceValueComplementLocksTests
         await ComplementAsync(s);
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(s.Db).EnsureCanCancelAsync(s.OriginalKey));
+            FinancialDocumentTestServices.PurchaseCancel(s.Db).EnsureCanCancelAsync(s.OriginalKey));
 
         Assert.Equal(Locked, e.Message);
     }
@@ -69,7 +69,7 @@ public class PurchaseInvoiceValueComplementLocksTests
         await s.Db.SaveChangesAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(s.Db).EnsureCanCancelAsync(s.OriginalKey));
+            FinancialDocumentTestServices.PurchaseCancel(s.Db).EnsureCanCancelAsync(s.OriginalKey));
 
         Assert.Equal(Locked, e.Message);
     }

@@ -52,10 +52,13 @@ public static class TaxTestServices
         FakeDocNumberSequenceService? firmNumbers = null)
     {
         sefaz ??= new FakeNfeSefazClient();
+        firmNumbers ??= new FakeDocNumberSequenceService();
         var config = NfeTestSeed.Config(erp);
 
         return new PurchaseInvoicesConfirmService(db, new TaxCalculationGate(db, config), partners ?? new FakeBusinessPartnerService(),
             new SupplierNfeAuthorizationService(db, new BranchNfeSettingsService(db, new NfeOptions(config), sefaz), sefaz),
-            FinancialDocumentTestServices.FirmSync(db, firmNumbers, erp ?? "STANDALONE"));
+            FinancialDocumentTestServices.FirmSync(db, firmNumbers, erp ?? "STANDALONE"),
+            FinancialDocumentTestServices.OtherPurchase(db, firmNumbers, erp ?? "STANDALONE", partners ?? new FakeBusinessPartnerService()),
+            PurchaseApply(db, partners ?? new FakeBusinessPartnerService(), erp ?? "STANDALONE"));
     }
 }

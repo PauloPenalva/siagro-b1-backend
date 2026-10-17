@@ -256,7 +256,7 @@ public class FinancialDocumentsCompositionTests
         await Compose(seed).ExecuteAsync(seed.Provisional.Key, [c.Firm!.Key], "ana");
 
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
-            new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(c.Invoice.Key));
+            SiagroB1.Application.Tests.Support.FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(c.Invoice.Key));
 
         Assert.Equal(
             "O título ST-0001 do vínculo já está composto no título FN-PROV-1: desfaça a composição antes de alterar a conciliação.",
@@ -269,7 +269,7 @@ public class FinancialDocumentsCompositionTests
         var seed = await FirmPayableSeed.CreateAsync();
         var c = await seed.ConciliateAsync();
 
-        await new SiagroB1.Application.Services.PurchaseInvoices.PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(c.Invoice.Key);
+        await SiagroB1.Application.Tests.Support.FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(c.Invoice.Key);
     }
     [Fact]
     public async Task Return_listed_before_the_firm_composes_like_firm_first()

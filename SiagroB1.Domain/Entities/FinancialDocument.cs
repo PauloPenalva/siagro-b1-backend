@@ -95,6 +95,12 @@ public class FinancialDocument : DocumentEntity
     /// </summary>
     public Guid? SalesInvoiceKey { get; set; }
 
+    /// <summary>Número da parcela (1..N) do título a pagar de OUTRA COMPRA (origem OtherPurchaseInvoice). Nulo nos demais.</summary>
+    public int? InstallmentNumber { get; set; }
+
+    /// <summary>Tributo retido que o título recolhe (natureza TaxWithholding). Nulo nos demais.</summary>
+    public WithholdingTaxType? WithholdingTaxType { get; set; }
+
     /// <summary>Romaneio do vínculo que gerou o firme. Sem FK.</summary>
     public Guid? StorageTransactionKey { get; set; }
 

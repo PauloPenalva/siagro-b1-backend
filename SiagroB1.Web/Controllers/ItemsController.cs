@@ -18,6 +18,14 @@ public class ItemsController(IItemService service) : ODataController
         return Ok(service.QueryAll());
     }
     
+    /// <summary>Qualquer produto ativo, de qualquer grupo (linha de "outra compra"). Em SAPB1 devolve o mesmo que o Get.</summary>
+    [HttpGet("odata/ActiveItems()")]
+    [EnableQuery]
+    public virtual ActionResult GetActiveItems()
+    {
+        return Ok(service.QueryAllActive());
+    }
+
     [EnableQuery]
     public virtual async Task<ActionResult> Get([FromRoute] string key)
     {

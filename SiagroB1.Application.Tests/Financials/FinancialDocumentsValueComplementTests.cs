@@ -85,7 +85,7 @@ public class FinancialDocumentsValueComplementTests
         var seed = await FirmPayableSeed.CreateAsync(interceptor: new PurchaseFiscalReconciliationCleanupInterceptor());
         var invoice = await ConfirmedComplementAsync(seed, 1_000m);
 
-        await new PurchaseInvoicesCancelService(seed.Db).ExecuteAsync(invoice.Key, "bia");
+        await FinancialDocumentTestServices.PurchaseCancel(seed.Db).ExecuteAsync(invoice.Key, "bia");
 
         var firm = await ComplementFirms(seed).SingleAsync();
         Assert.Equal(FinancialDocumentStatus.Canceled, firm.Status);
@@ -103,7 +103,7 @@ public class FinancialDocumentsValueComplementTests
             .ExecuteAsync(seed.Provisional.Key, [firm.Key], "ana");
 
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(seed.Db).ExecuteAsync(invoice.Key, "bia"));
+            FinancialDocumentTestServices.PurchaseCancel(seed.Db).ExecuteAsync(invoice.Key, "bia"));
 
         Assert.Equal(
             $"O título {firm.Code} do complemento de valor já está composto no título FN-PROV-1: desfaça a composição antes de cancelar ou estornar o documento.",
@@ -121,7 +121,7 @@ public class FinancialDocumentsValueComplementTests
             .ExecuteAsync(seed.Provisional.Key, [firm.Key], "ana");
 
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(invoice.Key));
+            FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(invoice.Key));
 
         Assert.Equal(
             $"O título {firm.Code} do complemento de valor já está composto no título FN-PROV-1: desfaça a composição antes de cancelar ou estornar o documento.",
@@ -134,7 +134,7 @@ public class FinancialDocumentsValueComplementTests
         var seed = await FirmPayableSeed.CreateAsync();
         var invoice = await ConfirmedComplementAsync(seed, 1_000m);
 
-        await new PurchaseInvoicesCancelService(seed.Db).EnsureCanCancelAsync(invoice.Key);
+        await FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(invoice.Key);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class FinancialDocumentsValueComplementTests
         var invoice = await ConfirmedComplementAsync(seed, 1_000m);
         var first = await ComplementFirms(seed).SingleAsync();
 
-        await new PurchaseInvoicesReverseConfirmService(seed.Db).ExecuteAsync(invoice.Key, "bia");
+        await FinancialDocumentTestServices.PurchaseReverse(seed.Db).ExecuteAsync(invoice.Key, "bia");
         Assert.Equal(FinancialDocumentStatus.Canceled, (await seed.ReloadAsync(first.Key)).Status);
 
         await TaxTestServices.PurchaseConfirm(seed.Db, seed.Erp, firmNumbers: seed.Numbers).ExecuteAsync(invoice.Key, "ana");

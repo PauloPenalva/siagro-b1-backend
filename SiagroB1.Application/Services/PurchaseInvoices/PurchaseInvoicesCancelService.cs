@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
@@ -16,7 +17,7 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// por status e o rastro do que foi lançado precisa sobreviver. A chave da NF-e de TERCEIRO volta a
 /// ficar livre para relançamento; a da NF-e PRÓPRIA nunca é reaproveitada (o número é da reserva).
 /// </summary>
-public class PurchaseInvoicesCancelService(IUnitOfWork db)
+public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
 {
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
@@ -57,6 +58,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
         invoice.CanceledBy = userName;
 
         await StorageReturnReconciliationsService.RemoveForInvoiceAsync(db.Context, invoice.Key);
+        otherPurchaseTitles.EnqueueUndo(invoice.Key, userName);
         await db.SaveChangesAsync();
     }
 
@@ -99,5 +101,8 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db)
             .Select(l => l.Key!.Value)
             .ToListAsync();
         PurchaseFirmPayableRules.EnsureValueComplementFirmsLoose(db.Context, lineKeys);
+
+        // Outra compra (spec 2026-10-17 §3): parcela ou retenção já baixada recusa aqui, antes da SEFAZ.
+        await otherPurchaseTitles.EnsureCanUndoAsync(key);
     }
 }

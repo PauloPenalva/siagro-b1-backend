@@ -60,8 +60,10 @@ public class PurchaseInvoicesItemsUpdateService(
         }
 
         existing.ItemCode = entity.ItemCode;
+        var parent = await db.Context.PurchaseInvoices.AsNoTracking().FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
         existing.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
-            itemService, entity.ItemCode, entity.ItemName, itemCodeChanged);
+            itemService, entity.ItemCode, entity.ItemName, itemCodeChanged,
+            otherPurchase: await taxApply.IsOtherPurchaseLineAsync(parent, entity));
         existing.Quantity = entity.Quantity;
         existing.UnitPrice = entity.UnitPrice;
         existing.UnitOfMeasureCode = entity.UnitOfMeasureCode;
@@ -82,6 +84,8 @@ public class PurchaseInvoicesItemsUpdateService(
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
+        // A natureza decide se a linha exige ou recusa o contrato, sobre as linhas finais (spec 2026-10-17 §1).
+        await taxApply.EnsureUsageContractRuleAsync(invoice, [.. others, existing]);
         // Ordem da grade: a da carga, com a linha editada no lugar dela.
         var inGridOrder = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey).Select(x => x.Key).ToListAsync();
@@ -120,6 +124,10 @@ public class PurchaseInvoicesItemsUpdateService(
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             await PurchaseInvoiceDeclaredTotal.ApplyAsync(db, invoice, existing.Key, existing);
+
+        // Retenções de serviço (spec 2026-10-17 §2): a base muda com a linha editada.
+        await taxApply.ApplyWithholdingsAsync(invoice, [.. others, existing]);
+        await taxApply.ApplyDifalAsync(invoice, [.. others, existing]);
 
         await db.SaveChangesAsync();
     }
