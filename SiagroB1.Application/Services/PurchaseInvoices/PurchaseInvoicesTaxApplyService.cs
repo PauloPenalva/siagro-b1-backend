@@ -47,6 +47,10 @@ public class PurchaseInvoicesTaxApplyService(
     public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
 
+    /// <summary>Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE, tipo Normal).</summary>
+    public Task EnsureUsageContractRuleAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(usageService, gate.IsStandalone, invoice, lines);
+
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)

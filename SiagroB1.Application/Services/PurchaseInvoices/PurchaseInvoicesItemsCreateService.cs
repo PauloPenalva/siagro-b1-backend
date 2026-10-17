@@ -43,6 +43,11 @@ public class PurchaseInvoicesItemsCreateService(
             await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             item.NfeItemNumber = null;
 
+        // A natureza decide se a linha exige ou recusa o contrato, sobre as linhas finais do documento (spec 2026-10-17 §1).
+        var existingLines = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey).ToListAsync();
+        await taxApply.EnsureUsageContractRuleAsync(invoice, [.. existingLines, item]);
+
         // Linha sem contrato (caso comum: insumo, serviço, frete) não precisa chamar o guard. Linha do complemento próprio:
         // a regra do complemento valida o contrato depois de herdar o produto e de C3 (spec 2026-10-14, D5).
         if (item.PurchaseContractKey is not null && item.ComplementedItemKey is null)
@@ -50,8 +55,7 @@ public class PurchaseInvoicesItemsCreateService(
                 db, item.PurchaseContractKey, item.ItemCode, invoice.CardCode);
 
         // Retorno de depósito: confere a linha nova junto das demais do documento (spec 2026-10-10 §3.3).
-        var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
-            .Where(x => x.PurchaseInvoiceKey == item.PurchaseInvoiceKey).ToListAsync();
+        var others = existingLines;
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, [.. others, item]);
         await taxApply.EnsureValueComplementAsync(invoice, [.. others, item]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, item.PurchaseInvoiceKey, [.. others, item]);

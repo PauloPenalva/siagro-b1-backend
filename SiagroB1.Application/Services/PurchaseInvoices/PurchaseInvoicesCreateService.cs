@@ -97,7 +97,13 @@ public class PurchaseInvoicesCreateService(
         {
             item.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
                 itemService, item.ItemCode, item.ItemName);
+        }
 
+        // A natureza decide se a linha exige ou recusa o contrato (spec 2026-10-17 §1): antes da amarração, depois do nome.
+        await taxApply.EnsureUsageContractRuleAsync(invoice, invoice.Items.ToList());
+
+        foreach (var item in invoice.Items)
+        {
             // Complemento próprio (spec 2026-10-14, D5): a regra do complemento valida o contrato depois de herdar o produto.
             if (item.ComplementedItemKey is null)
                 await PurchaseInvoiceLineGuard.EnsureContractIsCompatibleAsync(

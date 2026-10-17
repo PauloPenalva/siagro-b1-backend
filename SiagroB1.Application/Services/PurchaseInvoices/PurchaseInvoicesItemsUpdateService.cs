@@ -82,6 +82,8 @@ public class PurchaseInvoicesItemsUpdateService(
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey && x.Key != existing.Key).ToListAsync();
+        // A natureza decide se a linha exige ou recusa o contrato, sobre as linhas finais (spec 2026-10-17 §1).
+        await taxApply.EnsureUsageContractRuleAsync(invoice, [.. others, existing]);
         // Ordem da grade: a da carga, com a linha editada no lugar dela.
         var inGridOrder = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey).Select(x => x.Key).ToListAsync();

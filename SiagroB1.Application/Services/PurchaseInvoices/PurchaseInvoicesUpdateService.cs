@@ -117,6 +117,9 @@ public class PurchaseInvoicesUpdateService(
 
         await SyncItemsAsync(existing, entity);
 
+        // A natureza decide se a linha exige ou recusa o contrato, sobre a lista final (spec 2026-10-17 §1).
+        await taxApply.EnsureUsageContractRuleAsync(existing, existing.Items.ToList());
+
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(existing, existing.Items.ToList());
 
         // Spec 2026-10-13 D11 (o tipo é editável enquanto Pendente: a regra vale sobre a lista final).
