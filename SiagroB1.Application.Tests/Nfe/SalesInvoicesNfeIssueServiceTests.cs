@@ -416,6 +416,23 @@ public class SalesInvoicesNfeIssueServiceTests
     }
 
     [Fact]
+    public async Task First_issue_reserves_in_the_default_series()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation)
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        var invoice = await ReloadAsync(scenario);
+        Assert.Equal([1], reservation.ReservedSeries);
+        Assert.Equal("1", invoice.TaxDocumentSeries);
+        Assert.Equal("000000001", invoice.TaxDocumentNumber);
+    }
+
+    [Fact]
     public async Task Retry_after_the_series_changed_reserves_a_new_number()
     {
         var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
@@ -425,7 +442,7 @@ public class SalesInvoicesNfeIssueServiceTests
         var reservation = new FakeNfeNumberReservationService();
         var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
         await service.ExecuteAsync(scenario.InvoiceKey, "tester");
-        (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).Series = 2;
+        (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).DefaultSeries = 2;
         await scenario.Db.SaveChangesAsync();
 
         await service.ExecuteAsync(scenario.InvoiceKey, "tester");

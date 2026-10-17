@@ -29,7 +29,7 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
     {
         EnsureStandalone();
 
-        var settings = await db.Context.BranchNfeSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == branchCode);
+        var settings = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).FirstOrDefaultAsync(s => s.BranchCode == branchCode);
 
         return ToModel(settings ?? new BranchNfeSettings { BranchCode = branchCode });
     }
@@ -52,14 +52,24 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
 
         // Voltar a numeração com o mesmo ambiente e série reemitiria números já usados (rejeição
         // 539). Trocar a série ou o ambiente começa outra numeração e libera qualquer número.
-        if (settings.Environment == environment && settings.Series == series && nextNumber < settings.NextNumber)
+        var row = settings.SeriesList.FirstOrDefault(x => x.Series == series);
+
+        if (settings.Environment == environment && settings.DefaultSeries == series && row is not null && nextNumber < row.NextNumber)
             throw new DefaultException(
                 "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. " +
                 "Para recomeçar, troque a série ou o ambiente.");
 
         settings.Environment = environment;
-        settings.Series = series;
-        settings.NextNumber = nextNumber;
+        settings.DefaultSeries = series;
+
+        if (row is null)
+            settings.SeriesList.Add(new BranchNfeSeries
+            {
+                BranchCode = branchCode, Series = series, Description = "Padrão", NextNumber = nextNumber,
+            });
+        else
+            row.NextNumber = nextNumber;
+
         Stamp(settings, userName);
 
         await db.SaveChangesAsync();
@@ -125,7 +135,7 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
     {
         EnsureStandalone();
 
-        var settings = await db.Context.BranchNfeSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == branchCode)
+        var settings = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).FirstOrDefaultAsync(s => s.BranchCode == branchCode)
                        ?? throw new DefaultException($"A filial {branchCode} não tem a Configuração da NF-e.");
 
         if (settings.CertificatePfx is null || settings.CertificatePasswordCipher is null)
@@ -157,7 +167,7 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
 
     private async Task<BranchNfeSettings> LoadOrCreateAsync(string branchCode)
     {
-        var settings = await db.Context.BranchNfeSettings.FirstOrDefaultAsync(s => s.BranchCode == branchCode);
+        var settings = await db.Context.BranchNfeSettings.Include(s => s.SeriesList).FirstOrDefaultAsync(s => s.BranchCode == branchCode);
 
         if (settings is not null)
             return settings;
@@ -181,8 +191,8 @@ public class BranchNfeSettingsService(IUnitOfWork db, NfeOptions options, INfeSe
     {
         BranchCode = settings.BranchCode,
         Environment = settings.Environment,
-        Series = settings.Series,
-        NextNumber = settings.NextNumber,
+        Series = settings.DefaultSeries,
+        NextNumber = settings.SeriesList.FirstOrDefault(x => x.Series == settings.DefaultSeries)?.NextNumber ?? 1,
         HasCertificate = settings.CertificatePfx is not null,
         CertificateSubject = settings.CertificateSubject,
         CertificateTaxId = settings.CertificateTaxId,

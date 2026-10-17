@@ -60,10 +60,10 @@ public class BranchNfeSettingsServiceTests
         await service.SaveAsync("01", NfeEnvironment.Homologation, 1, 10, "tester");
         await service.SaveAsync("01", NfeEnvironment.Production, 2, 500, "tester");
 
-        var saved = await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync();
+        var saved = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).SingleAsync();
         Assert.Equal(NfeEnvironment.Production, saved.Environment);
-        Assert.Equal(2, saved.Series);
-        Assert.Equal(500, saved.NextNumber);
+        Assert.Equal(2, saved.DefaultSeries);
+        Assert.Equal(500, saved.SeriesList.Single(x => x.Series == 2).NextNumber);
         Assert.Equal("tester", saved.UpdatedBy);
     }
 
@@ -90,7 +90,7 @@ public class BranchNfeSettingsServiceTests
 
         Assert.True(model.HasCertificate);
         Assert.Equal("12345678000195", model.CertificateTaxId);
-        var saved = await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync();
+        var saved = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).SingleAsync();
         Assert.NotNull(saved.CertificatePfx);
         Assert.Equal(TestCertificates.Password, CertificatePasswordCipher.FromBase64(Key).Decrypt(saved.CertificatePasswordCipher!));
         Assert.DoesNotContain(typeof(Domain.Models.BranchNfeSettingsModel).GetProperties(), p => p.Name.Contains("Password") || p.Name.Contains("Pfx"));
@@ -222,7 +222,7 @@ public class BranchNfeSettingsServiceTests
         Assert.Equal(
             "O próximo número não pode voltar: a numeração já usada geraria rejeição 539. Para recomeçar, troque a série ou o ambiente.",
             ex.Message);
-        Assert.Equal(50, (await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync()).NextNumber);
+        Assert.Equal(50, (await db.Context.BranchNfeSeries.AsNoTracking().SingleAsync()).NextNumber);
     }
 
     [Fact]
@@ -236,8 +236,8 @@ public class BranchNfeSettingsServiceTests
         await service.SaveAsync("01", NfeEnvironment.Homologation, 2, 1, "tester");
         await service.SaveAsync("01", NfeEnvironment.Production, 2, 1, "tester");
 
-        var saved = await db.Context.BranchNfeSettings.AsNoTracking().SingleAsync();
+        var saved = await db.Context.BranchNfeSettings.AsNoTracking().Include(s => s.SeriesList).SingleAsync();
         Assert.Equal(NfeEnvironment.Production, saved.Environment);
-        Assert.Equal(1, saved.NextNumber);
+        Assert.Equal(1, saved.SeriesList.Single(x => x.Series == 2).NextNumber);
     }
 }

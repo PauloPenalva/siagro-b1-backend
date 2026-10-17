@@ -25,17 +25,17 @@ public class NfeNumberReservationService(IDbConnection connection, ICompanyConte
             Pooling = false,
         }.ConnectionString;
 
-    public virtual async Task<int> ReserveAsync(string branchCode)
+    public virtual async Task<int> ReserveAsync(string branchCode, int series)
     {
         const string sql = """
-            UPDATE BRANCH_NFE_SETTINGS WITH (UPDLOCK, HOLDLOCK)
+            UPDATE BRANCH_NFE_SERIES WITH (UPDLOCK, HOLDLOCK)
             SET NextNumber = NextNumber + 1
             OUTPUT deleted.NextNumber
-            WHERE BranchCode = @BranchCode;
+            WHERE BranchCode = @BranchCode AND Series = @Series;
             """;
 
-        return await connection.ExecuteScalarAsync<int?>(sql, new { BranchCode = branchCode })
-               ?? throw new DefaultException($"A filial {branchCode} não tem a Configuração da NF-e.");
+        return await connection.ExecuteScalarAsync<int?>(sql, new { BranchCode = branchCode, Series = series })
+               ?? throw new DefaultException($"A série {series} não está cadastrada na Configuração da NF-e da filial {branchCode}.");
     }
 
     /// <summary>
