@@ -25,6 +25,9 @@ internal static class UsageEffectWriter
     /// </summary>
     internal static void ValidateEffects(UsageModel model)
     {
+        if (!Enum.IsDefined(model.PurchasePurpose))
+            throw new DefaultException("Destinação da natureza inválida.");
+
         var hasEffect = model.ContractBalanceEffect != ContractBalanceEffect.None
                         || model.ContractValueEffect != ContractValueEffect.None;
 

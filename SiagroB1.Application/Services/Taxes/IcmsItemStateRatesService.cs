@@ -15,7 +15,7 @@ public class IcmsItemStateRatesService(IUnitOfWork db)
 
     public async Task<IcmsItemStateRate> CreateAsync(IcmsItemStateRate entity)
     {
-        Normalize(entity);
+        await NormalizeAsync(entity);
 
         if (entity.Key == Guid.Empty)
             entity.Key = Guid.NewGuid();
@@ -32,7 +32,7 @@ public class IcmsItemStateRatesService(IUnitOfWork db)
     /// <summary>A entidade chega rastreada (o controller a carrega e aplica o Delta).</summary>
     public async Task<IcmsItemStateRate> UpdateAsync(IcmsItemStateRate entity)
     {
-        Normalize(entity);
+        await NormalizeAsync(entity);
 
         if (await db.Context.IcmsItemStateRates.AnyAsync(r =>
                 r.Key != entity.Key && r.ItemCode == entity.ItemCode && r.StateCode == entity.StateCode))
@@ -56,7 +56,7 @@ public class IcmsItemStateRatesService(IUnitOfWork db)
         return true;
     }
 
-    private static void Normalize(IcmsItemStateRate entity)
+    private async Task NormalizeAsync(IcmsItemStateRate entity)
     {
         entity.ItemCode = (entity.ItemCode ?? string.Empty).Trim();
 
@@ -65,5 +65,17 @@ public class IcmsItemStateRatesService(IUnitOfWork db)
 
         entity.StateCode = IcmsRateValidation.NormalizeState(entity.StateCode);
         IcmsRateValidation.ValidateRates(entity.InternalRate, entity.FcpRate);
+
+        // FCP nulo herda o da UF no resolvedor: a soma que a calculadora enxerga usa o FCP efetivo.
+        if (entity.FcpRate is null)
+        {
+            var stateFcp = await db.Context.IcmsStateSettings.AsNoTracking()
+                .Where(s => s.StateCode == entity.StateCode)
+                .Select(s => (decimal?)s.FcpRate)
+                .FirstOrDefaultAsync();
+
+            if (stateFcp is not null)
+                IcmsRateValidation.ValidateRates(entity.InternalRate, stateFcp);
+        }
     }
 }

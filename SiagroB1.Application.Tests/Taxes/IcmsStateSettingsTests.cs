@@ -153,4 +153,54 @@ public class IcmsStateSettingsTests
         Assert.Equal(PisCofinsRegime.NonCumulative, read!.PisCofinsRegime);
         Assert.Equal(PisCofinsRegime.Cumulative, new Branch { BranchName = "X" }.PisCofinsRegime);
     }
+
+    [Fact]
+    public async Task Item_rate_is_validated_against_inherited_state_fcp()
+    {
+        var db = await SeedAsync();
+        var service = new IcmsItemStateRatesService(db);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.CreateAsync(new IcmsItemStateRate { ItemCode = "P9", StateCode = "SP", InternalRate = 99 }));
+        Assert.Equal("A soma da alíquota interna com o FCP deve ser menor que 100.", e.Message);
+
+        // Com FCP próprio informado, vale o do produto.
+        var ok = await service.CreateAsync(new IcmsItemStateRate { ItemCode = "P9", StateCode = "SP", InternalRate = 99, FcpRate = 0 });
+        Assert.Equal(99m, ok.InternalRate);
+    }
+
+    [Fact]
+    public async Task State_fcp_change_is_refused_when_an_inheriting_item_would_reach_100()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = new IcmsStateSettingsService(db);
+        await service.CreateAsync(new IcmsStateSetting { StateCode = "MG", InternalRate = 18, FcpRate = 0 });
+        db.Context.IcmsItemStateRates.Add(new IcmsItemStateRate
+            { Key = Guid.NewGuid(), ItemCode = "P7", StateCode = "MG", InternalRate = 99, FcpRate = null });
+        await db.Context.SaveChangesAsync();
+
+        var state = (await service.GetByIdAsync("MG"))!;
+        state.FcpRate = 2;
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => service.UpdateAsync(state));
+        Assert.Contains("P7", e.Message);
+    }
+
+    [Fact]
+    public async Task Invalid_enums_are_refused()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var branch = new BranchService(db.Context, TaxTestServices.Config("STANDALONE"));
+        var be = await Assert.ThrowsAsync<DefaultException>(() => branch.CreateAsync(new Branch
+            { Code = "02", BranchName = "X", ShortName = "X", TaxId = "68583898000101", PisCofinsRegime = (PisCofinsRegime)9 }));
+        Assert.Equal("Regime de PIS/COFINS inválido.", be.Message);
+
+        var usage = new UsageService(db, NullLogger<UsageService>.Instance);
+        var ue = await Assert.ThrowsAsync<DefaultException>(() => usage.CreateAsync(new UsageModel
+        {
+            Name = "N", Direction = UsageDirection.Incoming, CfopIncomingInState = "1102", CfopIncomingOutState = "2102",
+            PisCst = "98", CofinsCst = "98", RequiresQuantity = true, PurchasePurpose = (PurchasePurpose)9,
+        }));
+        Assert.Equal("Destinação da natureza inválida.", ue.Message);
+    }
 }

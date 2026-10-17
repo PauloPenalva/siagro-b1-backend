@@ -21,6 +21,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
             throw new DefaultException($"Branch {entity.Code} already exists.");
         }
 
+        ValidatePisCofinsRegime(entity);
         ValidateNfeIssuance(entity);
         await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
@@ -60,6 +61,7 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
 
     public async Task<Branch?> UpdateAsync(string key, Branch entity)
     {
+        ValidatePisCofinsRegime(entity);
         ValidateNfeIssuance(entity);
         await ValidateThirdPartyReturnUsageAsync(entity);
         await ValidateIssuerFieldsAsync(entity);
@@ -90,6 +92,12 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     /// enquanto a chave está ligada (não só na virada), para ninguém apagar o CRT depois.
     /// Só em STANDALONE: em SAPB1 a chave nem aparece na tela.
     /// </summary>
+    private static void ValidatePisCofinsRegime(Branch entity)
+    {
+        if (!Enum.IsDefined(entity.PisCofinsRegime))
+            throw new DefaultException("Regime de PIS/COFINS inválido.");
+    }
+
     private void ValidateNfeIssuance(Branch entity)
     {
         if (!entity.IssuesNfe || !ErpMode.IsStandalone(configuration))
