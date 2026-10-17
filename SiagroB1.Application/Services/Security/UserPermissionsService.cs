@@ -23,12 +23,15 @@ public class UserPermissionsService(CommonDbContext db, ICompanyContext companyC
 
     public async Task<List<string>> GetAsync(string username)
     {
+        // Administrador: os perfis dele valem em todas as empresas.
+        var isAdmin = await IsAdminAsync(username);
+
         var query =
             from u in db.Users
             join up in db.UserProfiles on u.Id equals up.UserId
             join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
             join rp in db.RolesPermissions on pr.RoleCode equals rp.RoleCode
-            where u.Username == username && u.IsActive && up.CompanyCode == companyContext.CompanyCode
+            where u.Username == username && u.IsActive && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
             select rp.PermissionCode;
 
         return await query.Distinct().ToListAsync();
@@ -42,11 +45,13 @@ public class UserPermissionsService(CommonDbContext db, ICompanyContext companyC
     /// <summary>Papel atribuído via perfil, sem o bypass de <c>IsAdmin</c> — para checar o papel em si.</summary>
     public async Task<bool> HasRoleAsync(string username, string roleCode)
     {
+        var isAdmin = await IsAdminAsync(username);
+
         var query =
             from u in db.Users
             join up in db.UserProfiles on u.Id equals up.UserId
             join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
-            where u.Username == username && u.IsActive && pr.RoleCode == roleCode && up.CompanyCode == companyContext.CompanyCode
+            where u.Username == username && u.IsActive && pr.RoleCode == roleCode && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
             select pr;
 
         return await query.AnyAsync();

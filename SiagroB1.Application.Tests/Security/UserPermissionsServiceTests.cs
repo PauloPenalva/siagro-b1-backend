@@ -159,4 +159,16 @@ public class UserPermissionsServiceTests
         Assert.Equal(["OTHER_COMPANY_ONLY"], await inCompany2.GetAsync("joao"));
         Assert.True(await inCompany2.HasRoleAsync("joao", "SUPERVISOR"));
     }
+
+    [Fact]
+    public async Task An_admin_keeps_profile_roles_from_other_companies()
+    {
+        using var db = CreateDb();
+        GrantPermission(db, "admin", "WEIGHING_MANUAL_ENTRY", isAdmin: true);   // perfil na 0001
+
+        var service = new UserPermissionsService(db, new FakeCompanyContext("0002"));
+
+        Assert.True(await service.HasRoleAsync("admin", "OPERADOR"));
+        Assert.Contains("WEIGHING_MANUAL_ENTRY", await service.GetAsync("admin"));
+    }
 }

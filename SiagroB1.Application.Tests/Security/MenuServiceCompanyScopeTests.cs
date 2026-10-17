@@ -42,4 +42,17 @@ public class MenuServiceCompanyScopeTests
 
         Assert.Equal(expectedRoot, Assert.Single(menu.Navigation).Key);
     }
+
+    [Fact]
+    public async Task Admin_sees_the_menu_of_all_their_profiles_regardless_of_session_company()
+    {
+        var db = await SeedAsync();
+        db.Users.Add(new User { Id = UserId, Username = "admin", FullName = "admin", IsAdmin = true });
+        await db.SaveChangesAsync();
+
+        var menu = await new MenuService(db, TaxTestServices.Config("STANDALONE"), new FakeCompanyContext("0002"))
+            .GetMenuAsync(UserId);
+
+        Assert.Contains(menu.Navigation, n => n.Key == "purchases");
+    }
 }

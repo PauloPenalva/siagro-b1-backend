@@ -164,4 +164,16 @@ public class AuthServiceCompanyTests
         Assert.Equal("0002", info!.CompanyCode);
         Assert.Equal("LM CEREAIS", info.CompanyName);
     }
+
+    [Fact]
+    public async Task Admin_gets_roles_and_permissions_from_profiles_of_other_companies()
+    {
+        SeedUser("admin", isAdmin: true, profileCompanies: ["0001"]);
+
+        var result = await CreateService(A, B).LoginAsync("admin", "senha", "0002");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("OPERADOR", result.User!.Roles);
+        Assert.Contains("WEIGHING_MANUAL_ENTRY", result.User.Permissions);
+    }
 }

@@ -141,8 +141,8 @@ public class AuthService(
                 var loggedUser = ToUserInfo(user);
                 loggedUser.CompanyCode = company.Code;
                 loggedUser.CompanyName = company.CompanyName;
-                loggedUser.Permissions = await GetPermissionsAsync(user.Id);
-                loggedUser.Roles = await GetRolesAsync(user.Id);
+                loggedUser.Permissions = await GetPermissionsAsync(user.Id, user.IsAdmin);
+                loggedUser.Roles = await GetRolesAsync(user.Id, user.IsAdmin);
 
                 return new LoginResponse()
                 {
@@ -257,8 +257,8 @@ public class AuthService(
 
             if (info != null)
             {
-                info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id));
-                info.Roles = await GetRolesAsync(Guid.Parse(info.Id));
+                info.Permissions = await GetPermissionsAsync(Guid.Parse(info.Id), info.IsAdmin);
+                info.Roles = await GetRolesAsync(Guid.Parse(info.Id), info.IsAdmin);
                 info.CompanyCode = companyContext.Current?.Code;
                 info.CompanyName = companyContext.Current?.CompanyName;
             }
@@ -266,26 +266,26 @@ public class AuthService(
             return info;
         }
 
-        /// <summary>Papéis efetivos: usuário -> perfis -> papéis.</summary>
-        private async Task<List<string>> GetRolesAsync(Guid userId)
+        /// <summary>Papéis efetivos: usuário -> perfis -> papéis. Administrador: perfis de qualquer empresa.</summary>
+        private async Task<List<string>> GetRolesAsync(Guid userId, bool isAdmin)
         {
             var query =
                 from up in db.UserProfiles
                 join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
-                where up.UserId == userId && up.CompanyCode == companyContext.CompanyCode
+                where up.UserId == userId && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
                 select pr.RoleCode;
 
             return await query.Distinct().ToListAsync();
         }
 
         /// <summary>Permissões efetivas: usuário -> perfis -> papéis -> permissões.</summary>
-        private async Task<List<string>> GetPermissionsAsync(Guid userId)
+        private async Task<List<string>> GetPermissionsAsync(Guid userId, bool isAdmin)
         {
             var query =
                 from up in db.UserProfiles
                 join pr in db.ProfileRoles on up.ProfileCode equals pr.ProfileCode
                 join rp in db.RolesPermissions on pr.RoleCode equals rp.RoleCode
-                where up.UserId == userId && up.CompanyCode == companyContext.CompanyCode
+                where up.UserId == userId && (isAdmin || up.CompanyCode == companyContext.CompanyCode)
                 select rp.PermissionCode;
 
             return await query.Distinct().ToListAsync();
