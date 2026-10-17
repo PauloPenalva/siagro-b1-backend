@@ -19,13 +19,13 @@ public class FinancialDocumentsOtherPurchaseUndoTests
         return (f, invoice);
     }
 
-    private static async Task SettleFirstInstallmentAsync(Fixture f, PurchaseInvoice invoice)
+    private static async Task<FinancialSettlement> SettleFirstInstallmentAsync(Fixture f, PurchaseInvoice invoice)
     {
         f.Db.Context.FinancialAccounts.Add(new FinancialAccount
             { Code = "CX01", Name = "Caixa", Type = FinancialAccountType.Cash, Currency = CurrencyType.Brl });
         await f.Db.Context.SaveChangesAsync();
         var first = (await f.TitlesAsync(invoice)).First(d => d.Nature == FinancialDocumentNature.Firm);
-        await new FinancialDocumentsSettleService(f.Db)
+        return await new FinancialDocumentsSettleService(f.Db)
             .ExecuteAsync(first.Key, "CX01", 100m, DateTime.Today, 0m, 0m, 0m, null, null, "ana");
     }
 
@@ -128,5 +128,46 @@ public class FinancialDocumentsOtherPurchaseUndoTests
         await f.Db.SaveChangesAsync();
 
         Assert.Empty(await f.TitlesAsync(invoice));
+    }
+
+    [Fact]
+    public async Task Manual_cancel_of_other_purchase_title_is_refused()
+    {
+        var (f, invoice) = await ConfirmedAsync();
+        foreach (var title in await f.TitlesAsync(invoice))
+        {
+            var error = await Assert.ThrowsAsync<ApplicationException>(() =>
+                new FinancialDocumentsCancelService(f.Db).ExecuteAsync(title.Key, "teste", "ana"));
+            Assert.Equal(
+                "Título da outra compra nasce da confirmação do documento de entrada: estorne a confirmação ou cancele o documento para cancelá-lo.",
+                error.Message);
+        }
+    }
+
+    [Fact]
+    public async Task Reverse_confirm_after_settlement_reversal_is_allowed()
+    {
+        var (f, invoice) = await ConfirmedAsync();
+        var settlement = await SettleFirstInstallmentAsync(f, invoice);
+        await new FinancialDocumentsReverseSettlementService(f.Db).ExecuteAsync(settlement.Key, "errado", "ana");
+
+        await FinancialDocumentTestServices.PurchaseReverse(f.Db).ExecuteAsync(invoice.Key, "bia");
+
+        Assert.All(await f.TitlesAsync(invoice), d => Assert.Equal(FinancialDocumentStatus.Canceled, d.Status));
+    }
+
+    [Fact]
+    public async Task Undo_does_not_touch_other_invoice_titles()
+    {
+        var (f, invoice) = await ConfirmedAsync();
+        var other = await f.CreateInvoiceAsync(condition: await f.AddConditionAsync("30"));
+        await f.ConfirmAsync(other);
+
+        await FinancialDocumentTestServices.PurchaseReverse(f.Db).ExecuteAsync(invoice.Key, "bia");
+
+        Assert.All(await f.TitlesAsync(invoice), d => Assert.Equal(FinancialDocumentStatus.Canceled, d.Status));
+        var otherTitles = await f.TitlesAsync(other);
+        Assert.NotEmpty(otherTitles);
+        Assert.All(otherTitles, d => Assert.NotEqual(FinancialDocumentStatus.Canceled, d.Status));
     }
 }

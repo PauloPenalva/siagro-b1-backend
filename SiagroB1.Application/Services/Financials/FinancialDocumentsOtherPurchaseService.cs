@@ -94,16 +94,15 @@ public class FinancialDocumentsOtherPurchaseService(
             d.Status != FinancialDocumentStatus.Canceled);
 
     /// <summary>
-    /// Ensaio do desfazer: recusa se algum título ativo da origem já tem movimento. Movimento = baixa (SettledAmount, que
-    /// já soma dação e encontro de contas, ambos gravados no ledger de baixas) ou composição (ComposedAmount — não se aplica
-    /// à origem 9, que não é firme de contrato, mas custa uma comparação e protege de uma composição manual futura).
+    /// Ensaio do desfazer: recusa se algum título ativo da origem já tem baixa (SettledAmount, que já soma dação e
+    /// encontro de contas, ambos gravados no ledger de baixas). Composição não se aplica: a origem 9 não é firme de contrato.
     /// Nada é alterado. Sem títulos desta origem (grão, SAPB1, documento sem financeiro) não faz nada.
     /// </summary>
     public async Task EnsureCanUndoAsync(Guid invoiceKey)
     {
         var titles = await ActiveTitlesOf(invoiceKey).AsNoTracking().OrderBy(d => d.Code).ToListAsync();
         foreach (var title in titles)
-            if (title.SettledAmount > 0m || title.ComposedAmount != 0m)
+            if (title.SettledAmount > 0m)
                 throw new DefaultException(
                     $"O título {title.Code} já tem baixa: estorne a baixa no Financeiro antes de desfazer o documento.");
     }
@@ -116,9 +115,11 @@ public class FinancialDocumentsOtherPurchaseService(
     /// </summary>
     public void EnqueueUndo(Guid invoiceKey, string userName)
     {
-        var titles = ActiveTitlesOf(invoiceKey).ToList().Where(d => d.Status != FinancialDocumentStatus.Canceled).ToList();
+        var titles = ActiveTitlesOf(invoiceKey).ToList()
+            // Reconfere em memória: o mesmo SaveChanges pode já ter cancelado o título no tracker (consulta traz o valor do banco).
+            .Where(d => d.Status != FinancialDocumentStatus.Canceled).ToList();
         foreach (var title in titles)
-            if (title.SettledAmount > 0m || title.ComposedAmount != 0m)
+            if (title.SettledAmount > 0m)
                 throw new DefaultException(
                     $"O título {title.Code} já tem baixa: estorne a baixa no Financeiro antes de desfazer o documento.");
 
