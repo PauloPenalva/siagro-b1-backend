@@ -101,6 +101,8 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
             problems.Add("Certificado digital não enviado (Configuração da NF-e)");
         else if (settings.CertificateValidUntil < DateTime.Now)
             problems.Add($"Certificado digital vencido em {settings.CertificateValidUntil:dd/MM/yyyy}");
+        else if (settings.SeriesList.Count == 0)
+            problems.Add("Nenhuma série cadastrada (Configuração da NF-e)");
 
         if (!options.HasCertificateKey)
             problems.Add("Chave Nfe:CertificateKey não configurada no servidor");

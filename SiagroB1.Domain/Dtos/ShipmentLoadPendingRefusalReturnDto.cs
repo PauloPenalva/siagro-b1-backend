@@ -27,6 +27,10 @@ public class ShipmentLoadPendingRefusalReturnDto
     [JsonPropertyName("Reason")]
     public string Reason { get; set; } = "";
 
+    /// <summary>Filial do documento de saída da devolução: a tela lista as séries dela ao emitir.</summary>
+    [JsonPropertyName("BranchCode")]
+    public string? BranchCode { get; set; }
+
     [JsonPropertyName("SalesInvoiceKey")]
     public string SalesInvoiceKey { get; set; } = "";
 

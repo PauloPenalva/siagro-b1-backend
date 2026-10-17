@@ -105,6 +105,7 @@ public static class ODataConfigurations
 
         var salesInvoicesIssueNfe = modelBuilder.Action("SalesInvoicesIssueNfe");
         salesInvoicesIssueNfe.Parameter<Guid>("Key");
+        salesInvoicesIssueNfe.Parameter<int>("Series");
         salesInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
 
         var salesInvoicesConsultNfe = modelBuilder.Action("SalesInvoicesConsultNfe");
@@ -118,6 +119,7 @@ public static class ODataConfigurations
         // NF-e de entrada própria (spec 2026-10-05).
         var purchaseInvoicesIssueNfe = modelBuilder.Action("PurchaseInvoicesIssueNfe");
         purchaseInvoicesIssueNfe.Parameter<Guid>("Key");
+        purchaseInvoicesIssueNfe.Parameter<int>("Series");
         purchaseInvoicesIssueNfe.Returns<NfeIssueOutcomeDto>();
 
         var purchaseInvoicesConsultNfe = modelBuilder.Action("PurchaseInvoicesConsultNfe");

@@ -6,6 +6,7 @@ using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
@@ -433,6 +434,68 @@ public class SalesInvoicesNfeIssueServiceTests
     }
 
     [Fact]
+    public async Task Issue_with_chosen_series_reserves_and_stamps_it()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+
+        await Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation)
+            .ExecuteAsync(scenario.InvoiceKey, "tester", 300);
+
+        Assert.Equal([300], reservation.ReservedSeries);
+        Assert.Equal("300", (await ReloadAsync(scenario)).TaxDocumentSeries);
+    }
+
+    [Fact]
+    public async Task Issue_refuses_a_series_not_registered_for_the_branch()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var reservation = new FakeNfeNumberReservationService();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, new FakeNfeSefazClient(), new RecordingConfirmService(scenario.Db), reservation: reservation)
+                .ExecuteAsync(scenario.InvoiceKey, "tester", 55));
+
+        Assert.Equal("A série 55 não está cadastrada na Configuração da NF-e da filial 01.", ex.Message);
+        Assert.Equal(0, reservation.Calls);
+    }
+
+    [Fact]
+    public async Task Retry_with_same_series_reuses_the_number()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(_ => FakeNfeSefazClient.Rejected());
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+        var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
+
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester", 300);
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester", 300);
+
+        Assert.Equal(1, reservation.Calls);
+    }
+
+    [Fact]
+    public async Task Retry_with_another_series_reserves_again_in_the_chosen_series()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(_ => FakeNfeSefazClient.Rejected());
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+        var reservation = new FakeNfeNumberReservationService();
+        var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
+
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester", 1);
+        await service.ExecuteAsync(scenario.InvoiceKey, "tester", 300);
+
+        Assert.Equal([1, 300], reservation.ReservedSeries);
+        Assert.Equal("300", (await ReloadAsync(scenario)).TaxDocumentSeries);
+    }
+
+    [Fact]
     public async Task Retry_after_the_series_changed_reserves_a_new_number()
     {
         var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
@@ -442,6 +505,8 @@ public class SalesInvoicesNfeIssueServiceTests
         var reservation = new FakeNfeNumberReservationService();
         var service = Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db), reservation: reservation);
         await service.ExecuteAsync(scenario.InvoiceKey, "tester");
+        // A série 2 precisa existir no cadastro da filial: a emissão recusa série não cadastrada.
+        scenario.Db.Context.BranchNfeSeries.Add(new BranchNfeSeries { BranchCode = "01", Series = 2, Description = "Segunda", NextNumber = 1 });
         (await scenario.Db.Context.BranchNfeSettings.SingleAsync()).DefaultSeries = 2;
         await scenario.Db.SaveChangesAsync();
 

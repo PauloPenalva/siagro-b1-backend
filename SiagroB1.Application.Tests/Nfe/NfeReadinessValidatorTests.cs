@@ -54,6 +54,18 @@ public class NfeReadinessValidatorTests
     }
 
     [Fact]
+    public async Task Readiness_reports_missing_series()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        scenario.Db.Context.BranchNfeSeries.RemoveRange(await scenario.Db.Context.BranchNfeSeries.ToListAsync());
+        await scenario.Db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ValidateAsync(scenario));
+
+        Assert.Contains("Nenhuma série cadastrada (Configuração da NF-e)", ex.Message);
+    }
+
+    [Fact]
     public async Task Expired_certificate_is_reported()
     {
         var scenario = await NfeTestSeed.SeedAsync();

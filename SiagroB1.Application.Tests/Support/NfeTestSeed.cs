@@ -63,7 +63,11 @@ public static class NfeTestSeed
         context.BranchNfeSettings.Add(new BranchNfeSettings
         {
             BranchCode = "01", Environment = NfeEnvironment.Homologation, DefaultSeries = 1,
-            SeriesList = [new BranchNfeSeries { BranchCode = "01", Series = 1, Description = "Padrão", NextNumber = 1 }],
+            SeriesList =
+            [
+                new BranchNfeSeries { BranchCode = "01", Series = 1, Description = "Padrão", NextNumber = 1 },
+                new BranchNfeSeries { BranchCode = "01", Series = 300, Description = "Produtor", NextNumber = 1 },
+            ],
             CertificatePfx = TestCertificates.CreatePfx("12345678000195"),
             CertificatePasswordCipher = CertificatePasswordCipher.FromBase64(CertificateKey).Encrypt(TestCertificates.Password),
             CertificateSubject = "CN=CEAGUI CEREAIS LTDA:12345678000195", CertificateTaxId = "12345678000195",
