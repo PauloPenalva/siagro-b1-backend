@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
@@ -64,6 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseInvoiceNfeXml> PurchaseInvoiceNfeXmls { get; set; }
     public DbSet<SalesInvoiceNfeCorrection> SalesInvoiceNfeCorrections { get; set; }
     public DbSet<PurchaseInvoiceNfeCorrection> PurchaseInvoiceNfeCorrections { get; set; }
+    public DbSet<PurchaseInvoiceTransportedDocument> PurchaseInvoiceTransportedDocuments { get; set; }
     public DbSet<SalesInvoiceChangeLog> SalesInvoicesChangeLogs { get; set; }
     public DbSet<SalesInvoiceComment> SalesInvoicesComments { get; set; }
     public DbSet<PurchaseInvoice> PurchaseInvoices { get; set; }
@@ -214,6 +215,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.SalesInvoice)
             .WithMany(x => x.NfeCorrections)
             .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // CT-e de frete: documentos transportados somem com o CT-e (Cascade); os vínculos com a NF de venda e com a
+        // entrada transportada são Restrict, como as demais auto-relações, e opcionais (a chave pode não existir no sistema).
+        modelBuilder.Entity<PurchaseInvoiceTransportedDocument>()
+            .HasIndex(x => new { x.PurchaseInvoiceKey, x.AccessKey })
+            .IsUnique();
+        modelBuilder.Entity<PurchaseInvoiceTransportedDocument>()
+            .HasOne(x => x.PurchaseInvoice)
+            .WithMany(x => x.TransportedDocuments)
+            .HasForeignKey(x => x.PurchaseInvoiceKey)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<PurchaseInvoiceTransportedDocument>()
+            .HasOne(x => x.SalesInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.SalesInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<PurchaseInvoiceTransportedDocument>()
+            .HasOne(x => x.TransportedPurchaseInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.TransportedPurchaseInvoiceKey)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<PurchaseInvoiceNfeCorrection>()

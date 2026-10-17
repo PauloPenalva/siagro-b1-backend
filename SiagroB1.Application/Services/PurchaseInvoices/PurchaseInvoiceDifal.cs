@@ -39,7 +39,8 @@ internal static class PurchaseInvoiceDifal
         if (!standalone
             || invoice.InvoiceType != PurchaseInvoiceType.Normal
             || invoice.IssuerType != DocumentIssuerType.ThirdParty
-            || invoice.IsNfeReturn)
+            || invoice.IsNfeReturn
+            || PurchaseInvoiceCteRules.IsCte(invoice))
             return none;
 
         var branch = await ctx.Branchs.AsNoTracking().Where(b => b.Code == invoice.BranchCode)

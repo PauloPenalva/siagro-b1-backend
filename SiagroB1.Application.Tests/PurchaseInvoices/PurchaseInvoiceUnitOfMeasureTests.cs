@@ -19,7 +19,8 @@ public class PurchaseInvoiceUnitOfMeasureTests
 
     private static FakeItemService Catalog() => new(names: new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" });
 
-    private static FakeBusinessPartnerService Partners() => new(names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR" });
+    private static FakeBusinessPartnerService Partners() => new(names: new Dictionary<string, string> { ["F0001"] = "PRODUTOR" },
+            taxIds: new Dictionary<string, string> { ["F0001"] = "52998224725" });
 
     private static PurchaseInvoice Invoice(string? unit, PurchaseInvoiceType type = PurchaseInvoiceType.Normal)
     {
@@ -79,6 +80,27 @@ public class PurchaseInvoiceUnitOfMeasureTests
         var e = await Record.ExceptionAsync(() => Create(db).ExecuteAsync(invoice, "tester"));
 
         Assert.DoesNotContain("unidade de medida", e?.Message ?? "");
+    }
+
+    [Fact]
+    public async Task Create_does_not_require_unit_on_a_cte_line()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.Branchs.Add(new Branch { Code = "01", BranchName = "MATRIZ", ShortName = "MATRIZ", TaxId = "12345678000195" });
+        await db.Context.SaveChangesAsync();
+        var invoice = Invoice(null);
+        invoice.BranchCode = "01";
+        invoice.TaxDocumentKind = TaxDocumentKind.Cte;
+        // O CT-e vale pela chave em toda filial: chave válida do fornecedor F0001 (CPF 52998224725).
+        var first43 = "3526" + "08" + "00052998224725" + "57" + "001" + "000000123" + "1" + "00000001";
+        invoice.ChaveNFe = first43 + SupplierNfeKeyGuard.CheckDigit(first43);
+        invoice.FreightStartState = "SP";
+        invoice.FreightEndState = "PR";
+        invoice.FreightPayerTaxId = "12345678000195";
+
+        await Create(db).ExecuteAsync(invoice, "tester");
+
+        Assert.Single(await db.Context.PurchaseInvoices.ToListAsync());
     }
 
     [Fact]

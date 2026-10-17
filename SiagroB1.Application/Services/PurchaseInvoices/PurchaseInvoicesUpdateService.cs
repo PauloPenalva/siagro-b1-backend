@@ -41,6 +41,10 @@ public class PurchaseInvoicesUpdateService(
         // Capturado ANTES da cópia do corpo: é com isto que se sabe se a autorização da SEFAZ ficou velha.
         var storedAuthorizationScope = (Key: NormalizeKey(existing.ChaveNFe), existing.TaxDocumentKind, existing.IssuerType);
 
+        // O Own vira NF-e logo abaixo, e o CT-e sumiria em silêncio: recusa antes (spec 2026-10-17).
+        if (entity.IssuerType == DocumentIssuerType.Own && PurchaseInvoiceCteRules.IsCte(entity))
+            throw new DefaultException(PurchaseInvoiceCteRules.OwnIssuerMessage);
+
         existing.InvoiceType = entity.InvoiceType;
         existing.IssuerType = entity.IssuerType;
         existing.TaxDocumentKind = existing.IssuerType == DocumentIssuerType.Own ? TaxDocumentKind.Nfe : entity.TaxDocumentKind;
@@ -89,8 +93,26 @@ public class PurchaseInvoicesUpdateService(
         existing.WithheldPis = entity.WithheldPis;
         existing.WithheldCofins = entity.WithheldCofins;
         existing.WithheldCsll = entity.WithheldCsll;
+        existing.FreightStartState = entity.FreightStartState;
+        existing.FreightEndState = entity.FreightEndState;
+        existing.FreightStartCity = entity.FreightStartCity;
+        existing.FreightEndCity = entity.FreightEndCity;
+        existing.FreightPayerTaxId = entity.FreightPayerTaxId;
+        existing.CteIcmsCst = entity.CteIcmsCst;
+        existing.CteIcmsValue = entity.CteIcmsValue;
         existing.PurchaseInvoiceOriginKey = entity.PurchaseInvoiceOriginKey;
         existing.CustodyStorageTransactionKey = entity.CustodyStorageTransactionKey;
+
+        // Sair de CT-e: os vínculos com NF-e transportadas só fazem sentido no CT-e, e o ICMS do CT-e também.
+        if (storedAuthorizationScope.TaxDocumentKind == TaxDocumentKind.Cte && existing.TaxDocumentKind != TaxDocumentKind.Cte)
+        {
+            if (await db.Context.PurchaseInvoiceTransportedDocuments.AnyAsync(x => x.PurchaseInvoiceKey == existing.Key))
+                throw new DefaultException("Remova os vínculos de NF-e Referenciada(s) antes de mudar o tipo do documento.");
+
+            existing.CteIcmsCst = null;
+            existing.CteIcmsValue = null;
+        }
+
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
 
@@ -109,8 +131,10 @@ public class PurchaseInvoicesUpdateService(
             throw new DefaultException(
                 "Na filial que emite NF-e pelo Siagro, a devolução de compra é feita pelo botão Devolver, no detalhe do documento de entrada.");
 
+        // O CT-e vale pela chave em qualquer filial, com ou sem a regra fiscal ativa (a NF-e segue a regra da filial).
         // Documento eletrônico de terceiro: chave coerente com o fornecedor, número e série (spec terceiro-chave §7).
-        if (SupplierNfeKeyGuard.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))
+        if (SupplierNfeKeyGuard.AppliesTo(existing) &&
+            (existing.TaxDocumentKind == TaxDocumentKind.Cte || await taxApply.IsBranchActiveAsync(existing.BranchCode)))
             SupplierNfeKeyGuard.Ensure(existing, (await businessPartnerService.GetByIdAsync(existing.CardCode))?.TaxId);
 
         // A consulta à SEFAZ vale para a chave, o tipo e o emitente de quando foi feita (spec terceiro-chave §8): se
@@ -136,6 +160,10 @@ public class PurchaseInvoicesUpdateService(
         // Retorno de depósito sobre a lista final de linhas (mantidas/alteradas + novas), sem as removidas (spec 2026-10-10 §3.3).
         await StorageDepositReturnGuard.EnsureAsync(db.Context, existing.CardCode, existing.Key, existing.Items.ToList());
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, existing, existing.Items.ToList());
+
+        // CT-e (spec 2026-10-17): documento de terceiro Normal, uma linha, UFs e tomador coerentes com a filial.
+        if (PurchaseInvoiceCteRules.IsCte(existing))
+            await PurchaseInvoiceCteRules.EnsureAsync(db.Context, existing, existing.Items.ToList());
 
         // Só na filial que emite NF-e pelo Siagro (regra ativa); fora dela o documento grava como veio.
         if (await taxApply.IsBranchActiveAsync(existing.BranchCode))

@@ -12,9 +12,10 @@ namespace SiagroB1.Application.Services.Taxes;
 
 /// <param name="OriginState">UF de onde a mercadoria sai (filial na venda e na devolução de venda; fornecedor na compra e na devolução de compra).</param>
 /// <param name="IncomingCfop">Lê os CFOPs de entrada da natureza (1xxx/2xxx) em vez dos de saída.</param>
+/// <param name="CfopInState">Quando informado, decide só o CFOP (dentro/fora do estado); o restante do cálculo segue <c>InState</c>. Usado pelo CT-e, cujo CFOP depende da UF de início e a tributação, das duas UFs da prestação.</param>
 public sealed record TaxLineRequest(
     UsageModel Usage, string? ItemCode, decimal Amount, bool InState, string OriginState, string DestinationState,
-    TaxRegime Regime, DateOnly RateDate, bool IncomingCfop);
+    TaxRegime Regime, DateOnly RateDate, bool IncomingCfop, bool? CfopInState = null);
 
 public sealed record TaxLineResult(string Cfop, Item Product, TaxCalculationResult Taxes);
 
@@ -28,7 +29,7 @@ public class TaxLineCalculator(IUnitOfWork db, IbsCbsRatesService ibsCbsRatesSer
     public async Task<TaxLineResult> CalculateAsync(TaxLineRequest request)
     {
         var product = await LoadProductAsync(request.ItemCode);
-        var cfop = ResolveCfop(request.Usage, request.InState, request.IncomingCfop);
+        var cfop = ResolveCfop(request.Usage, request.CfopInState ?? request.InState, request.IncomingCfop);
         var icms = ResolveIcmsRule(request.Usage, request.InState, request.Regime);
         var pisCofins = ResolvePisCofinsRule(request.Usage);
         var (ibsCbs, rates) = await ResolveIbsCbsAsync(request.Usage, request.RateDate);

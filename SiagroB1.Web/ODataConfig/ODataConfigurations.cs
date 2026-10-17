@@ -180,6 +180,18 @@ public static class ODataConfigurations
         purchaseInvoicesCreateCounterNote.Parameter<Guid>("Key");
         purchaseInvoicesCreateCounterNote.Returns<Guid>();
 
+        // Vínculo do CT-e com as NF-e transportadas (spec 2026-10-17). AccessKey anulável: o serviço recusa com mensagem.
+        var purchaseInvoicesTransportedDocumentAdd = modelBuilder.Action("PurchaseInvoicesTransportedDocumentAdd");
+        purchaseInvoicesTransportedDocumentAdd.Parameter<Guid>("Key");
+        purchaseInvoicesTransportedDocumentAdd.Parameter<string>("AccessKey").Nullable = true;
+        purchaseInvoicesTransportedDocumentAdd.Returns<Guid>();
+
+        var purchaseInvoicesTransportedDocumentRemove = modelBuilder.Action("PurchaseInvoicesTransportedDocumentRemove");
+        purchaseInvoicesTransportedDocumentRemove.Parameter<Guid>("Key");
+
+        var purchaseInvoicesTransportedDocumentsRelink = modelBuilder.Action("PurchaseInvoicesTransportedDocumentsRelink");
+        purchaseInvoicesTransportedDocumentsRelink.Parameter<Guid>("Key");
+
         // Remessa para depósito em armazém de terceiro (spec 2026-10-10). UnitPrice é double: Edm.Decimal chega como
         // string e o OData recusa.
         var shipmentReleasesCreateStorageRemittance = modelBuilder.Action("ShipmentReleasesCreateStorageRemittance");
@@ -393,6 +405,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<PurchaseInvoice>("PurchaseInvoices");
         modelBuilder.EntitySet<PurchaseInvoiceItem>("PurchaseInvoicesItems");
         modelBuilder.EntitySet<PurchaseInvoiceComment>("PurchaseInvoicesComments");
+        modelBuilder.EntitySet<PurchaseInvoiceTransportedDocument>("PurchaseInvoiceTransportedDocuments");
         modelBuilder.EntitySet<PurchaseInvoiceChangeLog>("PurchaseInvoicesChangeLogs");
         modelBuilder.EntitySet<PurchaseInvoiceNfeCorrection>("PurchaseInvoicesNfeCorrections");
         modelBuilder.EntityType<PurchaseInvoiceNfeCorrection>().Ignore(x => x.ProcEventXml);

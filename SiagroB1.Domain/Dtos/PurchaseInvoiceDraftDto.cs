@@ -33,6 +33,40 @@ public class PurchaseInvoiceDraftDto
     /// <summary>NF-e de complemento (finNFe 2) vira o documento do tipo Complemento de valor (D11); as demais, Normal.</summary>
     public PurchaseInvoiceType InvoiceType { get; set; } = PurchaseInvoiceType.Normal;
 
+    /// <summary>NF-e (padrão) ou CT-e: o frontend decide por ele quais campos mostrar.</summary>
+    public TaxDocumentKind TaxDocumentKind { get; set; } = TaxDocumentKind.Nfe;
+
+    /// <summary>CT-e: filial cujo CNPJ é o do tomador do serviço.</summary>
+    public string? BranchCode { get; set; }
+
+    /// <summary>CT-e: UF de início da prestação.</summary>
+    public string? FreightStartState { get; set; }
+
+    /// <summary>CT-e: UF de término da prestação.</summary>
+    public string? FreightEndState { get; set; }
+
+    public string? FreightStartCity { get; set; }
+
+    public string? FreightEndCity { get; set; }
+
+    /// <summary>CT-e: CNPJ/CPF do tomador, só dígitos como veio no XML.</summary>
+    public string? FreightPayerTaxId { get; set; }
+
+    /// <summary>CT-e: CST do ICMS destacado pelo transportador.</summary>
+    public string? CteIcmsCst { get; set; }
+
+    /// <summary>CT-e: valor do ICMS destacado pelo transportador.</summary>
+    public decimal CteIcmsValue { get; set; }
+
+    /// <summary>CT-e: transportadora (emitente do CT-e); o mesmo parceiro de <see cref="CardCode"/>.</summary>
+    public string? TruckingCompanyCode { get; set; }
+
+    /// <summary>CT-e: nome da transportadora (cadastro; na falta, o emitente do XML).</summary>
+    public string? TruckingCompanyName { get; set; }
+
+    /// <summary>Avisos que não impedem a importação; a tela os mostra ao operador.</summary>
+    public List<string> Warnings { get; set; } = [];
+
     public List<PurchaseInvoiceDraftItemDto> Items { get; set; } = [];
 }
 

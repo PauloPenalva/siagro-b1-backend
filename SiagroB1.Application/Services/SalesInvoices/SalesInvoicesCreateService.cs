@@ -29,6 +29,10 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.Items.Count == 0)
             throw new ApplicationException("Items can not be empty.");
 
+        // O CT-e é só documento de entrada (spec 2026-10-17): o enum é compartilhado, o documento de saída o recusa.
+        if (salesInvoice.TaxDocumentKind == TaxDocumentKind.Cte)
+            throw new DefaultException("CT-e não é documento de saída.");
+
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): recusa antes de qualquer gravação,
         // em toda filial.
         foreach (var item in salesInvoice.Items)

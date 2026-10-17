@@ -34,6 +34,9 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
 
     public async Task<PurchaseInvoiceDraftDto> ExecuteAsync(byte[] xmlData, string fileName)
     {
+        if (SupplierCteXmlReader.IsCte(xmlData))
+            return await ExecuteCteAsync(xmlData, fileName);
+
         var nfe = SupplierNfeXmlReader.Read(xmlData);
         var infNfe = nfe.InfNfe;
         var ide = infNfe.Element(Nfe + "ide");
@@ -78,6 +81,99 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
             throw new DefaultException("XML sem itens (det).");
 
         await LinkStorageRemittancesAsync(draft, nfe.ReferencedKeys);
+
+        return draft;
+    }
+
+    /// <summary>
+    /// CT-e de frete tomado: um rascunho de UMA linha de serviço. O vínculo com as NF-e transportadas NÃO vai aqui —
+    /// nasce na gravação, a partir do XML guardado.
+    /// </summary>
+    private async Task<PurchaseInvoiceDraftDto> ExecuteCteAsync(byte[] xmlData, string fileName)
+    {
+        var cte = SupplierCteXmlReader.Read(xmlData);
+
+        // O modelo está na chave (posições 20-21). O CT-e OS (67) usa o mesmo infCte, mas não é o frete tomado desta tela.
+        var model = cte.AccessKey.Length >= 22 ? cte.AccessKey.Substring(20, 2) : string.Empty;
+        if (model != "57")
+            throw new DefaultException($"Só CT-e modelo 57 pode ser escriturado (o arquivo é modelo {model}).");
+
+        if (cte.CteType != "0")
+            throw new DefaultException($"Só CT-e normal pode ser escriturado nesta versão (tpCTe {cte.CteType}).");
+
+        var cardCode = ResolveCardCode(cte.IssuerTaxId);
+
+        // Os dígitos não são traduzíveis pelo EF: traz as filiais e compara os dígitos em memória.
+        var payerDigits = Digits(cte.PayerTaxId ?? string.Empty);
+        var branch = payerDigits.Length == 0
+            ? null
+            : (await db.Context.Branchs.AsNoTracking().ToListAsync())
+                .FirstOrDefault(b => b.TaxId != null && Digits(b.TaxId) == payerDigits);
+
+        if (branch == null)
+            throw new DefaultException($"O tomador do CT-e (CNPJ {cte.PayerTaxId}) não é uma filial cadastrada.");
+
+        var br = CultureInfo.GetCultureInfo("pt-BR");
+        var draft = new PurchaseInvoiceDraftDto
+        {
+            TaxDocumentKind = TaxDocumentKind.Cte,
+            InvoiceType = PurchaseInvoiceType.Normal,
+            ChaveNFe = cte.AccessKey,
+            TaxDocumentNumber = cte.Number,
+            TaxDocumentSeries = cte.Series,
+            IssueDate = cte.IssueDate,
+            TotalDocumentValue = cte.ServiceTotal,
+            TaxPayerComments = cte.Observations,
+            CardName = cte.IssuerName,
+            CardCode = cardCode,
+            TruckingCompanyCode = cardCode,
+            TruckingCompanyName = (await businessPartnerService.GetByIdAsync(cardCode))?.CardName ?? cte.IssuerName,
+            BranchCode = branch.Code,
+            XmlFileName = fileName,
+            FreightStartState = cte.StartState,
+            FreightEndState = cte.EndState,
+            FreightStartCity = cte.StartCity,
+            FreightEndCity = cte.EndCity,
+            FreightPayerTaxId = cte.PayerTaxId,
+            CteIcmsCst = cte.IcmsCst,
+            CteIcmsValue = cte.IcmsValue,
+        };
+
+        if (cte.AmountReceivable != cte.ServiceTotal)
+            draft.Warnings.Add(
+                $"O valor a receber do CT-e (R$ {cte.AmountReceivable.ToString("N2", br)}) difere do total da prestação " +
+                $"(R$ {cte.ServiceTotal.ToString("N2", br)}); confira o título a pagar.");
+
+        string? itemName = null;
+        string? itemCode = null;
+        string? unit = null;
+        if (string.IsNullOrWhiteSpace(branch.FreightServiceItemCode))
+            draft.Warnings.Add("Filial sem produto padrão de frete: informe o produto da linha.");
+        else
+        {
+            var code = branch.FreightServiceItemCode;
+            itemName = await db.Context.Items.AsNoTracking()
+                .Where(i => i.ItemCode == code).Select(i => i.ItemName).FirstOrDefaultAsync();
+
+            if (itemName == null)
+                draft.Warnings.Add($"O produto padrão de frete da filial ({code}) não está cadastrado.");
+            else
+            {
+                itemCode = code;
+                // Unidade comercial do complemento do produto; sem complemento, a linha segue sem unidade.
+                unit = await db.Context.ItemComplements.AsNoTracking()
+                    .Where(c => c.ItemCode == code).Select(c => c.CommercialUnitOfMeasureCode).FirstOrDefaultAsync();
+            }
+        }
+
+        draft.Items.Add(new PurchaseInvoiceDraftItemDto
+        {
+            ItemCode = itemCode,
+            ItemName = itemName ?? "SERVIÇO DE TRANSPORTE",
+            UnitOfMeasureCode = string.IsNullOrWhiteSpace(unit) ? null : unit,
+            Quantity = 1m,
+            UnitPrice = cte.ServiceTotal,
+        });
 
         return draft;
     }

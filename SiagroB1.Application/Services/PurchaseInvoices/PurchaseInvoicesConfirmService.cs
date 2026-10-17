@@ -48,15 +48,23 @@ public class PurchaseInvoicesConfirmService(
 
         // Documento eletrônico de terceiro (spec terceiro-chave §7/§8): a chave é conferida de novo e, com a filial em
         // Produção, a NF-e do fornecedor precisa estar autorizada na SEFAZ. A recusa deixa o documento Pendente.
-        if (SupplierNfeKeyGuard.AppliesTo(invoice) && await gate.IsActiveAsync(invoice.BranchCode))
+        // O CT-e é conferido em qualquer filial (a chave é obrigatória); a NF-e só com a regra ativa.
+        var gateActive = await gate.IsActiveAsync(invoice.BranchCode);
+        if (SupplierNfeKeyGuard.AppliesTo(invoice) && (invoice.TaxDocumentKind == TaxDocumentKind.Cte || gateActive))
         {
             SupplierNfeKeyGuard.Ensure(invoice, (await businessPartnerService.GetByIdAsync(invoice.CardCode))?.TaxId);
-            await supplierNfe.EnsureAuthorizedAsync(invoice);
+            // O CT-e não é consultado na SEFAZ (spec 2026-10-17): só a conferência local da chave.
+            if (invoice.TaxDocumentKind == TaxDocumentKind.Nfe && gateActive)
+                await supplierNfe.EnsureAuthorizedAsync(invoice);
         }
 
         // A escrituração/entrada de custódia precisa continuar batendo com o romaneio (spec 2026-10-12 §4.4).
         var lines = await db.Context.PurchaseInvoicesItems
             .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
+
+        // CT-e (spec 2026-10-17): as regras do documento valem de novo na confirmação.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, lines);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
 
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).

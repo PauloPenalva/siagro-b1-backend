@@ -103,6 +103,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("District")
                         .HasColumnType("VARCHAR(60)");
 
+                    b.Property<string>("FreightServiceItemCode")
+                        .HasColumnType("VARCHAR(50)");
+
                     b.Property<bool>("IssuesNfe")
                         .HasColumnType("bit");
 
@@ -2577,6 +2580,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CreatedBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<string>("CteIcmsCst")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<decimal?>("CteIcmsValue")
+                        .HasColumnType("DECIMAL(19,2)");
+
                     b.Property<int>("CustodyRole")
                         .HasColumnType("int");
 
@@ -2585,6 +2594,21 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FreightEndCity")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("FreightEndState")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("FreightPayerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("FreightStartCity")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("FreightStartState")
+                        .HasColumnType("VARCHAR(2)");
 
                     b.Property<int>("FreightTerms")
                         .HasColumnType("int");
@@ -3110,6 +3134,37 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("PurchaseInvoiceKey", "Kind");
 
                     b.ToTable("PURCHASE_INVOICE_NFE_XMLS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceTransportedDocument", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccessKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(44) NOT NULL");
+
+                    b.Property<Guid>("PurchaseInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SalesInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TransportedPurchaseInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("SalesInvoiceKey");
+
+                    b.HasIndex("TransportedPurchaseInvoiceKey");
+
+                    b.HasIndex("PurchaseInvoiceKey", "AccessKey")
+                        .IsUnique();
+
+                    b.ToTable("PURCHASE_INVOICE_TRANSPORTED_DOCUMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
@@ -7561,6 +7616,31 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("PurchaseInvoice");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseInvoiceTransportedDocument", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "PurchaseInvoice")
+                        .WithMany("TransportedDocuments")
+                        .HasForeignKey("PurchaseInvoiceKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoice")
+                        .WithMany()
+                        .HasForeignKey("SalesInvoiceKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseInvoice", "TransportedPurchaseInvoice")
+                        .WithMany()
+                        .HasForeignKey("TransportedPurchaseInvoiceKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PurchaseInvoice");
+
+                    b.Navigation("SalesInvoice");
+
+                    b.Navigation("TransportedPurchaseInvoice");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
@@ -8600,6 +8680,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Items");
 
                     b.Navigation("NfeCorrections");
+
+                    b.Navigation("TransportedDocuments");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOff", b =>

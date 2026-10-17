@@ -119,6 +119,10 @@ public class PurchaseInvoicesItemsUpdateService(
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(db.Context, invoice, [existing]);
         }
 
+        // CT-e: as regras do documento valem também pela rota de itens.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, [.. others, existing]);
+
         await taxApply.ApplyAsync(invoice, [existing]);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).

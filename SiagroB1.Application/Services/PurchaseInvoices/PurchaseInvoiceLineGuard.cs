@@ -101,6 +101,10 @@ internal static class PurchaseInvoiceLineGuard
         if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
             return;
 
+        // CT-e: a linha é o serviço de transporte (quantidade 1, preço = total da prestação); unidade não se aplica.
+        if (PurchaseInvoiceCteRules.IsCte(invoice))
+            return;
+
         // Devolução com NF-e e contra-nota: a unidade da linha vem da origem e a tela a trava (RestoreReturnLine /
         // RestoreCounterNoteLine) — exigir aqui prenderia o documento sem o usuário poder corrigir. A origem sem
         // unidade é recusada ANTES de criar (Devolver / Gerar contra-nota).

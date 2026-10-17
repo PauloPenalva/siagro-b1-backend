@@ -23,6 +23,61 @@ public class SupplierNfeKeyGuardTests
     private static string Refusal(PurchaseInvoice doc, string? taxId = Cpf) =>
         Assert.Throws<DefaultException>(() => SupplierNfeKeyGuard.Ensure(doc, taxId)).Message;
 
+    // CT-e (modelo 57): chave montada com DV válido. Emitente = o CPF de teste do fornecedor.
+    private static string CteKey(string model = "57", string issuer = "00052998224725", string number = "000000456")
+    {
+        var first43 = "3526" + "10" + issuer + model + "001" + number + "1" + "12345678";
+        return first43 + SupplierNfeKeyGuard.CheckDigit(first43);
+    }
+
+    private static PurchaseInvoice CteDoc(string? key, string? number = "456", string? series = "1")
+    {
+        var doc = Doc(key, number, series);
+        doc.TaxDocumentKind = TaxDocumentKind.Cte;
+        return doc;
+    }
+
+    [Fact]
+    public void Cte_key_with_model_57_passes_and_fills_number_and_series()
+    {
+        var doc = CteDoc(CteKey(), null, null);
+
+        SupplierNfeKeyGuard.Ensure(doc, Cpf);
+
+        Assert.Equal(("456", "1"), (doc.TaxDocumentNumber, doc.TaxDocumentSeries));
+    }
+
+    [Fact]
+    public void Cte_applies_to_the_guard() => Assert.True(SupplierNfeKeyGuard.AppliesTo(CteDoc(null)));
+
+    [Fact]
+    public void Cte_rejects_nfe_model_key() =>
+        Assert.Equal("A chave não é de CT-e (modelo 57).", Refusal(CteDoc(CteKey("55"))));
+
+    [Fact]
+    public void Nfe_rejects_cte_model_key() =>
+        Assert.Equal("A chave não é de NF-e (modelo 55).", Refusal(Doc(CteKey())));
+
+    [Fact]
+    public void Cte_missing_key_is_refused_with_cte_wording() =>
+        Assert.Equal("Informe a chave de acesso do CT-e da transportadora.", Refusal(CteDoc(null)));
+
+    [Fact]
+    public void Cte_key_pasted_with_spaces_is_normalized()
+    {
+        var key = CteKey();
+        var doc = CteDoc(string.Join(" ", Enumerable.Range(0, 11).Select(i => key.Substring(i * 4, 4))));
+
+        SupplierNfeKeyGuard.Ensure(doc, Cpf);
+
+        Assert.Equal(key, doc.ChaveNFe);
+    }
+
+    [Fact]
+    public void Cte_key_of_other_issuer_is_rejected() =>
+        Assert.Equal("A chave é de outro emitente: o CNPJ/CPF não é o do fornecedor.",
+            Refusal(CteDoc(CteKey(issuer: "11222333000181"))));
+
     [Theory]
     [InlineData(null)]
     [InlineData("   ")]
@@ -188,7 +243,7 @@ public class SupplierNfeKeyGuardTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesUpdateService(db, PurchaseNfeTestSeed.Partners(),
             new FakeItemService(), TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners())).ExecuteAsync(changed.Key, changed, "tester"));
 
-        Assert.Equal($"Já existe documento de entrada com a chave de NF-e {SupplierNfeXml.AccessKey}.", e.Message);
+        Assert.Equal($"Já existe documento de entrada com a chave de acesso {SupplierNfeXml.AccessKey}.", e.Message);
     }
 
     private static PurchaseInvoicesUpdateService Update(UnitOfWork db) =>

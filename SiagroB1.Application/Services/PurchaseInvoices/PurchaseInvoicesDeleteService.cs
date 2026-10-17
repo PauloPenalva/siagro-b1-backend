@@ -43,6 +43,14 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
 
         await StorageReturnReconciliationsService.RemoveForInvoiceAsync(db.Context, invoice.Key);
 
+        // Vínculos de CT-e: os do próprio documento somem (a FK do CT-e é Cascade, mas o InMemory dos testes não acusaria);
+        // os que apontam para ele (FK Restrict) perdem só o vínculo e guardam a chave de acesso.
+        db.Context.PurchaseInvoiceTransportedDocuments.RemoveRange(
+            await db.Context.PurchaseInvoiceTransportedDocuments.Where(x => x.PurchaseInvoiceKey == invoice.Key).ToListAsync());
+        foreach (var link in await db.Context.PurchaseInvoiceTransportedDocuments
+                     .Where(x => x.TransportedPurchaseInvoiceKey == invoice.Key).ToListAsync())
+            link.TransportedPurchaseInvoiceKey = null;
+
         db.Context.PurchaseInvoicesItems.RemoveRange(invoice.Items);
         db.Context.PurchaseInvoices.Remove(invoice);
 

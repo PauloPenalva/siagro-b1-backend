@@ -15,7 +15,7 @@ public static class SupplierNfeKeyGuard
     public static bool AppliesTo(PurchaseInvoice invoice) =>
         invoice.IssuerType == DocumentIssuerType.ThirdParty
         && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement
-        && invoice.TaxDocumentKind == TaxDocumentKind.Nfe;
+        && invoice.TaxDocumentKind is TaxDocumentKind.Nfe or TaxDocumentKind.Cte;
 
     /// <summary>
     /// Recusa a chave incoerente, na ordem da spec. Normaliza a chave colada do DANFE (com espaços) e preenche número
@@ -23,10 +23,13 @@ public static class SupplierNfeKeyGuard
     /// </summary>
     public static void Ensure(PurchaseInvoice invoice, string? supplierTaxId)
     {
+        var isCte = invoice.TaxDocumentKind == TaxDocumentKind.Cte;
         var key = string.Concat((invoice.ChaveNFe ?? string.Empty).Where(c => !char.IsWhiteSpace(c)));
 
         if (key.Length == 0)
-            throw new DefaultException("Informe a chave de acesso da NF-e do fornecedor.");
+            throw new DefaultException(isCte
+                ? "Informe a chave de acesso do CT-e da transportadora."
+                : "Informe a chave de acesso da NF-e do fornecedor.");
 
         if (key.Length != 44 || !key.All(char.IsAsciiDigit))
             throw new DefaultException("A chave de acesso tem 44 dígitos.");
@@ -34,8 +37,8 @@ public static class SupplierNfeKeyGuard
         if (CheckDigit(key[..43]) != key[43] - '0')
             throw new DefaultException("Chave de acesso inválida: o dígito verificador não confere.");
 
-        if (key.Substring(20, 2) != "55")
-            throw new DefaultException("A chave não é de NF-e (modelo 55).");
+        if (key.Substring(20, 2) != (isCte ? "57" : "55"))
+            throw new DefaultException(isCte ? "A chave não é de CT-e (modelo 57)." : "A chave não é de NF-e (modelo 55).");
 
         // CPF (produtor rural pessoa física) vem na chave com três zeros à esquerda.
         var supplier = string.Concat((supplierTaxId ?? string.Empty).Where(char.IsAsciiDigit));
