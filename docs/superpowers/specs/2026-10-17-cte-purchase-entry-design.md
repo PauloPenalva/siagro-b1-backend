@@ -66,10 +66,9 @@ fechar a porta para ela (ver §8).
   - Quantidade 1 e preço = valor da prestação.
 - O motor de tributos exige produto com NCM e origem. *Minha decisão:* o usuário cadastra um produto "FRETE" (NCM
   `00000000`, porque o cadastro de produto exige 8 dígitos; origem 0) e o informa na linha.
-  - A importação do XML sugere esse produto a partir de uma configuração nova da filial ou da natureza.
-  - Se não houver configuração, a linha vem sem produto e o usuário escolhe.
-  - Deixo ao construtor onde guardar esse "produto padrão de frete". Sugestão: na natureza, porque já é ela que manda
-    na linha.
+  - A importação do XML sugere esse produto pelo "produto padrão de frete" da **filial**
+    (`Branch.FreightServiceItemCode`). *Decisão do plano:* a importação ainda não conhece a natureza.
+  - Se a filial não tiver o produto configurado, a linha vem sem produto e o usuário escolhe.
 - A natureza da linha é de **entrada**, `RequiresContract = false` e `CreatesFinancialDocument = true`, ou seja,
   "outra compra". O título nasce pelo `FinancialDocumentsOtherPurchaseService`, já existente. Parcelas pela condição
   de pagamento e retenções, se a natureza tiver, saem do mesmo jeito, sem código novo de financeiro.
