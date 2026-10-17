@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -185,6 +185,16 @@ internal static class PurchaseInvoiceLineGuard
 
         if (hasContractLine && hasOtherPurchaseLine)
             throw new DefaultException("Um documento não mistura linhas de contrato com linhas de outras compras.");
+
+        // Outra compra gera títulos para o documento inteiro; uma linha cuja natureza não gera financeiro (e também não
+        // exige contrato) ficaria sem título em silêncio, então os dois tipos não convivem.
+        var hasNoFinancialLine = lines.Any(l =>
+            l.UsageCode is not null && byCode.TryGetValue(l.UsageCode.Value, out var u)
+            && !u.RequiresContract && !u.CreatesFinancialDocument);
+
+        if (hasOtherPurchaseLine && hasNoFinancialLine)
+            throw new DefaultException(
+                "Um documento de outras compras não mistura linhas com natureza que não gera financeiro.");
     }
 
     private static async Task<Dictionary<int, UsageModel>> LoadUsagesAsync(
