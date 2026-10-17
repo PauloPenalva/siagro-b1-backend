@@ -13,7 +13,7 @@ public class PurchaseInvoicesNfeCancelServiceTests
     private const string Reason = "Entrada lancada em duplicidade";
 
     /// <summary>Cancelamento local que estoura depois de mexer no documento (fase 2 falhando).</summary>
-    private sealed class FailingCancel(UnitOfWork db) : PurchaseInvoicesCancelService(db)
+    private sealed class FailingCancel(UnitOfWork db) : PurchaseInvoicesCancelService(db, FinancialDocumentTestServices.OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()))
     {
         public override async Task CancelAfterNfeAsync(Guid key, string userName)
         {

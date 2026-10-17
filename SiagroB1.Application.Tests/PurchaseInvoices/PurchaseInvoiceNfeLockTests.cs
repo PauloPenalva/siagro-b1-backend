@@ -304,7 +304,7 @@ public class PurchaseInvoiceNfeLockTests
     {
         var (db, invoice) = await SeedAsync(NfeStatus.Authorized, InvoiceStatus.Confirmed);
 
-        var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester"));
+        var e = await Assert.ThrowsAsync<DefaultException>(() => FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal(
             NfeLockRules.AuthorizedCancelMessage,
@@ -458,7 +458,7 @@ public class PurchaseInvoiceNfeLockTests
         var (db, invoice) = await SeedAsync(status, InvoiceStatus.Confirmed);
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(invoice.Key, "tester"));
+            FinancialDocumentTestServices.PurchaseReverse(db).ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal(NfeLockRules.EmittedReverseMessage, ex.Message);
     }

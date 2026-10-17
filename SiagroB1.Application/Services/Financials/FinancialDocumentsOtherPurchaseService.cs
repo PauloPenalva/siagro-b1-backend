@@ -85,6 +85,55 @@ public class FinancialDocumentsOtherPurchaseService(
         }
     }
 
+    /// <summary>Motivo gravado no cancelamento dos títulos quando o documento de entrada é estornado ou cancelado.</summary>
+    public const string UndoneReason = "Documento de entrada estornado ou cancelado";
+
+    private IQueryable<FinancialDocument> ActiveTitlesOf(Guid invoiceKey) =>
+        db.Context.FinancialDocuments.Where(d =>
+            d.OriginType == FinancialDocumentOrigin.OtherPurchaseInvoice && d.OriginKey == invoiceKey &&
+            d.Status != FinancialDocumentStatus.Canceled);
+
+    /// <summary>
+    /// Ensaio do desfazer: recusa se algum título ativo da origem já tem movimento. Movimento = baixa (SettledAmount, que
+    /// já soma dação e encontro de contas, ambos gravados no ledger de baixas) ou composição (ComposedAmount — não se aplica
+    /// à origem 9, que não é firme de contrato, mas custa uma comparação e protege de uma composição manual futura).
+    /// Nada é alterado. Sem títulos desta origem (grão, SAPB1, documento sem financeiro) não faz nada.
+    /// </summary>
+    public async Task EnsureCanUndoAsync(Guid invoiceKey)
+    {
+        var titles = await ActiveTitlesOf(invoiceKey).AsNoTracking().OrderBy(d => d.Code).ToListAsync();
+        foreach (var title in titles)
+            if (title.SettledAmount > 0m || title.ComposedAmount != 0m)
+                throw new DefaultException(
+                    $"O título {title.Code} já tem baixa: estorne a baixa no Financeiro antes de desfazer o documento.");
+    }
+
+    /// <summary>
+    /// Cancela (nunca apaga) os títulos ativos da outra compra, com os mesmos carimbos de
+    /// PurchaseFirmPayableRules.CancelLooseFirms, que não grava change log de status (não há campo de status no log).
+    /// ENQUEUE-ONLY: o chamador salva no mesmo SaveChanges do estorno/cancelamento. Recusa antes de qualquer mudança.
+    /// Leitura síncrona de propósito, como as regras de firme: a chamada é por chave e cabe no fluxo do chamador.
+    /// </summary>
+    public void EnqueueUndo(Guid invoiceKey, string userName)
+    {
+        var titles = ActiveTitlesOf(invoiceKey).ToList().Where(d => d.Status != FinancialDocumentStatus.Canceled).ToList();
+        foreach (var title in titles)
+            if (title.SettledAmount > 0m || title.ComposedAmount != 0m)
+                throw new DefaultException(
+                    $"O título {title.Code} já tem baixa: estorne a baixa no Financeiro antes de desfazer o documento.");
+
+        var now = DateTime.Now;
+        foreach (var title in titles)
+        {
+            title.Status = FinancialDocumentStatus.Canceled;
+            title.CancellationReason = UndoneReason;
+            title.CanceledAt = now;
+            title.CanceledBy = userName;
+            title.UpdatedAt = now;
+            title.UpdatedBy = userName;
+        }
+    }
+
     private async Task<FinancialDocument> NewDocumentAsync(
         PurchaseInvoice invoice, string userName, DateTime issueDate, string taxDocument,
         FinancialDocumentNature nature, string cardCode, string? cardName, DateTime dueDate, decimal amount)

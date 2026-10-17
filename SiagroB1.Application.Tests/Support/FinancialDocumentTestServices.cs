@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
@@ -57,4 +58,10 @@ public static class FinancialDocumentTestServices
         IUnitOfWork db, FakeDocNumberSequenceService? numbers, string erp, IBusinessPartnerService partners) =>
         new(db, numbers ?? new FakeDocNumberSequenceService(), new UsageService(db, NullLogger<UsageService>.Instance),
             TestConfiguration.Erp(erp), partners);
+
+    public static PurchaseInvoicesReverseConfirmService PurchaseReverse(IUnitOfWork db) =>
+        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()));
+
+    public static PurchaseInvoicesCancelService PurchaseCancel(IUnitOfWork db) =>
+        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()));
 }

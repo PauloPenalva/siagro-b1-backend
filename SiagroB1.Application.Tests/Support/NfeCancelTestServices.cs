@@ -49,7 +49,7 @@ public static class NfeCancelTestServices
         new(db, cancel ?? SalesInvoicesCancelServiceTests.Service(db), NullLogger<SalesInvoiceNfeCancellationHandler>.Instance);
 
     public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(UnitOfWork db, PurchaseInvoicesCancelService? cancel = null) =>
-        new(db, cancel ?? new PurchaseInvoicesCancelService(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
+        new(db, cancel ?? FinancialDocumentTestServices.PurchaseCancel(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
 
     public static SalesInvoicesNfeCancelService SalesCancel(
         UnitOfWork db, FakeNfeSefazClient sefaz, SalesInvoicesCancelService? cancel = null,

@@ -68,7 +68,7 @@ public class PurchaseInvoicesLifecycleTests
         invoice.ApprovedAt = DateTime.Now;
         await db.SaveChangesAsync();
 
-        await new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(invoice.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseReverse(db).ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Pending, invoice.InvoiceStatus);
         // O carimbo de aprovação precisa sair junto: documento pendente com aprovador preenchido
@@ -83,7 +83,7 @@ public class PurchaseInvoicesLifecycleTests
         var (db, invoice) = await SeedAsync(InvoiceStatus.Cancelled);
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(invoice.Key, "tester"));
+            () => FinancialDocumentTestServices.PurchaseReverse(db).ExecuteAsync(invoice.Key, "tester"));
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class PurchaseInvoicesLifecycleTests
         var (db, invoice) = await SeedAsync();
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(invoice.Key, "tester"));
+            () => FinancialDocumentTestServices.PurchaseReverse(db).ExecuteAsync(invoice.Key, "tester"));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class PurchaseInvoicesLifecycleTests
     {
         var (db, invoice) = await SeedAsync(InvoiceStatus.Confirmed);
 
-        await new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Cancelled, invoice.InvoiceStatus);
         Assert.Equal("tester", invoice.CanceledBy);
@@ -112,7 +112,7 @@ public class PurchaseInvoicesLifecycleTests
     {
         var (db, invoice) = await SeedAsync();
 
-        await new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(invoice.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Cancelled, invoice.InvoiceStatus);
     }
@@ -123,7 +123,7 @@ public class PurchaseInvoicesLifecycleTests
         var (db, invoice) = await SeedAsync(InvoiceStatus.Cancelled);
 
         await Assert.ThrowsAsync<DefaultException>(
-            () => new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester"));
+            () => FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(invoice.Key, "tester"));
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public class PurchaseInvoicesLifecycleTests
     {
         var (db, invoice) = await SeedAsync(InvoiceStatus.Confirmed);
 
-        await new PurchaseInvoicesCancelService(db).ExecuteAsync(invoice.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(invoice.Key, "tester");
 
         // Cancelar LIBERA a chave (o índice único é filtrado por status) sem apagar o documento:
         // o rastro do que foi lançado precisa sobreviver.
@@ -168,9 +168,9 @@ public class PurchaseInvoicesLifecycleTests
         await Assert.ThrowsAsync<NotFoundException>(
             () => TaxTestServices.PurchaseConfirm(db, "SAPB1").ExecuteAsync(missing, "tester"));
         await Assert.ThrowsAsync<NotFoundException>(
-            () => new PurchaseInvoicesReverseConfirmService(db).ExecuteAsync(missing, "tester"));
+            () => FinancialDocumentTestServices.PurchaseReverse(db).ExecuteAsync(missing, "tester"));
         await Assert.ThrowsAsync<NotFoundException>(
-            () => new PurchaseInvoicesCancelService(db).ExecuteAsync(missing, "tester"));
+            () => FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(missing, "tester"));
         await Assert.ThrowsAsync<NotFoundException>(
             () => new PurchaseInvoicesDeleteService(db).ExecuteAsync(missing));
     }

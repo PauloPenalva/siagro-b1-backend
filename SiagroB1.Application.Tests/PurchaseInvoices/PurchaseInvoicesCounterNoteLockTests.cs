@@ -106,7 +106,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, producer, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester"));
+            FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester"));
 
         Assert.Equal($"A escrituração tem a contra-nota {note.InvoiceNumber}: cancele ou exclua a contra-nota antes de estornar a confirmação.", e.Message);
     }
@@ -117,7 +117,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         var (scenario, producer, note) = await SeedAsync();
 
         var e = await Assert.ThrowsAsync<DefaultException>(() =>
-            new PurchaseInvoicesCancelService(scenario.Db).ExecuteAsync(producer.Key, "tester"));
+            FinancialDocumentTestServices.PurchaseCancel(scenario.Db).ExecuteAsync(producer.Key, "tester"));
 
         Assert.Equal($"A escrituração tem a contra-nota {note.InvoiceNumber}: cancele ou exclua a contra-nota antes de cancelar a escrituração.", e.Message);
     }
@@ -129,7 +129,7 @@ public class PurchaseInvoicesCounterNoteLockTests
 
         await new PurchaseInvoicesDeleteService(scenario.Db).ExecuteAsync(note.Key);
         scenario.Db.Context.ChangeTracker.Clear();
-        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester");
 
         Assert.Equal(InvoiceStatus.Pending, (await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key)).InvoiceStatus);
     }
@@ -181,7 +181,7 @@ public class PurchaseInvoicesCounterNoteLockTests
         await scenario.Db.SaveChangesAsync();
         scenario.Db.Context.ChangeTracker.Clear();
 
-        await new PurchaseInvoicesReverseConfirmService(scenario.Db).ExecuteAsync(producer.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseReverse(scenario.Db).ExecuteAsync(producer.Key, "tester");
         scenario.Db.Context.ChangeTracker.Clear();
 
         return (scenario, await PurchaseInvoicesNfeIssueServiceTests.ReloadAsync(scenario, producer.Key), note);

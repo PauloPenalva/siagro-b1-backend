@@ -23,12 +23,12 @@ public class StorageCustodyLockTests
         var entry = await seed.AddPurchaseDocumentAsync(t, StorageCustodyRole.ProcessingEntry, 30_000m, DocumentIssuerType.ThirdParty, InvoiceStatus.Confirmed);
         var symbolic = await seed.AddSalesDocumentAsync(t, StorageCustodyRole.ProcessingSymbolicReturn, 30_000m, number: "000000077");
 
-        var e = await Assert.ThrowsAsync<DefaultException>(() => new PurchaseInvoicesCancelService(db).ExecuteAsync(entry.Key, "tester"));
+        var e = await Assert.ThrowsAsync<DefaultException>(() => FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(entry.Key, "tester"));
         Assert.Equal("Cancele primeiro a nota de devolução simbólica do beneficiamento nº 000000077 deste romaneio.", e.Message);
 
         symbolic.InvoiceStatus = InvoiceStatus.Cancelled;
         await db.SaveChangesAsync();
-        await new PurchaseInvoicesCancelService(db).ExecuteAsync(entry.Key, "tester");
+        await FinancialDocumentTestServices.PurchaseCancel(db).ExecuteAsync(entry.Key, "tester");
     }
 
     [Fact]

@@ -24,7 +24,7 @@ public class FinancialDocumentsOtherPurchaseTests
     private const string FederalCreditor = "TRIB-FEDERAL";
     private static readonly DateTime Issue = new(2026, 1, 15);
 
-    private sealed class Fixture(FakeBusinessPartnerService? partners = null)
+    internal sealed class Fixture(FakeBusinessPartnerService? partners = null)
     {
         public UnitOfWork Db { get; } = TestDb.CreateUnitOfWork();
         public FakeDocNumberSequenceService Numbers { get; } = new();
