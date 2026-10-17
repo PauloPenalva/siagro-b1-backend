@@ -115,6 +115,22 @@ public class PurchaseInvoicesTaxApplyService(
         var supplierState = await TaxLineCalculator.LoadPartnerStateAsync(businessPartnerService, invoice.CardCode);
         var inState = string.Equals(branch.StateCode, supplierState, StringComparison.OrdinalIgnoreCase);
 
+        // CT-e: o tributo segue as UFs da PRESTAÇÃO (início → fim), não a UF da transportadora; o CFOP segue a UF de
+        // início contra a da filial (spec 2026-10-17).
+        var cte = PurchaseInvoiceCteRules.IsCte(invoice);
+        bool? cfopInState = null;
+        var originState = supplierState;
+        var destinationState = branch.StateCode!;
+        if (cte)
+        {
+            var start = invoice.FreightStartState!.Trim().ToUpperInvariant();
+            var end = invoice.FreightEndState!.Trim().ToUpperInvariant();
+            inState = start == end;
+            originState = start;
+            destinationState = end;
+            cfopInState = string.Equals(start, branch.StateCode, StringComparison.OrdinalIgnoreCase);
+        }
+
         // Devolução: IBS/CBS pelas alíquotas da DATA DA ENTRADA — ela anula o tributo daquela operação.
         var rateDate = ownReturn
             ? await OriginDateAsync(invoice)
@@ -136,8 +152,8 @@ public class PurchaseInvoicesTaxApplyService(
             // reproduzir a alíquota creditada (12% de BA→SP, e não 7% de SP→BA). Base = total geral da linha
             // (spec 2026-10-05 D3).
             var line = await _lines.CalculateAsync(new TaxLineRequest(
-                usage, item.ItemCode, item.GrandTotal, inState, supplierState, branch.StateCode!,
-                branch.TaxRegime!.Value, rateDate, IncomingCfop: !ownReturn));
+                usage, item.ItemCode, item.GrandTotal, inState, originState, destinationState,
+                branch.TaxRegime!.Value, rateDate, IncomingCfop: !ownReturn, CfopInState: cfopInState));
 
             TaxLineCalculator.Apply(item, usage, line);
 
