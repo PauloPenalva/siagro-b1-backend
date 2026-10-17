@@ -159,6 +159,7 @@ public class PurchaseInvoicesUpdateService(
         // Retenções de serviço (spec 2026-10-17 §2): os valores e o "manual" que o cliente mandou, copiados acima, valem
         // enquanto o usuário os editou; senão são recalculados pela natureza.
         await taxApply.ApplyWithholdingsAsync(existing);
+        await taxApply.ApplyDifalAsync(existing);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(existing) && await taxApply.IsBranchActiveAsync(existing.BranchCode))

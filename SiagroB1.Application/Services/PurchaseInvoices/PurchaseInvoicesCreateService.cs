@@ -138,6 +138,7 @@ public class PurchaseInvoicesCreateService(
 
         // Retenções de serviço (spec 2026-10-17 §2): depois dos tributos, porque a base é o total geral das linhas.
         await taxApply.ApplyWithholdingsAsync(invoice);
+        await taxApply.ApplyDifalAsync(invoice);
 
         // Valor declarado do terceiro Normal: a soma das linhas, como na emissão própria (o da tela não vale).
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))

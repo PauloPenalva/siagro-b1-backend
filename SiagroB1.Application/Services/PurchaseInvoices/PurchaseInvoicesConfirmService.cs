@@ -28,7 +28,8 @@ public class PurchaseInvoicesConfirmService(
     IBusinessPartnerService businessPartnerService,
     SupplierNfeAuthorizationService supplierNfe,
     FinancialDocumentsFirmSyncService firmSync,
-    FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
+    FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
+    IUsage usageService)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -57,6 +58,13 @@ public class PurchaseInvoicesConfirmService(
         var lines = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
+
+        // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF (ou com FCP inválido) não confirma. Na gravação passa com zeros.
+        var difal = await PurchaseInvoiceDifal.EvaluateAsync(
+            db.Context, usageService, businessPartnerService, gate.IsStandalone, await gate.IsActiveAsync(invoice.BranchCode),
+            invoice, lines);
+        if (difal.FirstOrDefault(o => o.Error is not null) is { } refused)
+            throw new DefaultException(refused.Error!);
 
         // Spec 2026-10-13 D11: o complemento de valor cria os títulos firmes aqui, no MESMO SaveChanges da confirmação.
         await firmSync.EnqueueForValueComplementAsync(invoice, lines, userName);

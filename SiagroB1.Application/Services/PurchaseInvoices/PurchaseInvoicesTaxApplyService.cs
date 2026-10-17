@@ -64,6 +64,24 @@ public class PurchaseInvoicesTaxApplyService(
         await PurchaseInvoiceWithholdings.ApplyAsync(invoice, usageService, otherPurchase, lines);
     }
 
+    /// <summary>
+    /// Spec 2026-10-17 §2: DIFAL e FCP da linha (fotografia informativa; fora de NetPayable, GrandTotal e NF-e). Zera os seis
+    /// campos quando as condições deixam de valer. Sem alíquota interna da UF a gravação passa com zeros: só a confirmação recusa.
+    /// </summary>
+    public async Task ApplyDifalAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem>? lines = null)
+    {
+        if (invoice.InvoiceStatus != InvoiceStatus.Pending)
+            return;
+
+        lines ??= invoice.Items.ToList();
+        var engineActive = await IsActiveForAsync(invoice);
+        var outcomes = await PurchaseInvoiceDifal.EvaluateAsync(
+            db.Context, usageService, businessPartnerService, gate.IsStandalone, engineActive, invoice, lines);
+
+        foreach (var o in outcomes)
+            PurchaseInvoiceDifal.Store(o.Line, o.Result);
+    }
+
     public async Task ApplyAsync(PurchaseInvoice invoice, IEnumerable<PurchaseInvoiceItem> items)
     {
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)

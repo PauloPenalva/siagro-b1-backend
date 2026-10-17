@@ -35,6 +35,7 @@ public class PurchaseInvoicesItemsDeleteService(IUnitOfWork db, PurchaseInvoices
 
         // Retenções de serviço (spec 2026-10-17 §2): a base muda com a linha que sai.
         await taxApply.ApplyWithholdingsAsync(invoice, remaining);
+        await taxApply.ApplyDifalAsync(invoice, remaining);
 
         db.Context.PurchaseInvoicesItems.Remove(item);
         await db.SaveChangesAsync();
