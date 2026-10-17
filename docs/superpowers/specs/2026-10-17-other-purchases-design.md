@@ -41,18 +41,29 @@ natureza com valor editável · um título de recolhimento por imposto retido ·
   - `false` → o backend recalcula na gravação: base = soma de `GrandTotal` das linhas, valor = base × alíquota.
   - Editar um valor na tela liga a flag; botão "Recalcular pelas alíquotas" desliga.
 - `NetPayable` (hoje Total − Funrural, `[NotMapped]`) passa a descontar também as retenções.
-- Tela nova **"Configuração de Retenções"** (com migration de menu): por imposto, o parceiro credor
-  (Prefeitura, Receita Federal) e o dia de vencimento no mês seguinte à emissão.
-  Confirmar com retenção > 0 e imposto sem configuração é recusado.
+- **Credores nascem por migration no deploy** (decisão do usuário, 17/10): três parceiros de negócio tipo
+  fornecedor, inseridos só se o código não existir (padrão de `MigrateWarehousesToBusinessPartners`):
+
+  | CardCode | CardName | Tributos |
+  |---|---|---|
+  | `TRIB-FEDERAL` | RECEITA FEDERAL DO BRASIL | IRRF, INSS, PIS, COFINS, CSLL |
+  | `TRIB-ESTADUAL` | SECRETARIA DA FAZENDA ESTADUAL | nenhum hoje; fica pronto para retenção estadual futura |
+  | `TRIB-MUNICIPAL` | PREFEITURA MUNICIPAL | ISS |
+
+- A mesma migration semeia `WITHHOLDING_TAX_SETTINGS`, um por tributo, com credor e dia de vencimento no mês
+  seguinte à emissão. *Minha decisão:* dia 20 para os federais e dia 10 para o ISS, porque o ISS varia por
+  município.
+- Tela **"Configuração de Retenções"** (com migration de menu) para trocar credor e dia. Por exemplo, a
+  prefeitura real cadastrada como parceiro. Confirmar com retenção > 0 e imposto sem configuração é recusado.
 
 ### 3. Títulos na confirmação (`PurchaseInvoicesConfirmService`)
 Novo serviço `FinancialDocumentsOtherPurchaseService.EnqueueAsync(invoice, lines, user)`, ENQUEUE-ONLY e fora de
 transação, no mesmo SaveChanges da confirmação (padrão do `EnqueueForValueComplementAsync`). Só em STANDALONE,
 tipo Normal, documento de outra compra.
 - **Prestador:** uma parcela por prazo de `PaymentInstallmentCalculator`
-  (`SiagroB1.Fiscal/Payments/PaymentInstallmentCalculator.cs`) sobre o total menos o Funrural, a partir da condição de pagamento
-  do documento. Sem condição, um título vencendo na emissão. Nature `Firm`.
-  *Minha decisão:* as retenções saem da 1ª parcela, que é recusada se ficar ≤ 0.
+  (`SiagroB1.Fiscal/Payments/PaymentInstallmentCalculator.cs`) sobre o **líquido** (`NetPayable` = total da NF −
+  Funrural − total das retenções), a partir da condição de pagamento do documento (decisão do usuário, 17/10).
+  Sem condição, um título vencendo na emissão. Nature `Firm`. Líquido ≤ 0 é recusado.
 - **Recolhimento:** um título por imposto com valor > 0. Nature `TaxWithholding`, já existente e sem uso.
   Credor e vencimento vêm da configuração.
 - Origem nova `FinancialDocumentOrigin.OtherPurchaseInvoice = 9`, com `OriginKey` = chave do documento,
@@ -104,9 +115,9 @@ nunca push. context7 para EF Core/OData quando necessário.
 2. `yarn ts-typecheck` + `yarn lint` no frontend.
 3. Navegador em STANDALONE (profile `ceagui`, `yarn start:dev`), pelo caminho do usuário a partir da home:
    - cadastrar a natureza "Serviço tomado" (sem contrato, gera financeiro, ISS 5 %, IRRF 1,5 %);
-   - configurar os credores;
+   - conferir os credores semeados (Receita Federal e Prefeitura);
    - lançar uma NFS-e de R$ 1.000 com condição 30/60, ajustar o ISS à mão e confirmar;
-   - conferir 2 parcelas (R$ 435 + R$ 500) e 2 títulos de recolhimento;
+   - conferir 2 parcelas de R$ 467,50 (líquido de R$ 935) e 2 títulos de recolhimento (ISS R$ 50 e IRRF R$ 15);
    - baixar a 1ª parcela no Financeiro;
    - tentar estornar a confirmação (recusa), estornar a baixa e então estornar a confirmação (títulos cancelados).
 4. Derrubar a stack ao terminar (matar só pelo PID).
