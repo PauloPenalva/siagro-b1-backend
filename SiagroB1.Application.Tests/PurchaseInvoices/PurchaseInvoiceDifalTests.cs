@@ -29,11 +29,12 @@ public class PurchaseInvoiceDifalTests
 
     private async Task<Scenario> SeedAsync(
         bool stateSetting = true, DocumentIssuerType issuer = DocumentIssuerType.ThirdParty,
-        PurchaseInvoiceType type = PurchaseInvoiceType.Normal, bool engine = false, bool nfeReturn = false)
+        PurchaseInvoiceType type = PurchaseInvoiceType.Normal, bool engine = false, bool nfeReturn = false,
+        string? branchStateRegistration = "111222333444")
     {
         _db.Context.Branchs.Add(new Branch
         {
-            Code = "01", BranchName = "FILIAL", ShortName = "FILIAL", TaxId = "12345678000195", StateCode = "SP",
+            Code = "01", BranchName = "FILIAL", ShortName = "FILIAL", TaxId = "12345678000195", StateCode = "SP", StateRegistration = branchStateRegistration,
             TaxRegime = TaxRegime.Normal, IssuesNfe = engine,
         });
         _db.Context.Items.Add(new Item { ItemCode = ItemCode, ItemName = "BOMBA D'AGUA", Ncm = "84137010", GoodsOrigin = 0 });
@@ -269,5 +270,32 @@ public class PurchaseInvoiceDifalTests
         await Apply().ApplyDifalAsync(invoice, [line]);
 
         Assert.Equal(0m, line.DifalValue);
+    }
+
+    [Fact]
+    public async Task Branch_without_state_registration_has_no_difal()
+    {
+        var s = await SeedAsync(branchStateRegistration: null);
+        var line = Line(s.Invoice.Key, s.Consumption);
+
+        await AddAsync(line);
+
+        Assert.Equal((0m, 0m), ((await ReloadAsync(line.Key)).DifalBase, (await ReloadAsync(line.Key)).DifalValue));
+    }
+
+    [Fact]
+    public async Task Missing_supplier_state_refuses_confirm_for_use_and_consumption()
+    {
+        var s = await SeedAsync();
+        var line = Line(s.Invoice.Key, s.Consumption);
+
+        await AddAsync(line, state: "");
+
+        Assert.Equal(0m, (await ReloadAsync(line.Key)).DifalValue);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            TaxTestServices.PurchaseConfirm(_db, "STANDALONE", Partners("")).ExecuteAsync(s.Invoice.Key, "tester"));
+
+        Assert.Contains("Não foi possível identificar a UF do emitente F-PR", ex.Message);
     }
 }

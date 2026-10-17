@@ -42,15 +42,21 @@ internal static class PurchaseInvoiceDifal
             || invoice.IsNfeReturn)
             return none;
 
-        var branchState = (await ctx.Branchs.AsNoTracking().Where(b => b.Code == invoice.BranchCode)
-            .Select(b => b.StateCode).FirstOrDefaultAsync())?.Trim().ToUpperInvariant();
+        var branch = await ctx.Branchs.AsNoTracking().Where(b => b.Code == invoice.BranchCode)
+            .Select(b => new { b.StateCode, b.StateRegistration }).FirstOrDefaultAsync();
+
+        // DIFAL só existe para filial contribuinte do ICMS (spec §1): sem inscrição estadual, nada a apurar.
+        if (branch is null || string.IsNullOrWhiteSpace(branch.StateRegistration))
+            return none;
+
+        var branchState = branch.StateCode?.Trim().ToUpperInvariant();
         var partner = await partners.GetByIdAsync(invoice.CardCode);
         var supplierState = partner is null
             ? null
             : SalesInvoicesCfopResolveService.ResolvePartnerState(partner)?.Trim().ToUpperInvariant();
 
-        if (string.IsNullOrEmpty(branchState) || string.IsNullOrEmpty(supplierState)
-            || supplierState == "EX" || supplierState == branchState)
+        var unresolved = string.IsNullOrEmpty(branchState) || string.IsNullOrEmpty(supplierState);
+        if (!unresolved && (supplierState == "EX" || supplierState == branchState))
             return none;
 
         var outcomes = new List<LineOutcome>();
@@ -76,7 +82,14 @@ internal static class PurchaseInvoiceDifal
                 continue;
             }
 
-            var rates = await IcmsInternalRateResolver.ResolveAsync(ctx, line.ItemCode, branchState);
+            if (unresolved)
+            {
+                outcomes.Add(new LineOutcome(line, DifalResult.None,
+                    $"Não foi possível identificar a UF do emitente {invoice.CardCode} ou da filial para calcular o DIFAL: confira o endereço de faturamento."));
+                continue;
+            }
+
+            var rates = await IcmsInternalRateResolver.ResolveAsync(ctx, line.ItemCode, branchState!);
             if (rates is null)
             {
                 outcomes.Add(new LineOutcome(line, DifalResult.None,
@@ -86,7 +99,7 @@ internal static class PurchaseInvoiceDifal
 
             var interstate = line.IcmsRate > 0m
                 ? line.IcmsRate
-                : InterstateIcmsRate.Resolve(supplierState, branchState, await GoodsOriginAsync(ctx, line));
+                : InterstateIcmsRate.Resolve(supplierState!, branchState!, await GoodsOriginAsync(ctx, line));
 
             try
             {

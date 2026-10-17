@@ -92,12 +92,6 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
     /// enquanto a chave está ligada (não só na virada), para ninguém apagar o CRT depois.
     /// Só em STANDALONE: em SAPB1 a chave nem aparece na tela.
     /// </summary>
-    private static void ValidatePisCofinsRegime(Branch entity)
-    {
-        if (!Enum.IsDefined(entity.PisCofinsRegime))
-            throw new DefaultException("Regime de PIS/COFINS inválido.");
-    }
-
     private void ValidateNfeIssuance(Branch entity)
     {
         if (!entity.IssuesNfe || !ErpMode.IsStandalone(configuration))
@@ -106,6 +100,13 @@ public class BranchService(AppDbContext context, IConfiguration configuration) :
         if (entity.TaxRegime is null || string.IsNullOrWhiteSpace(entity.StateCode))
             throw new DefaultException(
                 "Para emitir NF-e pelo Siagro, informe o regime tributário e a UF da filial.");
+    }
+
+    /// <summary>Regime de PIS/COFINS da filial precisa ser um valor conhecido do enum.</summary>
+    private static void ValidatePisCofinsRegime(Branch entity)
+    {
+        if (!Enum.IsDefined(entity.PisCofinsRegime))
+            throw new DefaultException("Regime de PIS/COFINS inválido.");
     }
 
     /// <summary>
