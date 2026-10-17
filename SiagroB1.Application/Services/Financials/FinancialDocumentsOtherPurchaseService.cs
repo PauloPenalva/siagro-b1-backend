@@ -49,14 +49,19 @@ public class FinancialDocumentsOtherPurchaseService(
                 d.Status != FinancialDocumentStatus.Canceled))
             return;
 
-        // NetPayable depende de Items, que a confirmação não carrega: calcula pelas linhas recebidas.
+        if (invoice.IssueDate is not { } issue)
+            throw new DefaultException("Informe a data de emissão do documento antes de confirmar.");
+        var issueDate = issue.Date;
+
+        // NetPayable depende de Items, que a confirmação não carrega: calcula pelas linhas recebidas. O retido é a SOMA DOS
+        // VALORES ARREDONDADOS de cada tributo (os mesmos dos títulos), para parcelas + títulos de retenção fecharem no bruto.
+        var withheldTotal = WithheldOf(invoice).Sum(w => w.Amount);
         var net = decimal.Round(
-            lines.Sum(l => l.GrandTotal) - lines.Sum(l => l.FunruralValue) - invoice.TotalWithheld, 2, MidpointRounding.ToEven);
+            lines.Sum(l => l.GrandTotal) - lines.Sum(l => l.FunruralValue) - withheldTotal, 2, MidpointRounding.ToEven);
         if (net <= 0m)
             throw new DefaultException(
-                $"O total das retenções ({invoice.TotalWithheld.ToString("N2", PtBr)}) consome o valor da nota: revise os valores retidos.");
+                $"O total das retenções ({withheldTotal.ToString("N2", PtBr)}) consome o valor da nota: revise os valores retidos.");
 
-        var issueDate = (invoice.IssueDate ?? DateTime.Today).Date;
         var taxes = await ResolveWithholdingsAsync(invoice, issueDate);
         var installments = await PlanInstallmentsAsync(invoice, net, issueDate);
         var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);
@@ -119,9 +124,11 @@ public class FinancialDocumentsOtherPurchaseService(
     private async Task<List<(int Number, DateTime DueDate, decimal Amount)>> PlanInstallmentsAsync(
         PurchaseInvoice invoice, decimal net, DateTime issueDate)
     {
-        var condition = invoice.PaymentConditionCode is { } code
-            ? await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == code)
-            : null;
+        PaymentCondition? condition = null;
+        if (invoice.PaymentConditionCode is { } code)
+            condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == code)
+                        ?? throw new DefaultException(
+                            $"A condição de pagamento {code} do documento não existe mais: escolha outra antes de confirmar.");
 
         if (condition is not null)
         {
@@ -136,26 +143,28 @@ public class FinancialDocumentsOtherPurchaseService(
         return [(1, issueDate, net)];
     }
 
+    /// <summary>Valores retidos por tributo, arredondados e só os maiores que zero.</summary>
+    private static List<(WithholdingTaxType Type, decimal Amount)> WithheldOf(PurchaseInvoice invoice) =>
+        new[]
+            {
+                (WithholdingTaxType.Iss, invoice.WithheldIss), (WithholdingTaxType.Irrf, invoice.WithheldIrrf),
+                (WithholdingTaxType.Inss, invoice.WithheldInss), (WithholdingTaxType.Pis, invoice.WithheldPis),
+                (WithholdingTaxType.Cofins, invoice.WithheldCofins), (WithholdingTaxType.Csll, invoice.WithheldCsll),
+            }
+            .Select(w => (w.Item1, Amount: decimal.Round(w.Item2, 2, MidpointRounding.ToEven)))
+            .Where(w => w.Amount > 0m)
+            .ToList();
+
     private sealed record TaxTitle(WithholdingTaxType Type, string CardCode, string? CardName, decimal Amount, DateTime DueDate);
 
     /// <summary>Um título por tributo com valor > 0. Recusa se faltar o credor ou se o parceiro configurado não existir mais.</summary>
     private async Task<List<TaxTitle>> ResolveWithholdingsAsync(PurchaseInvoice invoice, DateTime issueDate)
     {
-        var withheld = new (WithholdingTaxType Type, decimal Amount)[]
-        {
-            (WithholdingTaxType.Iss, invoice.WithheldIss), (WithholdingTaxType.Irrf, invoice.WithheldIrrf),
-            (WithholdingTaxType.Inss, invoice.WithheldInss), (WithholdingTaxType.Pis, invoice.WithheldPis),
-            (WithholdingTaxType.Cofins, invoice.WithheldCofins), (WithholdingTaxType.Csll, invoice.WithheldCsll),
-        };
-
         var result = new List<TaxTitle>();
         var nextMonth = new DateTime(issueDate.Year, issueDate.Month, 1).AddMonths(1);
 
-        foreach (var (type, amount) in withheld)
+        foreach (var (type, rounded) in WithheldOf(invoice))
         {
-            var rounded = decimal.Round(amount, 2, MidpointRounding.ToEven);
-            if (rounded <= 0m)
-                continue;
 
             var label = type.ToString().ToUpperInvariant();
             var key = (int)type;

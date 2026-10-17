@@ -352,4 +352,53 @@ public class FinancialDocumentsOtherPurchaseTests
 
         Assert.Equal(before, (await f.TitlesAsync(invoice)).Count);
     }
+
+    [Fact]
+    public async Task Missing_payment_condition_is_refused_and_nothing_is_saved()
+    {
+        var f = await Fixture.CreateAsync();
+        var invoice = await f.CreateInvoiceAsync(condition: 999);
+
+        var error = await Assert.ThrowsAsync<DefaultException>(() => f.ConfirmAsync(invoice));
+
+        Assert.Equal("A condição de pagamento 999 do documento não existe mais: escolha outra antes de confirmar.", error.Message);
+        Assert.Empty(await f.TitlesAsync(invoice));
+        Assert.Equal(0, f.Numbers.NumberCalls);
+        Assert.Equal(InvoiceStatus.Pending,
+            (await f.Db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key)).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task Missing_issue_date_is_refused_and_nothing_is_saved()
+    {
+        var f = await Fixture.CreateAsync();
+        var invoice = await f.CreateInvoiceAsync();
+        var tracked = await f.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == invoice.Key);
+        tracked.IssueDate = null;
+        await f.Db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<DefaultException>(() => f.ConfirmAsync(invoice));
+
+        Assert.Equal("Informe a data de emissão do documento antes de confirmar.", error.Message);
+        Assert.Empty(await f.TitlesAsync(invoice));
+        Assert.Equal(0, f.Numbers.NumberCalls);
+    }
+
+    [Theory]
+    [InlineData(1000, 5, 1.5, "30,60")]
+    [InlineData(1234.57, 4.65, 1.5, "30,60,90")]
+    public async Task Installments_plus_tax_titles_equal_gross(decimal price, decimal iss, decimal irrf, string days)
+    {
+        var f = await Fixture.CreateAsync();
+        var usage = await f.Db.Context.Usages.SingleAsync(u => u.Code == f.ServiceUsage);
+        usage.WithholdingIssRate = iss;
+        usage.WithholdingIrrfRate = irrf;
+        await f.Db.Context.SaveChangesAsync();
+        var invoice = await f.CreateInvoiceAsync(price, await f.AddConditionAsync(days));
+
+        await f.ConfirmAsync(invoice);
+
+        var titles = await f.TitlesAsync(invoice);
+        Assert.Equal(price, titles.Sum(d => d.NetAmount));
+    }
 }
