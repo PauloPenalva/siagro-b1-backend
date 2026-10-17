@@ -65,6 +65,15 @@ public class SupplierCteXmlReaderTests
     }
 
     [Fact]
+    public void Bom_prefixed_xml_is_read()
+    {
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Cte()).ToArray();
+
+        Assert.True(SupplierCteXmlReader.IsCte(bytes));
+        Assert.Equal(Key, SupplierCteXmlReader.Read(bytes).AccessKey);
+    }
+
+    [Fact]
     public void Payer_from_toma4() =>
         Assert.Equal("99999999000191",
             SupplierCteXmlReader.Read(Cte("<toma4><toma>4</toma><CNPJ>99999999000191</CNPJ></toma4>")).PayerTaxId);

@@ -28,13 +28,16 @@ public static class SupplierCteXmlReader
 
         try
         {
-            return XDocument.Parse(Encoding.UTF8.GetString(xmlData)).Descendants(Cte + "infCte").Any();
+            return XDocument.Parse(Decode(xmlData)).Descendants(Cte + "infCte").Any();
         }
         catch (Exception)
         {
             return false;
         }
     }
+
+    /// <summary>Decodifica em UTF-8 sem o BOM inicial (U+FEFF), que o XDocument.Parse de string recusa.</summary>
+    private static string Decode(byte[] xmlData) => Encoding.UTF8.GetString(xmlData).TrimStart('﻿');
 
     public static SupplierCte Read(byte[] xmlData)
     {
@@ -45,7 +48,7 @@ public static class SupplierCteXmlReader
 
         try
         {
-            document = XDocument.Parse(Encoding.UTF8.GetString(xmlData));
+            document = XDocument.Parse(Decode(xmlData));
         }
         catch (Exception)
         {
