@@ -49,4 +49,16 @@ public class BusinessPartner
 
     /// <summary>Condição de pagamento padrão do documento de saída. Sem FK, como o spec pede.</summary>
     public int? PaymentConditionCode { get; set; }
+
+    /// <summary>Parceiro é produtor rural: base da decisão de reter Funrural nas compras.</summary>
+    public bool IsRuralProducer { get; set; }
+
+    public RuralProducerType? RuralProducerType { get; set; }
+
+    /// <summary>CPF do produtor pessoa física quando o <see cref="TaxId"/> é um CNPJ. Só dígitos.</summary>
+    [Column(TypeName = "VARCHAR(11)")]
+    public string? RuralProducerCpf { get; set; }
+
+    /// <summary>Opção pela contribuição sobre a folha de pagamento (retém apenas o SENAR).</summary>
+    public bool RuralPayrollOption { get; set; }
 }

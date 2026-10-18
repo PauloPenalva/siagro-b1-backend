@@ -42,9 +42,8 @@ public static class UsageTaxationValidator
 
         ValidateIbsCbs(model);
 
-        ValidatePercent(model.FunruralInssRate, "Alíquota de INSS do Funrural");
-        ValidatePercent(model.FunruralRatRate, "Alíquota de RAT do Funrural");
-        ValidatePercent(model.FunruralSenarRate, "Alíquota de SENAR do Funrural");
+        if (!Enum.IsDefined(model.RuralContributionMode))
+            throw new DefaultException("Modo de contribuição social inválido.");
         ValidatePercent(model.WithholdingIssRate, "Alíquota de retenção de ISS");
         ValidatePercent(model.WithholdingIrrfRate, "Alíquota de retenção de IRRF");
         ValidatePercent(model.WithholdingInssRate, "Alíquota de retenção de INSS");
