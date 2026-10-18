@@ -313,13 +313,14 @@ public static class NfeIssueInputAssembler
     /// <summary>
     /// <c>infCpl</c>: na devolução, a referência à operação original primeiro; depois os textos padrão
     /// distintos das naturezas, na ordem das linhas, o Funrural calculado e as informações do contribuinte.
+    /// O texto da natureza é o da operação da linha: dentro do estado (CFOP 1xxx/5xxx) ou fora (os demais).
     /// </summary>
     private static string? AdditionalInfo(
         IEnumerable<INfeTaxedLine> items, IReadOnlyDictionary<int, Usage> usages, string? funruralText,
         string? taxPayerComments, string? returnReference = null)
     {
         var texts = items
-            .Select(i => i.UsageCode is { } code && usages.TryGetValue(code, out var usage) ? usage.DefaultAdditionalInfo : null)
+            .Select(i => i.UsageCode is { } code && usages.TryGetValue(code, out var usage) ? UsageText(usage, i.Cfop) : null)
             .Where(t => !string.IsNullOrWhiteSpace(t))
             .Select(t => t!.Trim())
             .Distinct()
@@ -336,6 +337,9 @@ public static class NfeIssueInputAssembler
 
         return texts.Count == 0 ? null : string.Join(" | ", texts);
     }
+
+    private static string? UsageText(Usage usage, string? cfop) =>
+        cfop is { Length: > 0 } && cfop[0] is '1' or '5' ? usage.DefaultAdditionalInfo : usage.DefaultAdditionalInfoOutState;
 
     private static string? ReturnReference(NfeReturnOrigin? origin) =>
         origin is null

@@ -33,6 +33,7 @@ internal static class UsageTaxationMapper
 
         usage.InvoiceOperationText = Normalize(model.InvoiceOperationText);
         usage.DefaultAdditionalInfo = Normalize(model.DefaultAdditionalInfo);
+        usage.DefaultAdditionalInfoOutState = Normalize(model.DefaultAdditionalInfoOutState);
         usage.MovesFiscalInventory = model.MovesFiscalInventory;
         usage.CreatesFinancialDocument = model.CreatesFinancialDocument;
 

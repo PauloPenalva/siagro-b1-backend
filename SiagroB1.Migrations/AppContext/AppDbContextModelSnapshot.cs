@@ -6417,6 +6417,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("DefaultAdditionalInfo")
                         .HasColumnType("VARCHAR(2000)");
 
+                    b.Property<string>("DefaultAdditionalInfoOutState")
+                        .HasColumnType("VARCHAR(2000)");
+
                     b.Property<string>("Description")
                         .HasColumnType("VARCHAR(200)");
 
@@ -7974,8 +7977,7 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoiceItem", "SalesInvoiceItemOrigin")
                         .WithMany()
-                        .HasForeignKey("SalesInvoiceItemOriginKey")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .HasForeignKey("SalesInvoiceItemOriginKey");
 
                     b.HasOne("SiagroB1.Domain.Entities.SalesInvoice", "SalesInvoice")
                         .WithMany("Items")

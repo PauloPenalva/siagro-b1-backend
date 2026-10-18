@@ -41,6 +41,7 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     Direction = x.usage.Direction,
                     InvoiceOperationText = x.usage.InvoiceOperationText,
                     DefaultAdditionalInfo = x.usage.DefaultAdditionalInfo,
+                    DefaultAdditionalInfoOutState = x.usage.DefaultAdditionalInfoOutState,
                     MovesFiscalInventory = x.usage.MovesFiscalInventory,
                     CreatesFinancialDocument = x.usage.CreatesFinancialDocument,
                     IcmsInStateCst = x.usage.IcmsInStateCst,

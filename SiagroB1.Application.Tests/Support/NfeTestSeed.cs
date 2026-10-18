@@ -77,7 +77,8 @@ public static class NfeTestSeed
         var usage = new Usage
         {
             Name = "Venda de grãos", InvoiceOperationText = "VENDA DE PRODUCAO DO ESTABELECIMENTO",
-            DefaultAdditionalInfo = "Produto agrícola in natura.", CfopOutgoingInState = "5102", CfopOutgoingOutState = "6102",
+            DefaultAdditionalInfo = "ICMS diferido.", DefaultAdditionalInfoOutState = "Produto agrícola in natura.",
+            CfopOutgoingInState = "5102", CfopOutgoingOutState = "6102",
         };
         context.Usages.Add(usage);
 

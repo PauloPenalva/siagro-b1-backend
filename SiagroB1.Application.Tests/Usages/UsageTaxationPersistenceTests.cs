@@ -26,6 +26,7 @@ public class UsageTaxationPersistenceTests
         CfopOutgoingOutState = "6102",
         InvoiceOperationText = "Venda de producao",
         DefaultAdditionalInfo = "Documento emitido por ME",
+        DefaultAdditionalInfoOutState = "Operação interestadual",
         MovesFiscalInventory = true,
         CreatesFinancialDocument = true,
         IcmsInStateCst = "51",
@@ -55,6 +56,7 @@ public class UsageTaxationPersistenceTests
         Assert.Equal(UsageDirection.Outgoing, read!.Direction);
         Assert.Equal("Venda de producao", read.InvoiceOperationText);
         Assert.Equal("Documento emitido por ME", read.DefaultAdditionalInfo);
+        Assert.Equal("Operação interestadual", read.DefaultAdditionalInfoOutState);
         Assert.True(read.MovesFiscalInventory);
         Assert.True(read.CreatesFinancialDocument);
         Assert.Equal("51", read.IcmsInStateCst);
