@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
@@ -34,11 +35,16 @@ public class StorageAddressesCreateService(
             }
         }
 
-        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageAddress);
-        
+        // Fora do try: o catch abaixo mascara toda exceção, e a recusa de série/número
+        // (pt-BR) precisa chegar ao usuário.
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode.StorageAddress, entity.DocNumberKey, entity.Code, 50,
+            c => db.Context.StorageAddresses.AnyAsync(x => x.Code == c)));
+        entity.DocNumberKey = assignment.DocNumberKey;
+        entity.Code = assignment.Code;
+
         try
         {
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;

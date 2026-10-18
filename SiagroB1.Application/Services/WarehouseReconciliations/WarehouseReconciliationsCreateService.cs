@@ -32,8 +32,11 @@ public class WarehouseReconciliationsCreateService(
 
         await guard.EnsureCanPersistAsync(r);
 
-        r.DocNumberKey ??= await numbers.GetKeyByTransactionCode(TransactionCode.WarehouseReconciliation);
-        r.Code = await numbers.GetDocNumber(r.DocNumberKey.Value);
+        var assignment = await numbers.AssignAsync(new DocNumberRequest(
+            TransactionCode.WarehouseReconciliation, r.DocNumberKey, r.Code, 50,
+            c => db.Context.WarehouseReconciliations.AnyAsync(x => x.Code == c)));
+        r.DocNumberKey = assignment.DocNumberKey;
+        r.Code = assignment.Code;
         await descriptions.FillAsync(r);
         await guard.RefreshSnapshotAsync(r);
 

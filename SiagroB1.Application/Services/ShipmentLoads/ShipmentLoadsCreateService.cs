@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -33,11 +34,14 @@ public class ShipmentLoadsCreateService(
     {
         Validate(load);
 
-        var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.ShipmentLoad);
+        // Série e código vêm da tela (opcionais): série manual usa o código digitado.
+        var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+            TransactionCode.ShipmentLoad, load.DocNumberKey, load.Code, 50,
+            c => db.Context.ShipmentLoads.AnyAsync(x => x.Code == c)));
 
         load.Key = Guid.NewGuid();
-        load.Code = await docNumberSequence.GetDocNumber(docNumberKey);
-        load.DocNumberKey = docNumberKey;
+        load.Code = assignment.Code;
+        load.DocNumberKey = assignment.DocNumberKey;
         load.Status = ShipmentLoadStatus.Planned;
         load.TotalQuantity = decimal.Zero;
         load.InvoicedQuantity = decimal.Zero;

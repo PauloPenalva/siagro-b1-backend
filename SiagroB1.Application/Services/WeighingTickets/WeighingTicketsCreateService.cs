@@ -18,11 +18,16 @@ public class WeighingTicketsCreateService(
 {
     public async Task<WeighingTicket> ExecuteAsync(WeighingTicket entity, string userName)
     {
-        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.WeighingTicket);
-        
+        // Fora do try: o catch abaixo mascara toda exceção, e a recusa de série/número
+        // (pt-BR) precisa chegar ao usuário.
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode.WeighingTicket, entity.DocNumberKey, entity.Code, 15,
+            c => db.Context.WeighingTickets.AnyAsync(x => x.Code == c)));
+        entity.DocNumberKey = assignment.DocNumberKey;
+        entity.Code = assignment.Code;
+
         try
         {
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.Date = DateTime.Now.Date;
             entity.Status = WeighingTicketStatus.Waiting;
             entity.FirstWeighValue = 0;

@@ -931,6 +931,9 @@ public static class ODataConfigurations
         // a Logística grava o que sabe no momento.
         var shipmentLoadsCreate = modelBuilder.Action("ShipmentLoadsCreate");
         shipmentLoadsCreate.Parameter<string>("BranchCode");
+        // Numeração: série escolhida e, se manual, o código digitado. Ausentes = série padrão.
+        shipmentLoadsCreate.Parameter<Guid>("DocNumberKey").Optional();
+        shipmentLoadsCreate.Parameter<string>("Code").Optional();
         // GAC-1175: Normal ou Removal, como STRING — enum em parâmetro de action segue a mesma
         // regra de ShipmentLoadsRefuse.Destination. Só existe aqui: o tipo é imutável depois da
         // criação, então ShipmentLoadsUpdate não o recebe.
@@ -1584,6 +1587,7 @@ public static class ODataConfigurations
 
         var storageInvoiceClosing = modelBuilder.Action("StorageInvoiceClosing");
         storageInvoiceClosing.Parameter<Guid>("DocNumberKey");
+        storageInvoiceClosing.Parameter<string>("Code").Optional();
         storageInvoiceClosing.Parameter<string>("StorageAddressCode");
         storageInvoiceClosing.Parameter<DateTime>("PeriodStart");
         storageInvoiceClosing.Parameter<DateTime>("PeriodEnd");

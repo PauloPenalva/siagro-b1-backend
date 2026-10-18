@@ -27,6 +27,8 @@ public class SalesContractsCopyService(AppDbContext db, SalesContractsCreateServ
 
         cloneContract.Key = Guid.Empty;
         cloneContract.RowId = 0;
+        // Número manual do original não se repete na cópia: a cópia nasce com número automático.
+        cloneContract.Code = null;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;

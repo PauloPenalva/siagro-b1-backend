@@ -119,13 +119,17 @@ public class SalesInvoicesCreateService(
             await taxApply.ApplyAsync(salesInvoice, salesInvoice.Items);
         }
 
-        salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
-
         try
         {
             salesInvoice.CreatedAt = DateTime.Now;
             salesInvoice.CreatedBy = userName;
-            salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
+            // Série escolhida (ou a padrão) e número digitado, se a série for manual. O catch
+            // abaixo repassa a mensagem, então a recusa em pt-BR chega ao usuário.
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode.SalesInvoice, salesInvoice.DocNumberKey, salesInvoice.InvoiceNumber, 9,
+                c => db.Context.SalesInvoices.AnyAsync(x => x.InvoiceNumber == c)));
+            salesInvoice.DocNumberKey = assignment.DocNumberKey;
+            salesInvoice.InvoiceNumber = assignment.Code;
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             var customer = await businessPartnerService.GetByIdAsync(salesInvoice.CardCode);
             salesInvoice.CardName = customer?.CardName;

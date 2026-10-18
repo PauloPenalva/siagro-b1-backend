@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.DocNumbers;
@@ -157,10 +158,13 @@ public class PurchaseInvoicesCreateService(
         if (PurchaseInvoiceDeclaredTotal.AppliesTo(invoice) && await taxApply.IsBranchActiveAsync(invoice.BranchCode))
             PurchaseInvoiceDeclaredTotal.Apply(invoice, invoice.Items);
 
-        // Número interno sequencial (DE000001) para toda entrada, de qualquer tipo. Nasce aqui — por último, depois de todas as recusas, para não abrir buraco na sequência — e nunca muda;
-        // o que vier no corpo é descartado (o update também não o copia).
-        invoice.DocNumberKey = await numberSequenceService.GetKeyByTransactionCode(TransactionCode.PurchaseInvoice);
-        invoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) invoice.DocNumberKey);
+        // Número interno (DE000001) para toda entrada, de qualquer tipo. Nasce aqui — por último, depois de todas as recusas, para não abrir buraco na sequência — e nunca muda
+        // (o update não copia série nem número). A série vem do corpo (ou a padrão); em série manual vale o InvoiceNumber digitado, em automática ele é descartado.
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode.PurchaseInvoice, invoice.DocNumberKey, invoice.InvoiceNumber, 9,
+            c => db.Context.PurchaseInvoices.AnyAsync(x => x.InvoiceNumber == c)));
+        invoice.DocNumberKey = assignment.DocNumberKey;
+        invoice.InvoiceNumber = assignment.Code;
 
         // CT-e importado: uma chave de NF-e transportada por vínculo, já resolvida contra as saídas e entradas do sistema.
         if (PurchaseInvoiceCteRules.IsCte(invoice))

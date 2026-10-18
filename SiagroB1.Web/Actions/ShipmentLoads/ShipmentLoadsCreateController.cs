@@ -41,6 +41,8 @@ public class ShipmentLoadsCreateController(
             var load = new ShipmentLoad
             {
                 BranchCode = Text(parameters, "BranchCode"),
+                DocNumberKey = Guid.TryParse(Text(parameters, "DocNumberKey"), out var docNumberKey) ? docNumberKey : null,
+                Code = Text(parameters, "Code"),
                 LoadDate = Date(parameters, "LoadDate") ?? DateTime.Now.Date,
                 TruckCode = Text(parameters, "TruckCode"),
                 TruckDriverCode = Text(parameters, "TruckDriverCode"),

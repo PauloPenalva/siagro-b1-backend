@@ -46,6 +46,7 @@ public class StorageInvoiceClosingController(
                 PeriodStart = periodStart,
                 PeriodEnd = periodEnd,
                 ClosingDate = closingDate,
+                Code = parameters.TryGetValue("Code", out var codeObj) ? codeObj?.ToString() : null,
                 Notes = notes,
                 IncludeUnpricedItems = includeUnpricedItems
             }, userName);

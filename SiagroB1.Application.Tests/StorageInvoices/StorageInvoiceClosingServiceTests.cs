@@ -146,4 +146,33 @@ public class StorageInvoiceClosingServiceTests
         Assert.Equal("NO_ITEMS_TO_INVOICE", ex.Message);
         Assert.Equal(1, await _db.Context.StorageInvoices.CountAsync());
     }
+
+    [Fact]
+    public async Task StorageInvoiceClosing_UsesChosenSeriesAndTypedCode()
+    {
+        await SeedInvoicedPeriodAsync(); // já existe a fatura F00000009
+        _db.Context.StorageCharges.Add(new StorageCharge
+        {
+            Key = Guid.NewGuid(),
+            StorageAddressCode = Lot,
+            ChargeType = StorageChargeType.Storage,
+            PeriodStart = new DateTime(2026, 4, 22),
+            PeriodEnd = new DateTime(2026, 4, 22),
+            TotalAmount = 10m,
+        });
+        await _db.Context.SaveChangesAsync();
+
+        var fake = new FakeDocNumberSequenceService();
+        var service = new StorageInvoiceClosingService(
+            _db, fake, new FakeStringLocalizer<Resource>(), NullLogger<StorageInvoiceClosingService>.Instance);
+        var request = Request();
+        request.Code = "F-MANUAL";
+
+        var created = await service.CloseAsync(request, "tester");
+
+        await DocNumberRequestAsserts.AssertRequestAsync(
+            fake, TransactionCode.StorageInvoice, request.DocNumberKey, "F-MANUAL", 50, "F00000009");
+        Assert.Equal("F-MANUAL", created.Code);
+        Assert.Equal(request.DocNumberKey, created.DocNumberKey);
+    }
 }
