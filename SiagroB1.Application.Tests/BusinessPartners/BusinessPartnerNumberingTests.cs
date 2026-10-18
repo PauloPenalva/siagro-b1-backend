@@ -191,4 +191,16 @@ public class BusinessPartnerNumberingTests
 
         Assert.Equal(SeriesKey, (await db.Context.BusinessPartners.SingleAsync()).DocNumberKey);
     }
+
+    [Fact]
+    public async Task Partner_QueryAll_ReturnsDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = Service(db, new FakeDocNumberSequenceService());
+        await service.CreateAsync(Partner("", "C", SeriesKey));
+
+        var listed = await service.QueryAll().SingleAsync();
+
+        Assert.Equal(SeriesKey, listed.DocNumberKey);
+    }
 }

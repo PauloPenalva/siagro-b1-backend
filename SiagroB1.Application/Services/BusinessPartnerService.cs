@@ -308,6 +308,7 @@ public class BusinessPartnerService(
             .Select(x => new BusinessPartnerModel()
             {
                 CardCode = x.CardCode,
+                DocNumberKey = x.DocNumberKey,
                 CardName = x.CardName,
                 CardFName = x.CardFName,
                 CardType = x.CardType,
