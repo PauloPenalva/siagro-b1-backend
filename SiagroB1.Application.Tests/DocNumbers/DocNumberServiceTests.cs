@@ -124,4 +124,38 @@ public class DocNumberServiceTests
         var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.UpdateAsync(def.Key, tracked));
         Assert.Equal("A série padrão não pode ser inativada.", ex.Message);
     }
+
+    [Fact]
+    public async Task ManualSeries_CannotBeRenamed()
+    {
+        var manual = Row(TransactionCode.Supplier, "Manual", isManual: true);
+        var (service, _) = await Seed(manual);
+
+        var tracked = await service.GetByIdAsync(manual.Key);
+        tracked!.Name = "Outro nome";
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.UpdateAsync(manual.Key, tracked));
+        Assert.Equal("A série Manual não pode ser renomeada nem mudar de tipo de documento.", ex.Message);
+    }
+
+    [Fact]
+    public async Task ManualSeries_CannotChangeTransactionCode()
+    {
+        var manual = Row(TransactionCode.Supplier, "Manual", isManual: true);
+        var (service, _) = await Seed(manual);
+
+        var detached = Row(TransactionCode.Customer, "Manual", isManual: true);
+        detached.Key = manual.Key;
+        await Assert.ThrowsAsync<ApplicationException>(() => service.UpdateAsync(manual.Key, detached));
+    }
+
+    [Fact]
+    public async Task DefaultSeries_CannotBeDeleted()
+    {
+        var def = Row(TransactionCode.Supplier, "Auto", isDefault: true);
+        var (service, db) = await Seed(def);
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => service.DeleteAsync(def.Key));
+        Assert.Equal("A série padrão não pode ser excluída. Marque outra série como padrão antes.", ex.Message);
+        Assert.NotNull(Read(db, def.Key));
+    }
 }

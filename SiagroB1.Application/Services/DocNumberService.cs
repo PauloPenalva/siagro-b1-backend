@@ -40,6 +40,11 @@ public class DocNumberService(IUnitOfWork db)
             throw new ApplicationException("A série Manual não pode ser excluída.");
         }
 
+        if (entity.Default)
+        {
+            throw new ApplicationException("A série padrão não pode ser excluída. Marque outra série como padrão antes.");
+        }
+
         db.Context.DocNumbers.Remove(entity);
         await db.SaveChangesAsync();
         return true;
@@ -104,6 +109,12 @@ public class DocNumberService(IUnitOfWork db)
         if (stored != null && stored.IsManual != entity.IsManual)
         {
             throw new ApplicationException("O tipo da série (Automático/Manual) não pode ser alterado.");
+        }
+
+        if (stored != null && stored.IsManual &&
+            (stored.Name != entity.Name || stored.TransactionCode != entity.TransactionCode))
+        {
+            throw new ApplicationException("A série Manual não pode ser renomeada nem mudar de tipo de documento.");
         }
 
         if (entity.IsManual)

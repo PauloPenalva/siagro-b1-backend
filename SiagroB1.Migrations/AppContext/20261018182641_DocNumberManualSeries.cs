@@ -34,7 +34,7 @@ namespace SiagroB1.Migrations.AppContext
             // Automático no passo 4 e ganha uma Manual de verdade no passo 5 — sem perder o contador).
             // Romaneio e Financeiro não admitem série manual. Uma linha NÃO padrão chamada "Manual"
             // vira a série manual do tipo (só pode haver uma por tipo); a manual nunca é padrão — o
-            // UPDATE ... WHERE [Default] = 1 do GetDocNumberByObjectCodeAsync não pode cair nela.
+            // UPDATE ... WHERE [Default] = 1 do GetKeyByTransactionCode não pode cair nela.
             migrationBuilder.Sql($"""
                 UPDATE DOC_NUMBERS SET IsManual = 0
                 WHERE IsManual = 1 AND TransactionCode IN (5, 12);
