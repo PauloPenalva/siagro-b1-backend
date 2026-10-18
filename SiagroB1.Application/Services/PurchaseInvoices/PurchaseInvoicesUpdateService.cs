@@ -238,6 +238,8 @@ public class PurchaseInvoicesUpdateService(
             db.Context.PurchaseInvoicesItems.Remove(line);
         }
 
+        var typedIcms = existing.InvoiceType == PurchaseInvoiceType.IcmsComplement;
+
         foreach (var line in incoming)
         {
             var current = line.Key is null
@@ -278,6 +280,9 @@ public class PurchaseInvoicesUpdateService(
                     OtherExpensesValue = line.OtherExpensesValue,
                     ComplementAmount = line.ComplementAmount,
                     ComplementedItemKey = line.ComplementedItemKey,
+                    // Complemento de ICMS (spec 2026-10-17 D4): base e valor são informados; nos demais o motor calcula.
+                    IcmsBase = typedIcms ? line.IcmsBase : 0m,
+                    IcmsValue = typedIcms ? line.IcmsValue : 0m,
                 });
 
                 continue;
@@ -309,6 +314,11 @@ public class PurchaseInvoicesUpdateService(
             current.OtherExpensesValue = line.OtherExpensesValue;
             current.ComplementAmount = line.ComplementAmount;
             current.ComplementedItemKey = line.ComplementedItemKey;
+            if (typedIcms)
+            {
+                current.IcmsBase = line.IcmsBase;
+                current.IcmsValue = line.IcmsValue;
+            }
 
             // Na devolução de compra só a quantidade e os quatro valores da linha mudam (a descrição re-resolvida também volta).
             var lineEntry = db.Context.Entry(current);
