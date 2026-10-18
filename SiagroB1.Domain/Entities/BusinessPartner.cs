@@ -59,6 +59,6 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(11)")]
     public string? RuralProducerCpf { get; set; }
 
-    /// <summary>Opção pela contribuição sobre a folha de pagamento (não retém Funrural).</summary>
+    /// <summary>Opção pela contribuição sobre a folha de pagamento (retém apenas o SENAR).</summary>
     public bool RuralPayrollOption { get; set; }
 }

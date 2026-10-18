@@ -74,7 +74,7 @@ UPDATE USAGES SET RuralContributionMode = CASE
   WHEN ISNULL(FunruralInssRate,0) > 0 OR ISNULL(FunruralRatRate,0) > 0 THEN 1
   WHEN ISNULL(FunruralSenarRate,0) > 0 THEN 2 ELSE 0 END;");
 
-            // Seed idempotente das alíquotas vigentes desde 2000-01-01 (Scheme 1 = PF, 2 = PJ).
+            // Seed idempotente das alíquotas vigentes desde 2000-01-01 (Scheme 1 = Standard/Comercialização, 2 = PayrollOption/Optante pela folha).
             migrationBuilder.Sql(@"
 IF NOT EXISTS (SELECT 1 FROM RURAL_CONTRIBUTION_RATES WHERE Scheme = 1 AND StartDate = '2000-01-01')
   INSERT INTO RURAL_CONTRIBUTION_RATES (StartDate, Scheme, InssRate, RatRate, SenarRate)
