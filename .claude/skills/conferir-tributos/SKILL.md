@@ -50,6 +50,14 @@ e quer o diagnóstico para corrigir — não uma aula de tributação.
      (diferimento, cBenef, suspensão). Para esses casos, **sinalize e recomende confirmar com o
      contador**, em vez de afirmar.
 
+## Retenções, Funrural, apuração e REINF
+
+Para retenções (PCC, IRRF, INSS, ISS), Funrural/GILRAT/SENAR, livro fiscal, apuração de
+ICMS/PIS/COFINS, IRPJ/CSLL e EFD-REINF (R-2055), leia `references/protheus-tributos-legados.md`.
+Ele resume como o Protheus 12.2310 faz cada coisa, com arquivo e linha. É a referência
+independente do motor do Siagro. A seção 7 lista as lacunas já conhecidas do Siagro. Quando uma
+divergência cair numa delas, diga isso em vez de tratar o caso como bug novo.
+
 ## Regras de cereais que valem checar sempre
 
 - **ICMS diferido (CST 51)** em operações internas com grãos é comum (ex.: SP). Confira se o
