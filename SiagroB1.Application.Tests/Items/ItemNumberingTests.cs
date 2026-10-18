@@ -43,4 +43,19 @@ public class ItemNumberingTests
         Assert.Equal("SOJA-01", model.ItemCode);
         Assert.True(await db.Context.Items.AnyAsync(i => i.ItemCode == "SOJA-01"));
     }
+
+    [Fact]
+    public async Task Item_TypedCodeWithoutSeries_KeepsLegacyBehavior()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+        var service = new ItemService(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), fake);
+
+        await service.CreateAsync(new ItemModel { ItemCode = " MILHO ", ItemName = "MILHO" });
+
+        Assert.Empty(fake.Requests);
+        Assert.True(await db.Context.Items.AnyAsync(i => i.ItemCode == "MILHO"));
+        await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
+            () => service.CreateAsync(new ItemModel { ItemCode = "MILHO", ItemName = "MILHO" }));
+    }
 }

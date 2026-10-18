@@ -105,4 +105,51 @@ public class BusinessPartnerNumberingTests
         Assert.Empty(fake.Requests);
         Assert.True(await db.Context.BusinessPartners.AnyAsync(b => b.CardCode == "L0001"));
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("L")]
+    public async Task OtherCardType_WithBlankCode_IsRefused(string? type)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+
+        var ex = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
+            () => Service(db, fake).CreateAsync(Partner("  ", type)));
+
+        Assert.Equal("Informe o código do parceiro.", ex.Message);
+        Assert.Empty(db.Context.BusinessPartners);
+    }
+
+    [Theory]
+    [InlineData("C")]
+    [InlineData("S")]
+    public async Task TypedCode_WithoutSeries_KeepsLegacyBehaviorAndConsumesNoNumber(string type)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+
+        var model = Partner(" X0001 ", type);
+        await Service(db, fake).CreateAsync(model);
+
+        Assert.Empty(fake.Requests);
+        Assert.Equal("X0001", model.CardCode);
+        Assert.True(await db.Context.BusinessPartners.AnyAsync(b => b.CardCode == "X0001"));
+
+        await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
+            () => Service(db, fake).CreateAsync(Partner("X0001", type)));
+    }
+
+    [Fact]
+    public async Task RejectedPartner_DoesNotConsumeANumber()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+        var model = Partner(null, "C", SeriesKey);
+        model.Addresses.Add(new AddressModel { CardCode = "", AddressName = "X", AdresType = "invalido" });
+
+        await Assert.ThrowsAnyAsync<Exception>(() => Service(db, fake).CreateAsync(model));
+
+        Assert.Empty(fake.Requests);
+    }
 }
