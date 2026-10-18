@@ -84,8 +84,11 @@ public class FinancialAdvancesCreateService(
         var partner = await businessPartnerService.GetByIdAsync(cardCode);
 
         // Número buscado ANTES da transação: Dapper em conexão separada, segurando UPDLOCK.
-        var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
-        var code = await docNumberSequence.GetDocNumber(docNumberKey);
+        var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+            TransactionCode.FinancialDocument, null, null, 50,
+            c => db.Context.FinancialDocuments.AnyAsync(x => x.Code == c)));
+        var docNumberKey = assignment.DocNumberKey;
+        var code = assignment.Code;
 
         var advance = new FinancialDocument
         {

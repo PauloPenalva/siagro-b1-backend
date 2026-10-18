@@ -56,13 +56,15 @@ public class FinancialDocumentsGenerateWashoutReceivableService(
         if (existing is not null) return existing;
 
         var partner = await businessPartnerService.GetByIdAsync(cardCode);
-        var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
+        var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+            TransactionCode.FinancialDocument, null, null, 50,
+            c => context.FinancialDocuments.AnyAsync(x => x.Code == c)));
 
         var document = new FinancialDocument
         {
             Key = Guid.NewGuid(),
-            Code = await docNumberSequence.GetDocNumber(docNumberKey),
-            DocNumberKey = docNumberKey,
+            Code = assignment.Code,
+            DocNumberKey = assignment.DocNumberKey,
             BranchCode = branchCode,
             Direction = FinancialDirection.Receivable,
             Nature = FinancialDocumentNature.Firm,

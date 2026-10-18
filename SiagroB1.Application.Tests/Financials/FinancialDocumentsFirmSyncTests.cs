@@ -43,7 +43,10 @@ public class FinancialDocumentsFirmSyncTests
         Assert.Equal(c.Transaction.Code, firm.StorageTransactionCode);
         Assert.Equal("1001-1", firm.TaxDocumentNumber);
         Assert.Equal("ST-0001", firm.Code);
-        Assert.Equal(new[] { TransactionCode.FinancialDocument }, seed.Numbers.RequestedCodes);
+        var request = Assert.Single(seed.Numbers.Requests);
+        Assert.Equal(TransactionCode.FinancialDocument, request.TransactionCode);
+        Assert.Null(request.DocNumberKey);
+        Assert.Null(request.TypedCode);
     }
 
     [Fact]

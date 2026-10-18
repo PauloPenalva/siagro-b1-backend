@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -51,15 +52,18 @@ public class StorageTransactionsCreateService(
         TransactionCode transactionCode = TransactionCode.StorageTransaction,
         CommitMode commitMode = CommitMode.Auto)
     {
-        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageTransaction);
-
         // Antes do try (cujo catch embrulha em DefaultException): bloqueia romaneio
         // contra liberação finalizada/cancelada/pausada.
         await movementGuard.EnsureCanShipAsync(entity);
 
         try
         {
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            // Romaneio só tem numeração automática: o Code do corpo é ignorado (TypedCode null).
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode.StorageTransaction, entity.DocNumberKey, null, 50,
+                c => unitOfWork.Context.StorageTransactions.AnyAsync(x => x.Code == c)));
+            entity.DocNumberKey = assignment.DocNumberKey;
+            entity.Code = assignment.Code;
             
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;

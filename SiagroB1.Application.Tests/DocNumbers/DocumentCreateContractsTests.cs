@@ -79,7 +79,7 @@ public class DocumentCreateContractsTests
         db.Context.PurchaseContracts.Add(original);
         await db.SaveChangesAsync();
 
-        await new PurchaseContractsCopyService(db.Context, PurchaseCreate(db, fake)).ExecuteAsync(original.Key, "tester");
+        await new PurchaseContractsCopyService(db.Context, PurchaseCreate(db, fake), fake).ExecuteAsync(original.Key, "tester");
 
         var request = Assert.Single(fake.Requests);
         Assert.Null(request.TypedCode);
@@ -111,7 +111,7 @@ public class DocumentCreateContractsTests
         db.Context.SalesContracts.Add(original);
         await db.SaveChangesAsync();
 
-        await new SalesContractsCopyService(db.Context, SalesCreate(db, fake)).ExecuteAsync(original.Key, "tester");
+        await new SalesContractsCopyService(db.Context, SalesCreate(db, fake), fake).ExecuteAsync(original.Key, "tester");
 
         var request = Assert.Single(fake.Requests);
         Assert.Null(request.TypedCode);

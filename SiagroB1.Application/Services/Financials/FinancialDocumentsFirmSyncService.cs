@@ -107,8 +107,11 @@ public class FinancialDocumentsFirmSyncService(
             .FirstOrDefaultAsync();
 
         // Regra 5: número ANTES do SaveChanges (conexão Dapper própria, fora de transação).
-        var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
-        var code = await docNumberSequence.GetDocNumber(docNumberKey);
+        var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+            TransactionCode.FinancialDocument, null, null, 50,
+            c => db.Context.FinancialDocuments.AnyAsync(x => x.Code == c)));
+        var docNumberKey = assignment.DocNumberKey;
+        var code = assignment.Code;
         var issueDate = (invoice.IssueDate ?? DateTime.Today).Date;
         var now = DateTime.Now;
 
@@ -192,8 +195,11 @@ public class FinancialDocumentsFirmSyncService(
                 continue;
 
             var contract = contracts[line.PurchaseContractKey!.Value];
-            var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
-            var code = await docNumberSequence.GetDocNumber(docNumberKey);
+            var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+                TransactionCode.FinancialDocument, null, null, 50,
+                c => db.Context.FinancialDocuments.AnyAsync(x => x.Code == c)));
+            var docNumberKey = assignment.DocNumberKey;
+            var code = assignment.Code;
             var now = DateTime.Now;
 
             var document = new FinancialDocument

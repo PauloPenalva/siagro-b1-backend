@@ -36,6 +36,9 @@ public sealed class FakeDocNumberSequenceService(Guid? docNumberKey = null)
     public override Task<string> GetDocNumber(Guid key) =>
         Task.FromResult($"ST-{(NumberCalls++, _next++).Item2:0000}");
 
+    // Os testes de orquestração não modelam séries: a chave herdada passa como veio.
+    public override Task<Guid?> ResolveInheritedKeyAsync(Guid? key) => Task.FromResult(key);
+
     public override Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
     {
         RequestedCodes.Add(transactionCode);

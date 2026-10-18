@@ -41,7 +41,7 @@ public class ShipmentLoadsCreateController(
             var load = new ShipmentLoad
             {
                 BranchCode = Text(parameters, "BranchCode"),
-                DocNumberKey = Guid.TryParse(Text(parameters, "DocNumberKey"), out var docNumberKey) ? docNumberKey : null,
+                DocNumberKey = DocNumberKeyOf(parameters),
                 Code = Text(parameters, "Code"),
                 LoadDate = Date(parameters, "LoadDate") ?? DateTime.Now.Date,
                 TruckCode = Text(parameters, "TruckCode"),
@@ -70,13 +70,30 @@ public class ShipmentLoadsCreateController(
         }
         catch (Exception e)
         {
-            if (e is KeyNotFoundException or NotFoundException)
+            // NotFoundException vem da série de numeração desconhecida (AssignAsync): é erro do
+            // pedido, então 400 com a mensagem. ApplicationException (série inativa, código em
+            // uso...) também cai aqui com a mensagem em pt-BR.
+            if (e is KeyNotFoundException)
             {
                 return NotFound();
             }
 
             return BadRequest(e.Message);
         }
+    }
+
+    /// <summary>
+    /// Série escolhida: ausente, <c>null</c> explícito ou texto que não é GUID viram <c>null</c>
+    /// (série padrão). O parâmetro é <c>Guid?</c> no EDM, então o valor chega como <c>Guid</c>.
+    /// </summary>
+    public static Guid? DocNumberKeyOf(ODataActionParameters parameters)
+    {
+        if (!parameters.TryGetValue("DocNumberKey", out var value) || value == null)
+            return null;
+
+        return value is Guid key
+            ? key
+            : Guid.TryParse(value.ToString(), out var parsed) ? parsed : null;
     }
 
     /// <summary>

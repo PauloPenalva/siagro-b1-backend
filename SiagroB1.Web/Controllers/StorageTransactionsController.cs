@@ -10,7 +10,6 @@ namespace SiagroB1.Web.Controllers;
 
 public class StorageTransactionsController(
     StorageTransactionsCreateService createService,
-    StorageTransactionsDeleteService deleteService,
     StorageTransactionsGetService getService,
     StorageTransactionsUpdateService updateService
     ) : ODataController
@@ -94,36 +93,14 @@ public class StorageTransactionsController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute] Guid key)
+    // Romaneio não se exclui: o ciclo de vida é Confirmado/Cancelado. A recusa é sempre 400 com a mensagem.
+    public IActionResult Delete([FromRoute] Guid key)
     {
-        try
-        {
-            var success = await deleteService.ExecuteAsync(key);
-
-            if (!success)
-            {
-                return NotFound();
-            }
-
-            return NoContent();
-
-        }
-        catch (Exception ex)
-        {
-            if (ex is DefaultException or ApplicationException)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            if (ex is NotFoundException)
-            {
-                return NotFound(ex.Message);
-            }
-
-            return StatusCode(500, ex.Message);
-        }
+        return BadRequest(DeleteRefusalMessage);
     }
-    
+
+    public const string DeleteRefusalMessage = "Romaneio não pode ser excluído. Use o cancelamento.";
+
     [AcceptVerbs("PATCH", "MERGE")]
     public virtual async Task<IActionResult> Patch([FromRoute] Guid key, [FromBody] Delta<StorageTransaction> patch)
     {

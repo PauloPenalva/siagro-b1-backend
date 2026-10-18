@@ -16,12 +16,6 @@ public class DocNumberSequenceService(IDbConnection connection)
         return await FormatNumberAsync(docNumberKey, nextNumber);
     }
     
-    public async Task<string> GetDocNumberByObjectCodeAsync(TransactionCode transactionCode)
-    {
-        var docNumber = await GetNextNumberByObjectNumberAsync(transactionCode);
-        return await FormatNumberAsync(docNumber.Key, docNumber.LastNumber);
-    }
-    
     public virtual async Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
     {
         const string sql = """
@@ -53,6 +47,19 @@ public class DocNumberSequenceService(IDbConnection connection)
                            """;
 
         return await connection.QueryFirstOrDefaultAsync<DocNumberSeries>(sql, new { Key = key });
+    }
+
+    // Fluxos do sistema (cópia de contrato, devolução, complemento) herdam a série do documento
+    // de origem. Só vale se a série ainda existe, está ativa e é automática; senão devolve null e
+    // quem chama cai na série automática padrão, em vez de recusar ou repetir um número digitado.
+    public virtual async Task<Guid?> ResolveInheritedKeyAsync(Guid? key)
+    {
+        if (key is null || key == Guid.Empty)
+            return null;
+
+        var series = await GetSeriesAsync(key.Value);
+
+        return series is { Inactive: false, IsManual: false } ? key : null;
     }
 
     // Documentos que nunca aceitam número digitado: o número é sempre gerado pelo sistema.
@@ -109,30 +116,6 @@ public class DocNumberSequenceService(IDbConnection connection)
         throw new ApplicationException($"Não foi possível gerar um número livre para a série \"{series.Name}\".");
     }
     
-    private async Task<DocNumberDocument> GetNextNumberByObjectNumberAsync(TransactionCode transactionCode)
-    {
-        const string sql = """
-                            UPDATE DOC_NUMBERS WITH (UPDLOCK, HOLDLOCK)
-                            SET LastNumber = NextNumber,
-                               NextNumber = NextNumber + 1
-                            OUTPUT inserted.LastNumber, inserted.[Key]
-                            WHERE TransactionCode = @TransactionCode
-                              AND [Default] = 1;
-                           """;
-
-        var docNumber = await connection.QuerySingleOrDefaultAsync<DocNumberDocument?>(
-            sql,
-            new { TransactionCode = transactionCode }
-        );
-        
-        if (docNumber == null)
-            throw new NotFoundException(
-                $"No default document number found for transaction {transactionCode}"
-            );
-        
-        return docNumber;
-    }
-    
     private async Task<int> GetNextNumberAsync(Guid docNumberKey)
     {
         const string sql = """
@@ -181,11 +164,5 @@ public class DocNumberSequenceService(IDbConnection connection)
         public string Prefix { get; init; } = string.Empty;
         public string Suffix { get; init; } = string.Empty;
         public int NumberSize { get; init; }
-    }
-    
-    private sealed class DocNumberDocument
-    {
-        public Guid Key { get; init; } = Guid.Empty;
-        public int LastNumber { get; init; }
     }
 }
