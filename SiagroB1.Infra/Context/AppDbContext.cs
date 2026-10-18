@@ -44,6 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Usage> Usages { get; set; }
     public DbSet<UsageEffect> UsageEffects { get; set; }
     public DbSet<IbsCbsRate> IbsCbsRates { get; set; }
+    public DbSet<RuralContributionRate> RuralContributionRates { get; set; }
     public DbSet<Municipality> Municipalities { get; set; }
     public DbSet<Country> Countries { get; set; }
     public DbSet<PaymentCondition> PaymentConditions { get; set; }

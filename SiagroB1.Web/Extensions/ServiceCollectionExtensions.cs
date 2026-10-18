@@ -354,6 +354,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesCfopResolveService>();
         services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<IbsCbsRatesService>();
+        services.AddScoped<RuralContributionRatesService>();
         services.AddScoped<MunicipalityService>();
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();

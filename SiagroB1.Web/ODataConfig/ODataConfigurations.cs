@@ -58,6 +58,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
+        modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");

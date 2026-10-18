@@ -24,6 +24,15 @@ public class TaxationEdmModelTests
     }
 
     [Fact]
+    public void RuralContributionRates_entity_set_uses_edm_date_for_start_date()
+    {
+        var set = Model().EntityContainer.FindEntitySet("RuralContributionRates");
+        Assert.NotNull(set);
+        var start = set!.EntityType.FindProperty("StartDate");
+        Assert.Equal("Edm.Date", start.Type.FullName());
+    }
+
+    [Fact]
     public void Ibs_cbs_totals_are_exposed()
     {
         var model = Model();
