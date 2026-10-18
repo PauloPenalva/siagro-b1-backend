@@ -146,6 +146,24 @@ public class PurchaseInvoiceComplementFinancialTests
     }
 
     [Fact]
+    public async Task Icms_complement_rule_runs_again_on_confirm()
+    {
+        // Spec §Regras da linha: a regra do complemento vale também na confirmação (o dado pode ter mudado depois de gravar).
+        var s = await SeedAsync();
+        var invoice = await CreateAsync(s, PurchaseInvoiceType.IcmsComplement, s.NonFinancial, null);
+        var line = await s.Db.Context.PurchaseInvoicesItems.SingleAsync(l => l.PurchaseInvoiceKey == invoice.Key);
+        line.IcmsValue = 0m;
+        await s.Db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<DefaultException>(() => ConfirmAsync(s, invoice));
+
+        Assert.Equal($"Item {FiscalReconciliationSeed.Product}: informe a base e o valor do ICMS do complemento.", error.Message);
+        Assert.Equal(InvoiceStatus.Pending,
+            (await s.Db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key)).InvoiceStatus);
+        Assert.Empty(await s.Db.Context.FinancialDocuments.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
     public async Task Icms_complement_line_is_not_offered_for_reconciliation()
     {
         var fiscal = await FiscalReconciliationSeed.CreateAsync();

@@ -70,6 +70,11 @@ public class PurchaseInvoicesConfirmService(
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).
         await taxApply.RefreshDifalForConfirmAsync(invoice, lines);
 
+        // Spec 2026-10-17: a regra do complemento de ICMS vale de novo na confirmação (a natureza ou a nota original podem
+        // ter mudado desde a gravação). Não cria título (D5). O de valor revalida dentro do EnqueueForValueComplementAsync.
+        if (invoice.InvoiceType == PurchaseInvoiceType.IcmsComplement)
+            await taxApply.EnsureComplementAsync(invoice, lines);
+
         // Spec 2026-10-13 D11: o complemento de valor cria os títulos firmes aqui, no MESMO SaveChanges da confirmação.
         await firmSync.EnqueueForValueComplementAsync(invoice, lines, userName);
 

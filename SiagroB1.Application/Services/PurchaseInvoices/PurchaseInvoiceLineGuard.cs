@@ -80,11 +80,16 @@ internal static class PurchaseInvoiceLineGuard
         return (await Lookup())?.ItemName ?? itemName;
     }
 
-    /// <summary>A linha é de outra compra: STANDALONE, documento Normal (não devolução) e natureza de outra compra.</summary>
+    /// <summary>
+    /// A linha é de outra compra: STANDALONE, documento Normal ou complemento de valor (D3/D6), não devolução, e natureza de
+    /// outra compra — o mesmo recorte de <see cref="IsOtherPurchaseDocumentAsync(IUsage, bool, PurchaseInvoice, IReadOnlyList{PurchaseInvoiceItem})"/>.
+    /// O complemento de ICMS nunca é (D5).
+    /// </summary>
     internal static async Task<bool> IsOtherPurchaseLineAsync(
         IUsage usages, bool standalone, PurchaseInvoice invoice, PurchaseInvoiceItem line)
     {
-        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn || line.UsageCode is null)
+        if (!standalone || invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement)
+            || invoice.IsNfeReturn || line.UsageCode is null)
             return false;
 
         var usage = await usages.GetByIdAsync(line.UsageCode.Value);
