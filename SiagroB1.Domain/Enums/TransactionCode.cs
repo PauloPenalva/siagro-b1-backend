@@ -17,4 +17,7 @@ public enum TransactionCode
     WarehouseReconciliation = 13,
     PurchaseInvoice = 14,
     PurchaseDischarge = 15,
+    Customer = 16,
+    Supplier = 17,
+    Item = 18,
 }

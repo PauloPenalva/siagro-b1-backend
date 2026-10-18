@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
@@ -46,7 +47,11 @@ public class PurchaseContractsCreateService(
                 parameter.PurchaseContract = entity;
             }
             
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode, entity.DocNumberKey, entity.Code, 50,
+                c => context.PurchaseContracts.AnyAsync(x => x.Code == c)));
+            entity.DocNumberKey = assignment.DocNumberKey;
+            entity.Code = assignment.Code;
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;

@@ -19,7 +19,7 @@ public class BusinessPartnerRuralProducerTests
     }
 
     private static BusinessPartnerService NewService() =>
-        new(Support.TestDb.CreateUnitOfWork(), NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer());
+        new(Support.TestDb.CreateUnitOfWork(), NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer(), new Support.FakeDocNumberSequenceService());
 
     private static BusinessPartnerModel Model(string taxId, bool rural, RuralProducerType? type = null,
         string? cpf = null, bool payroll = false) => new()

@@ -50,32 +50,39 @@ public class PurchaseInvoicesCreateTests
     [Theory]
     [InlineData(DocumentIssuerType.ThirdParty)]
     [InlineData(DocumentIssuerType.Own)]
-    public async Task Internal_number_comes_from_the_sequence_and_the_body_value_is_ignored(DocumentIssuerType issuer)
+    public async Task PurchaseInvoicesCreate_UsesChosenSeriesAndTypedNumber(DocumentIssuerType issuer)
     {
         var db = TestDb.CreateUnitOfWork();
+        var numbering = new FakeDocNumberSequenceService(DocKey);
+        var series = Guid.NewGuid();
+        db.Context.PurchaseInvoices.Add(new PurchaseInvoice { CardCode = "F0001", InvoiceNumber = "USED" });
+        await db.SaveChangesAsync();
 
         var invoice = NewInvoice(chave: null);
         invoice.IssuerType = issuer;
-        invoice.InvoiceNumber = "DIGITADO";
-        await Service(db).ExecuteAsync(invoice, "tester");
+        invoice.DocNumberKey = series;
+        invoice.InvoiceNumber = " DE-77 ";
+        await Service(db, numbering).ExecuteAsync(invoice, "tester");
 
-        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
-        Assert.Equal("ST-0001", saved.InvoiceNumber);
-        Assert.Equal(DocKey, saved.DocNumberKey);
+        await DocNumberRequestAsserts.AssertRequestAsync(
+            numbering, TransactionCode.PurchaseInvoice, series, " DE-77 ", 9, "USED");
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync(x => x.InvoiceNumber == "DE-77");
+        Assert.Equal(series, saved.DocNumberKey);
     }
 
     [Fact]
-    public async Task Internal_number_uses_the_purchase_invoice_sequence_and_replaces_a_body_key()
+    public async Task PurchaseInvoicesCreate_WithoutSeriesLetsNumberingPickTheDefault()
     {
         var db = TestDb.CreateUnitOfWork();
         var numbering = new FakeDocNumberSequenceService(DocKey);
 
-        var invoice = NewInvoice(chave: null);
-        invoice.DocNumberKey = Guid.NewGuid();
-        await Service(db, numbering).ExecuteAsync(invoice, "tester");
+        await Service(db, numbering).ExecuteAsync(NewInvoice(chave: null), "tester");
 
-        Assert.Equal([TransactionCode.PurchaseInvoice], numbering.RequestedCodes);
-        Assert.Equal(DocKey, (await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync()).DocNumberKey);
+        // Sem série no corpo: a numeração resolve a padrão (o fake devolve a chave dele).
+        Assert.Null(Assert.Single(numbering.Requests).DocNumberKey);
+        var saved = await db.Context.PurchaseInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(DocKey, saved.DocNumberKey);
+        Assert.Equal("ST-0001", saved.InvoiceNumber);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Notifications;
@@ -31,11 +32,18 @@ public class SalesContractsCreateService(
         if (HasDuplicateDeliveryLocation(entity.DeliveryLocations))
             throw new ApplicationException("Local de entrega repetido no contrato.");
 
+        // Número fora do try: o catch abaixo mascara toda exceção, e a recusa de série/número
+        // (pt-BR) precisa chegar ao usuário.
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode, entity.DocNumberKey, entity.Code, 50,
+            c => db.Context.SalesContracts.AnyAsync(x => x.Code == c)));
+        entity.DocNumberKey = assignment.DocNumberKey;
+        entity.Code = assignment.Code;
+
         try
         {
             await db.BeginTransactionAsync();
 
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
             entity.CreatedAt = DateTime.Now;
             entity.CreatedBy = createdBy;
             // Uma leitura só do parceiro para as três colunas desnormalizadas.

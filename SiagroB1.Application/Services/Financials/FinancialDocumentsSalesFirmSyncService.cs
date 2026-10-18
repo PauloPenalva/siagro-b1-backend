@@ -259,8 +259,11 @@ public class FinancialDocumentsSalesFirmSyncService(
 
         foreach (var contractKey in missing)
         {
-            var docNumberKey = await docNumberSequence.GetKeyByTransactionCode(TransactionCode.FinancialDocument);
-            var code = await docNumberSequence.GetDocNumber(docNumberKey);
+            var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+                TransactionCode.FinancialDocument, null, null, 50,
+                c => db.Context.FinancialDocuments.AnyAsync(x => x.Code == c)));
+            var docNumberKey = assignment.DocNumberKey;
+            var code = assignment.Code;
 
             var document = new FinancialDocument
             {

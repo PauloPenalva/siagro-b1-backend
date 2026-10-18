@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -17,13 +18,17 @@ public class OwnershipTransfersCreateService(
 {
     public async Task ExecuteAsync(OwnershipTransfer ownershipTransfer, string userName, CommitMode commitMode = CommitMode.Auto)
     {
-        ownershipTransfer.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.OwnershipTransfer);
-        
+        // O catch abaixo repassa a mensagem, então a recusa de série/número chega ao usuário.
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode.OwnershipTransfer, ownershipTransfer.DocNumberKey, ownershipTransfer.TransferCode, 50,
+            c => db.Context.OwnershipTransfers.AnyAsync(x => x.TransferCode == c)));
+        ownershipTransfer.DocNumberKey = assignment.DocNumberKey;
+        ownershipTransfer.TransferCode = assignment.Code;
+
         try
         {
             ownershipTransfer.CreatedAt = DateTime.Now;
             ownershipTransfer.CreatedBy = userName;
-            ownershipTransfer.TransferCode = await numberSequenceService.GetDocNumber((Guid) ownershipTransfer.DocNumberKey);
             ownershipTransfer.TransferStatus = OwnershipTransferStatus.Open;
             ownershipTransfer.ItemName = (await itemService.GetByIdAsync(ownershipTransfer.ItemCode))?.ItemName;
 

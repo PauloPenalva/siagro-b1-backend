@@ -20,7 +20,7 @@ namespace SiagroB1.Application.Tests.BusinessPartners;
 public class BusinessPartnerDeleteTests
 {
     private static BusinessPartnerService Service(UnitOfWork db) =>
-        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>());
+        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>(), new FakeDocNumberSequenceService());
 
     [Fact]
     public async Task Delete_removes_the_partner_addresses_with_it()

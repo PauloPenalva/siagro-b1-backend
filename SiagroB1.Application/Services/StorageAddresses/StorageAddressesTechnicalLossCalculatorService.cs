@@ -119,8 +119,11 @@ public class StorageAddressesTechnicalLossCalculatorService(
 
             if (!txExists)
             {
-                var docNumberKey = await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageTransaction);
-                var code = await numberSequenceService.GetDocNumber((Guid) docNumberKey);
+                var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                    TransactionCode.StorageTransaction, null, null, 50,
+                    c => db.Context.StorageTransactions.AnyAsync(x => x.Code == c, ct)));
+                var docNumberKey = assignment.DocNumberKey;
+                var code = assignment.Code;
                 var lossTx = new StorageTransaction
                 {
                     DocNumberKey = docNumberKey,

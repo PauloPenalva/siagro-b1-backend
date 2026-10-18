@@ -27,14 +27,15 @@ public class SalesInvoicesCreateIcmsComplementTests
     private const string V2 = "Informe a base e o valor do ICMS de ao menos um item.";
     private const string V8 = "Complemento de ICMS só existe na filial que emite NF-e pelo Siagro.";
 
-    private static SalesInvoicesCreateIcmsComplementService Service(UnitOfWork db, string erp = "STANDALONE")
+    private static SalesInvoicesCreateIcmsComplementService Service(
+        UnitOfWork db, string erp = "STANDALONE", FakeDocNumberSequenceService? numbers = null)
     {
         var partners = new FakeBusinessPartnerService(
             names: new() { [NfeTestSeed.CardCode] = "CLIENTE BA LTDA" },
             states: new() { [NfeTestSeed.CardCode] = "BA" });
 
         return new SalesInvoicesCreateIcmsComplementService(
-            db, TaxTestServices.Gate(db, erp), TaxTestServices.Apply(db, partners, erp), new FakeDocNumberSequenceService(),
+            db, TaxTestServices.Gate(db, erp), TaxTestServices.Apply(db, partners, erp), numbers ?? new FakeDocNumberSequenceService(),
             NullLogger<SalesInvoicesCreateIcmsComplementService>.Instance, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
     }
 
@@ -97,6 +98,27 @@ public class SalesInvoicesCreateIcmsComplementTests
         change(sale);
         await db.SaveChangesAsync();
         db.Context.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task IcmsComplement_UsesOriginSeriesWithoutTypedCode()
+    {
+        var (db, saleKey, sojaKey, _) = await SeedAsync();
+        var seriesKey = Guid.NewGuid();
+        await ChangeSaleAsync(db, saleKey, s => s.DocNumberKey = seriesKey);
+        var numbers = new FakeDocNumberSequenceService();
+
+        var created = await Service(db, numbers: numbers).ExecuteAsync(saleKey, [sojaKey], [1_000m], [120m], "tester");
+
+        var request = Assert.Single(numbers.Requests);
+        Assert.Equal(TransactionCode.SalesInvoice, request.TransactionCode);
+        Assert.Equal(seriesKey, request.DocNumberKey);
+        Assert.Null(request.TypedCode);
+        Assert.Equal(9, request.MaxLength);
+        Assert.False(await request.ExistsAsync("NOPE"));
+        var saved = await SavedAsync(db, created.Key);
+        Assert.Equal(seriesKey, saved.DocNumberKey);
+        Assert.StartsWith("ST-", saved.InvoiceNumber);
     }
 
     [Fact]

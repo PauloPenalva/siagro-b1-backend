@@ -33,6 +33,10 @@ namespace SiagroB1.Web.Controllers
         
         public virtual async Task<IActionResult> Post([FromBody] BusinessPartnerModel entity)
         {
+            // Com série automática o código nasce no servidor: chegar vazio é válido.
+            ModelState.Remove(nameof(BusinessPartnerModel.CardCode));
+            ModelState.Remove("CardCode");
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -46,7 +50,7 @@ namespace SiagroB1.Web.Controllers
             }
             catch (Exception ex)
             {
-                if (ex is DefaultException)
+                if (ex is DefaultException or ApplicationException)
                 {
                     return BadRequest(ex.Message);
                 }

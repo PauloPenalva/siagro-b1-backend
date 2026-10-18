@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -9,12 +11,31 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services;
 
-public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfiguration configuration) 
+public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfiguration configuration,
+    DocNumberSequenceService docNumbers) 
     : IItemService
 {
     public async Task<ItemModel> CreateAsync(ItemModel entity)
     {
         ValidateFiscalFields(entity);
+
+        var typed = entity.ItemCode?.Trim();
+
+        // Sem série e com código digitado (aba antiga, cliente de API): comportamento legado.
+        if (entity.DocNumberKey is null && !string.IsNullOrWhiteSpace(typed))
+        {
+            if (await db.Context.Items.AnyAsync(i => i.ItemCode == typed))
+                throw new DefaultException($"O código {typed} já está em uso.");
+
+            entity.ItemCode = typed;
+        }
+        else
+        {
+            var assignment = await docNumbers.AssignAsync(new DocNumberRequest(
+                TransactionCode.Item, entity.DocNumberKey, typed, 50,
+                code => db.Context.Items.AnyAsync(i => i.ItemCode == code)));
+            entity.ItemCode = assignment.Code;
+        }
 
         var item = new Item()
         {

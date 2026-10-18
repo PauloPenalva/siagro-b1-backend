@@ -67,7 +67,7 @@ public class PurchaseInvoicesController(
         }
         catch (Exception e)
         {
-            if (e is DefaultException or BusinessException)
+            if (e is DefaultException or BusinessException or ApplicationException)
                 return BadRequest(e.Message);
 
             return StatusCode(500, e.Message);

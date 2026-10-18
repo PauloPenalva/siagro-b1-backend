@@ -5,8 +5,12 @@ namespace SiagroB1.Domain.Models;
 
 public class BusinessPartnerModel
 {
+    /// <summary>Em STANDALONE pode chegar vazio quando a série escolhida é automática: o serviço gera o código.</summary>
     [Key]
-    public required string CardCode { get; set; }
+    public string CardCode { get; set; } = string.Empty;
+
+    /// <summary>Série de numeração escolhida (Automático/Manual). Só entrada: não é persistida.</summary>
+    public Guid? DocNumberKey { get; set; }
 
     public required string CardName { get; set; }
     

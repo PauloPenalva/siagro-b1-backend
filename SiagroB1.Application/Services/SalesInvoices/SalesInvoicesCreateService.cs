@@ -119,13 +119,25 @@ public class SalesInvoicesCreateService(
             await taxApply.ApplyAsync(salesInvoice, salesInvoice.Items);
         }
 
-        salesInvoice.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
-
         try
         {
             salesInvoice.CreatedAt = DateTime.Now;
             salesInvoice.CreatedBy = userName;
-            salesInvoice.InvoiceNumber = await numberSequenceService.GetDocNumber((Guid) salesInvoice.DocNumberKey);
+            // Série escolhida (ou a padrão) e número digitado, se a série for manual. O catch
+            // abaixo repassa a mensagem, então a recusa em pt-BR chega ao usuário.
+            // Devolução gerada pelo sistema (sem número digitado) herda a série da origem, mas só se
+            // ela ainda for automática e ativa; senão cai na série padrão em vez de recusar.
+            if (salesInvoice.InvoiceType == SalesInvoiceType.Return
+                && salesInvoice.SalesInvoiceOriginKey.HasValue
+                && string.IsNullOrWhiteSpace(salesInvoice.InvoiceNumber))
+                salesInvoice.DocNumberKey =
+                    await numberSequenceService.ResolveInheritedKeyAsync(salesInvoice.DocNumberKey);
+
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode.SalesInvoice, salesInvoice.DocNumberKey, salesInvoice.InvoiceNumber, 9,
+                c => db.Context.SalesInvoices.AnyAsync(x => x.InvoiceNumber == c)));
+            salesInvoice.DocNumberKey = assignment.DocNumberKey;
+            salesInvoice.InvoiceNumber = assignment.Code;
             salesInvoice.InvoiceStatus = InvoiceStatus.Pending;
             var customer = await businessPartnerService.GetByIdAsync(salesInvoice.CardCode);
             salesInvoice.CardName = customer?.CardName;

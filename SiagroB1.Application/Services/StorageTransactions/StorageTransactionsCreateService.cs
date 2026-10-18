@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.Royalties;
 using SiagroB1.Application.Services.ShipmentReleases;
@@ -37,6 +38,12 @@ public class StorageTransactionsCreateService(
             
             return entity;
         }
+        catch (ApplicationException)
+        {
+            // Recusa de negócio (ex.: série de numeração inválida): a mensagem pt-BR segue para o usuário.
+            await unitOfWork.RollbackAsync();
+            throw;
+        }
         catch (Exception ex)
         {
             await unitOfWork.RollbackAsync();
@@ -51,16 +58,21 @@ public class StorageTransactionsCreateService(
         TransactionCode transactionCode = TransactionCode.StorageTransaction,
         CommitMode commitMode = CommitMode.Auto)
     {
-        entity.DocNumberKey ??= await numberSequenceService.GetKeyByTransactionCode(TransactionCode.StorageTransaction);
-
         // Antes do try (cujo catch embrulha em DefaultException): bloqueia romaneio
         // contra liberação finalizada/cancelada/pausada.
         await movementGuard.EnsureCanShipAsync(entity);
 
+        // Também antes do try: a recusa de série (pt-BR) não pode ser embrulhada em "Error creating entity".
+        // Romaneio não tem série escolhida pelo usuário: a chave herdada (cópia, troca de liberação, entrada)
+        // só vale se ainda for automática e ativa; senão vale a padrão. O Code do corpo é ignorado (TypedCode null).
+        var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+            TransactionCode.StorageTransaction, await numberSequenceService.ResolveInheritedKeyAsync(entity.DocNumberKey),
+            null, 50, c => unitOfWork.Context.StorageTransactions.AnyAsync(x => x.Code == c)));
+        entity.DocNumberKey = assignment.DocNumberKey;
+        entity.Code = assignment.Code;
+
         try
         {
-            entity.Code = await numberSequenceService.GetDocNumber((Guid) entity.DocNumberKey);
-            
             entity.CardName = (await businessPartnerService.GetByIdAsync(entity.CardCode))?.CardName;
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;

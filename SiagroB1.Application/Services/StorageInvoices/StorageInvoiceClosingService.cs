@@ -227,10 +227,15 @@ public class StorageInvoiceClosingService(
             if (!items.Any())
                 throw new BusinessException(resource["NO_ITEMS_TO_INVOICE"]);
 
+            // Série e número digitado (série manual) vêm do pedido; o catch abaixo só desfaz e repassa.
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode.StorageInvoice, request.DocNumberKey, request.Code, 50,
+                c => db.Context.StorageInvoices.AnyAsync(x => x.Code == c, ct)));
+
             var invoice = new StorageInvoice
             {
-                DocNumberKey = request.DocNumberKey,
-                Code = await numberSequenceService.GetDocNumber((Guid) request.DocNumberKey),
+                DocNumberKey = assignment.DocNumberKey,
+                Code = assignment.Code,
                 BranchCode = address.BranchCode,
                 StorageAddressCode = address.Code,
                 CardCode = address.CardCode,

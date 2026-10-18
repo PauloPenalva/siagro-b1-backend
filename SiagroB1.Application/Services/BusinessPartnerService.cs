@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
@@ -15,7 +16,8 @@ namespace SiagroB1.Application.Services;
 public class BusinessPartnerService(
     IUnitOfWork db, 
     ILogger<BusinessPartnerService> logger,
-    IStringLocalizer<Resource> resource
+    IStringLocalizer<Resource> resource,
+    DocNumberSequenceService docNumbers
     ) 
     : IBusinessPartnerService
 {
@@ -82,20 +84,14 @@ public class BusinessPartnerService(
 
     public async Task<BusinessPartnerModel> CreateAsync(BusinessPartnerModel model)
     {
-        var existingCode = await db.Context.BusinessPartners
-            .FirstOrDefaultAsync(b => b.CardCode == model.CardCode);
-        
-        if (existingCode != null)
-        {
-            throw new DefaultException(resource["BP_EXISTING_CODE"]);
-        }
-
         NormalizeRuralProducer(model);
         ValidateRuralProducer(model);
         ValidateNfeFields(model);
 
         foreach (var address in model.Addresses)
             AddressTypes.EnsureValid(address.AdresType, resource);
+
+        await ResolveCardCodeAsync(model);
 
         var entity = new BusinessPartner()
         {
@@ -144,6 +140,40 @@ public class BusinessPartnerService(
         await db.Context.BusinessPartners.AddAsync(entity);
         await db.SaveChangesAsync();
         return model;
+    }
+
+    // Cliente e Fornecedor têm série própria; qualquer outro tipo mantém o código digitado.
+    // CardCode é uma tabela só: o código de um cliente também bloqueia o de um fornecedor.
+    // Roda depois das validações para que um parceiro recusado não consuma número.
+    private async Task ResolveCardCodeAsync(BusinessPartnerModel model)
+    {
+        var typed = model.CardCode?.Trim();
+        var transactionCode = model.CardType switch
+        {
+            "C" => (TransactionCode?)TransactionCode.Customer,
+            "S" => TransactionCode.Supplier,
+            _ => null,
+        };
+
+        // Sem série e com código digitado (aba antiga, cliente de API): comportamento legado.
+        var legacy = transactionCode is null || (model.DocNumberKey is null && !string.IsNullOrWhiteSpace(typed));
+
+        if (legacy)
+        {
+            if (string.IsNullOrWhiteSpace(typed))
+                throw new DefaultException("Informe o código do parceiro.");
+
+            if (await db.Context.BusinessPartners.AnyAsync(b => b.CardCode == typed))
+                throw new DefaultException(resource["BP_EXISTING_CODE"]);
+
+            model.CardCode = typed;
+            return;
+        }
+
+        var assignment = await docNumbers.AssignAsync(new DocNumberRequest(
+            transactionCode!.Value, model.DocNumberKey, typed, 15,
+            code => db.Context.BusinessPartners.AnyAsync(b => b.CardCode == code)));
+        model.CardCode = assignment.Code;
     }
 
     public async Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel model)

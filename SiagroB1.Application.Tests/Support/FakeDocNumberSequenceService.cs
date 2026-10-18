@@ -21,8 +21,23 @@ public sealed class FakeDocNumberSequenceService(Guid? docNumberKey = null)
     /// <summary>Quantas vezes um número foi consumido.</summary>
     public int NumberCalls { get; private set; }
 
+    /// <summary>Pedidos de atribuição recebidos por <see cref="AssignAsync"/>, em ordem.</summary>
+    public List<DocNumberRequest> Requests { get; } = [];
+
+    public override Task<DocNumberAssignment> AssignAsync(DocNumberRequest request)
+    {
+        Requests.Add(request);
+        var code = string.IsNullOrWhiteSpace(request.TypedCode)
+            ? $"ST-{(NumberCalls++, _next++).Item2:0000}"
+            : request.TypedCode.Trim();
+        return Task.FromResult(new DocNumberAssignment(request.DocNumberKey ?? _docNumberKey, code));
+    }
+
     public override Task<string> GetDocNumber(Guid key) =>
         Task.FromResult($"ST-{(NumberCalls++, _next++).Item2:0000}");
+
+    // Os testes de orquestração não modelam séries: a chave herdada passa como veio.
+    public override Task<Guid?> ResolveInheritedKeyAsync(Guid? key) => Task.FromResult(key);
 
     public override Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
     {

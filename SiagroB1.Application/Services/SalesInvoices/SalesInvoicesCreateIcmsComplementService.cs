@@ -80,9 +80,13 @@ public class SalesInvoicesCreateIcmsComplementService(
         {
             await db.BeginTransactionAsync();
 
-            complement.DocNumberKey = origin.DocNumberKey
-                                      ?? await numberSequenceService.GetKeyByTransactionCode(TransactionCode.SalesInvoice);
-            complement.InvoiceNumber = await numberSequenceService.GetDocNumber(complement.DocNumberKey.Value);
+            // Herda a série da nota original; série manual/inativa/inexistente cai na automática padrão.
+            // Nunca leva código digitado: o complemento sempre recebe número do contador.
+            var assignment = await numberSequenceService.AssignAsync(new DocNumberRequest(
+                TransactionCode.SalesInvoice, await numberSequenceService.ResolveInheritedKeyAsync(origin.DocNumberKey),
+                null, 9, c => db.Context.SalesInvoices.AnyAsync(x => x.InvoiceNumber == c)));
+            complement.DocNumberKey = assignment.DocNumberKey;
+            complement.InvoiceNumber = assignment.Code;
 
             await db.Context.SalesInvoices.AddAsync(complement);
             await db.SaveChangesAsync();
