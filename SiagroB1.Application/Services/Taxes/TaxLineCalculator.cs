@@ -68,15 +68,20 @@ public class TaxLineCalculator(IUnitOfWork db, IbsCbsRatesService ibsCbsRatesSer
         return branch;
     }
 
-    public static async Task<string> LoadPartnerStateAsync(IBusinessPartnerService partners, string cardCode)
-    {
-        var partner = await partners.GetByIdAsync(cardCode)
-                      ?? throw new DefaultException($"Parceiro {cardCode} não encontrado.");
+    public static async Task<string> LoadPartnerStateAsync(IBusinessPartnerService partners, string cardCode) =>
+        PartnerState(await LoadPartnerAsync(partners, cardCode));
 
+    /// <summary>O parceiro do documento; recusa o código que o cadastro não resolve.</summary>
+    public static async Task<BusinessPartnerModel> LoadPartnerAsync(IBusinessPartnerService partners, string cardCode) =>
+        await partners.GetByIdAsync(cardCode) ?? throw new DefaultException($"Parceiro {cardCode} não encontrado.");
+
+    /// <summary>A UF do endereço de faturamento do parceiro; recusa o parceiro sem UF.</summary>
+    public static string PartnerState(BusinessPartnerModel partner)
+    {
         var state = SalesInvoicesCfopResolveService.ResolvePartnerState(partner);
 
         return string.IsNullOrWhiteSpace(state)
-            ? throw new DefaultException($"Parceiro {cardCode} está sem UF no endereço de faturamento.")
+            ? throw new DefaultException($"Parceiro {partner.CardCode} está sem UF no endereço de faturamento.")
             : state;
     }
 

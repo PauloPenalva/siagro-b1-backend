@@ -5,6 +5,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
+using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
@@ -21,7 +22,8 @@ public class PurchaseInvoicesTaxApplyService(
     TaxCalculationGate gate,
     IUsage usageService,
     IBusinessPartnerService businessPartnerService,
-    IbsCbsRatesService ibsCbsRatesService)
+    IbsCbsRatesService ibsCbsRatesService,
+    RuralContributionRatesService ruralContributionRatesService)
 {
     private readonly TaxLineCalculator _lines = new(db, ibsCbsRatesService);
 
@@ -136,7 +138,9 @@ public class PurchaseInvoicesTaxApplyService(
 
         var ownReturn = IsOwnNfeReturn(invoice);
         var branch = await _lines.LoadBranchAsync(invoice.BranchCode);
-        var supplierState = await TaxLineCalculator.LoadPartnerStateAsync(businessPartnerService, invoice.CardCode);
+        // Um GetById por documento: a UF decide o CFOP e o cadastro de produtor rural decide a contribuição social.
+        var partner = await TaxLineCalculator.LoadPartnerAsync(businessPartnerService, invoice.CardCode);
+        var supplierState = TaxLineCalculator.PartnerState(partner);
         var inState = string.Equals(branch.StateCode, supplierState, StringComparison.OrdinalIgnoreCase);
 
         // CT-e: o tributo segue as UFs da PRESTAÇÃO (início → fim), não a UF da transportadora; o CFOP segue a UF de
@@ -167,6 +171,7 @@ public class PurchaseInvoicesTaxApplyService(
             ? await PurchaseInvoiceComplement.LoadOriginalsAsync(db.Context, lines)
             : new Dictionary<Guid, PurchaseInvoiceItem>();
         var usages = new Dictionary<int, UsageModel>();
+        var ruralRates = new Dictionary<RuralContributionScheme, RuralContributionRates?>();
         var number = 0;
 
         foreach (var item in lines)
@@ -215,11 +220,46 @@ public class PurchaseInvoicesTaxApplyService(
             }
             else
             {
-                // Funrural pela natureza da linha (spec 2026-10-09 §2): PF, PJ e decisão judicial são naturezas distintas.
-                // Task 4: regra do parceiro
-                PurchaseInvoiceFunrural.Clear(item);
+                // Contribuição social do produtor rural (spec 2026-10-18 §4.4): a natureza diz o modo, o cadastro do
+                // parceiro diz se retém e em que regime, e a tabela vigente na data do documento dá as alíquotas.
+                var rates = await ResolveRuralContributionAsync(usage, partner, rateDate, ruralRates);
+                if (rates is { } r)
+                    PurchaseInvoiceFunrural.Apply(item, r.Inss, r.Rat, r.Senar);
+                else
+                    PurchaseInvoiceFunrural.Clear(item);
             }
         }
+    }
+
+    /// <summary>
+    /// Alíquotas da linha pela regra; a tabela é lida só para o regime que a linha consulta e uma vez por documento
+    /// (cache por regime — a data é a do documento).
+    /// </summary>
+    private async Task<RuralContributionRates?> ResolveRuralContributionAsync(
+        UsageModel usage, BusinessPartnerModel partner, DateOnly rateDate,
+        Dictionary<RuralContributionScheme, RuralContributionRates?> cache)
+    {
+        var mode = usage.RuralContributionMode;
+        if (!RuralContributionRule.Withholds(mode, partner.IsRuralProducer, partner.RuralProducerType))
+            return null;
+
+        var scheme = RuralContributionRule.SchemeFor(mode, partner.RuralPayrollOption);
+        RuralContributionRates? effective = null;
+        if (scheme is { } s)
+        {
+            if (!cache.TryGetValue(s, out effective))
+            {
+                var row = await ruralContributionRatesService.GetEffectiveAsync(s, rateDate);
+                effective = row is null ? null : new RuralContributionRates(row.InssRate, row.RatRate, row.SenarRate);
+                cache[s] = effective;
+            }
+        }
+
+        return RuralContributionRule.Resolve(
+            mode, partner.IsRuralProducer, partner.RuralProducerType, partner.RuralPayrollOption,
+            scheme == RuralContributionScheme.Standard ? effective : null,
+            scheme == RuralContributionScheme.PayrollOption ? effective : null,
+            rateDate);
     }
 
     private async Task<UsageModel> ResolveUsageAsync(

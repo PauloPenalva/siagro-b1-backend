@@ -40,7 +40,7 @@ public static class TaxTestServices
     public static PurchaseInvoicesTaxApplyService PurchaseApply(
         UnitOfWork db, IBusinessPartnerService partners, string? erp = "STANDALONE") =>
         new(db, Gate(db, erp), new UsageService(db, NullLogger<UsageService>.Instance), partners,
-            new IbsCbsRatesService(db));
+            new IbsCbsRatesService(db), new RuralContributionRatesService(db));
 
     /// <summary>Regra sempre inativa (modo SAPB1) — para os testes antigos da entrada, que não exercitam a tributação.</summary>
     public static PurchaseInvoicesTaxApplyService InactivePurchaseApply(UnitOfWork db) =>
