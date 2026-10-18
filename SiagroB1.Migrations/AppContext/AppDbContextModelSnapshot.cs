@@ -5491,6 +5491,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CardName")
                         .HasColumnType("VARCHAR(200)");
 
+                    b.Property<DateTime?>("ClosingDate")
+                        .HasColumnType("DATE");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 

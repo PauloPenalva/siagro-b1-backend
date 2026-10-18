@@ -11,8 +11,8 @@ public class StorageAddressesStorageChargeCalculatorService(IUnitOfWork db)
     {
         var addresses = await db.Context.StorageAddresses
             .Include(x => x.ProcessingCost)
+            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate))
             .Where(x =>
-                x.Status == StorageAddressStatus.Open &&
                 x.ProcessingCostCode != null &&
                 // Lote de transbordo guarda mercadoria de passagem, não armazenagem
                 // contratada: cobrar armazenagem dele cobraria pelo serviço errado (GAC-1181

@@ -15,8 +15,8 @@ public class StorageAddressesTechnicalLossCalculatorService(
     {
         var addresses = await db.Context.StorageAddresses
             .Include(x => x.ProcessingCost)
+            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate))
             .Where(x =>
-                x.Status == StorageAddressStatus.Open &&
                 x.ProcessingCostCode != null &&
                 // Lote de transbordo é mercadoria de passagem: não fica armazenado a ponto de
                 // sofrer quebra técnica, então não entra na apropriação (GAC-1181 fase 2).

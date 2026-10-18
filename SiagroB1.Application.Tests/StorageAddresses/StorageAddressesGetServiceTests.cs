@@ -81,6 +81,7 @@ public class StorageAddressesGetServiceTests
             PurchaseContractKey = Guid.NewGuid(),
             TransactionOrigin = TransactionCode.WeighingTicket,
             CreatedBy = "admin",
+            ClosingDate = new DateTime(2026, 9, 30),
         };
 
         var empty = new StorageAddress

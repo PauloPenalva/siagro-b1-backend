@@ -53,7 +53,15 @@ public class StorageAddress : MasterEntity
     public TransactionCode? TransactionOrigin { get; set; }
 
     public StorageAddressStatus? Status { get; set; } = StorageAddressStatus.Open;
-    
+
+    /// <summary>
+    /// Data de encerramento do lote: o último dia em que saldo diário, armazenagem e quebra técnica
+    /// são calculados. Só muda pelas actions de encerrar/reabrir (StorageAddressesCloseService e
+    /// StorageAddressesReopenService); a edição comum preserva o valor.
+    /// </summary>
+    [Column(TypeName = "DATE")]
+    public DateTime? ClosingDate { get; set; }
+
     [Column(TypeName = "VARCHAR(4) NOT NULL")]
     public required string UoM { get; set; }
 
