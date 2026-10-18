@@ -199,6 +199,10 @@ public class SalesInvoicesCancelService(
         if (HasReturn(invoice))
             throw new DefaultException("Documento de saída possui retorno.");
 
+        // Spec 2026-10-18 S9 (V6): complemento de ICMS não cancelado apontando para esta nota — vale para o documento e
+        // para a NF-e (o ensaio do cancelamento da NF-e passa por aqui). Complemento cancelado não trava.
+        await SalesInvoiceIcmsComplement.EnsureNoActiveComplementAsync(db.Context, invoice);
+
         await StorageDepositRules.EnsureRemittanceHasNoReturnAsync(db.Context, invoice.Key);
         await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, invoice.Key);
 

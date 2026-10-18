@@ -13,7 +13,8 @@ namespace SiagroB1.Application.Services.Nfe;
 
 /// <summary>
 /// "Transmitir NF-e" do documento de saída (spec 2026-10-02 §9.2; spec 2026-10-06). O documento Normal é transmitido
-/// já Confirmado e com tipo NF-e; a devolução própria continua Pendente — nela, emitir é o que confirma.
+/// já Confirmado e com tipo NF-e; a devolução própria e o complemento de ICMS (spec 2026-10-18 S7) continuam Pendentes —
+/// neles, emitir é o que confirma.
 /// Ordem que não pode mudar: reservar o número e SALVAR; assinar e validar; gravar "Em processamento" + XML assinado e
 /// SALVAR; só então enviar.
 /// </summary>
@@ -36,18 +37,24 @@ public class SalesInvoicesNfeIssueService(
 
     protected override void EnsureIssuableType(SalesInvoice invoice)
     {
-        if (invoice.InvoiceType != SalesInvoiceType.Normal && !SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
+        // Spec 2026-10-18 S7: o complemento de ICMS sai como NF-e complementar (finNFe=2).
+        if (invoice.InvoiceType != SalesInvoiceType.Normal && !SalesInvoicesTaxApplyService.IsOwnNfeReturn(invoice) &&
+            !SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
             throw new DefaultException(
-                "Só o documento Normal e a devolução criada pelo Devolver são emitidos como NF-e por aqui.");
+                "Só o documento Normal, a devolução criada pelo Devolver e o complemento de ICMS são emitidos como NF-e por aqui.");
 
         if (!invoice.IsNfeReturn && invoice.TaxDocumentKind != TaxDocumentKind.Nfe)
             throw new DefaultException("Documento do tipo Outro não é transmitido como NF-e.");
     }
 
     protected override InvoiceStatus RequiredStatus(SalesInvoice invoice) =>
-        invoice.IsNfeReturn ? InvoiceStatus.Pending : InvoiceStatus.Confirmed;
+        IssuedPending(invoice) ? InvoiceStatus.Pending : InvoiceStatus.Confirmed;
 
-    protected override string DateFixHint(SalesInvoice invoice) => invoice.IsNfeReturn
+    /// <summary>Devolução própria e complemento de ICMS: emitidos Pendentes; o resultado autorizado os confirma.</summary>
+    private static bool IssuedPending(SalesInvoice invoice) =>
+        invoice.IsNfeReturn || SalesInvoicesTaxApplyService.IsIcmsComplement(invoice);
+
+    protected override string DateFixHint(SalesInvoice invoice) => IssuedPending(invoice)
         ? "altere a data e salve (os impostos são recalculados)."
         : "estorne a confirmação, altere a data e salve (os impostos são recalculados).";
 
@@ -59,6 +66,13 @@ public class SalesInvoicesNfeIssueService(
     // depois da autorização, tarde demais para impedir uma NF-e de quantidade a mais.
     protected override async Task EnsureBeforeReservationAsync(SalesInvoice invoice)
     {
+        // Complemento de ICMS: a original recarregada (V5) e a base/ICMS de toda linha (V3/V4), antes de numerar.
+        if (SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
+        {
+            await SalesInvoiceIcmsComplement.EnsureIssuableAsync(_db.Context, invoice);
+            return;
+        }
+
         if (!invoice.IsNfeReturn)
             return;
 

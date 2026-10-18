@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.PurchaseInvoices;
+using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -29,18 +30,36 @@ public sealed record NfeReadinessRequest(
 /// </summary>
 public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
 {
-    public Task<NfeIssueContext> ValidateAsync(SalesInvoice invoice) =>
-        ValidateCoreAsync(
+    /// <summary>
+    /// Venda (cliente, CFOP 5xxx/6xxx, condição de pagamento) ou devolução própria (entrada, sem pagamento, a venda de
+    /// origem conferida). Complemento de ICMS (spec 2026-10-18 S7): a original recarregada (V5), base e ICMS em toda
+    /// linha (V3/V4) — recusas diretas, antes das lacunas —, sem pagamento, sem pesos e sem transporte.
+    /// </summary>
+    public async Task<NfeIssueContext> ValidateAsync(SalesInvoice invoice)
+    {
+        var icmsComplement = SalesInvoicesTaxApplyService.IsIcmsComplement(invoice);
+        var complementKey = icmsComplement ? await SalesInvoiceIcmsComplement.EnsureIssuableAsync(db.Context, invoice) : null;
+
+        var context = await ValidateCoreAsync(
             new NfeReadinessRequest(
-                invoice.BranchCode, invoice.CardCode, "Cliente", invoice.DeliveryCardCode, invoice.TruckingCompanyCode,
-                invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
-                // Devolução e nota de custódia (armazenagem/beneficiamento) não têm pagamento (tPag 90).
-                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None,
-                // Venda: saída. Devolução própria: entrada.
+                invoice.BranchCode, invoice.CardCode, "Cliente", invoice.DeliveryCardCode,
+                // Complemento de ICMS: nada é transportado — transportadora e veículo gravados por fora não entram.
+                icmsComplement ? null : invoice.TruckingCompanyCode,
+                icmsComplement ? null : invoice.TruckCode,
+                icmsComplement ? 0m : invoice.GrossWeight, icmsComplement ? 0m : invoice.NetWeight,
+                invoice.PaymentConditionCode,
+                // Devolução e nota de custódia (armazenagem/beneficiamento) não têm pagamento (tPag 90); o complemento de
+                // ICMS também não.
+                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None && !icmsComplement,
+                // Venda e complemento: saída. Devolução própria: entrada.
                 Direction: invoice.IsNfeReturn ? NfeDirection.Incoming : NfeDirection.Outgoing,
                 Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
-                RequiresProductAndUnit: false),
+                RequiresProductAndUnit: false,
+                RequiresWeights: !icmsComplement),
             invoice.IsNfeReturn ? problems => LoadReturnOriginAsync(invoice, problems) : null);
+
+        return complementKey is null ? context : context with { ComplementReferencedKeys = [complementKey] };
+    }
 
     /// <summary>
     /// Entrada própria (destinatário = fornecedor, CFOP 1xxx/2xxx, condição de pagamento) ou devolução de compra

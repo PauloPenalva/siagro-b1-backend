@@ -123,7 +123,12 @@ public class SalesInvoicesConfirmService(
         {
             var affectedReleaseKeys = new HashSet<Guid>();
 
-            if (invoice.InvoiceType == SalesInvoiceType.Return)
+            if (SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
+            {
+                // Complemento de ICMS (spec 2026-10-18 S8): só fiscal — nada de contrato, razão nem liberação. Sem este
+                // ramo cairia no AVULSO, e a guarda da natureza recusaria a confirmação com a NF-e já autorizada.
+            }
+            else if (invoice.InvoiceType == SalesInvoiceType.Return)
             {
                 await ProcessReturnInvoiceAsync(
                     invoice,
