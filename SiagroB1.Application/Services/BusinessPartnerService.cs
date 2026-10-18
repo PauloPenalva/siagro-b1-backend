@@ -44,6 +44,10 @@ public class BusinessPartnerService(
                     NfeEmail = x.NfeEmail,
                     Phone = x.Phone,
                     PaymentConditionCode = x.PaymentConditionCode,
+                    IsRuralProducer = x.IsRuralProducer,
+                    RuralProducerType = x.RuralProducerType,
+                    RuralProducerCpf = x.RuralProducerCpf,
+                    RuralPayrollOption = x.RuralPayrollOption,
                     // O Include acima é decorativo sem esta projeção: o EF materializa o
                     // Model, não a entidade, e a coleção voltava SEMPRE vazia. Quem depende
                     // dela é a resolução de CFOP (UF do destinatário), que rejeitaria todo
@@ -86,6 +90,8 @@ public class BusinessPartnerService(
             throw new DefaultException(resource["BP_EXISTING_CODE"]);
         }
 
+        NormalizeRuralProducer(model);
+        ValidateRuralProducer(model);
         ValidateNfeFields(model);
 
         foreach (var address in model.Addresses)
@@ -104,6 +110,10 @@ public class BusinessPartnerService(
             NfeEmail = model.NfeEmail,
             Phone = model.Phone,
             PaymentConditionCode = model.PaymentConditionCode,
+            IsRuralProducer = model.IsRuralProducer,
+            RuralProducerType = model.RuralProducerType,
+            RuralProducerCpf = model.RuralProducerCpf,
+            RuralPayrollOption = model.RuralPayrollOption,
         };
 
         // A tela cria o parceiro com os endereços aninhados (deep insert). Sem copiá-los o
@@ -138,6 +148,8 @@ public class BusinessPartnerService(
 
     public async Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel model)
     {
+        NormalizeRuralProducer(model);
+        ValidateRuralProducer(model);
         ValidateNfeFields(model);
 
         var entity = await db.Context.BusinessPartners
@@ -159,6 +171,10 @@ public class BusinessPartnerService(
         entity.NfeEmail = model.NfeEmail;
         entity.Phone = model.Phone;
         entity.PaymentConditionCode = model.PaymentConditionCode;
+        entity.IsRuralProducer = model.IsRuralProducer;
+        entity.RuralProducerType = model.RuralProducerType;
+        entity.RuralProducerCpf = model.RuralProducerCpf;
+        entity.RuralPayrollOption = model.RuralPayrollOption;
 
         // Corpo sem a marca (cliente antigo, PUT parcial) não desmarca o armazém em silêncio.
         if (model.QryGroup23 is not null)
@@ -267,6 +283,10 @@ public class BusinessPartnerService(
                 NfeEmail = x.NfeEmail,
                 Phone = x.Phone,
                 PaymentConditionCode = x.PaymentConditionCode,
+                IsRuralProducer = x.IsRuralProducer,
+                RuralProducerType = x.RuralProducerType,
+                RuralProducerCpf = x.RuralProducerCpf,
+                RuralPayrollOption = x.RuralPayrollOption,
                 Addresses = x.Addresses
                     .Where(a => a.CardCode == x.CardCode)
                     .Select(a => new AddressModel()
@@ -345,6 +365,54 @@ public class BusinessPartnerService(
         if (!string.IsNullOrWhiteSpace(model.NfeEmail) &&
             (!model.NfeEmail.Contains('@') || model.NfeEmail.Contains(' ')))
             throw new DefaultException($"E-mail da NF-e inválido: {model.NfeEmail}.");
+    }
+
+    /// <summary>
+    /// Deixa os campos de produtor rural coerentes antes de validar e gravar: quem não é produtor
+    /// não carrega tipo, CPF nem opção pela folha; pessoa jurídica não tem CPF nem folha. O CPF
+    /// é gravado só com dígitos.
+    /// </summary>
+    private static void NormalizeRuralProducer(BusinessPartnerModel model)
+    {
+        if (!model.IsRuralProducer)
+        {
+            model.RuralProducerType = null;
+            model.RuralProducerCpf = null;
+            model.RuralPayrollOption = false;
+            return;
+        }
+
+        var cpf = new string((model.RuralProducerCpf ?? "").Where(char.IsAsciiDigit).ToArray());
+        model.RuralProducerCpf = cpf.Length == 0 ? null : cpf;
+
+        if (model.RuralProducerType == RuralProducerType.LegalEntity)
+        {
+            model.RuralProducerCpf = null;
+            model.RuralPayrollOption = false;
+        }
+    }
+
+    /// <summary>
+    /// Produtor rural exige o tipo; pessoa física/segurado especial cadastrado com CNPJ exige o
+    /// CPF do produtor (com CPF no <c>TaxId</c> o próprio documento já o identifica).
+    /// </summary>
+    private static void ValidateRuralProducer(BusinessPartnerModel model)
+    {
+        if (!model.IsRuralProducer) return;
+
+        if (model.RuralProducerType is null)
+            throw new DefaultException("Informe o tipo de produtor rural.");
+
+        if (model.RuralProducerType == RuralProducerType.LegalEntity) return;
+
+        var taxIdDigits = new string((model.TaxId ?? "").Where(char.IsAsciiDigit).ToArray());
+        if (taxIdDigits.Length != 14) return;
+
+        if (string.IsNullOrEmpty(model.RuralProducerCpf))
+            throw new DefaultException("Informe o CPF do produtor rural.");
+
+        if (!SiagroB1.Commons.Validation.TaxIdValidator.IsValid(model.RuralProducerCpf))
+            throw new DefaultException("CPF do produtor rural inválido.");
     }
 
     private bool EntityExists(string code)
