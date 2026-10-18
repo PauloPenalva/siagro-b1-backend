@@ -231,6 +231,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CardType")
                         .HasColumnType("VARCHAR(1)");
 
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsRuralProducer")
                         .HasColumnType("bit");
 
@@ -1217,6 +1220,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("Cest")
                         .HasColumnType("VARCHAR(7)");
+
+                    b.Property<Guid?>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Enabled")
                         .HasColumnType("VARCHAR(3)");

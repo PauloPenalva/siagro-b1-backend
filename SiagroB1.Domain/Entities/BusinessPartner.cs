@@ -29,6 +29,9 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(1)")] 
     public string? QryGroup23 { get; set; } = "N";
     
+    /// <summary>Série de numeração (Automático/Manual) usada na criação; nula nos cadastros antigos. Imutável, como o código.</summary>
+    public Guid? DocNumberKey { get; set; }
+
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
     
     [Column("Free_Text", TypeName = "VARCHAR(100)")]

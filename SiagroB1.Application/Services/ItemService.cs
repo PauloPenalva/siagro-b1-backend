@@ -35,11 +35,13 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
                 TransactionCode.Item, entity.DocNumberKey, typed, 50,
                 code => db.Context.Items.AnyAsync(i => i.ItemCode == code)));
             entity.ItemCode = assignment.Code;
+            entity.DocNumberKey = assignment.DocNumberKey;
         }
 
         var item = new Item()
         {
             ItemCode = entity.ItemCode,
+            DocNumberKey = entity.DocNumberKey,
             ItemName = entity.ItemName,
             ItmsGrpCod = entity.ItmsGrpCod,
             Enabled = entity.Enabled,
@@ -65,6 +67,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             .Select(x => new ItemModel()
             {
                 ItemCode = x.ItemCode,
+                DocNumberKey = x.DocNumberKey,
                 ItemName = x.ItemName,
                 ItmsGrpCod = x.ItmsGrpCod,
                 Enabled = x.Enabled,
@@ -154,6 +157,7 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
         return new ItemModel()
         {
             ItemCode = item.ItemCode,
+            DocNumberKey = item.DocNumberKey,
             ItemName = item.ItemName,
             ItmsGrpCod = item.ItmsGrpCod,
             Enabled = item.Enabled,
