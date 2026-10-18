@@ -47,22 +47,34 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a venda de origem.")
             : null;
 
+        // Complemento de ICMS (spec 2026-10-18 S7): SAÍDA com finalidade 2, a venda original no NFref, sem pagamento e
+        // sem transporte (modFrete 9, sem vol) — mesmo que o cabeçalho tenha sido gravado com frete ou pesos por fora.
+        var icmsComplement = returnOrigin is null && invoice.InvoiceType == SalesInvoiceType.IcmsComplement;
+
         IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey]
+            : icmsComplement ? context.ComplementReferencedKeys ?? throw new DefaultException("O complemento está sem a nota original.")
             : context.CustodyReferencedKey is { } custodyKey ? [custodyKey]
             : [];
+
+        var purpose = returnOrigin is not null ? NfePurpose.Return
+            : icmsComplement ? NfePurpose.Complement
+            : NfePurpose.Normal;
 
         return Build(new NfeDocumentView(
             invoice.TaxDocumentNumber!, invoice.TaxDocumentSeries!, invoice.NfeRandomCode!,
             // Venda: saída normal. Devolução de venda: ENTRADA com finalidade 4.
             returnOrigin is null ? NfeDirection.Outgoing : NfeDirection.Incoming,
-            returnOrigin is null ? NfePurpose.Normal : NfePurpose.Return,
-            returnOrigin, referencedKeys,
+            purpose, returnOrigin, referencedKeys,
             NfeItemNumbering.Ordered(invoice.Items).Cast<INfeTaxedLine>().ToList(),
             line => ((SalesInvoiceItem)line).SalesInvoiceItemOriginKey,
-            invoice.FreightTerms, invoice.NetWeight, invoice.GrossWeight,
-            new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
+            icmsComplement ? FreightTerms.None : invoice.FreightTerms,
+            icmsComplement ? 0m : invoice.NetWeight, icmsComplement ? 0m : invoice.GrossWeight,
+            icmsComplement
+                ? null
+                : new NfeVolume(invoice.VolumeQuantity, Trimmed(invoice.VolumeSpecies), Trimmed(invoice.VolumeBrand), Trimmed(invoice.VolumeNumbering)),
             invoice.TaxPayerComments, invoice.TaxComments, FunruralText: null, "VENDA",
-            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None), context, issuedAt, technicalResponsible);
+            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None || icmsComplement),
+            context, issuedAt, technicalResponsible);
     }
 
     /// <summary>

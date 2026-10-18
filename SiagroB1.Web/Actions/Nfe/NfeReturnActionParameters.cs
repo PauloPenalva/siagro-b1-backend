@@ -46,9 +46,12 @@ public static class NfeReturnActionParameters
         return result;
     }
 
-    public static List<decimal> Quantities(ODataActionParameters parameters)
+    public static List<decimal> Quantities(ODataActionParameters parameters) => Decimals(parameters, "Quantities", "Quantidade inválida");
+
+    /// <summary>Lista numérica paralela (o UI5 manda Edm.Double); vazia quando falta.</summary>
+    public static List<decimal> Decimals(ODataActionParameters parameters, string name, string invalidMessage)
     {
-        if (!parameters.TryGetValue("Quantities", out var value) || value is not IEnumerable sequence)
+        if (!parameters.TryGetValue(name, out var value) || value is not IEnumerable sequence)
             return [];
 
         var result = new List<decimal>();
@@ -64,7 +67,7 @@ public static class NfeReturnActionParameters
                 float f => (decimal)f,
                 _ => decimal.TryParse(item?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
                     ? parsed
-                    : throw new ApplicationException($"Quantidade inválida: {item}"),
+                    : throw new ApplicationException($"{invalidMessage}: {item}"),
             });
         }
 

@@ -13,7 +13,8 @@ namespace SiagroB1.Application.Services.SalesInvoices;
 /// <summary>
 /// Cálculo dos tributos da linha pela natureza de operação (NF-e STANDALONE, spec §6–§7).
 ///
-/// Só age com a regra ativa (<see cref="TaxCalculationGate"/>), em documento Normal ou na devolução própria (InvoiceType Return + IsNfeReturn) e enquanto o
+/// Só age com a regra ativa (<see cref="TaxCalculationGate"/>), em documento Normal, na devolução própria (InvoiceType Return +
+/// IsNfeReturn) ou no complemento de ICMS (spec 2026-10-18 S5) e enquanto o
 /// documento está Pendente: fora disso a linha fica exatamente como chegou — é isso que mantém a
 /// Yokotobi (SAPB1) e a MH Agro (chave desligada) intocadas.
 ///
@@ -30,7 +31,7 @@ public class SalesInvoicesTaxApplyService(
     private readonly TaxLineCalculator _lines = new(db, ibsCbsRatesService);
 
     public async Task<bool> IsActiveForAsync(SalesInvoice invoice) =>
-        (invoice.InvoiceType == SalesInvoiceType.Normal || IsOwnNfeReturn(invoice))
+        (invoice.InvoiceType is SalesInvoiceType.Normal or SalesInvoiceType.IcmsComplement || IsOwnNfeReturn(invoice))
         && await gate.IsActiveAsync(invoice.BranchCode);
 
     /// <summary>Só a regra da filial, sem olhar o tipo do documento — para quem decide pelo valor GRAVADO.</summary>
@@ -39,6 +40,9 @@ public class SalesInvoicesTaxApplyService(
     /// <summary>Devolução criada pelo "Devolver" da venda: sai com NF-e própria de entrada (spec §7).</summary>
     public static bool IsOwnNfeReturn(SalesInvoice invoice) =>
         invoice.InvoiceType == SalesInvoiceType.Return && invoice.IsNfeReturn;
+
+    /// <summary>Complemento de ICMS (spec 2026-10-18): NF-e complementar só com a base e o ICMS informados.</summary>
+    public static bool IsIcmsComplement(SalesInvoice invoice) => invoice.InvoiceType == SalesInvoiceType.IcmsComplement;
 
     public async Task ApplyAsync(SalesInvoice invoice, IEnumerable<SalesInvoiceItem> items)
     {
@@ -50,6 +54,12 @@ public class SalesInvoicesTaxApplyService(
 
         var lines = items.ToList();
         var ownReturn = IsOwnNfeReturn(invoice);
+        var icmsComplement = IsIcmsComplement(invoice);
+
+        // Complemento de ICMS (S5): base e valor são os informados — guardados antes do motor, que os zera.
+        var typed = icmsComplement
+            ? lines.ToDictionary(l => l, l => (l.IcmsBase, l.IcmsValue), ReferenceEqualityComparer.Instance)
+            : null;
         var branch = await _lines.LoadBranchAsync(invoice.BranchCode);
         var customerState = await TaxLineCalculator.LoadPartnerStateAsync(businessPartnerService, invoice.CardCode);
         var inState = string.Equals(branch.StateCode, customerState, StringComparison.OrdinalIgnoreCase);
@@ -60,6 +70,10 @@ public class SalesInvoicesTaxApplyService(
             ? await OriginDateAsync(invoice)
             : DateOnly.FromDateTime(invoice.InvoiceDate ?? DateTime.Today);
         var origins = ownReturn ? await LoadOriginItemsAsync(lines) : new Dictionary<Guid, SalesInvoiceItem>();
+        // Complemento de ICMS: CST e CFOP vêm do item da nota original.
+        var complemented = icmsComplement
+            ? await LoadComplementedItemsAsync(lines)
+            : new Dictionary<Guid, SalesInvoiceItem>();
         var usages = new Dictionary<int, UsageModel>();
 
         foreach (var item in lines)
@@ -68,13 +82,26 @@ public class SalesInvoicesTaxApplyService(
             // Venda e devolução de venda: a mercadoria sai da filial para o cliente (na devolução, a operação
             // é a da venda, que ela anula). Base = total geral da linha: itens + frete + seguro + outras despesas
             // − desconto (spec 2026-10-05 D3; LC 87/96 art. 13 e LC 214).
+            // No complemento o motor roda com valor 0: só resolve o CFOP e as alíquotas de IBS/CBS, e zera o resto.
             var line = await _lines.CalculateAsync(new TaxLineRequest(
-                usage, item.ItemCode, item.GrandTotal, inState, branch.StateCode!, customerState,
+                usage, item.ItemCode, icmsComplement ? 0m : item.GrandTotal, inState, branch.StateCode!, customerState,
                 branch.TaxRegime!.Value, rateDate, IncomingCfop: ownReturn));
 
             TaxLineCalculator.Apply(item, usage, line);
 
-            if (ownReturn)
+            if (icmsComplement)
+            {
+                var original = item.ComplementedItemKey is { } originalKey
+                               && complemented.TryGetValue(originalKey, out var o)
+                    ? o
+                    : throw new DefaultException($"O item {item.ItemCode} do complemento de ICMS não aponta um item da nota original.");
+                if (!string.IsNullOrWhiteSpace(original.Cfop))
+                    item.Cfop = original.Cfop;
+
+                var (typedBase, typedValue) = typed![item];
+                IcmsComplementTaxes.Apply(item, IcmsComplementTaxes.CstFor(original.CstIcms), typedBase, typedValue);
+            }
+            else if (ownReturn)
                 NfeReturnConference.Ensure(item, OriginOf(item, origins), usage.Name, "venda");
         }
     }
@@ -93,6 +120,16 @@ public class SalesInvoicesTaxApplyService(
     {
         var keys = lines.Where(l => l.SalesInvoiceItemOriginKey != null)
             .Select(l => l.SalesInvoiceItemOriginKey!.Value).Distinct().ToList();
+
+        return await db.Context.SalesInvoicesItems.AsNoTracking()
+            .Where(i => i.Key != null && keys.Contains(i.Key.Value))
+            .ToDictionaryAsync(i => i.Key!.Value);
+    }
+
+    private async Task<Dictionary<Guid, SalesInvoiceItem>> LoadComplementedItemsAsync(IEnumerable<SalesInvoiceItem> lines)
+    {
+        var keys = lines.Where(l => l.ComplementedItemKey != null)
+            .Select(l => l.ComplementedItemKey!.Value).Distinct().ToList();
 
         return await db.Context.SalesInvoicesItems.AsNoTracking()
             .Where(i => i.Key != null && keys.Contains(i.Key.Value))

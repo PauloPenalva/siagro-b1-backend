@@ -152,14 +152,18 @@ public class SalesInvoicesCancelService(
                 await recalcShipped.RecalculateAsync(releaseKey);
 
             // Saldo da carga. Vale para os DOIS tipos: cancelar uma nota normal devolve saldo,
-            // cancelar uma devolução volta a consumi-lo — o gancho deriva o sinal do delta.
-            await loadHook.ApplyAsync(
-                existingInvoice,
-                ShipmentLoadMovementType.BillingCancelled,
-                userName,
-                $"Documento de saída {existingInvoice.InvoiceNumber} cancelado.");
+            // cancelar uma devolução volta a consumi-lo — o gancho deriva o sinal do delta. O complemento
+            // de ICMS não tem efeito em carga (spec 2026-10-18 S8): nada a desfazer, nem movimento a gravar.
+            if (!SalesInvoicesTaxApplyService.IsIcmsComplement(existingInvoice))
+            {
+                await loadHook.ApplyAsync(
+                    existingInvoice,
+                    ShipmentLoadMovementType.BillingCancelled,
+                    userName,
+                    $"Documento de saída {existingInvoice.InvoiceNumber} cancelado.");
 
-            await db.SaveChangesAsync();
+                await db.SaveChangesAsync();
+            }
 
             // Spec 2026-10-09: o 2b cancelou a NF-e de uma devolução de recusa pendente. Sem reavaliar aqui, nada
             // concluiria (as demais já confirmadas) nem cancelaria (era a única viva) a recusa — carga travada para
@@ -198,6 +202,10 @@ public class SalesInvoicesCancelService(
 
         if (HasReturn(invoice))
             throw new DefaultException("Documento de saída possui retorno.");
+
+        // Spec 2026-10-18 S9 (V6): complemento de ICMS não cancelado apontando para esta nota — vale para o documento e
+        // para a NF-e (o ensaio do cancelamento da NF-e passa por aqui). Complemento cancelado não trava.
+        await SalesInvoiceIcmsComplement.EnsureNoActiveComplementAsync(db.Context, invoice);
 
         await StorageDepositRules.EnsureRemittanceHasNoReturnAsync(db.Context, invoice.Key);
         await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, invoice.Key);

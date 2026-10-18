@@ -143,8 +143,10 @@ public class FinancialDocumentsSalesFirmSyncService(
     {
         var invoice = line.SalesInvoice!;
 
-        // G1–G3: confirmado (ou devolvido, que mantém), sem custódia nem remessa para depósito, com contrato.
-        if (invoice.InvoiceStatus is not (InvoiceStatus.Confirmed or InvoiceStatus.Returned) ||
+        // G1–G3: confirmado (ou devolvido, que mantém), sem custódia nem remessa para depósito, com contrato. O complemento
+        // de ICMS (spec 2026-10-18 S8) nunca gera título, nem com contrato e natureza que gera financeiro na linha.
+        if (invoice.InvoiceType == SalesInvoiceType.IcmsComplement ||
+            invoice.InvoiceStatus is not (InvoiceStatus.Confirmed or InvoiceStatus.Returned) ||
             invoice.CustodyRole != StorageCustodyRole.None || invoice.ShipmentReleaseKey != null ||
             line.SalesContractKey is null)
             return new Desired([], DocumentUndoneReason);

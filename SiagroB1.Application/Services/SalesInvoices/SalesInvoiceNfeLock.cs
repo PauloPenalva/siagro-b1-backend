@@ -173,6 +173,10 @@ public static class SalesInvoiceNfeLock
         if (invoice.IsNfeReturn)
             throw new DefaultException("Número, série e chave da devolução vêm da emissão da NF-e pelo Siagro.");
 
+        // O complemento de ICMS (spec 2026-10-18) também só existe como NF-e emitida pelo Siagro.
+        if (invoice.InvoiceType == SalesInvoiceType.IcmsComplement)
+            throw new DefaultException("Número, série e chave do complemento de ICMS vêm da emissão da NF-e pelo Siagro.");
+
         if (invoice.NfeStatus != NfeStatus.None || invoice.NfeRandomCode is not null)
             throw new DefaultException("Número, série e chave deste documento vêm da emissão da NF-e pelo Siagro.");
     }

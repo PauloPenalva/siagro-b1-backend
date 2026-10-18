@@ -166,6 +166,15 @@ public static class ODataConfigurations
         salesInvoicesCreateNfeReturn.Parameter<string>("Reason");
         salesInvoicesCreateNfeReturn.Returns<Guid>();
 
+        // Complemento de ICMS (spec 2026-10-18 S2): cria o complemento Pendente a partir da venda autorizada.
+        // IcmsBases/IcmsValues em double, paralelos a OriginItemKeys, pelo mesmo motivo das Quantities acima.
+        var salesInvoicesCreateIcmsComplement = modelBuilder.Action("SalesInvoicesCreateIcmsComplement");
+        salesInvoicesCreateIcmsComplement.Parameter<Guid>("Key");
+        salesInvoicesCreateIcmsComplement.CollectionParameter<Guid>("OriginItemKeys");
+        salesInvoicesCreateIcmsComplement.CollectionParameter<double>("IcmsBases");
+        salesInvoicesCreateIcmsComplement.CollectionParameter<double>("IcmsValues");
+        salesInvoicesCreateIcmsComplement.Returns<Guid>();
+
         var salesInvoicesNfeReturnableItems = modelBuilder.Function("SalesInvoicesNfeReturnableItems");
         salesInvoicesNfeReturnableItems.Parameter<Guid>("Key");
         salesInvoicesNfeReturnableItems.ReturnsCollection<SalesInvoiceNfeReturnableItemDto>();

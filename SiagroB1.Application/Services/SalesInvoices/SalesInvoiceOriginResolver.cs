@@ -52,6 +52,11 @@ public static class SalesInvoiceOriginResolver
     /// </remarks>
     public static async Task<Guid?> ResolveShipmentLoadKeyAsync(AppDbContext context, SalesInvoice invoice)
     {
+        // Complemento de ICMS (spec 2026-10-18 S8): não afeta carga nenhuma, nem com a chave gravada nele. É a pergunta
+        // dos ganchos de saldo e de situação e do estorno: o "nenhuma" daqui os torna no-op para o tipo.
+        if (invoice.InvoiceType == SalesInvoiceType.IcmsComplement)
+            return null;
+
         if (invoice.ShipmentLoadKey is { } own)
             return own;
 

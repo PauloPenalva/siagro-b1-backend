@@ -98,6 +98,11 @@ public class SalesInvoicesByPeriodReportService(
         GrandTotal = x.GrandTotal,
     };
 
-    private static string DescribeType(SalesInvoiceType type) =>
-        type == SalesInvoiceType.Return ? "Devolução" : "Normal";
+    /// <summary>Rótulo do tipo na coluna e na legenda dos filtros (também do relatório de itens).</summary>
+    public static string DescribeType(SalesInvoiceType type) => type switch
+    {
+        SalesInvoiceType.Return => "Devolução",
+        SalesInvoiceType.IcmsComplement => "Complemento de ICMS",
+        _ => "Normal",
+    };
 }

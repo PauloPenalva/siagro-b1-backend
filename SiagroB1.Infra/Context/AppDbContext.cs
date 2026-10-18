@@ -286,6 +286,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(x => x.ComplementedItemKey)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Complemento de ICMS da saída (spec 2026-10-18): mesma auto-relação Restrict (= NO ACTION no SQL Server).
+        modelBuilder.Entity<SalesInvoiceItem>()
+            .HasOne(x => x.ComplementedItem)
+            .WithMany()
+            .HasForeignKey(x => x.ComplementedItemKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // FK OPCIONAL de propósito: entrada NORMAL não tem origem de saída, e uma FK obrigatória
         // viraria INNER JOIN zerando a coleção inteira.
         modelBuilder.Entity<PurchaseInvoiceItem>()
