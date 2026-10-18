@@ -1,0 +1,43 @@
+{
+  "skill_name": "conferir-tributos",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "o pessoal do fiscal disse que o ICMS da nota de venda de soja em C:/Projetos/SiagroB1/conferir-tributos-workspace/fixtures/venda-soja-nfe1-suspeita.xml ta errado. confere os impostos dela pra mim (icms, pis, cofins, cbs/ibs e totais)",
+      "expected_output": "Aponta vICMS 545,00 vs esperado 540,00 (3000 x 18%), vCBS 27,00 vs 20,09 (2232,45 x 0,9%), totais ICMSTot.vICMS e IBSCBSTot.vCBS incoerentes com os itens; PIS/COFINS ok com base excluindo ICMS (Tema 69).",
+      "files": ["conferir-tributos-workspace/fixtures/venda-soja-nfe1-suspeita.xml"],
+      "assertions": [
+        "Aponta vICMS do item 545,00 vs esperado 540,00 (3000 x 18%)",
+        "Aponta vCBS do item 27,00 vs esperado 20,09",
+        "Aponta incoerência entre itens e totais (ICMSTot.vICMS e/ou IBSCBSTot vCBS)",
+        "Reconhece que PIS/COFINS estão corretos com base excluindo o ICMS (Tema 69)",
+        "Começa com veredito claro e traz tabela esperado x no XML"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "lancei a nota do fornecedor C:/Projetos/SiagroB1/nfe-homologacao-testes/fornecedor-ftestepj-nfe-793.xml no Siagro e os impostos ficaram diferentes do XML. o que tá errado, o Siagro ou a nota do fornecedor?",
+      "expected_output": "Identifica que o frete de 150 do item não entrou nas bases (ICMS, PIS/COFINS, IBS/CBS = 2800 em vez de 2950), que falta IBSCBSTot nos totais; explica que o Siagro recalcula entrada de terceiros pela natureza de operação (frete na base), então a divergência é do XML do fornecedor.",
+      "files": ["nfe-homologacao-testes/fornecedor-ftestepj-nfe-793.xml"],
+      "assertions": [
+        "Identifica que o frete de 150,00 do item ficou fora das bases (2800 em vez de 2950)",
+        "Aponta a ausência do grupo IBSCBSTot nos totais",
+        "Atribui a divergência ao XML do fornecedor, não ao Siagro",
+        "Explica que o Siagro recalcula entrada de terceiros pela natureza de operação",
+        "Sugere ação concreta (carta de correção/contato com fornecedor ou conferir natureza)"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Na entrada própria n5 (C:/Projetos/SiagroB1/nfe-homologacao-testes/entrada-propria-serie9-n5-procNFe.xml) tem ICMS 51 com diferimento de 100% e a CBS veio 5,40. Por que a base de PIS/COFINS e de CBS é 1500 se a nota tem ICMS de 270? Está certo pelo motor do Siagro?",
+      "expected_output": "Confirma que está correto: vICMS líquido é 0 (diferimento 100%), o Tema 69 do Siagro subtrai o ICMS líquido, então base PIS/COFINS = 1500; base IBS/CBS = 1500 - 0 - 0 - 0; CBS 0,9% com redução de 60% (cClassTrib 200036) = 0,36% x 1500 = 5,40; cita TaxCalculator/regras do motor.",
+      "files": ["nfe-homologacao-testes/entrada-propria-serie9-n5-procNFe.xml"],
+      "assertions": [
+        "Conclui que os valores estão corretos",
+        "Explica que o Tema 69 do Siagro subtrai o ICMS líquido (vICMS=0 com diferimento 100%)",
+        "Explica CBS = 1500 x 0,9% x (1-60%) = 5,40 pela redução do cClassTrib 200036",
+        "Cita o código do motor (TaxCalculator ou equivalente) como evidência"
+      ]
+    }
+  ]
+}
