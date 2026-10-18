@@ -148,51 +148,11 @@ public class AuthController(
         
         if (!isAuthenticated)
         {
-            // Verificar cookies
-            if (Request.Cookies.TryGetValue("SIAGROB1.User", out var userCookie))
-            {
-                try
-                {
-                    var decodedValue = Uri.UnescapeDataString(userCookie);
-                    using var doc = System.Text.Json.JsonDocument.Parse(decodedValue);
-                    
-                    var username = doc.RootElement.GetProperty("Username").GetString();
-                    if (!string.IsNullOrEmpty(username))
-                    {
-                        var userInfo = await authService.GetUserInfoAsync(username);
-                        if (userInfo != null)
-                        {
-                            return Ok(new
-                            {
-                                Authenticated = true,
-                                Username = userInfo.Username,
-                                FullName = userInfo.FullName,
-                                Email = userInfo.Email,
-                                IsAdmin = userInfo.IsAdmin,
-                                Theme = userInfo.Theme,
-                                HasPhoto = userInfo.HasPhoto,
-                                // Sem isto a tela perde as permissões em todo F5: o /status é a
-                                // única fonte de identidade depois do boot, e o login só acontece
-                                // uma vez por sessão.
-                                Permissions = userInfo.Permissions,
-                                Roles = userInfo.Roles,
-                                CompanyCode = userInfo.CompanyCode,
-                                CompanyName = userInfo.CompanyName,
-                                // Mesma razão das permissões: a tela que pede senha precisa
-                                // mostrar a regra vigente, e a política é configurável.
-                                PasswordRequirements = passwordPolicy.Description,
-                                FromCookie = true,
-                                UserId = userInfo.Id,
-                            });
-                        }
-                    }
-                }
-                catch
-                {
-                    // Ignorar erro
-                }
-            }
-            
+            // Com sessão válida o CookieAuthMiddleware já autenticou antes do controller. Sem identidade
+            // aqui, a sessão venceu ou foi encerrada: o SIAGROB1.User que sobrou não prova nada. Tomá-lo
+            // por sessão fazia o app carregar telas que respondiam 401 e recarregar a tela de login em
+            // loop. Responde "não autenticado" e expira os cookies que sobraram.
+            SessionCookies.ClearLeftovers(Request, Response);
             return Ok(new { Authenticated = false });
         }
         
