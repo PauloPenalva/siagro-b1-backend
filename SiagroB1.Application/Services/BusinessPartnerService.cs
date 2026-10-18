@@ -406,12 +406,18 @@ public class BusinessPartnerService(
         if (model.RuralProducerType == RuralProducerType.LegalEntity) return;
 
         var taxIdDigits = new string((model.TaxId ?? "").Where(char.IsAsciiDigit).ToArray());
-        if (taxIdDigits.Length != 14) return;
+        var cpfRequired = taxIdDigits.Length == 14;
 
         if (string.IsNullOrEmpty(model.RuralProducerCpf))
-            throw new DefaultException("Informe o CPF do produtor rural.");
+        {
+            if (cpfRequired)
+                throw new DefaultException("Informe o CPF do produtor rural.");
+            return;
+        }
 
-        if (!SiagroB1.Commons.Validation.TaxIdValidator.IsValid(model.RuralProducerCpf))
+        // TaxIdValidator também aceita CNPJ (14): o CPF do produtor tem de ter 11 dígitos.
+        if (model.RuralProducerCpf.Length != 11 ||
+            !SiagroB1.Commons.Validation.TaxIdValidator.IsValid(model.RuralProducerCpf))
             throw new DefaultException("CPF do produtor rural inválido.");
     }
 

@@ -109,4 +109,20 @@ public class BusinessPartnerRuralProducerTests
             Assert.True(m.RuralPayrollOption);
         }
     }
+
+    [Fact]
+    public async Task Cnpj_typed_as_producer_cpf_is_rejected()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            NewService().CreateAsync(Model("11222333000181", true, RuralProducerType.Individual, "11222333000181")));
+        Assert.Equal("CPF do produtor rural inválido.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Informed_cpf_is_validated_even_when_tax_id_is_a_cpf()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            NewService().CreateAsync(Model("52998224725", true, RuralProducerType.Individual, "123")));
+        Assert.Equal("CPF do produtor rural inválido.", ex.Message);
+    }
 }
