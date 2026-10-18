@@ -88,6 +88,32 @@ public class NfeIssueInputAssemblerTests
     }
 
     [Fact]
+    public async Task In_state_line_takes_the_usage_in_state_text()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var address = (await scenario.Db.Context.BusinessPartners.Include(p => p.Addresses)
+            .SingleAsync(p => p.CardCode == NfeTestSeed.CardCode)).Addresses.Single(a => a.AdresType == "B");
+        (address.State, address.City, address.MunicipalityCode) = ("SP", "Itapetininga", "3521705");
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario, invoice => invoice.Items.Single().Cfop = "5102");
+
+        Assert.Equal("ICMS diferido. | Pedido do cliente 77", input.AdditionalInfo);
+    }
+
+    [Fact]
+    public async Task Out_of_state_line_without_out_of_state_text_takes_no_usage_text()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        (await scenario.Db.Context.Usages.SingleAsync()).DefaultAdditionalInfoOutState = null;
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario);
+
+        Assert.Equal("Pedido do cliente 77", input.AdditionalInfo);
+    }
+
+    [Fact]
     public async Task Line_carries_the_recorded_taxes()
     {
         var scenario = await NfeTestSeed.SeedAsync();

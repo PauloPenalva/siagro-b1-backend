@@ -35,6 +35,7 @@ public class UsageModel
 
     public string? InvoiceOperationText { get; set; }
     public string? DefaultAdditionalInfo { get; set; }
+    public string? DefaultAdditionalInfoOutState { get; set; }
     public bool MovesFiscalInventory { get; set; }
     public bool CreatesFinancialDocument { get; set; }
 

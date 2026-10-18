@@ -58,9 +58,17 @@ public class Usage
     [Column(TypeName = "VARCHAR(60)")]
     public string? InvoiceOperationText { get; set; }
 
-    /// <summary>Informações complementares padrão da NF-e (infCpl) — lidas pela emissão.</summary>
+    /// <summary>
+    /// Informações complementares padrão da NF-e (infCpl) na operação DENTRO do estado (CFOP 1xxx/5xxx).
+    /// A tributação muda entre as duas operações (ex.: ICMS diferido dentro, tributado fora), então o
+    /// texto também: a emissão escolhe pelo CFOP da linha.
+    /// </summary>
     [Column(TypeName = "VARCHAR(2000)")]
     public string? DefaultAdditionalInfo { get; set; }
+
+    /// <summary>Informações complementares padrão na operação FORA do estado e no exterior (CFOP 2/3/6/7xxx).</summary>
+    [Column(TypeName = "VARCHAR(2000)")]
+    public string? DefaultAdditionalInfoOutState { get; set; }
 
     /// <summary>
     /// "Movimenta estoque" — estoque FISCAL (saldo por produto/filial movido pelos documentos
