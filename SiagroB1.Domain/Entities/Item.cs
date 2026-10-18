@@ -13,6 +13,9 @@ public class Item
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
     public required string ItemName { get; set; }
 
+    /// <summary>Série de numeração (Automático/Manual) usada na criação; nula nos cadastros antigos. Imutável, como o código.</summary>
+    public Guid? DocNumberKey { get; set; }
+
     public short? ItmsGrpCod { get; set; } = 105;
 
     [Column(TypeName = "VARCHAR(3)")]

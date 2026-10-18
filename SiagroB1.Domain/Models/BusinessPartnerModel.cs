@@ -9,7 +9,7 @@ public class BusinessPartnerModel
     [Key]
     public string CardCode { get; set; } = string.Empty;
 
-    /// <summary>Série de numeração escolhida (Automático/Manual). Só entrada: não é persistida.</summary>
+    /// <summary>Série de numeração escolhida (Automático/Manual). Gravada na criação e imutável depois.</summary>
     public Guid? DocNumberKey { get; set; }
 
     public required string CardName { get; set; }

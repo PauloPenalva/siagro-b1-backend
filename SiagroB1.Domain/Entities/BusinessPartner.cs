@@ -29,6 +29,9 @@ public class BusinessPartner
     [Column(TypeName = "VARCHAR(1)")] 
     public string? QryGroup23 { get; set; } = "N";
     
+    /// <summary>Série de numeração (Automático/Manual) usada na criação; nula nos cadastros antigos. Imutável, como o código. Sem FK para DOC_NUMBERS de propósito: o cadastro mantém o código mesmo se a série for excluída.</summary>
+    public Guid? DocNumberKey { get; set; }
+
     public ICollection<Address> Addresses { get; set; } = new List<Address>();
     
     [Column("Free_Text", TypeName = "VARCHAR(100)")]

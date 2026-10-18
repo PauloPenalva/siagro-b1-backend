@@ -58,4 +58,42 @@ public class ItemNumberingTests
         await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(
             () => service.CreateAsync(new ItemModel { ItemCode = "MILHO", ItemName = "MILHO" }));
     }
+
+    [Fact]
+    public async Task Item_WithSeries_PersistsAndReturnsDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = new ItemService(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
+
+        var created = await service.CreateAsync(new ItemModel { ItemCode = "", ItemName = "SOJA", Enabled = "SIM", DocNumberKey = SeriesKey });
+
+        Assert.Equal(SeriesKey, created.DocNumberKey);
+        Assert.Equal(SeriesKey, (await db.Context.Items.SingleAsync()).DocNumberKey);
+        Assert.Equal(SeriesKey, (await service.GetActiveByIdAsync(created.ItemCode))!.DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Item_LegacyTypedCode_LeavesDocNumberKeyNull()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = new ItemService(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
+
+        await service.CreateAsync(new ItemModel { ItemCode = "MILHO", ItemName = "MILHO" });
+
+        Assert.Null((await db.Context.Items.SingleAsync()).DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Item_Update_DoesNotChangeDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = new ItemService(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
+        var created = await service.CreateAsync(new ItemModel { ItemCode = "", ItemName = "SOJA", DocNumberKey = SeriesKey });
+
+        var updated = await service.UpdateAsync(created.ItemCode,
+            new ItemModel { ItemCode = created.ItemCode, ItemName = "SOJA 2", DocNumberKey = Guid.NewGuid(), Enabled = "SIM" });
+
+        Assert.Equal(SeriesKey, updated!.DocNumberKey);
+        Assert.Equal(SeriesKey, (await db.Context.Items.SingleAsync()).DocNumberKey);
+    }
 }

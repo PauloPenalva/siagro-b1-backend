@@ -152,4 +152,55 @@ public class BusinessPartnerNumberingTests
 
         Assert.Empty(fake.Requests);
     }
+
+    [Fact]
+    public async Task Partner_WithSeries_PersistsAndReturnsDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = Service(db, new FakeDocNumberSequenceService());
+
+        var created = await service.CreateAsync(Partner("", "C", SeriesKey));
+
+        Assert.Equal(SeriesKey, created.DocNumberKey);
+        Assert.Equal(SeriesKey, (await db.Context.BusinessPartners.SingleAsync()).DocNumberKey);
+        Assert.Equal(SeriesKey, (await service.GetByIdAsync(created.CardCode))!.DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Partner_LegacyTypedCode_LeavesDocNumberKeyNull()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = Service(db, new FakeDocNumberSequenceService());
+
+        var created = await service.CreateAsync(Partner("C-OLD", "C"));
+
+        Assert.Null(created.DocNumberKey);
+        Assert.Null((await db.Context.BusinessPartners.SingleAsync()).DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Partner_Update_DoesNotChangeDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = Service(db, new FakeDocNumberSequenceService());
+        var created = await service.CreateAsync(Partner("", "C", SeriesKey));
+
+        var edit = Partner(created.CardCode, "C", Guid.NewGuid());
+        edit.CardName = "NOVO NOME";
+        await service.UpdateAsync(created.CardCode, edit);
+
+        Assert.Equal(SeriesKey, (await db.Context.BusinessPartners.SingleAsync()).DocNumberKey);
+    }
+
+    [Fact]
+    public async Task Partner_QueryAll_ReturnsDocNumberKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var service = Service(db, new FakeDocNumberSequenceService());
+        await service.CreateAsync(Partner("", "C", SeriesKey));
+
+        var listed = await service.QueryAll().SingleAsync();
+
+        Assert.Equal(SeriesKey, listed.DocNumberKey);
+    }
 }

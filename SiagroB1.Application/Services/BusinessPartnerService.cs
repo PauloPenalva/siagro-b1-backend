@@ -35,6 +35,7 @@ public class BusinessPartnerService(
                 .Select(x => new BusinessPartnerModel()
                 {
                     CardCode = x.CardCode,
+                    DocNumberKey = x.DocNumberKey,
                     CardName = x.CardName,
                     CardFName = x.CardFName,
                     CardType = x.CardType,
@@ -96,6 +97,7 @@ public class BusinessPartnerService(
         var entity = new BusinessPartner()
         {
             CardCode = model.CardCode,
+            DocNumberKey = model.DocNumberKey,
             CardName = model.CardName,
             CardFName = model.CardFName,
             CardType = model.CardType,
@@ -167,6 +169,7 @@ public class BusinessPartnerService(
                 throw new DefaultException(resource["BP_EXISTING_CODE"]);
 
             model.CardCode = typed;
+            model.DocNumberKey = null;
             return;
         }
 
@@ -174,6 +177,7 @@ public class BusinessPartnerService(
             transactionCode!.Value, model.DocNumberKey, typed, 15,
             code => db.Context.BusinessPartners.AnyAsync(b => b.CardCode == code)));
         model.CardCode = assignment.Code;
+        model.DocNumberKey = assignment.DocNumberKey;
     }
 
     public async Task<BusinessPartnerModel?> UpdateAsync(string code, BusinessPartnerModel model)
@@ -219,6 +223,8 @@ public class BusinessPartnerService(
            throw new DefaultException(e.Message);
         }
 
+        // A série é imutável: devolve a gravada, não a que veio no corpo.
+        model.DocNumberKey = entity.DocNumberKey;
         return model;
     }
 
@@ -302,6 +308,7 @@ public class BusinessPartnerService(
             .Select(x => new BusinessPartnerModel()
             {
                 CardCode = x.CardCode,
+                DocNumberKey = x.DocNumberKey,
                 CardName = x.CardName,
                 CardFName = x.CardFName,
                 CardType = x.CardType,
