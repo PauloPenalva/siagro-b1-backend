@@ -4206,6 +4206,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("CofinsValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<Guid?>("ComplementedItemKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CostCenterCode")
                         .HasColumnType("VARCHAR(10)");
 
@@ -4373,6 +4376,8 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(200)");
 
                     b.HasKey("Key");
+
+                    b.HasIndex("ComplementedItemKey");
 
                     b.HasIndex("SalesContractKey");
 
@@ -7920,6 +7925,11 @@ namespace SiagroB1.Migrations.AppContext
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceItem", b =>
                 {
+                    b.HasOne("SiagroB1.Domain.Entities.SalesInvoiceItem", "ComplementedItem")
+                        .WithMany()
+                        .HasForeignKey("ComplementedItemKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("SiagroB1.Domain.Entities.SalesContract", "SalesContract")
                         .WithMany("SalesInvoiceItems")
                         .HasForeignKey("SalesContractKey")
@@ -7939,6 +7949,8 @@ namespace SiagroB1.Migrations.AppContext
                         .WithMany()
                         .HasForeignKey("SalesShipmentReleaseKey")
                         .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("ComplementedItem");
 
                     b.Navigation("SalesContract");
 

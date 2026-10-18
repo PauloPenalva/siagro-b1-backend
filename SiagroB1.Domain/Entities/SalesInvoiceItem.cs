@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -31,6 +31,13 @@ public class SalesInvoiceItem : INfeTaxedLine
     
     public Guid? SalesInvoiceItemOriginKey { get; set; }
     public SalesInvoiceItem? SalesInvoiceItemOrigin { get; set; }
+
+    /// <summary>
+    /// Complemento de ICMS: linha da saída original que este complemento complementa. Não reaproveita
+    /// <see cref="SalesInvoiceItemOriginKey"/>, que significa devolução e alimenta saldo devolvível.
+    /// </summary>
+    public Guid? ComplementedItemKey { get; set; }
+    public virtual SalesInvoiceItem? ComplementedItem { get; set; }
     
     [NotMapped]
     public decimal Total => decimal.Round(Quantity * UnitPrice, 2, MidpointRounding.ToEven);
