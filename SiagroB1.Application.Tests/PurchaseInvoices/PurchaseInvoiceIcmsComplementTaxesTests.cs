@@ -72,6 +72,27 @@ public class PurchaseInvoiceIcmsComplementTaxesTests
         Assert.Equal(expected, PurchaseInvoiceIcmsComplementTaxes.CstFor(original));
 
     [Fact]
+    public void Icms_complement_keeps_the_ibs_cbs_rates_and_reductions_of_the_nature()
+    {
+        // Homologação SEFAZ-SP 17/10 (DE000050, série 9 nº 57): cClassTrib 200036 sem gRed → rejeição 1033 "Não informado o
+        // grupo de redução de alíquota Estadual". O complemento não tem IBS/CBS (base e valores 0), mas o grupo precisa sair
+        // com as alíquotas e a redução que o motor resolveu pela natureza.
+        var line = new PurchaseInvoiceItem
+        {
+            IbsCbsCst = "200", IbsCbsClassCode = "200036", IbsCbsBase = 10m,
+            IbsStateRate = 0.1m, IbsMunicipalRate = 0m, IbsRateReduction = 60m, IbsStateValue = 0.01m, IbsMunicipalValue = 0.02m,
+            CbsRate = 0.9m, CbsRateReduction = 60m, CbsValue = 0.03m,
+        };
+
+        PurchaseInvoiceIcmsComplementTaxes.Apply(line, "90", 1_000m, 180m);
+
+        Assert.Equal(("200", "200036"), (line.IbsCbsCst, line.IbsCbsClassCode));
+        Assert.Equal((0.1m, 0m, 60m), (line.IbsStateRate, line.IbsMunicipalRate, line.IbsRateReduction));
+        Assert.Equal((0.9m, 60m), (line.CbsRate, line.CbsRateReduction));
+        Assert.Equal((0m, 0m, 0m, 0m), (line.IbsCbsBase, line.IbsStateValue, line.IbsMunicipalValue, line.CbsValue));
+    }
+
+    [Fact]
     public async Task Icms_complement_keeps_typed_base_and_value_after_recalculation()
     {
         // Review Focus 3: a natureza COMPRA DE MERCADORIA dá CST 51 com 18% e diferimento 100% — nada disso vale aqui.
