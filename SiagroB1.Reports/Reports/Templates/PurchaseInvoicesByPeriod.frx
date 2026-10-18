@@ -47,8 +47,8 @@
       <TextObject Name="hdrDocumentNumber" Left="100" Width="82" Height="17" Text="NF/Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrIssueDate" Left="182" Width="62" Height="17" Text="Emissão" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrPostingDate" Left="244" Width="62" Height="17" Text="Entrada" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrIssuer" Left="306" Width="99" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrType" Left="405" Width="55" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrIssuer" Left="306" Width="86" Height="17" Text="Emitente" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrType" Left="392" Width="68" Height="17" Text="Tipo" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrIssuerType" Left="460" Width="66" Height="17" Text="Emitida por" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrStatus" Left="526" Width="62" Height="17" Text="Situação" Padding="4, 0, 2, 0" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrDeclared" Left="588" Width="76" Height="17" Text="Vl. declarado" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -65,8 +65,8 @@
         <TextObject Name="txtDocumentNumber" Left="100" Width="82" Height="17" Text="[PurchaseInvoicesByPeriod.DocumentNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtIssueDate" Left="182" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.IssueDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtPostingDate" Left="244" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.PostingDate]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtIssuer" Left="306" Width="99" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtType" Left="405" Width="55" Height="17" Text="[PurchaseInvoicesByPeriod.Type]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtIssuer" Left="306" Width="86" Height="17" Text="[PurchaseInvoicesByPeriod.Issuer]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtType" Left="392" Width="68" Height="17" Text="[PurchaseInvoicesByPeriod.Type]" VertAlign="Center" WordWrap="true" CanGrow="true" Font="Consolas, 7pt"/>
         <TextObject Name="txtIssuerType" Left="460" Width="66" Height="17" Text="[PurchaseInvoicesByPeriod.IssuerType]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtStatus" Left="526" Width="62" Height="17" Text="[PurchaseInvoicesByPeriod.Status]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtDeclared" Left="588" Width="76" Height="17" Text="[PurchaseInvoicesByPeriod.DeclaredValue]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
