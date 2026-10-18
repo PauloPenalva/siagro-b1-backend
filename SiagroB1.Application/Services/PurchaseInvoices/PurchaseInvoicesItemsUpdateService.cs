@@ -3,6 +3,7 @@ using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
@@ -77,6 +78,12 @@ public class PurchaseInvoicesItemsUpdateService(
         existing.OtherExpensesValue = entity.OtherExpensesValue;
         existing.ComplementAmount = entity.ComplementAmount;
         existing.ComplementedItemKey = entity.ComplementedItemKey;
+        // Complemento de ICMS (spec 2026-10-17 D4): base e valor são informados; nos demais o motor calcula.
+        if (parent.InvoiceType == PurchaseInvoiceType.IcmsComplement)
+        {
+            existing.IcmsBase = entity.IcmsBase;
+            existing.IcmsValue = entity.IcmsValue;
+        }
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
@@ -90,7 +97,7 @@ public class PurchaseInvoicesItemsUpdateService(
         var inGridOrder = await db.Context.PurchaseInvoicesItems.AsNoTracking()
             .Where(x => x.PurchaseInvoiceKey == existing.PurchaseInvoiceKey).Select(x => x.Key).ToListAsync();
         PurchaseInvoiceLineGuard.EnsureUnitOfMeasure(invoice, [.. inGridOrder.Select(k => k == existing.Key ? existing : others.First(o => o.Key == k))]);
-        await taxApply.EnsureValueComplementAsync(invoice, [.. others, existing]);
+        await taxApply.EnsureComplementAsync(invoice, [.. others, existing]);
         await StorageDepositReturnGuard.EnsureAsync(db.Context, invoice.CardCode, existing.PurchaseInvoiceKey, [.. others, existing]);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, [.. others, existing]);
 

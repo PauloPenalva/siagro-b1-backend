@@ -55,8 +55,10 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
             CardName = Value(emit, "xNome"),
             CardCode = ResolveCardCode(cnpj),
             XmlFileName = fileName,
-            InvoiceType = nfe.IsComplement ? PurchaseInvoiceType.ValueComplement : PurchaseInvoiceType.Normal,
+            InvoiceType = SupplierNfeComplementKind.Classify(nfe),
         };
+
+        var isIcmsComplement = draft.InvoiceType == PurchaseInvoiceType.IcmsComplement;
 
         foreach (var item in nfe.Items)
         {
@@ -68,7 +70,10 @@ public class PurchaseInvoicesImportXmlService(IBusinessPartnerService businessPa
                 // NF-e de complemento (D11): só o valor da linha conta; quantidade e preço unitário ficam zerados (P11).
                 Quantity = nfe.IsComplement ? 0m : item.Quantity,
                 UnitPrice = nfe.IsComplement ? 0m : item.UnitPrice,
-                ComplementAmount = nfe.IsComplement ? item.ProductValue : 0m,
+                ComplementAmount = nfe.IsComplement && !isIcmsComplement ? item.ProductValue : 0m,
+                // Complemento de ICMS (D7): o que conta é a base e o valor destacados no XML.
+                IcmsBase = isIcmsComplement ? item.IcmsBase : 0m,
+                IcmsValue = isIcmsComplement ? item.IcmsValue : 0m,
                 NfeItemNumber = item.ItemNumber,
                 FreightValue = item.FreightValue,
                 InsuranceValue = item.InsuranceValue,

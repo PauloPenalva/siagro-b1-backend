@@ -20,7 +20,7 @@ public class PurchaseInvoiceOwnValueComplementTests
     private const string InheritedContract = "Item TRIGO: o contrato vem do item da nota original e não pode ser alterado.";
     private const string OutsideNfeMode =
         "Complemento de valor de emissão própria só existe na filial que emite NF-e pelo Siagro.";
-    private const string OnlyOwnComplement = "O item da nota original só existe no complemento de valor de emissão própria.";
+    private const string OnlyOwnComplement = "O item da nota original só existe no complemento de emissão própria.";
 
     /// <summary>D5: a original sem contrato na linha — o caso real de toda entrada própria autorizada da CEAGUI dev.</summary>
     private static Task WithoutContractAsync(ValueComplementScenario s) =>
@@ -275,7 +275,8 @@ public class PurchaseInvoiceOwnValueComplementTests
         var s = await SeedAsync();
         await WithoutContractAsync(s);
 
-        Assert.Equal("Item TRIGO: o complemento de valor exige o contrato de compra na linha.",
+        // D3 (spec 2026-10-17): a natureza herdada exige contrato.
+        Assert.Equal("A natureza COMPRA DE MERCADORIA exige contrato de compra na linha do produto TRIGO.",
             await RefusalAsync(s, s.Complement((s.OriginalItemKey, 300m))));
     }
 
@@ -344,6 +345,7 @@ public class PurchaseInvoiceOwnValueComplementTests
         normalLine.Quantity = 10m;
         normalLine.UnitPrice = 1.5m;
         normalLine.UsageCode = s.PurchaseUsage;
+        normalLine.PurchaseContractKey = s.Contract.Key;
         Assert.Equal(OnlyOwnComplement, await RefusalAsync(s, normal));
 
         var thirdParty = s.Complement((s.OriginalItemKey, 300m));

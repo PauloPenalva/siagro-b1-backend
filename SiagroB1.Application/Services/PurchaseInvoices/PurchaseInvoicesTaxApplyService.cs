@@ -35,19 +35,28 @@ public class PurchaseInvoicesTaxApplyService(
         invoice.ProducerInvoiceKey is null
         && (invoice.IssuerType == DocumentIssuerType.Own
             // Spec 2026-10-14 (regra 7): o complemento de valor próprio calcula como a entrada própria (base = valor).
-            && (invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement || IsOwnNfeReturn(invoice))
-            || invoice.IssuerType == DocumentIssuerType.ThirdParty && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement)
+            // Spec 2026-10-17: o complemento de ICMS também (o motor resolve o CFOP; o ICMS é o informado).
+            && (invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement or PurchaseInvoiceType.IcmsComplement
+                || IsOwnNfeReturn(invoice))
+            || invoice.IssuerType == DocumentIssuerType.ThirdParty
+            && invoice.InvoiceType is PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement or PurchaseInvoiceType.IcmsComplement)
         && await gate.IsActiveAsync(invoice.BranchCode);
 
     /// <summary>Devolução de compra criada pelo "Devolver": sai com NF-e própria de saída.</summary>
     public static bool IsOwnNfeReturn(PurchaseInvoice invoice) =>
         invoice.InvoiceType == PurchaseInvoiceType.Return && invoice.IsNfeReturn;
 
-    /// <summary>Spec 2026-10-13 D11: regras do documento "Complemento de valor" (e do valor de complemento nos demais tipos).</summary>
-    public Task EnsureValueComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
-        PurchaseInvoiceValueComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
+    /// <summary>
+    /// Regras dos complementos — "Complemento de valor" (spec 2026-10-13 D11) e "Complemento de ICMS" (spec 2026-10-17) —
+    /// e do valor de complemento nos demais tipos.
+    /// </summary>
+    public Task EnsureComplementAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
+        PurchaseInvoiceComplement.EnsureAsync(invoice, lines, usageService, gate, db.Context);
 
-    /// <summary>Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE, tipo Normal).</summary>
+    /// <summary>
+    /// Spec 2026-10-17 §1: a natureza da linha decide se o contrato é exigido ou recusado (só STANDALONE; tipo Normal e,
+    /// pela D3 dos complementos, os dois complementos).
+    /// </summary>
     public Task EnsureUsageContractRuleAsync(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(usageService, gate.IsStandalone, invoice, lines);
 
@@ -106,10 +115,25 @@ public class PurchaseInvoicesTaxApplyService(
         if (invoice.NfeStatus is NfeStatus.Authorized or NfeStatus.Cancelled or NfeStatus.Processing)
             return;
 
-        if (!await IsActiveForAsync(invoice))
-            return;
-
         var lines = items.ToList();
+        var icmsComplement = invoice.InvoiceType == PurchaseInvoiceType.IcmsComplement;
+
+        // Complemento de ICMS (spec 2026-10-17 D4): base e valor são os informados — guardados antes do motor, que os zera.
+        var typed = icmsComplement
+            ? lines.ToDictionary(l => l, l => (l.IcmsBase, l.IcmsValue), ReferenceEqualityComparer.Instance)
+            : null;
+
+        if (!await IsActiveForAsync(invoice))
+        {
+            // Fora da regra (filial STANDALONE que não emite NF-e pelo Siagro; o próprio já foi recusado) o motor não roda,
+            // mas a alíquota e o CST do complemento de ICMS existem mesmo assim.
+            if (icmsComplement)
+                foreach (var line in lines)
+                    PurchaseInvoiceIcmsComplementTaxes.Apply(
+                        line, PurchaseInvoiceIcmsComplementTaxes.CstFor(null), line.IcmsBase, line.IcmsValue);
+            return;
+        }
+
         var ownReturn = IsOwnNfeReturn(invoice);
         var branch = await _lines.LoadBranchAsync(invoice.BranchCode);
         var supplierState = await TaxLineCalculator.LoadPartnerStateAsync(businessPartnerService, invoice.CardCode);
@@ -138,6 +162,10 @@ public class PurchaseInvoicesTaxApplyService(
             ? await OriginDateAsync(invoice)
             : DateOnly.FromDateTime(invoice.IssueDate ?? DateTime.Today);
         var origins = ownReturn ? await LoadOriginItemsAsync(lines) : new Dictionary<Guid, PurchaseInvoiceItem>();
+        // Complemento de ICMS próprio: CST e CFOP vêm do item da nota original (D4).
+        var complemented = icmsComplement && invoice.IssuerType == DocumentIssuerType.Own
+            ? await PurchaseInvoiceComplement.LoadOriginalsAsync(db.Context, lines)
+            : new Dictionary<Guid, PurchaseInvoiceItem>();
         var usages = new Dictionary<int, UsageModel>();
         var number = 0;
 
@@ -159,7 +187,20 @@ public class PurchaseInvoicesTaxApplyService(
 
             TaxLineCalculator.Apply(item, usage, line);
 
-            if (ownReturn)
+            if (icmsComplement)
+            {
+                // O motor rodou com valor 0: resolveu o CFOP (o da natureza, no terceiro) e zerou o resto. Sem Funrural.
+                var original = item.ComplementedItemKey is { } originalKey && complemented.TryGetValue(originalKey, out var o)
+                    ? o
+                    : null;
+                if (!string.IsNullOrWhiteSpace(original?.Cfop))
+                    item.Cfop = original.Cfop;
+
+                var (typedBase, typedValue) = typed![item];
+                PurchaseInvoiceIcmsComplementTaxes.Apply(
+                    item, PurchaseInvoiceIcmsComplementTaxes.CstFor(original?.CstIcms), typedBase, typedValue);
+            }
+            else if (ownReturn)
             {
                 var origin = OriginOf(item, origins);
 

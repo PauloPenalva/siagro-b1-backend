@@ -677,6 +677,46 @@ public class NfeXmlBuilderTests
         Assert.Contains("<finNFe>2</finNFe>", Build(NfeTestData.PurchaseComplementInput()).ObterXmlString());
     }
 
+    /// <summary>
+    /// NF-e complementar de ICMS (spec 2026-10-17 D8 e "Emissão (próprio)"): quantidade, preço e valor zero, só a base e o
+    /// ICMS da linha; vNF 0 e sem pagamento (tPag 90).
+    /// </summary>
+    [Fact]
+    public void Icms_complement_item_has_zero_product_and_icms_values()
+    {
+        var input = NfeTestData.PurchaseComplementInput() with
+        {
+            Items =
+            [
+                NfeTestData.Item() with
+                {
+                    Cfop = "1102", Quantity = 0m, UnitPrice = 0m, Total = 0m,
+                    IcmsCode = "90", IcmsBase = 1000m, IcmsRate = 12m, IcmsValue = 120m,
+                    PisCst = "74", PisBase = 0m, PisRate = 0m, PisValue = 0m,
+                    CofinsCst = "74", CofinsBase = 0m, CofinsRate = 0m, CofinsValue = 0m,
+                    IbsCbsBase = 0m, IbsStateRate = 0m, IbsStateValue = 0m, CbsRate = 0m, CbsValue = 0m,
+                },
+            ],
+            Payment = new PaymentPlan(PaymentMeansCodes.NoPayment, null, 0m, []),
+        };
+
+        var xml = System.Xml.Linq.XDocument.Parse(Build(input).ObterXmlString());
+        System.Xml.Linq.XNamespace ns = "http://www.portalfiscal.inf.br/nfe";
+        string Value(System.Xml.Linq.XElement parent, string name) => parent.Descendants(ns + name).First().Value;
+
+        Assert.Equal("2", Value(xml.Root!, "finNFe"));
+        var prod = xml.Descendants(ns + "prod").Single();
+        Assert.Equal(0m, decimal.Parse(Value(prod, "qCom"), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("0.00", Value(prod, "vProd"));
+        var icms = xml.Descendants(ns + "ICMS90").Single();
+        Assert.Equal("90", Value(icms, "CST"));
+        Assert.Equal("1000.00", Value(icms, "vBC"));
+        Assert.Equal("120.00", Value(icms, "vICMS"));
+        var total = xml.Descendants(ns + "ICMSTot").Single();
+        Assert.Equal("0.00", Value(total, "vNF"));
+        Assert.Equal("90", Value(xml.Descendants(ns + "detPag").Single(), "tPag"));
+    }
+
     [Fact]
     public void Sales_return_to_a_non_taxpayer_is_not_a_final_consumer_operation()
     {

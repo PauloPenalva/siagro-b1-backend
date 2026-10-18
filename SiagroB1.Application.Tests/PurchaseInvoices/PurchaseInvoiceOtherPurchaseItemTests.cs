@@ -40,9 +40,9 @@ public class PurchaseInvoiceOtherPurchaseItemTests
         CreatesFinancialDocument = true, RequiresContract = requiresContract,
     };
 
-    private static PurchaseInvoice Invoice() => new()
+    private static PurchaseInvoice Invoice(PurchaseInvoiceType type = PurchaseInvoiceType.Normal) => new()
     {
-        Key = Guid.NewGuid(), BranchCode = "01", CardCode = FiscalReconciliationSeed.Supplier, InvoiceType = PurchaseInvoiceType.Normal,
+        Key = Guid.NewGuid(), BranchCode = "01", CardCode = FiscalReconciliationSeed.Supplier, InvoiceType = type,
         IssuerType = DocumentIssuerType.ThirdParty, TaxDocumentNumber = "7001", TaxDocumentSeries = "1",
         IssueDate = new DateTime(2026, 10, 12),
     };
@@ -112,6 +112,30 @@ public class PurchaseInvoiceOtherPurchaseItemTests
         await create.ExecuteAsync(invoice, "ana");
 
         Assert.Equal("MANUTENCAO DE MAQUINAS", invoice.Items.Single().ItemName);
+    }
+
+    [Fact]
+    public async Task Value_complement_other_purchase_line_accepts_item_outside_grain_group()
+    {
+        // D3/D6: o complemento de valor de uma nota de serviço/diesel é linha de outra compra, como o Normal.
+        var s = await SeedAsync();
+        var taxApply = TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService());
+
+        Assert.True(await taxApply.IsOtherPurchaseLineAsync(Invoice(PurchaseInvoiceType.ValueComplement), Line(Service, s.OtherPurchaseUsage)));
+    }
+
+    [Fact]
+    public async Task Icms_complement_and_return_lines_are_never_other_purchase()
+    {
+        // D5: o complemento de ICMS não gera título; a devolução segue o caminho de hoje.
+        var s = await SeedAsync();
+        var taxApply = TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService());
+        var returned = Invoice(PurchaseInvoiceType.ValueComplement);
+        returned.IsNfeReturn = true;
+
+        Assert.False(await taxApply.IsOtherPurchaseLineAsync(Invoice(PurchaseInvoiceType.IcmsComplement), Line(Service, s.OtherPurchaseUsage)));
+        Assert.False(await taxApply.IsOtherPurchaseLineAsync(Invoice(PurchaseInvoiceType.Return), Line(Service, s.OtherPurchaseUsage)));
+        Assert.False(await taxApply.IsOtherPurchaseLineAsync(returned, Line(Service, s.OtherPurchaseUsage)));
     }
 
     [Fact]

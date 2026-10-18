@@ -22,6 +22,7 @@ public class PurchaseInvoiceValueComplementTests
         var seed = await FiscalReconciliationSeed.CreateAsync();
         var contract = await seed.AddContractAsync();
         var usages = new UsageService(seed.Db, NullLogger<UsageService>.Instance);
+        // Naturezas de grão (exigem contrato): no complemento quem manda no contrato é a natureza (spec 2026-10-17 D3).
         var financial = (await usages.CreateAsync(Usage("Complemento de preço", true))).Code;
         var nonFinancial = (await usages.CreateAsync(Usage("Entrada sem financeiro", false))).Code;
         return new Scenario(seed.Db, contract, financial, nonFinancial);
@@ -30,7 +31,7 @@ public class PurchaseInvoiceValueComplementTests
     private static UsageModel Usage(string name, bool createsFinancial) => new()
     {
         Name = name, Direction = UsageDirection.Incoming, CfopIncomingInState = "1102", CfopIncomingOutState = "2102",
-        CreatesFinancialDocument = createsFinancial,
+        CreatesFinancialDocument = createsFinancial, RequiresContract = true,
     };
 
     private static PurchaseInvoice Document(
@@ -100,8 +101,10 @@ public class PurchaseInvoiceValueComplementTests
             await RefusalAsync(s, Document(s, s.Financial, quantity: 10m)));
         Assert.Equal("Item SOJA: informe o valor do complemento.",
             await RefusalAsync(s, Document(s, s.Financial, amount: 0m)));
-        Assert.Equal("Item SOJA: o complemento de valor exige o contrato de compra na linha.",
+        Assert.Equal("A natureza Complemento de preço exige contrato de compra na linha do produto SOJA.",
             await RefusalAsync(s, Document(s, s.Financial, withContract: false)));
+        Assert.Equal("Item SOJA: o complemento de valor exige o contrato de compra na linha.",
+            await RefusalAsync(s, Document(s, s.Financial, withContract: false), "SAPB1"));
         Assert.Equal("Item SOJA: o complemento de valor exige a natureza de operação.",
             await RefusalAsync(s, Document(s, null)));
         Assert.Equal($"Item SOJA: a natureza {s.NonFinancial} não gera financeiro; o complemento de valor precisa de uma natureza que gere.",
@@ -143,6 +146,6 @@ public class PurchaseInvoiceValueComplementTests
         line.PurchaseContractKey = null;
         var updated = await Assert.ThrowsAsync<DefaultException>(() =>
             new PurchaseInvoicesItemsUpdateService(s.Db, new FakeItemService(), apply).ExecuteAsync(line.Key!.Value, line, "ana"));
-        Assert.Equal("Item SOJA: o complemento de valor exige o contrato de compra na linha.", updated.Message);
+        Assert.Equal("A natureza Complemento de preço exige contrato de compra na linha do produto SOJA.", updated.Message);
     }
 }

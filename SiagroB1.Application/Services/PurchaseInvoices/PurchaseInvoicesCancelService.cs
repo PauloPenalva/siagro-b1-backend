@@ -70,7 +70,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOth
         // Complemento de valor próprio aponta itens desta nota (spec 2026-10-14, D4/C8). Vale para o cancelamento do
         // documento e, pelo ensaio do handler, para o da NF-e — antes de falar com a SEFAZ. Primeira das recusas: a nº 5
         // de referência da CEAGUI dev tem uma devolução Rejeitada ainda ativa, e o roteiro espera ver C8.
-        await PurchaseInvoiceValueComplement.EnsureNoActiveComplementAsync(db.Context, key, invoiceNumber);
+        await PurchaseInvoiceComplement.EnsureNoActiveComplementAsync(db.Context, key, invoiceNumber);
 
         // A devolução referencia a chave desta nota (refNFe): cancelar a origem a deixaria apontando
         // para uma NF-e cancelada. Mesma regra que a saída já tem.

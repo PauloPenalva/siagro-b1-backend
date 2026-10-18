@@ -194,17 +194,18 @@ public class PurchaseInvoiceUsageContractRequirementTests
     }
 
     [Fact]
-    public async Task Value_complement_still_requires_contract()
+    public async Task Value_complement_follows_the_usage_contract_rule()
     {
         var s = await SeedAsync();
-        var line = Line(s.WithoutContract, null);
+        var line = Line(s.WithContract, null);
         line.Quantity = 0m;
         line.UnitPrice = 0m;
         line.ComplementAmount = 1_500m;
 
         var message = await RefusalAsync(s, Document(PurchaseInvoiceType.ValueComplement, line));
 
-        Assert.Equal("Item SOJA: o complemento de valor exige o contrato de compra na linha.", message);
+        // D3 dos complementos (spec 2026-10-17): a natureza manda no contrato também no complemento de valor.
+        Assert.Equal("A natureza Compra de grãos exige contrato de compra na linha do produto SOJA.", message);
     }
 
     [Fact]

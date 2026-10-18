@@ -40,15 +40,15 @@ public class PurchaseInvoicesNfeIssueService(
         if (invoice.IssuerType != DocumentIssuerType.Own)
             throw new DefaultException("Só o documento de emissão própria é emitido como NF-e.");
 
-        // Spec 2026-10-14 (regra 6): o complemento de valor próprio sai como NF-e complementar (finNFe=2).
-        if (invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement) &&
+        // Spec 2026-10-14 (regra 6) e 2026-10-17: os complementos próprios (valor e ICMS) saem como NF-e complementar (finNFe=2).
+        if (invoice.InvoiceType != PurchaseInvoiceType.Normal && !PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType) &&
             !PurchaseInvoicesTaxApplyService.IsOwnNfeReturn(invoice))
             throw new DefaultException(
                 "Só a entrada Normal e a devolução criada pelo Devolver são emitidas como NF-e por aqui.");
     }
 
     // Devolução de compra: o saldo da entrada ANTES de reservar o número — a SEFAZ autorizaria uma devolução
-    // maior que a compra. Complemento de valor: a regra das linhas, pelo mesmo motivo.
+    // maior que a compra. Complemento (valor ou ICMS): a regra das linhas, pelo mesmo motivo.
     protected override async Task EnsureBeforeReservationAsync(PurchaseInvoice invoice)
     {
         // Nota de custódia editada pela tela depois de gerada: revalida antes de numerar (spec 2026-10-12 §4.1).
@@ -58,10 +58,10 @@ public class PurchaseInvoicesNfeIssueService(
         if (invoice.IsNfeReturn)
             await PurchaseInvoiceNfeReturnBalance.EnsureWithinAsync(_db.Context, invoice, invoice.Items);
 
-        // Complemento de valor próprio: a regra das linhas de novo (contrato, natureza, valor, originais), porque a
-        // confirmação, que também a roda, só vem depois da autorização (spec 2026-10-14).
-        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
-            await PurchaseInvoiceValueComplement.EnsureIssuableAsync(invoice.Key, usageService, _gate, _db.Context);
+        // Complemento próprio (valor ou ICMS): a regra das linhas de novo (contrato, natureza, valor/ICMS, originais),
+        // porque a confirmação, que também a roda, só vem depois da autorização (spec 2026-10-14 e 2026-10-17).
+        if (PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType))
+            await PurchaseInvoiceComplement.EnsureIssuableAsync(invoice.Key, usageService, _gate, _db.Context);
     }
 
     protected override DateTime? DocumentDate(PurchaseInvoice invoice) => invoice.IssueDate;

@@ -80,11 +80,16 @@ internal static class PurchaseInvoiceLineGuard
         return (await Lookup())?.ItemName ?? itemName;
     }
 
-    /// <summary>A linha é de outra compra: STANDALONE, documento Normal (não devolução) e natureza de outra compra.</summary>
+    /// <summary>
+    /// A linha é de outra compra: STANDALONE, documento Normal ou complemento de valor (D3/D6), não devolução, e natureza de
+    /// outra compra — o mesmo recorte de <see cref="IsOtherPurchaseDocumentAsync(IUsage, bool, PurchaseInvoice, IReadOnlyList{PurchaseInvoiceItem})"/>.
+    /// O complemento de ICMS nunca é (D5).
+    /// </summary>
     internal static async Task<bool> IsOtherPurchaseLineAsync(
         IUsage usages, bool standalone, PurchaseInvoice invoice, PurchaseInvoiceItem line)
     {
-        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn || line.UsageCode is null)
+        if (!standalone || invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement)
+            || invoice.IsNfeReturn || line.UsageCode is null)
             return false;
 
         var usage = await usages.GetByIdAsync(line.UsageCode.Value);
@@ -93,12 +98,12 @@ internal static class PurchaseInvoiceLineGuard
 
     /// <summary>
     /// A unidade de medida é obrigatória na linha (B7): sem ela a devolução copiava a unidade vazia e a NF-e recusava.
-    /// Vale sobre a lista FINAL de linhas do documento, na ordem em que a grade as mostra (nº = posição na carga, a partir de 1; linha nova no fim). Complemento
-    /// de valor fica fora: a linha só tem valor (quantidade 0), então não há unidade a informar.
+    /// Vale sobre a lista FINAL de linhas do documento, na ordem em que a grade as mostra (nº = posição na carga, a partir de 1; linha nova no fim). Os
+    /// complementos (valor e ICMS) ficam fora: a linha não tem quantidade, então não há unidade a informar.
     /// </summary>
     public static void EnsureUnitOfMeasure(PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
     {
-        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
+        if (PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType))
             return;
 
         // CT-e: a linha é o serviço de transporte (quantidade 1, preço = total da prestação); unidade não se aplica.
@@ -125,8 +130,8 @@ internal static class PurchaseInvoiceLineGuard
     public static bool IsOtherPurchase(UsageModel usage) => !usage.RequiresContract && usage.CreatesFinancialDocument;
 
     /// <summary>
-    /// O documento inteiro é de outra compra: STANDALONE, tipo Normal, não é devolução e TODA linha com natureza é
-    /// outra compra (há ao menos uma). Devolução e complemento de valor seguem o caminho de hoje.
+    /// O documento inteiro é de outra compra: STANDALONE, tipo Normal ou complemento de valor (sem contrato, D3), não é devolução e TODA linha com natureza é
+    /// outra compra (há ao menos uma). O complemento de ICMS nunca gera título; a devolução segue o caminho de hoje.
     /// </summary>
     public static Task<bool> IsOtherPurchaseDocumentAsync(
         IUsage usages, IConfiguration cfg, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
@@ -135,7 +140,7 @@ internal static class PurchaseInvoiceLineGuard
     internal static async Task<bool> IsOtherPurchaseDocumentAsync(
         IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
     {
-        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn)
+        if (!standalone || invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement) || invoice.IsNfeReturn)
             return false;
 
         var byCode = await LoadUsagesAsync(usages, lines);
@@ -148,23 +153,36 @@ internal static class PurchaseInvoiceLineGuard
     /// A natureza da linha decide se o contrato é exigido (spec 2026-10-17 §1): exige → contrato obrigatório; não exige →
     /// contrato recusado; e o documento não mistura linhas de contrato com linhas de outras compras.
     ///
-    /// Só STANDALONE e tipo Normal: em SAPB1 a natureza (OUSG) não carrega a flag, o complemento de valor já exige contrato
-    /// (<c>PurchaseInvoiceValueComplement</c>) e a devolução mantém o contrato opcional. Linha sem natureza passa sem regra.
+    /// Só STANDALONE, tipo Normal e os dois complementos (spec 2026-10-17 D3): em SAPB1 a natureza (OUSG) não carrega a
+    /// flag, e lá o complemento de valor exige contrato (<c>PurchaseInvoiceComplement</c>); a devolução mantém o contrato
+    /// opcional. Linha sem natureza passa sem regra.
     /// Recebe a lista FINAL de linhas do documento, porque a mistura é uma regra do conjunto.
     /// </summary>
     public static Task EnsureUsageContractRuleAsync(
         IUnitOfWork db, IUsage usages, IConfiguration cfg, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
         EnsureUsageContractRuleAsync(usages, ErpMode.IsStandalone(cfg), invoice, lines);
 
+    /// <summary>A regra acima, com o modo já resolvido.</summary>
+    /// <param name="ownComplementInherited">
+    /// Verdadeiro só na chamada de dentro de <c>PurchaseInvoiceComplement</c>, depois de C1–C5 e da herança. Nos caminhos
+    /// que gravam linha a regra roda antes disso, quando a linha nova do complemento próprio ainda chega sem natureza (e a
+    /// divergência de natureza é C5, não esta regra): o complemento próprio é pulado ali.
+    /// </param>
     internal static async Task EnsureUsageContractRuleAsync(
-        IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
+        IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines,
+        bool ownComplementInherited = false)
     {
-        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn)
+        var normal = invoice.InvoiceType == PurchaseInvoiceType.Normal;
+        var complement = PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType);
+        if (!standalone || !(normal || complement) || invoice.IsNfeReturn)
             return;
 
-        // Valor de complemento em documento Normal é recusado pela regra do complemento (EnsureValueComplementAsync), com
-        // a mensagem certa; esta regra não se antecipa a ela.
-        if (lines.Any(l => l.ComplementAmount != 0m))
+        if (complement && invoice.IssuerType == DocumentIssuerType.Own && !ownComplementInherited)
+            return;
+
+        // Valor de complemento em documento Normal é recusado pela regra do complemento (EnsureComplementAsync), com a
+        // mensagem certa; esta regra não se antecipa a ela.
+        if (normal && lines.Any(l => l.ComplementAmount != 0m))
             return;
 
         var byCode = await LoadUsagesAsync(usages, lines);
@@ -233,7 +251,7 @@ internal static class PurchaseInvoiceLineGuard
 
     /// <summary>
     /// Mesma regra, para quem só tem o contexto: a linha do complemento próprio (spec 2026-10-14, D5) roda a guarda de
-    /// dentro de <c>PurchaseInvoiceValueComplement</c>, depois de herdar o produto e de C3.
+    /// dentro de <c>PurchaseInvoiceComplement</c>, depois de herdar o produto e de C3.
     /// </summary>
     public static async Task EnsureContractIsCompatibleAsync(
         AppDbContext context, Guid? purchaseContractKey, string? itemCode, string cardCode)

@@ -111,6 +111,7 @@ public class PurchaseInvoicesByPeriodReportService(
     {
         PurchaseInvoiceType.Return => "Devolução",
         PurchaseInvoiceType.ValueComplement => "Complemento de valor",
+        PurchaseInvoiceType.IcmsComplement => "Complemento de ICMS",
         _ => "Normal",
     };
 

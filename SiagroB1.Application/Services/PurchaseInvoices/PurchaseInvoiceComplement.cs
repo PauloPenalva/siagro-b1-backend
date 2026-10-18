@@ -10,38 +10,49 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
 /// <summary>
-/// Documento de entrada "Complemento de valor" (spec 2026-10-13 D11): o faturado ABAIXO do contrato. Regra única
-/// das linhas, chamada pelos quatro caminhos que gravam linha (deep-insert, PATCH do cabeçalho, POST e PATCH de
-/// linha — ver PurchaseInvoiceLineGuard) e de novo na confirmação, que cria os títulos firmes.
+/// Documentos de entrada "Complemento de valor" (spec 2026-10-13 D11: o faturado ABAIXO do contrato) e "Complemento de
+/// ICMS" (spec 2026-10-17: NF só de imposto, base e valor do ICMS informados). Regra única das linhas, chamada pelos
+/// quatro caminhos que gravam linha (deep-insert, PATCH do cabeçalho, POST e PATCH de linha — ver
+/// PurchaseInvoiceLineGuard) e de novo na confirmação e na emissão.
 ///
-/// Emissão própria (spec 2026-10-14): cada linha aponta o item de uma entrada própria autorizada do mesmo produtor e
-/// filial (ComplementedItemKey) e herda dela produto, unidade e natureza — e o contrato, quando o original tem (D5).
+/// Emissão própria (spec 2026-10-14, estendida ao ICMS pela D2 de 2026-10-17): cada linha aponta o item de uma entrada
+/// própria autorizada do mesmo produtor e filial (ComplementedItemKey) e herda dela produto, unidade e natureza — e o
+/// contrato, quando o original tem (D5).
+///
+/// Contrato (D3 de 2026-10-17): em STANDALONE quem manda é a natureza
+/// (<c>PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync</c>); em SAPB1 (natureza sem a flag) o complemento de valor
+/// continua exigindo o contrato aqui.
 /// </summary>
-public static class PurchaseInvoiceValueComplement
+public static class PurchaseInvoiceComplement
 {
+    /// <summary>K3: o complemento de ICMS só existe em STANDALONE.</summary>
+    internal const string IcmsOnlyInStandaloneMessage = "Complemento de ICMS só existe no modo STANDALONE.";
+
+    /// <summary>C7 generalizada: o vínculo com a nota original só existe no complemento próprio.</summary>
+    internal const string OnlyOwnComplementMessage = "O item da nota original só existe no complemento de emissão própria.";
+
     /// <summary>Complemento próprio fora do modo NF-e (SAPB1, ou filial STANDALONE que não emite pelo Siagro).</summary>
-    internal const string OutsideNfeModeMessage =
-        "Complemento de valor de emissão própria só existe na filial que emite NF-e pelo Siagro.";
+    internal static string OutsideNfeModeMessage(PurchaseInvoiceType type) =>
+        $"{Capitalized(PurchaseInvoiceComplements.Label(type))} de emissão própria só existe na filial que emite NF-e pelo Siagro.";
 
     /// <param name="gate">
-    /// O modo: STANDALONE exige natureza com "Gera financeiro"; em SAPB1 a natureza é o OUSG, sem a flag (D10), e basta
-    /// existir. E a filial que emite NF-e pelo Siagro, única onde o complemento PRÓPRIO existe.
+    /// O modo: STANDALONE exige natureza com "Gera financeiro" no complemento de valor; em SAPB1 a natureza é o OUSG, sem
+    /// a flag (D10), e basta existir. E a filial que emite NF-e pelo Siagro, única onde o complemento PRÓPRIO existe.
     /// </param>
     /// <param name="context">Lê os itens originais do complemento próprio.</param>
     public static async Task EnsureAsync(
         PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines, IUsage usageService, TaxCalculationGate gate,
         AppDbContext context)
     {
+        var type = invoice.InvoiceType;
         var standalone = gate.IsStandalone;
-        var ownComplement = invoice.InvoiceType == PurchaseInvoiceType.ValueComplement &&
-                            invoice.IssuerType == DocumentIssuerType.Own;
 
-        // C7: o vínculo com a nota original só existe no complemento próprio — o de terceiro é escrituração da nota dele.
-        if (!ownComplement && lines.Any(l => l.ComplementedItemKey is not null))
-            throw new DefaultException("O item da nota original só existe no complemento de valor de emissão própria.");
-
-        if (invoice.InvoiceType != PurchaseInvoiceType.ValueComplement)
+        if (!PurchaseInvoiceComplements.IsComplement(type))
         {
+            // C7: o vínculo com a nota original só existe no complemento próprio.
+            if (lines.Any(l => l.ComplementedItemKey is not null))
+                throw new DefaultException(OnlyOwnComplementMessage);
+
             var carrying = lines.FirstOrDefault(l => l.ComplementAmount != 0m);
             if (carrying is not null)
                 throw new DefaultException(
@@ -49,36 +60,82 @@ public static class PurchaseInvoiceValueComplement
             return;
         }
 
+        // K3 antes de tudo: fora de STANDALONE o tipo nem existe.
+        if (type == PurchaseInvoiceType.IcmsComplement && !standalone)
+            throw new DefaultException(IcmsOnlyInStandaloneMessage);
+
+        var label = PurchaseInvoiceComplements.Label(type);
+        var ownComplement = invoice.IssuerType == DocumentIssuerType.Own;
+
+        // C7: o de terceiro é escrituração da nota dele, sem vínculo com a original.
+        if (!ownComplement && lines.Any(l => l.ComplementedItemKey is not null))
+            throw new DefaultException(OnlyOwnComplementMessage);
+
         if (ownComplement)
         {
             // O complemento próprio sai como NF-e complementar (finNFe=2): fora do modo NF-e não há a nota original
             // autorizada que ele referencia, e C1 falaria de um item que a tela nem oferece. Antes de C1.
             if (!await gate.IsActiveAsync(invoice.BranchCode))
-                throw new DefaultException(OutsideNfeModeMessage);
+                throw new DefaultException(OutsideNfeModeMessage(type));
 
             await EnsureOwnLinesAsync(invoice, lines, context);
+
+            // D3 sobre a natureza e o contrato JÁ herdados: nos caminhos que gravam linha a regra da natureza roda antes
+            // desta herança, quando a linha nova do complemento próprio ainda chega sem natureza, e por isso pula o próprio.
+            await PurchaseInvoiceLineGuard.EnsureUsageContractRuleAsync(
+                usageService, standalone, invoice, lines, ownComplementInherited: true);
         }
 
         foreach (var line in lines)
         {
-            if (line.Quantity != 0m || line.UnitPrice != 0m)
-                throw new DefaultException(
-                    $"Item {line.ItemCode}: no complemento de valor a linha não tem quantidade nem preço unitário; informe só o valor do complemento.");
-
-            if (line.ComplementAmount <= 0m)
-                throw new DefaultException($"Item {line.ItemCode}: informe o valor do complemento.");
-
-            if (line.PurchaseContractKey is null)
-                throw new DefaultException($"Item {line.ItemCode}: o complemento de valor exige o contrato de compra na linha.");
+            if (type == PurchaseInvoiceType.IcmsComplement)
+                EnsureIcmsLine(line);
+            else
+                EnsureValueLine(line, standalone);
 
             if (line.UsageCode is not { } usageCode)
-                throw new DefaultException($"Item {line.ItemCode}: o complemento de valor exige a natureza de operação.");
+                throw new DefaultException($"Item {line.ItemCode}: o {label} exige a natureza de operação.");
 
-            if (standalone && (await usageService.GetByIdAsync(usageCode))?.CreatesFinancialDocument != true)
+            // D5: o complemento de ICMS não gera título; só o de valor precisa de natureza que gere (STANDALONE).
+            if (type == PurchaseInvoiceType.ValueComplement && standalone &&
+                (await usageService.GetByIdAsync(usageCode))?.CreatesFinancialDocument != true)
                 throw new DefaultException(
                     $"Item {line.ItemCode}: a natureza {usageCode} não gera financeiro; o complemento de valor precisa de uma natureza que gere.");
         }
     }
+
+    /// <summary>Linha do complemento de valor: só o valor do complemento; em SAPB1 o contrato é obrigatório (D3).</summary>
+    private static void EnsureValueLine(PurchaseInvoiceItem line, bool standalone)
+    {
+        if (line.Quantity != 0m || line.UnitPrice != 0m)
+            throw new DefaultException(
+                $"Item {line.ItemCode}: no complemento de valor a linha não tem quantidade nem preço unitário; informe só o valor do complemento.");
+
+        if (line.ComplementAmount <= 0m)
+            throw new DefaultException($"Item {line.ItemCode}: informe o valor do complemento.");
+
+        if (!standalone && line.PurchaseContractKey is null)
+            throw new DefaultException($"Item {line.ItemCode}: o complemento de valor exige o contrato de compra na linha.");
+    }
+
+    /// <summary>
+    /// Linha do complemento de ICMS (D4): sem quantidade, preço nem valor (K1); base e ICMS informados, ambos positivos
+    /// (K2); o ICMS não passa da base (K4).
+    /// </summary>
+    private static void EnsureIcmsLine(PurchaseInvoiceItem line)
+    {
+        if (line.Quantity != 0m || line.UnitPrice != 0m || line.ComplementAmount != 0m)
+            throw new DefaultException(
+                $"Item {line.ItemCode}: no complemento de ICMS a linha não tem quantidade, preço nem valor; informe só a base e o valor do ICMS.");
+
+        if (line.IcmsBase <= 0m || line.IcmsValue <= 0m)
+            throw new DefaultException($"Item {line.ItemCode}: informe a base e o valor do ICMS do complemento.");
+
+        if (line.IcmsValue > line.IcmsBase)
+            throw new DefaultException($"Item {line.ItemCode}: o ICMS do complemento não pode ser maior que a base.");
+    }
+
+    private static string Capitalized(string text) => char.ToUpperInvariant(text[0]) + text[1..];
 
     /// <summary>
     /// Regra 2 / C2: a nota que se complementa — própria, Normal (a contra-nota é uma entrada própria Normal: D1), com a
@@ -123,8 +180,8 @@ public static class PurchaseInvoiceValueComplement
         $"A nota original {originalNumber} não está mais autorizada: o complemento não pode ser emitido.";
 
     /// <summary>C1: a linha do complemento próprio não aponta um item de nota original.</summary>
-    internal static string MissingOriginalMessage(string? itemCode) =>
-        $"Item {(string.IsNullOrWhiteSpace(itemCode) ? "(sem produto)" : itemCode)}: o complemento de valor de emissão própria exige o item da nota original.";
+    internal static string MissingOriginalMessage(string? itemCode, PurchaseInvoiceType type) =>
+        $"Item {(string.IsNullOrWhiteSpace(itemCode) ? "(sem produto)" : itemCode)}: o {PurchaseInvoiceComplements.Label(type)} de emissão própria exige o item da nota original.";
 
     /// <summary>
     /// D4 / C8: a original não é cancelada (documento nem NF-e) enquanto houver linha de complemento apontando um item
@@ -171,7 +228,7 @@ public static class PurchaseInvoiceValueComplement
     {
         var missing = lines.FirstOrDefault(l => l.ComplementedItemKey is null);
         if (missing is not null)
-            throw new DefaultException(MissingOriginalMessage(missing.ItemCode));
+            throw new DefaultException(MissingOriginalMessage(missing.ItemCode, invoice.InvoiceType));
 
         var originals = await LoadOriginalsAsync(context, lines);
 
@@ -182,7 +239,7 @@ public static class PurchaseInvoiceValueComplement
 
             // Chave que não existe: a linha não aponta item nenhum (C1) — C2 precisa de um documento para citar.
             if (!originals.TryGetValue(key, out var original) || original.PurchaseInvoice is not { } origin)
-                throw new DefaultException(MissingOriginalMessage(line.ItemCode));
+                throw new DefaultException(MissingOriginalMessage(line.ItemCode, invoice.InvoiceType));
 
             if (!IsComplementableOrigin(origin))
                 throw new DefaultException(
@@ -211,7 +268,7 @@ public static class PurchaseInvoiceValueComplement
     /// Original SEM contrato (D5): o contrato é o que o operador informou, e passa AQUI pelas regras de contrato da linha
     /// de entrada — os quatro caminhos que gravam linha deixam de chamar a guarda para a linha do complemento, para que
     /// ela rode com o produto já herdado e DEPOIS de C3 (trocar o produtor do cabeçalho recusa por C3, não pelo
-    /// contrato). Sem contrato, a regra existente do complemento recusa adiante (obrigatório). O contrato HERDADO passa
+    /// contrato). Sem contrato, decide adiante a natureza (D3, em STANDALONE) ou, em SAPB1, a regra do complemento de valor. O contrato HERDADO passa
     /// pela mesma guarda: fornecedor e produto já batem (C3 e herança), mas a situação pode ter mudado depois da nota
     /// original (cancelado, por exemplo).
     /// </summary>
