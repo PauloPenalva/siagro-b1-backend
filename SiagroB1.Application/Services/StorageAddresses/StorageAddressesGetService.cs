@@ -64,6 +64,7 @@ public class StorageAddressesGetService(IUnitOfWork db, ILogger<StorageAddresses
                 PurchaseContractKey = a.PurchaseContractKey,
                 TransactionOrigin = a.TransactionOrigin,
                 Status = a.Status,
+                ClosingDate = a.ClosingDate,
                 UoM = a.UoM,
                 ProcessingCostCode = a.ProcessingCostCode,
                 ProcessingCost = a.ProcessingCost,

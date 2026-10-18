@@ -69,6 +69,11 @@ public class StorageAddressesUpdateService(
             entity.WarehouseName = (await warehouseService.GetByIdAsync(entity.WarehouseCode))?.Name;
             context.Entry(existingAddress).CurrentValues.SetValues(entity);
 
+            // Situação e data de encerramento só mudam pelas actions de encerrar/reabrir, que
+            // desfazem os cálculos posteriores; a edição comum volta ao valor gravado.
+            existingAddress.Status = original.GetValue<StorageAddressStatus?>(nameof(StorageAddress.Status));
+            existingAddress.ClosingDate = original.GetValue<DateTime?>(nameof(StorageAddress.ClosingDate));
+
             await context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)

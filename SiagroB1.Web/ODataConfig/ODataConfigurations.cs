@@ -743,6 +743,16 @@ public static class ODataConfigurations
         storageAddressesReprocessing.Parameter<DateTime>("ToDate");
         storageAddressesReprocessing.Returns<IActionResult>();
         
+        // Encerramento do lote: a data é o último dia calculado (ver StorageAddressCalculationScope).
+        var storageAddressesClose = modelBuilder.Action("StorageAddressesClose");
+        storageAddressesClose.Parameter<string>("Code");
+        storageAddressesClose.Parameter<DateOnly>("ClosingDate");
+        storageAddressesClose.Returns<IActionResult>();
+
+        var storageAddressesReopen = modelBuilder.Action("StorageAddressesReopen");
+        storageAddressesReopen.Parameter<string>("Code");
+        storageAddressesReopen.Returns<IActionResult>();
+
         var storageAddressesDailyCalculationJob = modelBuilder.Action("StorageAddressesDailyCalculationJob");
         storageAddressesDailyCalculationJob.Parameter<string>("ProcessingDate");
         storageAddressesDailyCalculationJob.Returns<IActionResult>();

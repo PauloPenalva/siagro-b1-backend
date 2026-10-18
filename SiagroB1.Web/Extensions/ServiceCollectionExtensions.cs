@@ -575,6 +575,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<StorageAddressesStorageChargeCalculatorService>();
         services.AddScoped<StorageAddressesTechnicalLossCalculatorService>();
         services.AddScoped<StorageAddressesReprocessingService>();
+        services.AddScoped<StorageAddressesCloseService>();
+        services.AddScoped<StorageAddressesReopenService>();
         services.AddScoped<IStorageAddressesDailyCalculationJob, StorageAddressesDailyCalculationJob>();
 
         // storage transactions

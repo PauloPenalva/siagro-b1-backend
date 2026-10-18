@@ -10,7 +10,7 @@ public class StorageAddressesDailyBalanceBuilderService(IUnitOfWork db)
      public async Task BuildAsync(DateTime date, CancellationToken ct = default)
     {
         var addresses = await db.Context.StorageAddresses
-            .Where(x => x.Status == StorageAddressStatus.Open)
+            .Where(StorageAddressCalculationScope.CalculatedOn(date))
             .ToListAsync(ct);
 
         foreach (var address in addresses)
