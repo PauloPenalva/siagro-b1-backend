@@ -32,6 +32,9 @@ public class SalesInvoicesItemsCreateService(
                 throw new DefaultException(
                     "Na devolução com NF-e, os itens vêm da venda: para devolver outro item, use o Devolver da venda.");
 
+            if (SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
+                throw new DefaultException(SalesInvoiceIcmsComplementLock.LinesChangeMessage);
+
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus, SalesInvoiceNfeLock.IsConfirmedFrozen(
                 invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)));
 

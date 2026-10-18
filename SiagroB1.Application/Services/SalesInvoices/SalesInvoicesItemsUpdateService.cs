@@ -28,7 +28,17 @@ public class SalesInvoicesItemsUpdateService(
     {
         var existingEntity = await db.Context.SalesInvoicesItems
             .FirstOrDefaultAsync(tc => tc.Key == key) ?? throw new KeyNotFoundException("Entity not found.");
-        
+
+        // Complemento de ICMS (spec 2026-10-18 S6): caminho próprio, antes da conferência de entrega e dos recálculos —
+        // a linha não se move, só Base/ICMS. Pelo documento GRAVADO: no PATCH a linha chega já mutada.
+        var storedInvoiceKey = (Guid?)db.Context.Entry(existingEntity).OriginalValues[nameof(SalesInvoiceItem.SalesInvoiceKey)];
+        var parent = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == storedInvoiceKey);
+        if (parent is not null && SalesInvoicesTaxApplyService.IsIcmsComplement(parent))
+        {
+            await UpdateIcmsComplementLineAsync(parent, existingEntity, entity);
+            return existingEntity;
+        }
+
         try
         {
             entity.ItemName = (await itemService.GetByIdAsync(entity.ItemCode))?.ItemName;
@@ -154,6 +164,33 @@ public class SalesInvoicesItemsUpdateService(
         }
 
         return entity;
+    }
+
+    /// <summary>
+    /// Linha do complemento de ICMS: tudo volta ao gravado — produto, quantidade, preço, natureza, valores da linha, vínculo
+    /// com a original, contrato e tributos —, exceto Base ICMS e ICMS, e só enquanto o documento está Pendente sem NF-e
+    /// emitida ou em processamento; aí o motor recalcula e o aplicador repõe o informado. Restaura em vez de recusar: o
+    /// PATCH da tela reenvia a linha inteira.
+    /// </summary>
+    private async Task UpdateIcmsComplementLineAsync(SalesInvoice invoice, SalesInvoiceItem existing, SalesInvoiceItem incoming)
+    {
+        // Antes da restauração: no PATCH, incoming É a instância rastreada.
+        var (typedBase, typedValue) = (incoming.IcmsBase, incoming.IcmsValue);
+
+        var entry = db.Context.Entry(existing);
+        entry.CurrentValues.SetValues(entry.OriginalValues.Clone());
+
+        var editable = invoice.InvoiceStatus is null or InvoiceStatus.Pending
+                       && invoice.NfeStatus is not NfeStatus.Processing
+                       && !NfeLockRules.IsFrozen(invoice.NfeStatus);
+        if (editable)
+        {
+            existing.IcmsBase = typedBase;
+            existing.IcmsValue = typedValue;
+            await taxApply.ApplyAsync(invoice, [existing]);
+        }
+
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

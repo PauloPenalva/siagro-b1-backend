@@ -47,6 +47,10 @@ public class SalesInvoicesItemsDeleteService(
                 .Where(i => i.Key == salesInvoiceKey)
                 .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode })
                 .FirstOrDefaultAsync();
+            // Complemento de ICMS (spec 2026-10-18 S6): as linhas são as escolhidas na criação; para mudar, exclua o documento.
+            if (stored?.InvoiceType == SalesInvoiceType.IcmsComplement)
+                throw new DefaultException(SalesInvoiceIcmsComplementLock.LinesChangeMessage);
+
             SalesInvoiceNfeLock.EnsureLinesChangeable(
                 stored?.NfeStatus ?? NfeStatus.None,
                 stored is not null && SalesInvoiceNfeLock.IsConfirmedFrozen(

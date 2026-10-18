@@ -48,6 +48,7 @@ public class SalesInvoicesUpdateService(
             SalesInvoiceNfeLock.EnsureHeaderEditable(entry, confirmedFrozen);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);
             SalesInvoiceNfeReturnLock.RestoreHeader(entry);
+            SalesInvoiceIcmsComplementLock.RestoreHeader(entry);
 
             // O vínculo com a liberação (remessa para depósito) só nasce no "Emitir remessa": PUT/PATCH não o move.
             entry.Property(nameof(SalesInvoice.ShipmentReleaseKey)).CurrentValue =
