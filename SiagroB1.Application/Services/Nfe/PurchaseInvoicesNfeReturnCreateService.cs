@@ -131,6 +131,10 @@ public class PurchaseInvoicesNfeReturnCreateService(
         if (origin.InvoiceType == PurchaseInvoiceType.ValueComplement)
             throw new DefaultException("Complemento de valor não tem devolução.");
 
+        // Spec 2026-10-17 (D9, K6): idem para o complemento de ICMS.
+        if (origin.InvoiceType == PurchaseInvoiceType.IcmsComplement)
+            throw new DefaultException("Complemento de ICMS não tem devolução.");
+
         if (origin.CustodyRole != StorageCustodyRole.None)
             throw new DefaultException(
                 "Nota de custódia (armazenagem) não é devolvida: cancele a nota ou gere a etapa seguinte pelo romaneio.");

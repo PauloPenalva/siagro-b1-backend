@@ -13,10 +13,10 @@ namespace SiagroB1.Application.Services.Nfe;
 /// O que a prontidão precisa do documento, sem saber se é de saída ou de entrada.
 /// </summary>
 /// <param name="PartnerLabel">Como o destinatário aparece nas lacunas ("Cliente", "Fornecedor").</param>
-/// <param name="RequiresPayment">Falso na devolução própria, que não tem pagamento (tPag 90).</param>
+/// <param name="RequiresPayment">Falso na devolução própria e no complemento de ICMS, que não têm pagamento (tPag 90).</param>
 /// <param name="Direction">Sentido da NF-e: decide os prefixos de CFOP conferidos (5/6 na saída, 1/2 na entrada).</param>
 /// <param name="RequiresProductAndUnit">Linha cujo produto/unidade é anulável: lista a lacuna em vez de estourar no montador.</param>
-/// <param name="RequiresWeights">Falso no complemento de valor: nada é transportado (o montador omite o vol com peso 0).</param>
+/// <param name="RequiresWeights">Falso nos complementos (valor e ICMS): nada é transportado (o montador omite o vol com peso 0).</param>
 public sealed record NfeReadinessRequest(
     string? BranchCode, string PartnerCode, string PartnerLabel, string? DeliveryCardCode, string? TruckingCompanyCode,
     string? TruckCode, decimal GrossWeight, decimal NetWeight, int? PaymentConditionCode, bool RequiresPayment,
@@ -46,26 +46,32 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
     /// Entrada própria (destinatário = fornecedor, CFOP 1xxx/2xxx, condição de pagamento) ou devolução de compra
     /// (CFOP 5xxx/6xxx, sem pagamento, a entrada de origem conferida). Produto e unidade em toda linha: na
     /// entrada os dois são anuláveis (nota de terceiro pode trazer código fora do cadastro). Complemento de valor próprio
-    /// (spec 2026-10-14): as notas originais recarregadas (C6) e sem pesos.
+    /// (spec 2026-10-14) e de ICMS (spec 2026-10-17): as notas originais recarregadas (C6) e sem pesos; o de ICMS sem
+    /// condição de pagamento e com base e ICMS em toda linha (K2).
     /// </summary>
     public async Task<NfeIssueContext> ValidateAsync(PurchaseInvoice invoice)
     {
         // Regra 8 / C6: a regra 2 vale no rascunho, mas a original pode ter sido cancelada antes da transmissão. Recusa
         // direta (não é "dado faltando"), antes de qualquer reserva de número.
-        var complementKeys = invoice.InvoiceType == PurchaseInvoiceType.ValueComplement
-            ? await LoadComplementReferencesAsync(invoice)
-            : null;
+        var complement = PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType);
+        var icmsComplement = invoice.InvoiceType == PurchaseInvoiceType.IcmsComplement;
+        var complementKeys = complement ? await LoadComplementReferencesAsync(invoice) : null;
+
+        // K2 (spec 2026-10-17): toda linha do complemento de ICMS leva base e ICMS. Recusa direta, como C6.
+        if (icmsComplement && invoice.Items.FirstOrDefault(l => l.IcmsBase <= 0m || l.IcmsValue <= 0m) is { } empty)
+            throw new DefaultException($"Item {empty.ItemCode}: informe a base e o valor do ICMS do complemento.");
 
         var context = await ValidateCoreAsync(
             new NfeReadinessRequest(
                 invoice.BranchCode, invoice.CardCode, "Fornecedor", DeliveryCardCode: null, invoice.TruckingCompanyCode,
                 invoice.TruckCode, invoice.GrossWeight, invoice.NetWeight, invoice.PaymentConditionCode,
                 // Devolução e nota de custódia (armazenagem/beneficiamento) não têm pagamento (tPag 90).
-                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None,
+                // Complemento de ICMS: nada a pagar (tPag 90, spec 2026-10-17 D8).
+                RequiresPayment: !invoice.IsNfeReturn && invoice.CustodyRole == StorageCustodyRole.None && !icmsComplement,
                 Direction: invoice.IsNfeReturn ? NfeDirection.Outgoing : NfeDirection.Incoming,
                 Lines: invoice.Items.Cast<INfeTaxedLine>().ToList(),
                 RequiresProductAndUnit: true,
-                RequiresWeights: invoice.InvoiceType != PurchaseInvoiceType.ValueComplement),
+                RequiresWeights: !complement),
             invoice.IsNfeReturn ? problems => LoadPurchaseReturnOriginAsync(invoice, problems) : null);
 
         return complementKeys is null ? context : context with { ComplementReferencedKeys = complementKeys };
@@ -331,7 +337,7 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
     }
 
     /// <summary>
-    /// Complemento de valor próprio (spec 2026-10-14, regras 8 e 10): recarrega a nota de cada linha, recusa a que
+    /// Complemento próprio, de valor ou de ICMS (spec 2026-10-14, regras 8 e 10): recarrega a nota de cada linha, recusa a que
     /// deixou de estar autorizada (C6) e devolve as chaves DISTINTAS, na ordem de primeira aparição pelo nItem.
     /// </summary>
     private async Task<IReadOnlyList<string>> LoadComplementReferencesAsync(PurchaseInvoice invoice)

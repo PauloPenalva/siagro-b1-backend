@@ -68,8 +68,8 @@ public static class NfeIssueInputAssembler
     /// <summary>
     /// Entrada própria: ENTRADA normal, destinatário = fornecedor; a contra-nota leva no NFref a chave da escrituração do
     /// produtor e o Funrural dela no infCpl (spec 2026-10-10 §6). Devolução de compra: SAÍDA com finalidade 4, o item da
-    /// entrada no DFeReferenciado, sem pagamento. Complemento de valor próprio: ENTRADA com finalidade 2 e as notas
-    /// originais no NFref do cabeçalho (spec 2026-10-14, regras 9–10).
+    /// entrada no DFeReferenciado, sem pagamento. Complemento próprio (valor ou ICMS): ENTRADA com finalidade 2 e as
+    /// notas originais no NFref do cabeçalho (spec 2026-10-14, regras 9–10); o de ICMS sem pagamento (spec 2026-10-17 D8).
     /// </summary>
     public static NfeIssueInput Build(
         PurchaseInvoice invoice, NfeIssueContext context, DateTimeOffset issuedAt, NfeTechnicalResponsible? technicalResponsible)
@@ -78,7 +78,7 @@ public static class NfeIssueInputAssembler
             ? context.ReturnOrigin ?? throw new DefaultException("A devolução está sem a entrada de origem.")
             : null;
 
-        var complement = returnOrigin is null && invoice.InvoiceType == PurchaseInvoiceType.ValueComplement;
+        var complement = returnOrigin is null && PurchaseInvoiceComplements.IsComplement(invoice.InvoiceType);
         var producer = returnOrigin is null && !complement ? context.ProducerInvoice : null;
 
         IReadOnlyList<string> referencedKeys = returnOrigin is not null ? [returnOrigin.AccessKey]
@@ -101,7 +101,9 @@ public static class NfeIssueInputAssembler
             invoice.TaxPayerComments, TaxComments: null,
             producer is not null ? producer.FunruralText : PurchaseInvoiceFunrural.Text(invoice),
             returnOrigin is null ? "COMPRA" : "DEVOLUCAO DE COMPRA",
-            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None), context, issuedAt, technicalResponsible);
+            // Complemento de ICMS (spec 2026-10-17 D8): nenhum valor a pagar, tPag 90 como a devolução.
+            WithoutPayment: returnOrigin is not null || invoice.CustodyRole != StorageCustodyRole.None ||
+                            invoice.InvoiceType == PurchaseInvoiceType.IcmsComplement), context, issuedAt, technicalResponsible);
     }
 
     /// <summary>O que o montador precisa do documento, sem saber se é de saída ou de entrada.</summary>
