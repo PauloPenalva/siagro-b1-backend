@@ -54,7 +54,7 @@ public class PurchaseInvoiceOtherPurchaseItemTests
 
     private static async Task<string?> ResolveAsync(Scenario s, PurchaseInvoiceItem line)
     {
-        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"));
+        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
         var taxApply = TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService());
         var other = await taxApply.IsOtherPurchaseLineAsync(Invoice(), line);
 
@@ -89,7 +89,7 @@ public class PurchaseInvoiceOtherPurchaseItemTests
     public async Task Other_purchase_line_in_sapb1_keeps_grain_group_only()
     {
         var s = await SeedAsync();
-        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("SAPB1"));
+        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("SAPB1"), new FakeDocNumberSequenceService());
         var line = Line(Service, s.OtherPurchaseUsage);
         var taxApply = TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService(), "SAPB1");
 
@@ -103,7 +103,7 @@ public class PurchaseInvoiceOtherPurchaseItemTests
     public async Task Create_resolves_the_description_of_an_other_purchase_line()
     {
         var s = await SeedAsync();
-        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"));
+        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
         var create = new PurchaseInvoicesCreateService(s.Db, new FakeBusinessPartnerService(), items,
             TaxTestServices.PurchaseApply(s.Db, new FakeBusinessPartnerService()), new FakeDocNumberSequenceService());
         var invoice = Invoice();
@@ -142,7 +142,7 @@ public class PurchaseInvoiceOtherPurchaseItemTests
     public async Task Active_item_queries_return_every_group_and_skip_inactive()
     {
         var s = await SeedAsync();
-        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"));
+        var items = new ItemService(s.Db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
 
         Assert.Contains(items.QueryAllActive().ToList(), x => x.ItemCode == Service);
         Assert.DoesNotContain(items.QueryAllActive().ToList(), x => x.ItemCode == Inactive);

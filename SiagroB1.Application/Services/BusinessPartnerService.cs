@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Entities;
@@ -15,7 +16,8 @@ namespace SiagroB1.Application.Services;
 public class BusinessPartnerService(
     IUnitOfWork db, 
     ILogger<BusinessPartnerService> logger,
-    IStringLocalizer<Resource> resource
+    IStringLocalizer<Resource> resource,
+    DocNumberSequenceService docNumbers
     ) 
     : IBusinessPartnerService
 {
@@ -82,12 +84,31 @@ public class BusinessPartnerService(
 
     public async Task<BusinessPartnerModel> CreateAsync(BusinessPartnerModel model)
     {
-        var existingCode = await db.Context.BusinessPartners
-            .FirstOrDefaultAsync(b => b.CardCode == model.CardCode);
-        
-        if (existingCode != null)
+        // Cliente e Fornecedor têm série própria; qualquer outro tipo mantém o código digitado.
+        // CardCode é uma tabela só: o código de um cliente também bloqueia o de um fornecedor.
+        var transactionCode = model.CardType switch
         {
-            throw new DefaultException(resource["BP_EXISTING_CODE"]);
+            "C" => (TransactionCode?)TransactionCode.Customer,
+            "S" => TransactionCode.Supplier,
+            _ => null,
+        };
+
+        if (transactionCode is null)
+        {
+            var existingCode = await db.Context.BusinessPartners
+                .FirstOrDefaultAsync(b => b.CardCode == model.CardCode);
+
+            if (existingCode != null)
+            {
+                throw new DefaultException(resource["BP_EXISTING_CODE"]);
+            }
+        }
+        else
+        {
+            var assignment = await docNumbers.AssignAsync(new DocNumberRequest(
+                transactionCode.Value, model.DocNumberKey, model.CardCode, 15,
+                code => db.Context.BusinessPartners.AnyAsync(b => b.CardCode == code)));
+            model.CardCode = assignment.Code;
         }
 
         NormalizeRuralProducer(model);

@@ -11,7 +11,7 @@ namespace SiagroB1.Application.Tests.Items;
 public class ItemServiceFiscalFieldsTests
 {
     private static ItemService Service(UnitOfWork db) =>
-        new(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"));
+        new(db, NullLogger<ItemService>.Instance, TaxTestServices.Config("STANDALONE"), new FakeDocNumberSequenceService());
 
     private static ItemModel Soja(byte? origin = 0, string? ncm = "12019000", string? cest = null) => new()
     {

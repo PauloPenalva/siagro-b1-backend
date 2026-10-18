@@ -72,7 +72,7 @@ public class PurchaseInvoicesImportXmlServiceTests
             await db.Context.SaveChangesAsync();
         }
         var partners = new BusinessPartnerService(
-            db, NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer());
+            db, NullLogger<BusinessPartnerService>.Instance, new PassthroughLocalizer(), new FakeDocNumberSequenceService());
         return new PurchaseInvoicesImportXmlService(partners, db);
     }
 

@@ -19,7 +19,7 @@ namespace SiagroB1.Application.Tests.BusinessPartners;
 public class BusinessPartnerNfeFieldsTests
 {
     private static BusinessPartnerService Partners(UnitOfWork db) =>
-        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>());
+        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>(), new FakeDocNumberSequenceService());
 
     private static BusinessPartnerAddressService Addresses(UnitOfWork db) =>
         new(db, NullLogger<BusinessPartnerAddressService>.Instance, new FakeStringLocalizer<Resource>());

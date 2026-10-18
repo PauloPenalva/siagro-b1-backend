@@ -41,6 +41,10 @@ public class ItemsController(IItemService service) : ODataController
     
     public virtual async Task<IActionResult> Post([FromBody] ItemModel entity)
         {
+            // Com série automática o código nasce no servidor: chegar vazio é válido.
+            ModelState.Remove(nameof(ItemModel.ItemCode));
+            ModelState.Remove("ItemCode");
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -54,7 +58,7 @@ public class ItemsController(IItemService service) : ODataController
             }
             catch (Exception ex)
             {
-                if (ex is DefaultException)
+                if (ex is DefaultException or ApplicationException)
                 {
                     return BadRequest(ex.Message);
                 }

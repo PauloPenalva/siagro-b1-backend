@@ -18,7 +18,7 @@ namespace SiagroB1.Application.Tests.BusinessPartners;
 public class BusinessPartnerServiceAddressesTests
 {
     private static BusinessPartnerService Service(UnitOfWork db) =>
-        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>());
+        new(db, NullLogger<BusinessPartnerService>.Instance, new FakeStringLocalizer<Resource>(), new FakeDocNumberSequenceService());
 
     private static BusinessPartnerModel Partner(params AddressModel[] addresses) => new()
     {

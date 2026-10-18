@@ -1,7 +1,9 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -9,12 +11,18 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services;
 
-public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfiguration configuration) 
+public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfiguration configuration,
+    DocNumberSequenceService docNumbers) 
     : IItemService
 {
     public async Task<ItemModel> CreateAsync(ItemModel entity)
     {
         ValidateFiscalFields(entity);
+
+        var assignment = await docNumbers.AssignAsync(new DocNumberRequest(
+            TransactionCode.Item, entity.DocNumberKey, entity.ItemCode, 50,
+            code => db.Context.Items.AnyAsync(i => i.ItemCode == code)));
+        entity.ItemCode = assignment.Code;
 
         var item = new Item()
         {
