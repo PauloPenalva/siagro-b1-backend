@@ -59,9 +59,7 @@ internal static class UsageTaxationMapper
         usage.IbsCbsClassCode = Normalize(model.IbsCbsClassCode);
         usage.IbsRateReduction = model.IbsRateReduction;
         usage.CbsRateReduction = model.CbsRateReduction;
-        usage.FunruralInssRate = model.FunruralInssRate;
-        usage.FunruralRatRate = model.FunruralRatRate;
-        usage.FunruralSenarRate = model.FunruralSenarRate;
+        usage.RuralContributionMode = incoming ? model.RuralContributionMode : RuralContributionMode.None;
         usage.WithholdingIssRate = model.WithholdingIssRate;
         usage.WithholdingIrrfRate = model.WithholdingIrrfRate;
         usage.WithholdingInssRate = model.WithholdingInssRate;

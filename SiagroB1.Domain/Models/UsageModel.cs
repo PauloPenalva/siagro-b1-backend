@@ -62,10 +62,8 @@ public class UsageModel
     public decimal? IbsRateReduction { get; set; }
     public decimal? CbsRateReduction { get; set; }
 
-    /// <summary>Funrural: alíquotas de retenção do produtor rural (INSS, RAT e SENAR). Vazio = não retém.</summary>
-    public decimal? FunruralInssRate { get; set; }
-    public decimal? FunruralRatRate { get; set; }
-    public decimal? FunruralSenarRate { get; set; }
+    /// <summary>Contribuição social do produtor rural: nenhuma, completa ou só SENAR. Saída grava sempre None.</summary>
+    public RuralContributionMode RuralContributionMode { get; set; }
 
     /// <summary>Retenções de serviço: alíquotas padrão (%) da natureza. Vazio = não retém. SAPB1 devolve nulo.</summary>
     public decimal? WithholdingIssRate { get; set; }

@@ -1,4 +1,5 @@
 using SiagroB1.Domain.Dtos;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
 
@@ -12,6 +13,8 @@ namespace SiagroB1.Application.Tests.Support;
 /// <paramref name="states"/> alimenta a UF do endereço de faturamento — é dela que a
 /// resolução de CFOP decide entre operação dentro e fora do estado. Código ausente do mapa
 /// reproduz o parceiro sem UF cadastrada.
+/// <paramref name="ruralProducers"/> marca o parceiro como produtor rural (enquadramento e opção pela folha) —
+/// é dele que a retenção da contribuição social decide; código ausente = não produtor.
 /// </summary>
 public sealed class FakeBusinessPartnerService(
     Dictionary<string, string>? names = null,
@@ -20,8 +23,11 @@ public sealed class FakeBusinessPartnerService(
     Dictionary<string, List<AddressModel>>? addresses = null,
     Dictionary<string, string>? taxIds = null,
     bool failOnLoadSuppliers = false,
-    Dictionary<string, int>? paymentConditions = null) : IBusinessPartnerService
+    Dictionary<string, int>? paymentConditions = null,
+    Dictionary<string, (RuralProducerType Type, bool Payroll)>? ruralProducers = null) : IBusinessPartnerService
 {
+    private readonly Dictionary<string, (RuralProducerType Type, bool Payroll)> _ruralProducers = ruralProducers ?? new();
+
     /// <summary>CNPJ/CPF por CardCode — usado pela importação do XML, que resolve o emitente.</summary>
     private readonly Dictionary<string, string> _taxIds = taxIds ?? new();
 
@@ -48,6 +54,9 @@ public sealed class FakeBusinessPartnerService(
                 TaxId = _taxIds.GetValueOrDefault(code),
                 Addresses = ResolveAddresses(code),
                 PaymentConditionCode = _paymentConditions.TryGetValue(code, out var paymentCondition) ? paymentCondition : null,
+                IsRuralProducer = _ruralProducers.ContainsKey(code),
+                RuralProducerType = _ruralProducers.TryGetValue(code, out var producer) ? producer.Type : null,
+                RuralPayrollOption = _ruralProducers.TryGetValue(code, out var payroll) && payroll.Payroll,
             }
             : null);
 

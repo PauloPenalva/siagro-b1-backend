@@ -231,6 +231,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CardType")
                         .HasColumnType("VARCHAR(1)");
 
+                    b.Property<bool>("IsRuralProducer")
+                        .HasColumnType("bit");
+
                     b.Property<string>("NfeEmail")
                         .HasColumnType("VARCHAR(250)");
 
@@ -246,6 +249,15 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("QryGroup23")
                         .HasColumnType("VARCHAR(1)");
+
+                    b.Property<bool>("RuralPayrollOption")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RuralProducerCpf")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<int?>("RuralProducerType")
+                        .HasColumnType("int");
 
                     b.Property<string>("StateRegistration")
                         .HasColumnType("VARCHAR(14)");
@@ -3324,6 +3336,37 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("ROYALTY_WRITE_OFF_LINES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.RuralContributionRate", b =>
+                {
+                    b.Property<int>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Key"));
+
+                    b.Property<decimal>("InssRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<decimal>("RatRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<int>("Scheme")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SenarRate")
+                        .HasColumnType("DECIMAL(7,4)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("DATE");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Scheme", "StartDate")
+                        .IsUnique();
+
+                    b.ToTable("RURAL_CONTRIBUTION_RATES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesContract", b =>
                 {
                     b.Property<Guid>("Key")
@@ -6383,15 +6426,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("ExcludeIcmsFromPisCofinsBase")
                         .HasColumnType("bit");
 
-                    b.Property<decimal?>("FunruralInssRate")
-                        .HasColumnType("DECIMAL(7,4)");
-
-                    b.Property<decimal?>("FunruralRatRate")
-                        .HasColumnType("DECIMAL(7,4)");
-
-                    b.Property<decimal?>("FunruralSenarRate")
-                        .HasColumnType("DECIMAL(7,4)");
-
                     b.Property<string>("IbsCbsClassCode")
                         .HasColumnType("VARCHAR(6)");
 
@@ -6454,6 +6488,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("DECIMAL(7,4)");
 
                     b.Property<int?>("ReturnUsageCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RuralContributionMode")
                         .HasColumnType("int");
 
                     b.Property<decimal?>("WithholdingCofinsRate")

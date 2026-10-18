@@ -15,11 +15,20 @@ public static class PurchaseNfeTestSeed
 {
     public const string Supplier = "F-SP";
 
-    /// <summary>O fornecedor F-SP como o cadastro o vê: nome, UF (SP) e CPF — o CPF é o que a chave de acesso traz.</summary>
-    public static FakeBusinessPartnerService Partners() => new(
+    /// <summary>
+    /// O fornecedor F-SP como o cadastro o vê: nome, UF (SP), CPF — o CPF é o que a chave de acesso traz — e produtor
+    /// rural pessoa física, não optante pela folha.
+    /// </summary>
+    public static FakeBusinessPartnerService Partners() => PartnersAs(RuralProducerType.Individual);
+
+    /// <summary>O fornecedor F-SP com outro enquadramento de produtor rural; <c>null</c> = não é produtor rural.</summary>
+    public static FakeBusinessPartnerService PartnersAs(RuralProducerType? type, bool payroll = false) => new(
         names: new Dictionary<string, string> { [Supplier] = "PRODUTOR RURAL TESTE" },
         states: new Dictionary<string, string> { [Supplier] = "SP" },
-        taxIds: new Dictionary<string, string> { [Supplier] = "52998224725" });
+        taxIds: new Dictionary<string, string> { [Supplier] = "52998224725" },
+        ruralProducers: type is { } producerType
+            ? new Dictionary<string, (RuralProducerType Type, bool Payroll)> { [Supplier] = (producerType, payroll) }
+            : null);
 
     /// <summary>Código da natureza de Entrada "COMPRA DE MERCADORIA" semeada.</summary>
     public static Task<int> PurchaseUsageCodeAsync(UnitOfWork db) =>
@@ -54,6 +63,19 @@ public static class PurchaseNfeTestSeed
             PisCst = "74", CofinsCst = "74", ReturnUsageCode = returnUsage.Code,
         };
         context.Usages.Add(purchaseUsage);
+
+        // Tabela da contribuição social do produtor rural (spec 2026-10-18 §4.3): os valores de hoje, desde sempre.
+        context.RuralContributionRates.AddRange(
+            new RuralContributionRate
+            {
+                StartDate = new DateOnly(2000, 1, 1), Scheme = RuralContributionScheme.Standard,
+                InssRate = 1.32m, RatRate = 0.11m, SenarRate = 0.20m,
+            },
+            new RuralContributionRate
+            {
+                StartDate = new DateOnly(2000, 1, 1), Scheme = RuralContributionScheme.PayrollOption,
+                InssRate = 0m, RatRate = 0m, SenarRate = 0.20m,
+            });
 
         context.BusinessPartners.Add(new BusinessPartner
         {

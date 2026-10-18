@@ -29,6 +29,14 @@ public class BusinessPartnerModel
     public string? Phone { get; set; }
 
     public int? PaymentConditionCode { get; set; }
+
+    public bool IsRuralProducer { get; set; }
+
+    public RuralProducerType? RuralProducerType { get; set; }
+
+    public string? RuralProducerCpf { get; set; }
+
+    public bool RuralPayrollOption { get; set; }
     
     public ICollection<AddressModel> Addresses { get; set; } = new List<AddressModel>();
 }
