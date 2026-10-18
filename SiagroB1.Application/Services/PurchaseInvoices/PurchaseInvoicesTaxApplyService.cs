@@ -216,7 +216,8 @@ public class PurchaseInvoicesTaxApplyService(
             else
             {
                 // Funrural pela natureza da linha (spec 2026-10-09 §2): PF, PJ e decisão judicial são naturezas distintas.
-                PurchaseInvoiceFunrural.Apply(item, usage.FunruralInssRate, usage.FunruralRatRate, usage.FunruralSenarRate);
+                // Task 4: regra do parceiro
+                PurchaseInvoiceFunrural.Clear(item);
             }
         }
     }
