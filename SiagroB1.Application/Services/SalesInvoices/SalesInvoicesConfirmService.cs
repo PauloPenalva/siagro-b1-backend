@@ -85,8 +85,14 @@ public class SalesInvoicesConfirmService(
                 "Invoice is not pending.");
         }
 
+        // Complemento de ICMS (spec 2026-10-18 S8): só fiscal. Leva a natureza da original — a de uma nota de custódia tem
+        // papel de custódia —, mas não tem romaneio nem efeito de custódia: a guarda recusaria a confirmação que a NF-e
+        // AUTORIZADA dispara. Sem ela o papel fica None, como o de qualquer documento sem custódia.
+        var icmsComplement = SalesInvoicesTaxApplyService.IsIcmsComplement(invoice);
+
         // Nota de custódia editada pela tela depois de gerada: a confirmação recusa o que deixou de bater com o romaneio.
-        await StorageCustodyGuard.EnsureSalesAsync(db.Context, invoice, invoice.Items.ToList());
+        if (!icmsComplement)
+            await StorageCustodyGuard.EnsureSalesAsync(db.Context, invoice, invoice.Items.ToList());
 
         // NF-e STANDALONE: na filial com a regra ativa, a devolução própria só confirma com a NF-e autorizada — é a
         // emissão que chama esta confirmação. O documento Normal confirma aqui e transmite a NF-e depois (spec
@@ -123,7 +129,7 @@ public class SalesInvoicesConfirmService(
         {
             var affectedReleaseKeys = new HashSet<Guid>();
 
-            if (SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
+            if (icmsComplement)
             {
                 // Complemento de ICMS (spec 2026-10-18 S8): só fiscal — nada de contrato, razão nem liberação. Sem este
                 // ramo cairia no AVULSO, e a guarda da natureza recusaria a confirmação com a NF-e já autorizada.
@@ -193,7 +199,8 @@ public class SalesInvoicesConfirmService(
 
             // Spec 2026-10-15 (ponto 1): firmes a receber das linhas. Depois do SaveChanges acima — o ledger já está
             // gravado — e na mesma transação: uma recusa desfaz a confirmação.
-            if (salesFirmSync is not null)
+            // O complemento de ICMS não gera título (S8) — o DesiredAsync também o exclui pelo tipo.
+            if (salesFirmSync is not null && !icmsComplement)
             {
                 await salesFirmSync.EnqueueSyncAsync(
                     invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
@@ -225,7 +232,8 @@ public class SalesInvoicesConfirmService(
             // GAC-1171 (melhorias): a SITUAÇÃO da carga muda, mesmo com o saldo igual. Uma nota
             // Normal Pendente impede a Concluída, e o estorno de confirmação não reabre os itens:
             // ao confirmar de novo uma nota já conferida, a carga precisa voltar a Concluída.
-            else
+            // O complemento de ICMS não tem efeito em carga (S8).
+            else if (!icmsComplement)
             {
                 await loadClosureHook.ApplyAsync(invoice, userName);
 

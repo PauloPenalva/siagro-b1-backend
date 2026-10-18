@@ -532,6 +532,24 @@ public class SalesInvoicesReturnServiceTests
         Assert.Contains("armazém de destino", error.Message);
     }
 
+    /// <summary>Spec 2026-10-18 S8: o complemento de ICMS não é devolvido — nem pelo Retornar, mesmo com romaneio.</summary>
+    [Fact]
+    public async Task An_icms_complement_is_not_returned()
+    {
+        var (invoice, r1, _) = await SeedAsync();
+        var tracked = await _db.Context.SalesInvoices.SingleAsync(x => x.Key == invoice.Key);
+        tracked.InvoiceType = SalesInvoiceType.IcmsComplement;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Service().ExecuteAsync(Request(invoice, [r1.Key]), "tester"));
+
+        Assert.Contains("complemento de ICMS", error.Message);
+        Assert.DoesNotContain(
+            await _db.Context.SalesInvoices.AsNoTracking().ToListAsync(),
+            x => x.InvoiceType == SalesInvoiceType.Return);
+    }
+
     [Fact]
     public async Task A_return_without_any_shipment_is_refused()
     {

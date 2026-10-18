@@ -339,6 +339,13 @@ public class SalesInvoicesReturnService(
                 $"O documento {invoice.InvoiceNumber} já é uma devolução e não pode ser retornado.");
         }
 
+        // Spec 2026-10-18 S8: o complemento de ICMS não tem mercadoria a devolver.
+        if (SalesInvoicesTaxApplyService.IsIcmsComplement(invoice))
+        {
+            throw new ApplicationException(
+                $"O documento {invoice.InvoiceNumber} é um complemento de ICMS e não pode ser retornado.");
+        }
+
         // A nota de CARGA tem tela própria de recusa, que sabe mexer no saldo da carga. Aqui ela
         // cairia num caminho que não conhece nenhuma das regras dela — e sua coleção de romaneios
         // é vazia, então nem haveria o que escolher.
