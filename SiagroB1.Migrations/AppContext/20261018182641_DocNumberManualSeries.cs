@@ -29,35 +29,30 @@ namespace SiagroB1.Migrations.AppContext
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // Passo 0 — flag IsManual legado. Antes desta versão o IsManual não tinha efeito: a série
-            // marcada manual e padrão numerava como automática, e assim deve continuar. Romaneio e
-            // Financeiro não admitem série manual. A linha chamada "Manual" vira a série manual do
-            // tipo (só pode haver uma por tipo) e nunca é padrão — o UPDATE ... WHERE [Default] = 1
-            // do GetDocNumberByObjectCodeAsync não pode cair nela.
+            // padrão numerava como automática, qualquer que fosse o nome ou a flag, e assim deve
+            // continuar (inclusive uma padrão chamada "Manual": vira IsManual = 0, é renomeada para
+            // Automático no passo 4 e ganha uma Manual de verdade no passo 5 — sem perder o contador).
+            // Romaneio e Financeiro não admitem série manual. Uma linha NÃO padrão chamada "Manual"
+            // vira a série manual do tipo (só pode haver uma por tipo); a manual nunca é padrão — o
+            // UPDATE ... WHERE [Default] = 1 do GetDocNumberByObjectCodeAsync não pode cair nela.
             migrationBuilder.Sql($"""
                 UPDATE DOC_NUMBERS SET IsManual = 0
                 WHERE IsManual = 1 AND TransactionCode IN (5, 12);
 
                 UPDATE DOC_NUMBERS SET IsManual = 0
-                WHERE IsManual = 1 AND [Default] = 1 AND Name <> 'Manual'
+                WHERE IsManual = 1 AND [Default] = 1
                   AND TransactionCode IN ({AllTypes});
 
                 UPDATE d SET IsManual = 1, [Default] = 0
                 FROM DOC_NUMBERS d
                 WHERE d.Name = 'Manual' AND d.TransactionCode IN ({ManualTypes})
-                  AND (d.IsManual = 0 OR d.[Default] = 1)
+                  AND d.IsManual = 0 AND d.[Default] = 0
                   AND NOT EXISTS (SELECT 1 FROM DOC_NUMBERS o
                                   WHERE o.TransactionCode = d.TransactionCode
                                     AND o.IsManual = 1 AND o.[Key] <> d.[Key]);
 
                 UPDATE DOC_NUMBERS SET [Default] = 0
                 WHERE IsManual = 1 AND [Default] = 1;
-
-                DECLARE @skipped NVARCHAR(MAX) = N'';
-                SELECT @skipped = @skipped + CAST(d.TransactionCode AS NVARCHAR(10)) + N' '
-                FROM DOC_NUMBERS d
-                WHERE d.Name = 'Manual' AND d.IsManual = 0 AND d.TransactionCode IN ({AllTypes});
-                IF @skipped <> N''
-                    PRINT N'DocNumberManualSeries: série "Manual" mantida como automática (tipo sem numeração manual ou com outra série manual) nos tipos: ' + @skipped;
                 """);
 
             // Passo 1 — mais de uma série padrão no tipo: fica a de maior NextNumber (empate: menor Key).
@@ -176,6 +171,32 @@ namespace SiagroB1.Migrations.AppContext
                   AND NOT EXISTS (SELECT 1 FROM DOC_NUMBERS d
                                   WHERE d.TransactionCode = t.Code
                                     AND (d.IsManual = 1 OR d.Name = 'Manual'));
+                """);
+
+            // Avisos finais: o que ficou fora do padrão e precisa de decisão do usuário no cadastro.
+            migrationBuilder.Sql($"""
+                DECLARE @skipped NVARCHAR(MAX) = N'';
+                SELECT @skipped = @skipped + CAST(d.TransactionCode AS NVARCHAR(10)) + N' '
+                FROM DOC_NUMBERS d
+                WHERE d.Name = 'Manual' AND d.IsManual = 0 AND d.TransactionCode IN ({AllTypes});
+                IF @skipped <> N''
+                    PRINT N'DocNumberManualSeries: série "Manual" mantida como automática (padrão não renomeada, tipo sem numeração manual ou com outra série manual) nos tipos: ' + @skipped;
+
+                DECLARE @manyManual NVARCHAR(MAX) = N'';
+                SELECT @manyManual = @manyManual + CAST(TransactionCode AS NVARCHAR(10)) + N' '
+                FROM DOC_NUMBERS
+                WHERE IsManual = 1 AND TransactionCode IN ({AllTypes})
+                GROUP BY TransactionCode
+                HAVING COUNT(*) > 1;
+                IF @manyManual <> N''
+                    PRINT N'DocNumberManualSeries: mais de uma série manual nos tipos: ' + @manyManual;
+
+                DECLARE @oddManual NVARCHAR(MAX) = N'';
+                SELECT @oddManual = @oddManual + CAST(TransactionCode AS NVARCHAR(10)) + N' '
+                FROM DOC_NUMBERS
+                WHERE IsManual = 1 AND Name <> 'Manual' AND TransactionCode IN ({AllTypes});
+                IF @oddManual <> N''
+                    PRINT N'DocNumberManualSeries: série manual com nome diferente de "Manual" nos tipos: ' + @oddManual;
                 """);
         }
 
