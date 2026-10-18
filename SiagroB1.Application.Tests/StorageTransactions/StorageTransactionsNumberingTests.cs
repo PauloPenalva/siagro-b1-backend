@@ -66,6 +66,66 @@ public class StorageTransactionsNumberingTests
         Assert.False(await request.ExistsAsync("NOPE"));
     }
 
+    private sealed class SeriesStub : SiagroB1.Application.Services.DocNumbers.DocNumberSequenceService
+    {
+        public static readonly Guid DefaultKey = Guid.NewGuid();
+        public static readonly Guid InactiveKey = Guid.NewGuid();
+        public static readonly Guid OtherTypeKey = Guid.NewGuid();
+
+        public SeriesStub() : base(null!) { }
+
+        public override Task<SiagroB1.Application.Services.DocNumbers.DocNumberSeries?> GetSeriesAsync(Guid key) =>
+            Task.FromResult<SiagroB1.Application.Services.DocNumbers.DocNumberSeries?>(key switch
+            {
+                _ when key == DefaultKey => new(key, TransactionCode.StorageTransaction, "Automático", false, false),
+                _ when key == InactiveKey => new(key, TransactionCode.StorageTransaction, "Velha", false, true),
+                _ when key == OtherTypeKey => new(key, TransactionCode.SalesInvoice, "Outra", false, false),
+                _ => null,
+            });
+
+        public override Task<string> GetDocNumber(Guid docNumberKey) => Task.FromResult("R000001");
+
+        public override Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode) => Task.FromResult(DefaultKey);
+    }
+
+    private StorageTransactionsCreateService CreateService(SeriesStub numbers) =>
+        new(_db, numbers,
+            new FakeBusinessPartnerService(new() { [CardCode] = "Cliente Teste" }),
+            new FakeItemService(new() { [ItemCode] = "Trigo" }),
+            new FakeWarehouseService(new() { [WarehouseCode] = "Armazém 1" }),
+            new ShipmentReleasesRecalculateShippedService(_db.Context),
+            new ShipmentReleaseMovementGuardService(_db.Context),
+            NullLogger<StorageTransactionsCreateService>.Instance);
+
+    private static StorageTransaction NewEntity(Guid? key) => new()
+    {
+        Key = Guid.NewGuid(), DocNumberKey = key, CardCode = CardCode, ItemCode = ItemCode,
+        UnitOfMeasureCode = "KG", WarehouseCode = WarehouseCode, BranchCode = "01",
+        TransactionType = StorageTransactionType.Receipt, TransactionStatus = StorageTransactionsStatus.Pending,
+    };
+
+    [Fact]
+    public async Task InheritedInactiveSeries_FallsBackToDefaultSeries()
+    {
+        var entity = NewEntity(SeriesStub.InactiveKey);
+
+        await CreateService(new SeriesStub()).ExecuteAsync(entity, "tester");
+
+        Assert.Equal(SeriesStub.DefaultKey, entity.DocNumberKey);
+        Assert.Equal("R000001", entity.Code);
+    }
+
+    [Fact]
+    public async Task SeriesRefusal_IsNotWrappedInGenericError()
+    {
+        var service = CreateService(new SeriesStub());
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            service.ExecuteAsyncWithTransaction(NewEntity(SeriesStub.OtherTypeKey), "tester"));
+
+        Assert.Equal("A série de numeração escolhida não pertence a este documento.", ex.Message);
+    }
+
     [Fact]
     public void StorageTransactionsDelete_AlwaysRefusesWithBusinessMessage()
     {
@@ -74,6 +134,6 @@ public class StorageTransactionsNumberingTests
         var result = controller.Delete(Guid.NewGuid());
 
         var bad = Assert.IsType<Microsoft.AspNetCore.OData.Results.BadRequestODataResult>(result);
-        Assert.Equal("Romaneio não pode ser excluído. Use o cancelamento.", bad.Error?.Message ?? bad.ToString());
+        Assert.Equal("Romaneio não pode ser excluído. Use o cancelamento.", bad.Error.Message);
     }
 }

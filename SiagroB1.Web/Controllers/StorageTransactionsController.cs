@@ -55,7 +55,7 @@ public class StorageTransactionsController(
         }
         catch (Exception ex)
         {
-            if (ex is DefaultException)
+            if (ex is DefaultException or ApplicationException)
             {
                 return BadRequest(ex.Message);
             }
