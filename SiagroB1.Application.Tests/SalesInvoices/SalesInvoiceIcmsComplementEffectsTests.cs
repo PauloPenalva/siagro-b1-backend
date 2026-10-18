@@ -88,6 +88,31 @@ public class SalesInvoiceIcmsComplementEffectsTests
         Assert.Empty(await seed.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
     }
 
+    /// <summary>
+    /// S7: como a devolução própria, o complemento só confirma pela NF-e autorizada — mesmo sem o gate (o serviço do seed
+    /// é construído sem ele). Confirmado sem NF-e, não seria mais transmitido e travaria o cancelamento da original.
+    /// </summary>
+    [Theory]
+    [InlineData(NfeStatus.None)]
+    [InlineData(NfeStatus.Processing)]
+    [InlineData(NfeStatus.Rejected)]
+    [InlineData(NfeStatus.Denied)]
+    [InlineData(NfeStatus.Cancelled)]
+    public async Task Manual_confirm_of_a_complement_without_authorized_nfe_is_refused(NfeStatus nfeStatus)
+    {
+        var (seed, invoice, _) = await ComplementAsync();
+        var tracked = await seed.Context.SalesInvoices.SingleAsync(i => i.Key == invoice.Key);
+        tracked.NfeStatus = nfeStatus;
+        await seed.Context.SaveChangesAsync();
+        seed.Context.ChangeTracker.Clear();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => seed.Confirm().ExecuteAsync(invoice.Key, "ana"));
+
+        Assert.Equal("Na filial que emite NF-e pelo Siagro, confirme emitindo a NF-e.", ex.Message);
+        var saved = await seed.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == invoice.Key);
+        Assert.Equal(InvoiceStatus.Pending, saved.InvoiceStatus);
+    }
+
     [Fact]
     public async Task Receivable_sync_ignores_a_confirmed_complement_with_contract_and_financial_nature()
     {
