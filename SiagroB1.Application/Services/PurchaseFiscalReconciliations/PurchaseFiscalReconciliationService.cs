@@ -248,6 +248,10 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
             throw new DefaultException(
                 $"O documento {line.TaxDocument} é complemento de valor: não se concilia com romaneio; o título nasce na confirmação.");
 
+        if (line.InvoiceType == PurchaseInvoiceType.IcmsComplement)
+            throw new DefaultException(
+                $"O documento {line.TaxDocument} é complemento de ICMS: não se concilia com romaneio.");
+
         if (line.IssuerType == DocumentIssuerType.Own && line.InvoiceStatus != InvoiceStatus.Confirmed)
             throw new DefaultException(
                 $"O documento {line.TaxDocument} é de emissão própria e ainda não foi confirmado: emita/confirme antes de conciliar.");

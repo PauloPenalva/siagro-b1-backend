@@ -176,13 +176,16 @@ public class FinancialDocumentsFirmSyncService(
         var context = db.Context;
         var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);
         var issueDate = (invoice.IssueDate ?? DateTime.Today).Date;
-        var contractKeys = lines.Select(l => l.PurchaseContractKey!.Value).Distinct().ToList();
+        // Spec 2026-10-17 D3: o complemento de valor sem contrato (natureza de outra compra) gera as parcelas de outras compras,
+        // não o firme de contrato: aqui só as linhas com contrato.
+        var contractLines = lines.Where(l => l.PurchaseContractKey != null).ToList();
+        var contractKeys = contractLines.Select(l => l.PurchaseContractKey!.Value).Distinct().ToList();
         var contracts = await context.PurchaseContracts.AsNoTracking()
             .Where(c => contractKeys.Contains(c.Key))
             .Select(c => new { c.Key, c.Code })
             .ToDictionaryAsync(c => c.Key);
 
-        foreach (var line in lines)
+        foreach (var line in contractLines)
         {
             var lineKey = line.Key!.Value;
             if (PurchaseFirmPayableRules.ActiveValueComplementFirmsOf(context, [lineKey]).Count > 0)

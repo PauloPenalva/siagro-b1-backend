@@ -125,8 +125,8 @@ internal static class PurchaseInvoiceLineGuard
     public static bool IsOtherPurchase(UsageModel usage) => !usage.RequiresContract && usage.CreatesFinancialDocument;
 
     /// <summary>
-    /// O documento inteiro é de outra compra: STANDALONE, tipo Normal, não é devolução e TODA linha com natureza é
-    /// outra compra (há ao menos uma). Devolução e complemento de valor seguem o caminho de hoje.
+    /// O documento inteiro é de outra compra: STANDALONE, tipo Normal ou complemento de valor (sem contrato, D3), não é devolução e TODA linha com natureza é
+    /// outra compra (há ao menos uma). O complemento de ICMS nunca gera título; a devolução segue o caminho de hoje.
     /// </summary>
     public static Task<bool> IsOtherPurchaseDocumentAsync(
         IUsage usages, IConfiguration cfg, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines) =>
@@ -135,7 +135,7 @@ internal static class PurchaseInvoiceLineGuard
     internal static async Task<bool> IsOtherPurchaseDocumentAsync(
         IUsage usages, bool standalone, PurchaseInvoice invoice, IReadOnlyList<PurchaseInvoiceItem> lines)
     {
-        if (!standalone || invoice.InvoiceType != PurchaseInvoiceType.Normal || invoice.IsNfeReturn)
+        if (!standalone || invoice.InvoiceType is not (PurchaseInvoiceType.Normal or PurchaseInvoiceType.ValueComplement) || invoice.IsNfeReturn)
             return false;
 
         var byCode = await LoadUsagesAsync(usages, lines);

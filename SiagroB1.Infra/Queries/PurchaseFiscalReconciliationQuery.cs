@@ -223,6 +223,7 @@ public static class PurchaseFiscalReconciliationQuery
                         l.PurchaseInvoice.ProducerInvoiceKey == null &&      // contra-nota: vincula-se a escrituração
                         l.PurchaseInvoice.CustodyStorageTransactionKey == null && // nota de custódia não é NF de venda
                         l.PurchaseInvoice.InvoiceType != PurchaseInvoiceType.ValueComplement && // D11: título nasce na confirmação
+                        l.PurchaseInvoice.InvoiceType != PurchaseInvoiceType.IcmsComplement && // spec 2026-10-17: não gera título nem tem quantidade
                         // emissão própria só entra Confirmada: o vínculo gera título financeiro e a NF-e pode nunca existir
                         (l.PurchaseInvoice.IssuerType != DocumentIssuerType.Own || l.PurchaseInvoice.InvoiceStatus == InvoiceStatus.Confirmed) &&
                         issuers.Contains(l.PurchaseInvoice.CardCode));
