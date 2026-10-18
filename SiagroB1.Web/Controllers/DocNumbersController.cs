@@ -70,6 +70,11 @@ public class DocNumbersController(DocNumberService service) : ODataController
         }
         catch (Exception ex)
         {
+            if (ex is DefaultException or ApplicationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
             return StatusCode(500, ex.Message);
         }
 
@@ -98,7 +103,7 @@ public class DocNumbersController(DocNumberService service) : ODataController
         }
         catch (Exception e)
         {
-            if (e is DbUpdateException or DbUpdateConcurrencyException)
+            if (e is DbUpdateException or DbUpdateConcurrencyException or ApplicationException)
                 return BadRequest(e.Message);
 
             return StatusCode(500, e.Message);
