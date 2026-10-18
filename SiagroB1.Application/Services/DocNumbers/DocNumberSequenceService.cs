@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -25,10 +25,13 @@ public class DocNumberSequenceService(IDbConnection connection)
     public virtual async Task<Guid> GetKeyByTransactionCode(TransactionCode transactionCode)
     {
         const string sql = """
-                           SELECT [Key]
+                           SELECT TOP 1 [Key]
                            FROM DOC_NUMBERS
                            WHERE TransactionCode = @TransactionCode
-                             AND  [Default] = 1;
+                             AND [Default] = 1
+                             AND IsManual = 0
+                             AND Inactive = 0
+                           ORDER BY [Key];
                            """;
 
         var key = await connection.ExecuteScalarAsync<Guid?>(
@@ -39,6 +42,71 @@ public class DocNumberSequenceService(IDbConnection connection)
             throw new NotFoundException($"Key {transactionCode} not found.");
 
         return (Guid)key;
+    }
+
+    public virtual async Task<DocNumberSeries?> GetSeriesAsync(Guid key)
+    {
+        const string sql = """
+                           SELECT [Key], TransactionCode, Name, IsManual, Inactive
+                           FROM DOC_NUMBERS
+                           WHERE [Key] = @Key;
+                           """;
+
+        return await connection.QueryFirstOrDefaultAsync<DocNumberSeries>(sql, new { Key = key });
+    }
+
+    // Documentos que nunca aceitam número digitado: o número é sempre gerado pelo sistema.
+    public static bool AllowsManual(TransactionCode code) =>
+        code is not (TransactionCode.FinancialDocument or TransactionCode.StorageTransaction);
+
+    // Ponto único de atribuição de número: série manual (código digitado) ou automática
+    // (contador, saltando códigos já ocupados por digitação manual).
+    public virtual async Task<DocNumberAssignment> AssignAsync(DocNumberRequest request)
+    {
+        var tc = request.TransactionCode;
+        var key = request.DocNumberKey ?? await GetKeyByTransactionCode(tc);
+        var series = await GetSeriesAsync(key)
+            ?? throw new NotFoundException($"Key {key} not found.");
+
+        if (series.TransactionCode != tc)
+            throw new ApplicationException("A série de numeração escolhida não pertence a este documento.");
+
+        if (series.Inactive)
+            throw new ApplicationException($"A série de numeração \"{series.Name}\" está inativa.");
+
+        if (series.IsManual)
+        {
+            if (!AllowsManual(tc))
+                throw new ApplicationException("Este documento não aceita numeração manual.");
+
+            if (string.IsNullOrWhiteSpace(request.TypedCode))
+            {
+                // Fluxos gerados pelo sistema herdam a chave da série manual sem código digitado.
+                key = await GetKeyByTransactionCode(tc);
+            }
+            else
+            {
+                var code = request.TypedCode.Trim();
+
+                if (code.Length > request.MaxLength)
+                    throw new ApplicationException($"O número informado passa de {request.MaxLength} caracteres.");
+
+                if (await request.ExistsAsync(code))
+                    throw new ApplicationException($"O número {code} já está em uso.");
+
+                return new DocNumberAssignment(series.Key, code);
+            }
+        }
+
+        const int maxAttempts = 10_000;
+        for (var i = 0; i < maxAttempts; i++)
+        {
+            var code = await GetDocNumber(key);
+            if (!await request.ExistsAsync(code))
+                return new DocNumberAssignment(key, code);
+        }
+
+        throw new ApplicationException($"Não foi possível gerar um número livre para a série \"{series.Name}\".");
     }
     
     private async Task<DocNumberDocument> GetNextNumberByObjectNumberAsync(TransactionCode transactionCode)
