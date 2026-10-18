@@ -293,4 +293,102 @@ public class SalesInvoiceIcmsComplementTaxesTests
         Assert.Equal((0m, 0m, 0m, 0m), (line.FunruralBase, line.FunruralInssRate, line.FunruralInssValue, line.PisBase));
         Assert.Equal(0.9m, line.CbsRate);
     }
+
+    // ---- Revisão final (2026-10-18) ----
+
+    [Fact]
+    public async Task Normal_line_patch_still_saves_and_recalculates()
+    {
+        // #1: o tipo do documento sai de uma projeção sem rastreio; a linha de um documento Normal segue o caminho de
+        // sempre (grava e recalcula), sem passar pelo caminho do complemento.
+        var (db, _, _) = await SeedAsync();
+        var usage = await db.Context.Usages.AsNoTracking().SingleAsync(u => u.Name == "Venda de grãos");
+        var lineKey = Guid.NewGuid();
+        db.Context.SalesInvoices.Add(new SalesInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = NfeTestSeed.CardCode, CardName = "CLIENTE BA LTDA",
+            InvoiceType = SalesInvoiceType.Normal, InvoiceStatus = InvoiceStatus.Pending, InvoiceNumber = "000002401",
+            InvoiceDate = new DateTime(2026, 10, 2), TaxDocumentKind = TaxDocumentKind.Nfe,
+            Items =
+            [
+                new SalesInvoiceItem
+                {
+                    Key = lineKey, ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", UnitOfMeasureCode = "KG",
+                    Quantity = 10m, UnitPrice = 100m, UsageCode = usage.Code, UsageName = usage.Name, Ncm = "12019000",
+                },
+            ],
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var patch = await db.Context.SalesInvoicesItems.SingleAsync(i => i.Key == lineKey);
+        patch.Quantity = 20m;
+        await ItemUpdate(db).ExecuteAsync(lineKey, patch, "tester");
+
+        var line = await SavedLineAsync(db, lineKey);
+        Assert.Equal(20m, line.Quantity);
+        // Recalculou pela natureza (CST 20 com redução de 10% fora do estado): base de 2.000,00 reduzida.
+        Assert.Equal((1_800m, "20"), (line.IcmsBase, line.CstIcms));
+    }
+
+    [Fact]
+    public async Task Raw_post_of_an_icms_complement_is_refused()
+    {
+        // #2: o complemento só nasce da ação na nota original; o POST cru criaria um complemento órfão.
+        var db = TestDb.CreateUnitOfWork();
+        var partners = new FakeBusinessPartnerService();
+        var usages = new SiagroB1.Application.Services.UsageService(db, NullLogger<SiagroB1.Application.Services.UsageService>.Instance);
+        var create = new SalesInvoicesCreateService(
+            db, partners, new FakeItemService(), new FakeDocNumberSequenceService(),
+            new SalesInvoicesUsageGuardService(usages), new SalesInvoicesCfopResolveService(db, usages, partners),
+            TaxTestServices.InactiveApply(db), TaxTestServices.InactiveFiscalComplement(db),
+            NullLogger<SalesInvoicesCreateService>.Instance);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => create.ExecuteAsync(new SalesInvoice
+        {
+            Key = Guid.NewGuid(), CardCode = "C1", InvoiceType = SalesInvoiceType.IcmsComplement,
+            Items = [new SalesInvoiceItem { Key = Guid.NewGuid(), ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m, UnitPrice = 1m }],
+        }, "tester"));
+
+        Assert.Equal("Complemento de ICMS só nasce do Complementar ICMS da venda.", ex.Message);
+        Assert.Equal(0, await db.Context.SalesInvoices.CountAsync());
+    }
+
+    [Fact]
+    public async Task Complement_header_keeps_tax_document_kind()
+    {
+        // #3: "Outro" tiraria o complemento da emissão da NF-e, o único caminho dele.
+        var (db, complement, _) = await SeedAsync();
+        var patch = await db.Context.SalesInvoices.SingleAsync(i => i.Key == complement.Key);
+        patch.TaxDocumentKind = TaxDocumentKind.Other;
+
+        await HeaderUpdate(db).ExecuteAsync(patch.Key, patch, "tester");
+
+        db.Context.ChangeTracker.Clear();
+        Assert.Equal(TaxDocumentKind.Nfe,
+            (await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == complement.Key)).TaxDocumentKind);
+    }
+
+    [Fact]
+    public async Task Informar_nf_on_a_pending_complement_is_refused()
+    {
+        // #4: número, série e chave do complemento só vêm da emissão.
+        var (db, complement, _) = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            new SalesInvoicesSetDocumentNumberService(db, new SalesInvoicesChangeLogService(db.Context))
+                .ExecuteAsync(complement.Key, "000000010", "1", null, "tester"));
+
+        Assert.Equal("Número, série e chave do complemento de ICMS vêm da emissão da NF-e pelo Siagro.", ex.Message);
+        db.Context.ChangeTracker.Clear();
+        Assert.Null((await db.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == complement.Key)).TaxDocumentNumber);
+    }
+
+    [Theory]
+    [InlineData(SalesInvoiceType.Normal, "Normal")]
+    [InlineData(SalesInvoiceType.Return, "Devolução")]
+    [InlineData(SalesInvoiceType.IcmsComplement, "Complemento de ICMS")]
+    public void Reports_label_the_sales_invoice_type(SalesInvoiceType type, string expected) =>
+        // #5: coluna do relatório por período e legenda do filtro dos dois relatórios de saída.
+        Assert.Equal(expected, SiagroB1.Reports.Services.SalesInvoicesByPeriodReportService.DescribeType(type));
 }

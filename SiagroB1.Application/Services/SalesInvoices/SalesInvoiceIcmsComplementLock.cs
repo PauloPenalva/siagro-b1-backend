@@ -15,10 +15,15 @@ public static class SalesInvoiceIcmsComplementLock
     /// <summary>V7.</summary>
     public const string LinesChangeMessage = "O complemento de ICMS não aceita inclusão nem remoção de itens.";
 
+    /// <summary>POST cru de documento com tipo complemento.</summary>
+    public const string CreateMessage = "Complemento de ICMS só nasce do Complementar ICMS da venda.";
+
     private static readonly string[] HeaderFields =
     [
         nameof(SalesInvoice.CardCode), nameof(SalesInvoice.CardName), nameof(SalesInvoice.BranchCode),
         nameof(SalesInvoice.InvoiceType), nameof(SalesInvoice.SalesInvoiceOriginKey),
+        // Trocar para "Outro" tiraria o complemento da emissão da NF-e — e ele não tem outro caminho.
+        nameof(SalesInvoice.TaxDocumentKind),
     ];
 
     /// <summary>

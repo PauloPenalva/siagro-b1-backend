@@ -77,7 +77,7 @@ public class SalesInvoiceItemsReportService(
 
         var extra = new List<string>();
         if (request.InvoiceType is { } type)
-            extra.Add($"Tipo: {(type == SalesInvoiceType.Return ? "Devolução" : "Normal")}");
+            extra.Add($"Tipo: {SalesInvoicesByPeriodReportService.DescribeType(type)}");
         if (!string.IsNullOrWhiteSpace(request.ContractCode))
             extra.Add($"Contrato: {request.ContractCode}");
         if (!string.IsNullOrWhiteSpace(request.Cfop))

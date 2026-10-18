@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
@@ -280,14 +280,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // Complemento de valor próprio → item da nota original (spec 2026-10-14). Restrict como as auto-relações acima:
         // o spec escreveu NoAction, que no SQL Server é o MESMO DDL (ON DELETE NO ACTION); Restrict casa com as vizinhas
         // e com o snapshot. A original autorizada não é excluída, e o complemento (dependente) some sem levar nada junto.
-        // Complemento de ICMS da saída (spec 2026-10-18): mesma auto-relação Restrict (= NO ACTION no SQL Server).
-        modelBuilder.Entity<SalesInvoiceItem>()
+        modelBuilder.Entity<PurchaseInvoiceItem>()
             .HasOne(x => x.ComplementedItem)
             .WithMany()
             .HasForeignKey(x => x.ComplementedItemKey)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<PurchaseInvoiceItem>()
+        // Complemento de ICMS da saída (spec 2026-10-18): mesma auto-relação Restrict (= NO ACTION no SQL Server).
+        modelBuilder.Entity<SalesInvoiceItem>()
             .HasOne(x => x.ComplementedItem)
             .WithMany()
             .HasForeignKey(x => x.ComplementedItemKey)

@@ -32,9 +32,15 @@ public class SalesInvoicesItemsUpdateService(
         // Complemento de ICMS (spec 2026-10-18 S6): caminho próprio, antes da conferência de entrega e dos recálculos —
         // a linha não se move, só Base/ICMS. Pelo documento GRAVADO: no PATCH a linha chega já mutada.
         var storedInvoiceKey = (Guid?)db.Context.Entry(existingEntity).OriginalValues[nameof(SalesInvoiceItem.SalesInvoiceKey)];
-        var parent = await db.Context.SalesInvoices.FirstOrDefaultAsync(x => x.Key == storedInvoiceKey);
-        if (parent is not null && SalesInvoicesTaxApplyService.IsIcmsComplement(parent))
+        // O tipo por projeção sem rastreio: carregar o cabeçalho rastreado em todo PATCH de linha (Normal, devolução,
+        // SAPB1) o deixaria no identity map dos recálculos abaixo. Só o complemento precisa dele rastreado.
+        var storedInvoiceType = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(x => x.Key == storedInvoiceKey)
+            .Select(x => (SalesInvoiceType?)x.InvoiceType)
+            .FirstOrDefaultAsync();
+        if (storedInvoiceType == SalesInvoiceType.IcmsComplement)
         {
+            var parent = await db.Context.SalesInvoices.FirstAsync(x => x.Key == storedInvoiceKey);
             await UpdateIcmsComplementLineAsync(parent, existingEntity, entity);
             return existingEntity;
         }

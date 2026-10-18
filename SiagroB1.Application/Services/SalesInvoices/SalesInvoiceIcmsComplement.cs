@@ -87,6 +87,7 @@ public static class SalesInvoiceIcmsComplement
                         l.SalesInvoice!.InvoiceType == SalesInvoiceType.IcmsComplement &&
                         l.SalesInvoice.InvoiceStatus != InvoiceStatus.Cancelled)
             .Select(l => new { l.SalesInvoice!.InvoiceNumber })
+            .OrderBy(x => x.InvoiceNumber)
             .FirstOrDefaultAsync();
 
         if (complement is not null)

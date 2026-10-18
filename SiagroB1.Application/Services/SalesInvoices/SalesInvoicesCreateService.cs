@@ -33,6 +33,11 @@ public class SalesInvoicesCreateService(
         if (salesInvoice.TaxDocumentKind == TaxDocumentKind.Cte)
             throw new DefaultException("CT-e não é documento de saída.");
 
+        // Complemento de ICMS (spec 2026-10-18): nasce só da ação na nota original (SalesInvoicesCreateIcmsComplementService,
+        // que não passa por aqui). Um POST cru criaria um complemento órfão — sem original, sem vínculo nas linhas.
+        if (salesInvoice.InvoiceType == SalesInvoiceType.IcmsComplement)
+            throw new DefaultException(SalesInvoiceIcmsComplementLock.CreateMessage);
+
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): recusa antes de qualquer gravação,
         // em toda filial.
         foreach (var item in salesInvoice.Items)
