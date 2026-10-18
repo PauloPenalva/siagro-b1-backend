@@ -41,7 +41,14 @@ public class DocNumbersController(DocNumberService service) : ODataController
             return BadRequest(ModelState);
         }
 
-        await service.CreateAsync(entity);
+        try
+        {
+            await service.CreateAsync(entity);
+        }
+        catch (Exception ex) when (ex is DefaultException or ApplicationException)
+        {
+            return BadRequest(ex.Message);
+        }
 
         return Created(entity);
     }
