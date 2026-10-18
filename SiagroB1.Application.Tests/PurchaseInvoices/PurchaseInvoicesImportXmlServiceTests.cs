@@ -2,7 +2,9 @@ using System.Text;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Commons.Resources;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Tests.Support;
@@ -254,5 +256,86 @@ public class PurchaseInvoicesImportXmlServiceTests
         Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.Normal, draft.InvoiceType);
         Assert.All(draft.Items, i => Assert.Equal(0m, i.ComplementAmount));
         Assert.Equal((1000m, 1.5m), (draft.Items[0].Quantity, draft.Items[0].UnitPrice));
+    }
+
+    /// <summary>NF-e finNFe 2 só de ICMS: vProd zerado e o imposto em vBC/vICMS (spec 2026-10-17 D7).</summary>
+    private static string IcmsComplementXml() => Nfe.Replace("<ide>", "<ide><finNFe>2</finNFe>")
+        .Replace("<qCom>1000.000</qCom><vUnCom>1.5000</vUnCom></prod>",
+            "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>0.00</vProd></prod>"
+            + "<imposto><ICMS><ICMS90><CST>90</CST><vBC>1000.00</vBC><pICMS>12.00</pICMS><vICMS>120.00</vICMS></ICMS90></ICMS></imposto>")
+        .Replace("<qCom>500.000</qCom><vUnCom>0.8000</vUnCom></prod>",
+            "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>0.00</vProd></prod>"
+            + "<imposto><ICMS><ICMS90><CST>90</CST><vBC>400.00</vBC><pICMS>12.00</pICMS><vICMS>48.00</vICMS></ICMS90></ICMS></imposto>");
+
+    [Fact]
+    public async Task Icms_complement_xml_imports_base_and_value()
+    {
+        var draft = await Service().ExecuteAsync(Bytes(IcmsComplementXml()), "nfe.xml");
+
+        Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.IcmsComplement, draft.InvoiceType);
+        Assert.All(draft.Items, i => Assert.Equal((0m, 0m, 0m), (i.Quantity, i.UnitPrice, i.ComplementAmount)));
+        Assert.Equal(new[] { (1000m, 120m), (400m, 48m) }, draft.Items.Select(i => (i.IcmsBase, i.IcmsValue)));
+    }
+
+    [Fact]
+    public async Task Value_complement_xml_still_imports_as_value()
+    {
+        // Regressão: itens com vProd > 0 (mesmo com ICMS destacado) continuam sendo complemento de valor.
+        var xml = Nfe.Replace("<ide>", "<ide><finNFe>2</finNFe>")
+            .Replace("<qCom>1000.000</qCom><vUnCom>1.5000</vUnCom></prod>",
+                "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>271.67</vProd></prod>"
+                + "<imposto><ICMS><ICMS90><CST>90</CST><vBC>271.67</vBC><vICMS>32.60</vICMS></ICMS90></ICMS></imposto>")
+            .Replace("<qCom>500.000</qCom><vUnCom>0.8000</vUnCom></prod>",
+                "<qCom>0.0000</qCom><vUnCom>0.0000000000</vUnCom><vProd>100.00</vProd></prod>");
+
+        var draft = await Service().ExecuteAsync(Bytes(xml), "nfe.xml");
+
+        Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.ValueComplement, draft.InvoiceType);
+        Assert.Equal(new[] { 271.67m, 100m }, draft.Items.Select(i => i.ComplementAmount));
+    }
+
+    [Fact]
+    public async Task Mixed_items_complement_xml_is_a_value_complement()
+    {
+        // Um item só de ICMS e outro com valor: não é complemento de ICMS (todo item precisa ser).
+        var xml = IcmsComplementXml().Replace(
+            "<vProd>0.00</vProd></prod><imposto><ICMS><ICMS90><CST>90</CST><vBC>400.00</vBC>",
+            "<vProd>50.00</vProd></prod><imposto><ICMS><ICMS90><CST>90</CST><vBC>400.00</vBC>");
+
+        var draft = await Service().ExecuteAsync(Bytes(xml), "nfe.xml");
+
+        Assert.Equal(SiagroB1.Domain.Enums.PurchaseInvoiceType.ValueComplement, draft.InvoiceType);
+    }
+
+    [Fact]
+    public async Task Imported_icms_complement_survives_create()
+    {
+        // Review Focus 3: o rascunho do import, gravado pelo create com o motor ativo, mantém base e valor do XML.
+        var draft = await Service().ExecuteAsync(Bytes(IcmsComplementXml()), "nfe.xml");
+        var first = draft.Items[0];
+        var db = (await PurchaseNfeTestSeed.SeedAsync()).Db;
+        var usage = await PurchaseNfeTestSeed.PurchaseUsageCodeAsync(db);
+        var invoice = new PurchaseInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = PurchaseNfeTestSeed.Supplier,
+            IssuerType = DocumentIssuerType.ThirdParty, InvoiceType = draft.InvoiceType,
+            TaxDocumentKind = TaxDocumentKind.Other, TaxDocumentNumber = draft.TaxDocumentNumber,
+            TaxDocumentSeries = draft.TaxDocumentSeries, IssueDate = draft.IssueDate ?? new DateTime(2026, 8, 5),
+        };
+        invoice.AddItem(new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), ItemCode = "TRIGO", ItemName = first.ItemName, UnitOfMeasureCode = first.UnitOfMeasureCode,
+            Quantity = first.Quantity, UnitPrice = first.UnitPrice, ComplementAmount = first.ComplementAmount,
+            IcmsBase = first.IcmsBase, IcmsValue = first.IcmsValue, UsageCode = usage,
+        });
+
+        await new PurchaseInvoicesCreateService(db, PurchaseNfeTestSeed.Partners(), new FakeItemService(),
+            TaxTestServices.PurchaseApply(db, PurchaseNfeTestSeed.Partners()), new FakeDocNumberSequenceService())
+            .ExecuteAsync(invoice, "ana");
+
+        db.Context.ChangeTracker.Clear();
+        var line = await db.Context.PurchaseInvoicesItems.AsNoTracking()
+            .SingleAsync(i => i.PurchaseInvoiceKey == invoice.Key);
+        Assert.Equal((1000m, 120m), (line.IcmsBase, line.IcmsValue));
     }
 }

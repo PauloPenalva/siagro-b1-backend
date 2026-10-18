@@ -105,4 +105,10 @@ public class PurchaseInvoiceDraftItemDto
 
     /// <summary>Complemento de valor: o valor da linha (<c>det/prod/vProd</c>); quantidade e preço ficam zerados. 0 nos demais.</summary>
     public decimal ComplementAmount { get; set; }
+
+    /// <summary>Complemento de ICMS: a base de cálculo da linha (<c>det/imposto/ICMS/vBC</c>); 0 nos demais.</summary>
+    public decimal IcmsBase { get; set; }
+
+    /// <summary>Complemento de ICMS: o valor do ICMS da linha (<c>det/imposto/ICMS/vICMS</c>); 0 nos demais.</summary>
+    public decimal IcmsValue { get; set; }
 }
