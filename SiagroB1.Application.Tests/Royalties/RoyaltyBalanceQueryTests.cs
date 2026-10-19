@@ -118,6 +118,48 @@ public class RoyaltyBalanceQueryTests
         Assert.Equal(["C-new"], (await RunAsync()).Select(x => x.Code));
     }
 
+    private void SupplierChange(StorageTransaction original, StorageTransaction replacement, decimal quantity) =>
+        _db.Context.PurchaseTransactionChanges.Add(new PurchaseTransactionChange
+        {
+            Key = Guid.NewGuid(), OriginalStorageTransactionKey = original.Key,
+            ReturnStorageTransactionKey = Guid.NewGuid(), NewStorageTransactionKey = replacement.Key,
+            PurchaseContractKey = Guid.NewGuid(), OriginalCardCode = "P0001", OriginalWarehouseCode = "ARM01",
+            NewCardCode = "P0002", NewWarehouseCode = "ARM02", Quantity = quantity, AllocatedVolume = quantity,
+            Reason = "fornecedor errado",
+        });
+
+    [Fact]
+    public async Task Full_supplier_change_counts_only_the_new_purchase()
+    {
+        var original = Receipt("C-old", 1_000m, type: StorageTransactionType.Purchase);
+        var replacement = Receipt("C-new", 1_000m, type: StorageTransactionType.Purchase);
+        SupplierChange(original, replacement, 1_000m);
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(["C-new"], (await RunAsync(new RoyaltyBalanceFilter { Scope = RoyaltyBalanceScope.All }))
+            .Select(x => x.Code));
+    }
+
+    [Fact]
+    public async Task Partial_supplier_change_leaves_only_the_unchanged_part_on_the_original()
+    {
+        var original = Receipt("C-old", 1_000m, type: StorageTransactionType.Purchase);
+        var first = Receipt("C-new1", 300m, type: StorageTransactionType.Purchase);
+        var second = Receipt("C-new2", 100m, type: StorageTransactionType.Purchase);
+        SupplierChange(original, first, 300m);
+        SupplierChange(original, second, 100m);
+        WriteOff(original, 50m);
+        await _db.SaveChangesAsync();
+
+        var rows = await RunAsync();
+
+        Assert.Equal(["C-new1", "C-new2", "C-old"], rows.Select(x => x.Code));
+        var old = rows.Single(x => x.Code == "C-old");
+        Assert.Equal(600m, old.NetWeight);
+        Assert.Equal(550m, old.Balance);
+        Assert.Equal(950m, rows.Sum(x => x.Balance));
+    }
+
     [Fact]
     public async Task Pending_scope_hides_fully_written_off_receipts()
     {

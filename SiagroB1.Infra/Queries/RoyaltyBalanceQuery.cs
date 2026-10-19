@@ -8,7 +8,8 @@ namespace SiagroB1.Infra.Queries;
 /// <summary>
 /// Saldo a baixar no ITS por romaneio. Mora no Infra porque o Web (OData) e o Reports (PDF)
 /// precisam da MESMA regra de elegibilidade, e o Reports não referencia o Application.
-/// Saldo calculado (peso líquido − linhas de baixas ativas), não persistido.
+/// Saldo calculado (peso líquido − quantidade trocada de fornecedor/armazém − linhas de baixas
+/// ativas), não persistido.
 /// </summary>
 public static class RoyaltyBalanceQuery
 {
@@ -30,6 +31,14 @@ public static class RoyaltyBalanceQuery
                   (st.TransactionType == StorageTransactionType.Purchase &&
                    st.TransactionOrigin != TransactionCode.WarehouseReconciliation &&
                    !ctx.ShippingReleaseChanges.Any(c => c.OriginalPurchaseStorageTransactionKey == st.Key)))
+        // Troca de fornecedor/armazém: o original continua confirmado com o peso cheio, mas a parte
+        // trocada passou para o romaneio novo (que copia situação/origem/teste e conta por si). Só a
+        // parte não trocada fica no original; trocado por inteiro, ele sai da lista. Subconsulta
+        // correlacionada (vira SQL), nada de uma ida ao banco por linha. Só romaneios 8 têm troca.
+        let changed = ctx.PurchaseTransactionChanges
+            .Where(c => c.OriginalStorageTransactionKey == st.Key)
+            .Sum(c => (decimal?)c.Quantity) ?? 0m
+        where changed == 0m || st.NetWeight - changed > 0m
         let writtenOff = ctx.RoyaltyWriteOffLines
             .Where(l => l.StorageTransactionKey == st.Key &&
                         l.RoyaltyWriteOff!.Status == RoyaltyWriteOffStatus.Active)
@@ -50,9 +59,9 @@ public static class RoyaltyBalanceQuery
             StorageAddressCode = st.StorageAddressCode,
             Situation = st.RoyaltySituation!.Value,
             RoyaltyTestCode = st.RoyaltyTestCode,
-            NetWeight = st.NetWeight,
+            NetWeight = st.NetWeight - changed,
             WrittenOffWeight = writtenOff,
-            Balance = st.NetWeight - writtenOff,
+            Balance = st.NetWeight - changed - writtenOff,
         };
 
     public static IQueryable<RoyaltyBalanceRow> Apply(IQueryable<RoyaltyBalanceRow> query, RoyaltyBalanceFilter filter)
