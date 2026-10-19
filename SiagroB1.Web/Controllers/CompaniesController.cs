@@ -37,13 +37,13 @@ public class CompaniesController(
     }
 
     [EnableQuery]
-    [HttpGet("odata/Companies({code})")]
-    [HttpGet("odata/Companies/{code}")]
-    public async Task<ActionResult<Company>> Get([FromRoute] string code)
+    // O parâmetro PRECISA se chamar `key`: é por ele que a convenção do OData liga Companies('0001') à action.
+    // Com outro nome, a convenção pendurava este Get também em odata/Companies e a lista dava 404.
+    public async Task<ActionResult<Company>> Get([FromRoute] string key)
     {
         if (!await IsAdminAsync()) return Forbidden();
 
-        var item = await getService.GetByIdAsync(code);
+        var item = await getService.GetByIdAsync(key);
 
         if (item == null)
         {
@@ -80,7 +80,7 @@ public class CompaniesController(
         }
     }
 
-    public async Task<IActionResult> Put([FromRoute] string code, [FromBody] Company entity)
+    public async Task<IActionResult> Put([FromRoute] string key, [FromBody] Company entity)
     {
         if (!await IsAdminAsync()) return Forbidden();
 
@@ -91,7 +91,7 @@ public class CompaniesController(
 
         try
         {
-            await updateService.ExecuteAsync(code, entity);
+            await updateService.ExecuteAsync(key, entity);
         }
         catch (KeyNotFoundException e)
         {
@@ -114,13 +114,13 @@ public class CompaniesController(
         return NoContent();
     }
 
-    public async Task<IActionResult> Delete([FromRoute]string code)
+    public async Task<IActionResult> Delete([FromRoute] string key)
     {
         if (!await IsAdminAsync()) return Forbidden();
 
         try
         {
-            await deleteService.ExecuteAsync(code);
+            await deleteService.ExecuteAsync(key);
             
             return NoContent();
         }
@@ -136,7 +136,7 @@ public class CompaniesController(
     }
     
     [AcceptVerbs("PATCH", "MERGE")]
-    public virtual async Task<IActionResult> Patch([FromRoute] string code, [FromBody] Delta<Company> patch)
+    public virtual async Task<IActionResult> Patch([FromRoute] string key, [FromBody] Delta<Company> patch)
     {
         if (!await IsAdminAsync()) return Forbidden();
 
@@ -145,7 +145,7 @@ public class CompaniesController(
             return BadRequest(ModelState);
         }
 
-        Company? t = await getService.GetByIdAsync(code);
+        Company? t = await getService.GetByIdAsync(key);
 
         if (t == null)
         {
@@ -156,7 +156,7 @@ public class CompaniesController(
         {
             patch.Patch(t);
 
-            await updateService.ExecuteAsync(code, t);
+            await updateService.ExecuteAsync(key, t);
         }
         catch (KeyNotFoundException)
         {
