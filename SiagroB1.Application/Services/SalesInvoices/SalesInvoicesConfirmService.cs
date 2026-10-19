@@ -129,6 +129,9 @@ public class SalesInvoicesConfirmService(
         // guard cobre quem chega pela API crua e o documento legado.
         SalesInvoicesReturnWeightService.EnsureHeaderWeightMatchesItems(invoice);
 
+        // Spec 2026-10-19 parte 2: NFS emitida no portal da prefeitura — número, série e data digitados, sem repetir.
+        await SalesInvoiceNfseDuplicateGuard.EnsureConfirmableAsync(db.Context, invoice);
+
         if (commitMode == CommitMode.Auto)
             await db.BeginTransactionAsync();
 

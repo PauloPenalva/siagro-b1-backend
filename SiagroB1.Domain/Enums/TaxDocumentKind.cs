@@ -12,4 +12,7 @@ public enum TaxDocumentKind
 
     /// <summary>CT-e, modelo 57: frete tomado; chave obrigatória e conferida.</summary>
     Cte = 2,
+
+    /// <summary>NFS(-e) de serviço emitida no portal da prefeitura: número, série e data digitados; sem chave nem transmissão.</summary>
+    Nfse = 3,
 }

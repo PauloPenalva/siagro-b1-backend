@@ -249,6 +249,20 @@ public class SalesInvoicesNfeIssueServiceTests
     }
 
     [Fact]
+    public async Task Transmit_nfse_is_refused()
+    {
+        var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        (await scenario.Db.Context.SalesInvoices.SingleAsync()).TaxDocumentKind = TaxDocumentKind.Nfse;
+        await scenario.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Issue(scenario, sefaz, new RecordingConfirmService(scenario.Db)).ExecuteAsync(scenario.InvoiceKey, "tester"));
+
+        Assert.Equal("Documento do tipo NFS não é transmitido como NF-e.", ex.Message);
+    }
+
+    [Fact]
     public async Task Document_of_kind_other_is_refused()
     {
         var scenario = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
