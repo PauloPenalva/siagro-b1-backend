@@ -57,5 +57,6 @@ public class InternalDanfeController(ICompanyCatalog catalog, ICompanyContext co
 
     private static bool FixedTimeEquals(string expected, string sent) =>
         System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
-            System.Text.Encoding.UTF8.GetBytes(expected), System.Text.Encoding.UTF8.GetBytes(sent));
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(expected)),
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sent)));
 }

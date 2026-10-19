@@ -133,6 +133,34 @@ public class NfeEmailDispatchJobTests
         Assert.Null(saved.SentAt);
     }
 
+    /// <summary>Entre as retentativas do Hangfire o varredor roda a cada minuto e não pode gerar tentativa extra.</summary>
+    [Fact]
+    public async Task Transient_failure_fails_only_after_third_hangfire_attempt_despite_sweeps()
+    {
+        var row = await SeedAsync(partnerEmails: ["fiscal@fazenda.com.br"]);
+        var jobs = new FakeBackgroundJobClient();
+        var sweep = new NfeEmailSweepJob(_db.Context, jobs, new FakeCompanyContext("0001"), NullLogger<NfeEmailSweepJob>.Instance);
+        _sender.FailWith("Connection refused");
+
+        await sweep.ExecuteAsync(CancellationToken.None);
+        Assert.Single(jobs.Enqueued);
+
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            await Assert.ThrowsAsync<ApplicationException>(() => Job().ExecuteAsync("0001", row.Key, CancellationToken.None));
+            await sweep.ExecuteAsync(CancellationToken.None);
+            Assert.Single(jobs.Enqueued);
+            Assert.Equal(NfeEmailStatus.Pending, (await ReloadAsync(row.Key)).Status);
+        }
+
+        await Job().ExecuteAsync("0001", row.Key, CancellationToken.None);
+
+        var saved = await ReloadAsync(row.Key);
+        Assert.Equal(NfeEmailStatus.Failed, saved.Status);
+        Assert.Equal(3, saved.AttemptCount);
+        Assert.Equal(3, _sender.SentMessages.Count);
+    }
+
     [Fact]
     public async Task Danfe_failure_counts_as_failed_attempt()
     {

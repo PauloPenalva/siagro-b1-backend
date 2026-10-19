@@ -1412,6 +1412,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("DocumentType")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("EnqueuedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("EventType")
                         .HasColumnType("int");
 

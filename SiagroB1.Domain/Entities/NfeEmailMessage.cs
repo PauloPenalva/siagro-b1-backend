@@ -38,6 +38,9 @@ public class NfeEmailMessage
 
     public DateTime? SentAt { get; set; }
 
+    /// <summary>Quando o varredor enfileirou o envio. Evita reenfileirar linha que ainda espera na fila do Hangfire.</summary>
+    public DateTime? EnqueuedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     [Column(TypeName = "VARCHAR(100)")]

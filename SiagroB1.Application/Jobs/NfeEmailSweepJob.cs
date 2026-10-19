@@ -23,17 +23,24 @@ public class NfeEmailSweepJob(
 
     private const int BatchSize = 200;
 
+    /// <summary>
+    /// Só reenfileira uma linha já enfileirada e nunca tentada depois deste prazo (enfileiramento perdido). Retentativa
+    /// de envio falho é do Hangfire (30/120/600 s): linha com tentativa nunca volta pelo varredor.
+    /// </summary>
+    public static readonly TimeSpan ReenqueueAfter = TimeSpan.FromMinutes(30);
+
     public async Task ExecuteAsync(CancellationToken ct = default)
     {
-        var threshold = DateTime.Now - GracePeriod;
+        var now = DateTime.Now;
+        var threshold = now - GracePeriod;
+        var staleEnqueue = now - ReenqueueAfter;
 
         var pending = await context.NfeEmailMessages
-            .AsNoTracking()
             .Where(m => m.Status == NfeEmailStatus.Pending && m.Trigger == NfeEmailTrigger.Automatic &&
-                        m.CreatedAt <= threshold)
+                        m.AttemptCount == 0 && m.CreatedAt <= threshold &&
+                        (m.EnqueuedAt == null || m.EnqueuedAt <= staleEnqueue))
             .OrderBy(m => m.CreatedAt)
             .Take(BatchSize)
-            .Select(m => m.Key)
             .ToListAsync(ct);
 
         if (pending.Count == 0)
@@ -41,8 +48,14 @@ public class NfeEmailSweepJob(
 
         var companyCode = companyContext.CompanyCode;
 
-        foreach (var key in pending)
+        foreach (var row in pending)
+        {
+            var key = row.Key;
             backgroundJobClient.Enqueue<NfeEmailDispatchJob>(job => job.ExecuteAsync(companyCode, key, CancellationToken.None));
+            row.EnqueuedAt = now;
+        }
+
+        await context.SaveChangesAsync(ct);
 
         logger.LogInformation("{Count} e-mails de NF-e enfileirados para envio.", pending.Count);
     }
