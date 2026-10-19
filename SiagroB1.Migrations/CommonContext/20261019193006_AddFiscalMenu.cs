@@ -7,7 +7,7 @@ namespace SiagroB1.Migrations.CommonContext
     /// <summary>
     /// Cria o grupo raiz "Fiscal" (Order 8, logo após "Financeiro") e move para ele as telas fiscais:
     /// Naturezas de Operação, Configuração de Retenções, Configuração da NF-e e ICMS por UF. Cada item mantém
-    /// o seu StandaloneOnly. Também desabilita o item legado "Tributos/Impostos" (taxes).
+    /// o seu StandaloneOnly. Também desabilita o item legado "Tributos/Impostos" (taxes) e põe "Relatórios" por último (Order 999).
     /// </summary>
     public partial class AddFiscalMenu : Migration
     {
@@ -33,6 +33,10 @@ namespace SiagroB1.Migrations.CommonContext
 
             migrationBuilder.UpdateData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "taxes",
                 column: "Enabled", value: false);
+
+            // "Relatórios" sempre por último entre os grupos raiz.
+            migrationBuilder.UpdateData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "reports",
+                column: "Order", value: 999);
         }
 
         /// <inheritdoc />
@@ -40,6 +44,9 @@ namespace SiagroB1.Migrations.CommonContext
         {
             migrationBuilder.UpdateData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "taxes",
                 column: "Enabled", value: true);
+
+            migrationBuilder.UpdateData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "reports",
+                column: "Order", value: 6);
 
             MoveItem(migrationBuilder, "usages", "registers", 13);
             MoveItem(migrationBuilder, "withholdingTaxSettings", "financial", 5);
