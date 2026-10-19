@@ -88,4 +88,23 @@ public class FinancialAccountReconciliationsOpenServiceTests
             () => Service().ExecuteAsync("XX", new DateTime(2026, 9, 30), 0m, null, "t"));
         Assert.Equal("Conta financeira XX não encontrada.", e.Message);
     }
+
+    [Fact]
+    public async Task Double_click_race_on_the_unique_index_reports_the_open_reconciliation()
+    {
+        // Os dois cliques passam pelo AnyAsync; quem perde é barrado pelo índice único filtrado no SaveChanges.
+        var name = Guid.NewGuid().ToString();
+        var seed = TestDb.CreateUnitOfWork(name);
+        seed.Context.FinancialAccounts.Add(new FinancialAccount
+        {
+            Code = "BCO1", Name = "Banco", Type = FinancialAccountType.Bank, Currency = CurrencyType.Brl
+        });
+        await seed.Context.SaveChangesAsync();
+        var racing = TestDb.CreateUnitOfWork(name, new ThrowOnSaveInterceptor(
+            e => e.Entity is FinancialAccountReconciliation && e.State == Microsoft.EntityFrameworkCore.EntityState.Added));
+
+        var e = await Assert.ThrowsAsync<ApplicationException>(
+            () => new FinancialAccountReconciliationsOpenService(racing).ExecuteAsync("BCO1", new DateTime(2026, 10, 31), 0m, null, "t"));
+        Assert.Equal("Já existe uma reconciliação aberta para esta conta.", e.Message);
+    }
 }

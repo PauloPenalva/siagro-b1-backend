@@ -49,7 +49,16 @@ public class FinancialAccountReconciliationsOpenService(IUnitOfWork db)
         };
 
         db.Context.FinancialAccountReconciliations.Add(reconciliation);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Duplo clique: os dois passaram pelo AnyAsync e o índice único filtrado barrou o segundo.
+            db.Context.Entry(reconciliation).State = EntityState.Detached;
+            throw new ApplicationException("Já existe uma reconciliação aberta para esta conta.");
+        }
         return reconciliation;
     }
 

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using Microsoft.AspNetCore.OData.Results;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
@@ -14,10 +15,8 @@ public class FinancialAccountReconciliationsController(IUnitOfWork db) : ODataCo
     public ActionResult<IEnumerable<FinancialAccountReconciliation>> Get() =>
         Ok(db.Context.FinancialAccountReconciliations.AsNoTracking());
 
+    /// <summary>SingleResult (consulta, não entidade materializada) para o $expand=FinancialAccount rodar no SQL.</summary>
     [EnableQuery]
-    public async Task<ActionResult<FinancialAccountReconciliation>> Get([FromRoute] Guid key)
-    {
-        var entity = await db.Context.FinancialAccountReconciliations.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key);
-        return entity is null ? NotFound() : Ok(entity);
-    }
+    public SingleResult<FinancialAccountReconciliation> Get([FromRoute] Guid key) =>
+        SingleResult.Create(db.Context.FinancialAccountReconciliations.AsNoTracking().Where(x => x.Key == key));
 }
