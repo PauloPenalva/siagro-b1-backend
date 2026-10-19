@@ -25,7 +25,9 @@ public static class PurchaseFiscalReconciliationQuery
         var query = ctx.StorageTransactions.AsNoTracking()
             .Where(t => R.LinkableTypes.Contains(t.TransactionType) &&
                         t.TransactionStatus != StorageTransactionsStatus.Cancelled &&
-                        t.CardCode == f.CardCode && t.ItemCode == f.ItemCode);
+                        t.CardCode == f.CardCode && t.ItemCode == f.ItemCode &&
+                        // estorno da troca de fornecedor/armazém não recebe nota fiscal: a quantidade trocada já saiu do original
+                        !(t.TransactionType == StorageTransactionType.PurchaseReturn && t.PurchaseTransactionChangeKey != null));
 
         if (f.DateFrom is { } from)
         {
@@ -48,6 +50,17 @@ public static class PurchaseFiscalReconciliationQuery
 
         return query;
     }
+
+    /// <summary>
+    /// Quantidade trocada por romaneio original, numa só consulta agrupada (nada de uma ida ao banco por linha).
+    /// Só entram no dicionário os romaneios com troca.
+    /// </summary>
+    public static async Task<Dictionary<Guid, decimal>> ChangedQuantitiesAsync(AppDbContext ctx, IReadOnlyCollection<Guid> transactionKeys) =>
+        await ctx.PurchaseTransactionChanges.AsNoTracking()
+            .Where(c => transactionKeys.Contains(c.OriginalStorageTransactionKey))
+            .GroupBy(c => c.OriginalStorageTransactionKey)
+            .Select(g => new { Key = g.Key, Quantity = g.Sum(c => c.Quantity) })
+            .ToDictionaryAsync(x => x.Key, x => x.Quantity);
 
     public sealed class LinkRow
     {
@@ -155,19 +168,23 @@ public static class PurchaseFiscalReconciliationQuery
         var keys = transactions.Select(t => t.Key).ToList();
         var links = (await LoadLinksAsync(ctx, keys)).ToLookup(l => l.StorageTransactionKey);
         var contracts = (await ContractsQuery(ctx, keys).ToListAsync()).ToLookup(c => c.StorageTransactionKey);
+        var changed = await ChangedQuantitiesAsync(ctx, keys);
 
-        return transactions.Select(t =>
+        return transactions.Where(t =>
+            // original totalmente trocado e sem vínculo: nada a conciliar, some da lista
+            !(changed.GetValueOrDefault(t.Key) >= t.NetWeight && t.NetWeight > 0 && !links.Contains(t.Key))).Select(t =>
         {
             var own = links[t.Key].ToList();
+            var physical = t.NetWeight - changed.GetValueOrDefault(t.Key);
             var fiscal = own.Sum(l => l.Quantity);
-            var status = R.Status(t.NetWeight, fiscal, own.Count > 0, t.FiscalReconciledAt != null);
+            var status = R.Status(physical, fiscal, own.Count > 0, t.FiscalReconciledAt != null);
             return new FiscalReconciliationTransactionDto
             {
                 Key = t.Key, Code = t.Code, TransactionDate = t.TransactionDate, TransactionType = t.TransactionType,
                 TransactionTypeName = R.TypeName(t.TransactionType), CardCode = t.CardCode, CardName = t.CardName,
                 ItemCode = t.ItemCode, TruckCode = t.TruckCode, UnitOfMeasureCode = t.UnitOfMeasureCode,
                 ContractCodes = contracts[t.Key].Select(c => c.Code ?? "").Distinct().Order(StringComparer.Ordinal).ToList(),
-                PhysicalQuantity = t.NetWeight, FiscalQuantity = fiscal, Status = status, StatusName = R.StatusName(status),
+                PhysicalQuantity = physical, FiscalQuantity = fiscal, Status = status, StatusName = R.StatusName(status),
                 FiscalReconciledAt = t.FiscalReconciledAt, FiscalReconciledBy = t.FiscalReconciledBy, Links = own,
             };
         }).ToList();

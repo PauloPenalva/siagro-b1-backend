@@ -226,6 +226,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsAllocationCreateService>();
         services.AddScoped<PurchaseContractsAllocationDeleteService>();
         services.AddScoped<PurchaseContractsAllocationGetService>();
+        services.AddScoped<PurchaseTransactionsChangeSupplierService>();
         services.AddScoped<PurchaseContractsApprovalService>();
         services.AddScoped<PurchaseContractsBrokersCreateService>();
         services.AddScoped<PurchaseContractsBrokersDeleteService>();

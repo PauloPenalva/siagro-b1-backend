@@ -73,6 +73,15 @@ public class StorageTransactionsCancelService(
                 $"O romaneio {doc.Code} faz parte de uma troca de liberação e não pode ser cancelado por aqui.");
         }
 
+        // Troca de fornecedor/armazém na alocação: o estorno 9 e o romaneio 8 novo carregam a chave
+        // da troca, e o ORIGINAL é apontado por ela. Cancelá-lo por aqui destruiria o rastro da troca.
+        if (doc.PurchaseTransactionChangeKey != null ||
+            await db.Context.PurchaseTransactionChanges.AnyAsync(x => x.OriginalStorageTransactionKey == doc.Key))
+        {
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} faz parte de uma troca de fornecedor/armazém e não pode ser cancelado por aqui.");
+        }
+
         // Mesmo caso, no fluxo LEGADO: a devolução gerada pelo retorno de um documento de saída
         // sem carga tem AS DUAS colunas acima nulas e escaparia dos dois guards. Cancelá-la por
         // aqui derrubaria o crédito do armazém em silêncio, e o grão ficaria sem lugar nenhum —

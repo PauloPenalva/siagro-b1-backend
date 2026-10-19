@@ -36,7 +36,7 @@ public class PurchaseContractsGetAvaiablesListAgentTests
     {
         await SeedAsync(5, "JOAO COMPRADOR");
 
-        var dto = Assert.Single(Service().GetAvaiablesPurchaseContracts("F0001", "SOJA"));
+        var dto = Assert.Single(await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA"));
 
         Assert.Equal(5, dto.AgentCode);
         Assert.Equal("JOAO COMPRADOR", dto.AgentName);
@@ -47,7 +47,7 @@ public class PurchaseContractsGetAvaiablesListAgentTests
     {
         await SeedAsync(null, null);
 
-        var dto = Assert.Single(Service().GetAvaiablesPurchaseContracts("F0001", "SOJA"));
+        var dto = Assert.Single(await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA"));
 
         Assert.Null(dto.AgentCode);
         Assert.Null(dto.AgentName);

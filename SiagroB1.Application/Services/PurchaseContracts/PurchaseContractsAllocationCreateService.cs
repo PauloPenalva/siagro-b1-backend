@@ -5,6 +5,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -29,11 +30,75 @@ public class PurchaseContractsAllocationCreateService(
         await unitOfWork.Context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == purchaseContractKey);
 
+    /// <summary>
+    /// Entrada da tela/API: romaneio de compra (8) com contrato de outro fornecedor ou outro Local de
+    /// Entrega não se aloca direto — é a troca de fornecedor/armazém
+    /// (<see cref="PurchaseTransactionsChangeSupplierService"/>). Devolução e complementos (9/10/11)
+    /// exigem o mesmo fornecedor e não comparam armazém.
+    /// A trava fica só aqui: os fluxos internos (<see cref="ExecuteAsync"/>, estorno, descarga)
+    /// alocam por regras próprias. A pernada de compra de uma Expedição segue regra própria: só o contrato da
+    /// liberação (<see cref="ShippingPurchaseLegRules"/>), sem comparar fornecedor/armazém.
+    /// </summary>
+    private async Task EnsureSameSupplierAndWarehouseAsync(Guid purchaseContractKey, Guid storageTransactionKey)
+    {
+        var transaction = await unitOfWork.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.Key == storageTransactionKey)
+            .Select(x => new { x.Key, x.CardCode, x.WarehouseCode, x.TransactionType })
+            .FirstOrDefaultAsync();
+        var contract = await unitOfWork.Context.PurchaseContracts
+            .AsNoTracking()
+            .Where(x => x.Key == purchaseContractKey)
+            .Select(x => new { x.CardCode, x.DeliveryLocationCode })
+            .FirstOrDefaultAsync();
+
+        // Inexistente: o ExecuteAsync responde com o erro de sempre.
+        if (transaction == null || contract == null)
+            return;
+
+        // Perna de compra de Expedição: só no contrato da liberação (e sem a trava de fornecedor/armazém,
+        // já que o armazém dela é o da liberação). Mudar de contrato é a "Trocar liberação" da carga.
+        var releaseContractKey = await ShippingPurchaseLegRules.ReleaseContractKeyAsync(
+            unitOfWork.Context, transaction.Key);
+        if (releaseContractKey != null)
+        {
+            if (releaseContractKey != purchaseContractKey)
+            {
+                var releaseCode = await unitOfWork.Context.PurchaseContracts
+                    .AsNoTracking()
+                    .Where(x => x.Key == releaseContractKey)
+                    .Select(x => x.Code)
+                    .FirstOrDefaultAsync();
+                throw new ApplicationException(
+                    $"Romaneio de Expedição só pode ser alocado no contrato da liberação ({releaseCode}). " +
+                    "Para mudar o contrato, use Trocar liberação na carga.");
+            }
+            return;
+        }
+
+        var sameSupplier = string.Equals(transaction.CardCode, contract.CardCode, StringComparison.OrdinalIgnoreCase);
+
+        // Devolução (9) e complementos (10/11) não têm troca de fornecedor/armazém: fica a regra de
+        // antes — mesmo fornecedor, armazém não comparado.
+        if (transaction.TransactionType != StorageTransactionType.Purchase)
+        {
+            if (!sameSupplier)
+                throw new ApplicationException("O contrato é de outro fornecedor.");
+            return;
+        }
+
+        if (!sameSupplier ||
+            !string.Equals(transaction.WarehouseCode, contract.DeliveryLocationCode, StringComparison.OrdinalIgnoreCase))
+            throw new ApplicationException(
+                "O contrato tem outro fornecedor ou armazém: use a troca de fornecedor/armazém.");
+    }
+
     public async Task ExecuteWithTransactionAsync(Guid purchaseContractKey, Guid storageTransactionKey, decimal volume,
         string userName)
     {
         try
         {
+            await EnsureSameSupplierAndWarehouseAsync(purchaseContractKey, storageTransactionKey);
             await unitOfWork.BeginTransactionAsync();
             await ExecuteAsync(purchaseContractKey, storageTransactionKey, volume, userName);
             await unitOfWork.CommitAsync();
@@ -119,7 +184,10 @@ public class PurchaseContractsAllocationCreateService(
                 .Where(x => x.StorageTransactionKey == storageTransactionKey)
                 .SumAsync(x => decimal.Abs(x.Volume));
 
-            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+            var changedQuantity = await PurchaseTransactionChangeQuery.ChangedQuantityAsync(
+                unitOfWork.Context, storageTransaction.Key);
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume), changedQuantity);
 
             // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
             var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations
@@ -325,7 +393,13 @@ public class PurchaseContractsAllocationCreateService(
                     .Where(x => x.StorageTransactionKey == storageTransaction.Key)
                     .SumAsync(x => decimal.Abs(x.Volume));
 
-            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+            // Romaneio ainda não persistido (deferred): não há troca registrada.
+            var changedQuantity = storageTransaction.Key == Guid.Empty
+                ? decimal.Zero
+                : await PurchaseTransactionChangeQuery.ChangedQuantityAsync(
+                    unitOfWork.Context, storageTransaction.Key);
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume), changedQuantity);
 
             // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
             var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations

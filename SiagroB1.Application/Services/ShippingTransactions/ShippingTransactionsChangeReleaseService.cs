@@ -34,7 +34,9 @@ public sealed record ShippingReleaseChangeItem(Guid SalesStorageTransactionKey, 
 /// <see cref="StorageTransaction.ReplacedByShippingReleaseChangeKey"/>.</item>
 /// <item><b>Estorno na origem</b>: 12 com o bruto original (devolve armazém/lote e, sem perna de
 /// compra, a liberação) e, quando a original tem perna 8, um 9 com os mesmos pesos e descontos
-/// dela e alocação NEGATIVA no contrato de origem.</item>
+/// dela e alocação NEGATIVA de exatamente o que a 8 tinha alocado, contrato a contrato — 8
+/// desalocada (CEAGUI) não estorna contrato nenhum. A 8 original e o 9 ficam sem saldo
+/// alocável.</item>
 /// <item><b>Expedição nova no destino</b>: 7 na carga (armazém/lote da liberação de destino,
 /// status e nota da original) e, quando o destino tem perna de compra, 8 confirmado e alocado.</item>
 /// </list>
@@ -421,24 +423,34 @@ public class ShippingTransactionsChangeReleaseService(
         // Alocação soma pelo BANCO: tudo que está pendente precisa estar gravado antes.
         await db.SaveChangesAsync();
 
-        var contractKey = await ResolveOriginContractKeyAsync(plan);
-        await allocationCreateService.ExecuteReversalAsync(
-            contractKey, returnPurchase, returnPurchase.NetWeight, userName);
+        // Devolve só o que a 8 original tinha alocado, contrato a contrato: desalocada (CEAGUI),
+        // nenhum contrato é tocado — estornar o líquido cheio criaria saldo que o contrato nunca
+        // teve. O 9 nasce com o líquido como saldo, então Σ ≤ líquido sempre passa; a sobra é
+        // zerada em RegisterChange.
+        foreach (var (contractKey, volume) in await OriginalAllocationsByContractAsync(plan))
+        {
+            await allocationCreateService.ExecuteReversalAsync(contractKey, returnPurchase, volume, userName);
+            // Auto já grava; o SaveChanges deixa explícito que a próxima soma lê o banco atualizado.
+            await db.SaveChangesAsync();
+        }
     }
 
     /// <summary>
-    /// Contrato que a 8 original consumiu — o da alocação dela; na ausência (ou em mais de um),
-    /// o contrato da liberação de origem.
+    /// O que a 8 original tem alocado, por contrato (Σ de |Volume|); contratos com Σ zero ficam
+    /// de fora.
     /// </summary>
-    private async Task<Guid> ResolveOriginContractKeyAsync(Plan plan)
+    private async Task<List<(Guid ContractKey, decimal Volume)>> OriginalAllocationsByContractAsync(Plan plan)
     {
-        var allocated = await db.Context.PurchaseContractsAllocations
+        var allocations = await db.Context.PurchaseContractsAllocations
             .Where(x => x.StorageTransactionKey == plan.Purchase!.Key)
-            .Select(x => x.PurchaseContractKey)
-            .Distinct()
+            .Select(x => new { x.PurchaseContractKey, x.Volume })
             .ToListAsync();
 
-        return allocated.Count == 1 ? allocated[0] : plan.Source.PurchaseContractKey;
+        return allocations
+            .GroupBy(x => x.PurchaseContractKey)
+            .Select(g => (ContractKey: g.Key, Volume: g.Sum(x => decimal.Abs(x.Volume))))
+            .Where(x => x.Volume != decimal.Zero)
+            .ToList();
     }
 
     // ───────────────────────────── Expedição nova ─────────────────────────────
@@ -595,6 +607,11 @@ public class ShippingTransactionsChangeReleaseService(
             if (generated != null)
                 generated.ShippingReleaseChangeKey = change.Key;
         }
+
+        // Com os carimbos, a 8 original e o 9 deixam de ser alocáveis (fonte única:
+        // RecalculateAvailableVolume) — sem isso a sobra de uma 8 desalocada ficaria como saldo.
+        plan.Purchase?.RecalculateAvailableVolume(decimal.Zero);
+        plan.ReturnPurchase?.RecalculateAvailableVolume(decimal.Zero);
     }
 
     private void RegisterMovement(Plan plan, string reason, string userName)
