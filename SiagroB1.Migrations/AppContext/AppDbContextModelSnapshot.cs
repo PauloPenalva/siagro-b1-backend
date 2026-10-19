@@ -845,6 +845,145 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("FINANCIAL_ACCOUNTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccountEntry", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200) NOT NULL");
+
+                    b.Property<string>("DocumentReference")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FinancialAccountCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<Guid?>("ReconciliationKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("EntryDate");
+
+                    b.HasIndex("FinancialAccountCode");
+
+                    b.HasIndex("ReconciliationKey");
+
+                    b.ToTable("FINANCIAL_ACCOUNT_ENTRIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccountReconciliation", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("FinancialAccountCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<decimal>("StatementBalance")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<DateTime>("StatementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("FinancialAccountCode", "StatementDate");
+
+                    b.HasIndex(new[] { "FinancialAccountCode" }, "IX_FINANCIAL_ACCOUNT_RECONCILIATIONS_OpenPerAccount")
+                        .IsUnique()
+                        .HasFilter("[Status] = 0");
+
+                    b.ToTable("FINANCIAL_ACCOUNT_RECONCILIATIONS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
                 {
                     b.Property<Guid>("Key")
@@ -1150,6 +1289,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("Origin")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("ReconciliationKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("RelatedDocumentKey")
                         .HasColumnType("uniqueidentifier");
 
@@ -1176,6 +1318,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("FinancialAccountCode");
 
                     b.HasIndex("FinancialDocumentKey");
+
+                    b.HasIndex("ReconciliationKey");
 
                     b.HasIndex("ReversedSettlementKey")
                         .IsUnique()
@@ -7421,6 +7565,35 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccountEntry", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialAccount", "FinancialAccount")
+                        .WithMany()
+                        .HasForeignKey("FinancialAccountCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialAccountReconciliation", "Reconciliation")
+                        .WithMany()
+                        .HasForeignKey("ReconciliationKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("FinancialAccount");
+
+                    b.Navigation("Reconciliation");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccountReconciliation", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialAccount", "FinancialAccount")
+                        .WithMany()
+                        .HasForeignKey("FinancialAccountCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("FinancialAccount");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialDocument", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -7490,9 +7663,16 @@ namespace SiagroB1.Migrations.AppContext
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("SiagroB1.Domain.Entities.FinancialAccountReconciliation", "Reconciliation")
+                        .WithMany()
+                        .HasForeignKey("ReconciliationKey")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("FinancialAccount");
 
                     b.Navigation("FinancialDocument");
+
+                    b.Navigation("Reconciliation");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>

@@ -16,6 +16,7 @@ namespace SiagroB1.Domain.Entities;
 [Index(nameof(FinancialDocumentKey))]
 [Index(nameof(SettlementDate))]
 [Index(nameof(FinancialAccountCode))]
+[Index(nameof(ReconciliationKey))]
 public class FinancialSettlement : BaseEntity
 {
     [ForeignKey(nameof(FinancialDocument))]
@@ -80,4 +81,12 @@ public class FinancialSettlement : BaseEntity
 
     [Column(TypeName = "VARCHAR(500)")]
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Reconciliação de conta que conciliou esta baixa. Metadado de conferência, não muda o valor; baixa conciliada
+    /// fica bloqueada para estorno até a conciliação ser removida.
+    /// </summary>
+    [ForeignKey(nameof(Reconciliation))]
+    public Guid? ReconciliationKey { get; set; }
+    public virtual FinancialAccountReconciliation? Reconciliation { get; set; }
 }

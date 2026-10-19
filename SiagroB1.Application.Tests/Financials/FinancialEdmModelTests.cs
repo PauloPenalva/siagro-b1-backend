@@ -19,9 +19,19 @@ public class FinancialEdmModelTests
     [InlineData("FinancialAccounts")]
     [InlineData("FinancialDocuments")]
     [InlineData("FinancialSettlements")]
+    [InlineData("FinancialAccountEntries")]
+    [InlineData("FinancialAccountReconciliations")]
     public void The_entity_sets_are_exposed(string entitySet)
     {
         Assert.NotNull(BuildModel().EntityContainer.FindEntitySet(entitySet));
+    }
+
+    [Fact]
+    public void The_settlement_exposes_its_reconciliation_key()
+    {
+        var type = BuildModel().EntityContainer.FindEntitySet("FinancialSettlements").EntityType;
+
+        Assert.NotNull(type.FindProperty("ReconciliationKey"));
     }
 
     [Theory]

@@ -1676,6 +1676,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialDocument>("FinancialDocuments");
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
+        modelBuilder.EntitySet<FinancialAccountEntry>("FinancialAccountEntries");
+        modelBuilder.EntitySet<FinancialAccountReconciliation>("FinancialAccountReconciliations");
 
         // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
         // tela não consegue mostrar o saldo.
