@@ -31,8 +31,10 @@ public class PurchaseContractsAllocationCreateService(
             .FirstOrDefaultAsync(x => x.Key == purchaseContractKey);
 
     /// <summary>
-    /// Entrada da tela/API: contrato de outro fornecedor ou outro Local de Entrega não se aloca
-    /// direto — é a troca de fornecedor/armazém (<see cref="PurchaseTransactionsChangeSupplierService"/>).
+    /// Entrada da tela/API: romaneio de compra (8) com contrato de outro fornecedor ou outro Local de
+    /// Entrega não se aloca direto — é a troca de fornecedor/armazém
+    /// (<see cref="PurchaseTransactionsChangeSupplierService"/>). Devolução e complementos (9/10/11)
+    /// exigem o mesmo fornecedor e não comparam armazém.
     /// A trava fica só aqui: os fluxos internos (<see cref="ExecuteAsync"/>, estorno, descarga)
     /// alocam por regras próprias. A pernada de compra de uma Expedição segue regra própria: só o contrato da
     /// liberação (<see cref="ShippingPurchaseLegRules"/>), sem comparar fornecedor/armazém.
@@ -42,7 +44,7 @@ public class PurchaseContractsAllocationCreateService(
         var transaction = await unitOfWork.Context.StorageTransactions
             .AsNoTracking()
             .Where(x => x.Key == storageTransactionKey)
-            .Select(x => new { x.Key, x.CardCode, x.WarehouseCode })
+            .Select(x => new { x.Key, x.CardCode, x.WarehouseCode, x.TransactionType })
             .FirstOrDefaultAsync();
         var contract = await unitOfWork.Context.PurchaseContracts
             .AsNoTracking()
@@ -74,7 +76,18 @@ public class PurchaseContractsAllocationCreateService(
             return;
         }
 
-        if (!string.Equals(transaction.CardCode, contract.CardCode, StringComparison.OrdinalIgnoreCase) ||
+        var sameSupplier = string.Equals(transaction.CardCode, contract.CardCode, StringComparison.OrdinalIgnoreCase);
+
+        // Devolução (9) e complementos (10/11) não têm troca de fornecedor/armazém: fica a regra de
+        // antes — mesmo fornecedor, armazém não comparado.
+        if (transaction.TransactionType != StorageTransactionType.Purchase)
+        {
+            if (!sameSupplier)
+                throw new ApplicationException("O contrato é de outro fornecedor.");
+            return;
+        }
+
+        if (!sameSupplier ||
             !string.Equals(transaction.WarehouseCode, contract.DeliveryLocationCode, StringComparison.OrdinalIgnoreCase))
             throw new ApplicationException(
                 "O contrato tem outro fornecedor ou armazém: use a troca de fornecedor/armazém.");

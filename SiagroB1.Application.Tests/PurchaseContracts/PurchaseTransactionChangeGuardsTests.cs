@@ -203,4 +203,36 @@ public class PurchaseTransactionChangeGuardsTests
 
         Assert.True(await _db.Context.PurchaseContractsAllocations.AnyAsync());
     }
+
+    [Theory]
+    [InlineData(StorageTransactionType.PurchaseReturn)]
+    [InlineData(StorageTransactionType.PurchaseQtyComplement)]
+    [InlineData(StorageTransactionType.PurchasePriceComplement)]
+    public async Task PublicAllocation_NonPurchaseType_OtherSupplier_RefusedWithoutChangeHint(StorageTransactionType type)
+    {
+        // Devolução e complementos não têm troca de fornecedor/armazém: vale a regra de antes
+        // (mesmo fornecedor), sem mandar o usuário para uma troca que os recusaria.
+        var st = await SeedTransactionAsync("RC-7", type);
+        var contract = await SeedContractAsync(cardCode: "F0002");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            AllocationService().ExecuteWithTransactionAsync(contract.Key, st.Key, 500m, "tester"));
+
+        Assert.Equal("O contrato é de outro fornecedor.", ex.Message);
+        Assert.False(await _db.Context.PurchaseContractsAllocations.AnyAsync());
+    }
+
+    [Theory]
+    [InlineData(StorageTransactionType.PurchaseReturn)]
+    [InlineData(StorageTransactionType.PurchaseQtyComplement)]
+    [InlineData(StorageTransactionType.PurchasePriceComplement)]
+    public async Task PublicAllocation_NonPurchaseType_OtherWarehouse_AllocatesNormally(StorageTransactionType type)
+    {
+        var st = await SeedTransactionAsync("RC-8", type, cardCode: "f0001", warehouseCode: "01");
+        var contract = await SeedContractAsync(cardCode: "F0001", warehouseCode: "02");
+
+        await AllocationService().ExecuteWithTransactionAsync(contract.Key, st.Key, 500m, "tester");
+
+        Assert.True(await _db.Context.PurchaseContractsAllocations.AnyAsync(a => a.StorageTransactionKey == st.Key));
+    }
 }
