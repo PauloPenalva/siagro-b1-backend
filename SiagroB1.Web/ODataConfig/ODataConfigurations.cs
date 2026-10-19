@@ -1746,6 +1746,13 @@ public static class ODataConfigurations
         reconciliationLines.Parameter<Guid>("Key");
         reconciliationLines.Returns<FinancialAccountReconciliationLinesDto>();
 
+        var accountMovements = modelBuilder.Function("FinancialAccountsGetMovements");
+        accountMovements.Parameter<string>("AccountCode");
+        accountMovements.Parameter<string>("DateFrom");
+        accountMovements.Parameter<string>("DateTo");
+        accountMovements.Parameter<bool>("OnlyReconciled");
+        accountMovements.Returns<FinancialAccountMovementsDto>();
+
         var financialReverse = modelBuilder.Action("FinancialDocumentsReverseSettlement");
         financialReverse.Parameter<Guid>("SettlementKey");
         financialReverse.Parameter<string>("Reason");

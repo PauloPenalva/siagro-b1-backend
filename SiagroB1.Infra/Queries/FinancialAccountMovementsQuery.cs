@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra.Context;
 
@@ -63,4 +64,60 @@ public static class FinancialAccountMovementsQuery
         var day = date.Date;
         return await Query(ctx, accountCode).Where(r => r.Date < day).SumAsync(r => r.Amount, ct);
     }
+
+    /// <summary>
+    /// Extrato da conta no período: saldo anterior, linhas em ordem de data com saldo acumulado, totais e saldo final.
+    /// Com <paramref name="onlyReconciled"/> considera só linhas conciliadas, inclusive no saldo anterior, para o
+    /// acumulado fechar com o extrato do banco.
+    /// </summary>
+    public static async Task<FinancialAccountMovementsDto> StatementAsync(AppDbContext ctx, string accountCode,
+        DateTime dateFrom, DateTime dateTo, bool onlyReconciled, CancellationToken ct)
+    {
+        var from = dateFrom.Date;
+        var until = dateTo.Date.AddDays(1);
+
+        var query = Query(ctx, accountCode);
+        if (onlyReconciled) query = query.Where(r => r.ReconciliationKey != null);
+
+        var opening = await query.Where(r => r.Date < from).SumAsync(r => r.Amount, ct);
+        var rows = await query.Where(r => r.Date >= from && r.Date < until)
+            .OrderBy(r => r.Date).ThenBy(r => r.CreatedAt)
+            .ToListAsync(ct);
+
+        var balance = opening;
+        var dtos = new List<FinancialAccountMovementDto>(rows.Count);
+        foreach (var row in rows)
+        {
+            balance += row.Amount;
+            var dto = ToDto(row);
+            dto.RunningBalance = balance;
+            dtos.Add(dto);
+        }
+
+        return new FinancialAccountMovementsDto
+        {
+            OpeningBalance = opening,
+            ClosingBalance = balance,
+            TotalIn = rows.Where(r => r.Amount > 0).Sum(r => r.Amount),
+            TotalOut = -rows.Where(r => r.Amount < 0).Sum(r => r.Amount),
+            Rows = dtos
+        };
+    }
+
+    public static FinancialAccountMovementDto ToDto(FinancialAccountMovementRow x, bool marked = false) => new()
+    {
+        Source = x.Source,
+        Key = x.Key,
+        Date = x.Date,
+        Amount = x.Amount,
+        Description = x.Description,
+        DocumentReference = x.DocumentReference,
+        CardCode = x.CardCode,
+        CardName = x.CardName,
+        FinancialDocumentKey = x.FinancialDocumentKey,
+        SettlementOrigin = x.SettlementOrigin,
+        ReconciliationKey = x.ReconciliationKey,
+        Reconciled = x.ReconciliationKey != null,
+        Marked = marked
+    };
 }

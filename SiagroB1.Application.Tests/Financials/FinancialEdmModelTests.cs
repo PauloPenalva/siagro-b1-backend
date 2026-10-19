@@ -32,6 +32,7 @@ public class FinancialEdmModelTests
     [InlineData("FinancialAccountReconciliationsReopen")]
     [InlineData("FinancialAccountReconciliationsDelete")]
     [InlineData("FinancialAccountReconciliationsGetLines")]
+    [InlineData("FinancialAccountsGetMovements")]
     public void The_reconciliation_operations_are_declared(string name)
     {
         Assert.Contains(BuildModel().SchemaElements.OfType<IEdmOperation>(), o => o.Name == name);

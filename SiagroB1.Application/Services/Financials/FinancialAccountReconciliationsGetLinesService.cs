@@ -21,7 +21,7 @@ public class FinancialAccountReconciliationsGetLinesService(IUnitOfWork db)
             .OrderBy(x => x.Date).ThenBy(x => x.CreatedAt)
             .ToListAsync();
 
-        var dtos = rows.Select(x => FinancialAccountMovementMapper.ToDto(x, marked: x.ReconciliationKey == key)).ToList();
+        var dtos = rows.Select(x => FinancialAccountMovementsQuery.ToDto(x, marked: x.ReconciliationKey == key)).ToList();
         var reconciled = dtos.Where(x => x.Marked).Sum(x => x.Amount);
 
         return new FinancialAccountReconciliationLinesDto
@@ -33,24 +33,4 @@ public class FinancialAccountReconciliationsGetLinesService(IUnitOfWork db)
             Rows = dtos
         };
     }
-}
-
-internal static class FinancialAccountMovementMapper
-{
-    public static FinancialAccountMovementDto ToDto(FinancialAccountMovementRow x, bool marked = false) => new()
-    {
-        Source = x.Source,
-        Key = x.Key,
-        Date = x.Date,
-        Amount = x.Amount,
-        Description = x.Description,
-        DocumentReference = x.DocumentReference,
-        CardCode = x.CardCode,
-        CardName = x.CardName,
-        FinancialDocumentKey = x.FinancialDocumentKey,
-        SettlementOrigin = x.SettlementOrigin,
-        ReconciliationKey = x.ReconciliationKey,
-        Reconciled = x.ReconciliationKey != null,
-        Marked = marked
-    };
 }
