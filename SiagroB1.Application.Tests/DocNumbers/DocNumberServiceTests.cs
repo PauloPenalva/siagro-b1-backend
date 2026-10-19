@@ -73,11 +73,18 @@ public class DocNumberServiceTests
     }
 
     [Fact]
-    public async Task ManualSeries_RejectedForFinancialDocument()
+    public async Task ManualSeries_RejectedForStorageTransaction()
     {
         var (service, _) = await Seed();
         await Assert.ThrowsAsync<ApplicationException>(() =>
-            service.CreateAsync(Row(TransactionCode.FinancialDocument, "Manual", isManual: true)));
+            service.CreateAsync(Row(TransactionCode.StorageTransaction, "Manual", isManual: true)));
+    }
+
+    [Fact]
+    public async Task ManualSeries_AcceptedForFinancialDocument()
+    {
+        var (service, _) = await Seed();
+        await service.CreateAsync(Row(TransactionCode.FinancialDocument, "Manual", isManual: true));
     }
 
     [Fact]
