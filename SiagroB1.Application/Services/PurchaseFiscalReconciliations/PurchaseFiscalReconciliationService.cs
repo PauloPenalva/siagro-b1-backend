@@ -46,16 +46,18 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
         var plannerLines = lines.Select(l => new PlannerLine(
             l.Key, l.InvoiceType, l.IssueDate, l.TaxDocument,
             QuantityKg(l) - links.Where(x => x.PurchaseInvoiceItemKey == l.Key).Sum(x => x.Quantity))).ToList();
-        var plannerTransactions = transactions.Select(t => new PlannerTransaction(
+        var changed = await PurchaseFiscalReconciliationQuery.ChangedQuantitiesAsync(db.Context, transactions.Select(t => t.Key).ToList());
+        // O estorno da troca de fornecedor/armazém nunca recebe NF; o original só oferece o que sobrou da troca.
+        var plannerTransactions = transactions.Where(t => !IsChangeReturn(t)).Select(t => new PlannerTransaction(
             t.Key, t.TransactionType, t.TransactionDate, t.Code ?? "",
-            t.NetWeight - links.Where(x => x.StorageTransactionKey == t.Key).Sum(x => x.Quantity))).ToList();
+            t.NetWeight - changed.GetValueOrDefault(t.Key) - links.Where(x => x.StorageTransactionKey == t.Key).Sum(x => x.Quantity))).ToList();
 
         var suggested = PurchaseFiscalReconciliationPlanner.Suggest(plannerLines, plannerTransactions)
             .ToDictionary(p => (p.LineKey, p.TransactionKey), p => p.Quantity);
 
         var result = new List<FiscalReconciliationPairDto>();
         foreach (var line in lines)
-        foreach (var tx in transactions.Where(t => R.SenseMatches(line.InvoiceType, t.TransactionType)))
+        foreach (var tx in transactions.Where(t => !IsChangeReturn(t) && R.SenseMatches(line.InvoiceType, t.TransactionType)))
         {
             var current = links.Where(x => x.PurchaseInvoiceItemKey == line.Key && x.StorageTransactionKey == tx.Key).Sum(x => x.Quantity);
             var extra = suggested.GetValueOrDefault((line.Key, tx.Key));
@@ -239,6 +241,9 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
             : throw new DefaultException(
                 $"Cadastre o fator da unidade {line.Unit} no Complemento do Produto {line.ItemCode} para vincular a NF {line.TaxDocument}.");
 
+    private static bool IsChangeReturn(StorageTransaction tx) =>
+        tx.TransactionType == StorageTransactionType.PurchaseReturn && tx.PurchaseTransactionChangeKey != null;
+
     private static void EnsurePair(LineData line, StorageTransaction tx, ILookup<Guid, Guid> contractsByTransaction)
     {
         if (line.InvoiceStatus == InvoiceStatus.Cancelled)
@@ -268,6 +273,9 @@ public class PurchaseFiscalReconciliationService(IUnitOfWork db, FinancialDocume
 
         if (tx.TransactionStatus == StorageTransactionsStatus.Cancelled)
             throw new DefaultException($"O romaneio {tx.Code} está cancelado.");
+
+        if (IsChangeReturn(tx))
+            throw new DefaultException("Estorno de troca de fornecedor/armazém não recebe nota fiscal.");
 
         if (!R.SenseMatches(line.InvoiceType, tx.TransactionType))
             throw new DefaultException(
