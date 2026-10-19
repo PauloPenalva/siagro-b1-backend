@@ -334,14 +334,25 @@ public class StorageTransaction : DocumentEntity
     /// <paramref name="changedQuantity"/> é a quantidade já trocada para outro fornecedor/armazém
     /// (<see cref="PurchaseTransactionChange"/>): sai do saldo, mas não é alocação. O estorno
     /// (tipo 9) gerado por uma troca nunca é alocável.
+    /// <para>
+    /// Troca de liberação (GAC-1177): a perna substituída
+    /// (<see cref="ReplacedByShippingReleaseChangeKey"/>) e o estorno 9 da troca
+    /// (<see cref="ShippingReleaseChangeKey"/>) também nunca são alocáveis — o estorno só devolve o
+    /// que a original tinha alocado, e a sobra (perna desalocada) não pode virar saldo de nenhum
+    /// contrato. A perna 8 NOVA da troca segue alocável.
+    /// </para>
     /// </remarks>
     public void RecalculateAvailableVolume(decimal totalAllocated, decimal changedQuantity = decimal.Zero)
-        => AvaiableVolumeToAllocate = IsAllocatable && !IsPurchaseTransactionChangeReturn
+        => AvaiableVolumeToAllocate = IsAllocatable && !IsPurchaseTransactionChangeReturn && !IsShippingReleaseChangeLeftover
             ? NetWeight - totalAllocated - changedQuantity
             : decimal.Zero;
 
     private bool IsPurchaseTransactionChangeReturn =>
         TransactionType == StorageTransactionType.PurchaseReturn && PurchaseTransactionChangeKey != null;
+
+    private bool IsShippingReleaseChangeLeftover =>
+        ReplacedByShippingReleaseChangeKey != null ||
+        (TransactionType == StorageTransactionType.PurchaseReturn && ShippingReleaseChangeKey != null);
 
     /// <summary>
     /// Refaz <see cref="FreightPrice"/> a partir do método, do unitário e do peso bruto. Chamar
