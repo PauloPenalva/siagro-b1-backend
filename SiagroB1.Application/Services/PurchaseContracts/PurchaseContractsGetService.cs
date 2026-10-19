@@ -45,41 +45,55 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
                 .ThenInclude(a => a.StorageTransaction);
     }
 
-    public List<PurchaseContractDto> GetAvaiablesPurchaseContracts(string cardCode, string itemCode)
+    /// <summary>
+    /// Contratos com saldo para alocar um romaneio do produto: qualquer fornecedor (permite corrigir
+    /// romaneio lançado com fornecedor ou armazém errado), os do fornecedor do romaneio primeiro.
+    /// Tudo no SQL: filtro de saldo, ordem e projeção — sem carregar alocações.
+    /// </summary>
+    public async Task<List<PurchaseContractDto>> GetAvaiablesPurchaseContractsAsync(string cardCode, string itemCode)
     {
-        var responseList = new List<PurchaseContractDto>();
-        
-        var contractsList = unitOfWork.Context.PurchaseContracts
-            .AsNoTracking()
-            .Include(x => x.Allocations)
-                .ThenInclude(a => a.StorageTransaction)
-            // Qualquer fornecedor do produto: permite corrigir romaneio lançado com fornecedor
-            // ou armazém errado. Os contratos do fornecedor do romaneio vêm primeiro.
-            .Where(p => p.ItemCode == itemCode && (p.Status == ContractStatus.Approved || p.Status == ContractStatus.Finished )) 
+        var list = await AvaiableContracts(itemCode)
             .OrderBy(x => x.CardCode == cardCode ? 0 : 1)
             .ThenBy(x => x.RowId)
-            .ToList();
-        
-        contractsList.ForEach(x =>
-        { 
-            if (x.AvaiableVolume > 0)
-            {
-                responseList.Add(new PurchaseContractDto
-                {
-                    Key = x.Key,
-                    Code = x.Code,
-                    AvaiableVolume = x.AvaiableVolume,
-                    UnitOfMeasureCode = x.UnitOfMeasureCode,
-                    AgentCode = x.AgentCode,
-                    AgentName = x.AgentName,
-                    CardCode = x.CardCode,
-                    CardName = x.CardName,
-                    DeliveryLocationCode = x.DeliveryLocationCode,
-                    DeliveryLocationName = x.DeliveryLocationName,
-                });
-            }
-        });
-        
-        return responseList;
+            .Select(ToDto)
+            .ToListAsync();
+        return RoundAvaiableVolume(list);
+    }
+
+    /// <summary>
+    /// Contratos aprovados/encerrados do produto com <see cref="PurchaseContract.AvaiableVolume"/> &gt; 0.
+    /// AvaiableVolume = Round(TotalVolume − AllocatedVolume − WashedOutVolume, 2, ToEven), só colunas
+    /// persistidas. Com 3 casas no banco, o arredondado é &gt; 0 exatamente quando a diferença é
+    /// &gt; 0,005 (0,005 arredonda para 0,00 no ToEven) — assim o filtro vai para o SQL sem mudar a regra.
+    /// </summary>
+    private IQueryable<PurchaseContract> AvaiableContracts(string itemCode) =>
+        unitOfWork.Context.PurchaseContracts
+            .AsNoTracking()
+            .Where(p => p.ItemCode == itemCode &&
+                        (p.Status == ContractStatus.Approved || p.Status == ContractStatus.Finished) &&
+                        p.TotalVolume - p.AllocatedVolume - p.WashedOutVolume > 0.005m);
+
+    // Saldo sai cru do SQL (TotalVolume − AllocatedVolume − WashedOutVolume); RoundAvaiableVolume
+    // aplica o mesmo arredondamento de PurchaseContract.AvaiableVolume em memória.
+    private static readonly System.Linq.Expressions.Expression<Func<PurchaseContract, PurchaseContractDto>> ToDto =
+        x => new PurchaseContractDto
+        {
+            Key = x.Key,
+            Code = x.Code,
+            AvaiableVolume = x.TotalVolume - x.AllocatedVolume - x.WashedOutVolume,
+            UnitOfMeasureCode = x.UnitOfMeasureCode,
+            AgentCode = x.AgentCode,
+            AgentName = x.AgentName,
+            CardCode = x.CardCode,
+            CardName = x.CardName,
+            DeliveryLocationCode = x.DeliveryLocationCode,
+            DeliveryLocationName = x.DeliveryLocationName,
+        };
+
+    private static List<PurchaseContractDto> RoundAvaiableVolume(List<PurchaseContractDto> list)
+    {
+        foreach (var dto in list)
+            dto.AvaiableVolume = decimal.Round(dto.AvaiableVolume, 2, MidpointRounding.ToEven);
+        return list;
     }
 }

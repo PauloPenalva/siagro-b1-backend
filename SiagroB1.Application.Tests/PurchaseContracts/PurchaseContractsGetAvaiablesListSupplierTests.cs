@@ -36,7 +36,7 @@ public class PurchaseContractsGetAvaiablesListSupplierTests
         Add("PC-001", "F0002", "SOJA");
         await _db.Context.SaveChangesAsync();
 
-        var dto = Assert.Single(Service().GetAvaiablesPurchaseContracts("F0001", "SOJA"));
+        var dto = Assert.Single(await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA"));
 
         Assert.Equal("PC-001", dto.Code);
     }
@@ -47,7 +47,7 @@ public class PurchaseContractsGetAvaiablesListSupplierTests
         Add("PC-001", "F0001", "MILHO");
         await _db.Context.SaveChangesAsync();
 
-        Assert.Empty(Service().GetAvaiablesPurchaseContracts("F0001", "SOJA"));
+        Assert.Empty(await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA"));
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class PurchaseContractsGetAvaiablesListSupplierTests
         Add("PC-004", "F0001", "SOJA");
         await _db.Context.SaveChangesAsync();
 
-        var codes = Service().GetAvaiablesPurchaseContracts("F0001", "SOJA").Select(x => x.Code);
+        var codes = (await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA")).Select(x => x.Code);
 
         Assert.Equal(new[] { "PC-002", "PC-004", "PC-001", "PC-003" }, codes);
     }
@@ -70,11 +70,32 @@ public class PurchaseContractsGetAvaiablesListSupplierTests
         Add("PC-001", "F0002", "SOJA", "07");
         await _db.Context.SaveChangesAsync();
 
-        var dto = Assert.Single(Service().GetAvaiablesPurchaseContracts("F0001", "SOJA"));
+        var dto = Assert.Single(await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA"));
 
         Assert.Equal("F0002", dto.CardCode);
         Assert.Equal("NOME F0002", dto.CardName);
         Assert.Equal("07", dto.DeliveryLocationCode);
         Assert.Equal("ARMAZEM 07", dto.DeliveryLocationName);
+    }
+
+    [Theory]
+    [InlineData(1000, 0, false)]          // sem saldo
+    [InlineData(999.995, 0, false)]       // 0,005 arredonda para 0,00 (ToEven): fora
+    [InlineData(999.994, 0, true)]        // 0,006 arredonda para 0,01: dentro
+    [InlineData(600, 400, false)]         // o volume lavado também sai do saldo
+    public async Task OnlyContractsWithRoundedAvaiableVolumeAboveZero_AreListed(
+        double allocated, double washedOut, bool listed)
+    {
+        Add("PC-001", "F0001", "SOJA");
+        var contract = _db.Context.PurchaseContracts.Local.Single();
+        contract.AllocatedVolume = (decimal)allocated;
+        contract.WashedOutVolume = (decimal)washedOut;
+        await _db.Context.SaveChangesAsync();
+
+        var list = await Service().GetAvaiablesPurchaseContractsAsync("F0001", "SOJA");
+
+        Assert.Equal(listed, list.Count == 1);
+        if (listed)
+            Assert.Equal(contract.AvaiableVolume, list[0].AvaiableVolume);
     }
 }
