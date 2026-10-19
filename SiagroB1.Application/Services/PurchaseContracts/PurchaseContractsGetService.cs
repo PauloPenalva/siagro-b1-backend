@@ -61,6 +61,37 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
     }
 
     /// <summary>
+    /// Lista do diálogo de alocação a partir do romaneio. Perna de compra de Expedição só se aloca
+    /// no contrato da liberação (decisão 7 do spec): a lista traz só ele, marcado com
+    /// <see cref="PurchaseContractDto.IsShippingReleaseContract"/> para o diálogo fazer a alocação
+    /// normal, sem o aviso de divergência (o armazém da Expedição é o da liberação). Os demais
+    /// romaneios recebem a mesma lista de <see cref="GetAvaiablesPurchaseContractsAsync"/>.
+    /// </summary>
+    public async Task<List<PurchaseContractDto>> GetAvaiablesPurchaseContractsForTransactionAsync(
+        Guid storageTransactionKey)
+    {
+        var transaction = await unitOfWork.Context.StorageTransactions
+                              .AsNoTracking()
+                              .Where(x => x.Key == storageTransactionKey)
+                              .Select(x => new { x.CardCode, x.ItemCode })
+                              .FirstOrDefaultAsync()
+                          ?? throw new NotFoundException("Romaneio não encontrado.");
+
+        var releaseContractKey = await ShippingPurchaseLegRules.ReleaseContractKeyAsync(
+            unitOfWork.Context, storageTransactionKey);
+        if (releaseContractKey == null)
+            return await GetAvaiablesPurchaseContractsAsync(transaction.CardCode, transaction.ItemCode);
+
+        var list = await AvaiableContracts(transaction.ItemCode)
+            .Where(x => x.Key == releaseContractKey)
+            .Select(ToDto)
+            .ToListAsync();
+        foreach (var dto in list)
+            dto.IsShippingReleaseContract = true;
+        return RoundAvaiableVolume(list);
+    }
+
+    /// <summary>
     /// Contratos aprovados/encerrados do produto com <see cref="PurchaseContract.AvaiableVolume"/> &gt; 0.
     /// AvaiableVolume = Round(TotalVolume − AllocatedVolume − WashedOutVolume, 2, ToEven), só colunas
     /// persistidas. Com 3 casas no banco, o arredondado é &gt; 0 exatamente quando a diferença é

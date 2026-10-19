@@ -766,6 +766,12 @@ public static class ODataConfigurations
         purchaseContractsGetAvaiablesList.Parameter<string>("ItemCode");
         purchaseContractsGetAvaiablesList.Returns<ICollection<PurchaseContractDto>>();
 
+        // Mesma lista a partir do romaneio: perna de Expedição recebe só o contrato da liberação.
+        var purchaseContractsGetAvaiablesListForTransaction =
+            modelBuilder.Function("PurchaseContractsGetAvaiablesListForTransaction");
+        purchaseContractsGetAvaiablesListForTransaction.Parameter<Guid>("StorageTransactionKey");
+        purchaseContractsGetAvaiablesListForTransaction.Returns<ICollection<PurchaseContractDto>>();
+
         var purchaseContractsGetShipmentReleasesAvailable = modelBuilder.Function("PurchaseContractsGetShipmentReleasesAvailable");
         purchaseContractsGetShipmentReleasesAvailable.Returns<PurchaseContract>();
         
