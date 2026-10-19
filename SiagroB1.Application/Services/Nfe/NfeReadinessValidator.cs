@@ -384,6 +384,7 @@ public class NfeReadinessValidator(IUnitOfWork db, NfeOptions options)
     private Task<BusinessPartner?> LoadPartnerAsync(string cardCode) =>
         db.Context.BusinessPartners.AsNoTracking()
             .Include(p => p.Addresses).ThenInclude(a => a.Municipality)
+            .Include(p => p.NfeEmails)
             .FirstOrDefaultAsync(p => p.CardCode == cardCode);
 
     /// <summary>Mesma escolha de <c>SalesInvoicesCfopResolveService.ResolvePartnerState</c>: faturamento primeiro.</summary>

@@ -53,6 +53,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<IcmsItemStateRate> IcmsItemStateRates { get; set; }
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<BranchNfeSeries> BranchNfeSeries { get; set; }
+    public DbSet<EmailSettings> EmailSettings { get; set; }
+    public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
     public DbSet<SalesContractWashout> SalesContractsWashouts { get; set; }
@@ -120,6 +122,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
     public DbSet<BusinessPartner>  BusinessPartners { get; set; }
+
+    public DbSet<BusinessPartnerNfeEmail> BusinessPartnerNfeEmails { get; set; }
     
     public DbSet<Address> Addresses { get; set; }
     public DbSet<TruckScale> TruckScales { get; set; }
@@ -337,6 +341,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<WarehouseComplement>()
             .HasKey(x => x.WarehouseCode);
+
+        // Fila do e-mail da NF-e: a varredura lê por (Status, CreatedAt); o gatilho automático é único por
+        // documento e evento (o reenvio manual pode repetir).
+        modelBuilder.Entity<NfeEmailMessage>(e =>
+        {
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasIndex(x => new { x.DocumentType, x.DocumentKey, x.EventType })
+                .IsUnique()
+                .HasFilter($"[Trigger] = {(int)NfeEmailTrigger.Automatic}");
+        });
+
+        modelBuilder.Entity<BusinessPartnerNfeEmail>(e =>
+        {
+            e.HasIndex(x => new { x.CardCode, x.Email }).IsUnique();
+            e.HasOne(x => x.BusinessPartner).WithMany(bp => bp.NfeEmails)
+                .HasForeignKey(x => x.CardCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Address>()
             .HasOne(a => a.BusinessPartner)

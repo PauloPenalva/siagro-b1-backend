@@ -28,7 +28,7 @@ public class BusinessPartnerModel
 
     public StateRegistrationIndicator? StateRegistrationIndicator { get; set; }
 
-    public string? NfeEmail { get; set; }
+    public List<string> NfeEmails { get; set; } = new();
 
     public string? Phone { get; set; }
 

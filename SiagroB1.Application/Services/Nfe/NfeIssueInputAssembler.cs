@@ -191,7 +191,7 @@ public static class NfeIssueInputAssembler
                 Name = context.Customer.CardName,
                 Indicator = context.Customer.StateRegistrationIndicator!.Value,
                 StateRegistration = NfeText.Digits(context.Customer.StateRegistration),
-                Email = context.Customer.NfeEmail,
+                Email = context.Customer.NfeEmails.OrderBy(e => e.LineNum).Select(e => e.Email).FirstOrDefault(),
                 Address = ToAddress(context.CustomerAddress, context.CustomerMunicipality, context.Customer.Phone),
             },
             Delivery = context.DeliveryPartner is null

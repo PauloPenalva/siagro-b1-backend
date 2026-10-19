@@ -21,7 +21,8 @@ public class PurchaseInvoicesNfeIssueServiceTests
             NullLogger<PurchaseInvoiceNfeResultHandler>.Instance);
 
     internal static PurchaseInvoicesNfeIssueService Issue(
-        PurchaseNfeScenario scenario, FakeNfeSefazClient sefaz, FakeNfeNumberReservationService? reservation = null)
+        PurchaseNfeScenario scenario, FakeNfeSefazClient sefaz, FakeNfeNumberReservationService? reservation = null,
+        PurchaseInvoiceNfeResultHandler? handler = null)
     {
         var config = NfeTestSeed.Config();
         var options = new NfeOptions(config);
@@ -29,7 +30,7 @@ public class PurchaseInvoicesNfeIssueServiceTests
         return new PurchaseInvoicesNfeIssueService(
             scenario.Db, new TaxCalculationGate(scenario.Db, config), new NfeReadinessValidator(scenario.Db, options),
             new BranchNfeSettingsService(scenario.Db, options, sefaz), reservation ?? new FakeNfeNumberReservationService(),
-            sefaz, Handler(scenario), new UsageService(scenario.Db, NullLogger<UsageService>.Instance), options,
+            sefaz, handler ?? Handler(scenario), new UsageService(scenario.Db, NullLogger<UsageService>.Instance), options,
             NullLogger<PurchaseInvoicesNfeIssueService>.Instance,
             NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
     }

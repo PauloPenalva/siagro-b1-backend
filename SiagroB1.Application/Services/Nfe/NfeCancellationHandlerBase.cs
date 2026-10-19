@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -15,9 +16,16 @@ namespace SiagroB1.Application.Services.Nfe;
 /// do cancelamento comum; se falhar, a NF-e (já gravada) é a verdade e o erro vai para
 /// <c>NfeCancellationError</c> — "Concluir cancelamento" refaz só a fase 2.
 /// </summary>
-public abstract class NfeCancellationHandlerBase<TDocument>(IUnitOfWork db, INfeDocumentStore<TDocument> store, ILogger logger)
+public abstract class NfeCancellationHandlerBase<TDocument>(
+    IUnitOfWork db, INfeDocumentStore<TDocument> store, ILogger logger, INfeEmailOutboxService? emailOutbox = null)
     where TDocument : class, INfeDocument
 {
+    /// <summary>Tipo do documento na fila de e-mail da NF-e.</summary>
+    protected abstract NfeEmailDocumentType EmailDocumentType { get; }
+
+    /// <summary>Se a NF-e deste documento é enviada por e-mail ao parceiro (ex.: só a entrada própria).</summary>
+    protected virtual bool SendsEmail(TDocument document) => true;
+
     /// <summary>Justificativa gravada quando a nota foi cancelada fora do Siagro e a consulta não trouxe o evento.</summary>
     public const string UnknownReason = "Cancelada fora do Siagro";
 
@@ -27,6 +35,9 @@ public abstract class NfeCancellationHandlerBase<TDocument>(IUnitOfWork db, INfe
     public async Task<NfeIssueOutcomeDto> ApplyRegisteredAsync(
         TDocument document, NfeEventResult result, string? justification, string userName)
     {
+        // A situação de antes: o e-mail só nasce na TRANSIÇÃO para cancelada.
+        var previousStatus = document.NfeStatus;
+
         try
         {
             if (result.ProcEventXml is not null)
@@ -40,8 +51,12 @@ public abstract class NfeCancellationHandlerBase<TDocument>(IUnitOfWork db, INfe
             document.NfeStatusReason = NfeStatusText.Truncate(result.Reason);
             document.NfeCancellationError = null;
 
-            // A NF-e cancelada vai para o banco ANTES do cancelamento do documento.
-            await db.SaveChangesAsync();
+            if (previousStatus != NfeStatus.Cancelled)
+                await NfeEmailTriggers.EnqueueAsync(emailOutbox, logger, SendsEmail(document), EmailDocumentType,
+                    document.Key, NfeEmailEventType.Cancelled, userName);
+
+            // A NF-e cancelada vai para o banco ANTES do cancelamento do documento. A linha de e-mail nunca derruba este save.
+            await NfeEmailTriggers.SaveFiscalAsync(db, logger);
         }
         catch (Exception e)
         {

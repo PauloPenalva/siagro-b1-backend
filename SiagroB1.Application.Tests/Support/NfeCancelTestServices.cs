@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.Nfe;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Tests.SalesInvoices;
@@ -45,11 +46,15 @@ public static class NfeCancelTestServices
     private static BranchNfeSettingsService Settings(UnitOfWork db, FakeNfeSefazClient sefaz) =>
         new(db, new NfeOptions(NfeTestSeed.Config()), sefaz);
 
-    public static SalesInvoiceNfeCancellationHandler SalesHandler(UnitOfWork db, SalesInvoicesCancelService? cancel = null) =>
-        new(db, cancel ?? SalesInvoicesCancelServiceTests.Service(db), NullLogger<SalesInvoiceNfeCancellationHandler>.Instance);
+    public static SalesInvoiceNfeCancellationHandler SalesHandler(
+        UnitOfWork db, SalesInvoicesCancelService? cancel = null, INfeEmailOutboxService? emailOutbox = null) =>
+        new(db, cancel ?? SalesInvoicesCancelServiceTests.Service(db), NullLogger<SalesInvoiceNfeCancellationHandler>.Instance,
+            emailOutbox);
 
-    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(UnitOfWork db, PurchaseInvoicesCancelService? cancel = null) =>
-        new(db, cancel ?? FinancialDocumentTestServices.PurchaseCancel(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
+    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(
+        UnitOfWork db, PurchaseInvoicesCancelService? cancel = null, INfeEmailOutboxService? emailOutbox = null) =>
+        new(db, cancel ?? FinancialDocumentTestServices.PurchaseCancel(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance,
+            emailOutbox);
 
     public static SalesInvoicesNfeCancelService SalesCancel(
         UnitOfWork db, FakeNfeSefazClient sefaz, SalesInvoicesCancelService? cancel = null,

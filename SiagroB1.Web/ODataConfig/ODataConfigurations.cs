@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Dtos.Common;
+using SiagroB1.Domain.Dtos.Email;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Common;
@@ -98,6 +99,41 @@ public static class ODataConfigurations
         var branchNfeSettingsTestConnection = modelBuilder.Action("BranchNfeSettingsTestConnection");
         branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
         branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
+
+        // Remetente de e-mail da empresa (STANDALONE, ADMIN). A senha só entra; nunca sai.
+        var emailSettingsGet = modelBuilder.Function("EmailSettingsGet");
+        emailSettingsGet.Returns<EmailSettingsModel>();
+
+        var emailSettingsSave = modelBuilder.Action("EmailSettingsSave");
+        emailSettingsSave.Parameter<string>("Host");
+        emailSettingsSave.Parameter<int>("Port");
+        emailSettingsSave.Parameter<bool>("UseStartTls");
+        emailSettingsSave.Parameter<string>("UserName");
+        emailSettingsSave.Parameter<string>("Password");
+        emailSettingsSave.Parameter<string>("FromAddress");
+        emailSettingsSave.Parameter<string>("FromName");
+        emailSettingsSave.Parameter<bool>("AutoSendEnabled");
+        emailSettingsSave.Returns<EmailSettingsModel>();
+
+        var emailSettingsSendTest = modelBuilder.Action("EmailSettingsSendTest");
+        emailSettingsSendTest.Parameter<string>("To");
+        emailSettingsSendTest.Returns<EmailSendResult>();
+
+        // E-mail da NF-e (STANDALONE): reenvio manual, destinatários padrão do diálogo e histórico (somente leitura).
+        foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
+        {
+            var sendNfeEmail = modelBuilder.Action($"{prefix}SendNfeEmail");
+            sendNfeEmail.Parameter<Guid>("Key");
+            sendNfeEmail.CollectionParameter<string>("Recipients");
+        }
+
+        // DocumentType: 1 = Sales, 2 = Purchase.
+        var nfeEmailDefaultRecipients = modelBuilder.Function("NfeEmailDefaultRecipients");
+        nfeEmailDefaultRecipients.Parameter<int>("DocumentType");
+        nfeEmailDefaultRecipients.Parameter<Guid>("Key");
+        nfeEmailDefaultRecipients.ReturnsCollection<string>();
+
+        modelBuilder.EntitySet<NfeEmailMessage>("NfeEmailMessages");
 
         var companiesTestConnection = modelBuilder.Action("CompaniesTestConnection");
         companiesTestConnection.Parameter<string>("Code");

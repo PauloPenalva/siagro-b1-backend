@@ -22,6 +22,7 @@ public sealed class CompanyScopedJobRunner(
     public const string StorageDailyCalculation = "storage-daily-calculation";
     public const string ContractNotificationSweep = "contract-notification-sweep";
     public const string ContractDraftsReconcile = "contract-drafts-reconcile";
+    public const string NfeEmailSweep = "nfe-email-sweep";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -29,6 +30,7 @@ public sealed class CompanyScopedJobRunner(
             [StorageDailyCalculation] = (sp, ct) => sp.GetRequiredService<IStorageAddressesDailyCalculationJob>().ExecuteAsync(null, ct),
             [ContractNotificationSweep] = (sp, ct) => sp.GetRequiredService<IContractNotificationSweepJob>().ExecuteAsync(ct),
             [ContractDraftsReconcile] = (sp, ct) => sp.GetRequiredService<ContractDraftsReconcileJob>().ExecuteAsync(ct),
+            [NfeEmailSweep] = (sp, ct) => sp.GetRequiredService<NfeEmailSweepJob>().ExecuteAsync(ct),
         };
 
     /// <summary>
