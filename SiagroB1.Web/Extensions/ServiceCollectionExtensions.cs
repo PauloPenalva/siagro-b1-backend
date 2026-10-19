@@ -691,6 +691,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsSettleService>();
         services.AddScoped<FinancialDocumentsReverseSettlementService>();
         services.AddScoped<FinancialAdvancesCreateService>();
+        services.AddScoped<FinancialDocumentsManualCreateService>();
+        services.AddScoped<FinancialDocumentsManualUpdateService>();
+        services.AddScoped<FinancialDocumentsManualDeleteService>();
         services.AddScoped<FinancialDocumentsGetTotalsService>();
         services.AddScoped<FinancialDocumentsSetDueDateService>();
         services.AddScoped<FinancialDocumentsGetByContractService>();

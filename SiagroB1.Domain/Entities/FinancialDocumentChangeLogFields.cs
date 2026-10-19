@@ -9,6 +9,14 @@ public static class FinancialDocumentChangeLogFields
     public const string DueDate = "DueDate";
     public const string Comments = "Comments";
 
+    /// <summary>Campos do título lançado à mão (FinancialDocumentsManualUpdateService).</summary>
+    public const string Partner = "Partner";
+    public const string DocumentDate = "DocumentDate";
+    public const string Branch = "Branch";
+    public const string Currency = "Currency";
+    public const string PaymentTerms = "PaymentTerms";
+    public const string TaxDocumentNumber = "TaxDocumentNumber";
+
     /// <summary>Revínculo do adiantamento: os valores gravados são os CÓDIGOS dos contratos.</summary>
     public const string Contract = "Contract";
 

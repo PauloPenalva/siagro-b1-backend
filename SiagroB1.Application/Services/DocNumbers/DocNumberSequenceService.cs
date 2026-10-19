@@ -64,7 +64,7 @@ public class DocNumberSequenceService(IDbConnection connection)
 
     // Documentos que nunca aceitam número digitado: o número é sempre gerado pelo sistema.
     public static bool AllowsManual(TransactionCode code) =>
-        code is not (TransactionCode.FinancialDocument or TransactionCode.StorageTransaction);
+        code is not TransactionCode.StorageTransaction;
 
     // Ponto único de atribuição de número: série manual (código digitado) ou automática
     // (contador, saltando códigos já ocupados por digitação manual).
