@@ -118,4 +118,26 @@ public class StorageInvoiceBillingGuardTests
             new StorageInvoiceCancelRequest { StorageInvoiceKey = seed.Invoice.Key, Reason = "erro" }, "ana"));
         Assert.Equal("Cancele antes os documentos de saída desta fatura.", ex.Message);
     }
+
+    [Fact]
+    public async Task Line_price_update_through_service_over_balance_is_refused()
+    {
+        var seed = await StorageInvoiceBillingSeed.CreateAsync();
+        var mine = await seed.AddDocumentAsync(1000m, InvoiceStatus.Pending);
+        var line = await seed.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.SalesInvoiceKey == mine.Key);
+        line.UnitPrice = 1200m;
+        var service = new SiagroB1.Application.Services.SalesInvoices.SalesInvoicesItemsUpdateService(seed.Db,
+            new FakeItemService(),
+            new SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsClosureHookService(seed.Db.Context,
+                new SiagroB1.Application.Services.ShipmentLoads.ShipmentLoadsChangeLogService(seed.Db.Context)),
+            TaxTestServices.InactiveApply(seed.Db), TaxTestServices.InactiveFiscalComplement(seed.Db), null!,
+            NullLogger<SiagroB1.Application.Services.SalesInvoices.SalesInvoicesUpdateService>.Instance);
+
+        var ex = await Record.ExceptionAsync(() => service.ExecuteAsync(line.Key!.Value, line, "ana"));
+
+        Assert.NotNull(ex);
+        Assert.Contains("excede o saldo", ex!.Message);
+        var stored = await seed.Db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync(i => i.Key == line.Key);
+        Assert.Equal(1000m, stored.UnitPrice);
+    }
 }

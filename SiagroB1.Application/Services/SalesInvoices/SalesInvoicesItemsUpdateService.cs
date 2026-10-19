@@ -110,14 +110,15 @@ public class SalesInvoicesItemsUpdateService(
 
             await ApplyTaxLockAsync(existingEntity);
 
+            // Spec 2026-10-19 parte 3: preço/quantidade da linha de documento que fatura a fatura de armazenagem.
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, existingEntity.SalesInvoiceKey);
+
             if (deliveryChanged)
             {
                 // Depois do SetValues: os carimbos não vêm no corpo do PATCH, e o SetValues
                 // sobrescreveria com o nulo da entidade recebida no caminho PUT.
                 existingEntity.UpdatedAt = DateTime.Now;
                 existingEntity.UpdatedBy = userName;
-            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, existingEntity.SalesInvoiceKey);
-
                 db.Context.SalesInvoicesChangeLogs.AddRange(logs);
             }
 
