@@ -29,9 +29,21 @@ public class PurchaseTransactionChange : BaseEntity
     /// <summary>Contrato em que o romaneio novo foi alocado.</summary>
     public Guid PurchaseContractKey { get; set; }
 
+    // Mesmo tipo/tamanho de STORAGE_TRANSACTIONS.CardCode/WarehouseCode.
+    [Column(TypeName = "VARCHAR(10)")]
+    [MaxLength(10)]
     public required string OriginalCardCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    [MaxLength(10)]
     public required string OriginalWarehouseCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    [MaxLength(10)]
     public required string NewCardCode { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    [MaxLength(10)]
     public required string NewWarehouseCode { get; set; }
 
     /// <summary>Quantidade trocada (a que sai do saldo alocável do original).</summary>

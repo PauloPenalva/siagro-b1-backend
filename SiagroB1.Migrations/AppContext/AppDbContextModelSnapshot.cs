@@ -3231,25 +3231,29 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("NewCardCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(10)
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid>("NewStorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("NewWarehouseCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(10)
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<string>("OriginalCardCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(10)
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid>("OriginalStorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("OriginalWarehouseCode")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(10)
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
