@@ -86,6 +86,14 @@ public class PurchaseTransactionsChangeSupplierService(
                 $"O romaneio {original.Code} faz parte de outro fluxo (expedição ou entrada em armazenagem) " +
                 "e não pode ter o fornecedor/armazém trocado por aqui.");
 
+        // Só romaneio lançado na tela de romaneios (o romaneio novo de uma troca herda essa origem e pode
+        // ser trocado de novo). Os gerados por outro fluxo — transferência de titularidade, carga,
+        // conferência de saldo, descarga… — têm o próprio estorno.
+        if (original.TransactionOrigin != TransactionCode.StorageTransaction)
+            throw new ApplicationException(
+                $"O romaneio {original.Code} foi gerado por outro fluxo e não pode ter o fornecedor/armazém " +
+                "trocado por aqui.");
+
         // Saldo pelo BANCO, pela mesma regra de RecalculateAvailableVolume (não pela coluna gravada).
         var allocated = await db.Context.PurchaseContractsAllocations
             .Where(x => x.StorageTransactionKey == original.Key)

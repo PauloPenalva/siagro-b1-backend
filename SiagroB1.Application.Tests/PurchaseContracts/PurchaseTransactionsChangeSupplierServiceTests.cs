@@ -82,7 +82,8 @@ public class PurchaseTransactionsChangeSupplierServiceTests
         decimal cleaning = 0m,
         StorageTransactionsStatus status = StorageTransactionsStatus.Confirmed,
         string? invoiceNumber = null,
-        string? chaveNFe = null)
+        string? chaveNFe = null,
+        TransactionCode? origin = TransactionCode.StorageTransaction)
     {
         var net = gross - drying - cleaning;
         var st = new StorageTransaction
@@ -113,6 +114,7 @@ public class PurchaseTransactionsChangeSupplierServiceTests
             InvoiceSerie = invoiceNumber == null ? null : "1",
             InvoiceQty = invoiceNumber == null ? 0m : net,
             ChaveNFe = chaveNFe,
+            TransactionOrigin = origin,
         };
         _db.Context.StorageTransactions.Add(st);
         await _db.Context.SaveChangesAsync();
@@ -383,6 +385,27 @@ public class PurchaseTransactionsChangeSupplierServiceTests
             "O romaneio RC-0001 faz parte de outro fluxo (expedição ou entrada em armazenagem) e não pode ter " +
             "o fornecedor/armazém trocado por aqui.",
             ex.Message);
+    }
+
+    [Theory]
+    [InlineData(TransactionCode.OwnershipTransfer)]
+    [InlineData(TransactionCode.ShipmentLoad)]
+    [InlineData(TransactionCode.WarehouseReconciliation)]
+    [InlineData(null)]
+    public async Task NonStandaloneOrigin_IsRefused(TransactionCode? origin)
+    {
+        // Só o romaneio lançado na tela de romaneios (origem StorageTransaction) é trocado aqui:
+        // os gerados por outro fluxo têm o próprio estorno.
+        var original = await SeedOriginalAsync(origin: origin);
+        var contract = await SeedContractAsync("PC-002");
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Service().ExecuteAsync(original.Key, contract.Key, 30_000m, "motivo", "tester"));
+
+        Assert.Equal(
+            "O romaneio RC-0001 foi gerado por outro fluxo e não pode ter o fornecedor/armazém trocado por aqui.",
+            ex.Message);
+        Assert.Single(await _db.Context.StorageTransactions.ToListAsync());
     }
 
     [Theory]
