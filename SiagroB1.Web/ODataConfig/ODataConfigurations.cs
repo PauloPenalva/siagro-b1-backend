@@ -1656,6 +1656,11 @@ public static class ODataConfigurations
         storageInvoiceClosing.Parameter<bool>("IncludeUnpricedItems");
         storageInvoiceClosing.Returns<IActionResult>();
         
+        // Spec 2026-10-19 parte 3: documentos de saída, títulos a receber e saldo a faturar da fatura.
+        var storageInvoiceBilling = modelBuilder.Function("StorageInvoiceBilling");
+        storageInvoiceBilling.Parameter<Guid>("Key");
+        storageInvoiceBilling.Returns<StorageInvoiceBillingDto>();
+
         var storageInvoiceCancellation = modelBuilder.Action("StorageInvoiceCancellation");
         storageInvoiceCancellation.Parameter<Guid>("StorageInvoiceKey");
         storageInvoiceCancellation.Parameter<string>("Reason");

@@ -693,6 +693,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsOtherPurchaseService>();
         services.AddScoped<FinancialDocumentsSalesFirmSyncService>();
         services.AddScoped<FinancialDocumentsSalesNoContractService>();
+        services.AddScoped<StorageInvoicesBillingGetService>();
         services.AddScoped<FinancialDocumentsComposeService>();
         services.AddScoped<FinancialDocumentsUncomposeService>();
         services.AddScoped<FinancialDocumentsDationService>();
