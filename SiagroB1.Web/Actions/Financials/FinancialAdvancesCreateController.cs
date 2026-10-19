@@ -28,6 +28,13 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
             if (!parameters.TryGetValue("DueDate", out var dueObj) || dueObj is null)
                 return BadRequest("Informe o vencimento do adiantamento.");
 
+            if (!parameters.TryGetValue("FinancialAccountCode", out var accountObj) || accountObj is null ||
+                string.IsNullOrWhiteSpace(accountObj.ToString()))
+                return BadRequest("Informe a conta financeira do pagamento do adiantamento.");
+
+            if (!parameters.TryGetValue("PaymentDate", out var paymentObj) || paymentObj is null)
+                return BadRequest("Informe a data do pagamento do adiantamento.");
+
             parameters.TryGetValue("Comments", out var commentsObj);
 
             var advance = await service.ExecuteAsync(
@@ -35,6 +42,8 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
                 contractKey: Guid.Parse(contractObj.ToString()!),
                 amount: Convert.ToDecimal(amountObj),
                 dueDate: DateTime.Parse(dueObj.ToString()!),
+                financialAccountCode: accountObj.ToString()!,
+                paymentDate: DateTime.Parse(paymentObj.ToString()!),
                 comments: commentsObj?.ToString(),
                 userName: User.Identity?.Name ?? "Unknown");
 
