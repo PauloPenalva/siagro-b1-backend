@@ -30,11 +30,46 @@ public class PurchaseContractsAllocationCreateService(
         await unitOfWork.Context.PurchaseContracts
             .FirstOrDefaultAsync(x => x.Key == purchaseContractKey);
 
+    /// <summary>
+    /// Entrada da tela/API: contrato de outro fornecedor ou outro Local de Entrega não se aloca
+    /// direto — é a troca de fornecedor/armazém (<see cref="PurchaseTransactionsChangeSupplierService"/>).
+    /// A trava fica só aqui: os fluxos internos (<see cref="ExecuteAsync"/>, estorno, descarga)
+    /// alocam por regras próprias. A pernada de compra de uma Expedição também fica de fora: o
+    /// armazém dela é o da liberação, que pode diferir do Local de Entrega do contrato.
+    /// </summary>
+    private async Task EnsureSameSupplierAndWarehouseAsync(Guid purchaseContractKey, Guid storageTransactionKey)
+    {
+        var transaction = await unitOfWork.Context.StorageTransactions
+            .AsNoTracking()
+            .Where(x => x.Key == storageTransactionKey)
+            .Select(x => new { x.Key, x.CardCode, x.WarehouseCode })
+            .FirstOrDefaultAsync();
+        var contract = await unitOfWork.Context.PurchaseContracts
+            .AsNoTracking()
+            .Where(x => x.Key == purchaseContractKey)
+            .Select(x => new { x.CardCode, x.DeliveryLocationCode })
+            .FirstOrDefaultAsync();
+
+        // Inexistente: o ExecuteAsync responde com o erro de sempre.
+        if (transaction == null || contract == null)
+            return;
+
+        if (await unitOfWork.Context.ShippingTransactions
+                .AnyAsync(x => x.PurchaseStorageTransactionKey == transaction.Key))
+            return;
+
+        if (!string.Equals(transaction.CardCode, contract.CardCode, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(transaction.WarehouseCode, contract.DeliveryLocationCode, StringComparison.OrdinalIgnoreCase))
+            throw new ApplicationException(
+                "O contrato tem outro fornecedor ou armazém: use a troca de fornecedor/armazém.");
+    }
+
     public async Task ExecuteWithTransactionAsync(Guid purchaseContractKey, Guid storageTransactionKey, decimal volume,
         string userName)
     {
         try
         {
+            await EnsureSameSupplierAndWarehouseAsync(purchaseContractKey, storageTransactionKey);
             await unitOfWork.BeginTransactionAsync();
             await ExecuteAsync(purchaseContractKey, storageTransactionKey, volume, userName);
             await unitOfWork.CommitAsync();

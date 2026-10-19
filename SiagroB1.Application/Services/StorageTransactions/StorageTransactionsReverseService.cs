@@ -78,6 +78,15 @@ public class StorageTransactionsReverseService(
                 $"O romaneio {doc.Code} faz parte de uma troca de liberação e não pode ser estornado por aqui.");
         }
 
+        // Troca de fornecedor/armazém na alocação: o estorno 9 e o romaneio 8 novo carregam a chave
+        // da troca, e o ORIGINAL é apontado por ela. Estorná-lo por aqui destruiria o rastro da troca.
+        if (doc.PurchaseTransactionChangeKey != null ||
+            await db.Context.PurchaseTransactionChanges.AnyAsync(x => x.OriginalStorageTransactionKey == doc.Key))
+        {
+            throw new ApplicationException(
+                $"O romaneio {doc.Code} faz parte de uma troca de fornecedor/armazém e não pode voltar a pendente por aqui.");
+        }
+
         // Mesmo caso, no fluxo LEGADO: a devolução do retorno de um documento de saída sem carga
         // tem AS DUAS colunas acima nulas e escaparia dos dois guards. Quem desfaz esta entrada é
         // o estorno da confirmação da própria devolução, que sabe o que mais precisa voltar.
