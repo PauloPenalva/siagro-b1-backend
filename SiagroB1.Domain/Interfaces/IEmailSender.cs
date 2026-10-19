@@ -1,3 +1,5 @@
+using SiagroB1.Domain.Dtos.Email;
+
 namespace SiagroB1.Domain.Interfaces;
 
 /// <summary>
@@ -10,4 +12,10 @@ namespace SiagroB1.Domain.Interfaces;
 public interface IEmailSender
 {
     Task<bool> SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default);
+
+    /// <summary>
+    /// Envia para vários destinatários, com anexos, usando o SMTP da empresa. Nunca lança: a falha
+    /// volta em <see cref="EmailSendResult"/>. Respeita a trava global <c>Email:Enabled</c>.
+    /// </summary>
+    Task<EmailSendResult> SendAsync(EmailMessage message, SmtpSettings smtp, CancellationToken ct = default);
 }

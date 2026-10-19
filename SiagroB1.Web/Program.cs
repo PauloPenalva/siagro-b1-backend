@@ -93,6 +93,7 @@ builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(sp.GetRequiredService<ICompanyContext>().ConnectionString));
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
+builder.Services.AddScoped<IEmailSender, SiagroB1.Infra.Email.SmtpEmailSender>();
 builder.Services.AddScoped<UserService>();
 
 builder.Services.AddHttpContextAccessor();

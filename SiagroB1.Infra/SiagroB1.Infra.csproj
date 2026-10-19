@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SiagroB1.Application.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="B1SLayer" Version="2.1.2" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="Dapper" Version="2.1.66" />
