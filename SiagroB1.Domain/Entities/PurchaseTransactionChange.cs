@@ -6,9 +6,9 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 /// <summary>
-/// Documento da troca de fornecedor/armazém de um romaneio de compra (tipo 8) que já tem
-/// alocação: amarra o romaneio original, o estorno gerado (tipo 9) e o romaneio novo que
-/// assume a quantidade trocada com o novo fornecedor/armazém.
+/// Documento da troca de fornecedor/armazém de um romaneio de compra (tipo 8), total ou só do
+/// saldo ainda não alocado: amarra o romaneio original, o estorno gerado (tipo 9) e o romaneio
+/// novo que assume a quantidade trocada com o novo fornecedor/armazém.
 /// </summary>
 [Table("PURCHASE_TRANSACTION_CHANGES")]
 [Index(nameof(OriginalStorageTransactionKey))]
