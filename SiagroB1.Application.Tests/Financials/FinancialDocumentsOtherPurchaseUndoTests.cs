@@ -84,7 +84,7 @@ public class FinancialDocumentsOtherPurchaseUndoTests
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
             FinancialDocumentTestServices.PurchaseCancel(f.Db).EnsureCanCancelAsync(invoice.Key));
 
-        Assert.Contains("já tem baixa", error.Message);
+        Assert.Contains("possui baixa financeira", error.Message); // trava única de baixa responde primeiro
         Assert.All(await f.TitlesAsync(invoice), d => Assert.NotEqual(FinancialDocumentStatus.Canceled, d.Status));
     }
 

@@ -7,6 +7,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
@@ -23,6 +24,7 @@ public class SalesInvoicesDeleteService(
                 throw new ApplicationException($"Entity {nameof(entity)} with ID {entity.Key} is not pending.");
 
             SalesInvoiceNfeLock.EnsureDeletable(entity);
+            await InvoiceSettledFinancialGuard.EnsureSalesHasNoSettlementAsync(db.Context, entity.Key, entity.InvoiceNumber);
             await StorageCustodyGuard.EnsureSalesHasNoLaterStepAsync(db.Context, entity.Key);
             await SalesInvoicesRefusalLink.EnsureNotInPendingRefusalAsync(db.Context, entity);
 

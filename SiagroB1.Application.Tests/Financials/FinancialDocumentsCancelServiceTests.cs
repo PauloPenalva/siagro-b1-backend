@@ -76,7 +76,38 @@ public class FinancialDocumentsCancelServiceTests
         var error = await Assert.ThrowsAsync<ApplicationException>(
             () => Service().ExecuteAsync(document.Key, "Motivo qualquer", "tester"));
 
-        Assert.Contains("estorne", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("possui baixa financeira", error.Message);
+    }
+
+    // Só título lançado à mão sai pela tela: o gerado pelo sistema nasce e morre com a sua origem.
+    [Theory]
+    [InlineData(FinancialDocumentOrigin.PurchaseContractPriceFixation)]
+    [InlineData(FinancialDocumentOrigin.SalesContractPriceFixation)]
+    [InlineData(FinancialDocumentOrigin.FinancialDocument)]
+    public async Task Refuses_a_document_not_created_manually(FinancialDocumentOrigin origin)
+    {
+        var document = await SeedAsync();
+        document.OriginType = origin;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(document.Key, "Motivo qualquer", "tester"));
+
+        Assert.Contains("gerado automaticamente", error.Message);
+    }
+
+    // Baixa vence a origem: a mensagem que o usuário vê é a da baixa.
+    [Fact]
+    public async Task Settled_generated_document_reports_the_settlement()
+    {
+        var document = await SeedAsync(settledAmount: 10m);
+        document.OriginType = FinancialDocumentOrigin.PurchaseContractPriceFixation;
+        await _db.Context.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(document.Key, "Motivo qualquer", "tester"));
+
+        Assert.Contains("possui baixa financeira", error.Message);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -33,6 +34,7 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
                 "Somente documento pendente pode ser excluído. Cancele o documento.");
 
         PurchaseInvoiceNfeLock.EnsureDeletable(invoice);
+        await InvoiceSettledFinancialGuard.EnsurePurchaseHasNoSettlementAsync(db.Context, invoice.Key, invoice.InvoiceNumber);
         await PurchaseInvoiceCounterNote.EnsureNotReferencedAsync(db.Context, invoice.Key);
         await StorageCustodyGuard.EnsurePurchaseHasNoLaterStepAsync(db.Context, invoice.Key);
 
