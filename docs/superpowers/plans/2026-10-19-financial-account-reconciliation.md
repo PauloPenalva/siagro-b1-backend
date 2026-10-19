@@ -15,7 +15,7 @@
 1. **Modo:** funciona em STANDALONE e SAPB1 — o módulo financeiro vive no banco do Siagro nos dois modos; nada aqui consulta o SAP. Sem `ErpMode` gate.
 2. **Sinal de caixa** de uma baixa = `(Amount + InterestAmount + FineAmount − DiscountAmount)`, positivo para `Receivable` (entrada) e negativo para `Payable` (saída). Estorno já é linha negativa, então sai com sinal invertido sozinho. Só entram baixas com `FinancialAccountCode` preenchido (as não-caixa ficam fora).
 3. **Lançamento manual** tem valor assinado (+ entrada / − saída), não pode ter valor zero, nem ser lançado em conta inativa. Pode ser **excluído** enquanto não conciliado (é digitação, não baixa de título); conciliado → recusa.
-4. **Reconciliação** é por conta e data de extrato: abrir (com saldo final do extrato) → marcar/desmarcar linhas com data ≤ data do extrato → fechar só se `saldo anterior conciliado + soma marcada == saldo do extrato`. Uma conta tem no máximo **uma** reconciliação aberta; a data do extrato tem de ser maior que a da última fechada. Só a **última fechada** pode ser reaberta. Linha conciliada não pode ser excluída/estornada? — estorno de baixa conciliada é permitido (o estorno é outra linha, que fica pendente); exclusão de manual conciliado é recusada.
+4. **Reconciliação** é por conta e data de extrato: abrir (com saldo final do extrato) → marcar/desmarcar linhas com data ≤ data do extrato → fechar só se `saldo anterior conciliado + soma marcada == saldo do extrato`. Uma conta tem no máximo **uma** reconciliação aberta; a data do extrato tem de ser maior que a da última fechada. Só a **última fechada** pode ser reaberta. **Lançamento conciliado fica bloqueado** (decisão do usuário): estornar baixa conciliada e excluir lançamento manual conciliado são recusados; é preciso antes remover a conciliação (reabrir a reconciliação e desmarcar a linha) e só então estornar/excluir.
 5. **Extrato** (PDF): conta + período; saldo anterior (soma de tudo antes do início), movimentos em ordem de data, saldo acumulado por linha, coluna "Conciliado" (S/N), saldo final. Filtro opcional "somente conciliados".
 6. Saldo "conciliado anterior" de uma reconciliação = soma de todas as linhas marcadas em reconciliações fechadas da conta.
 
@@ -89,6 +89,8 @@ Mensagens (`ApplicationException`): "Informe um valor diferente de zero.", "A co
 - [ ] Testes (um por mensagem acima + caminho feliz; `Open_records_opening_balance_from_closed_reconciliations`) → implementar → passar → commit `feat(financial): lançamento manual e abertura de reconciliação`.
 
 ### Task 4: Marcar, fechar e reabrir reconciliação
+
+Inclui a trava no `FinancialDocumentsReverseSettlementService`: baixa com `ReconciliationKey` → "Baixa conciliada não pode ser estornada. Remova a conciliação primeiro." (teste `Reverse_reconciled_settlement_is_refused`).
 
 **Files:** `FinancialAccountReconciliations{SetLines,Close,Reopen,GetSummary}Service.cs`; ações `FinancialAccountReconciliationsSetLines`, `…Close`, `…Reopen`, função `FinancialAccountReconciliationsGetLines(Key)`; tests.
 
