@@ -237,9 +237,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("IsRuralProducer")
                         .HasColumnType("bit");
 
-                    b.Property<string>("NfeEmail")
-                        .HasColumnType("VARCHAR(250)");
-
                     b.Property<string>("Notes")
                         .HasColumnType("VARCHAR(100)")
                         .HasColumnName("Free_Text");
@@ -275,6 +272,31 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("CardCode");
 
                     b.ToTable("BUSINESS_PARTNERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartnerNfeEmail", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15) NOT NULL");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(250) NOT NULL");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("CardCode", "Email")
+                        .IsUnique();
+
+                    b.ToTable("BUSINESS_PARTNER_NFE_EMAILS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartnerSignatory", b =>
@@ -738,6 +760,49 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("DOC_NUMBERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EmailSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AutoSendEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("FromName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<byte[]>("PasswordEncrypted")
+                        .HasColumnType("VARBINARY(512)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<bool>("UseStartTls")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("EMAIL_SETTINGS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccount", b =>
@@ -1323,6 +1388,63 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("Code");
 
                     b.ToTable("MUNICIPALITIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NfeEmailMessage", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("DocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EnqueuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("VARCHAR(1000)");
+
+                    b.Property<string>("Recipients")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("DocumentType", "DocumentKey", "EventType")
+                        .IsUnique()
+                        .HasFilter("[Trigger] = 1");
+
+                    b.ToTable("NFE_EMAIL_MESSAGES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
@@ -7111,6 +7233,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartnerNfeEmail", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.BusinessPartner", "BusinessPartner")
+                        .WithMany("NfeEmails")
+                        .HasForeignKey("CardCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BusinessPartner");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.CompanySignatory", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -8702,6 +8835,8 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>
                 {
                     b.Navigation("Addresses");
+
+                    b.Navigation("NfeEmails");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ContractDraft", b =>

@@ -1,3 +1,4 @@
+using SiagroB1.Domain.Dtos.Email;
 using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Application.Tests.Support;
@@ -16,5 +17,20 @@ public class FakeEmailSender : IEmailSender
     {
         Sent.Add((to, subject, htmlBody));
         return Task.FromResult(ShouldSucceed);
+    }
+
+    public List<(EmailMessage Message, SmtpSettings Smtp)> SentMessages { get; } = [];
+
+    public string? FailureError { get; private set; }
+
+    /// <summary>Faz os próximos envios com <see cref="EmailMessage"/> falharem com o erro dado.</summary>
+    public void FailWith(string error) => FailureError = error;
+
+    public Task<EmailSendResult> SendAsync(EmailMessage message, SmtpSettings smtp, CancellationToken ct = default)
+    {
+        SentMessages.Add((message, smtp));
+        return Task.FromResult(FailureError is null
+            ? new EmailSendResult(true, null)
+            : new EmailSendResult(false, FailureError));
     }
 }

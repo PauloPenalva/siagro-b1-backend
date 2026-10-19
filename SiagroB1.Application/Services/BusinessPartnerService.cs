@@ -44,7 +44,7 @@ public class BusinessPartnerService(
                     TaxId = x.TaxId,
                     StateRegistration = x.StateRegistration,
                     StateRegistrationIndicator = x.StateRegistrationIndicator,
-                    NfeEmail = x.NfeEmail,
+                    NfeEmails = x.NfeEmails.OrderBy(e => e.LineNum).Select(e => e.Email).ToList(),
                     Phone = x.Phone,
                     PaymentConditionCode = x.PaymentConditionCode,
                     IsRuralProducer = x.IsRuralProducer,
@@ -105,7 +105,6 @@ public class BusinessPartnerService(
             TaxId = model.TaxId,
             StateRegistration = model.StateRegistration,
             StateRegistrationIndicator = model.StateRegistrationIndicator,
-            NfeEmail = model.NfeEmail,
             Phone = model.Phone,
             PaymentConditionCode = model.PaymentConditionCode,
             IsRuralProducer = model.IsRuralProducer,
@@ -138,6 +137,8 @@ public class BusinessPartnerService(
             await AddressMunicipalityResolver.ApplyAsync(db.Context, entityAddress);
             entity.Addresses.Add(entityAddress);
         }
+
+        ReplaceNfeEmails(entity, model.NfeEmails);
 
         await db.Context.BusinessPartners.AddAsync(entity);
         await db.SaveChangesAsync();
@@ -188,6 +189,7 @@ public class BusinessPartnerService(
 
         var entity = await db.Context.BusinessPartners
             .Include(a => a.Addresses)
+            .Include(a => a.NfeEmails)
             .FirstOrDefaultAsync(x => x.CardCode == model.CardCode);
 
         if (entity == null)
@@ -202,13 +204,14 @@ public class BusinessPartnerService(
         entity.TaxId = model.TaxId;
         entity.StateRegistration = model.StateRegistration;
         entity.StateRegistrationIndicator = model.StateRegistrationIndicator;
-        entity.NfeEmail = model.NfeEmail;
         entity.Phone = model.Phone;
         entity.PaymentConditionCode = model.PaymentConditionCode;
         entity.IsRuralProducer = model.IsRuralProducer;
         entity.RuralProducerType = model.RuralProducerType;
         entity.RuralProducerCpf = model.RuralProducerCpf;
         entity.RuralPayrollOption = model.RuralPayrollOption;
+
+        ReplaceNfeEmails(entity, model.NfeEmails);
 
         // Corpo sem a marca (cliente antigo, PUT parcial) não desmarca o armazém em silêncio.
         if (model.QryGroup23 is not null)
@@ -232,6 +235,7 @@ public class BusinessPartnerService(
     {
         var entity = await db.Context.BusinessPartners
             .Include(x => x.Addresses)
+            .Include(x => x.NfeEmails)
             .FirstOrDefaultAsync(x => x.CardCode == code);
         if (entity == null)
         {
@@ -252,6 +256,8 @@ public class BusinessPartnerService(
         // BUSINESS_PARTNERS_ADDRESSES tem FK para o parceiro com NoAction: sem remover os endereços
         // antes, o DELETE do parceiro batia na FK (erro 547) e a tela recebia 500.
         db.Context.Addresses.RemoveRange(entity.Addresses);
+        // A FK dos e-mails de NF-e é cascata no banco; remover explicitamente mantém o rastreamento coerente.
+        db.Context.BusinessPartnerNfeEmails.RemoveRange(entity.NfeEmails);
         // Signatários não têm FK (em SAPB1 o parceiro vive no SAP), então não bloqueiam o DELETE, mas
         // ficariam órfãos e reapareceriam se o código fosse recriado. Minutas só os leem no envio.
         db.Context.BusinessPartnerSignatories.RemoveRange(
@@ -317,7 +323,7 @@ public class BusinessPartnerService(
                 TaxId = x.TaxId,
                 StateRegistration = x.StateRegistration,
                 StateRegistrationIndicator = x.StateRegistrationIndicator,
-                NfeEmail = x.NfeEmail,
+                NfeEmails = x.NfeEmails.OrderBy(e => e.LineNum).Select(e => e.Email).ToList(),
                 Phone = x.Phone,
                 PaymentConditionCode = x.PaymentConditionCode,
                 IsRuralProducer = x.IsRuralProducer,
@@ -399,9 +405,25 @@ public class BusinessPartnerService(
                 throw new DefaultException("A inscrição estadual do contribuinte deve ter só dígitos (2 a 14).");
         }
 
-        if (!string.IsNullOrWhiteSpace(model.NfeEmail) &&
-            (!model.NfeEmail.Contains('@') || model.NfeEmail.Contains(' ')))
-            throw new DefaultException($"E-mail da NF-e inválido: {model.NfeEmail}.");
+        NormalizeNfeEmails(model);
+    }
+
+    /// <summary>Apara, descarta vazios e valida formato, duplicidade (sem diferenciar caixa) e o máximo de 10.</summary>
+    private static void NormalizeNfeEmails(BusinessPartnerModel model) =>
+        model.NfeEmails = Services.NfeEmail.NfeEmailAddresses.Normalize(model.NfeEmails);
+
+    private void ReplaceNfeEmails(BusinessPartner entity, List<string> emails)
+    {
+        // EF ordena DELETE antes de INSERT no mesmo save, então reaproveitar um e-mail não colide no índice único.
+        db.Context.BusinessPartnerNfeEmails.RemoveRange(entity.NfeEmails.ToList());
+        entity.NfeEmails.Clear();
+        for (var k = 0; k < emails.Count; k++)
+        {
+            var line = new BusinessPartnerNfeEmail { CardCode = entity.CardCode, Email = emails[k], LineNum = k };
+            entity.NfeEmails.Add(line);
+            // A chave já vem preenchida e o parceiro está marcado Modified: sem o Add explícito o EF trataria a linha como existente (UPDATE).
+            db.Context.BusinessPartnerNfeEmails.Add(line);
+        }
     }
 
     /// <summary>

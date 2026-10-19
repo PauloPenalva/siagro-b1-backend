@@ -36,7 +36,7 @@ public class BusinessPartnerNfeFieldsTests
         string? ie = "123456789") => new()
     {
         CardCode = "C001", CardName = "CLIENTE BA LTDA", CardType = "C", TaxId = "11222333000181",
-        StateRegistration = ie, StateRegistrationIndicator = indicator, NfeEmail = "nfe@cliente.com.br",
+        StateRegistration = ie, StateRegistrationIndicator = indicator, NfeEmails = ["nfe@cliente.com.br"],
         Phone = "71999990000", PaymentConditionCode = 3,
         Addresses =
         [
@@ -59,7 +59,7 @@ public class BusinessPartnerNfeFieldsTests
 
         Assert.Equal("123456789", read!.StateRegistration);
         Assert.Equal(StateRegistrationIndicator.Taxpayer, read.StateRegistrationIndicator);
-        Assert.Equal("nfe@cliente.com.br", read.NfeEmail);
+        Assert.Equal(["nfe@cliente.com.br"], read.NfeEmails);
         Assert.Equal("71999990000", read.Phone);
         Assert.Equal(3, read.PaymentConditionCode);
 
@@ -118,12 +118,12 @@ public class BusinessPartnerNfeFieldsTests
         await Partners(db).CreateAsync(Customer());
 
         var changed = Customer(StateRegistrationIndicator.Exempt, ie: null);
-        changed.NfeEmail = "fiscal@cliente.com.br";
+        changed.NfeEmails = ["fiscal@cliente.com.br"];
         await Partners(db).UpdateAsync("C001", changed);
 
         var saved = await db.Context.BusinessPartners.AsNoTracking().SingleAsync();
         Assert.Equal(StateRegistrationIndicator.Exempt, saved.StateRegistrationIndicator);
-        Assert.Equal("fiscal@cliente.com.br", saved.NfeEmail);
+        Assert.Equal(["fiscal@cliente.com.br"], await db.Context.BusinessPartnerNfeEmails.Select(e => e.Email).ToListAsync());
     }
 
     [Fact]

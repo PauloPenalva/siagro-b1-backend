@@ -91,7 +91,8 @@ public static class NfeTestSeed
             {
                 CardCode = CardCode, CardName = "CLIENTE BA LTDA", CardType = "C", TaxId = "11222333000181",
                 StateRegistrationIndicator = StateRegistrationIndicator.Taxpayer, StateRegistration = "123456789",
-                NfeEmail = "nfe@cliente.com.br", PaymentConditionCode = condition.Code,
+                PaymentConditionCode = condition.Code,
+                NfeEmails = [new BusinessPartnerNfeEmail { CardCode = CardCode, Email = "nfe@cliente.com.br", LineNum = 0 }],
                 Addresses =
                 [
                     new Address

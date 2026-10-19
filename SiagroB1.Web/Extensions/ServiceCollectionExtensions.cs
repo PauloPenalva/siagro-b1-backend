@@ -12,6 +12,7 @@ using SiagroB1.Application.Services.PaymentConditions;
 using SiagroB1.Application.Services.WithholdingTaxSettings;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.Nfe;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -78,6 +79,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddStandAloneServices(this IServiceCollection services)
     {
         services.AddScoped<IBusinessPartnerService, Application.Services.BusinessPartnerService>();
+        services.AddScoped<INfeEmailRecipientResolver, NfeEmailRecipientResolver>();
         services.AddScoped<IItemService, Application.Services.ItemService>();
         services.AddScoped<IUnitOfMeasureService, Application.Services.UnitOfMeasureService>();
         services.AddScoped<IAgentService, Application.Services.AgentService>();
@@ -213,6 +215,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NotificationOutboxResendService>();
         services.AddScoped<IContractNotificationDispatchJob, ContractNotificationDispatchJob>();
         services.AddScoped<IContractNotificationSweepJob, ContractNotificationSweepJob>();
+        services.AddScoped<NfeEmailDispatchJob>();
+        services.AddScoped<NfeEmailSweepJob>();
 
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
@@ -363,6 +367,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IcmsItemStateRatesService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
+        services.AddScoped<IEmailSettingsService, EmailSettingsService>();
+        services.AddScoped<INfeEmailOutboxService, NfeEmailOutboxService>();
+        services.AddScoped<NfeEmailSendService>();
+        services.AddScoped<NfeEmailMessagesGetService>();
         services.AddScoped<SupplierNfeAuthorizationService>();
         services.AddScoped<NfeNumberReservationService>();
         services.AddScoped<NfeReadinessValidator>();

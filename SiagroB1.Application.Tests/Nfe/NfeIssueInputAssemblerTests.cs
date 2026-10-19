@@ -28,6 +28,22 @@ public class NfeIssueInputAssemblerTests
     }
 
     [Fact]
+    public async Task Assembler_uses_first_email_as_dest_email()
+    {
+        var scenario = await NfeTestSeed.SeedAsync();
+        var emails = scenario.Db.Context.BusinessPartnerNfeEmails;
+        emails.RemoveRange(await emails.ToListAsync());
+        emails.AddRange(
+            new BusinessPartnerNfeEmail { CardCode = NfeTestSeed.CardCode, Email = "segundo@cliente.com.br", LineNum = 1 },
+            new BusinessPartnerNfeEmail { CardCode = NfeTestSeed.CardCode, Email = "primeiro@cliente.com.br", LineNum = 0 });
+        await scenario.Db.SaveChangesAsync();
+
+        var input = await BuildAsync(scenario);
+
+        Assert.Equal("primeiro@cliente.com.br", input.Recipient.Email);
+    }
+
+    [Fact]
     public async Task Masked_tax_ids_are_sent_only_with_alphanumerics()
     {
         var scenario = await NfeTestSeed.SeedAsync();

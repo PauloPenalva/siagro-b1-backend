@@ -93,6 +93,7 @@ builder.Services.AddScoped<IDbConnection>(sp =>
     new SqlConnection(sp.GetRequiredService<ICompanyContext>().ConnectionString));
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
+builder.Services.AddScoped<IEmailSender, SiagroB1.Infra.Email.SmtpEmailSender>();
 builder.Services.AddScoped<UserService>();
 
 builder.Services.AddHttpContextAccessor();
@@ -154,6 +155,17 @@ builder.Services.AddHangfireServer(options =>
     options.Queues = [ContractNotificationDispatchJob.QueueName];
     options.WorkerCount = 1;
 });
+
+// E-mail da NF-e: um worker, para não abrir várias conexões SMTP de uma vez (provedor bloqueia rajada).
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = [NfeEmailDispatchJob.QueueName];
+    options.WorkerCount = 1;
+});
+
+// DANFE do e-mail: rota interna do Reports (Reports:InternalBaseUrl / Reports:InternalApiKey).
+builder.Services.AddHttpClient<IDanfeProvider, SiagroB1.Infra.Reports.HttpDanfeProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(60));
 
 // Primeiro HttpClient do solution. Instância e token do PlugZapi vão no PATH da URL, montados
 // a cada requisição pelo sender — por isso só o BaseAddress fica aqui.
@@ -273,6 +285,19 @@ RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
     "contract-notification-sweep",
     runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractNotificationSweep, CancellationToken.None),
     Cron.Minutely());
+
+// E-mail da NF-e própria: só STANDALONE (em SAPB1 a NF-e é do SAP).
+if (ErpMode.IsStandalone(app.Configuration))
+{
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        CompanyScopedJobRunner.NfeEmailSweep,
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.NfeEmailSweep, CancellationToken.None),
+        Cron.Minutely());
+}
+else
+{
+    RecurringJob.RemoveIfExists(CompanyScopedJobRunner.NfeEmailSweep);
+}
 
 // Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que
 // enxerga quem sumiu do OUSR - o provisionamento no login só vê quem está entrando.

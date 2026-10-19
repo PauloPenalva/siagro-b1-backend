@@ -3,6 +3,7 @@ using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MimeKit;
+using SiagroB1.Domain.Dtos.Email;
 using SiagroB1.Domain.Interfaces;
 
 namespace SiagroB1.Infra.Email;
@@ -87,6 +88,73 @@ public class SmtpEmailSender(
             // Falha de SMTP não pode virar erro na tela: quem chama já responde de forma genérica.
             logger.LogError(exception, "Falha ao enviar e-mail para {To}.", to);
             return false;
+        }
+    }
+
+    /// <summary>Monta a mensagem MIME (visível aos testes via InternalsVisibleTo).</summary>
+    internal static MimeMessage BuildMime(EmailMessage email, SmtpSettings smtp)
+    {
+        var mime = new MimeMessage();
+        mime.From.Add(new MailboxAddress(smtp.FromName ?? "SIAGRO B1", smtp.FromAddress));
+
+        foreach (var to in email.To)
+        {
+            mime.To.Add(MailboxAddress.Parse(to));
+        }
+
+        mime.Subject = email.Subject;
+
+        var builder = new BodyBuilder { HtmlBody = email.HtmlBody };
+        foreach (var attachment in email.Attachments)
+        {
+            builder.Attachments.Add(attachment.FileName, attachment.Content, ContentType.Parse(attachment.ContentType));
+        }
+
+        mime.Body = builder.ToMessageBody();
+        return mime;
+    }
+
+    public async Task<EmailSendResult> SendAsync(EmailMessage message, SmtpSettings smtp, CancellationToken ct = default)
+    {
+        var recipients = string.Join(", ", message.To);
+
+        if (!configuration.GetValue("Email:Enabled", false))
+        {
+            logger.LogWarning(
+                "ENVIO DE E-MAIL DESABILITADO (Email:Enabled = false) - nada foi entregue. " +
+                "Destinatários: {To}; Assunto: {Subject}; Anexos: {Attachments}",
+                recipients, message.Subject, string.Join(", ", message.Attachments.Select(a => a.FileName)));
+            return new EmailSendResult(true, null);
+        }
+
+        try
+        {
+            var mime = BuildMime(message, smtp);
+
+            using var client = new SmtpClient();
+
+            await client.ConnectAsync(
+                smtp.Host,
+                smtp.Port,
+                smtp.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto,
+                ct);
+
+            if (!string.IsNullOrWhiteSpace(smtp.UserName))
+            {
+                await client.AuthenticateAsync(smtp.UserName, smtp.Password, ct);
+            }
+
+            await client.SendAsync(mime, ct);
+            await client.DisconnectAsync(true, ct);
+
+            logger.LogInformation("E-mail enviado para {To}: {Subject}", recipients, message.Subject);
+            return new EmailSendResult(true, null);
+        }
+        catch (Exception exception)
+        {
+            // A senha nunca entra no log nem no erro devolvido.
+            logger.LogError(exception, "Falha ao enviar e-mail para {To}.", recipients);
+            return new EmailSendResult(false, exception.Message);
         }
     }
 }
