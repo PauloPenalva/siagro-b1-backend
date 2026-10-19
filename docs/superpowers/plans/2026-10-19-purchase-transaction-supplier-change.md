@@ -131,6 +131,51 @@ Regras:
 - [ ] **Step 4:** testes passam; suíte inteira verde (atenção a testes existentes que usam `ExecuteWithTransactionAsync` com contrato de outro fornecedor/armazém: se aparecerem, corrigir o **seed** para bater, não a regra).
 - [ ] **Step 5:** commit `feat(purchase-contract): proteger romaneios da troca de fornecedor/armazém`.
 
+### Task 3A: Romaneio de Expedição só no contrato da liberação (spec decisão 7)
+
+**Files:**
+- Create: `SiagroB1.Application/Services/PurchaseContracts/ShippingPurchaseLegRules.cs`
+- Modify: `PurchaseContractsAllocationCreateService.ExecuteWithTransactionAsync` (antes da trava de divergência da Task 3)
+- Modify: `PurchaseContractsAllocationDeleteService` — o wrapper público com transação (onde já estão as travas de descarga e de entrada em armazenagem, ~linhas 30–55); **não** o `ExecuteAsync` interno
+- Test: `SiagroB1.Application.Tests/PurchaseContracts/ShippingPurchaseLegAllocationTests.cs`
+
+**Interfaces:**
+- Produces: `public static Task<Guid?> ShippingPurchaseLegRules.ReleaseContractKeyAsync(AppDbContext ctx, Guid storageTransactionKey)` — `null` quando o romaneio **não** é perna de compra de Expedição; senão o `PurchaseContractKey` da liberação dele.
+- Regras/mensagens:
+  - alocar perna de Expedição em contrato ≠ contrato da liberação → `"Romaneio de Expedição só pode ser alocado no contrato da liberação ({código}). Para mudar o contrato, use Trocar liberação na carga."`
+  - perna de Expedição alocada no contrato da liberação → permitida, **sem** a trava de fornecedor/armazém da Task 3.
+  - remover alocação de perna de Expedição pela tela → `"Esta alocação pertence a uma Expedição de Grãos. Use Trocar liberação na carga."`
+  - `ShippingTransactionsReverseService` (usa o `ExecuteAsync` interno do delete) continua funcionando.
+
+- [ ] **Step 1: Testes que falham:** `ShippingLeg_AllocateInReleaseContract_Works` (perna desalocada, como na CEAGUI, volta ao contrato da liberação), `ShippingLeg_AllocateInOtherContract_IsRefused`, `ShippingLeg_DeleteAllocation_IsRefused`, `ShippingReverse_StillRemovesLegAllocation`, `StandalonePurchase_NotAffected`.
+- [ ] **Step 2:** rodar → falham.
+- [ ] **Step 3:** implementar.
+- [ ] **Step 4:** testes passam; suíte inteira verde (testes antigos que removem alocação de perna de Expedição pelo caminho público: ajustar o **teste** para usar o fluxo de estorno, e anotar no relatório quais foram).
+- [ ] **Step 5:** commit `fix(purchase-contract): romaneio de expedição só se aloca no contrato da liberação`.
+
+### Task 3B: Trocar liberação com perna de compra desalocada (spec decisão 8)
+
+**Files:**
+- Modify: `SiagroB1.Application/Services/ShippingTransactions/ShippingTransactionsChangeReleaseService.cs` (`ReversePurchaseLegAsync` ~linha 389; `ResolveOriginContractKeyAsync` ~433 sai; `RegisterChange` ~560)
+- Modify: `SiagroB1.Domain/Entities/StorageTransaction.cs` (`RecalculateAvailableVolume` da Task 1)
+- Test: `SiagroB1.Application.Tests/ShippingTransactions/ShippingTransactionsChangeReleaseUnallocatedLegTests.cs` (montar como `ShippingTransactionsChangeReleaseServiceTests`)
+
+**Interfaces:**
+- Consumes: Task 1 (`RecalculateAvailableVolume`).
+- Regras:
+  - o estorno 9 chama `allocationCreateService.ExecuteReversalAsync(contrato, 9, Σ)` **uma vez por contrato** em que a perna original tem Σ das alocações ≠ 0 (Σ = soma de `|Volume|` por contrato); sem alocação, nenhuma chamada.
+  - `RecalculateAvailableVolume` também devolve **0** quando `ReplacedByShippingReleaseChangeKey != null` e quando `TransactionType == PurchaseReturn && ShippingReleaseChangeKey != null`. Em `RegisterChange`, depois de carimbar as chaves, recalcular o saldo do 8 original e do 9.
+  - nada mais na troca muda (quantidade nova, liberações, carga, movimentação).
+
+- [ ] **Step 1: Testes que falham:**
+  - `UnallocatedLeg_ReversalDoesNotTouchAnyContract`: perna 8 Net 50000 sem alocação, liberação do CC1; trocar para liberação do CC2 → `AllocatedVolume` do CC1 inalterado (0), CC2 += líquido novo; 9 sem alocação; 8 original e 9 com `AvaiableVolumeToAllocate == 0`.
+  - `PartiallyAllocatedLeg_ReversesOnlyAllocatedPerContract`: perna Net 50000 com 30000 no CC1 e 20000 no CC3 → 9 com −30000 no CC1 e −20000 no CC3.
+  - `FullyAllocatedLeg_BehavesAsBefore`: os testes atuais do GAC-1177 continuam verdes (rodar a classe existente).
+- [ ] **Step 2:** rodar → falham.
+- [ ] **Step 3:** implementar.
+- [ ] **Step 4:** `ShippingTransactionsChangeReleaseServiceTests` + novos verdes; suíte inteira verde.
+- [ ] **Step 5:** commit `fix(shipment): trocar liberação com perna de compra desalocada não estorna contrato`.
+
 ### Task 4: Conciliação Fiscal de Compras
 
 **Files:**
@@ -187,5 +232,6 @@ Regras:
 - [ ] **Step 1:** aplicar `AddPurchaseTransactionChanges` **só** no banco local `CEAGUI_SIAGRO_DEV` (perfil `ceagui`, `ASPNETCORE_ENVIRONMENT=Ceagui-Development` explícito; nunca o perfil `db-migration`, nunca banco remoto).
 - [ ] **Step 2:** subir Gateway → esperar `Loading proxy data from config` → Web, ambos `--launch-profile ceagui` do worktree; frontend `yarn start:dev`.
 - [ ] **Step 3:** criar no banco local um romaneio 8 confirmado com saldo (FTESTE01, produto 1, armazém FTESTEPJ) pela tela de romaneios, abrir `/purchase-orders/allocations` pelo menu, alocar no CC000001 (F00004, armazém 0000000001) com motivo. Conferir no banco, por **chave**: 9 em FTESTE01/FTESTEPJ, 8 novo em F00004/0000000001 com a data do original, alocação no CC000001, linha em `PURCHASE_TRANSACTION_CHANGES`, original fora da grade. Tentar cancelar o estorno pela tela de romaneios → recusa.
+- [ ] **Step 3b:** no banco local, criar uma Expedição numa carga, desalocar a perna de compra **direto no banco** (simula o estado da CEAGUI), e trocar a liberação pela tela da carga → contrato de origem com `AllocatedVolume` inalterado, destino alocado, 8 original e 9 fora da grade de alocação. Na tela de alocação, tentar remover a alocação da perna nova → recusa.
 - [ ] **Step 4:** derrubar a stack pelo PID das portas 50000/5246/8080 e conferir de novo no fim.
 - [ ] **Step 5:** registrar na memória do projeto o estado final (commits, migration aplicada só no CEAGUI local).

@@ -31,6 +31,26 @@ compensação — um estorno devolve a origem e um romaneio novo entra no destin
    produtor (`InvoiceNumber` ou `ChaveNFe` preenchidos) **ou** vínculo de Conciliação Fiscal de Compras,
    a troca é recusada — o usuário desaloca antes e faz a troca total.
 
+## Romaneio de Expedição: um caminho só (decisões do usuário, 19/10/2026)
+
+Diagnóstico na produção da CEAGUI (19/10): as 27 pernas de compra (8) de Expedição de Grãos estavam
+**todas desalocadas** à mão para realocar em outro contrato/liberação. A tela de alocação permitia isso, e
+o "Trocar liberação" (GAC-1177) com perna desalocada estorna o peso líquido inteiro no contrato da
+liberação de origem, que não tinha essa alocação: o contrato ficaria com saldo maior que o total.
+
+7. **(a) Tela de alocação:** romaneio que é perna de compra de Expedição (`SHIPPING_TRANSACTIONS.
+   PurchaseStorageTransactionKey`) só pode ser alocado no **contrato da própria liberação**
+   (`ShipmentRelease.PurchaseContractKey` do `ShipmentReleaseKey` do romaneio), e a alocação dele **não
+   pode ser removida** pela tela. Mudar o contrato é só pelo "Trocar liberação" da carga. A trava vale nos
+   caminhos públicos (ação da tela); os fluxos internos (estorno de Expedição etc.) não mudam.
+   Para esse romaneio não se aplica a trava de fornecedor/armazém divergente (o armazém da Expedição é o
+   da liberação, que pode diferir do Local de Entrega do contrato).
+8. **(b) Trocar liberação com perna desalocada:** o estorno 9 devolve **só o que a perna original tinha
+   alocado, contrato por contrato** (Σ das alocações por contrato). Sem alocação nenhuma, o 9 não aloca em
+   contrato nenhum. O romaneio novo continua sendo alocado no contrato de destino. Depois da troca, o 8
+   original substituído e o 9 do estorno têm saldo alocável **0** (não aparecem na tela de alocação).
+   Assim os 27 romaneios da CEAGUI se corrigem direto pela troca de liberação.
+
 ## Objetivos
 
 - Corrigir, pela tela de alocação, um romaneio de compra lançado com fornecedor e/ou armazém errados,
