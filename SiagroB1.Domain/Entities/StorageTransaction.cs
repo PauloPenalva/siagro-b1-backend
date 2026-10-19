@@ -183,6 +183,12 @@ public class StorageTransaction : DocumentEntity
     public Guid? ShippingReleaseChangeKey { get; set; }
 
     /// <summary>
+    /// Troca de fornecedor/armazém (<see cref="PurchaseTransactionChange"/>) que GEROU este
+    /// romaneio: o estorno (tipo 9) ou o novo. Sem navigation property (FK NoAction).
+    /// </summary>
+    public Guid? PurchaseTransactionChangeKey { get; set; }
+
+    /// <summary>
     /// Troca nota: item do documento de saída cuja Conferência de Entregas gerou este romaneio de
     /// quebra/sobra de descarga (<see cref="StorageTransactionType.PurchaseDischargeLoss"/> /
     /// <see cref="StorageTransactionType.PurchaseDischargeGain"/>).
@@ -324,8 +330,18 @@ public class StorageTransaction : DocumentEntity
     /// total já alocado (valores absolutos). Substitui os += / -= incrementais,
     /// eliminando drift — chamar após qualquer mudança de alocação.
     /// </summary>
-    public void RecalculateAvailableVolume(decimal totalAllocated)
-        => AvaiableVolumeToAllocate = IsAllocatable ? NetWeight - totalAllocated : decimal.Zero;
+    /// <remarks>
+    /// <paramref name="changedQuantity"/> é a quantidade já trocada para outro fornecedor/armazém
+    /// (<see cref="PurchaseTransactionChange"/>): sai do saldo, mas não é alocação. O estorno
+    /// (tipo 9) gerado por uma troca nunca é alocável.
+    /// </remarks>
+    public void RecalculateAvailableVolume(decimal totalAllocated, decimal changedQuantity = decimal.Zero)
+        => AvaiableVolumeToAllocate = IsAllocatable && !IsPurchaseTransactionChangeReturn
+            ? NetWeight - totalAllocated - changedQuantity
+            : decimal.Zero;
+
+    private bool IsPurchaseTransactionChangeReturn =>
+        TransactionType == StorageTransactionType.PurchaseReturn && PurchaseTransactionChangeKey != null;
 
     /// <summary>
     /// Refaz <see cref="FreightPrice"/> a partir do método, do unitário e do peso bruto. Chamar

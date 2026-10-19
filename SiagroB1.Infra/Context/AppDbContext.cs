@@ -138,6 +138,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialDocumentComposition> FinancialDocumentCompositions { get; set; }
 
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
+    public DbSet<PurchaseTransactionChange> PurchaseTransactionChanges { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -751,6 +752,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<StorageTransaction>()
             .HasOne<ShippingReleaseChange>().WithMany()
             .HasForeignKey(x => x.ShippingReleaseChangeKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Troca de fornecedor/armazém do romaneio de compra: três FKs para StorageTransaction e
+        // uma para o contrato, todas NoAction (várias rotas de cascata para a mesma tabela).
+        modelBuilder.Entity<PurchaseTransactionChange>()
+            .HasOne(x => x.OriginalStorageTransaction).WithMany()
+            .HasForeignKey(x => x.OriginalStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<PurchaseTransactionChange>()
+            .HasOne(x => x.ReturnStorageTransaction).WithMany()
+            .HasForeignKey(x => x.ReturnStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<PurchaseTransactionChange>()
+            .HasOne(x => x.NewStorageTransaction).WithMany()
+            .HasForeignKey(x => x.NewStorageTransactionKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<PurchaseTransactionChange>()
+            .HasOne<PurchaseContract>().WithMany()
+            .HasForeignKey(x => x.PurchaseContractKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<StorageTransaction>()
+            .HasOne<PurchaseTransactionChange>().WithMany()
+            .HasForeignKey(x => x.PurchaseTransactionChangeKey)
             .OnDelete(DeleteBehavior.NoAction);
 
         // Royalties (ITS): o ID do ITS é único entre baixas ATIVAS — cancelar libera o número.

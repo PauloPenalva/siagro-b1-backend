@@ -5,6 +5,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -119,7 +120,10 @@ public class PurchaseContractsAllocationCreateService(
                 .Where(x => x.StorageTransactionKey == storageTransactionKey)
                 .SumAsync(x => decimal.Abs(x.Volume));
 
-            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+            var changedQuantity = await PurchaseTransactionChangeQuery.ChangedQuantityAsync(
+                unitOfWork.Context, storageTransaction.Key);
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume), changedQuantity);
 
             // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
             var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations
@@ -325,7 +329,13 @@ public class PurchaseContractsAllocationCreateService(
                     .Where(x => x.StorageTransactionKey == storageTransaction.Key)
                     .SumAsync(x => decimal.Abs(x.Volume));
 
-            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume));
+            // Romaneio ainda não persistido (deferred): não há troca registrada.
+            var changedQuantity = storageTransaction.Key == Guid.Empty
+                ? decimal.Zero
+                : await PurchaseTransactionChangeQuery.ChangedQuantityAsync(
+                    unitOfWork.Context, storageTransaction.Key);
+
+            storageTransaction.RecalculateAvailableVolume(existingAllocated + decimal.Abs(volume), changedQuantity);
 
             // Saldo do CONTRATO usa Volume com sinal (devolução negativa devolve saldo).
             var contractAllocated = await unitOfWork.Context.PurchaseContractsAllocations

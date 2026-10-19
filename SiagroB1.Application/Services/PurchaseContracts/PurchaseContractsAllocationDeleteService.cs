@@ -5,6 +5,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Infra.Enums;
+using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseContracts;
 
@@ -93,7 +94,10 @@ public class PurchaseContractsAllocationDeleteService(
             .Where(x => x.StorageTransactionKey == storageTransaction.Key && x.Key != alloc.Key)
             .SumAsync(x => decimal.Abs(x.Volume));
 
-        storageTransaction.RecalculateAvailableVolume(remainingAllocated);
+        var changedQuantity = await PurchaseTransactionChangeQuery.ChangedQuantityAsync(
+            db.Context, storageTransaction.Key);
+
+        storageTransaction.RecalculateAvailableVolume(remainingAllocated, changedQuantity);
 
         // Recalcula o saldo alocado do CONTRATO (Volume com sinal, exclui a removida).
         var contract = await db.Context.PurchaseContracts

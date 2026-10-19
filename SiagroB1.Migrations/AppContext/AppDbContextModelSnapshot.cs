@@ -3202,6 +3202,94 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("PURCHASE_INVOICE_TRANSPORTED_DOCUMENTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseTransactionChange", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("AllocatedVolume")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("NewCardCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("NewStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewWarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OriginalCardCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OriginalStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OriginalWarehouseCode")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<Guid>("ReturnStorageTransactionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("NewStorageTransactionKey");
+
+                    b.HasIndex("OriginalStorageTransactionKey");
+
+                    b.HasIndex("PurchaseContractKey");
+
+                    b.HasIndex("ReturnStorageTransactionKey");
+
+                    b.ToTable("PURCHASE_TRANSACTION_CHANGES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityAttrib", b =>
                 {
                     b.Property<string>("Code")
@@ -6042,6 +6130,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("ProcessingCostCode")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<Guid?>("PurchaseTransactionChangeKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("ReceiptServicePrice")
                         .HasColumnType("decimal(18,2) DEFAULT 0");
 
@@ -6169,6 +6260,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("OwnershipTransferKey");
 
                     b.HasIndex("ProcessingCostCode");
+
+                    b.HasIndex("PurchaseTransactionChangeKey");
 
                     b.HasIndex("RefusedFromShipmentLoadKey");
 
@@ -7723,6 +7816,39 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("TransportedPurchaseInvoice");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseTransactionChange", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "NewStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("NewStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "OriginalStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("OriginalStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.StorageTransaction", "ReturnStorageTransaction")
+                        .WithMany()
+                        .HasForeignKey("ReturnStorageTransactionKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("NewStorageTransaction");
+
+                    b.Navigation("OriginalStorageTransaction");
+
+                    b.Navigation("ReturnStorageTransaction");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.QualityInspection", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.QualityAttrib", "QualityAttrib")
@@ -8471,6 +8597,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasOne("SiagroB1.Domain.Entities.ProcessingCost", "ProcessingCost")
                         .WithMany()
                         .HasForeignKey("ProcessingCostCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseTransactionChange", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseTransactionChangeKey")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "RefusedFromShipmentLoad")
