@@ -1726,6 +1726,26 @@ public static class ODataConfigurations
         reconciliationOpen.Parameter<string>("Notes").Optional();
         reconciliationOpen.Returns<Guid>();
 
+        var reconciliationSetLines = modelBuilder.Action("FinancialAccountReconciliationsSetLines");
+        reconciliationSetLines.Parameter<Guid>("Key");
+        reconciliationSetLines.CollectionParameter<Guid>("MarkSettlements").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("MarkEntries").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("UnmarkSettlements").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("UnmarkEntries").Optional();
+        reconciliationSetLines.Returns<IActionResult>();
+
+        foreach (var name in new[] { "FinancialAccountReconciliationsClose", "FinancialAccountReconciliationsReopen",
+                     "FinancialAccountReconciliationsDelete" })
+        {
+            var action = modelBuilder.Action(name);
+            action.Parameter<Guid>("Key");
+            action.Returns<IActionResult>();
+        }
+
+        var reconciliationLines = modelBuilder.Function("FinancialAccountReconciliationsGetLines");
+        reconciliationLines.Parameter<Guid>("Key");
+        reconciliationLines.Returns<FinancialAccountReconciliationLinesDto>();
+
         var financialReverse = modelBuilder.Action("FinancialDocumentsReverseSettlement");
         financialReverse.Parameter<Guid>("SettlementKey");
         financialReverse.Parameter<string>("Reason");
