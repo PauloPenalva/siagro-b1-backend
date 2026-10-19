@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -17,9 +18,16 @@ namespace SiagroB1.Application.Services.Nfe;
 /// Uma cópia só para os dois documentos: a conferência pelo digest, a ordem "grava a autorizada, salva,
 /// confirma" e o descarte do rastreador na confirmação que falha não podem divergir entre eles.
 /// </remarks>
-public abstract class NfeResultHandlerBase<TDocument>(IUnitOfWork db, INfeDocumentStore<TDocument> store, ILogger logger)
+public abstract class NfeResultHandlerBase<TDocument>(
+    IUnitOfWork db, INfeDocumentStore<TDocument> store, ILogger logger, INfeEmailOutboxService? emailOutbox = null)
     where TDocument : class, INfeDocument
 {
+    /// <summary>Tipo do documento na fila de e-mail da NF-e.</summary>
+    protected abstract NfeEmailDocumentType EmailDocumentType { get; }
+
+    /// <summary>Se a NF-e deste documento é enviada por e-mail ao parceiro (ex.: só a entrada própria).</summary>
+    protected virtual bool SendsEmail(TDocument document) => true;
+
     public Task<NfeIssueOutcomeDto> ApplyAuthorizationAsync(
         TDocument document, string signedXml, NfeSefazResult result, string userName) =>
         ApplyAsync(document, [signedXml], result, userName, fromConsult: false);
@@ -71,6 +79,8 @@ public abstract class NfeResultHandlerBase<TDocument>(IUnitOfWork db, INfeDocume
     private async Task<NfeIssueOutcomeDto> ApplyAsync(
         TDocument invoice, IReadOnlyList<string> signedXmls, NfeSefazResult result, string userName, bool fromConsult)
     {
+        // A situação de antes: o e-mail só nasce na TRANSIÇÃO para autorizada (a consulta de uma já autorizada não manda de novo).
+        var previousStatus = invoice.NfeStatus;
         invoice.NfeStatusCode = result.StatusCode.ToString(CultureInfo.InvariantCulture);
         invoice.NfeStatusReason = NfeStatusText.Truncate(result.Reason);
 
@@ -97,6 +107,10 @@ public abstract class NfeResultHandlerBase<TDocument>(IUnitOfWork db, INfeDocume
             invoice.NfeProtocol = result.Protocol;
             invoice.NfeAuthorizedAt = (result.ReceivedAt ?? DateTimeOffset.Now).DateTime;
             invoice.NfeConfirmationError = null;
+
+            if (previousStatus != NfeStatus.Authorized)
+                await NfeEmailTriggers.EnqueueAsync(emailOutbox, logger, SendsEmail(invoice), EmailDocumentType,
+                    invoice.Key, NfeEmailEventType.Authorized, userName);
 
             // A NF-e autorizada vai para o banco ANTES da confirmação: se ela falhar, a nota
             // continua registrada como autorizada.

@@ -1390,6 +1390,60 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("MUNICIPALITIES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.NfeEmailMessage", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("DocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("VARCHAR(1000)");
+
+                    b.Property<string>("Recipients")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("DocumentType", "DocumentKey", "EventType")
+                        .IsUnique()
+                        .HasFilter("[Trigger] = 1");
+
+                    b.ToTable("NFE_EMAIL_MESSAGES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
                 {
                     b.Property<Guid>("Key")
