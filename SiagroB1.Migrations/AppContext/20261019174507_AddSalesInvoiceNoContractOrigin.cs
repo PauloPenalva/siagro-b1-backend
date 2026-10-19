@@ -23,7 +23,7 @@ namespace SiagroB1.Migrations.AppContext
                 table: "FINANCIAL_DOCUMENTS",
                 columns: new[] { "OriginType", "OriginKey", "SalesContractKey" },
                 unique: true,
-                filter: "[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] NOT IN (9, 10)");
+                filter: "[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin",
