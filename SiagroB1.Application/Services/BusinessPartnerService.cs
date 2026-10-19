@@ -408,29 +408,9 @@ public class BusinessPartnerService(
         NormalizeNfeEmails(model);
     }
 
-    private const int MaxNfeEmails = 10;
-
     /// <summary>Apara, descarta vazios e valida formato, duplicidade (sem diferenciar caixa) e o máximo de 10.</summary>
-    private static void NormalizeNfeEmails(BusinessPartnerModel model)
-    {
-        model.NfeEmails = (model.NfeEmails ?? new())
-            .Select(e => (e ?? "").Trim())
-            .Where(e => e.Length > 0)
-            .ToList();
-
-        foreach (var email in model.NfeEmails)
-        {
-            if (email.Length > 250 || !System.Text.RegularExpressions.Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-                throw new DefaultException($"E-mail de NF-e inválido: {email}");
-        }
-
-        if (model.NfeEmails.Count > MaxNfeEmails)
-            throw new DefaultException($"Informe no máximo {MaxNfeEmails} e-mails de NF-e.");
-
-        var duplicate = model.NfeEmails.GroupBy(e => e, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
-        if (duplicate is not null)
-            throw new DefaultException($"E-mail de NF-e repetido: {duplicate.Key}");
-    }
+    private static void NormalizeNfeEmails(BusinessPartnerModel model) =>
+        model.NfeEmails = Services.NfeEmail.NfeEmailAddresses.Normalize(model.NfeEmails);
 
     private void ReplaceNfeEmails(BusinessPartner entity, List<string> emails)
     {

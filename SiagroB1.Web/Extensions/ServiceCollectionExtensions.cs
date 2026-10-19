@@ -369,6 +369,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<BranchNfeSettingsService>();
         services.AddScoped<IEmailSettingsService, EmailSettingsService>();
         services.AddScoped<INfeEmailOutboxService, NfeEmailOutboxService>();
+        services.AddScoped<NfeEmailSendService>();
+        services.AddScoped<NfeEmailMessagesGetService>();
         services.AddScoped<SupplierNfeAuthorizationService>();
         services.AddScoped<NfeNumberReservationService>();
         services.AddScoped<NfeReadinessValidator>();

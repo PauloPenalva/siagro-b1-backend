@@ -119,6 +119,22 @@ public static class ODataConfigurations
         emailSettingsSendTest.Parameter<string>("To");
         emailSettingsSendTest.Returns<EmailSendResult>();
 
+        // E-mail da NF-e (STANDALONE): reenvio manual, destinatários padrão do diálogo e histórico (somente leitura).
+        foreach (var prefix in new[] { "SalesInvoices", "PurchaseInvoices" })
+        {
+            var sendNfeEmail = modelBuilder.Action($"{prefix}SendNfeEmail");
+            sendNfeEmail.Parameter<Guid>("Key");
+            sendNfeEmail.CollectionParameter<string>("Recipients");
+        }
+
+        // DocumentType: 1 = Sales, 2 = Purchase.
+        var nfeEmailDefaultRecipients = modelBuilder.Function("NfeEmailDefaultRecipients");
+        nfeEmailDefaultRecipients.Parameter<int>("DocumentType");
+        nfeEmailDefaultRecipients.Parameter<Guid>("Key");
+        nfeEmailDefaultRecipients.ReturnsCollection<string>();
+
+        modelBuilder.EntitySet<NfeEmailMessage>("NfeEmailMessages");
+
         var companiesTestConnection = modelBuilder.Action("CompaniesTestConnection");
         companiesTestConnection.Parameter<string>("Code");
         companiesTestConnection.Parameter<string>("ConnectionString");
