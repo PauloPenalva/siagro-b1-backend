@@ -53,8 +53,11 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
             .AsNoTracking()
             .Include(x => x.Allocations)
                 .ThenInclude(a => a.StorageTransaction)
-            .Where(p => p.CardCode == cardCode && p.ItemCode == itemCode && (p.Status == ContractStatus.Approved || p.Status == ContractStatus.Finished )) 
-            .OrderBy(x => x.RowId)
+            // Qualquer fornecedor do produto: permite corrigir romaneio lançado com fornecedor
+            // ou armazém errado. Os contratos do fornecedor do romaneio vêm primeiro.
+            .Where(p => p.ItemCode == itemCode && (p.Status == ContractStatus.Approved || p.Status == ContractStatus.Finished )) 
+            .OrderBy(x => x.CardCode == cardCode ? 0 : 1)
+            .ThenBy(x => x.RowId)
             .ToList();
         
         contractsList.ForEach(x =>
@@ -69,6 +72,10 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
                     UnitOfMeasureCode = x.UnitOfMeasureCode,
                     AgentCode = x.AgentCode,
                     AgentName = x.AgentName,
+                    CardCode = x.CardCode,
+                    CardName = x.CardName,
+                    DeliveryLocationCode = x.DeliveryLocationCode,
+                    DeliveryLocationName = x.DeliveryLocationName,
                 });
             }
         });

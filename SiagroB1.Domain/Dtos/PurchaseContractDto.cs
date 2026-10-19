@@ -21,4 +21,16 @@ public class PurchaseContractDto
 
     [JsonPropertyName("AgentName")]
     public string? AgentName { get; set; }
+
+    [JsonPropertyName("CardCode")]
+    public string? CardCode { get; set; }
+
+    [JsonPropertyName("CardName")]
+    public string? CardName { get; set; }
+
+    [JsonPropertyName("DeliveryLocationCode")]
+    public string? DeliveryLocationCode { get; set; }
+
+    [JsonPropertyName("DeliveryLocationName")]
+    public string? DeliveryLocationName { get; set; }
 }
