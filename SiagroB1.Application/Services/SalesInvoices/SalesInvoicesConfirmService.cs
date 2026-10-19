@@ -1,4 +1,5 @@
-﻿using SiagroB1.Application.Services.StorageCustody;
+using SiagroB1.Application.Services.StorageInvoices;
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Financials;
@@ -223,6 +224,10 @@ public class SalesInvoicesConfirmService(
                 await salesNoContract.EnqueueAsync(invoice, userName);
                 await db.SaveChangesAsync();
             }
+
+            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, invoice.Key);
+            await db.SaveChangesAsync();
 
             // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.
             foreach (var releaseKey in affectedReleaseKeys)

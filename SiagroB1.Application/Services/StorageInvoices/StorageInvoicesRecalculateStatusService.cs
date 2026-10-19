@@ -20,6 +20,15 @@ namespace SiagroB1.Application.Services.StorageInvoices;
 /// </summary>
 public static class StorageInvoicesRecalculateStatusService
 {
+    /// <summary>Gatilho pelo documento de saída (ou pelo título dele): no-op se o documento não fatura fatura de armazenagem.</summary>
+    public static async Task RecalculateForSalesInvoiceAsync(AppDbContext context, Guid? salesInvoiceKey)
+    {
+        if (salesInvoiceKey is not { } key) return;
+        var storageKey = (await context.SalesInvoices.FindAsync(key))?.StorageInvoiceKey;
+        if (storageKey is { } sk)
+            await RecalculateAsync(context, sk);
+    }
+
     public static async Task RecalculateAsync(AppDbContext context, Guid storageInvoiceKey)
     {
         var invoice = await context.StorageInvoices.FindAsync(storageInvoiceKey)

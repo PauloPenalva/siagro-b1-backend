@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageInvoices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
@@ -150,6 +151,10 @@ public class SalesInvoicesReverseConfirmService(
                 salesNoContract.EnqueueUndo(invoice.Key, userName);
                 await db.SaveChangesAsync();
             }
+
+            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, invoice.Key);
+            await db.SaveChangesAsync();
 
             // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
             // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é

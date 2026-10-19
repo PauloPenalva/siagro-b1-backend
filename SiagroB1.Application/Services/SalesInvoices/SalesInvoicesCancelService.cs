@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageInvoices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.PurchaseDischarges;
@@ -152,6 +153,10 @@ public class SalesInvoicesCancelService(
                 salesNoContract.EnqueueUndo(existingInvoice.Key, userName);
                 await db.SaveChangesAsync();
             }
+
+            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, existingInvoice.Key);
+            await db.SaveChangesAsync();
 
             // Romaneios voltaram a Confirmed e perderam a chave → o saldo liberado é restaurado.
             // No fluxo da CARGA a coleção nasce vazia e este laço é no-op: allocationDelete já
