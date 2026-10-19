@@ -34,8 +34,8 @@ public class PurchaseContractsAllocationCreateService(
     /// Entrada da tela/API: contrato de outro fornecedor ou outro Local de Entrega não se aloca
     /// direto — é a troca de fornecedor/armazém (<see cref="PurchaseTransactionsChangeSupplierService"/>).
     /// A trava fica só aqui: os fluxos internos (<see cref="ExecuteAsync"/>, estorno, descarga)
-    /// alocam por regras próprias. A pernada de compra de uma Expedição também fica de fora: o
-    /// armazém dela é o da liberação, que pode diferir do Local de Entrega do contrato.
+    /// alocam por regras próprias. A pernada de compra de uma Expedição segue regra própria: só o contrato da
+    /// liberação (<see cref="ShippingPurchaseLegRules"/>), sem comparar fornecedor/armazém.
     /// </summary>
     private async Task EnsureSameSupplierAndWarehouseAsync(Guid purchaseContractKey, Guid storageTransactionKey)
     {
@@ -54,9 +54,25 @@ public class PurchaseContractsAllocationCreateService(
         if (transaction == null || contract == null)
             return;
 
-        if (await unitOfWork.Context.ShippingTransactions
-                .AnyAsync(x => x.PurchaseStorageTransactionKey == transaction.Key))
+        // Perna de compra de Expedição: só no contrato da liberação (e sem a trava de fornecedor/armazém,
+        // já que o armazém dela é o da liberação). Mudar de contrato é a "Trocar liberação" da carga.
+        var releaseContractKey = await ShippingPurchaseLegRules.ReleaseContractKeyAsync(
+            unitOfWork.Context, transaction.Key);
+        if (releaseContractKey != null)
+        {
+            if (releaseContractKey != purchaseContractKey)
+            {
+                var releaseCode = await unitOfWork.Context.PurchaseContracts
+                    .AsNoTracking()
+                    .Where(x => x.Key == releaseContractKey)
+                    .Select(x => x.Code)
+                    .FirstOrDefaultAsync();
+                throw new ApplicationException(
+                    $"Romaneio de Expedição só pode ser alocado no contrato da liberação ({releaseCode}). " +
+                    "Para mudar o contrato, use Trocar liberação na carga.");
+            }
             return;
+        }
 
         if (!string.Equals(transaction.CardCode, contract.CardCode, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(transaction.WarehouseCode, contract.DeliveryLocationCode, StringComparison.OrdinalIgnoreCase))

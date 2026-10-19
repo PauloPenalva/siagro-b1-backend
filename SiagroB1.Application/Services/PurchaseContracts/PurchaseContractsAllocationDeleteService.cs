@@ -54,6 +54,13 @@ public class PurchaseContractsAllocationDeleteService(
                 "Esta alocação pertence a uma entrada em armazenagem própria. " +
                 "Estorne a entrada correspondente em vez de excluir a alocação.");
 
+        // Perna de compra de Expedição: o contrato dela é o da liberação. Soltar a alocação aqui
+        // deixaria a liberação consumida e abriria caminho para alocá-la em outro contrato.
+        // O estorno da Expedição e a troca de liberação usam o ExecuteAsync, sem passar por aqui.
+        if (await ShippingPurchaseLegRules.ReleaseContractKeyAsync(db.Context, alloc.StorageTransactionKey) != null)
+            throw new ApplicationException(
+                "Esta alocação pertence a uma Expedição de Grãos. Use Trocar liberação na carga.");
+
         try
         {
             await db.BeginTransactionAsync();

@@ -182,6 +182,16 @@ public class PurchaseTransactionChangeGuardsTests
         // Local de Entrega do contrato (decisão 7 do spec).
         var st = await SeedTransactionAsync("RC-6", warehouseCode: "09");
         var contract = await SeedContractAsync(warehouseCode: "01");
+        var release = new ShipmentRelease
+        {
+            Key = Guid.NewGuid(),
+            PurchaseContractKey = contract.Key,
+            DeliveryLocationCode = "09",
+            ReleasedQuantity = 1_000m,
+            Status = ReleaseStatus.Actived,
+        };
+        _db.Context.ShipmentReleases.Add(release);
+        st.ShipmentReleaseKey = release.Key;
         _db.Context.ShippingTransactions.Add(new ShippingTransaction
         {
             Key = Guid.NewGuid(),
