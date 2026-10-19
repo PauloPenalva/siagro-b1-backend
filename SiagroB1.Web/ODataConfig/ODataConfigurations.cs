@@ -799,6 +799,14 @@ public static class ODataConfigurations
         purchaseContractsCreateAllocation.Parameter<decimal>("Volume");
         purchaseContractsCreateAllocation.Returns<IActionResult>();
         
+        // Volume é double (decimal editável chega como string e é recusado); o controller converte.
+        var purchaseTransactionsChangeSupplier = modelBuilder.Action("PurchaseTransactionsChangeSupplier");
+        purchaseTransactionsChangeSupplier.Parameter<Guid>("StorageTransactionKey");
+        purchaseTransactionsChangeSupplier.Parameter<Guid>("PurchaseContractKey");
+        purchaseTransactionsChangeSupplier.Parameter<double>("Volume");
+        purchaseTransactionsChangeSupplier.Parameter<string>("Reason").Nullable = true;
+        purchaseTransactionsChangeSupplier.Returns<IActionResult>();
+
         var purchaseContractsDeleteAllocation = modelBuilder.Action("PurchaseContractsDeleteAllocation");
         purchaseContractsDeleteAllocation.Parameter<Guid>("Key");
         purchaseContractsDeleteAllocation.Returns<IActionResult>();
