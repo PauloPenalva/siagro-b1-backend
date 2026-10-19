@@ -178,3 +178,12 @@ trava global `Email:Enabled`; 3 tentativas.
 
 Nomes exatos de classes/endpoints, layout das telas, formato do corpo HTML, como compartilhar
 o código entre Sales/Purchase (base genérica como nos handlers existentes).
+
+## Notas de deploy
+
+- Migrations AppContext (todas as empresas): `AddBusinessPartnerNfeEmails`, `AddEmailSettings`,
+  `AddNfeEmailMessages`, `AddNfeEmailMessageEnqueuedAt`. CommonContext: `AddEmailSettingsMenu`.
+- Web: `Email:Enabled=true` (só produção CEAGUI), `Reports:InternalBaseUrl` (ex. `http://localhost:8081`),
+  `Reports:InternalApiKey`; `Nfe:CertificateKey` já existente. Reports: `Reports:InternalApiKey` com o mesmo valor.
+- Depois do deploy: preencher "Configuração de e-mail" da empresa, "Enviar e-mail de teste" para um
+  endereço interno e só então ligar "Envio automático". Conferir os e-mails de NF-e dos PNs.
