@@ -43,10 +43,13 @@ public static class RoyaltyRules
     /// situação: veio de um embarque anterior ao controle de royalties. O usuário não tem como
     /// preencher uma compra que o sistema criou, então só a exigência de preenchimento é
     /// dispensada; os padrões do armazém participante continuam valendo. Avaliar DEPOIS de
-    /// <see cref="ApplyPurchaseDefaultsAsync"/>.
+    /// <see cref="ApplyPurchaseDefaultsAsync"/>. Vale igualmente para o romaneio novo da troca de
+    /// fornecedor/armazém (<see cref="StorageTransaction.PurchaseTransactionChangeKey"/>) cujo
+    /// original foi lançado antes do controle.
     /// </summary>
     public static bool IsLegacyReleaseChangeLeg(StorageTransaction st) =>
-        st.ShippingReleaseChangeKey != null && st.RoyaltySituation is null;
+        (st.ShippingReleaseChangeKey != null || st.PurchaseTransactionChangeKey != null) &&
+        st.RoyaltySituation is null;
 
     /// <summary>
     /// Nome da origem da carga: na Compra a origem é o armazém do carregamento; nos demais, o
