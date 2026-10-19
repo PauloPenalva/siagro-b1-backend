@@ -50,6 +50,8 @@ public class FinancialEdmModelTests
     [Theory]
     [InlineData("FinancialDocumentsSettle", "Amount")]
     [InlineData("FinancialDocumentsSettle", "InterestAmount")]
+    [InlineData("FinancialAccountEntriesCreate", "Amount")]
+    [InlineData("FinancialAccountReconciliationsOpen", "StatementBalance")]
     public void Money_parameters_are_double_never_decimal(string action, string parameter)
     {
         var operation = BuildModel().SchemaElements

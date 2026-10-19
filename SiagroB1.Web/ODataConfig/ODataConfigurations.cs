@@ -1709,6 +1709,23 @@ public static class ODataConfigurations
         financialSettle.Parameter<string>("Notes").Optional();
         financialSettle.Returns<IActionResult>();
 
+        // Lançamentos manuais e reconciliação de conta. Valores em Double: o OData recusa decimal vindo como string.
+        var accountEntryCreate = modelBuilder.Action("FinancialAccountEntriesCreate");
+        accountEntryCreate.Parameter<string>("FinancialAccountCode");
+        accountEntryCreate.Parameter<string>("EntryDate");
+        accountEntryCreate.Parameter<double>("Amount");
+        accountEntryCreate.Parameter<string>("Description");
+        accountEntryCreate.Parameter<string>("DocumentReference").Optional();
+        accountEntryCreate.Parameter<string>("Notes").Optional();
+        accountEntryCreate.Returns<Guid>();
+
+        var reconciliationOpen = modelBuilder.Action("FinancialAccountReconciliationsOpen");
+        reconciliationOpen.Parameter<string>("FinancialAccountCode");
+        reconciliationOpen.Parameter<string>("StatementDate");
+        reconciliationOpen.Parameter<double>("StatementBalance");
+        reconciliationOpen.Parameter<string>("Notes").Optional();
+        reconciliationOpen.Returns<Guid>();
+
         var financialReverse = modelBuilder.Action("FinancialDocumentsReverseSettlement");
         financialReverse.Parameter<Guid>("SettlementKey");
         financialReverse.Parameter<string>("Reason");

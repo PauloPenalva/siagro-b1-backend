@@ -674,6 +674,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialAccountsUpdateService>();
         services.AddScoped<FinancialAccountsGetService>();
         services.AddScoped<FinancialAccountsDeleteService>();
+        services.AddScoped<FinancialAccountEntriesCreateService>();
+        services.AddScoped<FinancialAccountEntriesDeleteService>();
+        services.AddScoped<FinancialAccountReconciliationsOpenService>();
         services.AddScoped<FinancialDocumentsGetService>();
         services.AddScoped<FinancialDocumentsRecalculateBalanceService>();
         services.AddScoped<FinancialDocumentsGenerateService>();
