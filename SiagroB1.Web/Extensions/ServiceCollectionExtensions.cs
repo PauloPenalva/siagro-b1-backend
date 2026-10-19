@@ -365,6 +365,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IcmsItemStateRatesService>();
         services.AddScoped<NfeOptions>();
         services.AddScoped<BranchNfeSettingsService>();
+        services.AddScoped<IEmailSettingsService, EmailSettingsService>();
         services.AddScoped<SupplierNfeAuthorizationService>();
         services.AddScoped<NfeNumberReservationService>();
         services.AddScoped<NfeReadinessValidator>();

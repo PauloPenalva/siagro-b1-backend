@@ -762,6 +762,49 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("DOC_NUMBERS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EmailSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AutoSendEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FromAddress")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("FromName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<byte[]>("PasswordEncrypted")
+                        .HasColumnType("VARBINARY(512)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<bool>("UseStartTls")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("EMAIL_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.FinancialAccount", b =>
                 {
                     b.Property<string>("Code")
