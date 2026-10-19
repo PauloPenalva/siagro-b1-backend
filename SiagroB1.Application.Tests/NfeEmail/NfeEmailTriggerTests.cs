@@ -193,6 +193,80 @@ public class NfeEmailTriggerTests
         Assert.Equal(NfeEmailEventType.Authorized, row.EventType);
     }
 
+    private static ThrowOnSaveInterceptor FailingEmailInsert() =>
+        new(e => e.Entity is NfeEmailMessage && e.State == EntityState.Added);
+
+    [Fact]
+    public async Task Authorization_persists_when_the_email_insert_fails_on_save()
+    {
+        var seeded = await NfeTestSeed.SeedAsync(InvoiceStatus.Confirmed);
+        await EnableAsync(seeded.Db);
+        var scenario = seeded with { Db = TestDb.CreateUnitOfWork(seeded.DatabaseName, FailingEmailInsert()) };
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.AuthorizeResponses.Enqueue(key => FakeNfeSefazClient.Authorized(key));
+
+        var outcome = await SalesIssue(scenario, sefaz, NfeTestSeed.Config(), SalesResultHandler(scenario.Db))
+            .ExecuteAsync(scenario.InvoiceKey, "tester");
+
+        Assert.Equal(NfeStatus.Authorized, outcome.NfeStatus);
+        var reloaded = TestDb.CreateUnitOfWork(seeded.DatabaseName);
+        Assert.Equal(NfeStatus.Authorized,
+            (await reloaded.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == seeded.InvoiceKey)).NfeStatus);
+        Assert.Empty(await RowsAsync(reloaded));
+    }
+
+    [Fact]
+    public async Task Cancellation_persists_when_the_email_insert_fails_on_save()
+    {
+        var seeded = await NfeTestSeed.SeedAsync();
+        await EnableAsync(seeded.Db);
+        await NfeCancelTestServices.AuthorizeSaleAsync(seeded.Db, seeded.InvoiceKey);
+        var db = TestDb.CreateUnitOfWork(seeded.DatabaseName, FailingEmailInsert());
+        var invoice = await db.Context.SalesInvoices.SingleAsync(i => i.Key == seeded.InvoiceKey);
+
+        var outcome = await CancelHandler(db).ApplyRegisteredAsync(
+            invoice, FakeNfeSefazClient.CancellationRegistered(invoice.ChaveNFe!), "Venda desfeita a pedido do cliente", "tester");
+
+        Assert.Equal(NfeStatus.Cancelled, outcome.NfeStatus);
+        var reloaded = TestDb.CreateUnitOfWork(seeded.DatabaseName);
+        Assert.Equal(NfeStatus.Cancelled,
+            (await reloaded.Context.SalesInvoices.AsNoTracking().SingleAsync(i => i.Key == seeded.InvoiceKey)).NfeStatus);
+        Assert.Empty(await RowsAsync(reloaded));
+    }
+
+    [Fact]
+    public async Task Third_party_purchase_does_not_enqueue()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await EnableAsync(scenario.Db);
+        await NfeCancelTestServices.AuthorizePurchaseAsync(scenario.Db, scenario.InvoiceKey);
+        var invoice = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == scenario.InvoiceKey);
+        invoice.IssuerType = DocumentIssuerType.ThirdParty;
+        await scenario.Db.SaveChangesAsync();
+
+        await NfeCancelTestServices.PurchaseHandler(scenario.Db, emailOutbox: Outbox(scenario.Db)).ApplyRegisteredAsync(
+            invoice, FakeNfeSefazClient.CancellationRegistered(invoice.ChaveNFe!), "Entrada lancada em duplicidade", "tester");
+
+        Assert.Empty(await RowsAsync(scenario.Db));
+    }
+
+    [Fact]
+    public async Task Purchase_cancellation_enqueues_purchase_cancelled()
+    {
+        var scenario = await PurchaseNfeTestSeed.SeedAsync();
+        await EnableAsync(scenario.Db);
+        await NfeCancelTestServices.AuthorizePurchaseAsync(scenario.Db, scenario.InvoiceKey);
+        var invoice = await scenario.Db.Context.PurchaseInvoices.SingleAsync(i => i.Key == scenario.InvoiceKey);
+
+        await NfeCancelTestServices.PurchaseHandler(scenario.Db, emailOutbox: Outbox(scenario.Db)).ApplyRegisteredAsync(
+            invoice, FakeNfeSefazClient.CancellationRegistered(invoice.ChaveNFe!), "Entrada lancada em duplicidade", "tester");
+
+        var row = Assert.Single(await RowsAsync(scenario.Db));
+        Assert.Equal(NfeEmailDocumentType.Purchase, row.DocumentType);
+        Assert.Equal(NfeEmailEventType.Cancelled, row.EventType);
+        Assert.Equal(scenario.InvoiceKey, row.DocumentKey);
+    }
+
     [Fact]
     public async Task Second_apply_does_not_duplicate()
     {

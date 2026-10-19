@@ -55,8 +55,8 @@ public abstract class NfeCancellationHandlerBase<TDocument>(
                 await NfeEmailTriggers.EnqueueAsync(emailOutbox, logger, SendsEmail(document), EmailDocumentType,
                     document.Key, NfeEmailEventType.Cancelled, userName);
 
-            // A NF-e cancelada vai para o banco ANTES do cancelamento do documento.
-            await db.SaveChangesAsync();
+            // A NF-e cancelada vai para o banco ANTES do cancelamento do documento. A linha de e-mail nunca derruba este save.
+            await NfeEmailTriggers.SaveFiscalAsync(db, logger);
         }
         catch (Exception e)
         {

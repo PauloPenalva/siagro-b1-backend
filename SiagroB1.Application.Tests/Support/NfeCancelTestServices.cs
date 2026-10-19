@@ -51,8 +51,10 @@ public static class NfeCancelTestServices
         new(db, cancel ?? SalesInvoicesCancelServiceTests.Service(db), NullLogger<SalesInvoiceNfeCancellationHandler>.Instance,
             emailOutbox);
 
-    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(UnitOfWork db, PurchaseInvoicesCancelService? cancel = null) =>
-        new(db, cancel ?? FinancialDocumentTestServices.PurchaseCancel(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance);
+    public static PurchaseInvoiceNfeCancellationHandler PurchaseHandler(
+        UnitOfWork db, PurchaseInvoicesCancelService? cancel = null, INfeEmailOutboxService? emailOutbox = null) =>
+        new(db, cancel ?? FinancialDocumentTestServices.PurchaseCancel(db), NullLogger<PurchaseInvoiceNfeCancellationHandler>.Instance,
+            emailOutbox);
 
     public static SalesInvoicesNfeCancelService SalesCancel(
         UnitOfWork db, FakeNfeSefazClient sefaz, SalesInvoicesCancelService? cancel = null,

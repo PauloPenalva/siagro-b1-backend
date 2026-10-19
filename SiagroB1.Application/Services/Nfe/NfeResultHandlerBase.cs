@@ -113,8 +113,8 @@ public abstract class NfeResultHandlerBase<TDocument>(
                     invoice.Key, NfeEmailEventType.Authorized, userName);
 
             // A NF-e autorizada vai para o banco ANTES da confirmação: se ela falhar, a nota
-            // continua registrada como autorizada.
-            await db.SaveChangesAsync();
+            // continua registrada como autorizada. A linha de e-mail nunca derruba este save.
+            await NfeEmailTriggers.SaveFiscalAsync(db, logger);
 
             // Só confirma o documento que ainda está Pendente (spec 2026-10-06 T3): o documento de saída Normal foi
             // confirmado antes de transmitir, e confirmar de novo duplicaria a alocação no contrato.
