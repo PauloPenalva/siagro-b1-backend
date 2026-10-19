@@ -44,8 +44,8 @@ public class BusinessPartner
 
     public StateRegistrationIndicator? StateRegistrationIndicator { get; set; }
 
-    [Column(TypeName = "VARCHAR(250)")]
-    public string? NfeEmail { get; set; }
+    /// <summary>E-mails que recebem o DANFE e o XML da NF-e (até 10, ordenados por LineNum). O primeiro vai no dest/email.</summary>
+    public ICollection<BusinessPartnerNfeEmail> NfeEmails { get; set; } = new List<BusinessPartnerNfeEmail>();
 
     [Column(TypeName = "VARCHAR(14)")]
     public string? Phone { get; set; }

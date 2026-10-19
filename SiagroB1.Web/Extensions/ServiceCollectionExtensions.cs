@@ -12,6 +12,7 @@ using SiagroB1.Application.Services.PaymentConditions;
 using SiagroB1.Application.Services.WithholdingTaxSettings;
 using SiagroB1.Application.Services.MenuItem;
 using SiagroB1.Application.Services.Nfe;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Application.Services.Notifications;
 using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Domain.Interfaces.Notifications;
@@ -78,6 +79,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddStandAloneServices(this IServiceCollection services)
     {
         services.AddScoped<IBusinessPartnerService, Application.Services.BusinessPartnerService>();
+        services.AddScoped<INfeEmailRecipientResolver, NfeEmailRecipientResolver>();
         services.AddScoped<IItemService, Application.Services.ItemService>();
         services.AddScoped<IUnitOfMeasureService, Application.Services.UnitOfMeasureService>();
         services.AddScoped<IAgentService, Application.Services.AgentService>();

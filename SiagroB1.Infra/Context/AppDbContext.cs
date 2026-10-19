@@ -120,6 +120,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WarehouseComplement> WarehouseComplements { get; set; }
     
     public DbSet<BusinessPartner>  BusinessPartners { get; set; }
+
+    public DbSet<BusinessPartnerNfeEmail> BusinessPartnerNfeEmails { get; set; }
     
     public DbSet<Address> Addresses { get; set; }
     public DbSet<TruckScale> TruckScales { get; set; }
@@ -336,6 +338,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<WarehouseComplement>()
             .HasKey(x => x.WarehouseCode);
+
+        modelBuilder.Entity<BusinessPartnerNfeEmail>(e =>
+        {
+            e.HasIndex(x => new { x.CardCode, x.Email }).IsUnique();
+            e.HasOne(x => x.BusinessPartner).WithMany(bp => bp.NfeEmails)
+                .HasForeignKey(x => x.CardCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Address>()
             .HasOne(a => a.BusinessPartner)
