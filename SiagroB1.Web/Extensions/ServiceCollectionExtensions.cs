@@ -665,8 +665,6 @@ public static class ServiceCollectionExtensions
         //storage invoices
         services.AddScoped<IStorageInvoiceClosingService,StorageInvoiceClosingService>();
         services.AddScoped<IStorageInvoiceCancellationService,StorageInvoiceCancellationService>();
-        services.AddScoped<IStorageInvoiceCloseService,StorageInvoiceCloseService>();
-        services.AddScoped<IStorageInvoiceOpenService,StorageInvoiceOpenService>();
         services.AddScoped<StorageInvoicesGetService>();
 
         // financials

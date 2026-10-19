@@ -4317,6 +4317,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("ShipmentReleaseKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("StorageInvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("TaxComments")
                         .HasColumnType("VARCHAR(500) DEFAULT ''");
 
@@ -4377,6 +4380,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("ShipmentLoadRefusalKey");
 
                     b.HasIndex("ShipmentReleaseKey");
+
+                    b.HasIndex("StorageInvoiceKey");
 
                     b.ToTable("SALES_INVOICES");
                 });
@@ -8204,6 +8209,11 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("ShipmentReleaseKey")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("SiagroB1.Domain.Entities.StorageInvoice", "StorageInvoice")
+                        .WithMany("SalesInvoices")
+                        .HasForeignKey("StorageInvoiceKey")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Branch");
 
                     b.Navigation("DocNumber");
@@ -8213,6 +8223,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("ShipmentLoad");
 
                     b.Navigation("ShipmentRelease");
+
+                    b.Navigation("StorageInvoice");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.SalesInvoiceChangeLog", b =>
@@ -9132,6 +9144,8 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageInvoice", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("SalesInvoices");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>

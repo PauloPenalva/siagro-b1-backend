@@ -1661,13 +1661,6 @@ public static class ODataConfigurations
         storageInvoiceCancellation.Parameter<string>("Reason");
         storageInvoiceCancellation.Returns<IActionResult>();
         
-        var storageInvoiceClose = modelBuilder.Action("StorageInvoiceClose");
-        storageInvoiceClose.Parameter<Guid>("Key");
-        storageInvoiceClose.Returns<IActionResult>();
-        
-        var storageInvoiceOpen = modelBuilder.Action("StorageInvoiceOpen");
-        storageInvoiceOpen.Parameter<Guid>("Key");
-        storageInvoiceOpen.Returns<IActionResult>();
 
         // Cadastro de conta financeira (caixa/banco). Sem saldo aqui — a posição de caixa é
         // derivada do ledger de baixas e só ganha tela na Fase 4.

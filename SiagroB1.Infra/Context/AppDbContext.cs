@@ -167,6 +167,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
 
+        // Spec 2026-10-19 parte 3: o documento de saída que fatura a fatura de armazenagem. A fatura não se apaga com
+        // documento vinculado (cancelar exige cancelar os documentos antes).
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne(x => x.StorageInvoice)
+            .WithMany(x => x.SalesInvoices)
+            .HasForeignKey(x => x.StorageInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Invariante "uma transferência de titularidade, uma liberação de embarque",
         // no banco. As outras duas camadas são a guarda de status no confirm e a
         // guarda inversa nos serviços de liberação; esta é a que sobrevive a

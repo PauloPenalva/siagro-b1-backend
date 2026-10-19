@@ -222,6 +222,10 @@ public class SalesInvoice : DocumentEntity, INfeDocument
     /// regra do serviço, não do banco, porque as canceladas ficam.
     /// </summary>
     public Guid? ShipmentReleaseKey { get; set; }
+
+    /// <summary>Fatura de armazenagem que este documento fatura (spec 2026-10-19 parte 3). Nulo nos demais.</summary>
+    public Guid? StorageInvoiceKey { get; set; }
+    public virtual StorageInvoice? StorageInvoice { get; set; }
     public virtual ShipmentRelease? ShipmentRelease { get; set; }
 
     /// <summary>

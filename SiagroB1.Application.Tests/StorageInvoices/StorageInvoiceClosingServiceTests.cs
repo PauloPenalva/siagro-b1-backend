@@ -61,7 +61,7 @@ public class StorageInvoiceClosingServiceTests
             CardCode = "C0001",
             PeriodStart = new DateTime(2026, 3, 23),
             PeriodEnd = new DateTime(2026, 4, 21),
-            Status = StorageInvoiceStatus.Closed,
+            Status = StorageInvoiceStatus.Paid,
             TotalAmount = 4m,
         };
         _db.Context.StorageInvoices.Add(invoice);
