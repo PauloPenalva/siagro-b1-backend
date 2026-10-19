@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
@@ -115,6 +116,8 @@ public class SalesInvoicesItemsUpdateService(
                 // sobrescreveria com o nulo da entidade recebida no caminho PUT.
                 existingEntity.UpdatedAt = DateTime.Now;
                 existingEntity.UpdatedBy = userName;
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, existingEntity.SalesInvoiceKey);
+
                 db.Context.SalesInvoicesChangeLogs.AddRange(logs);
             }
 

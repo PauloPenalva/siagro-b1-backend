@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageInvoices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
@@ -49,6 +50,7 @@ public class SalesInvoicesItemsCreateService(
             salesInvoiceItem.ItemName = (await itemService.GetByIdAsync(salesInvoiceItem.ItemCode))?.ItemName;
 
             await db.Context.SalesInvoicesItems.AddAsync(salesInvoiceItem);
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, salesInvoiceItem.SalesInvoiceKey);
             await db.SaveChangesAsync();
 
             // Numa devolução o peso do cabeçalho é a soma das linhas. Depois do flush: a soma

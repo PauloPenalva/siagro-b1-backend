@@ -1,4 +1,5 @@
-﻿using SiagroB1.Application.Services.StorageCustody;
+using SiagroB1.Application.Services.StorageInvoices;
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.DocNumbers;
@@ -217,6 +218,9 @@ public class SalesInvoicesCreateService(
                 existingTransaction.TransactionStatus = StorageTransactionsStatus.Invoiced;
             }
             
+            // Spec 2026-10-19 parte 3: documento que fatura a fatura de armazenagem não passa do saldo dela.
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, salesInvoice);
+
             if (commitMode == CommitMode.Auto)
                 await db.SaveChangesAsync();
         }
