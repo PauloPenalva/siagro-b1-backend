@@ -215,6 +215,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NotificationOutboxResendService>();
         services.AddScoped<IContractNotificationDispatchJob, ContractNotificationDispatchJob>();
         services.AddScoped<IContractNotificationSweepJob, ContractNotificationSweepJob>();
+        services.AddScoped<NfeEmailDispatchJob>();
+        services.AddScoped<NfeEmailSweepJob>();
 
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
