@@ -82,6 +82,10 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
             if (await db.Context.FinancialSettlements.AnyAsync(x => x.ReversedSettlementKey == line.Key))
                 throw new ApplicationException("Esta baixa já foi estornada.");
 
+            // Lançamento conciliado fica bloqueado: o estorno mudaria um extrato já conferido com o banco.
+            if (line.ReconciliationKey is not null)
+                throw new ApplicationException("Baixa conciliada não pode ser estornada. Remova a conciliação primeiro.");
+
             documents[line.FinancialDocumentKey] = document;
         }
 

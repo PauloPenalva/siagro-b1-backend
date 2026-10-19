@@ -1674,6 +1674,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialDocument>("FinancialDocuments");
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
+        modelBuilder.EntitySet<FinancialAccountEntry>("FinancialAccountEntries");
+        modelBuilder.EntitySet<FinancialAccountReconciliation>("FinancialAccountReconciliations");
 
         // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
         // tela não consegue mostrar o saldo.
@@ -1704,6 +1706,50 @@ public static class ODataConfigurations
         financialSettle.Parameter<string>("DocumentReference").Optional();
         financialSettle.Parameter<string>("Notes").Optional();
         financialSettle.Returns<IActionResult>();
+
+        // Lançamentos manuais e reconciliação de conta. Valores em Double: o OData recusa decimal vindo como string.
+        var accountEntryCreate = modelBuilder.Action("FinancialAccountEntriesCreate");
+        accountEntryCreate.Parameter<string>("FinancialAccountCode");
+        accountEntryCreate.Parameter<string>("EntryDate");
+        accountEntryCreate.Parameter<double>("Amount");
+        accountEntryCreate.Parameter<string>("Description");
+        accountEntryCreate.Parameter<string>("DocumentReference").Optional();
+        accountEntryCreate.Parameter<string>("Notes").Optional();
+        accountEntryCreate.Returns<Guid>();
+
+        var reconciliationOpen = modelBuilder.Action("FinancialAccountReconciliationsOpen");
+        reconciliationOpen.Parameter<string>("FinancialAccountCode");
+        reconciliationOpen.Parameter<string>("StatementDate");
+        reconciliationOpen.Parameter<double>("StatementBalance");
+        reconciliationOpen.Parameter<string>("Notes").Optional();
+        reconciliationOpen.Returns<Guid>();
+
+        var reconciliationSetLines = modelBuilder.Action("FinancialAccountReconciliationsSetLines");
+        reconciliationSetLines.Parameter<Guid>("Key");
+        reconciliationSetLines.CollectionParameter<Guid>("MarkSettlements").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("MarkEntries").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("UnmarkSettlements").Optional();
+        reconciliationSetLines.CollectionParameter<Guid>("UnmarkEntries").Optional();
+        reconciliationSetLines.Returns<IActionResult>();
+
+        foreach (var name in new[] { "FinancialAccountReconciliationsClose", "FinancialAccountReconciliationsReopen",
+                     "FinancialAccountReconciliationsDelete" })
+        {
+            var action = modelBuilder.Action(name);
+            action.Parameter<Guid>("Key");
+            action.Returns<IActionResult>();
+        }
+
+        var reconciliationLines = modelBuilder.Function("FinancialAccountReconciliationsGetLines");
+        reconciliationLines.Parameter<Guid>("Key");
+        reconciliationLines.Returns<FinancialAccountReconciliationLinesDto>();
+
+        var accountMovements = modelBuilder.Function("FinancialAccountsGetMovements");
+        accountMovements.Parameter<string>("AccountCode");
+        accountMovements.Parameter<string>("DateFrom");
+        accountMovements.Parameter<string>("DateTo");
+        accountMovements.Parameter<bool>("OnlyReconciled");
+        accountMovements.Returns<FinancialAccountMovementsDto>();
 
         var financialReverse = modelBuilder.Action("FinancialDocumentsReverseSettlement");
         financialReverse.Parameter<Guid>("SettlementKey");

@@ -19,9 +19,31 @@ public class FinancialEdmModelTests
     [InlineData("FinancialAccounts")]
     [InlineData("FinancialDocuments")]
     [InlineData("FinancialSettlements")]
+    [InlineData("FinancialAccountEntries")]
+    [InlineData("FinancialAccountReconciliations")]
     public void The_entity_sets_are_exposed(string entitySet)
     {
         Assert.NotNull(BuildModel().EntityContainer.FindEntitySet(entitySet));
+    }
+
+    [Theory]
+    [InlineData("FinancialAccountReconciliationsSetLines")]
+    [InlineData("FinancialAccountReconciliationsClose")]
+    [InlineData("FinancialAccountReconciliationsReopen")]
+    [InlineData("FinancialAccountReconciliationsDelete")]
+    [InlineData("FinancialAccountReconciliationsGetLines")]
+    [InlineData("FinancialAccountsGetMovements")]
+    public void The_reconciliation_operations_are_declared(string name)
+    {
+        Assert.Contains(BuildModel().SchemaElements.OfType<IEdmOperation>(), o => o.Name == name);
+    }
+
+    [Fact]
+    public void The_settlement_exposes_its_reconciliation_key()
+    {
+        var type = BuildModel().EntityContainer.FindEntitySet("FinancialSettlements").EntityType;
+
+        Assert.NotNull(type.FindProperty("ReconciliationKey"));
     }
 
     [Theory]
@@ -40,6 +62,8 @@ public class FinancialEdmModelTests
     [Theory]
     [InlineData("FinancialDocumentsSettle", "Amount")]
     [InlineData("FinancialDocumentsSettle", "InterestAmount")]
+    [InlineData("FinancialAccountEntriesCreate", "Amount")]
+    [InlineData("FinancialAccountReconciliationsOpen", "StatementBalance")]
     public void Money_parameters_are_double_never_decimal(string action, string parameter)
     {
         var operation = BuildModel().SchemaElements

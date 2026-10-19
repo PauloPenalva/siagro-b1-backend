@@ -140,6 +140,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialSettlement> FinancialSettlements { get; set; }
     public DbSet<FinancialDocumentChangeLog> FinancialDocumentChangeLogs { get; set; }
     public DbSet<FinancialDocumentComposition> FinancialDocumentCompositions { get; set; }
+    public DbSet<FinancialAccountEntry> FinancialAccountEntries { get; set; }
+    public DbSet<FinancialAccountReconciliation> FinancialAccountReconciliations { get; set; }
 
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
     public DbSet<PurchaseTransactionChange> PurchaseTransactionChanges { get; set; }
@@ -676,6 +678,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => x.ReversedSettlementKey)
             .IsUnique()
             .HasFilter("[ReversedSettlementKey] IS NOT NULL");
+
+        // Reconciliação de conta: no máximo UMA aberta por conta. O serviço já recusa; o índice é a trava do duplo clique.
+        modelBuilder.Entity<FinancialAccountReconciliation>()
+            .HasIndex(x => x.FinancialAccountCode, "IX_FINANCIAL_ACCOUNT_RECONCILIATIONS_OpenPerAccount")
+            .IsUnique()
+            .HasFilter($"[Status] = {(int)FinancialAccountReconciliationStatus.Open}");
 
         // Conferência de Saldo de Armazém: no máximo UMA em aberto (Rascunho/Em aprovação) por
         // armazém+produto. O serviço já recusa; o índice é a trava contra caminho novo.
