@@ -1771,6 +1771,9 @@ public static class ODataConfigurations
         financialAdvance.Parameter<Guid>("ContractKey");
         financialAdvance.Parameter<double>("Amount");
         financialAdvance.Parameter<string>("DueDate");
+        // Nasce pago (spec 2026-10-19): conta e data da baixa gravada junto.
+        financialAdvance.Parameter<string>("FinancialAccountCode");
+        financialAdvance.Parameter<string>("PaymentDate");
         financialAdvance.Parameter<string>("Comments").Optional();
         financialAdvance.Returns<IActionResult>();
 
