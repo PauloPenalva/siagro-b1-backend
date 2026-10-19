@@ -22,7 +22,8 @@ public class SalesInvoicesCancelService(
     ShipmentLoadsBalanceHookService loadHook,
     ILogger<SalesInvoicesCancelService> logger,
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FinancialDocumentsSalesNoContractService? salesNoContract = null)
 {
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
@@ -145,6 +146,13 @@ public class SalesInvoicesCancelService(
                 await db.SaveChangesAsync();
             }
 
+            // Spec 2026-10-19 parte 1: títulos sem contrato do documento cancelado.
+            if (salesNoContract is not null)
+            {
+                salesNoContract.EnqueueUndo(existingInvoice.Key, userName);
+                await db.SaveChangesAsync();
+            }
+
             // Romaneios voltaram a Confirmed e perderam a chave → o saldo liberado é restaurado.
             // No fluxo da CARGA a coleção nasce vazia e este laço é no-op: allocationDelete já
             // recalcula contratos E liberações a partir do ledger. Não é esquecimento.
@@ -218,6 +226,8 @@ public class SalesInvoicesCancelService(
         // Spec 2026-10-15 (ponto 4): roda no ensaio antes da SEFAZ e no cancelamento.
         if (salesFirmSync is not null)
             await salesFirmSync.EnsureCanUndoAsync(invoice);
+        if (salesNoContract is not null)
+            await salesNoContract.EnsureCanUndoAsync(invoice.Key);
     }
 
     private bool HasReturn(SalesInvoice salesInvoice)

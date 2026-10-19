@@ -23,7 +23,8 @@ public class SalesInvoicesReverseConfirmService(
     ShipmentLoadsBalanceHookService loadHook,
     ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FinancialDocumentsSalesNoContractService? salesNoContract = null)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -58,6 +59,8 @@ public class SalesInvoicesReverseConfirmService(
         // Spec 2026-10-15: firme composto, ou com dação/encontro de contas, recusa antes de mexer em qualquer coisa.
         if (salesFirmSync is not null)
             await salesFirmSync.EnsureCanUndoAsync(invoice);
+        if (salesNoContract is not null)
+            await salesNoContract.EnsureCanUndoAsync(invoice.Key);
 
         await db.BeginTransactionAsync();
 
@@ -138,6 +141,13 @@ public class SalesInvoicesReverseConfirmService(
             {
                 await salesFirmSync.EnqueueSyncAsync(
                     invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
+                await db.SaveChangesAsync();
+            }
+
+            // Spec 2026-10-19 parte 1: documento de volta a Pendente — títulos sem contrato cancelados.
+            if (salesNoContract is not null)
+            {
+                salesNoContract.EnqueueUndo(invoice.Key, userName);
                 await db.SaveChangesAsync();
             }
 

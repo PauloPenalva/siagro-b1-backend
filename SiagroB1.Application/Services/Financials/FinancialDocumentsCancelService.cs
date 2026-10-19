@@ -49,6 +49,11 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
             throw new ApplicationException(
                 "Título da outra compra nasce da confirmação do documento de entrada: estorne a confirmação ou cancele o documento para cancelá-lo.");
 
+        // Spec 2026-10-19 parte 1: parcelas sem contrato do documento de saída nascem e morrem com ele.
+        if (document.OriginType == FinancialDocumentOrigin.SalesInvoiceNoContract)
+            throw new ApplicationException(
+                "Título do documento de saída nasce da confirmação: cancele ou estorne o documento de saída para cancelá-lo.");
+
         // F4 (revisão final): cancelar o título de washout por aqui deixaria o washout Approved
         // reduzindo saldo e provisório sem título nenhum por trás — e um Estorno depois passaria
         // em silêncio, porque EnqueueCancelByKeyAsync trata documento já cancelado como no-op.

@@ -18,7 +18,7 @@ public class FinancialDocumentsSalesNoContractTests
 {
     private static readonly DateTime Issue = new(2026, 10, 15);
 
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         public SalesFirmReceivableSeed Seed { get; private init; } = null!;
         public int NoContractUsage { get; private set; }
