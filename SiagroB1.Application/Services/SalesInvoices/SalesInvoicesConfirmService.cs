@@ -28,7 +28,8 @@ public class SalesInvoicesConfirmService(
     IStringLocalizer<Resource> resource,
     TaxCalculationGate? gate = null,
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FinancialDocumentsSalesNoContractService? salesNoContract = null)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
@@ -210,6 +211,13 @@ public class SalesInvoicesConfirmService(
             {
                 await salesFirmSync.EnqueueSyncAsync(
                     invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
+                await db.SaveChangesAsync();
+            }
+
+            // Spec 2026-10-19 parte 1: linhas SEM contrato com natureza que gera financeiro → parcelas a receber.
+            if (salesNoContract is not null && !icmsComplement)
+            {
+                await salesNoContract.EnqueueAsync(invoice, userName);
                 await db.SaveChangesAsync();
             }
 

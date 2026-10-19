@@ -652,15 +652,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
                        "AND [OriginKey] IS NOT NULL " +
-                       // Outra compra: N parcelas (e N retenções) com o mesmo OriginKey — a idempotência é do serviço.
-                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice}");
+                       // Outra compra e saída sem contrato: N parcelas com o mesmo OriginKey — a idempotência é do serviço.
+                       $"AND [OriginType] NOT IN ({(int)FinancialDocumentOrigin.OtherPurchaseInvoice}, {(int)FinancialDocumentOrigin.SalesInvoiceNoContract})");
 
         // Outra compra: o índice acima a exclui (N parcelas e N retenções por documento), então a rede de segurança da
         // confirmação idempotente é esta chave: documento × parcela × tributo. Título cancelado libera a chave.
         modelBuilder.Entity<FinancialDocument>()
             .HasIndex(x => new { x.OriginType, x.OriginKey, x.InstallmentNumber, x.WithholdingTaxType }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
             .IsUnique()
-            .HasFilter($"[OriginType] = {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} " +
+            .HasFilter($"[OriginType] IN ({(int)FinancialDocumentOrigin.OtherPurchaseInvoice}, {(int)FinancialDocumentOrigin.SalesInvoiceNoContract}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled}");
 
         // Impede estornar a mesma baixa duas vezes.

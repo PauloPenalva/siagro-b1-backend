@@ -120,7 +120,7 @@ internal sealed class SalesFirmReceivableSeed
         await Context.SaveChangesAsync();
     }
 
-    public SalesInvoicesConfirmService Confirm() => new(Db,
+    public SalesInvoicesConfirmService Confirm(FinancialDocumentsSalesNoContractService? salesNoContract = null) => new(Db,
         new SalesShipmentReleasesRecalculateShippedService(Context),
         new SalesContractsAllocationCreateService(Db, new SalesContractsFixedVolumeService(Context)),
         new SalesContractsAllocationCreateForReturnService(Db, new SalesContractsFixedVolumeService(Context)),
@@ -129,7 +129,8 @@ internal sealed class SalesFirmReceivableSeed
         new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
         new ShipmentLoadsClosureHookService(Context, new ShipmentLoadsChangeLogService(Context)),
         new FakeStringLocalizer<Resource>(),
-        salesFirmSync: Sync());
+        salesFirmSync: Sync(),
+        salesNoContract: salesNoContract);
 
     public SalesInvoicesReverseConfirmService ReverseConfirm() => new(Db,
         new SalesContractsAllocationDeleteForInvoiceService(Db),
