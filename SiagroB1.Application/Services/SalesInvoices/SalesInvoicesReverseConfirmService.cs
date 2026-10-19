@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.StorageInvoices;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
@@ -23,7 +24,8 @@ public class SalesInvoicesReverseConfirmService(
     ShipmentLoadsBalanceHookService loadHook,
     ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FinancialDocumentsSalesNoContractService? salesNoContract = null)
 {
     public async Task ExecuteAsync(Guid key, string userName)
     {
@@ -58,6 +60,8 @@ public class SalesInvoicesReverseConfirmService(
         // Spec 2026-10-15: firme composto, ou com dação/encontro de contas, recusa antes de mexer em qualquer coisa.
         if (salesFirmSync is not null)
             await salesFirmSync.EnsureCanUndoAsync(invoice);
+        if (salesNoContract is not null)
+            await salesNoContract.EnsureCanUndoAsync(invoice.Key);
 
         await db.BeginTransactionAsync();
 
@@ -140,6 +144,17 @@ public class SalesInvoicesReverseConfirmService(
                     invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
                 await db.SaveChangesAsync();
             }
+
+            // Spec 2026-10-19 parte 1: documento de volta a Pendente — títulos sem contrato cancelados.
+            if (salesNoContract is not null)
+            {
+                salesNoContract.EnqueueUndo(invoice.Key, userName);
+                await db.SaveChangesAsync();
+            }
+
+            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, invoice.Key);
+            await db.SaveChangesAsync();
 
             // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
             // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é

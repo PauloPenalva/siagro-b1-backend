@@ -44,4 +44,7 @@ public class StorageInvoice : DocumentEntity
     public string? CancellationReason  { get; set; }
 
     public ICollection<StorageInvoiceItem> Items { get; set; } = [];
+
+    /// <summary>Documentos de saída (NF-e/NFS) que faturam esta fatura (spec 2026-10-19 parte 3).</summary>
+    public ICollection<SalesInvoice> SalesInvoices { get; set; } = [];
 }

@@ -22,5 +22,12 @@ public enum FinancialDocumentOrigin
     /// Parcelas a pagar e títulos de retenção do documento de entrada de OUTRA COMPRA (spec 2026-10-17 §3). OriginKey = chave do
     /// documento, repetida em N títulos: por isso o índice FirmOrigin exclui esta origem. Fora de toda regra de firme de contrato.
     /// </summary>
-    OtherPurchaseInvoice = 9
+    OtherPurchaseInvoice = 9,
+
+    /// <summary>
+    /// Parcelas a receber das linhas SEM contrato do documento de saída cuja natureza gera financeiro (spec 2026-10-19 parte 1:
+    /// venda de ativo, sacaria, serviço de armazenagem). OriginKey = chave do documento, repetida em N títulos; fora do índice
+    /// FirmOrigin, como a outra compra.
+    /// </summary>
+    SalesInvoiceNoContract = 10
 }

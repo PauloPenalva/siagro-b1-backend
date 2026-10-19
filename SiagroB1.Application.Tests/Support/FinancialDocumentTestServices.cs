@@ -59,6 +59,16 @@ public static class FinancialDocumentTestServices
         new(db, numbers ?? new FakeDocNumberSequenceService(), new UsageService(db, NullLogger<UsageService>.Instance),
             TestConfiguration.Erp(erp), partners);
 
+    /// <summary>Títulos a receber sem contrato (spec 2026-10-19 parte 1). <paramref name="cutover"/> null = chave ausente.</summary>
+    public static FinancialDocumentsSalesNoContractService SalesNoContract(
+        IUnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE", string? cutover = null)
+    {
+        var sequence = numbers ?? new FakeDocNumberSequenceService();
+        return new(db, sequence, FirmSync(db, sequence, erp),
+            TestConfiguration.With(("Erp", erp), (FinancialDocumentsSalesNoContractService.CutoverDateKey, cutover)),
+            NullLogger<FinancialDocumentsSalesNoContractService>.Instance);
+    }
+
     public static PurchaseInvoicesReverseConfirmService PurchaseReverse(IUnitOfWork db) =>
         new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()));
 

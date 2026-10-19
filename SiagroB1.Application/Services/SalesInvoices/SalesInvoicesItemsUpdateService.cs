@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
@@ -108,6 +109,9 @@ public class SalesInvoicesItemsUpdateService(
                 stored?.NfeStatus ?? NfeStatus.None, db.Context.Entry(existingEntity), confirmedFrozen);
 
             await ApplyTaxLockAsync(existingEntity);
+
+            // Spec 2026-10-19 parte 3: preço/quantidade da linha de documento que fatura a fatura de armazenagem.
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, existingEntity.SalesInvoiceKey);
 
             if (deliveryChanged)
             {

@@ -36,6 +36,11 @@ public class StorageInvoiceCancellationService(
         if (invoice.Status == StorageInvoiceStatus.Cancelled)
             throw new BusinessException(resource["STORAGE_INVOICE_ALREADY_CANCELLED"]);
 
+        // Spec 2026-10-19 parte 3: os documentos de saída que faturam a fatura saem antes dela.
+        if (await db.Context.SalesInvoices.AnyAsync(
+                x => x.StorageInvoiceKey == invoice.Key && x.InvoiceStatus != InvoiceStatus.Cancelled, ct))
+            throw new DefaultException("Cancele antes os documentos de saída desta fatura.");
+
         await db.BeginTransactionAsync();
 
         try

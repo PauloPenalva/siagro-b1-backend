@@ -7,7 +7,6 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
-using SiagroB1.Fiscal.Payments;
 using SiagroB1.Infra;
 using R = SiagroB1.Infra.Queries.PurchaseFiscalReconciliationRules;
 
@@ -63,7 +62,7 @@ public class FinancialDocumentsOtherPurchaseService(
                 $"O total das retenções ({withheldTotal.ToString("N2", PtBr)}) consome o valor da nota: revise os valores retidos.");
 
         var taxes = await ResolveWithholdingsAsync(invoice, issueDate);
-        var installments = await PlanInstallmentsAsync(invoice, net, issueDate);
+        var installments = await PaymentInstallmentPlanner.PlanAsync(db.Context, invoice.PaymentConditionCode, net, issueDate);
         var taxDocument = R.TaxDocument(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber);
 
         foreach (var (number, dueDate, amount) in installments)
@@ -171,29 +170,6 @@ public class FinancialDocumentsOtherPurchaseService(
             UpdatedAt = now,
             UpdatedBy = userName,
         };
-    }
-
-    /// <summary>Parcelas pela condição do documento; sem condição, ou sem parcelas (meio 90), é 1 título vencendo na emissão.</summary>
-    private async Task<List<(int Number, DateTime DueDate, decimal Amount)>> PlanInstallmentsAsync(
-        PurchaseInvoice invoice, decimal net, DateTime issueDate)
-    {
-        PaymentCondition? condition = null;
-        if (invoice.PaymentConditionCode is { } code)
-            condition = await db.Context.PaymentConditions.AsNoTracking().FirstOrDefaultAsync(c => c.Code == code)
-                        ?? throw new DefaultException(
-                            $"A condição de pagamento {code} do documento não existe mais: escolha outra antes de confirmar.");
-
-        if (condition is not null)
-        {
-            var plan = PaymentInstallmentCalculator.Calculate(
-                condition.Days, condition.StartRule, condition.PaymentMeans, net, DateOnly.FromDateTime(issueDate));
-            if (plan.Installments.Count > 0)
-                return plan.Installments
-                    .Select(i => (i.Number, i.DueDate.ToDateTime(TimeOnly.MinValue), decimal.Round(i.Amount, 2, MidpointRounding.ToEven)))
-                    .ToList();
-        }
-
-        return [(1, issueDate, net)];
     }
 
     /// <summary>Valores retidos por tributo, arredondados e só os maiores que zero.</summary>

@@ -1,4 +1,5 @@
-﻿using SiagroB1.Application.Services.StorageCustody;
+using SiagroB1.Application.Services.StorageInvoices;
+using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Financials;
@@ -28,7 +29,8 @@ public class SalesInvoicesConfirmService(
     IStringLocalizer<Resource> resource,
     TaxCalculationGate? gate = null,
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FinancialDocumentsSalesNoContractService? salesNoContract = null)
 {
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
@@ -128,6 +130,9 @@ public class SalesInvoicesConfirmService(
         // guard cobre quem chega pela API crua e o documento legado.
         SalesInvoicesReturnWeightService.EnsureHeaderWeightMatchesItems(invoice);
 
+        // Spec 2026-10-19 parte 2: NFS emitida no portal da prefeitura — número, série e data digitados, sem repetir.
+        await SalesInvoiceNfseDuplicateGuard.EnsureConfirmableAsync(db.Context, invoice);
+
         if (commitMode == CommitMode.Auto)
             await db.BeginTransactionAsync();
 
@@ -212,6 +217,17 @@ public class SalesInvoicesConfirmService(
                     invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
                 await db.SaveChangesAsync();
             }
+
+            // Spec 2026-10-19 parte 1: linhas SEM contrato com natureza que gera financeiro → parcelas a receber.
+            if (salesNoContract is not null && !icmsComplement)
+            {
+                await salesNoContract.EnqueueAsync(invoice, userName);
+                await db.SaveChangesAsync();
+            }
+
+            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, invoice.Key);
+            await db.SaveChangesAsync();
 
             // Ledger flusheado acima → recálculo das liberações afetadas lê as alocações.
             foreach (var releaseKey in affectedReleaseKeys)

@@ -167,6 +167,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(x => new { x.StorageAddressCode, x.PeriodStart, x.PeriodEnd })
             .HasFilter($"[Status] <> {(int)StorageInvoiceStatus.Cancelled}");
 
+        // Spec 2026-10-19 parte 3: o documento de saída que fatura a fatura de armazenagem. A fatura não se apaga com
+        // documento vinculado (cancelar exige cancelar os documentos antes).
+        modelBuilder.Entity<SalesInvoice>()
+            .HasOne(x => x.StorageInvoice)
+            .WithMany(x => x.SalesInvoices)
+            .HasForeignKey(x => x.StorageInvoiceKey)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Invariante "uma transferência de titularidade, uma liberação de embarque",
         // no banco. As outras duas camadas são a guarda de status no confirm e a
         // guarda inversa nos serviços de liberação; esta é a que sobrevive a
@@ -652,15 +660,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
                        "AND [OriginKey] IS NOT NULL " +
-                       // Outra compra: N parcelas (e N retenções) com o mesmo OriginKey — a idempotência é do serviço.
-                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice}");
+                       // Outra compra e saída sem contrato: N parcelas com o mesmo OriginKey — a idempotência é do serviço.
+                       $"AND [OriginType] NOT IN ({(int)FinancialDocumentOrigin.OtherPurchaseInvoice}, {(int)FinancialDocumentOrigin.SalesInvoiceNoContract})");
 
         // Outra compra: o índice acima a exclui (N parcelas e N retenções por documento), então a rede de segurança da
         // confirmação idempotente é esta chave: documento × parcela × tributo. Título cancelado libera a chave.
         modelBuilder.Entity<FinancialDocument>()
             .HasIndex(x => new { x.OriginType, x.OriginKey, x.InstallmentNumber, x.WithholdingTaxType }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
             .IsUnique()
-            .HasFilter($"[OriginType] = {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} " +
+            .HasFilter($"[OriginType] IN ({(int)FinancialDocumentOrigin.OtherPurchaseInvoice}, {(int)FinancialDocumentOrigin.SalesInvoiceNoContract}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled}");
 
         // Impede estornar a mesma baixa duas vezes.

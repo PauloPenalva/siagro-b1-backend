@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -63,6 +64,11 @@ public class SalesInvoicesUpdateService(
             // Complemento fiscal do contrato (spec 2026-10-07 D6): o PATCH reenvia o cabeçalho inteiro, então a
             // condição e o texto do contrato voltam em silêncio. No-op fora da regra e sem linha de contrato.
             await fiscalComplement.ApplyToHeaderAsync(existingEntity);
+
+            // Spec 2026-10-19 parte 3: o vínculo com a fatura de armazenagem só nasce na criação; PUT/PATCH não o move.
+            entry.Property(nameof(SalesInvoice.StorageInvoiceKey)).CurrentValue =
+                entry.OriginalValues[nameof(SalesInvoice.StorageInvoiceKey)];
+            await StorageInvoiceBillingGuardService.EnsureCanBillAsync(db.Context, existingEntity);
 
             existingEntity.UpdatedAt = DateTime.Now;
             existingEntity.UpdatedBy = userName;

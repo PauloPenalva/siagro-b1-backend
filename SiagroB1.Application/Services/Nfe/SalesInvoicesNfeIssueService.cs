@@ -43,6 +43,9 @@ public class SalesInvoicesNfeIssueService(
             throw new DefaultException(
                 "Só o documento Normal, a devolução criada pelo Devolver e o complemento de ICMS são emitidos como NF-e por aqui.");
 
+        if (!invoice.IsNfeReturn && invoice.TaxDocumentKind == TaxDocumentKind.Nfse)
+            throw new DefaultException("Documento do tipo NFS não é transmitido como NF-e.");
+
         if (!invoice.IsNfeReturn && invoice.TaxDocumentKind != TaxDocumentKind.Nfe)
             throw new DefaultException("Documento do tipo Outro não é transmitido como NF-e.");
     }

@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SiagroB1.Domain.Dtos;
@@ -85,6 +86,11 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
                 var s when s >= document.NetAmount => FinancialDocumentStatus.Settled,
                 _ => FinancialDocumentStatus.PartiallySettled
             };
+
+        // Spec 2026-10-19 parte 3: baixar/estornar o título a receber de um documento que fatura a fatura de armazenagem
+        // muda a situação dela (Faturada ↔ Paga). Ponto único: toda baixa, estorno, encontro e compensação passa aqui.
+        if (document.Direction == FinancialDirection.Receivable)
+            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(context, document.SalesInvoiceKey);
     }
 
     /// <summary>
