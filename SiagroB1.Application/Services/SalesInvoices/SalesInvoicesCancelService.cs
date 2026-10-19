@@ -11,6 +11,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
 using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
@@ -194,6 +195,9 @@ public class SalesInvoicesCancelService(
     {
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento já está cancelado.");
+
+        // Título baixado (parcial ou integral), por qualquer caminho: primeira recusa, antes da SEFAZ.
+        await InvoiceSettledFinancialGuard.EnsureSalesHasNoSettlementAsync(db.Context, invoice.Key, invoice.InvoiceNumber);
 
         // A devolução com NF-e confirmada só sai pelo cancelamento da NF-e — que é justamente o caminho afterNfe.
         if (invoice.InvoiceType == SalesInvoiceType.Return && invoice.InvoiceStatus == InvoiceStatus.Confirmed

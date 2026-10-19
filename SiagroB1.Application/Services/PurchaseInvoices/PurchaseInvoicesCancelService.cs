@@ -67,6 +67,9 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOth
         if (status == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento de entrada já está cancelado.");
 
+        // Título baixado (parcial ou integral), por qualquer caminho: primeira recusa, antes da SEFAZ.
+        await InvoiceSettledFinancialGuard.EnsurePurchaseHasNoSettlementAsync(db.Context, key, invoiceNumber);
+
         // Complemento de valor próprio aponta itens desta nota (spec 2026-10-14, D4/C8). Vale para o cancelamento do
         // documento e, pelo ensaio do handler, para o da NF-e — antes de falar com a SEFAZ. Primeira das recusas: a nº 5
         // de referência da CEAGUI dev tem uma devolução Rejeitada ainda ativa, e o roteiro espera ver C8.

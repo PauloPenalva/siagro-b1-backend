@@ -27,6 +27,11 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
         if (document.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException($"O documento {document.Code} já está cancelado.");
 
+        // Baixa (parcial ou integral) trava antes de qualquer outra regra: é a mensagem que o usuário precisa ver.
+        if (document.SettledAmount != 0m)
+            throw new ApplicationException(
+                $"O título {document.Code} possui baixa financeira. Cancelamento não permitido.");
+
         // Spec 2026-10-15 (regra 4): o firme a receber nasce e morre com o documento de saída — cancelar à mão deixaria a
         // linha confirmada sem título, e a próxima sincronização criaria outro.
         if (document.IsSalesFirmReceivable)
@@ -70,9 +75,11 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
             throw new ApplicationException(
                 $"O documento {document.Code} tem composição. Desfaça a composição antes de cancelar.");
 
-        if (document.SettledAmount != 0m)
+        // Título gerado pelo sistema nasce e morre com a sua origem (contrato, documento, desdobramento): pela tela só
+        // sai o lançado à mão. As recusas acima ficam porque dizem ao usuário onde desfazer a origem.
+        if (document.OriginType != FinancialDocumentOrigin.Manual)
             throw new ApplicationException(
-                $"O documento {document.Code} possui baixas. Estorne-as antes de cancelar.");
+                $"O título {document.Code} foi gerado automaticamente e não pode ser cancelado manualmente.");
 
         Cancel(document, reason, userName);
         await db.SaveChangesAsync();

@@ -96,8 +96,6 @@ public class FinancialDocumentsDationTests
         var error = await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.DefaultException>(() =>
             SiagroB1.Application.Tests.Support.FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(c.Invoice.Key));
 
-        Assert.Equal(
-            "O título ST-0001 do vínculo já tem baixa por dação ou encontro de contas: estorne-a antes de alterar a conciliação.",
-            error.Message);
+        Assert.Contains("possui baixa financeira", error.Message); // trava única de baixa responde primeiro
     }
 }

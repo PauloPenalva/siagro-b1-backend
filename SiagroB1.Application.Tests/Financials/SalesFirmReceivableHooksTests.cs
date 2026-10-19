@@ -84,9 +84,7 @@ public class SalesFirmReceivableHooksTests
 
         var error = await Assert.ThrowsAsync<DefaultException>(() => seed.Cancel().EnsureCanCancelAsync(invoice.Key));
 
-        Assert.Equal(
-            $"O título {firm.Code} do documento de saída DS000001 já está composto no título FN-PROV-V1: desfaça a composição antes de cancelar ou estornar o documento.",
-            error.Message);
+        Assert.Contains("possui baixa financeira", error.Message); // trava única de baixa responde primeiro
     }
 
     [Fact]

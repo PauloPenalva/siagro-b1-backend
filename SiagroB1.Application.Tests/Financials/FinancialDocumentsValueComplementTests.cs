@@ -105,9 +105,7 @@ public class FinancialDocumentsValueComplementTests
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
             FinancialDocumentTestServices.PurchaseCancel(seed.Db).ExecuteAsync(invoice.Key, "bia"));
 
-        Assert.Equal(
-            $"O título {firm.Code} do complemento de valor já está composto no título FN-PROV-1: desfaça a composição antes de cancelar ou estornar o documento.",
-            error.Message);
+        Assert.Contains("possui baixa financeira", error.Message); // trava única de baixa responde primeiro
     }
 
     [Fact]
@@ -123,9 +121,7 @@ public class FinancialDocumentsValueComplementTests
         var error = await Assert.ThrowsAsync<DefaultException>(() =>
             FinancialDocumentTestServices.PurchaseCancel(seed.Db).EnsureCanCancelAsync(invoice.Key));
 
-        Assert.Equal(
-            $"O título {firm.Code} do complemento de valor já está composto no título FN-PROV-1: desfaça a composição antes de cancelar ou estornar o documento.",
-            error.Message);
+        Assert.Contains("possui baixa financeira", error.Message); // trava única de baixa responde primeiro
     }
 
     [Fact]
