@@ -10,7 +10,7 @@ namespace SiagroB1.Reports.Services;
 /// Conferência Fiscal do mês (equivale à conferência do SPED Fiscal e do R-2055): lista os
 /// documentos escrituráveis item a item. Lê os tributos gravados na linha — nunca recalcula.
 /// </summary>
-public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportService funrural)
+public class FiscalConferenceService(IUnitOfWork db)
 {
     /// <summary>NF-e que não vale como documento escriturável.</summary>
     private static readonly NfeStatus[] VoidNfeStatuses = [NfeStatus.Cancelled, NfeStatus.Denied, NfeStatus.Voided];
@@ -35,27 +35,62 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
     }
 
     /// <summary>
-    /// Prévia do R-2055: Funrural retido no mês por produtor. Reaproveita o relatório de Funrural
-    /// (mesma fonte e mesmo abatimento das devoluções), somando só Item e Return — o Net repetiria.
+    /// Prévia do R-2055: Funrural retido no mês por produtor. A devolução abate no mês da
+    /// DEVOLUÇÃO (prática da EFD-Reinf: o R-2055 do mês anterior já foi enviado), com o Funrural
+    /// gravado na própria linha da devolução, atribuído ao produtor da linha de origem.
     /// </summary>
     private async Task<List<R2055ProducerRowDto>> BuildR2055Async(FiscalConferenceRequest request)
     {
         var from = new DateTime(request.Year, request.Month, 1);
-        var data = await funrural.BuildAsync(new FunruralWithholdingRequest
-        {
-            FromDate = from,
-            ToDate = from.AddMonths(1).AddDays(-1),
-            BranchCode = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode,
-            Statuses = [.. BookableStatuses],
-            BookableOnly = true,
-        });
+        var toExclusive = from.AddMonths(1);
+        var branch = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode;
 
-        var totals = data.Rows
-            .Where(r => r.Kind is FunruralRowKind.Item or FunruralRowKind.Return)
-            .GroupBy(r => r.CardCode)
+        IQueryable<PurchaseInvoiceItem> Bookable() => db.Context.PurchaseInvoicesItems
+            .AsNoTracking()
+            .Include(i => i.PurchaseInvoice)
+            .Where(i => i.PurchaseInvoice != null)
+            .Where(i => i.PurchaseInvoice!.IssueDate >= from && i.PurchaseInvoice.IssueDate < toExclusive)
+            .Where(i => BookableStatuses.Contains(i.PurchaseInvoice!.InvoiceStatus))
+            .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus))
+            .Where(i => i.PurchaseInvoice!.IssuerType != DocumentIssuerType.Own
+                     || i.PurchaseInvoice.TaxDocumentKind != TaxDocumentKind.Nfe
+                     || i.PurchaseInvoice.NfeStatus == NfeStatus.Authorized)
+            .Where(i => branch == null || i.PurchaseInvoice!.BranchCode == branch);
+
+        var origins = await Bookable()
+            .Where(i => i.PurchaseInvoice!.InvoiceType != PurchaseInvoiceType.Return)
+            .Where(i => i.FunruralInssValue + i.FunruralRatValue + i.FunruralSenarValue > 0)
+            .ToListAsync();
+
+        var returns = await Bookable()
+            .Where(i => i.PurchaseInvoice!.IsNfeReturn && i.PurchaseInvoiceItemOriginKey != null)
+            .ToListAsync();
+
+        // Produtor da linha de origem, em qualquer mês de emissão.
+        var originKeys = returns.Select(r => r.PurchaseInvoiceItemOriginKey).Distinct().ToArray();
+        var originProducers = await db.Context.PurchaseInvoicesItems
+            .AsNoTracking()
+            .Where(i => originKeys.Contains(i.Key))
+            .Where(i => i.FunruralInssValue + i.FunruralRatValue + i.FunruralSenarValue > 0)
+            .Where(i => i.PurchaseInvoice != null)
+            .Select(i => new { i.Key, i.PurchaseInvoice!.CardCode, i.PurchaseInvoice.CardName })
+            .ToDictionaryAsync(i => (Guid?)i.Key);
+
+        var lines = origins
+            .Select(i => (i.PurchaseInvoice!.CardCode, i.PurchaseInvoice.CardName, Amounts: Amounts(i)))
+            .Concat(returns
+                .Where(r => originProducers.ContainsKey(r.PurchaseInvoiceItemOriginKey))
+                .Select(r =>
+                {
+                    var o = originProducers[r.PurchaseInvoiceItemOriginKey];
+                    return (o.CardCode, o.CardName, Amounts: -Amounts(r));
+                }));
+
+        var totals = lines
+            .GroupBy(l => l.CardCode)
             .Select(g => (CardCode: g.Key,
-                Name: PartnerName(g.First(r => r.Kind == FunruralRowKind.Item).Partner, g.Key),
-                Amounts: new FunruralAmounts(g.Sum(r => r.Base), g.Sum(r => r.InssValue), g.Sum(r => r.RatValue), g.Sum(r => r.SenarValue))))
+                Name: string.IsNullOrWhiteSpace(g.First().CardName) ? g.Key : g.First().CardName!,
+                Amounts: new FunruralAmounts(g.Sum(l => l.Amounts.Base), g.Sum(l => l.Amounts.InssValue), g.Sum(l => l.Amounts.RatValue), g.Sum(l => l.Amounts.SenarValue))))
             .ToList();
 
         var codes = totals.Select(t => t.CardCode).ToArray();
@@ -86,12 +121,8 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
             .ToList();
     }
 
-    /// <summary>Tira o prefixo "(código) " do texto do parceiro; sem nome sobra o código.</summary>
-    private static string PartnerName(string partner, string cardCode)
-    {
-        var prefix = $"({cardCode}) ";
-        return partner.StartsWith(prefix, StringComparison.Ordinal) ? partner[prefix.Length..] : partner;
-    }
+    private static FunruralAmounts Amounts(PurchaseInvoiceItem i) =>
+        new(i.FunruralBase, i.FunruralInssValue, i.FunruralRatValue, i.FunruralSenarValue);
 
     private static string ProducerTypeText(RuralProducerType? type) => type switch
     {

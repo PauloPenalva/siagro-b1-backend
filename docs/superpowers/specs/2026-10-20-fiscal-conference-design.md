@@ -21,7 +21,7 @@ e **mês/ano** (obrigatório). Botão Consultar; resultado em abas, cada uma com
 | Documentos | C100 + C170 | uma linha por item: E/S, data, modelo, série, número, chave, parceiro, CFOP, CST ICMS, base/alíq./ICMS, CST PIS/COFINS e valores, valor do item |
 | Resumo | C190 | agrupado por E/S + CST ICMS + CFOP + alíquota: valor da operação, base, ICMS |
 | Apuração ICMS | base do E110 | por CFOP: débitos (saídas) e créditos (entradas); totais e saldo (débitos − créditos) |
-| R-2055 | prévia do evento | por produtor: CPF/CNPJ, tipo de produtor, base, INSS, RAT, SENAR, total — líquido de devoluções |
+| R-2055 | prévia do evento | por produtor: CPF/CNPJ, tipo de produtor, base, INSS, RAT, SENAR, total — líquido de devoluções emitidas no mês |
 | Inconsistências | — | uma linha por problema: documento, item, regra violada |
 
 ## Regras
@@ -35,8 +35,11 @@ e **mês/ano** (obrigatório). Botão Consultar; resultado em abas, cada uma com
   5/6/7 = saída (débito). Devolução de compra emitida como entrada própria cai como saída pelo CFOP.
 - Complementos (valor/ICMS) entram como documentos normais.
 - Modelo: Nfe → "55"; Other → "01".
-- **R-2055** reaproveita `FunruralWithholdingReportService.BuildAsync` (mesma regra de devoluções e
-  da fotografia gravada; período pela emissão, como o relatório atual), agrupando por produtor.
+- **R-2055** é calculado direto no `FiscalConferenceService` (fotografia gravada na linha; período
+  pela emissão), agrupado por produtor. A devolução é abatida no mês da DEVOLUÇÃO, não no mês da
+  origem (prática da EFD-Reinf; decisão do usuário em 20/10), com o Funrural da própria linha da
+  devolução, atribuído ao produtor da linha de origem. Produtor só com devolução no mês aparece negativo.
+  O relatório avulso de Funrural continua abatendo na origem.
 - **Inconsistências** (regras fixas):
   1. item sem CFOP; 2. item sem CST ICMS; 3. CFOP de direção contrária ao documento
   (entrada com CFOP 5/6/7 e não é devolução; saída com CFOP 1/2/3 e não é devolução);

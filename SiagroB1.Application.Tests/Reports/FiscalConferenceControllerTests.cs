@@ -11,8 +11,7 @@ public class FiscalConferenceControllerTests
     private static FiscalConferenceController Controller(string erp)
     {
         var db = TestDb.CreateUnitOfWork();
-        var funrural = new FunruralWithholdingReportService(db, new RecordingFastReportService(), TestConfiguration.Erp("STANDALONE"));
-        return new FiscalConferenceController(new FiscalConferenceService(db, funrural), TestConfiguration.Erp(erp));
+        return new FiscalConferenceController(new FiscalConferenceService(db), TestConfiguration.Erp(erp));
     }
 
     private static FiscalConferenceRequest Request(int year = 2026, int month = 10) =>

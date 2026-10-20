@@ -318,6 +318,64 @@ public class FiscalConferenceServiceTests
     }
 
     [Fact]
+    public async Task Build_R2055SameMonthReturnIsNetted()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", new DateTime(2026, 7, 5), items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 7, 25), origin, 400m));
+        await Save(db);
+
+        var row = (await Service(db).BuildAsync(Request())).R2055.Single();
+
+        Assert.Equal((600m, 7.20m), (row.Base, row.Inss));
+    }
+
+    [Fact]
+    public async Task Build_R2055ReturnInLaterMonthDoesNotChangeOriginMonth()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", new DateTime(2026, 9, 10), items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 10, 5), origin, 400m));
+        await Save(db);
+
+        var row = (await Service(db).BuildAsync(new FiscalConferenceRequest { Year = 2026, Month = 9 })).R2055.Single();
+
+        Assert.Equal((1000m, 12m), (row.Base, row.Inss));
+    }
+
+    [Fact]
+    public async Task Build_R2055ReturnIsDeductedInItsOwnMonth()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", new DateTime(2026, 9, 10), items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 10, 5), origin, 400m));
+        await Save(db);
+
+        var row = (await Service(db).BuildAsync(new FiscalConferenceRequest { Year = 2026, Month = 10 })).R2055.Single();
+
+        Assert.Equal("F001", row.CardCode);
+        Assert.Equal((-400m, -4.80m, -0.40m, -0.80m, -6.00m), (row.Base, row.Inss, row.Rat, row.Senar, row.Total));
+    }
+
+    [Fact]
+    public async Task Build_R2055IgnoresCancelledReturn()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 7, 20), origin, 400m)
+            .With(p => p.NfeStatus = NfeStatus.Cancelled));
+        await Save(db);
+
+        var row = (await Service(db).BuildAsync(Request())).R2055.Single();
+
+        Assert.Equal(1000m, row.Base);
+    }
+
+    [Fact]
     public async Task Build_R2055UsesRuralProducerCpfWhenPresent()
     {
         var db = TestDb.CreateUnitOfWork();
@@ -631,7 +689,7 @@ public class FiscalConferenceServiceTests
     }
 
     private static FiscalConferenceService Service(IUnitOfWork db) =>
-        new(db, new FunruralWithholdingReportService(db, new RecordingFastReportService(), TestConfiguration.Erp("STANDALONE")));
+        new(db);
 
     private static FiscalConferenceRequest Request() => new() { Year = 2026, Month = 7 };
 
