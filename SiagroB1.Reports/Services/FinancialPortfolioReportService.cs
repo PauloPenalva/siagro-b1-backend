@@ -55,18 +55,22 @@ public class FinancialPortfolioReportService(IUnitOfWork db, IFastReportService 
             .ToList();
 
         var contractCodes = await ContractCodesAsync(titles.Select(t => t.Document).ToList());
+        var invoices = await FinancialDocumentInvoiceLookup.LoadAsync(db.Context, titles.Select(t => t.Document), CancellationToken.None);
 
         var rows = titles.Select(t =>
         {
             var d = t.Document;
             var currency = CurrencyCode(d.Currency);
             var overdue = (baseDate - d.DueDate.Date).Days;
+            var invoice = invoices.For(d);
             return new FinancialPortfolioRowDto
             {
                 GroupKey = $"{d.CardCode} · {currency}",
                 Partner = PartnerName(d),
                 Document = d.Code ?? string.Empty,
                 Origin = Origin(d, contractCodes),
+                NfeNumber = invoice.Number,
+                NfeSeries = invoice.Series,
                 DocumentDate = d.DocumentDate.ToString("dd/MM/yyyy"),
                 DueDate = d.DueDate.ToString("dd/MM/yyyy"),
                 Currency = currency,

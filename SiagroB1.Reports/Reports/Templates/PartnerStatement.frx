@@ -6,6 +6,8 @@
       <Column Name="Date" DataType="System.String"/>
       <Column Name="History" DataType="System.String"/>
       <Column Name="Document" DataType="System.String"/>
+      <Column Name="NfeNumber" DataType="System.String"/>
+      <Column Name="NfeSeries" DataType="System.String"/>
       <Column Name="Debit" DataType="System.Decimal"/>
       <Column Name="Credit" DataType="System.Decimal"/>
       <Column Name="Balance" DataType="System.Decimal"/>
@@ -35,29 +37,33 @@
       <TextObject Name="txtMode" Top="110" Width="733.32" Height="17" Text="[pDirection] · [pMode]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Bold"/>
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Top="153.2" Width="733.32" Height="19" Border.Lines="Bottom">
-      <TextObject Name="hdrDate" Left="0" Width="70" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrHistory" Left="72" Width="240" Height="17" Text="Histórico" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDocument" Left="314" Width="110" Height="17" Text="Documento" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDebit" Left="426" Width="100" Height="17" Text="Débito" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrCredit" Left="528" Width="100" Height="17" Text="Crédito" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrBalance" Left="630" Width="100" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDate" Left="0" Width="62" Height="17" Text="Data" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrHistory" Left="64" Width="190" Height="17" Text="Histórico" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocument" Left="256" Width="96" Height="17" Text="Documento" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeNumber" Left="354" Width="62" Height="17" Text="Nº NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeSeries" Left="418" Width="32" Height="17" Text="Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDebit" Left="452" Width="92" Height="17" Text="Débito" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCredit" Left="546" Width="92" Height="17" Text="Crédito" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrBalance" Left="640" Width="92" Height="17" Text="Saldo" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
     </ColumnHeaderBand>
     <GroupHeaderBand Name="GroupHeader1" Top="175.4" Width="733.32" Height="21" Condition="[StatementRows.Currency]" KeepWithData="true">
-      <TextObject Name="lblOpening" Left="0" Top="2" Width="628" Height="17" Text="Saldo anterior ([StatementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
-      <TextObject Name="txtOpening" Left="630" Top="2" Width="100" Height="17" Text="[StatementRows.OpeningBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="lblOpening" Left="0" Top="2" Width="638" Height="17" Text="Saldo anterior ([StatementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <TextObject Name="txtOpening" Left="640" Top="2" Width="92" Height="17" Text="[StatementRows.OpeningBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       <DataBand Name="Data1" Top="199.6" Width="733.32" Height="17" DataSource="StatementRows">
-        <TextObject Name="txtRowDate" Left="0" Width="70" Height="17" Text="[StatementRows.Date]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowHistory" Left="72" Width="240" Height="17" Text="[StatementRows.History]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowDocument" Left="314" Width="110" Height="17" Text="[StatementRows.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowDebit" Left="426" Width="100" Height="17" Text="[StatementRows.Debit]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowCredit" Left="528" Width="100" Height="17" Text="[StatementRows.Credit]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowBalance" Left="630" Width="100" Height="17" Text="[StatementRows.Balance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDate" Left="0" Width="62" Height="17" Text="[StatementRows.Date]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowHistory" Left="64" Width="190" Height="17" Text="[StatementRows.History]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDocument" Left="256" Width="96" Height="17" Text="[StatementRows.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeNumber" Left="354" Width="62" Height="17" Text="[StatementRows.NfeNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeSeries" Left="418" Width="32" Height="17" Text="[StatementRows.NfeSeries]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDebit" Left="452" Width="92" Height="17" Text="[StatementRows.Debit]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowCredit" Left="546" Width="92" Height="17" Text="[StatementRows.Credit]" HideZeros="true" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowBalance" Left="640" Width="92" Height="17" Text="[StatementRows.Balance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       </DataBand>
       <GroupFooterBand Name="GroupFooter1" Top="219.8" Width="733.32" Height="21" Border.Lines="Top" Border.Style="Dot">
-        <TextObject Name="lblClosing" Left="0" Top="2" Width="424" Height="17" Text="Saldo final ([StatementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
-        <TextObject Name="txtSumDebit" Left="426" Top="2" Width="100" Height="17" Text="[CurrencyDebit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-        <TextObject Name="txtSumCredit" Left="528" Top="2" Width="100" Height="17" Text="[CurrencyCredit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
-        <TextObject Name="txtClosing" Left="630" Top="2" Width="100" Height="17" Text="[StatementRows.ClosingBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+        <TextObject Name="lblClosing" Left="0" Top="2" Width="450" Height="17" Text="Saldo final ([StatementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+        <TextObject Name="txtSumDebit" Left="452" Top="2" Width="92" Height="17" Text="[CurrencyDebit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtSumCredit" Left="546" Top="2" Width="92" Height="17" Text="[CurrencyCredit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtClosing" Left="640" Top="2" Width="92" Height="17" Text="[StatementRows.ClosingBalance]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       </GroupFooterBand>
     </GroupHeaderBand>
     <ReportSummaryBand Name="ReportSummary1" Top="244" Width="733.32" Height="40" CanGrow="true" Border.Lines="Top">

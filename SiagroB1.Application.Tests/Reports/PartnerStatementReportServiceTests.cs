@@ -261,10 +261,33 @@ public class PartnerStatementReportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Issue_and_settlement_rows_carry_the_invoice_of_their_title()
+    {
+        var doc = Doc("NF", 100m, origin: FinancialDocumentOrigin.SalesInvoice);
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "293", TaxDocumentSeries = "3" };
+        doc.SalesInvoiceKey = invoice.Key;
+        var manual = Doc("MAN", 50m);
+        var db = await SeedAsync([doc, manual], Settle(doc, 10m, new DateTime(2026, 10, 15)));
+        db.Context.SalesInvoices.Add(invoice);
+        await db.Context.SaveChangesAsync();
+
+        var (rows, _) = await RunAsync(db);
+
+        Assert.Equal(new[] { ("Emissão NF", "293", "3"), ("Baixa NF", "293", "3") },
+            rows.Where(r => r.Document == "NF").Select(r => (r.History, r.NfeNumber, r.NfeSeries)).ToArray());
+        var man = rows.Single(r => r.Document == "MAN");
+        Assert.Equal(("", ""), (man.NfeNumber, man.NfeSeries));
+    }
+
+    [Fact]
     public async Task Generates_pdf()
     {
         var doc = Doc("D1", 300m);
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "000123456", TaxDocumentSeries = "001" };
+        doc.SalesInvoiceKey = invoice.Key;
         var db = await SeedAsync([doc], Settle(doc, 10m, new DateTime(2026, 10, 15)));
+        db.Context.SalesInvoices.Add(invoice);
+        await db.Context.SaveChangesAsync();
 
         var pdf = await new PartnerStatementReportService(db, FastReport()).ExecuteAsync(Request());
 

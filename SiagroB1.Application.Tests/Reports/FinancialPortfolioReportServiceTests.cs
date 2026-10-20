@@ -129,10 +129,34 @@ public class FinancialPortfolioReportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Rows_carry_the_invoice_number_and_series_of_the_title()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "293", TaxDocumentSeries = "3" };
+        db.Context.SalesInvoices.Add(invoice);
+        var firm = Doc("NF", new DateTime(2026, 10, 5));
+        firm.OriginType = FinancialDocumentOrigin.SalesInvoice;
+        firm.SalesInvoiceKey = invoice.Key;
+        db.Context.FinancialDocuments.AddRange(firm, Doc("MAN", new DateTime(2026, 10, 6)));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db, new RecordingFastReportService());
+
+        var nf = rows.Single(r => r.Document == "NF");
+        Assert.Equal(("293", "3"), (nf.NfeNumber, nf.NfeSeries));
+        var man = rows.Single(r => r.Document == "MAN");
+        Assert.Equal(("", ""), (man.NfeNumber, man.NfeSeries));
+    }
+
+    [Fact]
     public async Task Generates_pdf()
     {
         var db = TestDb.CreateUnitOfWork();
-        db.Context.FinancialDocuments.AddRange(Doc("A", new DateTime(2026, 10, 5), 100m),
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "000123456", TaxDocumentSeries = "001" };
+        db.Context.SalesInvoices.Add(invoice);
+        var withInvoice = Doc("A", new DateTime(2026, 10, 5), 100m, origin: "CT-2026-0001");
+        withInvoice.SalesInvoiceKey = invoice.Key;
+        db.Context.FinancialDocuments.AddRange(withInvoice,
             Doc("B", new DateTime(2026, 10, 6), 50m, cardCode: "C2"),
             Doc("U", new DateTime(2026, 10, 7), 30m, CurrencyType.Usd));
         await db.Context.SaveChangesAsync();

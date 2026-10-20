@@ -20,6 +20,8 @@ public class FinancialPortfolioRowDto
     public string GroupKey { get; set; } = string.Empty;
     public string Partner { get; set; } = string.Empty;
     public string Document { get; set; } = string.Empty;
+    public string NfeNumber { get; set; } = string.Empty;
+    public string NfeSeries { get; set; } = string.Empty;
     public string Origin { get; set; } = string.Empty;
     public string DocumentDate { get; set; } = string.Empty;
     public string DueDate { get; set; } = string.Empty;

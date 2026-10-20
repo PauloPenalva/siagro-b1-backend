@@ -69,6 +69,9 @@ public class PartnerStatementReportService(IUnitOfWork db, IFastReportService re
         var openingByCurrency = opening.BalanceByCurrency();
         var closingByCurrency = closing.BalanceByCurrency();
 
+        var invoices = await FinancialDocumentInvoiceLookup.LoadAsync(db.Context,
+            movements.Select(m => m.Document).DistinctBy(d => d.Key), CancellationToken.None);
+
         var rows = new List<PartnerStatementRowDto>();
         foreach (var group in movements.GroupBy(m => CurrencyCode(m.Document.Currency)).OrderBy(g => CurrencyOrder(g.Key)))
         {
@@ -77,12 +80,15 @@ public class PartnerStatementReportService(IUnitOfWork db, IFastReportService re
                          .ThenBy(m => m.Document.Code, StringComparer.Ordinal).ThenBy(m => m.Sequence))
             {
                 balance += m.Debit - m.Credit;
+                var invoice = invoices.For(m.Document);
                 rows.Add(new PartnerStatementRowDto
                 {
                     Currency = group.Key,
                     Date = m.Date.ToString("dd/MM/yyyy"),
                     History = m.History,
                     Document = m.Document.Code ?? string.Empty,
+                    NfeNumber = invoice.Number,
+                    NfeSeries = invoice.Series,
                     Debit = m.Debit,
                     Credit = m.Credit,
                     Balance = balance,
