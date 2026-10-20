@@ -158,6 +158,34 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("BRANCHS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchDfeSyncState", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<long>("LastNsu")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("LastQueryAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LastScheduledRunAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("MaxNsu")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("NextQueryAllowedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ScheduleTimes")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("BranchCode");
+
+                    b.ToTable("BRANCH_DFE_SYNC_STATES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSeries", b =>
                 {
                     b.Property<string>("BranchCode")
@@ -3676,6 +3704,77 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("WeighingTicketKey");
 
                     b.ToTable("QUALITY_INSPECTIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ReceivedDfe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccessKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(44)");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("IssueDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("IssuerName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("IssuerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("ManifestationJustification")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<string>("ManifestationProcEventXml")
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.Property<string>("ManifestationProtocol")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<int>("ManifestationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("ManifestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("Nsu")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("PurchaseInvoiceDocEntry")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Situation")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("TotalValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.Property<DateTimeOffset?>("XmlDownloadedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueDate");
+
+                    b.HasIndex("BranchCode", "AccessKey")
+                        .IsUnique();
+
+                    b.ToTable("RECEIVED_DFES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOff", b =>

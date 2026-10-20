@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  Distribuicao DF-e - leiaute do pedido distDFeInt v1.01 (consulta por ultNSU, NSU ou chave) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns="http://www.portalfiscal.inf.br/nfe"
+           targetNamespace="http://www.portalfiscal.inf.br/nfe" elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+	<xs:include schemaLocation="tiposBasico_v1.03.xsd"/>
+	<xs:element name="distDFeInt">
+		<xs:annotation>
+			<xs:documentation>Pedido de distribuição de DF-e de interesse do ator</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="tpAmb" type="TAmb"/>
+				<xs:element name="cUFAutor" type="TCodUfIBGE"/>
+				<xs:choice>
+					<xs:element name="CNPJ" type="TCnpj"/>
+					<xs:element name="CPF" type="TCpf"/>
+				</xs:choice>
+				<xs:choice>
+					<xs:element name="distNSU">
+						<xs:complexType>
+							<xs:sequence>
+								<xs:element name="ultNSU">
+									<xs:simpleType>
+										<xs:restriction base="xs:string">
+											<xs:whiteSpace value="preserve"/>
+											<xs:pattern value="[0-9]{15}"/>
+										</xs:restriction>
+									</xs:simpleType>
+								</xs:element>
+							</xs:sequence>
+						</xs:complexType>
+					</xs:element>
+					<xs:element name="consNSU">
+						<xs:complexType>
+							<xs:sequence>
+								<xs:element name="NSU">
+									<xs:simpleType>
+										<xs:restriction base="xs:string">
+											<xs:whiteSpace value="preserve"/>
+											<xs:pattern value="[0-9]{15}"/>
+										</xs:restriction>
+									</xs:simpleType>
+								</xs:element>
+							</xs:sequence>
+						</xs:complexType>
+					</xs:element>
+					<xs:element name="consChNFe">
+						<xs:complexType>
+							<xs:sequence>
+								<xs:element name="chNFe" type="TChNFe"/>
+							</xs:sequence>
+						</xs:complexType>
+					</xs:element>
+				</xs:choice>
+			</xs:sequence>
+			<xs:attribute name="versao" use="required">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:pattern value="1\.01"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:attribute>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

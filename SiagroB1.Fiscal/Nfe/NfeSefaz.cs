@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using DFe.Utils;
 using NFe.Classes.Protocolo;
 using NFe.Classes.Servicos.Consulta;
@@ -87,6 +88,18 @@ public static class NfeStatusCodes
     /// <summary>Evento registrado (135) ou registrado fora de prazo (155): vale para cancelamento e CC-e.</summary>
     public static bool IsEventRegistered(int code) => code is 135 or 155;
 
+    /// <summary>Manifestação do destinatário registrada: 135, 155 ou 136 (evento registrado sem vinculação à NF-e).</summary>
+    public static bool IsManifestationRegistered(int code) => code is 135 or 136 or 155;
+
+    /// <summary>Distribuição DF-e: 137 = nenhum documento a partir do NSU (esperar antes de consultar de novo).</summary>
+    public const int NoDocuments = 137;
+
+    /// <summary>Distribuição DF-e: 138 = há documentos no lote.</summary>
+    public const int DocumentsFound = 138;
+
+    /// <summary>Distribuição DF-e: 656 = consumo indevido (consulta repetida cedo demais); a SEFAZ bloqueia por cerca de uma hora.</summary>
+    public const int ExcessiveUse = 656;
+
     public static bool IsCancellationRegistered(int code) => IsEventRegistered(code);
 
     /// <summary>Inutilização de número homologada.</summary>
@@ -112,10 +125,46 @@ public interface INfeSefazClient
 
     /// <summary>Inutiliza UM número da série (faixa inicial = final).</summary>
     Task<NfeVoidNumberResult> VoidNumberAsync(NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>NFeDistribuicaoDFe a partir do último NSU lido (Ambiente Nacional; <c>cUFAutor</c> = UF da filial).</summary>
+    Task<NfeDistributionResult> DistributionByNsuAsync(string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>NFeDistribuicaoDFe por chave de acesso (traz o resumo ou a nota completa se já houver manifestação).</summary>
+    Task<NfeDistributionResult> DistributionByKeyAsync(string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>Evento de manifestação do destinatário (210200/210210/210220/210240) no Ambiente Nacional.</summary>
+    Task<NfeEventResult> SendManifestationAsync(NfeManifestationRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
 }
 
 internal static class NfeSefazResponseMapper
 {
+    /// <summary>Distribuição DF-e. Sem retorno (resposta vazia/ilegível) é falha de comunicação, não NullReference.</summary>
+    public static NfeDistributionResult FromDistribution(NFe.Classes.Servicos.DistribuicaoDFe.retDistDFeInt? batch)
+    {
+        if (batch is null)
+            throw new NfeCommunicationException("A SEFAZ não devolveu resposta para a consulta de DF-e. Tente novamente mais tarde.");
+
+        var documents = (batch.loteDistDFeInt ?? [])
+            .Where(d => d.XmlNfe is { Length: > 0 })
+            .Select(d => new NfeDistributionDocument(d.NSU, d.schema ?? string.Empty, ReadXml(d.XmlNfe)))
+            .ToList();
+
+        return new NfeDistributionResult(batch.cStat, batch.xMotivo ?? string.Empty, batch.ultNSU, batch.maxNSU, documents);
+    }
+
+    /// <summary>A Zeus já entrega o docZip descompactado; se vier o gzip cru (1F 8B), descompacta aqui.</summary>
+    private static string ReadXml(byte[] bytes)
+    {
+        if (bytes is [0x1F, 0x8B, ..])
+        {
+            using var gzip = new GZipStream(new MemoryStream(bytes), CompressionMode.Decompress);
+            using var reader = new StreamReader(gzip, System.Text.Encoding.UTF8);
+            return reader.ReadToEnd();
+        }
+
+        return System.Text.Encoding.UTF8.GetString(bytes).TrimStart('﻿');
+    }
+
     /// <summary>Autorização síncrona: com o lote processado (104) vale o protocolo da nota.</summary>
     public static NfeSefazResult FromAuthorization(retEnviNFe response) =>
         response.cStat == NfeStatusCodes.BatchProcessed && response.protNFe?.infProt is not null

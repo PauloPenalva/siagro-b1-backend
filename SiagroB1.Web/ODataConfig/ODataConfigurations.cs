@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Dtos;
 using SiagroB1.Domain.Dtos.Common;
 using SiagroB1.Domain.Dtos.Email;
@@ -99,6 +100,34 @@ public static class ODataConfigurations
         var branchNfeSettingsTestConnection = modelBuilder.Action("BranchNfeSettingsTestConnection");
         branchNfeSettingsTestConnection.Parameter<string>("BranchCode");
         branchNfeSettingsTestConnection.Returns<NfeServiceStatusDto>();
+
+        // Manifestação do destinatário (STANDALONE): DF-e recebidos e estado da consulta por filial, somente leitura.
+        // O XML sai do EDM (pesado) e vem pela function ReceivedDfesXml. Tudo é action/function de topo: navegação e
+        // late property dão 404. Enums como string; Type vai como string ("Confirmation" | "Acknowledgement" |
+        // "Unknown" | "NotPerformed") porque enum em parâmetro de action dá trabalho neste EDM.
+        modelBuilder.EntitySet<ReceivedDfe>("ReceivedDfes");
+        modelBuilder.EntityType<ReceivedDfe>().Ignore(x => x.Xml);
+        modelBuilder.EntityType<ReceivedDfe>().Ignore(x => x.ManifestationProcEventXml);
+        modelBuilder.EntitySet<BranchDfeSyncState>("BranchDfeSyncStates");
+
+        var receivedDfesSync = modelBuilder.Action("ReceivedDfesSync");
+        receivedDfesSync.Parameter<string>("BranchCode");
+        receivedDfesSync.Returns<DfeSyncResult>();
+
+        var branchDfeSyncStatesSetSchedule = modelBuilder.Action("BranchDfeSyncStatesSetSchedule");
+        branchDfeSyncStatesSetSchedule.Parameter<string>("BranchCode");
+        branchDfeSyncStatesSetSchedule.CollectionParameter<string>("Times");
+        branchDfeSyncStatesSetSchedule.ReturnsFromEntitySet<BranchDfeSyncState>("BranchDfeSyncStates");
+
+        var receivedDfesManifest = modelBuilder.Action("ReceivedDfesManifest");
+        receivedDfesManifest.Parameter<int>("Id");
+        receivedDfesManifest.Parameter<string>("Type");
+        receivedDfesManifest.Parameter<string>("Justification");
+        receivedDfesManifest.ReturnsFromEntitySet<ReceivedDfe>("ReceivedDfes");
+
+        var receivedDfesXml = modelBuilder.Function("ReceivedDfesXml");
+        receivedDfesXml.Parameter<int>("Id");
+        receivedDfesXml.Returns<ReceivedDfeXmlDto>();
 
         // Remetente de e-mail da empresa (STANDALONE, ADMIN). A senha só entra; nunca sai.
         var emailSettingsGet = modelBuilder.Function("EmailSettingsGet");

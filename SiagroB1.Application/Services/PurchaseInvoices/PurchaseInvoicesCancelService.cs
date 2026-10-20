@@ -58,6 +58,8 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOth
         invoice.CanceledBy = userName;
 
         await StorageReturnReconciliationsService.RemoveForInvoiceAsync(db.Context, invoice.Key);
+        // Cancelada, a chave volta a ficar livre: o DF-e recebido deixa de apontar para o documento.
+        await PurchaseInvoiceReceivedDfeLink.ClearAsync(db.Context, invoice);
         otherPurchaseTitles.EnqueueUndo(invoice.Key, userName);
         await db.SaveChangesAsync();
     }

@@ -429,3 +429,14 @@ public class NfeSefazResponseMapperTests
         Assert.Null(result.ProcXml);
     }
 }
+
+public class NfeSefazDistributionMapperTests
+{
+    [Fact]
+    public void Distribution_without_return_throws_communication_exception()
+    {
+        var e = Assert.Throws<NfeCommunicationException>(() => NfeSefazResponseMapper.FromDistribution(null));
+
+        Assert.Contains("SEFAZ", e.Message);
+    }
+}

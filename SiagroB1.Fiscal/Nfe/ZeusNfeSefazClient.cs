@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using DFe.Classes.Flags;
@@ -81,6 +83,32 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
                 .FirstOrDefault(r => r?.Contains("retInutNFe", StringComparison.Ordinal) == true);
 
             return NfeSefazResponseMapper.FromVoidNumber(response.EnvioStr, rawReturn, response.Retorno);
+        }, cancellationToken);
+
+    public Task<NfeDistributionResult> DistributionByNsuAsync(
+        string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
+            settings.IssuerState, recipientTaxId, lastNsu.ToString("D15", CultureInfo.InvariantCulture), string.Empty, string.Empty).Retorno),
+            cancellationToken);
+
+    public Task<NfeDistributionResult> DistributionByKeyAsync(
+        string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
+            settings.IssuerState, recipientTaxId, string.Empty, string.Empty, accessKey).Retorno),
+            cancellationToken);
+
+    public Task<NfeEventResult> SendManifestationAsync(
+        NfeManifestationRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
+        RunAsync(settings, services =>
+        {
+            // Lote de um evento só (idLote 1, nSeqEvento 1): o evento sai do NfeManifestationEventBuilder e a Zeus assina.
+            var evento = NfeManifestationEventBuilder.Build(request, NfeZeusConfiguration.Create(settings));
+            var response = services.RecepcaoEventoManifestacaoDestinatario(1, [evento], true);
+
+            var result = NfeSefazResponseMapper.FromEvent(response.Retorno, response.ProcEventosNFe);
+
+            // Sem o procEvento casado, o mapper não devolve a justificativa: vale a do pedido.
+            return result with { Justification = result.Justification ?? request.Justification };
         }, cancellationToken);
 
     private static Task<T> RunAsync<T>(
