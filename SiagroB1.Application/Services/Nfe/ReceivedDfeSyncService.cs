@@ -59,13 +59,20 @@ public class ReceivedDfeSyncService(
     BranchNfeSettingsService settingsService,
     INfeSefazClient sefaz,
     ILogger<ReceivedDfeSyncService> logger,
-    Func<DateTimeOffset>? clock = null)
+    Func<DateTimeOffset>? clock = null,
+    IDfeSyncLock? syncLock = null)
 {
     public const int MaxCallsPerRun = 20;
 
     private static readonly TimeSpan Wait = TimeSpan.FromHours(1);
 
     private readonly Func<DateTimeOffset> _now = clock ?? NfeIssueInputAssembler.BrasiliaNow;
+
+    private readonly IDfeSyncLock _lock = syncLock ?? SharedInMemoryLock;
+
+    private static readonly InMemoryDfeSyncLock SharedInMemoryLock = new();
+
+    public const string AlreadyRunningMessage = "Já existe uma consulta à SEFAZ em andamento para esta filial.";
 
     private static readonly int[] ManifestationEvents = [210200, 210210, 210220, 210240];
 
@@ -76,6 +83,10 @@ public class ReceivedDfeSyncService(
 
         var branch = await context.Branchs.AsNoTracking().FirstOrDefaultAsync(b => b.Code == branchCode, ct)
                      ?? throw new DefaultException($"Filial {branchCode} não encontrada.");
+
+        // A trava vem antes de ler o cursor/a espera: quem chega depois enxerga o que a primeira consulta gravou.
+        await using var held = await _lock.TryAcquireAsync(branchCode, ct)
+                               ?? throw new DefaultException(AlreadyRunningMessage);
 
         var state = await LoadOrCreateStateAsync(branchCode, ct);
 
@@ -114,13 +125,15 @@ public class ReceivedDfeSyncService(
                 }
 
                 // Nunca recua o cursor; grava a cada lote para que uma queda no meio não repita o trabalho.
-                if (result.LastNsu > state.LastNsu)
+                var advanced = result.LastNsu > state.LastNsu;
+                if (advanced)
                     state.LastNsu = result.LastNsu;
 
                 if (result.MaxNsu > 0)
                     state.MaxNsu = result.MaxNsu;
 
-                if (result.StatusCode == NfeStatusCodes.NoDocuments || state.LastNsu >= state.MaxNsu)
+                // Cursor parado (ou maxNSU 0) repetiria a mesma consulta até o limite e provocaria 656: para e espera.
+                if (result.StatusCode == NfeStatusCodes.NoDocuments || !advanced || result.MaxNsu <= 0 || state.LastNsu >= state.MaxNsu)
                 {
                     state.NextQueryAllowedAt = now + Wait;
                     finished = true;
@@ -213,6 +226,9 @@ public class ReceivedDfeSyncService(
 
         var state = await LoadOrCreateStateAsync(branchCode, ct);
         state.ScheduleTimes = parsed.Count == 0 ? null : string.Join(';', parsed.Select(t => t.ToString("HH:mm", CultureInfo.InvariantCulture)));
+
+        // Só horários futuros valem: um horário de hoje que já passou não pode disparar uma consulta fora da agenda.
+        state.LastScheduledRunAt = _now();
 
         await db.SaveChangesAsync();
 

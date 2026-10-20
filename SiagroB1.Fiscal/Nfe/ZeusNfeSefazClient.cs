@@ -87,14 +87,14 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
 
     public Task<NfeDistributionResult> DistributionByNsuAsync(
         string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
-        RunAsync(settings, services => FromDistribution(services.NfeDistDFeInteresse(
-            settings.IssuerState, recipientTaxId, lastNsu.ToString("D15", CultureInfo.InvariantCulture), string.Empty, string.Empty)),
+        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
+            settings.IssuerState, recipientTaxId, lastNsu.ToString("D15", CultureInfo.InvariantCulture), string.Empty, string.Empty).Retorno),
             cancellationToken);
 
     public Task<NfeDistributionResult> DistributionByKeyAsync(
         string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
-        RunAsync(settings, services => FromDistribution(services.NfeDistDFeInteresse(
-            settings.IssuerState, recipientTaxId, string.Empty, string.Empty, accessKey)),
+        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
+            settings.IssuerState, recipientTaxId, string.Empty, string.Empty, accessKey).Retorno),
             cancellationToken);
 
     public Task<NfeEventResult> SendManifestationAsync(
@@ -110,30 +110,6 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
             // Sem o procEvento casado, o mapper não devolve a justificativa: vale a do pedido.
             return result with { Justification = result.Justification ?? request.Justification };
         }, cancellationToken);
-
-    private static NfeDistributionResult FromDistribution(NFe.Servicos.Retorno.RetornoNfeDistDFeInt response)
-    {
-        var batch = response.Retorno;
-        var documents = (batch.loteDistDFeInt ?? [])
-            .Where(d => d.XmlNfe is { Length: > 0 })
-            .Select(d => new NfeDistributionDocument(d.NSU, d.schema ?? string.Empty, ReadXml(d.XmlNfe)))
-            .ToList();
-
-        return new NfeDistributionResult(batch.cStat, batch.xMotivo ?? string.Empty, batch.ultNSU, batch.maxNSU, documents);
-    }
-
-    /// <summary>A Zeus já entrega o docZip descompactado; se vier o gzip cru (1F 8B), descompacta aqui.</summary>
-    private static string ReadXml(byte[] bytes)
-    {
-        if (bytes is [0x1F, 0x8B, ..])
-        {
-            using var gzip = new GZipStream(new MemoryStream(bytes), CompressionMode.Decompress);
-            using var reader = new StreamReader(gzip, System.Text.Encoding.UTF8);
-            return reader.ReadToEnd();
-        }
-
-        return System.Text.Encoding.UTF8.GetString(bytes).TrimStart('﻿');
-    }
 
     private static Task<T> RunAsync<T>(
         NfeServiceSettings settings, Func<ServicosNFe, T> call, CancellationToken cancellationToken) =>

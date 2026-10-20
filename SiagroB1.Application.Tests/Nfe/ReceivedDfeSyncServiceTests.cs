@@ -19,9 +19,10 @@ public class ReceivedDfeSyncServiceTests
 
     private static DateTimeOffset At(int day, int hour, int minute = 0) => new(2026, 10, day, hour, minute, 0, TimeSpan.FromHours(-3));
 
-    private static ReceivedDfeSyncService Service(NfeScenario s, FakeNfeSefazClient sefaz, DateTimeOffset? now = null) =>
+    private static ReceivedDfeSyncService Service(
+        NfeScenario s, FakeNfeSefazClient sefaz, DateTimeOffset? now = null, IDfeSyncLock? syncLock = null) =>
         new(s.Db, new BranchNfeSettingsService(s.Db, new NfeOptions(NfeTestSeed.Config()), sefaz), sefaz,
-            NullLogger<ReceivedDfeSyncService>.Instance, () => now ?? Now);
+            NullLogger<ReceivedDfeSyncService>.Instance, () => now ?? Now, syncLock ?? new InMemoryDfeSyncLock());
 
     private static string Summary(string key, int situation = 1) =>
         $"<resNFe xmlns=\"http://www.portalfiscal.inf.br/nfe\"><chNFe>{key}</chNFe><CNPJ>11222333000181</CNPJ><xNome>FORNECEDOR LTDA</xNome>" +
@@ -254,6 +255,88 @@ public class ReceivedDfeSyncServiceTests
         Assert.Equal(Now.AddHours(1), result.NextQueryAllowedAt);
         var state = await s.Db.Context.BranchDfeSyncStates.AsNoTracking().SingleAsync();
         Assert.Equal(Now.AddHours(1), state.NextQueryAllowedAt);
+        Assert.Equal(0, state.LastNsu);
+    }
+
+    [Fact]
+    public async Task Sync_656_KeepsExistingCursor()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        s.Db.Context.BranchDfeSyncStates.Add(new BranchDfeSyncState { BranchCode = "01", LastNsu = 7, MaxNsu = 9 });
+        await s.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueDistribution(Batch(656, 0, 0));
+
+        await Service(s, sefaz).SyncBranchAsync("01");
+
+        var state = await s.Db.Context.BranchDfeSyncStates.AsNoTracking().SingleAsync();
+        Assert.Equal(7, state.LastNsu);
+        Assert.Equal(9, state.MaxNsu);
+    }
+
+    [Fact]
+    public async Task Sync_CursorNotAdvancing_StopsAndWaits()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        s.Db.Context.BranchDfeSyncStates.Add(new BranchDfeSyncState { BranchCode = "01", LastNsu = 3, MaxNsu = 10 });
+        await s.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        for (var i = 0; i < 5; i++)
+            sefaz.EnqueueDistribution(Batch(138, 3, 10));
+
+        var result = await Service(s, sefaz).SyncBranchAsync("01");
+
+        Assert.Single(sefaz.DistributionByNsuCalls);
+        Assert.Equal(Now.AddHours(1), result.NextQueryAllowedAt);
+    }
+
+    [Fact]
+    public async Task Sync_EmptyBatchWithZeroMaxNsu_StopsAndWaits()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var sefaz = new FakeNfeSefazClient();
+        for (var i = 0; i < 5; i++)
+            sefaz.EnqueueDistribution(Batch(138, 0, 0));
+
+        var result = await Service(s, sefaz).SyncBranchAsync("01");
+
+        Assert.Single(sefaz.DistributionByNsuCalls);
+        Assert.Equal(Now.AddHours(1), result.NextQueryAllowedAt);
+    }
+
+    [Fact]
+    public async Task Sync_SameBranchAlreadyRunning_IsRejectedWithoutCallingSefaz()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var syncLock = new InMemoryDfeSyncLock();
+        var sefaz = new FakeNfeSefazClient();
+
+        await using (var held = await syncLock.TryAcquireAsync("01"))
+        {
+            Assert.NotNull(held);
+
+            var e = await Assert.ThrowsAsync<DefaultException>(() => Service(s, sefaz, syncLock: syncLock).SyncBranchAsync("01"));
+
+            Assert.Equal("Já existe uma consulta à SEFAZ em andamento para esta filial.", e.Message);
+            Assert.Empty(sefaz.DistributionByNsuCalls);
+        }
+
+        sefaz.EnqueueDistribution(Batch(137, 0, 0));
+        await Service(s, sefaz, syncLock: syncLock).SyncBranchAsync("01");
+        Assert.Single(sefaz.DistributionByNsuCalls);
+    }
+
+    [Fact]
+    public async Task SetSchedule_DoesNotFirePastTimesOfToday()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var saveAt = At(20, 21);
+
+        var state = await Service(s, new FakeNfeSefazClient(), saveAt).SetScheduleAsync("01", ["12:00", "20:00"]);
+
+        Assert.Equal(saveAt, state.LastScheduledRunAt);
+        Assert.False(DfeSchedule.IsDue(state.ScheduleTimes, state.LastScheduledRunAt, At(20, 21, 5)));
+        Assert.True(DfeSchedule.IsDue(state.ScheduleTimes, state.LastScheduledRunAt, At(21, 12, 5)));
     }
 
     [Fact]

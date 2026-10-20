@@ -44,6 +44,15 @@ public sealed class CompanyScopedJobRunner(
     [DisplayName("{0} (todas as empresas)")]
     public Task RunForAllCompaniesWithoutRetryAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
 
+    /// <summary>
+    /// DF-e: sem retry e nunca duas execuções ao mesmo tempo (uma execução lenta não pode se sobrepor à seguinte
+    /// e mandar o mesmo NSU à SEFAZ). A trava por filial no serviço cobre o clique manual.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
+    [DisableConcurrentExecution(timeoutInSeconds: 60)]
+    [DisplayName("{0} (todas as empresas)")]
+    public Task RunReceivedDfeSyncAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
+
     [DisplayName("{0} (todas as empresas)")]
     public async Task RunForAllCompaniesAsync(string jobKey, CancellationToken ct)
     {

@@ -1,3 +1,4 @@
+using System.Xml;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
@@ -54,10 +55,11 @@ public class ReceivedDfeManifestService(
             throw new DefaultException($"{result.StatusCode} - {result.Reason}");
 
         row.ManifestationStatus = StatusOf(type);
-        row.ManifestationProtocol = result.Protocol;
-        row.ManifestedAt = result.RegisteredAt ?? _now();
-        row.ManifestationJustification = text;
-        row.ManifestationProcEventXml = result.ProcEventXml;
+        // 573 (duplicidade) costuma vir sem protocolo/procEvento: nunca apaga a prova já guardada.
+        row.ManifestationProtocol = result.Protocol ?? row.ManifestationProtocol;
+        row.ManifestedAt = result.RegisteredAt ?? row.ManifestedAt ?? _now();
+        row.ManifestationJustification = text ?? row.ManifestationJustification;
+        row.ManifestationProcEventXml = result.ProcEventXml ?? row.ManifestationProcEventXml;
         await db.SaveChangesAsync();
 
         if (type is NfeManifestationType.Acknowledgement or NfeManifestationType.Confirmation && row.Xml is null)
@@ -90,11 +92,46 @@ public class ReceivedDfeManifestService(
 
     private async Task DownloadAsync(ReceivedDfe row, string taxId, NfeServiceSettings settings, CancellationToken ct)
     {
+        // A consulta por chave é o mesmo serviço da distribuição por NSU: respeita (e grava) a espera da filial.
+        var state = await db.Context.BranchDfeSyncStates.FirstOrDefaultAsync(s => s.BranchCode == row.BranchCode, ct);
+
+        if (state?.NextQueryAllowedAt is { } allowed && allowed > _now())
+            throw new DefaultException(WaitMessage(allowed));
+
         var result = await sefaz.DistributionByKeyAsync(taxId, row.AccessKey, settings, ct);
+
+        if (result.StatusCode == NfeStatusCodes.ExcessiveUse)
+        {
+            if (state is null)
+            {
+                state = new BranchDfeSyncState { BranchCode = row.BranchCode };
+                db.Context.BranchDfeSyncStates.Add(state);
+            }
+
+            state.NextQueryAllowedAt = _now() + Wait;
+            await db.SaveChangesAsync();
+            throw new DefaultException(WaitMessage(state.NextQueryAllowedAt.Value));
+        }
+
+        if (result.StatusCode == NfeStatusCodes.NoDocuments)
+            return;
+
+        if (result.StatusCode != NfeStatusCodes.DocumentsFound)
+            throw new DefaultException($"{result.StatusCode} - {result.Reason}");
 
         foreach (var document in result.Documents)
         {
-            var parsed = NfeDistributionDocumentParser.Parse(document);
+            DfeParsed parsed;
+
+            try
+            {
+                parsed = NfeDistributionDocumentParser.Parse(document);
+            }
+            catch (XmlException e)
+            {
+                logger.LogWarning(e, "DF-e {Key}: XML da consulta por chave ilegível.", row.AccessKey);
+                throw new DefaultException("O XML devolvido pela SEFAZ está ilegível. Tente baixar novamente mais tarde.");
+            }
 
             if (parsed.Kind != DfeKind.FullInvoice || parsed.FullXml is null)
                 continue;
@@ -138,6 +175,11 @@ public class ReceivedDfeManifestService(
 
         return taxId.Length == 0 ? throw new DefaultException($"A filial {branchCode} está sem CNPJ.") : taxId;
     }
+
+    private static readonly TimeSpan Wait = TimeSpan.FromHours(1);
+
+    private static string WaitMessage(DateTimeOffset allowed) =>
+        $"Aguarde até {TimeZoneInfo.ConvertTime(allowed, NfeIssueInputAssembler.BrasiliaZone).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)} para consultar novamente.";
 
     private static DfeManifestationStatus StatusOf(NfeManifestationType type) => type switch
     {

@@ -193,4 +193,111 @@ public class ReceivedDfeManifestServiceTests
         Assert.Equal(DfeManifestationStatus.Confirmed, result.ManifestationStatus);
         Assert.Null(result.Xml);
     }
+
+    [Fact]
+    public async Task Duplicate573_KeepsStoredProtocol()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        row.ManifestationProtocol = "891260000000999";
+        row.ManifestationProcEventXml = "<procEventoNFe>original</procEventoNFe>";
+        row.ManifestedAt = Now.AddDays(-1);
+        await s.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueManifestation(new NfeEventResult(NfeStatusCodes.DuplicateEvent, "Duplicidade de evento"));
+        sefaz.EnqueueDistributionByKey(NotAvailableResult());
+
+        var result = await Service(s, sefaz).ExecuteAsync(row.Id, NfeManifestationType.Acknowledgement, null);
+
+        Assert.Equal(DfeManifestationStatus.Acknowledged, result.ManifestationStatus);
+        Assert.Equal("891260000000999", result.ManifestationProtocol);
+        Assert.Equal("<procEventoNFe>original</procEventoNFe>", result.ManifestationProcEventXml);
+        Assert.Equal(Now.AddDays(-1), result.ManifestedAt);
+    }
+
+    [Fact]
+    public async Task DownloadXml_656_SetsBranchWait_AndThrows()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueDistributionByKey(new NfeDistributionResult(656, "Consumo indevido", 0, 0, []));
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(s, sefaz).DownloadXmlAsync(row.Id));
+
+        Assert.Equal("Aguarde até 16:00 para consultar novamente.", e.Message);
+        var state = await s.Db.Context.BranchDfeSyncStates.AsNoTracking().SingleAsync();
+        Assert.Equal(Now.AddHours(1), state.NextQueryAllowedAt);
+    }
+
+    [Fact]
+    public async Task DownloadXml_InsideBranchWait_DoesNotCallSefaz()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        s.Db.Context.BranchDfeSyncStates.Add(new BranchDfeSyncState { BranchCode = "01", NextQueryAllowedAt = Now.AddMinutes(30) });
+        await s.Db.SaveChangesAsync();
+        var sefaz = new FakeNfeSefazClient();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(s, sefaz).DownloadXmlAsync(row.Id));
+
+        Assert.Equal("Aguarde até 15:30 para consultar novamente.", e.Message);
+        Assert.Empty(sefaz.DistributionByKeyCalls);
+    }
+
+    [Fact]
+    public async Task DownloadXml_OtherRejection_ThrowsStatusAndReason()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueDistributionByKey(new NfeDistributionResult(593, "Rejeição: CNPJ divergente", 0, 0, []));
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(s, sefaz).DownloadXmlAsync(row.Id));
+
+        Assert.Equal("593 - Rejeição: CNPJ divergente", e.Message);
+    }
+
+    [Fact]
+    public async Task DownloadXml_137_ReturnsWithoutXml()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueDistributionByKey(NotAvailableResult());
+
+        var result = await Service(s, sefaz).DownloadXmlAsync(row.Id);
+
+        Assert.Null(result.Xml);
+    }
+
+    [Fact]
+    public async Task DownloadXml_MalformedDocument_ThrowsDefaultException()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s);
+        var sefaz = new FakeNfeSefazClient();
+        sefaz.EnqueueDistributionByKey(new NfeDistributionResult(138, "Documento localizado", 5, 5,
+            [new NfeDistributionDocument(5, "procNFe_v4.00.xsd", "<nfeProc><broken")]));
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service(s, sefaz).DownloadXmlAsync(row.Id));
+
+        Assert.Equal("O XML devolvido pela SEFAZ está ilegível. Tente baixar novamente mais tarde.", e.Message);
+    }
+
+    [Fact]
+    public async Task Confirm_DownloadReturns656_KeepsManifestation()
+    {
+        var s = await NfeTestSeed.SeedAsync();
+        var row = await SeedAsync(s, DfeManifestationStatus.Acknowledged);
+        var sefaz = new FakeNfeSefazClient();
+        Registered(sefaz);
+        sefaz.EnqueueDistributionByKey(new NfeDistributionResult(656, "Consumo indevido", 0, 0, []));
+
+        var result = await Service(s, sefaz).ExecuteAsync(row.Id, NfeManifestationType.Confirmation, null);
+
+        Assert.Equal(DfeManifestationStatus.Confirmed, result.ManifestationStatus);
+        var saved = await s.Db.Context.ReceivedDfes.AsNoTracking().SingleAsync();
+        Assert.Equal(DfeManifestationStatus.Confirmed, saved.ManifestationStatus);
+    }
 }

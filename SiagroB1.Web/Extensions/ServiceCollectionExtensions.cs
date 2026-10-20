@@ -218,6 +218,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NfeEmailDispatchJob>();
         services.AddScoped<NfeEmailSweepJob>();
         services.AddScoped<ReceivedDfeSyncJob>();
+        services.AddScoped<IDfeSyncLock, SqlServerDfeSyncLock>();
         services.AddScoped<ReceivedDfeSyncService>();
         services.AddScoped<ReceivedDfeManifestService>();
         services.AddScoped<ReceivedDfeXmlService>();

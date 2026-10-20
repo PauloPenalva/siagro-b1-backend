@@ -304,7 +304,7 @@ if (ErpMode.IsStandalone(app.Configuration))
 {
     RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
         CompanyScopedJobRunner.ReceivedDfeSync,
-        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ReceivedDfeSync, CancellationToken.None),
+        runner => runner.RunReceivedDfeSyncAsync(CompanyScopedJobRunner.ReceivedDfeSync, CancellationToken.None),
         ReceivedDfeSyncJob.CronExpression);
 }
 else
