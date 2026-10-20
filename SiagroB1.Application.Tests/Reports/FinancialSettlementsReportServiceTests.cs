@@ -182,7 +182,10 @@ public class FinancialSettlementsReportServiceTests : IDisposable
         var all = await RowsAsync(db, request);
 
         var netting = all.Where(r => r.Method == "Abatimento de devolução").ToList();
-        Assert.NotEmpty(netting);
+        // Pool 70 = líquido (100 − 30): a devolução abate 30 do firme; as duas pernas saem com 30.
+        Assert.Equal(2, netting.Count);
+        Assert.Equal(30m, netting.Single(r => r.Document == "FIRM").Amount);
+        Assert.Equal(30m, netting.Single(r => r.Document == "RET").Amount);
         Assert.All(netting, r => Assert.Equal(string.Empty, r.Account));
         Assert.Contains(all, r => r.Method == "Baixa" && r.Account == "CX1" && r.Amount == 70m);
 
@@ -284,9 +287,8 @@ public class FinancialSettlementsReportServiceTests : IDisposable
         var pdf = await new FinancialSettlementsReportService(db, FastReport()).ExecuteAsync(Request());
 
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
-        var folder = Path.Combine(Path.GetTempPath(), "siagro-settlements-reports");
-        Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "FinancialSettlements.pdf"), pdf);
+        // Amostra só sob demanda (SIAGRO_WRITE_SAMPLE_PDF=1): o teste não deixa lixo no %TEMP%.
+        ReportSample.WriteIfRequested("siagro-settlements-reports", "FinancialSettlements.pdf", pdf);
     }
 
     private FastReportService FastReport()
