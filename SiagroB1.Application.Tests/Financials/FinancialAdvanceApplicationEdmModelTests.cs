@@ -38,6 +38,21 @@ public class FinancialAdvanceApplicationEdmModelTests
     }
 
     [Theory]
+    [InlineData("ContractType", "Edm.String")]
+    [InlineData("ContractKey", "Edm.Guid")]
+    [InlineData("Direction", "Edm.String")]
+    [InlineData("CardCode", "Edm.String")]
+    [InlineData("BranchCode", "Edm.String")]
+    public void The_create_advance_contract_and_free_parameters_are_optional(string parameter, string type)
+    {
+        var action = BuildModel().SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "FinancialAdvancesCreate");
+        var edmParameter = action.Parameters.Single(p => p.Name == parameter);
+
+        Assert.Equal(type, edmParameter.Type.FullName());
+        Assert.IsAssignableFrom<IEdmOptionalParameter>(edmParameter);
+    }
+
+    [Theory]
     [InlineData(nameof(FinancialDocument.AppliedAmount))]
     [InlineData(nameof(FinancialDocument.AvailableAdvanceAmount))]
     public void Applied_and_credit_are_in_the_edm(string property)

@@ -31,14 +31,8 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
         var provisional = await context.FinancialDocuments.FirstOrDefaultAsync(x => x.Key == provisionalKey)
                           ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
-        if (provisional.Nature != FinancialDocumentNature.Provisional)
-            throw new ApplicationException($"Título {provisional.Code} não é provisório de contrato de compra.");
-
         if (provisional.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException("Título cancelado não pode ser compensado.");
-
-        if (provisional.PurchaseContractKey is null && provisional.SalesContractKey is null)
-            throw new ApplicationException($"Título {provisional.Code} não é provisório de contrato de compra.");
 
         var advance = await context.FinancialDocuments.FirstOrDefaultAsync(x => x.Key == advanceKey)
                       ?? throw new NotFoundException("Documento financeiro não encontrado.");
@@ -49,10 +43,33 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
         if (advance.Status == FinancialDocumentStatus.Canceled)
             throw new ApplicationException("Título cancelado não pode ser compensado.");
 
-        // Mesmo CONTRATO: adiantamento de outro contrato se revincula antes (fora do escopo compensar entre contratos).
-        if (!advance.HasSameContractAs(provisional))
-            throw new ApplicationException(
-                $"Adiantamento {advance.Code} não pertence ao contrato do título {provisional.Code}.");
+        if (advance.PurchaseContractKey is not null || advance.SalesContractKey is not null)
+        {
+            // Mesmo CONTRATO: adiantamento de outro contrato se revincula antes (fora do escopo compensar entre
+            // contratos). Título sem contrato também "não pertence ao contrato".
+            if (!advance.HasSameContractAs(provisional))
+                throw new ApplicationException(
+                    $"Adiantamento {advance.Code} não pertence ao contrato do título {provisional.Code}.");
+
+            if (provisional.Nature != FinancialDocumentNature.Provisional)
+                throw new ApplicationException($"Título {provisional.Code} não é provisório de contrato de compra.");
+        }
+        else
+        {
+            // Spec 2026-10-19 (decisão 1): adiantamento SEM contrato abate qualquer título do mesmo parceiro, direção e
+            // moeda — provisório, firme ou manual —, menos outro adiantamento.
+            if (provisional.Nature == FinancialDocumentNature.Advance)
+                throw new ApplicationException(
+                    $"O título {provisional.Code} é um adiantamento: adiantamento não abate outro adiantamento.");
+
+            if (!string.Equals(provisional.CardCode, advance.CardCode, StringComparison.OrdinalIgnoreCase))
+                throw new ApplicationException(
+                    $"O título {provisional.Code} é de outro parceiro ({provisional.CardCode}); o adiantamento {advance.Code} é de {advance.CardCode}.");
+
+            if (provisional.Direction != advance.Direction)
+                throw new ApplicationException(
+                    $"O título {provisional.Code} e o adiantamento {advance.Code} têm direção diferente (a pagar x a receber).");
+        }
 
         if (advance.Currency != provisional.Currency)
             throw new ApplicationException(

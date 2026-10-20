@@ -88,8 +88,62 @@ public class FinancialAdvancesCreateService(
             paymentTerms = contract.PaymentTerms ?? string.Empty;
         }
 
-        // O adiantamento nasce PAGO: sem a baixa ele não tem crédito para compensar o provisório. A conta é validada
-        // aqui, antes de consumir número e de abrir a transação; a moeda tem de ser a do contrato.
+        var (account, accountCode) = await ValidateAccountAsync(financialAccountCode, paymentDate);
+
+        if (account.Currency != currency)
+            throw new ApplicationException(
+                $"A conta {account.Code} é em {account.Currency} e o contrato em {currency}: a moeda precisa ser a mesma.");
+
+        var partner = await businessPartnerService.GetByIdAsync(cardCode);
+
+        return await CreatePaidAsync(
+            isPurchase ? FinancialDirection.Payable : FinancialDirection.Receivable, cardCode, partner?.CardName,
+            branchCode, currency, amount, dueDate, contractCode, isPurchase ? contractKey : null,
+            isSales ? contractKey : null, paymentTerms, comments, accountCode, paymentDate, userName, commitMode);
+    }
+
+    /// <summary>
+    /// Adiantamento SEM contrato (spec 2026-10-19, parte 3): direção, parceiro e filial informados pelo usuário; moeda =
+    /// a da conta financeira. Também nasce pago. Abate qualquer título não cancelado do mesmo parceiro, direção e moeda
+    /// (ver <see cref="FinancialDocumentsApplyAdvanceService"/>) e pode ser vinculado a contrato depois.
+    /// </summary>
+    public async Task<FinancialDocument> ExecuteWithoutContractAsync(
+        FinancialDirection direction,
+        string cardCode,
+        string branchCode,
+        decimal amount,
+        DateTime dueDate,
+        string financialAccountCode,
+        DateTime paymentDate,
+        string? comments,
+        string userName,
+        CommitMode commitMode = CommitMode.Auto)
+    {
+        if (amount <= 0m)
+            throw new ApplicationException("O valor do adiantamento deve ser maior que zero.");
+
+        if (string.IsNullOrWhiteSpace(cardCode))
+            throw new ApplicationException("Informe o parceiro do adiantamento.");
+
+        if (string.IsNullOrWhiteSpace(branchCode))
+            throw new ApplicationException("Informe a filial do adiantamento.");
+
+        var (account, accountCode) = await ValidateAccountAsync(financialAccountCode, paymentDate);
+
+        var partnerCode = cardCode.Trim();
+        var partner = await businessPartnerService.GetByIdAsync(partnerCode)
+                      ?? throw new NotFoundException($"Parceiro {partnerCode} não encontrado.");
+
+        return await CreatePaidAsync(
+            direction, partnerCode, partner.CardName, branchCode.Trim(), account.Currency, amount,
+            dueDate, null, null, null, string.Empty, comments, accountCode, paymentDate, userName, commitMode);
+    }
+
+    // O adiantamento nasce PAGO: sem a baixa ele não tem crédito para compensar. A conta é validada antes de consumir
+    // número e de abrir a transação.
+    private async Task<(FinancialAccount Account, string Code)> ValidateAccountAsync(
+        string financialAccountCode, DateTime paymentDate)
+    {
         if (string.IsNullOrWhiteSpace(financialAccountCode))
             throw new ApplicationException("Informe a conta financeira do pagamento do adiantamento.");
 
@@ -100,15 +154,18 @@ public class FinancialAdvancesCreateService(
         if (account.Inactive)
             throw new ApplicationException($"A conta financeira {account.Code} está inativa.");
 
-        if (account.Currency != currency)
-            throw new ApplicationException(
-                $"A conta {account.Code} é em {account.Currency} e o contrato em {currency}: a moeda precisa ser a mesma.");
-
         if (paymentDate == default)
             throw new ApplicationException("Informe a data do pagamento do adiantamento.");
 
-        var partner = await businessPartnerService.GetByIdAsync(cardCode);
+        return (account, accountCode);
+    }
 
+    private async Task<FinancialDocument> CreatePaidAsync(
+        FinancialDirection direction, string cardCode, string? cardName, string branchCode, CurrencyType currency,
+        decimal amount, DateTime dueDate, string? contractCode, Guid? purchaseContractKey, Guid? salesContractKey,
+        string paymentTerms, string? comments, string accountCode, DateTime paymentDate, string userName,
+        CommitMode commitMode)
+    {
         // Número buscado ANTES da transação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
             TransactionCode.FinancialDocument, null, null, 50,
@@ -122,19 +179,19 @@ public class FinancialAdvancesCreateService(
             Code = code,
             DocNumberKey = docNumberKey,
             BranchCode = branchCode,
-            Direction = isPurchase ? FinancialDirection.Payable : FinancialDirection.Receivable,
+            Direction = direction,
             Nature = FinancialDocumentNature.Advance,
             Status = FinancialDocumentStatus.Open,
             CardCode = cardCode,
-            CardName = partner?.CardName,
+            CardName = cardName,
             DocumentDate = DateTime.Now,
             DueDate = dueDate,
             Currency = currency,
             NetAmount = decimal.Round(amount, 2, MidpointRounding.ToEven),
             OriginType = FinancialDocumentOrigin.Manual,
             OriginDocNumber = contractCode,
-            PurchaseContractKey = isPurchase ? contractKey : null,
-            SalesContractKey = isSales ? contractKey : null,
+            PurchaseContractKey = purchaseContractKey,
+            SalesContractKey = salesContractKey,
             PaymentTermsText = paymentTerms,
             Comments = comments,
             CreatedAt = DateTime.Now,
