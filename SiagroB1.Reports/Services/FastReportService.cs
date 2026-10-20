@@ -97,6 +97,21 @@ public class FastReportService(
         string refName,
         Dictionary<string, object> parameters)
     {
+        using var report = await PrepareAsync(reportName, data, dataSourceName, refName, parameters);
+        return report is null ? Array.Empty<byte>() : ExportPdf(report, reportName);
+    }
+
+    /// <summary>
+    /// Carrega, alimenta e prepara o relatório sem exportar — permite inspecionar as páginas preparadas
+    /// (numeração, totais por página). Nulo quando o FastReport não prepara. O chamador descarta.
+    /// </summary>
+    public async Task<Report?> PrepareAsync<T>(
+        string reportName,
+        ICollection<T> data,
+        string dataSourceName,
+        string refName,
+        Dictionary<string, object> parameters)
+    {
         var reportPath = Path.Combine(
             env.ContentRootPath,
             "Reports",
@@ -104,27 +119,36 @@ public class FastReportService(
             reportName);
 
         FastReport.Utils.Config.WebMode = true;
-        using var report = new Report();
-        report.Load(reportPath);
-        reportHeader.Apply(report);
+        var report = new Report();
+        try
+        {
+            report.Load(reportPath);
+            reportHeader.Apply(report);
+            report.RegisterData(data, refName);
+            report.GetDataSource(dataSourceName).Enabled = true;
+            ApplyParameters(report, parameters);
 
-        report.RegisterData(data, refName);
+            if (await report.PrepareAsync())
+                return report;
+        }
+        catch
+        {
+            report.Dispose();
+            throw;
+        }
 
-        report.GetDataSource(dataSourceName).Enabled = true;
-        
-        ApplyParameters(report, parameters);
+        report.Dispose();
+        return null;
+    }
 
-        if (!await report.PrepareAsync()) return Array.Empty<byte>();
+    public static byte[] ExportPdf(Report report, string title)
+    {
         var pdfExport = new PDFSimpleExport();
         pdfExport.ShowProgress = false;
-        pdfExport.Title = reportName;
-            
+        pdfExport.Title = title;
         using var stream = new MemoryStream();
-            
         report.Export(pdfExport, stream);
-
         return stream.ToArray();
     }
-    
-    
+
 }

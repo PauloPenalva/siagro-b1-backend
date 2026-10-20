@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" DoublePass="true" ReportInfo.Created="10/20/2026 10:00:00" ReportInfo.Modified="10/20/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Rows" ReferenceName="Rows" DataType="System.Int32" Enabled="true">
+      <Column Name="Ncm" DataType="System.String"/>
+      <Column Name="ItemCode" DataType="System.String"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="UnitOfMeasureCode" DataType="System.String"/>
+      <Column Name="QuantityText" DataType="System.String"/>
+      <Column Name="UnitCostText" DataType="System.String"/>
+      <Column Name="Value" DataType="System.Decimal"/>
+      <Column Name="ValueText" DataType="System.String"/>
+      <Column Name="NcmGroupTotal" DataType="System.Decimal"/>
+      <Column Name="NcmGroupTotalText" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pLegalName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTaxId" DataType="System.String" AsString=""/>
+    <Parameter Name="pStateRegistration" DataType="System.String" AsString=""/>
+    <Parameter Name="pAddress" DataType="System.String" AsString=""/>
+    <Parameter Name="pCityDate" DataType="System.String" AsString=""/>
+    <Parameter Name="pInventoryDate" DataType="System.String" AsString=""/>
+    <Parameter Name="pBookNumber" DataType="System.Int32" AsString="1"/>
+    <Parameter Name="pFirstSheet" DataType="System.Int32" AsString="1"/>
+    <Parameter Name="pGrandTotal" DataType="System.String" AsString=""/>
+    <!-- soma acumulada dos valores parciais: nunca zera; lida no cabeçalho ("Transporte") e no rodapé ("A transportar") -->
+    <Total Name="TotalCarry" Expression="[Rows.Value]" Evaluator="Data1" PrintOn="ReportSummary1" ResetAfterPrint="false"/>
+  </Dictionary>
+
+  <!-- Termo de abertura: folha = pFirstSheet -->
+  <ReportPage Name="OpeningPage" PaperWidth="210" PaperHeight="297" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="OpeningTitle" Width="718.2" Height="700">
+      <PictureObject Name="picLogo" Left="0" Top="0" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtSheetOpening" Left="518.2" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtOpeningTitle" Top="80" Width="718.2" Height="30" Text="TERMO DE ABERTURA" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtOpeningSubtitle" Top="115" Width="718.2" Height="22" Text="REGISTRO DE INVENTÁRIO - MODELO 7 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtOpeningTerm" CanGrow="true" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e servirá para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtOpeningCityDate" Left="40" Top="380" Width="638.2" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
+      <TextObject Name="txtOpeningSign1" Left="40" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="txtOpeningSign2" Left="398.2" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>
+    </ReportTitleBand>
+  </ReportPage>
+
+  <!-- Inventário -->
+  <ReportPage Name="InventoryPage" PaperWidth="210" PaperHeight="297" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="718.2" Height="132">
+      <TextObject Name="txtTitle" Width="518.2" Height="20" Text="REGISTRO DE INVENTÁRIO - MODELO 7" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtSheet" Left="518.2" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtLegalName" Top="22" Width="518.2" Height="18" Text="[pLegalName]" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtBookNumber" Left="518.2" Top="22" Width="200" Height="18" Text="Livro nº [pBookNumber]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtIds" Top="40" Width="518.2" Height="18" Text="CNPJ: [pTaxId]     Inscrição Estadual: [pStateRegistration]" Font="Arial, 9pt"/>
+      <TextObject Name="txtInventoryDate" Top="58" Width="518.2" Height="18" Text="Inventário existente em [pInventoryDate]" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtCarryInLabel" Left="418.2" Top="78" Width="200" Height="18" Text="[IIf([Page] &gt; 2, &quot;Transporte&quot;, &quot;&quot;)]" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtCarryIn" Left="618.2" Top="78" Width="100" Height="18" Text="[IIf([Page] &gt; 2, Convert.ToDecimal((object)[TotalCarry]).ToString(&quot;N2&quot;, System.Globalization.CultureInfo.GetCultureInfo(&quot;pt-BR&quot;)), &quot;&quot;)]" HorzAlign="Right" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hdrNcm" Top="100" Width="70" Height="30" Border.Lines="Top, Bottom" Text="Classificação fiscal" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrDescription" Left="70" Top="100" Width="245" Height="30" Border.Lines="Top, Bottom" Text="Discriminação" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrQuantity" Left="315" Top="100" Width="85" Height="30" Border.Lines="Top, Bottom" Text="Quantidade" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrUnit" Left="400" Top="100" Width="38" Height="30" Border.Lines="Top, Bottom" Text="Unid." HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrUnitCost" Left="438" Top="100" Width="90" Height="30" Border.Lines="Top, Bottom" Text="Valor unitário" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrValue" Left="528" Top="100" Width="90" Height="30" Border.Lines="Top, Bottom" Text="Parcial" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrNcmTotal" Left="618.2" Top="100" Width="100" Height="30" Border.Lines="Top, Bottom" Text="Total" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+    </PageHeaderBand>
+    <DataBand Name="Data1" Top="136" Width="718.2" Height="15" CanGrow="true" CanShrink="true" DataSource="Rows">
+      <TextObject Name="txtNcm" GrowToBottom="true" Width="70" Height="15" Text="[Rows.Ncm]" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtDescription" Left="70" Width="245" Height="15" Text="[Rows.Description]" CanGrow="true" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="txtQuantity" GrowToBottom="true" Left="315" Width="85" Height="15" Text="[Rows.QuantityText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtUnit" GrowToBottom="true" Left="400" Width="38" Height="15" Text="[Rows.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtUnitCost" GrowToBottom="true" Left="438" Width="90" Height="15" Text="[Rows.UnitCostText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtValue" GrowToBottom="true" Left="528" Width="90" Height="15" Text="[Rows.ValueText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtNcmTotal" GrowToBottom="true" Left="618.2" Width="100" Height="15" Text="[Rows.NcmGroupTotalText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="155" Width="718.2" Height="22">
+      <TextObject Name="txtGrandTotalLabel" Left="418.2" Top="2" Width="200" Height="18" Border.Lines="Top" Text="Total geral" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtGrandTotal" Left="618.2" Top="2" Width="100" Height="18" Border.Lines="Top" Text="[pGrandTotal]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="181" Width="718.2" Height="22">
+      <TextObject Name="txtCarryOutLabel" Left="418.2" Top="2" Width="200" Height="18" Text="[IIf([Page] &lt; [TotalPages] - 1, &quot;A transportar&quot;, &quot;&quot;)]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtCarryOut" Left="618.2" Top="2" Width="100" Height="18" Text="[IIf([Page] &lt; [TotalPages] - 1, Convert.ToDecimal((object)[TotalCarry]).ToString(&quot;N2&quot;, System.Globalization.CultureInfo.GetCultureInfo(&quot;pt-BR&quot;)), &quot;&quot;)]" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </PageFooterBand>
+  </ReportPage>
+
+  <!-- Termo de encerramento: última folha -->
+  <ReportPage Name="ClosingPage" PaperWidth="210" PaperHeight="297" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ClosingTitle" Width="718.2" Height="700">
+      <TextObject Name="txtSheetClosing" Left="518.2" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtClosingTitle" Top="80" Width="718.2" Height="30" Text="TERMO DE ENCERRAMENTO" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtClosingSubtitle" Top="115" Width="718.2" Height="22" Text="REGISTRO DE INVENTÁRIO - MODELO 7 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtClosingTerm" CanGrow="true" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e serviu para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtClosingCityDate" Left="40" Top="380" Width="638.2" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
+      <TextObject Name="txtClosingSign1" Left="40" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="txtClosingSign2" Left="398.2" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>
+    </ReportTitleBand>
+  </ReportPage>
+</Report>

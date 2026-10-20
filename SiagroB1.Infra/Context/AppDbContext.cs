@@ -146,6 +146,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialAccountReconciliation> FinancialAccountReconciliations { get; set; }
     public DbSet<FinancialAccountTransfer> FinancialAccountTransfers { get; set; }
 
+    public DbSet<FiscalInventoryOpeningBalance> FiscalInventoryOpeningBalances { get; set; }
+
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
     public DbSet<PurchaseTransactionChange> PurchaseTransactionChanges { get; set; }
 
@@ -157,6 +159,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
+
+        // Um saldo inicial por filial + produto (Kardex Fiscal).
+        modelBuilder.Entity<FiscalInventoryOpeningBalance>()
+            .HasIndex(x => new { x.BranchCode, x.ItemCode })
+            .IsUnique();
         
         // Cobre a soma do saldo por lote (StorageAddressesGetService.QueryAll). Sem estas colunas o
         // plano varria STORAGE_TRANSACTIONS inteira e, sem READ_COMMITTED_SNAPSHOT, um romaneio

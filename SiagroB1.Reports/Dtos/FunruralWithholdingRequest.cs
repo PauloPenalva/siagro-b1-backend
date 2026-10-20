@@ -8,4 +8,5 @@ public class FunruralWithholdingRequest : InvoiceReportRequest
 {
     /// <summary>Código do contrato de compra (PurchaseContract.Code).</summary>
     public string? ContractCode { get; set; }
+
 }

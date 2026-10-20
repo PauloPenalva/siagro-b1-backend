@@ -91,10 +91,12 @@ public class FunruralWithholdingReportService(
                 var deducted = -Amounts(ret);
                 net += deducted;
                 returned += deducted;
-                rows.Add(ReturnRow(ret, deducted));
+                rows.Add(ReturnRow(ret, deducted, item));
             }
 
-            rows.Add(AmountsRow(FunruralRowKind.Net, "  (=) Líquido do item", net));
+            var netRow = AmountsRow(FunruralRowKind.Net, "  (=) Líquido do item", net);
+            netRow.CardCode = item.PurchaseInvoice!.CardCode;
+            rows.Add(netRow);
         }
 
         return new FunruralWithholdingData(rows, items.Count, gross, returned);
@@ -180,16 +182,18 @@ public class FunruralWithholdingReportService(
         row.InternalNumber = i.PurchaseInvoice.InvoiceNumber ?? "";
         row.DocumentNumber = InvoiceReportText.DocumentNumber(i.PurchaseInvoice.TaxDocumentNumber, i.PurchaseInvoice.TaxDocumentSeries);
         row.Partner = InvoiceReportText.Partner(i.PurchaseInvoice.CardCode, i.PurchaseInvoice.CardName);
+        row.CardCode = i.PurchaseInvoice.CardCode;
         row.InssRate = Rate(i.FunruralInssRate);
         row.RatRate = Rate(i.FunruralRatRate);
         row.SenarRate = Rate(i.FunruralSenarRate);
         return row;
     }
 
-    private static FunruralWithholdingRowDto ReturnRow(PurchaseInvoiceItem ret, FunruralAmounts deducted)
+    private static FunruralWithholdingRowDto ReturnRow(PurchaseInvoiceItem ret, FunruralAmounts deducted, PurchaseInvoiceItem origin)
     {
         var row = AmountsRow(FunruralRowKind.Return, "  (-) Devolução", deducted);
         row.IssueDate = InvoiceReportText.Date(ret.PurchaseInvoice!.IssueDate);
+        row.CardCode = origin.PurchaseInvoice!.CardCode;
         row.InternalNumber = ret.PurchaseInvoice.InvoiceNumber ?? "";
         row.DocumentNumber = InvoiceReportText.DocumentNumber(ret.PurchaseInvoice.TaxDocumentNumber, ret.PurchaseInvoice.TaxDocumentSeries);
         return row;

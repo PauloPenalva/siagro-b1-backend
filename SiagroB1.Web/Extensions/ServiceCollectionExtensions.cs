@@ -1,5 +1,6 @@
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
+using SiagroB1.Application.Services.FiscalInventory;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.CompanySignatories;
@@ -366,6 +367,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SalesInvoicesUsageGuardService>();
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<RuralContributionRatesService>();
+        services.AddScoped<IFiscalInventoryOpeningBalancesService, FiscalInventoryOpeningBalancesService>();
         services.AddScoped<MunicipalityService>();
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();
