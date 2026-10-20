@@ -7,10 +7,11 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Financials;
 
 /// <summary>
-/// Candidatos do "Compensar adiantamento" (spec 2026-10-14, regras 2 e 4): adiantamentos não cancelados do MESMO
-/// contrato de compra e MESMA moeda do provisório, com crédito > 0, com o valor sugerido. Título que não é provisório
-/// de compra ativo devolve lista vazia — a tela só oferece o botão no provisório. Projeção em memória porque
-/// AvailableAdvanceAmount/AvailableToSettleAmount são [NotMapped].
+/// Candidatos do "Compensar adiantamento" (spec 2026-10-14, regras 2 e 4; spec 2026-10-19, decisão 1): adiantamentos
+/// não cancelados, com crédito > 0 e na MESMA moeda do título, com o valor sugerido. Para qualquer título (provisório,
+/// firme ou manual) entram os adiantamentos SEM contrato do mesmo parceiro e direção; para o provisório de contrato,
+/// também os do MESMO contrato. Título cancelado ou que seja adiantamento devolve lista vazia. Projeção em memória
+/// porque AvailableAdvanceAmount/AvailableToSettleAmount são [NotMapped].
 /// </summary>
 public class FinancialDocumentsGetAdvanceCandidatesService(IUnitOfWork db)
 {

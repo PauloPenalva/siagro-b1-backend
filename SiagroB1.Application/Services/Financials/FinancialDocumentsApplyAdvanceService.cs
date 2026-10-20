@@ -73,7 +73,7 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
 
         if (advance.Currency != provisional.Currency)
             throw new ApplicationException(
-                $"O adiantamento {advance.Code} está em {Currency(advance.Currency)} e o provisório {provisional.Code} em {Currency(provisional.Currency)}: compensação entre moedas diferentes não é suportada.");
+                $"O adiantamento {advance.Code} está em {Currency(advance.Currency)} e o título {provisional.Code} em {Currency(provisional.Currency)}: compensação entre moedas diferentes não é suportada.");
 
         // O Edm.Double pode trazer mais de duas casas: arredonda ANTES dos tetos.
         var value = decimal.Round(amount, 2, MidpointRounding.ToEven);
