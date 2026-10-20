@@ -30,6 +30,7 @@ public record InventoryMovement(
 /// <summary>
 /// Linha valorizada do Kardex, com saldo acumulado após o movimento. <c>PendingValue</c>: complemento
 /// sem camada aberta — não entra no saldo agora; soma no ValueIn da próxima entrada que criar camada.
+/// <c>CostNotFound</c>: devolução de venda sem saída de origem conhecida e sem camada aberta — entrou a custo zero.
 /// </summary>
 public record ValuedMovement(
     InventoryMovement Movement,
@@ -42,7 +43,8 @@ public record ValuedMovement(
     decimal BalanceValue,
     bool InsufficientBalance,
     bool IsNegativeBalanceAdjustment,
-    bool PendingValue = false);
+    bool PendingValue = false,
+    bool CostNotFound = false);
 
 /// <summary>Camada PEPS ainda aberta (quantidade sempre &gt; 0).</summary>
 public record FifoLayer(Guid LineKey, DateTime Date, decimal Quantity, decimal Value);

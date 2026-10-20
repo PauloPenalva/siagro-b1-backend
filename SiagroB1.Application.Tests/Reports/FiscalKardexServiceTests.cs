@@ -307,13 +307,67 @@ public class FiscalKardexServiceTests
         db.Context.SalesInvoices.Add(Sell("V1", Oct10, 15m));
         await Save(db);
 
+        var other = Buy("C9", Oct05, 3m, 10m);
+        other.Items.First().ItemCode = "00009";
+        db.Context.PurchaseInvoices.Add(other);
+        await Save(db);
+
         var before = await Service(db).OpenLayersAsync("01", "10001", Oct05);
         var after = await Service(db).OpenLayersAsync("01", null, Oct10);
 
-        Assert.Equal(2200m, before.Sum(l => l.Value));
-        var layer = Assert.Single(after);
+        Assert.Equal(2200m, Assert.Single(before).Layers.Sum(l => l.Value));
+        Assert.Equal(new[] { "00009", "10001" }, after.Select(i => i.ItemCode));
+        var soy = after[1];
+        Assert.Equal("SOJA EM GRÃOS", soy.ItemName);
+        Assert.Equal("TN", soy.UnitOfMeasureCode);
+        var layer = Assert.Single(soy.Layers);
         Assert.Equal(5m, layer.Quantity);
         Assert.Equal(600m, layer.Value);
+    }
+
+    [Fact]
+    public async Task Build_SalesReturnOfSaleBeforeOpening_UsesOldestLayerCost()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var sale = Sell("V0", new DateTime(2026, 9, 20), 2m);
+        db.Context.SalesInvoices.Add(sale);
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(10m, 1000m, Sep30));
+        db.Context.PurchaseInvoices.Add(Buy("C1", Oct05, 10m, 150m));
+        db.Context.SalesInvoices.Add(Return("DV0", Oct10, sale));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        var line = item.Lines.Single(l => l.InternalNumber == "DV0");
+        Assert.Equal(100m, line.UnitCost);
+        Assert.Equal(200m, line.ValueIn);
+        Assert.Null(line.Warning);
+    }
+
+    [Fact]
+    public async Task Build_SalesReturnWithoutLayer_WarnsCostNotFound()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var sale = Sell("V0", new DateTime(2026, 9, 20), 2m);
+        db.Context.SalesInvoices.Add(sale);
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(10m, 1000m, Sep30));
+        db.Context.SalesInvoices.Add(Sell("V1", Oct05, 10m));
+        db.Context.SalesInvoices.Add(Return("DV0", Oct10, sale));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        var line = item.Lines.Single(l => l.InternalNumber == "DV0");
+        Assert.Equal(0m, line.ValueIn);
+        Assert.Equal("Custo da venda de origem não encontrado", line.Warning);
+    }
+
+    private static SalesInvoice Return(string number, DateTime date, SalesInvoice origin)
+    {
+        var returned = Sell(number, date, 2m, cfop: "1202");
+        returned.InvoiceType = SalesInvoiceType.Return;
+        returned.Items.First().SalesInvoiceItemOriginKey = origin.Items.First().Key;
+        return returned;
     }
 
     private static FiscalInventoryOpeningBalance Opening(decimal qty, decimal value, DateTime date, string itemCode = "10001") => new()

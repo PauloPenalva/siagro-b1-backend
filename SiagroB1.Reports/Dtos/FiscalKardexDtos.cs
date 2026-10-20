@@ -1,4 +1,17 @@
+using SiagroB1.Reports.Services.Fiscal;
+
 namespace SiagroB1.Reports.Dtos;
+
+/// <summary>Camadas PEPS em aberto de um produto numa data (base do Inventário em Data).</summary>
+public class FiscalInventoryItemLayers
+{
+    public string ItemCode { get; set; } = string.Empty;
+    public string ItemName { get; set; } = string.Empty;
+    public string? UnitOfMeasureCode { get; set; }
+
+    /// <summary>Chave da camada = linha de nota que a criou, ou a chave do saldo inicial.</summary>
+    public List<FifoLayer> Layers { get; set; } = [];
+}
 
 /// <summary>Filtros do Kardex Fiscal: filial obrigatória, produto opcional, período inclusivo em dias.</summary>
 public class FiscalKardexRequest

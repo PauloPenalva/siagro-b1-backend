@@ -17,6 +17,7 @@ public class FiscalKardexService(IUnitOfWork db)
 {
     private const string WarningInsufficient = "Saldo insuficiente";
     private const string WarningDifferentUnit = "Unidade diferente";
+    private const string WarningCostNotFound = "Custo da venda de origem não encontrado";
     private const string WarningPendingComplement = "Complemento sem saldo: somado à próxima entrada";
 
     /// <summary>Metadados de exibição levados pelo motor em <see cref="InventoryMovement.Source"/>.</summary>
@@ -75,9 +76,16 @@ public class FiscalKardexService(IUnitOfWork db)
     /// Camadas PEPS em aberto ao fim do dia <paramref name="atDate"/> (base do Inventário em Data).
     /// A chave da camada é a linha de nota que a criou, ou a chave do saldo inicial.
     /// </summary>
-    public async Task<List<FifoLayer>> OpenLayersAsync(string branchCode, string? itemCode, DateTime atDate) =>
+    /// Um registro por produto com saldo inicial ou movimento até a data, ordenado por ItemCode.
+    public async Task<List<FiscalInventoryItemLayers>> OpenLayersAsync(string branchCode, string? itemCode, DateTime atDate) =>
         (await LoadLedgersAsync(branchCode, itemCode, atDate.Date))
-            .SelectMany(l => l.Result.OpenLayers)
+            .Select(l => new FiscalInventoryItemLayers
+            {
+                ItemCode = l.ItemCode,
+                ItemName = l.ItemName,
+                UnitOfMeasureCode = l.UnitOfMeasureCode,
+                Layers = l.Result.OpenLayers,
+            })
             .ToList();
 
     private async Task<List<ItemLedger>> LoadLedgersAsync(string branchCode, string? itemCode, DateTime toDate)
@@ -213,6 +221,7 @@ public class FiscalKardexService(IUnitOfWork db)
         var warnings = new List<string>();
         if (v.InsufficientBalance) warnings.Add(WarningInsufficient);
         if (v.PendingValue) warnings.Add(WarningPendingComplement);
+        if (v.CostNotFound) warnings.Add(WarningCostNotFound);
         if (!v.IsNegativeBalanceAdjustment && !string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
             && !string.Equals(m.UnitOfMeasure.Trim(), itemUnit.Trim(), StringComparison.OrdinalIgnoreCase))
             warnings.Add(WarningDifferentUnit);

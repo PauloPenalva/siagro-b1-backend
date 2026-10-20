@@ -5,7 +5,7 @@ namespace SiagroB1.Reports.Services.Fiscal;
 /// saída consome as camadas mais antigas; sem saldo, o restante sai a custo zero e a linha é
 /// marcada; a entrada seguinte cobre o déficit numa linha de "acerto de saldo negativo" pelo custo
 /// dela; devolução de compra baixa da camada de origem; devolução de venda entra pelo custo com que
-/// a saída de origem foi baixada; complemento de valor soma na camada de origem (ou mais antiga, ou
+/// a saída de origem foi baixada (origem desconhecida: camada mais antiga em aberto); complemento de valor soma na camada de origem (ou mais antiga, ou
 /// na próxima a ser criada). Custo unitário com 6 casas, valores com 2 (ToEven); o último consumo de
 /// uma camada leva o valor que restou nela, sem centavo residual.
 /// </summary>
@@ -106,9 +106,23 @@ public static class FifoLedger
 
                 case InventoryMovementKind.SalesReturn:
                 {
-                    var uc = m.OriginLineKey is { } o && exitCosts.TryGetValue(o, out var e) && e.Qty > 0
-                        ? Cost(e.Value, e.Qty) : 0m;
+                    // Saída de origem conhecida: custo com que foi baixada. Senão (sem vínculo ou origem antes
+                    // do saldo inicial): custo da camada mais antiga em aberto; sem camada, zero e marcado.
+                    decimal uc;
+                    var notFound = false;
+                    if (m.OriginLineKey is { } o && exitCosts.TryGetValue(o, out var e) && e.Qty > 0)
+                        uc = Cost(e.Value, e.Qty);
+                    else if (layers.Count > 0)
+                        uc = layers[0].UnitCost;
+                    else
+                    {
+                        uc = 0m;
+                        notFound = true;
+                    }
+                    var at = lines.Count;
                     Inflow(m, m.Quantity, Money(m.Quantity * uc));
+                    if (notFound)
+                        lines[at] = lines[at] with { CostNotFound = true };
                     break;
                 }
 

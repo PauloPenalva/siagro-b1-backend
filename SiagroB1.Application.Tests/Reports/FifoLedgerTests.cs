@@ -215,8 +215,32 @@ public class FifoLedgerTests
             M(InventoryMovementKind.SalesReturn, 2, date: D1.AddDays(2), origin: Guid.NewGuid())]);
 
         Assert.Equal(40.00m, r.Lines[2].ValueOut);
-        Assert.Equal(0m, r.Lines[3].ValueIn);
-        Assert.Equal(0m, r.Lines[3].UnitCost);
+        // devolução de venda sem saída conhecida: custo da camada mais antiga em aberto (10,00)
+        Assert.Equal(20.00m, r.Lines[3].ValueIn);
+        Assert.Equal(10m, r.Lines[3].UnitCost);
+        Assert.False(r.Lines[3].CostNotFound);
+    }
+
+    [Fact]
+    public void SalesReturn_WithUnknownOrigin_UsesOldestOpenLayerCost()
+    {
+        var r = FifoLedger.Run([
+            M(InventoryMovementKind.Entry, 10, 150m), M(InventoryMovementKind.Entry, 10, 300m),
+            M(InventoryMovementKind.SalesReturn, 2, date: D1.AddDays(1), origin: null)]);
+
+        Assert.Equal(15m, r.Lines[2].UnitCost);
+        Assert.Equal(30.00m, r.Lines[2].ValueIn);
+        Assert.False(r.Lines[2].CostNotFound);
+    }
+
+    [Fact]
+    public void SalesReturn_WithUnknownOriginAndNoLayer_FlagsCostNotFound()
+    {
+        var r = FifoLedger.Run([M(InventoryMovementKind.SalesReturn, 2, origin: Guid.NewGuid())]);
+
+        Assert.Equal(0m, r.Lines[0].ValueIn);
+        Assert.True(r.Lines[0].CostNotFound);
+        Assert.Equal(2m, r.Lines[0].BalanceQuantity);
     }
 
     [Fact]
