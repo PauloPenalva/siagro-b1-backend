@@ -20,9 +20,9 @@ public class FiscalInventoryOpeningBalancesServiceTests
     }
 
     private static FiscalInventoryOpeningBalance Balance(
-        string branch = "01", string item = "SOJA", decimal quantity = 100m, decimal total = 5000m) => new()
+        string branch = "01", string item = "SOJA", decimal quantity = 100m, decimal total = 5000m, string? unit = null) => new()
     {
-        BranchCode = branch, ItemCode = item, BalanceDate = new DateTime(2026, 1, 1), Quantity = quantity, TotalValue = total,
+        BranchCode = branch, ItemCode = item, BalanceDate = new DateTime(2026, 1, 1), Quantity = quantity, TotalValue = total, UnitOfMeasureCode = unit,
     };
 
     [Fact]
@@ -38,13 +38,55 @@ public class FiscalInventoryOpeningBalancesServiceTests
     }
 
     [Fact]
-    public async Task Create_without_commercial_uom_falls_back_to_kg()
+    public async Task Create_keeps_client_unit()
     {
-        var (_, service) = await Arrange(commercialUom: null);
+        var (_, service) = await Arrange();
+
+        var created = await service.CreateAsync(Balance(unit: " ton "));
+
+        Assert.Equal("TON", created.UnitOfMeasureCode);
+    }
+
+    [Fact]
+    public async Task Create_defaults_to_commercial_unit()
+    {
+        var (_, service) = await Arrange();
 
         var created = await service.CreateAsync(Balance());
 
-        Assert.Equal("KG", created.UnitOfMeasureCode);
+        Assert.Equal("SC", created.UnitOfMeasureCode);
+    }
+
+    [Fact]
+    public async Task Create_without_any_unit_is_refused()
+    {
+        var (_, service) = await Arrange(commercialUom: null);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CreateAsync(Balance()));
+
+        Assert.Equal("Informe a unidade de medida.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Unit_longer_than_column_is_refused()
+    {
+        var (_, service) = await Arrange();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CreateAsync(Balance(unit: "TONEL")));
+
+        Assert.Equal("Unidade de medida inválida.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Update_keeps_client_unit()
+    {
+        var (_, service) = await Arrange();
+        var created = await service.CreateAsync(Balance());
+
+        created.UnitOfMeasureCode = "kg";
+        var updated = await service.UpdateAsync(created.Key, created);
+
+        Assert.Equal("KG", updated!.UnitOfMeasureCode);
     }
 
     [Theory]
@@ -103,7 +145,7 @@ public class FiscalInventoryOpeningBalancesServiceTests
         Assert.Equal("Já existe saldo inicial para este produto nesta filial.", ex.Message);
 
         await service.CreateAsync(Balance(branch: "02"));
-        await service.CreateAsync(Balance(item: "MILHO"));
+        await service.CreateAsync(Balance(item: "MILHO", unit: "SC"));
     }
 
     [Fact]

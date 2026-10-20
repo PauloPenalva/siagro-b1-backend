@@ -17,7 +17,7 @@ namespace SiagroB1.Web.Controllers;
 public class FiscalInventoryOpeningBalancesController(
     IFiscalInventoryOpeningBalancesService service, IConfiguration configuration) : ODataController
 {
-    private const string StandaloneOnly = "O saldo inicial do estoque fiscal só existe no modo STANDALONE.";
+    private const string StandaloneOnly = "Disponível somente no modo STANDALONE.";
 
     private bool IsStandalone => ErpMode.IsStandalone(configuration);
 

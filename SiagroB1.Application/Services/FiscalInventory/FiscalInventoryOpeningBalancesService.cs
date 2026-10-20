@@ -11,8 +11,8 @@ namespace SiagroB1.Application.Services.FiscalInventory;
 /// </summary>
 public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInventoryOpeningBalancesService
 {
-    /// <summary>Unidade física, usada quando o produto não tem UoM comercial configurada.</summary>
-    private const string DefaultUnitOfMeasure = "KG";
+    /// <summary>Largura da coluna UnitOfMeasureCode (VARCHAR(4)).</summary>
+    private const int UnitOfMeasureMaxLength = 4;
 
     public IQueryable<FiscalInventoryOpeningBalance> QueryAll() =>
         db.Context.FiscalInventoryOpeningBalances.AsNoTracking();
@@ -42,6 +42,7 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInve
         existing.BalanceDate = entity.BalanceDate;
         existing.Quantity = entity.Quantity;
         existing.TotalValue = entity.TotalValue;
+        existing.UnitOfMeasureCode = entity.UnitOfMeasureCode;
         existing.UpdatedAt = DateTime.Now;
         await FillFromItemAsync(existing);
 
@@ -94,6 +95,17 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInve
             .Select(x => x.CommercialUnitOfMeasureCode).FirstOrDefaultAsync();
 
         entity.ItemName = name;
-        entity.UnitOfMeasureCode = string.IsNullOrWhiteSpace(uom) ? DefaultUnitOfMeasure : uom;
+
+        // A unidade informada pelo usuário prevalece; sem ela, vale a comercial do produto.
+        var unit = entity.UnitOfMeasureCode?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(unit)) unit = uom?.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrEmpty(unit))
+            throw new DefaultException("Informe a unidade de medida.");
+
+        if (unit.Length > UnitOfMeasureMaxLength)
+            throw new DefaultException("Unidade de medida inválida.");
+
+        entity.UnitOfMeasureCode = unit;
     }
 }
