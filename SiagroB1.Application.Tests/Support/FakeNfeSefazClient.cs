@@ -76,6 +76,53 @@ public sealed class FakeNfeSefazClient : INfeSefazClient
         return Task.FromResult(CorrectionResponses.Dequeue()(request));
     }
 
+    public Queue<Func<long, NfeDistributionResult>> DistributionByNsuResponses { get; } = new();
+    public List<(string RecipientTaxId, long LastNsu)> DistributionByNsuCalls { get; } = [];
+
+    public void EnqueueDistribution(NfeDistributionResult result) => DistributionByNsuResponses.Enqueue(_ => result);
+
+    public Task<NfeDistributionResult> DistributionByNsuAsync(
+        string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        DistributionByNsuCalls.Add((recipientTaxId, lastNsu));
+        return Task.FromResult(DistributionByNsuResponses.Dequeue()(lastNsu));
+    }
+
+    public Queue<Func<string, NfeDistributionResult>> DistributionByKeyResponses { get; } = new();
+    public List<(string RecipientTaxId, string AccessKey)> DistributionByKeyCalls { get; } = [];
+
+    public void EnqueueDistributionByKey(NfeDistributionResult result) => DistributionByKeyResponses.Enqueue(_ => result);
+
+    public Task<NfeDistributionResult> DistributionByKeyAsync(
+        string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        DistributionByKeyCalls.Add((recipientTaxId, accessKey));
+        return Task.FromResult(DistributionByKeyResponses.Dequeue()(accessKey));
+    }
+
+    public Queue<Func<NfeManifestationRequest, NfeEventResult>> ManifestationResponses { get; } = new();
+    public List<NfeManifestationRequest> ManifestationRequests { get; } = [];
+    public List<NfeServiceSettings> ManifestationSettings { get; } = [];
+
+    public void EnqueueManifestation(NfeEventResult result) => ManifestationResponses.Enqueue(_ => result);
+
+    public Task<NfeEventResult> SendManifestationAsync(
+        NfeManifestationRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default)
+    {
+        ManifestationRequests.Add(request);
+        ManifestationSettings.Add(settings);
+        return Task.FromResult(ManifestationResponses.Dequeue()(request));
+    }
+
+    public const string ManifestationProtocol = "891260000000123";
+
+    public static NfeEventResult ManifestationRegistered(NfeManifestationRequest r, int status = 135) => new(
+        status, "Evento registrado e vinculado a NF-e", ManifestationProtocol,
+        new DateTimeOffset(2026, 10, 20, 10, 0, 5, TimeSpan.FromHours(-3)),
+        $"<procEventoNFe versao=\"1.00\"><evento><infEvento><chNFe>{r.AccessKey}</chNFe><tpEvento>{(int)r.Type}</tpEvento></infEvento></evento>" +
+        $"<retEvento><infEvento><cStat>{status}</cStat><nProt>{ManifestationProtocol}</nProt></infEvento></retEvento></procEventoNFe>",
+        r.Justification);
+
     public Queue<Func<NfeVoidNumberRequest, NfeVoidNumberResult>> VoidNumberResponses { get; } = new();
     public List<NfeVoidNumberRequest> VoidNumberRequests { get; } = [];
     public List<NfeServiceSettings> VoidNumberSettings { get; } = [];

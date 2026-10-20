@@ -87,6 +87,18 @@ public static class NfeStatusCodes
     /// <summary>Evento registrado (135) ou registrado fora de prazo (155): vale para cancelamento e CC-e.</summary>
     public static bool IsEventRegistered(int code) => code is 135 or 155;
 
+    /// <summary>Manifestação do destinatário registrada: 135, 155 ou 136 (evento registrado sem vinculação à NF-e).</summary>
+    public static bool IsManifestationRegistered(int code) => code is 135 or 136 or 155;
+
+    /// <summary>Distribuição DF-e: 137 = nenhum documento a partir do NSU (esperar antes de consultar de novo).</summary>
+    public const int NoDocuments = 137;
+
+    /// <summary>Distribuição DF-e: 138 = há documentos no lote.</summary>
+    public const int DocumentsFound = 138;
+
+    /// <summary>Distribuição DF-e: 656 = consumo indevido (consulta repetida cedo demais); a SEFAZ bloqueia por cerca de uma hora.</summary>
+    public const int ExcessiveUse = 656;
+
     public static bool IsCancellationRegistered(int code) => IsEventRegistered(code);
 
     /// <summary>Inutilização de número homologada.</summary>
@@ -112,6 +124,15 @@ public interface INfeSefazClient
 
     /// <summary>Inutiliza UM número da série (faixa inicial = final).</summary>
     Task<NfeVoidNumberResult> VoidNumberAsync(NfeVoidNumberRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>NFeDistribuicaoDFe a partir do último NSU lido (Ambiente Nacional; <c>cUFAutor</c> = UF da filial).</summary>
+    Task<NfeDistributionResult> DistributionByNsuAsync(string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>NFeDistribuicaoDFe por chave de acesso (traz o resumo ou a nota completa se já houver manifestação).</summary>
+    Task<NfeDistributionResult> DistributionByKeyAsync(string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default);
+
+    /// <summary>Evento de manifestação do destinatário (210200/210210/210220/210240) no Ambiente Nacional.</summary>
+    Task<NfeEventResult> SendManifestationAsync(NfeManifestationRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default);
 }
 
 internal static class NfeSefazResponseMapper
