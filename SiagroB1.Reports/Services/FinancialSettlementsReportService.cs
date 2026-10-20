@@ -53,15 +53,21 @@ public class FinancialSettlementsReportService(IUnitOfWork db, IFastReportServic
             .ThenBy(s => s.Document.Code, StringComparer.Ordinal)
             .ToList();
 
+        // Baixa distribuída: s.Document já é o firme composto, então a nota é a do firme.
+        var invoices = await FinancialDocumentInvoiceLookup.LoadAsync(db.Context, slices.Select(s => s.Document), CancellationToken.None);
+
         var rows = slices.Select(s =>
         {
             var currency = CurrencyCode(s.Document.Currency);
+            var invoice = invoices.For(s.Document);
             return new FinancialSettlementRowDto
             {
                 GroupKey = $"{s.Date:yyyyMMdd} · {currency}",
                 Date = s.Date.ToString("dd/MM/yyyy"),
                 Partner = PartnerName(s.Document),
                 Document = s.Document.Code ?? string.Empty,
+                NfeNumber = invoice.Number,
+                NfeSeries = invoice.Series,
                 Account = s.IsReturnNetting ? string.Empty : s.Source.FinancialAccountCode ?? string.Empty,
                 Method = s.IsReturnNetting ? "Abatimento de devolução" : MethodLabel(s.Source.Origin),
                 Currency = currency,

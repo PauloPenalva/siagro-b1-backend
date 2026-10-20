@@ -6,6 +6,8 @@
       <Column Name="Date" DataType="System.String"/>
       <Column Name="Partner" DataType="System.String"/>
       <Column Name="Document" DataType="System.String"/>
+      <Column Name="NfeNumber" DataType="System.String"/>
+      <Column Name="NfeSeries" DataType="System.String"/>
       <Column Name="Account" DataType="System.String"/>
       <Column Name="Method" DataType="System.String"/>
       <Column Name="Currency" DataType="System.String"/>
@@ -36,10 +38,12 @@
       <TextObject Name="txtMode" Top="93" Width="1062.18" Height="17" Text="[pMode]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Bold"/>
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Top="135.2" Width="1062.18" Height="19" Border.Lines="Bottom">
-      <TextObject Name="hdrPartner" Left="0" Width="250" Height="17" Text="Parceiro" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDocument" Left="252" Width="120" Height="17" Text="Título" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrAccount" Left="374" Width="100" Height="17" Text="Conta" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrMethod" Left="476" Width="170" Height="17" Text="Forma" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPartner" Left="0" Width="190" Height="17" Text="Parceiro" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocument" Left="192" Width="110" Height="17" Text="Título" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeNumber" Left="304" Width="70" Height="17" Text="Nº NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeSeries" Left="376" Width="36" Height="17" Text="Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAccount" Left="414" Width="90" Height="17" Text="Conta" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrMethod" Left="506" Width="140" Height="17" Text="Forma" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrAmount" Left="648" Width="100" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrInterest" Left="750" Width="100" Height="17" Text="Juros" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrFine" Left="852" Width="100" Height="17" Text="Multa" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -48,17 +52,19 @@
     <GroupHeaderBand Name="GroupHeader1" Top="157.4" Width="1062.18" Height="21" Condition="[SettlementRows.GroupKey]" KeepWithData="true">
       <TextObject Name="txtGroupDate" Left="0" Top="2" Width="1062.18" Height="17" Text="[SettlementRows.Date] ([SettlementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
       <DataBand Name="Data1" Top="181.6" Width="1062.18" Height="17" DataSource="SettlementRows">
-        <TextObject Name="txtRowPartner" Left="0" Width="250" Height="17" Text="[SettlementRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowDocument" Left="252" Width="120" Height="17" Text="[SettlementRows.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowAccount" Left="374" Width="100" Height="17" Text="[SettlementRows.Account]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowMethod" Left="476" Width="170" Height="17" Text="[SettlementRows.Method]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowPartner" Left="0" Width="190" Height="17" Text="[SettlementRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDocument" Left="192" Width="110" Height="17" Text="[SettlementRows.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeNumber" Left="304" Width="70" Height="17" Text="[SettlementRows.NfeNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeSeries" Left="376" Width="36" Height="17" Text="[SettlementRows.NfeSeries]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowAccount" Left="414" Width="90" Height="17" Text="[SettlementRows.Account]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowMethod" Left="506" Width="140" Height="17" Text="[SettlementRows.Method]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowAmount" Left="648" Width="100" Height="17" Text="[SettlementRows.Amount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowInterest" Left="750" Width="100" Height="17" Text="[SettlementRows.Interest]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowFine" Left="852" Width="100" Height="17" Text="[SettlementRows.Fine]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowDiscount" Left="954" Width="100" Height="17" Text="[SettlementRows.Discount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
       </DataBand>
       <GroupFooterBand Name="GroupFooter1" Top="201.8" Width="1062.18" Height="21" Border.Lines="Top" Border.Style="Dot">
-        <TextObject Name="lblDayTotal" Left="252" Top="2" Width="394" Height="17" Text="Total do dia [SettlementRows.Date] ([SettlementRows.Currency]):" HorzAlign="Right" VertAlign="Center" WordWrap="false" Trimming="EllipsisCharacter" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="lblDayTotal" Left="192" Top="2" Width="454" Height="17" Text="Total do dia [SettlementRows.Date] ([SettlementRows.Currency]):" HorzAlign="Right" VertAlign="Center" WordWrap="false" Trimming="EllipsisCharacter" Font="Consolas, 7pt, style=Bold"/>
         <TextObject Name="txtDayAmount" Left="648" Top="2" Width="100" Height="17" Text="[DayAmount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
         <TextObject Name="txtDayInterest" Left="750" Top="2" Width="100" Height="17" Text="[DayInterest]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
         <TextObject Name="txtDayFine" Left="852" Top="2" Width="100" Height="17" Text="[DayFine]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>

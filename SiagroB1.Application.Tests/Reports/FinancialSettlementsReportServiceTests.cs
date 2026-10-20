@@ -255,7 +255,10 @@ public class FinancialSettlementsReportServiceTests : IDisposable
     public async Task Filters_by_account()
     {
         var db = TestDb.CreateUnitOfWork();
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "000123456", TaxDocumentSeries = "001" };
+        db.Context.SalesInvoices.Add(invoice);
         var doc = Doc("D1", 300m);
+        doc.SalesInvoiceKey = invoice.Key;
         db.Context.FinancialDocuments.Add(doc);
         db.Context.FinancialSettlements.AddRange(Settle(doc, 10m, new DateTime(2026, 10, 5), account: "CX1"),
             Settle(doc, 20m, new DateTime(2026, 10, 5), account: "CX2"));
@@ -292,10 +295,55 @@ public class FinancialSettlementsReportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Rows_carry_the_invoice_number_and_series_of_the_title()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "8001", TaxDocumentSeries = "1" };
+        db.Context.PurchaseInvoices.Add(invoice);
+        var firm = Doc("NF", 100m);
+        firm.PurchaseInvoiceKey = invoice.Key;
+        var manual = Doc("MAN", 100m);
+        db.Context.FinancialDocuments.AddRange(firm, manual);
+        db.Context.FinancialSettlements.AddRange(Settle(firm, 10m, new DateTime(2026, 10, 5)), Settle(manual, 5m, new DateTime(2026, 10, 5)));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db);
+
+        var nf = rows.Single(r => r.Document == "NF");
+        Assert.Equal(("8001", "1"), (nf.NfeNumber, nf.NfeSeries));
+        var man = rows.Single(r => r.Document == "MAN");
+        Assert.Equal(("", ""), (man.NfeNumber, man.NfeSeries));
+    }
+
+    [Fact]
+    public async Task Distributed_slice_shows_the_invoice_of_the_composed_firm()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "8001", TaxDocumentSeries = "1" };
+        db.Context.PurchaseInvoices.Add(invoice);
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        firm.PurchaseInvoiceKey = invoice.Key;
+        db.Context.FinancialDocuments.AddRange(provisional, firm);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m),
+            Settle(provisional, 60m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+
+        var row = Assert.Single(await RowsAsync(db, request));
+
+        Assert.Equal(("FIRM", "8001", "1"), (row.Document, row.NfeNumber, row.NfeSeries));
+    }
+
+    [Fact]
     public async Task Generates_pdf()
     {
         var db = TestDb.CreateUnitOfWork();
+        var invoice = new SalesInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "000123456", TaxDocumentSeries = "001" };
+        db.Context.SalesInvoices.Add(invoice);
         var doc = Doc("D1", 300m);
+        doc.SalesInvoiceKey = invoice.Key;
         db.Context.FinancialDocuments.Add(doc);
         db.Context.FinancialSettlements.AddRange(Settle(doc, 10m, new DateTime(2026, 10, 5), account: "CX1"),
             Settle(doc, 20m, new DateTime(2026, 10, 6)));

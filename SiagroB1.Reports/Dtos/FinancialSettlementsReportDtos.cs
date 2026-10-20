@@ -22,6 +22,8 @@ public class FinancialSettlementRowDto
     public string Date { get; set; } = string.Empty;
     public string Partner { get; set; } = string.Empty;
     public string Document { get; set; } = string.Empty;
+    public string NfeNumber { get; set; } = string.Empty;
+    public string NfeSeries { get; set; } = string.Empty;
     public string Account { get; set; } = string.Empty;
     public string Method { get; set; } = string.Empty;
     public string Currency { get; set; } = string.Empty;

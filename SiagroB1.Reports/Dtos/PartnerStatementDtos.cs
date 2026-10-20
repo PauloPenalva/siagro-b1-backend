@@ -21,6 +21,8 @@ public class PartnerStatementRowDto
     public string Date { get; set; } = string.Empty;
     public string History { get; set; } = string.Empty;
     public string Document { get; set; } = string.Empty;
+    public string NfeNumber { get; set; } = string.Empty;
+    public string NfeSeries { get; set; } = string.Empty;
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public decimal Balance { get; set; }
