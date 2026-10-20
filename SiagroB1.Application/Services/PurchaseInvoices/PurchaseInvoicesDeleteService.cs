@@ -53,6 +53,9 @@ public class PurchaseInvoicesDeleteService(IUnitOfWork db)
                      .Where(x => x.TransportedPurchaseInvoiceKey == invoice.Key).ToListAsync())
             link.TransportedPurchaseInvoiceKey = null;
 
+        // O DF-e recebido guarda o número do documento sem FK: solta o vínculo no mesmo SaveChanges.
+        await PurchaseInvoiceReceivedDfeLink.ClearAsync(db.Context, invoice);
+
         db.Context.PurchaseInvoicesItems.RemoveRange(invoice.Items);
         db.Context.PurchaseInvoices.Remove(invoice);
 

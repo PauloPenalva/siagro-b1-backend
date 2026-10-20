@@ -221,6 +221,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ReceivedDfeSyncService>();
         services.AddScoped<ReceivedDfeManifestService>();
         services.AddScoped<ReceivedDfeXmlService>();
+        services.AddScoped<ReceivedDfesGetService>();
 
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
