@@ -63,10 +63,10 @@ public static class FinancialPositionQuery
         // Provisórios do grupo: os selecionados, os apontados pelo ledger dos compostos e os da tabela de composição.
         var provisionalKeys = selected.Where(d => d.Nature == FinancialDocumentNature.Provisional).Select(d => d.Key).ToHashSet();
         provisionalKeys.UnionWith(await ctx.FinancialSettlements.AsNoTracking()
-            .Where(s => selectedKeys.Contains(s.FinancialDocumentKey) && s.CompositionKey != null && s.RelatedDocumentKey != null)
+            .Where(s => EF.Parameter(selectedKeys).Contains(s.FinancialDocumentKey) && s.CompositionKey != null && s.RelatedDocumentKey != null)
             .Select(s => s.RelatedDocumentKey!.Value).Distinct().ToListAsync(ct));
         provisionalKeys.UnionWith(await ctx.FinancialDocumentCompositions.AsNoTracking()
-            .Where(c => selectedKeys.Contains(c.ComposedDocumentKey))
+            .Where(c => EF.Parameter(selectedKeys).Contains(c.ComposedDocumentKey))
             .Select(c => c.ProvisionalDocumentKey).Distinct().ToListAsync(ct));
 
         // Compostos de cada provisório do grupo (ledger e tabela).
@@ -75,19 +75,19 @@ public static class FinancialPositionQuery
         keys.UnionWith(provisionalList);
         keys.UnionWith(await ctx.FinancialSettlements.AsNoTracking()
             .Where(s => s.CompositionKey != null && s.RelatedDocumentKey != null
-                        && provisionalList.Contains(s.RelatedDocumentKey.Value))
+                        && EF.Parameter(provisionalList).Contains(s.RelatedDocumentKey.Value))
             .Select(s => s.FinancialDocumentKey).Distinct().ToListAsync(ct));
         keys.UnionWith(await ctx.FinancialDocumentCompositions.AsNoTracking()
-            .Where(c => provisionalList.Contains(c.ProvisionalDocumentKey))
+            .Where(c => EF.Parameter(provisionalList).Contains(c.ProvisionalDocumentKey))
             .Select(c => c.ComposedDocumentKey).Distinct().ToListAsync(ct));
 
         var keyList = keys.ToList();
         var documents = await ctx.FinancialDocuments.AsNoTracking()
-            .Where(d => keyList.Contains(d.Key)).ToListAsync(ct);
+            .Where(d => EF.Parameter(keyList).Contains(d.Key)).ToListAsync(ct);
         var settlements = await ctx.FinancialSettlements.AsNoTracking()
-            .Where(s => keyList.Contains(s.FinancialDocumentKey)).ToListAsync(ct);
+            .Where(s => EF.Parameter(keyList).Contains(s.FinancialDocumentKey)).ToListAsync(ct);
         var compositions = await ctx.FinancialDocumentCompositions.AsNoTracking()
-            .Where(c => keyList.Contains(c.ProvisionalDocumentKey) || keyList.Contains(c.ComposedDocumentKey))
+            .Where(c => EF.Parameter(keyList).Contains(c.ProvisionalDocumentKey) || EF.Parameter(keyList).Contains(c.ComposedDocumentKey))
             .ToListAsync(ct);
 
         return new FinancialPositionInput(documents, settlements, compositions);

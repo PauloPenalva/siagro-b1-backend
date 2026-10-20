@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -98,5 +99,36 @@ public class FinancialPositionQueryTests
         Assert.Equal(100m, byKey[outOfPeriod.Key].SettledAtBase);
         Assert.Equal(0m, byKey[inPeriod.Key].SettledAtBase);
         Assert.Equal(100m, byKey[inPeriod.Key].OpenAtBase);
+    }
+
+    [Fact]
+    public async Task Loads_more_than_2100_titles()
+    {
+        // Mais títulos que o limite de 2100 parâmetros do SQL Server (o InMemory só prova o fluxo; o SQL vai no teste abaixo).
+        var db = TestDb.CreateUnitOfWork();
+        var docs = Enumerable.Range(0, 2500).Select(_ => Doc("C1", FinancialDirection.Payable)).ToList();
+        db.Context.FinancialDocuments.AddRange(docs);
+        await db.Context.SaveChangesAsync();
+
+        var position = await FinancialPositionQuery.LoadAsync(db.Context,
+            new FinancialPositionFilter(FinancialDirection.Payable, "C1", Base), FinancialPositionMode.Firm, CancellationToken.None);
+
+        Assert.Equal(2500, position.Titles.Count);
+    }
+
+    [Fact]
+    public void EF_Parameter_contains_translates_to_a_single_openjson_parameter_on_sql_server()
+    {
+        // EF Core 10 traduz Contains de lista como @p1, @p2... por padrão; EF.Parameter força um único parâmetro JSON.
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<SiagroB1.Infra.Context.AppDbContext>()
+            .UseSqlServer("Server=.;Database=none;Trusted_Connection=True").Options;
+        using var ctx = new SiagroB1.Infra.Context.AppDbContext(options);
+        var keys = Enumerable.Range(0, 3000).Select(_ => Guid.NewGuid()).ToList();
+
+        var sql = Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToQueryString(
+            ctx.FinancialDocuments.Where(d => Microsoft.EntityFrameworkCore.EF.Parameter(keys).Contains(d.Key)));
+
+        Assert.Contains("OPENJSON(@keys)", sql);
+        Assert.DoesNotContain("@keys1", sql);
     }
 }
