@@ -412,6 +412,62 @@ public class FinancialPositionCalculatorTests
         Assert.All(slices, s => Assert.False(s.IsReturnNetting));
     }
 
+    // ---- Adiantamento: a aplicação não é baixa do adiantamento (espelha FinancialDocumentsRecalculateBalanceService) ----
+
+    private static (FinancialDocument Advance, FinancialSettlement Paid, FinancialSettlement Applied) PaidAndApplied()
+    {
+        var advance = Doc(FinancialDocumentNature.Advance, amount: 150m);
+        return (advance, Settle(advance, 150m, new DateTime(2026, 10, 1)),
+            Settle(advance, 150m, new DateTime(2026, 10, 5), FinancialSettlementOrigin.AdvanceApplication));
+    }
+
+    [Fact]
+    public void Advance_application_is_not_a_settlement_of_the_advance()
+    {
+        var (advance, paid, applied) = PaidAndApplied();
+        var p = Compute([advance], [paid, applied], Base);
+
+        var title = Assert.Single(p.Titles);
+        Assert.Equal(150m, title.SettledAtBase);
+        Assert.Equal(0m, title.OpenAtBase);
+        Assert.Same(paid, Assert.Single(p.Settlements).Source);
+    }
+
+    [Fact]
+    public void Reversal_of_advance_application_changes_nothing_for_the_advance()
+    {
+        var (advance, paid, applied) = PaidAndApplied();
+        var reversal = Settle(advance, -150m, new DateTime(2026, 10, 7), FinancialSettlementOrigin.Reversal);
+        reversal.ReversedSettlementKey = applied.Key;
+        var p = Compute([advance], [paid, applied, reversal], Base);
+
+        var title = Assert.Single(p.Titles);
+        Assert.Equal(150m, title.SettledAtBase);
+        Assert.Equal(0m, title.OpenAtBase);
+        Assert.Same(paid, Assert.Single(p.Settlements).Source);
+    }
+
+    [Fact]
+    public void Outgoing_transfer_is_applied_but_incoming_transfer_counts_as_paid()
+    {
+        var original = Doc(FinancialDocumentNature.Advance, amount: 150m);
+        var split = Doc(FinancialDocumentNature.Advance, FinancialDocumentOrigin.FinancialDocument, amount: 50m);
+        split.OriginKey = original.Key;
+        var paid = Settle(original, 150m, new DateTime(2026, 10, 1));
+        var outgoing = Settle(original, 50m, new DateTime(2026, 10, 4), FinancialSettlementOrigin.AdvanceTransfer);
+        outgoing.RelatedDocumentKey = split.Key;
+        var incoming = Settle(split, 50m, new DateTime(2026, 10, 4), FinancialSettlementOrigin.AdvanceTransfer);
+        incoming.RelatedDocumentKey = original.Key;
+
+        var p = Compute([original, split], [paid, outgoing, incoming], Base);
+
+        Assert.Equal(150m, p.Titles.Single(t => t.Document == original).SettledAtBase);
+        var splitTitle = p.Titles.Single(t => t.Document == split);
+        Assert.Equal(50m, splitTitle.SettledAtBase);
+        Assert.Equal(0m, splitTitle.OpenAtBase);
+        Assert.DoesNotContain(p.Settlements, s => s.Source == outgoing);
+    }
+
     private static void AssertSettledMatchesSlices(FinancialPosition p)
     {
         foreach (var t in p.Titles)

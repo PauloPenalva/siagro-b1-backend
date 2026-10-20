@@ -21,9 +21,15 @@ public static class FinancialPositionCalculator
 
         var byKey = documents.ToDictionary(d => d.Key);
 
+        // Adiantamento: a aplicação (e a transferência de saída, e os estornos delas) não é baixa dele — o recálculo a
+        // põe em AppliedAmount, não em SettledAmount. A outra ponta, no título compensado, continua sendo baixa.
+        var allSettlementsByKey = input.Settlements.ToDictionary(s => s.Key);
+
         var settlements = input.Settlements
             .Where(s => byKey.ContainsKey(s.FinancialDocumentKey)
                         && s.SettlementDate.Date <= baseDay
+                        && !(byKey[s.FinancialDocumentKey].Nature == FinancialDocumentNature.Advance
+                             && AdvanceSettlementAxis.CountsAsApplied(byKey[s.FinancialDocumentKey], s, allSettlementsByKey))
                         && !((mode == FinancialPositionMode.Firm
                               || byKey[s.FinancialDocumentKey].Nature == FinancialDocumentNature.Provisional)
                              && IsCompositionOffset(s)))

@@ -212,6 +212,23 @@ public class FinancialSettlementsReportServiceTests : IDisposable
         Assert.Equal("Estorno", rows[1].Method);
     }
 
+    [Fact]
+    public async Task Advance_application_line_is_not_listed_on_the_advance()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var advance = Doc("AD1", 150m, nature: FinancialDocumentNature.Advance);
+        db.Context.FinancialDocuments.Add(advance);
+        db.Context.FinancialSettlements.AddRange(Settle(advance, 150m, new DateTime(2026, 10, 1), account: "CX1"),
+            Settle(advance, 150m, new DateTime(2026, 10, 5), FinancialSettlementOrigin.AdvanceApplication));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(150m, row.Amount);
+        Assert.Equal("Baixa", row.Method);
+    }
+
     [Theory]
     [InlineData(FinancialSettlementOrigin.Manual, "Baixa")]
     [InlineData(FinancialSettlementOrigin.Reversal, "Estorno")]
