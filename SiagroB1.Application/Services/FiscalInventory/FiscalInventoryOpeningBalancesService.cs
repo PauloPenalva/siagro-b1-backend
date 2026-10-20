@@ -1,0 +1,99 @@
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra;
+
+namespace SiagroB1.Application.Services.FiscalInventory;
+
+/// <summary>
+/// Cadastro do saldo inicial valorizado do estoque fiscal (Kardex Fiscal), um lançamento por filial + produto.
+/// Só existe no modo STANDALONE (o controller recusa SAPB1). Nome e unidade vêm do cadastro local do produto.
+/// </summary>
+public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInventoryOpeningBalancesService
+{
+    /// <summary>Unidade física, usada quando o produto não tem UoM comercial configurada.</summary>
+    private const string DefaultUnitOfMeasure = "KG";
+
+    public IQueryable<FiscalInventoryOpeningBalance> QueryAll() =>
+        db.Context.FiscalInventoryOpeningBalances.AsNoTracking();
+
+    public Task<FiscalInventoryOpeningBalance?> GetByKeyAsync(Guid key) =>
+        db.Context.FiscalInventoryOpeningBalances.FirstOrDefaultAsync(x => x.Key == key);
+
+    public async Task<FiscalInventoryOpeningBalance> CreateAsync(FiscalInventoryOpeningBalance entity)
+    {
+        await ValidateAsync(entity, ignoreKey: null);
+        await FillFromItemAsync(entity);
+        entity.Key = Guid.Empty;
+        await db.Context.FiscalInventoryOpeningBalances.AddAsync(entity);
+        await db.SaveChangesAsync();
+        return entity;
+    }
+
+    public async Task<FiscalInventoryOpeningBalance?> UpdateAsync(Guid key, FiscalInventoryOpeningBalance entity)
+    {
+        var existing = await db.Context.FiscalInventoryOpeningBalances.FirstOrDefaultAsync(x => x.Key == key);
+        if (existing is null) return null;
+
+        await ValidateAsync(entity, ignoreKey: key);
+
+        existing.BranchCode = entity.BranchCode;
+        existing.ItemCode = entity.ItemCode;
+        existing.BalanceDate = entity.BalanceDate;
+        existing.Quantity = entity.Quantity;
+        existing.TotalValue = entity.TotalValue;
+        existing.UpdatedAt = DateTime.Now;
+        await FillFromItemAsync(existing);
+
+        await db.SaveChangesAsync();
+        return existing;
+    }
+
+    public async Task<bool> DeleteAsync(Guid key)
+    {
+        var existing = await db.Context.FiscalInventoryOpeningBalances.FirstOrDefaultAsync(x => x.Key == key);
+        if (existing is null) return false;
+
+        db.Context.FiscalInventoryOpeningBalances.Remove(existing);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task ValidateAsync(FiscalInventoryOpeningBalance entity, Guid? ignoreKey)
+    {
+        if (string.IsNullOrWhiteSpace(entity.BranchCode))
+            throw new DefaultException("Informe a filial.");
+
+        if (string.IsNullOrWhiteSpace(entity.ItemCode))
+            throw new DefaultException("Informe o produto.");
+
+        if (entity.BalanceDate == default)
+            throw new DefaultException("Informe a data do saldo.");
+
+        if (entity.Quantity <= 0)
+            throw new DefaultException("Informe uma quantidade maior que zero.");
+
+        if (entity.TotalValue < 0)
+            throw new DefaultException("O valor não pode ser negativo.");
+
+        if (!await db.Context.Items.AnyAsync(x => x.ItemCode == entity.ItemCode))
+            throw new DefaultException("Produto não encontrado.");
+
+        var duplicated = await db.Context.FiscalInventoryOpeningBalances
+            .AnyAsync(x => x.BranchCode == entity.BranchCode && x.ItemCode == entity.ItemCode && x.Key != ignoreKey);
+
+        if (duplicated)
+            throw new DefaultException("Já existe saldo inicial para este produto nesta filial.");
+    }
+
+    private async Task FillFromItemAsync(FiscalInventoryOpeningBalance entity)
+    {
+        var name = await db.Context.Items.Where(x => x.ItemCode == entity.ItemCode)
+            .Select(x => x.ItemName).FirstOrDefaultAsync();
+        var uom = await db.Context.Set<ItemComplement>().Where(x => x.ItemCode == entity.ItemCode)
+            .Select(x => x.CommercialUnitOfMeasureCode).FirstOrDefaultAsync();
+
+        entity.ItemName = name;
+        entity.UnitOfMeasureCode = string.IsNullOrWhiteSpace(uom) ? DefaultUnitOfMeasure : uom;
+    }
+}

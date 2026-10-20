@@ -60,6 +60,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");
+        modelBuilder.EntitySet<FiscalInventoryOpeningBalance>("FiscalInventoryOpeningBalances");
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");
