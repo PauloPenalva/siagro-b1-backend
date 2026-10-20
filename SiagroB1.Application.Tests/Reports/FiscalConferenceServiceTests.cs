@@ -282,6 +282,184 @@ public class FiscalConferenceServiceTests
         Assert.Equal(10m, data.AssessmentTotals.Debits);
     }
 
+    private static async Task<List<FiscalIssueDto>> IssuesOf(IUnitOfWork db, string rule) =>
+        (await Service(db).BuildAsync(Request())).Issues.Where(i => i.Rule == rule).ToList();
+
+    private static PurchaseInvoiceItem CleanPurchaseLine(string? cfop = "1101")
+    {
+        var line = PurchaseLine(cfop);
+        line.CstIcms = "00";
+        return line;
+    }
+
+    private static SalesInvoice CleanSale(string number, string? cfop = "5101")
+    {
+        var sale = OwnSale(number, cfop: cfop);
+        sale.Items.First().CstIcms = "00";
+        return sale;
+    }
+
+    [Fact]
+    public async Task Build_IssueItemWithoutCfop()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(CleanSale("V1", cfop: null));
+        db.Context.SalesInvoices.Add(CleanSale("V2"));
+        await Save(db);
+
+        var issue = Assert.Single(await IssuesOf(db, "Item sem CFOP"));
+
+        Assert.Equal("V1", issue.InternalNumber);
+        Assert.Equal("10001", issue.ItemCode);
+        Assert.Equal("S", issue.Direction);
+    }
+
+    [Fact]
+    public async Task Build_IssueItemWithoutCstIcms()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("SEM", items: [PurchaseLine("1101")]));
+        db.Context.PurchaseInvoices.Add(Purchase("COM", items: [CleanPurchaseLine()]));
+        await Save(db);
+
+        var issue = Assert.Single(await IssuesOf(db, "Item sem CST de ICMS"));
+
+        Assert.Equal("SEM", issue.InternalNumber);
+    }
+
+    [Fact]
+    public async Task Build_IssueCfopDirectionMismatch()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(CleanSale("SAIDA", cfop: "1202"));
+        db.Context.PurchaseInvoices.Add(Purchase("ENTRADA", items: [CleanPurchaseLine("5101")]));
+        db.Context.SalesInvoices.Add(CleanSale("OK", cfop: "5101"));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        var incoming = Assert.Single(data.Issues, i => i.Rule == "CFOP de entrada em documento de saída");
+        var outgoing = Assert.Single(data.Issues, i => i.Rule == "CFOP de saída em documento de entrada");
+        Assert.Equal("SAIDA", incoming.InternalNumber);
+        Assert.Equal("ENTRADA", outgoing.InternalNumber);
+    }
+
+    [Fact]
+    public async Task Build_ReturnWithOppositeCfopIsNotADirectionIssue()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var saleReturn = CleanSale("DEVV", cfop: "1202");
+        saleReturn.InvoiceType = SalesInvoiceType.Return;
+        db.Context.SalesInvoices.Add(saleReturn);
+        db.Context.PurchaseInvoices.Add(Purchase("DEVC", type: PurchaseInvoiceType.Return, items: [CleanPurchaseLine("5202")]));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        Assert.DoesNotContain(data.Issues, i => i.Rule.StartsWith("CFOP de "));
+    }
+
+    [Fact]
+    public async Task Build_IssueIcmsMismatch()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(OwnSale("ERRO", icms: Icms("00", 12m, 1000m, 100m)));
+        db.Context.SalesInvoices.Add(OwnSale("CERTO", icms: Icms("00", 12m, 1000m, 120m)));
+        await Save(db);
+
+        var issue = Assert.Single(await IssuesOf(db, "ICMS difere de base × alíquota"));
+
+        Assert.Equal("ERRO", issue.InternalNumber);
+    }
+
+    [Fact]
+    public async Task Build_IcmsDifferenceOfOneCentIsNotAnIssue()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(OwnSale("UM", icms: Icms("00", 12m, 1000m, 120.01m)));
+        db.Context.SalesInvoices.Add(OwnSale("DOIS", icms: Icms("00", 12m, 1000m, 120.02m)));
+        await Save(db);
+
+        var issue = Assert.Single(await IssuesOf(db, "ICMS difere de base × alíquota"));
+
+        Assert.Equal("DOIS", issue.InternalNumber);
+    }
+
+    [Fact]
+    public async Task Build_NfeWithoutAccessKey()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(CleanSale("OK"));
+        db.Context.SalesInvoices.Add(CleanSale("CURTA").With(s => s.ChaveNFe = "123"));
+        db.Context.SalesInvoices.Add(CleanSale("LETRA").With(s => s.ChaveNFe = new string('A', 44)));
+        db.Context.SalesInvoices.Add(CleanSale("NULA").With(s => s.ChaveNFe = null));
+        await Save(db);
+
+        var issues = await IssuesOf(db, "NF-e sem chave de acesso válida");
+
+        Assert.Equal(new[] { "CURTA", "LETRA", "NULA" }, issues.Select(i => i.InternalNumber).Order());
+    }
+
+    [Fact]
+    public async Task Build_OtherModelWithoutKeyIsNotAnIssue()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(CleanSale("OUT").With(s => { s.TaxDocumentKind = TaxDocumentKind.Other; s.ChaveNFe = null; }));
+        await Save(db);
+
+        Assert.Empty(await IssuesOf(db, "NF-e sem chave de acesso válida"));
+    }
+
+    [Fact]
+    public async Task Build_OwnNfeNotAuthorized()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var two = OwnSale("NAO", nfe: NfeStatus.None);
+        two.Items.Add(SaleItem("10002").With(i => i.SalesInvoiceKey = two.Key));
+        db.Context.SalesInvoices.Add(two);
+        db.Context.PurchaseInvoices.Add(Purchase("PROPRIA", issuer: DocumentIssuerType.Own, items: [CleanPurchaseLine("5202")]));
+        db.Context.PurchaseInvoices.Add(Purchase("TERCEIRO", items: [CleanPurchaseLine()]));
+        await Save(db);
+
+        var issues = await IssuesOf(db, "NF-e própria confirmada e não autorizada");
+
+        Assert.Equal(new[] { "NAO", "PROPRIA" }, issues.Select(i => i.InternalNumber).Order());
+        Assert.All(issues, i => Assert.Null(i.ItemCode));
+    }
+
+    [Fact]
+    public async Task Build_OwnNfeNotAuthorizedIsLeftOutOfTotals()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(OwnSale("NAO", Icms("00", 12m, 1000m, 120m)).With(s => s.NfeStatus = NfeStatus.None));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        Assert.Empty(data.Documents);
+        Assert.Equal(0m, data.AssessmentTotals.Debits);
+        Assert.Single(data.Issues);
+    }
+
+    [Fact]
+    public async Task Build_IssuesAreOrderedByDateNumberItem()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var late = CleanSale("A", cfop: null);
+        late.InvoiceDate = new DateTime(2026, 7, 20);
+        var b = CleanSale("B", cfop: null);
+        var a = CleanSale("A", cfop: null);
+        a.Items.Add(SaleItem("00001").With(i => { i.SalesInvoiceKey = a.Key; i.CstIcms = "00"; }));
+        db.Context.SalesInvoices.AddRange(late, b, a);
+        await Save(db);
+
+        var issues = await IssuesOf(db, "Item sem CFOP");
+
+        Assert.Equal(new[] { ("A", "00001"), ("A", "10001"), ("B", "10001"), ("A", "10001") },
+            issues.Select(i => (i.Number, i.ItemCode!)));
+        Assert.Equal(new DateTime(2026, 7, 20), issues[^1].Date);
+    }
+
     private static (string Cst, decimal Rate, decimal Base, decimal Value) Icms(string cst, decimal rate, decimal @base, decimal value) =>
         (cst, rate, @base, value);
 

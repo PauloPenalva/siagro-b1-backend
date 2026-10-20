@@ -24,7 +24,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
 
     public async Task<FiscalConferenceData> BuildAsync(FiscalConferenceRequest request)
     {
-        var (included, _) = await LoadLinesAsync(request);
+        var (included, unauthorized) = await LoadLinesAsync(request);
         var (assessment, totals) = BuildAssessment(included);
         return new FiscalConferenceData
         {
@@ -32,8 +32,78 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
             Summary = BuildSummary(included),
             Assessment = assessment,
             AssessmentTotals = totals,
+            Issues = BuildIssues(included, unauthorized),
         };
     }
+
+    private const string RuleNoCfop = "Item sem CFOP";
+    private const string RuleNoCst = "Item sem CST de ICMS";
+    private const string RuleIncomingCfopInOutgoing = "CFOP de entrada em documento de saída";
+    private const string RuleOutgoingCfopInIncoming = "CFOP de saída em documento de entrada";
+    private const string RuleIcmsMismatch = "ICMS difere de base × alíquota";
+    private const string RuleNoAccessKey = "NF-e sem chave de acesso válida";
+    private const string RuleNotAuthorized = "NF-e própria confirmada e não autorizada";
+
+    /// <summary>Diferença tolerada entre o ICMS gravado e base × alíquota (arredondamento).</summary>
+    private const decimal IcmsTolerance = 0.01m;
+
+    /// <summary>
+    /// Regras 1-5 sobre as linhas incluídas; regra 6 uma vez por documento de NF-e própria não
+    /// autorizada (não por item). Ordem: data, número, item.
+    /// </summary>
+    private static List<FiscalIssueDto> BuildIssues(
+        List<FiscalDocumentLineDto> included, List<FiscalDocumentLineDto> unauthorized)
+    {
+        var issues = new List<FiscalIssueDto>();
+
+        foreach (var line in included)
+        {
+            if (string.IsNullOrWhiteSpace(line.Cfop))
+                issues.Add(Issue(line, RuleNoCfop));
+
+            if (string.IsNullOrWhiteSpace(line.CstIcms))
+                issues.Add(Issue(line, RuleNoCst));
+
+            // Devolução usa CFOP de direção oposta ao documento; não é erro.
+            if (!line.IsReturn)
+            {
+                if (line.DocumentType == "Saída" && line.Direction == "E")
+                    issues.Add(Issue(line, RuleIncomingCfopInOutgoing));
+                else if (line.DocumentType == "Entrada" && line.Direction == "S")
+                    issues.Add(Issue(line, RuleOutgoingCfopInIncoming));
+            }
+
+            if (Math.Abs(line.IcmsBase * line.IcmsRate / 100m - line.IcmsValue) > IcmsTolerance)
+                issues.Add(Issue(line, RuleIcmsMismatch));
+
+            if (line.Model == "55" && !IsValidAccessKey(line.AccessKey))
+                issues.Add(Issue(line, RuleNoAccessKey));
+        }
+
+        foreach (var document in unauthorized.GroupBy(l => l.DocumentKey))
+            issues.Add(Issue(document.First(), RuleNotAuthorized, forDocument: true));
+
+        return issues
+            .OrderBy(i => i.Date)
+            .ThenBy(i => i.Number, StringComparer.Ordinal)
+            .ThenBy(i => i.ItemCode, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static bool IsValidAccessKey(string? key) =>
+        key is { Length: 44 } && key.All(char.IsAsciiDigit);
+
+    private static FiscalIssueDto Issue(FiscalDocumentLineDto line, string rule, bool forDocument = false) => new()
+    {
+        Direction = line.Direction,
+        Date = line.Date,
+        Number = line.Number,
+        InternalNumber = line.InternalNumber,
+        Partner = line.Partner,
+        ItemCode = forDocument ? null : line.ItemCode,
+        Rule = rule,
+        DocumentKey = line.DocumentKey,
+    };
 
     /// <summary>Agrupa por direção, CST, CFOP e alíquota; "E" vem antes de "S".</summary>
     private static List<FiscalSummaryRowDto> BuildSummary(List<FiscalDocumentLineDto> lines) => lines
@@ -165,6 +235,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
         CofinsValue = item.CofinsValue,
         DocumentType = "Saída",
         DocumentKey = invoice.Key,
+        IsReturn = invoice.InvoiceType == SalesInvoiceType.Return,
     };
 
     private static FiscalDocumentLineDto PurchaseLine(PurchaseInvoiceItem item, PurchaseInvoice invoice) => new()
@@ -191,6 +262,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
         CofinsValue = item.CofinsValue,
         DocumentType = "Entrada",
         DocumentKey = invoice.Key,
+        IsReturn = invoice.InvoiceType == PurchaseInvoiceType.Return,
     };
 
     /// <summary>1/2/3 = entrada, 5/6/7 = saída; sem CFOP vale a direção do documento.</summary>

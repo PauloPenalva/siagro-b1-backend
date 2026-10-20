@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SiagroB1.Reports.Dtos;
 
 /// <summary>Resultado da Conferência Fiscal; cada lista alimenta uma aba da tela.</summary>
@@ -45,6 +47,10 @@ public class FiscalDocumentLineDto
     /// <summary>Origem da tabela: "Entrada" ou "Saída".</summary>
     public string DocumentType { get; set; } = "";
     public Guid DocumentKey { get; set; }
+
+    /// <summary>Devolução (compra ou venda); só serve às regras de inconsistência, não vai ao JSON.</summary>
+    [JsonIgnore]
+    public bool IsReturn { get; set; }
 }
 
 /// <summary>Resumo por Direção + CST + CFOP + alíquota (equivale ao C190 do SPED Fiscal).</summary>
@@ -79,4 +85,17 @@ public class IcmsAssessmentTotalsDto
 
 public class R2055ProducerRowDto;
 
-public class FiscalIssueDto;
+/// <summary>Uma inconsistência: documento, item (nulo quando vale para o documento todo) e regra violada.</summary>
+public class FiscalIssueDto
+{
+    public string Direction { get; set; } = "";
+    public DateTime Date { get; set; }
+    public string Number { get; set; } = "";
+    public string InternalNumber { get; set; } = "";
+    public string Partner { get; set; } = "";
+    public string? ItemCode { get; set; }
+
+    /// <summary>Texto pt-BR da regra violada.</summary>
+    public string Rule { get; set; } = "";
+    public Guid DocumentKey { get; set; }
+}
