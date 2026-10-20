@@ -4,7 +4,7 @@
 
 **Goal:** A CEAGUI (STANDALONE) vê as NF-e emitidas contra o CNPJ de cada filial, manifesta-se (Ciência, Confirmação, Desconhecimento, Operação não Realizada), baixa o XML e, numa nota confirmada, abre o Documento de Entrada já preenchido pelo XML.
 
-**Architecture:** O `INfeSefazClient` (Zeus) ganha a consulta `NFeDistribuicaoDFe` (por NSU e por chave) e o evento de manifestação. A Application guarda cada documento recebido em `RECEIVED_DFES` (banco da empresa) e o último NSU por filial em `BRANCH_DFE_SYNC_STATES`; um job Hangfire consulta de hora em hora e a tela também tem "Consultar SEFAZ". A entrada reaproveita o fluxo existente de importação de XML (`PurchaseInvoicesImportXml` + `Add.controller.applyImportedXml`).
+**Architecture:** O `INfeSefazClient` (Zeus) ganha a consulta `NFeDistribuicaoDFe` (por NSU e por chave) e o evento de manifestação. A Application guarda cada documento recebido em `RECEIVED_DFES` (banco da empresa) e o último NSU por filial em `BRANCH_DFE_SYNC_STATES`; um job Hangfire verifica a cada 5 minutos e consulta cada filial só nos HORÁRIOS AGENDADOS pelo usuário (ex.: 12:00 e 20:00 — evita disputar o limite de consultas do CNPJ com o sistema do escritório de contabilidade); a tela também tem "Consultar SEFAZ" manual. A entrada reaproveita o fluxo existente de importação de XML (`PurchaseInvoicesImportXml` + `Add.controller.applyImportedXml`).
 
 **Tech Stack:** .NET 10, EF Core (SQL Server), OData v4, Hangfire, Zeus.Net.NFe.NFCe 2026.9.24.1416; OpenUI5 + TypeScript.
 
@@ -23,6 +23,7 @@
 
 ## Review Focus
 
+0. **Horário agendado perdido** (servidor fora às 12:00) → consulta uma vez na volta, sem rajada (teste na Task 3).
 1. **Consumo indevido (656):** consultas repetidas em menos de 1 hora → não chamar a SEFAZ, responder "Aguarde até HH:mm para consultar novamente." (teste na Task 3).
 2. **Mesma chave chegando duas vezes** (resNFe e depois procNFe, ou outro NSU) → atualiza a linha existente, nunca duplica (teste na Task 3).
 3. **Manifestação conclusiva repetida ou trocada** (já Confirmada e o usuário tenta Desconhecer) → recusar com mensagem; 573 da SEFAZ trata como registrado (teste na Task 4).
@@ -80,7 +81,9 @@ public class ReceivedDfe { int Id; string BranchCode; string AccessKey /*44*/; l
   DateTimeOffset? IssueDate; decimal? TotalValue; DfeInvoiceSituation Situation; DfeManifestationStatus ManifestationStatus;
   DateTimeOffset? ManifestedAt; string? ManifestationProtocol; string? ManifestationJustification; string? ManifestationProcEventXml;
   string? Xml; DateTimeOffset? XmlDownloadedAt; int? PurchaseInvoiceDocEntry; DateTimeOffset CreatedAt; }
-public class BranchDfeSyncState { string BranchCode /*PK*/; long LastNsu; long MaxNsu; DateTimeOffset? LastQueryAt; DateTimeOffset? NextQueryAllowedAt; }
+public class BranchDfeSyncState { string BranchCode /*PK*/; long LastNsu; long MaxNsu; DateTimeOffset? LastQueryAt; DateTimeOffset? NextQueryAllowedAt;
+  string? ScheduleTimes /* "HH:mm" separados por ';', ordenados, ex. "12:00;20:00"; nulo/vazio = sem consulta automática */;
+  DateTimeOffset? LastScheduledRunAt; }
 ```
 Tabelas `RECEIVED_DFES` (índice único `BranchCode + AccessKey`, índice em `IssueDate`) e `BRANCH_DFE_SYNC_STATES`; colunas em UPPER_SNAKE como o resto do contexto. Menu: `Key = "receivedDfes"`, `Title = "Manifestação do Destinatário"`, `Icon = "sap-icon://inbox"`, `ParentKey` = chave do menu Fiscal de `20261019193006_AddFiscalMenu.cs`, `StandaloneOnly = true`, mais a linha em `ROLE_MENUS` para `ADMIN`.
 
@@ -92,18 +95,22 @@ Tabelas `RECEIVED_DFES` (índice único `BranchCode + AccessKey`, índice em `Is
 
 **Files:**
 - Create: `SiagroB1.Application/Services/Nfe/ReceivedDfeSyncService.cs`, `SiagroB1.Application/Jobs/ReceivedDfeSyncJob.cs`
-- Modify: `CompanyScopedJobRunner` (constante do job), `SiagroB1.Web/Program.cs` (recorrente de hora em hora, só STANDALONE, `RemoveIfExists` senão), `ServiceCollectionExtensions.AddApplicationServices`
+- Modify: `CompanyScopedJobRunner` (constante do job), `SiagroB1.Web/Program.cs` (recorrente `*/5 * * * *`, só STANDALONE, `RemoveIfExists` senão), `ServiceCollectionExtensions.AddApplicationServices`
 - Test: `SiagroB1.Application.Tests/Nfe/ReceivedDfeSyncServiceTests.cs`
 
 **Interfaces — Produces:**
 ```csharp
 public sealed record DfeSyncResult(int NewDocuments, int UpdatedDocuments, DateTimeOffset? NextQueryAllowedAt, string Message);
 public class ReceivedDfeSyncService { Task<DfeSyncResult> SyncBranchAsync(string branchCode, CancellationToken ct = default);
-                                     Task SyncAllBranchesAsync(CancellationToken ct = default); /* filiais com certificado */ }
+                                     Task RunScheduledAsync(DateTimeOffset now, CancellationToken ct = default); /* filiais com certificado e horário vencido */
+                                     Task<BranchDfeSyncState> SetScheduleAsync(string branchCode, IReadOnlyList<string> times, CancellationToken ct = default); }
+public static class DfeSchedule { public static bool IsDue(string? scheduleTimes, DateTimeOffset? lastScheduledRunAt, DateTimeOffset nowBrasilia); }
 ```
 Laço: chama `DistributionByNsuAsync(Branch.TaxId, state.LastNsu)` até `LastNsu >= MaxNsu` ou 137, no máximo 20 chamadas por execução. Grava `LastNsu`/`MaxNsu` a cada lote (salvar por lote: queda no meio não repete). Ao terminar alcançado (ou 137/656), `NextQueryAllowedAt = agora + 1h`. Upsert por `(BranchCode, AccessKey)`: Summary preenche cabeçalho; FullInvoice preenche cabeçalho + `Xml` + `XmlDownloadedAt`; Event 110111 → `Situation = Cancelled`; Event 210200/210210/210220/210240 vindo da SEFAZ atualiza `ManifestationStatus` se estiver atrás.
 
-- [ ] **Step 1: Testes** — `Sync_InsertsSummaries_AndAdvancesNsu`; `Sync_SameKeyTwice_UpdatesInsteadOfDuplicating` (resNFe e depois procNFe → 1 linha, com Xml); `Sync_CancellationEvent_MarksCancelled`; `Sync_BeforeNextAllowedTime_DoesNotCallSefaz` (mensagem "Aguarde até HH:mm para consultar novamente."); `Sync_656_SetsOneHourWait`; `Sync_StopsAfterMaxNsuReached`.
+Agendamento: horários em hora de Brasília. `IsDue` = existe horário de hoje ≤ agora cujo instante é posterior a `LastScheduledRunAt` (perdeu 12:00 porque o servidor estava fora → roda na próxima verificação, uma vez só; não acumula). Ao rodar, `LastScheduledRunAt = now`. Se o horário cair dentro do `NextQueryAllowedAt`, pula (marca como rodado) e registra no log. `SetScheduleAsync` valida `HH:mm`, no máximo 6 horários, intervalo mínimo de 1 hora entre eles ("Os horários precisam ter pelo menos 1 hora de intervalo.").
+
+- [ ] **Step 1: Testes** — `IsDue_BeforeFirstTime_False`; `IsDue_AfterTime_NotYetRun_True`; `IsDue_AlreadyRunAfterTime_False`; `IsDue_MissedTwoTimes_RunsOnce`; `IsDue_EmptySchedule_False`; `SetSchedule_LessThanOneHourApart_IsRejected`; `RunScheduled_OnlyDueBranches_CallSefaz`; `Sync_InsertsSummaries_AndAdvancesNsu`; `Sync_SameKeyTwice_UpdatesInsteadOfDuplicating` (resNFe e depois procNFe → 1 linha, com Xml); `Sync_CancellationEvent_MarksCancelled`; `Sync_BeforeNextAllowedTime_DoesNotCallSefaz` (mensagem "Aguarde até HH:mm para consultar novamente."); `Sync_656_SetsOneHourWait`; `Sync_StopsAfterMaxNsuReached`.
 - [ ] **Step 2:** Rodar `dotnet test SiagroB1.Application.Tests --filter FullyQualifiedName~ReceivedDfeSync` → FAIL.
 - [ ] **Step 3:** Implementar serviço, job e registro.
 - [ ] **Step 4:** Rodar → PASS. Commit `feat(invoice): consulta periódica dos DF-e emitidos contra a filial`.
@@ -135,6 +142,7 @@ Regras (mensagens pt-BR, `BusinessException` do projeto): Ciência só de `None`
 **Interfaces — Produces (consumidas pelo frontend):**
 - `GET odata/ReceivedDfes` (entity set; enums como string).
 - `POST odata/ReceivedDfesSync` `{ BranchCode }` → `DfeSyncResult`.
+- `GET odata/BranchDfeSyncStates` (somente leitura) e `POST odata/BranchDfeSyncStatesSetSchedule` `{ BranchCode, Times: ["12:00","20:00"] }` → `BranchDfeSyncState`.
 - `POST odata/ReceivedDfesManifest` `{ Id, Type: "Confirmation"|"Acknowledgement"|"Unknown"|"NotPerformed", Justification }` → `ReceivedDfe`.
 - `GET odata/ReceivedDfesXml(Id=…)` função → `{ XmlContent, FileName }` (string; o frontend usa tanto no download quanto no `applyImportedXml`). Não usar navegação/late property (dão 404 neste projeto).
 - `PurchaseInvoicesCreateService`: depois de gravar, se `ChaveNFe` casa com `ReceivedDfe.AccessKey` da filial, preenche `PurchaseInvoiceDocEntry`. Se a chave já tem entrada vinculada, o create existente de duplicidade já recusa — confirmar no teste.
@@ -146,10 +154,10 @@ Regras (mensagens pt-BR, `BusinessException` do projeto): Ciência só de `None`
 ### Task 6: Tela "Manifestação do Destinatário" (frontend)
 
 **Files:**
-- Create: `webapp/view/receivedDfes/Main.view.xml`, `webapp/controller/receivedDfes/Main.controller.ts`, `webapp/view/receivedDfes/fragments/ManifestJustificationDialog.fragment.xml`
+- Create: `webapp/view/receivedDfes/Main.view.xml`, `webapp/controller/receivedDfes/Main.controller.ts`, `webapp/view/receivedDfes/fragments/ManifestJustificationDialog.fragment.xml`, `webapp/view/receivedDfes/fragments/ScheduleDialog.fragment.xml`
 - Modify: `webapp/manifest.json` (rota/target `receivedDfes`), `webapp/i18n/i18n.properties` se a tela usar i18n
 
-Tela no padrão das listas do projeto (DynamicPage + FilterBar + `sap.m.Table` com seleção múltipla). Filtros: Filial, Emissão de/até (data "até" inclui o dia), Emitente, Manifestação, Situação. Colunas: Emissão, Emitente (CNPJ + nome), Número (extraído da chave: posições 26–34), Valor, Situação (Autorizada/Denegada/Cancelada), Manifestação (Sem manifestação/Ciência/Confirmada/Desconhecida/Não realizada, com `ObjectStatus`), XML (ícone quando disponível), Entrada (link para `purchaseInvoicesDetail` quando `PurchaseInvoiceDocEntry`). Barra: "Consultar SEFAZ" (filial do filtro; mostra `Message`), "Ciência", "Confirmar operação", "Desconhecer", "Operação não realizada" (diálogo com justificativa 15–255, contador), "Baixar XML", "Dar entrada". Botões habilitam pela regra da Task 4; "Dar entrada" só com uma linha `Confirmed`, não cancelada e sem entrada. Confirmações (`MessageBox.confirm`) antes de Desconhecer/Não realizada, avisando que é definitivo.
+Tela no padrão das listas do projeto (DynamicPage + FilterBar + `sap.m.Table` com seleção múltipla). Filtros: Filial, Emissão de/até (data "até" inclui o dia), Emitente, Manifestação, Situação. Colunas: Emissão, Emitente (CNPJ + nome), Número (extraído da chave: posições 26–34), Valor, Situação (Autorizada/Denegada/Cancelada), Manifestação (Sem manifestação/Ciência/Confirmada/Desconhecida/Não realizada, com `ObjectStatus`), XML (ícone quando disponível), Entrada (link para `purchaseInvoicesDetail` quando `PurchaseInvoiceDocEntry`). Barra: "Consultar SEFAZ" (filial do filtro; mostra `Message`), "Agendamento" (diálogo por filial: lista de horários HH:mm com adicionar/remover — `TimePicker` —, mostra última consulta e próxima liberada; texto de ajuda: "Combine os horários com o escritório de contabilidade para não consultarem o mesmo CNPJ na mesma hora."), "Ciência", "Confirmar operação", "Desconhecer", "Operação não realizada" (diálogo com justificativa 15–255, contador), "Baixar XML", "Dar entrada". Botões habilitam pela regra da Task 4; "Dar entrada" só com uma linha `Confirmed`, não cancelada e sem entrada. Confirmações (`MessageBox.confirm`) antes de Desconhecer/Não realizada, avisando que é definitivo.
 
 - [ ] **Step 1:** Implementar; `yarn ts-typecheck` e `yarn lint` sem erros novos.
 - [ ] **Step 2:** Commit no frontend `feat(invoice): tela de manifestação do destinatário`.
