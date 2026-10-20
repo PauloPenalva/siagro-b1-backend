@@ -1,0 +1,63 @@
+namespace SiagroB1.Reports.Dtos;
+
+/// <summary>Resultado da Conferência Fiscal; cada lista alimenta uma aba da tela.</summary>
+public class FiscalConferenceData
+{
+    public List<FiscalDocumentLineDto> Documents { get; set; } = [];
+    public List<FiscalSummaryRowDto> Summary { get; set; } = [];
+    public List<IcmsAssessmentRowDto> Assessment { get; set; } = [];
+    public IcmsAssessmentTotalsDto AssessmentTotals { get; set; } = new();
+    public List<R2055ProducerRowDto> R2055 { get; set; } = [];
+    public List<FiscalIssueDto> Issues { get; set; } = [];
+}
+
+/// <summary>Uma linha por item de documento escriturável (equivale ao C100 + C170 do SPED Fiscal).</summary>
+public class FiscalDocumentLineDto
+{
+    /// <summary>"E" (entrada) ou "S" (saída), decidido pelo 1º dígito do CFOP.</summary>
+    public string Direction { get; set; } = "";
+    public DateTime Date { get; set; }
+
+    /// <summary>"55" (NF-e) ou "01" (outro documento fiscal).</summary>
+    public string Model { get; set; } = "";
+    public string Series { get; set; } = "";
+    public string Number { get; set; } = "";
+
+    /// <summary>Número interno do documento no sistema.</summary>
+    public string InternalNumber { get; set; } = "";
+    public string? AccessKey { get; set; }
+    public string Partner { get; set; } = "";
+    public string ItemCode { get; set; } = "";
+    public string ItemName { get; set; } = "";
+    public string Cfop { get; set; } = "";
+    public string CstIcms { get; set; } = "";
+
+    /// <summary>Total da linha (GrandTotal; na entrada o complemento já está no Total).</summary>
+    public decimal OperationValue { get; set; }
+    public decimal IcmsBase { get; set; }
+    public decimal IcmsRate { get; set; }
+    public decimal IcmsValue { get; set; }
+    public string CstPis { get; set; } = "";
+    public decimal PisValue { get; set; }
+    public string CstCofins { get; set; } = "";
+    public decimal CofinsValue { get; set; }
+
+    /// <summary>Origem da tabela: "Entrada" ou "Saída".</summary>
+    public string DocumentType { get; set; } = "";
+    public Guid DocumentKey { get; set; }
+}
+
+public class FiscalSummaryRowDto;
+
+public class IcmsAssessmentRowDto;
+
+public class IcmsAssessmentTotalsDto
+{
+    public decimal Debits { get; set; }
+    public decimal Credits { get; set; }
+    public decimal Balance { get; set; }
+}
+
+public class R2055ProducerRowDto;
+
+public class FiscalIssueDto;
