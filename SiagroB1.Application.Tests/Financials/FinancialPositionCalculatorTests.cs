@@ -239,7 +239,7 @@ public class FinancialPositionCalculatorTests
 
         var partial = Compute([prov, f1, f2, ret], [.. ledger, Pay(prov, 120m, new DateTime(2026, 10, 8))], Base);
         Assert.Equal(0m, OpenOf(partial, f1));
-        Assert.Equal(50m, OpenOf(partial, f2));
+        Assert.Equal(80m, OpenOf(partial, f2));
         Assert.Equal(-30m, OpenOf(partial, ret));
 
         var full = Compute([prov, f1, f2, ret], [.. ledger, Pay(prov, 170m, new DateTime(2026, 10, 8))], Base);
@@ -296,5 +296,71 @@ public class FinancialPositionCalculatorTests
         Assert.Equal(40m, OpenOf(p, f1));
         Assert.Equal(100m, OpenOf(p, f2));
         Assert.Contains(p.Settlements, s => s.IsDistributed && s.Document.Key == f2.Key && s.Amount == -50m);
+    }
+
+    [Theory]
+    [InlineData(0), InlineData(50), InlineData(120), InlineData(170), InlineData(200)]
+    public void Composed_open_sum_matches_net_minus_pool(int paid)
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 1));
+        var f2 = FirmDue(new DateTime(2026, 10, 5));
+        var ret = FirmDue(new DateTime(2026, 10, 2), 30m, FinancialDocumentNature.PurchaseReturn);
+        List<FinancialSettlement> ledger =
+            [Offset(f1, prov, 100m, Composed), Offset(f2, prov, 100m, Composed), Offset(ret, prov, -30m, Composed)];
+        if (paid > 0) ledger.Add(Pay(prov, paid, new DateTime(2026, 10, 8)));
+
+        var p = Compute([prov, f1, f2, ret], ledger, Base);
+        Assert.Equal(170m - Math.Min(paid, 170m), p.Titles.Sum(t => t.OpenAtBase));
+        AssertSettledMatchesSlices(p);
+    }
+
+    [Fact]
+    public void Return_netting_is_undone_when_pool_reversal_drops_below_net()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 1));
+        var f2 = FirmDue(new DateTime(2026, 10, 5));
+        var ret = FirmDue(new DateTime(2026, 10, 2), 30m, FinancialDocumentNature.PurchaseReturn);
+        var p = Compute([prov, f1, f2, ret],
+        [
+            Offset(f1, prov, 100m, Composed), Offset(f2, prov, 100m, Composed), Offset(ret, prov, -30m, Composed),
+            Pay(prov, 170m, new DateTime(2026, 10, 6)),
+            Pay(prov, -170m, new DateTime(2026, 10, 7), FinancialSettlementOrigin.Reversal),
+            Pay(prov, 120m, new DateTime(2026, 10, 8))
+        ], Base);
+        Assert.Equal(0m, OpenOf(p, f1));
+        Assert.Equal(80m, OpenOf(p, f2));
+        Assert.Equal(-30m, OpenOf(p, ret));
+        AssertSettledMatchesSlices(p);
+    }
+
+    [Fact]
+    public void Return_netting_slices_are_dated_by_the_pool_line_that_reached_net()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 1));
+        var f2 = FirmDue(new DateTime(2026, 10, 5));
+        var ret = FirmDue(new DateTime(2026, 10, 2), 30m, FinancialDocumentNature.PurchaseReturn);
+        var second = Pay(prov, 50m, new DateTime(2026, 10, 9));
+        var p = Compute([prov, f1, f2, ret],
+        [
+            Offset(f1, prov, 100m, Composed), Offset(f2, prov, 100m, Composed), Offset(ret, prov, -30m, Composed),
+            Pay(prov, 120m, new DateTime(2026, 10, 6)), second
+        ], Base);
+        var retSlice = Assert.Single(p.Settlements, s => s.Document.Key == ret.Key);
+        Assert.Equal(-30m, retSlice.Amount);
+        Assert.Equal(new DateTime(2026, 10, 9), retSlice.Date);
+        Assert.Same(second, retSlice.Source);
+        Assert.True(retSlice.IsDistributed);
+        Assert.Equal(80m, p.Settlements.Where(s => s.Document.Key == f2.Key && s.Source == second).Sum(s => s.Amount));
+        Assert.All(p.Titles, t => Assert.Equal(0m, t.OpenAtBase));
+        AssertSettledMatchesSlices(p);
+    }
+
+    private static void AssertSettledMatchesSlices(FinancialPosition p)
+    {
+        foreach (var t in p.Titles)
+            Assert.Equal(t.SettledAtBase, p.Settlements.Where(s => s.Document.Key == t.Document.Key).Sum(s => s.Amount));
     }
 }

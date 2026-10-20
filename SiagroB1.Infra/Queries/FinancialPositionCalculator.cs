@@ -30,15 +30,12 @@ public static class FinancialPositionCalculator
             .ToList();
 
         // Ajuste não-caixa do abatimento da devolução composta (R7): não é baixa, mas fecha o firme/devolução.
-        var netting = new Dictionary<Guid, decimal>();
         if (mode == FinancialPositionMode.Firm)
-            Distribute(input, baseDay, byKey, settlements, netting);
+            Distribute(input, baseDay, byKey, settlements);
 
         var settledByDocument = settlements
             .GroupBy(s => s.Document.Key)
             .ToDictionary(g => g.Key, g => g.Sum(s => s.Amount));
-        foreach (var (key, value) in netting)
-            settledByDocument[key] = settledByDocument.GetValueOrDefault(key) + value;
 
         var titles = documents.Select(d =>
         {
@@ -50,22 +47,24 @@ public static class FinancialPositionCalculator
         return new FinancialPosition(titles, settlements);
     }
 
-    private sealed class Slot(FinancialDocument document, decimal capacity, decimal reduction)
+    private sealed class Slot(FinancialDocument document, decimal capacity)
     {
         public FinancialDocument Document { get; } = document;
-        public decimal Capacity { get; } = capacity;   // composto na data-base, já abatida a devolução
-        public decimal Reduction { get; } = reduction; // parte do composto absorvida pela devolução
-        public decimal Filled { get; set; }
+        public decimal Capacity { get; } = capacity; // composto na data-base
+        public decimal Cash { get; set; }            // dinheiro do pool distribuído
+        public decimal Netted { get; set; }          // abatido pela devolução composta
+        public decimal Free => Capacity - Cash - Netted;
     }
 
     /// <summary>
     /// R5/R7/C1: o dinheiro baixado no provisório (Date &lt;= base, todas as origens, líquido de estorno) é distribuído
     /// aos firmes compostos nele na data-base, por vencimento/emissão/código. A composição é reconstruída pelo ledger
     /// (InvoiceOffset/Reversal com CompositionKey no firme), porque a linha de FINANCIAL_DOCUMENT_COMPOSITIONS some ao
-    /// desfazer. A devolução composta reduz primeiro a capacidade dos firmes e sai quando o pool cobre o líquido.
+    /// desfazer. A devolução composta fica em −D até o pool acumulado cobrir o líquido composto; nesse momento ela abate
+    /// a capacidade restante dos firmes (do fim da fila) com fatias datadas pela baixa que atingiu o líquido.
     /// </summary>
     private static void Distribute(FinancialPositionInput input, DateTime baseDay,
-        Dictionary<Guid, FinancialDocument> byKey, List<EffectiveSettlement> output, Dictionary<Guid, decimal> netting)
+        Dictionary<Guid, FinancialDocument> byKey, List<EffectiveSettlement> output)
     {
         var allDocs = input.Documents.ToDictionary(d => d.Key);
 
@@ -86,20 +85,16 @@ public static class FinancialPositionCalculator
                 .Where(x => x.Amount > 0m)
                 .ToList();
 
-            var returns = composed.Where(x => IsReturn(x.Document)).ToList();
+            var returns = composed.Where(x => IsReturn(x.Document)).Select(x => new Slot(x.Document, x.Amount)).ToList();
             var firms = composed.Where(x => !IsReturn(x.Document))
                 .OrderBy(x => x.Document.DueDate.Date).ThenBy(x => x.Document.DocumentDate.Date)
                 .ThenBy(x => x.Document.Code, StringComparer.Ordinal)
+                .Select(x => new Slot(x.Document, x.Amount))
                 .ToList();
 
-            var toNet = returns.Sum(x => x.Amount);
-            var slots = new List<Slot>();
-            foreach (var (document, amount) in firms)
-            {
-                var reduction = Math.Min(amount, toNet);
-                toNet -= reduction;
-                slots.Add(new Slot(document, amount - reduction, reduction));
-            }
+            var returned = returns.Sum(x => x.Capacity);
+            var net = firms.Sum(x => x.Capacity) - returned;
+            var netted = false;
 
             var pool = input.Settlements
                 .Where(s => s.FinancialDocumentKey == provisional.Key && s.CompositionKey is null
@@ -109,32 +104,74 @@ public static class FinancialPositionCalculator
 
             foreach (var payment in pool)
             {
-                if (payment.Amount > 0m) Fill(payment, slots, output);
-                else if (payment.Amount < 0m) Unwind(payment, slots, output);
+                if (payment.Amount > 0m)
+                {
+                    // Antes do abatimento o dinheiro não passa do líquido: o resto da capacidade é da devolução.
+                    var cash = firms.Sum(x => x.Cash);
+                    var amount = netted || returned == 0m ? payment.Amount : Math.Min(payment.Amount, net - cash);
+                    Fill(payment, amount, firms, output);
+                    if (!netted && returned > 0m && firms.Sum(x => x.Cash) >= net)
+                    {
+                        Net(payment, firms, returns, output, +1);
+                        netted = true;
+                    }
+                }
+                else if (payment.Amount < 0m)
+                {
+                    if (netted && firms.Sum(x => x.Cash) + payment.Amount < net)
+                    {
+                        Net(payment, firms, returns, output, -1);
+                        netted = false;
+                    }
+                    Unwind(payment, firms, output);
+                }
             }
-
-            // Firme coberto pelo dinheiro: a parte absorvida pela devolução também o fecha.
-            foreach (var slot in slots.Where(x => x.Reduction > 0m && x.Filled >= x.Capacity))
-                netting[slot.Document.Key] = netting.GetValueOrDefault(slot.Document.Key) + slot.Reduction;
-
-            var net = firms.Sum(x => x.Amount) - returns.Sum(x => x.Amount);
-            if (returns.Count > 0 && slots.Sum(x => x.Filled) >= net)
-                foreach (var (document, amount) in returns)
-                    netting[document.Key] = netting.GetValueOrDefault(document.Key) - amount;
         }
     }
 
-    private static void Fill(FinancialSettlement payment, List<Slot> slots, List<EffectiveSettlement> output)
+    // Abatimento da devolução (sign = +1) ou o seu desfazimento (sign = -1, no estorno que derruba o pool abaixo do líquido).
+    private static void Net(FinancialSettlement source, List<Slot> firms, List<Slot> returns,
+        List<EffectiveSettlement> output, int sign)
     {
-        var remaining = payment.Amount;
+        if (sign > 0)
+        {
+            var remaining = returns.Sum(x => x.Capacity);
+            for (var i = firms.Count - 1; i >= 0 && remaining > 0m; i--)
+            {
+                var piece = Math.Min(firms[i].Free, remaining);
+                if (piece <= 0m) continue;
+                firms[i].Netted += piece;
+                remaining -= piece;
+                output.Add(Slice(firms[i].Document, source, piece, false));
+            }
+        }
+        else
+        {
+            foreach (var firm in firms.Where(x => x.Netted > 0m))
+            {
+                output.Add(Slice(firm.Document, source, -firm.Netted, false));
+                firm.Netted = 0m;
+            }
+        }
+
+        foreach (var ret in returns)
+        {
+            ret.Netted = sign > 0 ? ret.Capacity : 0m;
+            output.Add(Slice(ret.Document, source, -sign * ret.Capacity, false));
+        }
+    }
+
+    private static void Fill(FinancialSettlement payment, decimal amount, List<Slot> slots, List<EffectiveSettlement> output)
+    {
+        var remaining = amount;
         foreach (var slot in slots)
         {
             if (remaining <= 0m) break;
-            var piece = Math.Min(slot.Capacity - slot.Filled, remaining);
+            var piece = Math.Min(slot.Free, remaining);
             if (piece <= 0m) continue;
-            slot.Filled += piece;
+            slot.Cash += piece;
             remaining -= piece;
-            output.Add(Slice(slot.Document, payment, piece));
+            output.Add(Slice(slot.Document, payment, piece, true));
         }
     }
 
@@ -143,18 +180,19 @@ public static class FinancialPositionCalculator
         var remaining = -reversal.Amount;
         for (var i = slots.Count - 1; i >= 0 && remaining > 0m; i--)
         {
-            var piece = Math.Min(slots[i].Filled, remaining);
+            var piece = Math.Min(slots[i].Cash, remaining);
             if (piece <= 0m) continue;
-            slots[i].Filled -= piece;
+            slots[i].Cash -= piece;
             remaining -= piece;
-            output.Add(Slice(slots[i].Document, reversal, -piece));
+            output.Add(Slice(slots[i].Document, reversal, -piece, true));
         }
     }
 
     // Juros/multa/desconto rateados pela proporção do pedaço na baixa real.
-    private static EffectiveSettlement Slice(FinancialDocument document, FinancialSettlement source, decimal piece)
+    // Abatimento da devolução não é dinheiro: sem juros/multa/desconto.
+    private static EffectiveSettlement Slice(FinancialDocument document, FinancialSettlement source, decimal piece, bool prorate)
     {
-        var ratio = source.Amount == 0m ? 0m : piece / source.Amount;
+        var ratio = !prorate || source.Amount == 0m ? 0m : piece / source.Amount;
         return new EffectiveSettlement(document, source, source.SettlementDate.Date, piece,
             decimal.Round(source.InterestAmount * ratio, 2), decimal.Round(source.FineAmount * ratio, 2),
             decimal.Round(source.DiscountAmount * ratio, 2), true);
