@@ -60,8 +60,13 @@ public class FifoLedgerTests
             M(InventoryMovementKind.Exit, 5),
             M(InventoryMovementKind.Entry, 10, 200m, D1.AddDays(1))]);
 
-        var adj = Assert.Single(r.Lines, l => l.IsNegativeBalanceAdjustment);
-        Assert.Equal(5m, adj.QuantityOut);
+        Assert.Equal(3, r.Lines.Count);
+        var entry = r.Lines[1];
+        Assert.Equal(5m, entry.BalanceQuantity);
+        Assert.Equal(200.00m, entry.BalanceValue);
+        var adj = r.Lines[2];
+        Assert.True(adj.IsNegativeBalanceAdjustment);
+        Assert.Equal(0m, adj.QuantityOut);
         Assert.Equal(100.00m, adj.ValueOut);
         var last = r.Lines.Last();
         Assert.Equal(5m, last.BalanceQuantity);
@@ -120,6 +125,12 @@ public class FifoLedgerTests
             M(InventoryMovementKind.Exit, 10, date: D1.AddDays(1)),
             M(InventoryMovementKind.ValueComplement, 0, 30m, D1.AddDays(2), a.LineKey), b]);
 
+        var comp = r.Lines[2];
+        Assert.True(comp.PendingValue);
+        Assert.Equal(0m, comp.ValueIn);
+        Assert.Equal(0m, comp.BalanceValue);
+        Assert.Equal(230.00m, r.Lines[3].ValueIn);
+
         var lb = Assert.Single(r.OpenLayers);
         Assert.Equal(b.LineKey, lb.LineKey);
         Assert.Equal(10m, lb.Quantity);
@@ -147,5 +158,98 @@ public class FifoLedgerTests
 
         Assert.DoesNotContain(r.Lines, l => l.InsufficientBalance || l.IsNegativeBalanceAdjustment);
         Assert.Equal(50.00m, r.Lines.Last().ValueOut);
+    }
+
+    [Fact]
+    public void Entry_PartiallyCoversDeficit()
+    {
+        var r = FifoLedger.Run([
+            M(InventoryMovementKind.Exit, 5),
+            M(InventoryMovementKind.Entry, 3, 60m, D1.AddDays(1))]);
+
+        Assert.Equal(-2m, r.Lines[1].BalanceQuantity);
+        Assert.Equal(60.00m, r.Lines[1].BalanceValue);
+        var adj = r.Lines[2];
+        Assert.True(adj.IsNegativeBalanceAdjustment);
+        Assert.Equal(60.00m, adj.ValueOut);
+        Assert.Equal(-2m, adj.BalanceQuantity);
+        Assert.Equal(0.00m, adj.BalanceValue);
+        Assert.Empty(r.OpenLayers);
+    }
+
+    [Fact]
+    public void PurchaseReturn_BeyondOriginLayer_UsesFifoForExcess()
+    {
+        var a = M(InventoryMovementKind.Entry, 10, 100m);
+        var b = M(InventoryMovementKind.Entry, 10, 200m);
+        var r = FifoLedger.Run([a, b,
+            M(InventoryMovementKind.PurchaseReturn, 12, date: D1.AddDays(1), origin: b.LineKey)]);
+
+        // 10 de B (200,00) + 2 de A pelo FIFO (20,00)
+        Assert.Equal(220.00m, r.Lines.Last().ValueOut);
+        var la = Assert.Single(r.OpenLayers);
+        Assert.Equal(a.LineKey, la.LineKey);
+        Assert.Equal(8m, la.Quantity);
+        Assert.Equal(80.00m, la.Value);
+    }
+
+    [Fact]
+    public void SalesReturn_OfExitSpanningTwoLayers_UsesWeightedCost()
+    {
+        var s = M(InventoryMovementKind.Exit, 15, date: D1.AddDays(1));
+        var r = FifoLedger.Run([
+            M(InventoryMovementKind.Entry, 10, 100m), M(InventoryMovementKind.Entry, 10, 200m), s,
+            M(InventoryMovementKind.SalesReturn, 3, date: D1.AddDays(2), origin: s.LineKey)]);
+
+        // saída 15 = 100,00 + 100,00 → 13,333333/un; 3 un = 40,00
+        Assert.Equal(200.00m, r.Lines[2].ValueOut);
+        Assert.Equal(40.00m, r.Lines.Last().ValueIn);
+    }
+
+    [Fact]
+    public void Returns_WithUnknownOrigin()
+    {
+        var r = FifoLedger.Run([
+            M(InventoryMovementKind.Entry, 10, 100m), M(InventoryMovementKind.Entry, 10, 200m),
+            M(InventoryMovementKind.PurchaseReturn, 4, date: D1.AddDays(1), origin: Guid.NewGuid()),
+            M(InventoryMovementKind.SalesReturn, 2, date: D1.AddDays(2), origin: Guid.NewGuid())]);
+
+        Assert.Equal(40.00m, r.Lines[2].ValueOut);
+        Assert.Equal(0m, r.Lines[3].ValueIn);
+        Assert.Equal(0m, r.Lines[3].UnitCost);
+    }
+
+    [Fact]
+    public void Invariants_HoldOverMixedScenario()
+    {
+        var a = M(InventoryMovementKind.Entry, 10, 100m);
+        var s = M(InventoryMovementKind.Exit, 7, date: D1.AddDays(1));
+        var r = FifoLedger.Run([
+            M(InventoryMovementKind.Opening, 3, 31m), a,
+            M(InventoryMovementKind.Entry, 7, 99.99m),
+            s,
+            M(InventoryMovementKind.ValueComplement, 0, 12.5m, D1.AddDays(1), a.LineKey),
+            M(InventoryMovementKind.PurchaseReturn, 5, date: D1.AddDays(2), origin: a.LineKey),
+            M(InventoryMovementKind.Exit, 20, date: D1.AddDays(3)),
+            M(InventoryMovementKind.ValueComplement, 0, 7m, D1.AddDays(4), a.LineKey),
+            M(InventoryMovementKind.SalesReturn, 2, date: D1.AddDays(4), origin: s.LineKey),
+            M(InventoryMovementKind.Entry, 1, 13m, D1.AddDays(5)),
+            M(InventoryMovementKind.Entry, 9, 101m, D1.AddDays(6)),
+            M(InventoryMovementKind.Exit, 3, date: D1.AddDays(7))]);
+
+        decimal q = 0m, v = 0m, deficit = 0m;
+        foreach (var l in r.Lines)
+        {
+            q += l.QuantityIn - l.QuantityOut;
+            v += l.ValueIn - l.ValueOut;
+            Assert.Equal(q, l.BalanceQuantity);
+            Assert.Equal(v, l.BalanceValue);
+            deficit = Math.Max(0m, -l.BalanceQuantity);
+        }
+        Assert.Contains(r.Lines, l => l.IsNegativeBalanceAdjustment);
+        Assert.Contains(r.Lines, l => l.PendingValue);
+        Assert.Equal(r.Lines.Last().BalanceValue, r.OpenLayers.Sum(x => x.Value));
+        Assert.Equal(r.Lines.Last().BalanceQuantity, r.OpenLayers.Sum(x => x.Quantity) - deficit);
+        Assert.All(r.OpenLayers, x => Assert.True(x.Quantity > 0));
     }
 }

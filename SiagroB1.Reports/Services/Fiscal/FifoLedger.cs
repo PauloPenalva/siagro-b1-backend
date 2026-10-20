@@ -28,17 +28,17 @@ public static class FifoLedger
         var lines = new List<ValuedMovement>();
         var exitCosts = new Dictionary<Guid, (decimal Qty, decimal Value)>();
         decimal deficit = 0m;        // quantidade que saiu sem camada (saldo negativo)
-        decimal pendingValue = 0m;   // complemento sem camada aberta, aguardando a próxima
+        decimal pendingValue = 0m;   // complemento sem camada aberta, fora do saldo até a próxima camada
 
         decimal BalanceQty() => layers.Sum(l => l.Quantity) - deficit;
-        decimal BalanceValue() => layers.Sum(l => l.Value) + pendingValue;
+        decimal BalanceValue() => layers.Sum(l => l.Value);
 
         void Add(InventoryMovement m, decimal qIn, decimal qOut, decimal vIn, decimal vOut,
-            bool insufficient = false, bool adjustment = false)
+            bool insufficient = false, bool adjustment = false, bool pending = false)
         {
             var uc = qIn > 0 ? Cost(vIn, qIn) : qOut > 0 ? Cost(vOut, qOut) : 0m;
             lines.Add(new ValuedMovement(m, qIn, qOut, uc, vIn, vOut, BalanceQty(), BalanceValue(),
-                insufficient, adjustment));
+                insufficient, adjustment, pending));
         }
 
         // Retira qty de uma camada; o último consumo leva o valor restante.
@@ -73,29 +73,26 @@ public static class FifoLedger
             return (value, qty);
         }
 
-        // Entrada: cobre o déficit (linha de acerto) e cria camada com o restante.
+        // Entrada: cobre o déficit e cria camada com o restante (levando o complemento pendente).
+        // A linha da entrada mostra a entrada inteira; o acerto de saldo negativo é uma linha só de
+        // valor (quantidade já foi compensada no saldo) pelo custo da parte que cobriu o déficit.
         void Inflow(InventoryMovement m, decimal qty, decimal value)
         {
             var cover = Math.Min(deficit, qty);
             var adjustValue = cover == 0 ? 0m : cover == qty ? value : Money(cover * Cost(value, qty));
             var rest = qty - cover;
+            var valueIn = value;
             if (rest > 0)
             {
+                valueIn += pendingValue;
                 layers.Add(new Layer(m.LineKey, m.Date, rest, value - adjustValue + pendingValue));
                 pendingValue = 0m;
             }
             deficit -= cover;
+            lines.Add(new ValuedMovement(m, qty, 0m, Cost(valueIn, qty), valueIn, 0m,
+                BalanceQty(), BalanceValue() + adjustValue, false, false));
             if (cover > 0)
-            {
-                // Saldo intermediário: entrada inteira antes do acerto.
-                lines.Add(new ValuedMovement(m, qty, 0m, Cost(value, qty), value, 0m,
-                    BalanceQty() + cover, BalanceValue() + adjustValue, false, false));
-                Add(m, 0m, cover, 0m, adjustValue, adjustment: true);
-            }
-            else
-            {
-                Add(m, qty, 0m, value, 0m);
-            }
+                Add(m, 0m, 0m, 0m, adjustValue, adjustment: true);
         }
 
         foreach (var m in Order(movements))
@@ -119,13 +116,16 @@ public static class FifoLedger
                 {
                     var target = layers.FirstOrDefault(l => l.LineKey == m.OriginLineKey) ?? layers.FirstOrDefault();
                     if (target is null)
+                    {
                         pendingValue += m.Value;
+                        Add(m, 0m, 0m, 0m, 0m, pending: true);
+                    }
                     else
                     {
                         target.Value += m.Value;
                         target.UnitCost = Cost(target.Value, target.Quantity);
+                        Add(m, 0m, 0m, m.Value, 0m);
                     }
-                    Add(m, 0m, 0m, m.Value, 0m);
                     break;
                 }
 
