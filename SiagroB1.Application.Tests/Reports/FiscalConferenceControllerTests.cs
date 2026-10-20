@@ -31,6 +31,7 @@ public class FiscalConferenceControllerTests
     [InlineData(2026, 0)]
     [InlineData(2026, 13)]
     [InlineData(1999, 10)]
+    [InlineData(10000, 1)]
     public async Task Post_RejectsInvalidMonth(int year, int month)
     {
         var result = await Controller("STANDALONE").Get(Request(year, month));

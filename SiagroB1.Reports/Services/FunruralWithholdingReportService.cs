@@ -56,6 +56,15 @@ public class FunruralWithholdingReportService(
         if (!string.IsNullOrWhiteSpace(request.ContractCode))
             query = query.Where(i => i.PurchaseContract != null && i.PurchaseContract.Code == request.ContractCode);
 
+        if (request.BookableOnly)
+        {
+            query = query
+                .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus))
+                .Where(i => i.PurchaseInvoice!.IssuerType != DocumentIssuerType.Own
+                         || i.PurchaseInvoice.TaxDocumentKind != TaxDocumentKind.Nfe
+                         || i.PurchaseInvoice.NfeStatus == NfeStatus.Authorized);
+        }
+
         if (Standalone && request.NfeStatuses is { Count: > 0 })
         {
             var nfe = request.NfeStatuses.Distinct().ToArray();

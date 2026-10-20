@@ -18,7 +18,7 @@ public class FiscalConferenceController(FiscalConferenceService service, IConfig
         if (!ErpMode.IsStandalone(configuration))
             return BadRequest(StandaloneOnlyMessage);
 
-        if (request.Month is < 1 or > 12 || request.Year < 2000)
+        if (request.Month is < 1 or > 12 || request.Year is < 2000 or > 9999)
             return BadRequest("Informe um mês válido.");
 
         return Ok(await service.BuildAsync(request));

@@ -342,6 +342,49 @@ public class FiscalConferenceServiceTests
         Assert.Equal(("", ""), (missing.TaxId, missing.ProducerType));
     }
 
+    [Fact]
+    public async Task Build_R2055IgnoresPendingEntry()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("A1", status: InvoiceStatus.Pending, items: Withheld(1000m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A2", items: Withheld(500m)));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Request())).R2055;
+
+        Assert.Equal(500m, rows.Single().Base);
+    }
+
+    [Fact]
+    public async Task Build_R2055IgnoresCancelledCounterNote()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("A1", items: Withheld(500m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A2", issuer: DocumentIssuerType.Own, items: Withheld(1000m))
+            .With(p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.Cancelled; }));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Request())).R2055;
+
+        Assert.Equal(500m, rows.Single().Base);
+    }
+
+    [Fact]
+    public async Task Build_R2055IgnoresUnauthorizedOwnCounterNote()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("A1", items: Withheld(500m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A2", issuer: DocumentIssuerType.Own, items: Withheld(1000m))
+            .With(p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.Processing; }));
+        db.Context.PurchaseInvoices.Add(Purchase("A3", issuer: DocumentIssuerType.Own, items: Withheld(200m))
+            .With(p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.Authorized; }));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Request())).R2055;
+
+        Assert.Equal(700m, rows.Single().Base);
+    }
+
     private static PurchaseInvoiceItem CleanPurchaseLine(string? cfop = "1101")
     {
         var line = PurchaseLine(cfop);

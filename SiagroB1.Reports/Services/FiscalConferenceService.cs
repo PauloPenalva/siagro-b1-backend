@@ -46,6 +46,8 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
             FromDate = from,
             ToDate = from.AddMonths(1).AddDays(-1),
             BranchCode = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode,
+            Statuses = [.. BookableStatuses],
+            BookableOnly = true,
         });
 
         var totals = data.Rows
