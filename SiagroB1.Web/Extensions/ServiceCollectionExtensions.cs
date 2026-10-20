@@ -219,6 +219,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NfeEmailSweepJob>();
         services.AddScoped<ReceivedDfeSyncJob>();
         services.AddScoped<ReceivedDfeSyncService>();
+        services.AddScoped<ReceivedDfeManifestService>();
+        services.AddScoped<ReceivedDfeXmlService>();
 
         // purchase contracts
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
