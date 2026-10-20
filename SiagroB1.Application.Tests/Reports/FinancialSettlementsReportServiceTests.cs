@@ -316,6 +316,27 @@ public class FinancialSettlementsReportServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Distributed_slice_shows_the_invoice_of_the_composed_firm()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "C1", TaxDocumentNumber = "8001", TaxDocumentSeries = "1" };
+        db.Context.PurchaseInvoices.Add(invoice);
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        firm.PurchaseInvoiceKey = invoice.Key;
+        db.Context.FinancialDocuments.AddRange(provisional, firm);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m),
+            Settle(provisional, 60m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+
+        var row = Assert.Single(await RowsAsync(db, request));
+
+        Assert.Equal(("FIRM", "8001", "1"), (row.Document, row.NfeNumber, row.NfeSeries));
+    }
+
+    [Fact]
     public async Task Generates_pdf()
     {
         var db = TestDb.CreateUnitOfWork();

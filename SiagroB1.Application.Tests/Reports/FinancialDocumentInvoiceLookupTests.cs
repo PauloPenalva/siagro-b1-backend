@@ -33,19 +33,31 @@ public class FinancialDocumentInvoiceLookupTests
         var otherPurchase = Doc(FinancialDocumentOrigin.OtherPurchaseInvoice, purchaseInvoice: other.Key, originKey: other.Key);
         // Sem a chave explícita: cai no OriginKey, que nestas origens é a chave do documento.
         var noContractByOrigin = Doc(FinancialDocumentOrigin.SalesInvoiceNoContract, originKey: legacyNoContract.Key);
+        // Guarda da natureza: provisório/adiantamento ficam em branco mesmo com chave de documento.
         var provisional = Doc(FinancialDocumentOrigin.PurchaseContractPriceFixation, FinancialDocumentNature.Provisional,
-            originKey: purchase.Key);
+            purchaseInvoice: purchase.Key, originKey: purchase.Key);
+        var advance = Doc(FinancialDocumentOrigin.Manual, FinancialDocumentNature.Advance, purchaseInvoice: purchase.Key);
+        var otherByOrigin = Doc(FinancialDocumentOrigin.OtherPurchaseInvoice, originKey: other.Key);
+        // Armadilha: na origem PurchaseInvoice o OriginKey é a LINHA; mesmo igual a uma chave de documento, não resolve.
+        var lineKeyTrap = Doc(FinancialDocumentOrigin.PurchaseInvoice, originKey: purchase.Key);
+        var withholding = Doc(FinancialDocumentOrigin.OtherPurchaseInvoice, FinancialDocumentNature.TaxWithholding,
+            purchaseInvoice: other.Key, originKey: other.Key);
         var noNumber = Doc(FinancialDocumentOrigin.PurchaseInvoice, purchaseInvoice: unnumbered.Key);
         var missing = Doc(FinancialDocumentOrigin.PurchaseInvoice, purchaseInvoice: Guid.NewGuid());
 
         var lookup = await FinancialDocumentInvoiceLookup.LoadAsync(db.Context,
-            [firmPurchase, firmSales, otherPurchase, noContractByOrigin, provisional, noNumber, missing], CancellationToken.None);
+            [firmPurchase, firmSales, otherPurchase, noContractByOrigin, provisional, advance, otherByOrigin, lineKeyTrap, withholding,
+             noNumber, missing], CancellationToken.None);
 
         Assert.Equal(new InvoiceNumberSeries("8001", "1"), lookup.For(firmPurchase));
         Assert.Equal(new InvoiceNumberSeries("293", "3"), lookup.For(firmSales));
         Assert.Equal(new InvoiceNumberSeries("77", "U"), lookup.For(otherPurchase));
         Assert.Equal(new InvoiceNumberSeries("294", "3"), lookup.For(noContractByOrigin));
         Assert.Equal(InvoiceNumberSeries.Empty, lookup.For(provisional));
+        Assert.Equal(InvoiceNumberSeries.Empty, lookup.For(advance));
+        Assert.Equal(new InvoiceNumberSeries("77", "U"), lookup.For(otherByOrigin));
+        Assert.Equal(InvoiceNumberSeries.Empty, lookup.For(lineKeyTrap));
+        Assert.Equal(new InvoiceNumberSeries("77", "U"), lookup.For(withholding));
         Assert.Equal(InvoiceNumberSeries.Empty, lookup.For(noNumber));
         Assert.Equal(InvoiceNumberSeries.Empty, lookup.For(missing));
         Assert.Equal(("", ""), (InvoiceNumberSeries.Empty.Number, InvoiceNumberSeries.Empty.Series));
