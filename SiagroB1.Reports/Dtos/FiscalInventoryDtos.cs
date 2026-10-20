@@ -1,6 +1,6 @@
 namespace SiagroB1.Reports.Dtos;
 
-/// <summary>Filtros do Inventário em Data: filial e data obrigatórias (inclusiva), produto opcional.</summary>
+/// <summary>Filtros do Inventário em Data: filial e data obrigatórias (inclusiva), produtos opcionais.</summary>
 public class FiscalInventoryRequest
 {
     public string BranchCode { get; set; } = string.Empty;
@@ -8,8 +8,8 @@ public class FiscalInventoryRequest
     /// <summary>Posição do estoque ao fim deste dia (mesmo corte do "até" do Kardex Fiscal).</summary>
     public DateTime Date { get; set; }
 
-    /// <summary>Produto; vazio = todos com saldo.</summary>
-    public string? ItemCode { get; set; }
+    /// <summary>Produtos selecionados; nulo ou vazio = todos com saldo.</summary>
+    public List<string>? ItemCodes { get; set; }
 }
 
 public class FiscalInventoryRowDto
@@ -37,7 +37,7 @@ public class FiscalInventoryData
     public List<string> PendingComplementItems { get; set; } = [];
 }
 
-/// <summary>Livro de Registro de Inventário (modelo 7): sempre da filial inteira.</summary>
+/// <summary>Livro de Registro de Inventário (modelo 7) da filial, só dos produtos selecionados (vazio = todos).</summary>
 public class FiscalInventoryBookRequest
 {
     public string BranchCode { get; set; } = string.Empty;
@@ -46,6 +46,9 @@ public class FiscalInventoryBookRequest
 
     /// <summary>Número da folha do termo de abertura; as demais seguem em sequência.</summary>
     public int FirstSheet { get; set; } = 1;
+
+    /// <summary>Produtos selecionados; nulo ou vazio = todos com saldo.</summary>
+    public List<string>? ItemCodes { get; set; }
 }
 
 /// <summary>Linha do livro, com os textos já formatados em pt-BR (o FastReport só imprime).</summary>

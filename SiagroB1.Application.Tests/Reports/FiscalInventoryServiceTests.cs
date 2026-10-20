@@ -121,11 +121,41 @@ public class FiscalInventoryServiceTests
         db.Context.FiscalInventoryOpeningBalances.Add(Opening(2m, 20m, Sep30, "B"));
         await Save(db);
 
-        var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10, ItemCode = "B" });
+        var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10, ItemCodes = ["B"] });
 
         var row = Assert.Single(data.Rows);
         Assert.Equal("B", row.ItemCode);
         Assert.Equal(20m, data.TotalValue);
+    }
+
+    [Fact]
+    public async Task Build_ItemCodesRestrict()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(1m, 10m, Sep30, "A"));
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(2m, 20m, Sep30, "B"));
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(3m, 30m, Sep30, "C"));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10, ItemCodes = ["A", "C"] });
+
+        Assert.Equal(["A", "C"], data.Rows.Select(r => r.ItemCode));
+        Assert.Equal(40m, data.TotalValue);
+    }
+
+    [Fact]
+    public async Task Build_EmptyItemCodesMeansAll()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(1m, 10m, Sep30, "A"));
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(2m, 20m, Sep30, "B"));
+        await Save(db);
+
+        var empty = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10, ItemCodes = [] });
+        var none = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10, ItemCodes = null });
+
+        Assert.Equal(["A", "B"], empty.Rows.Select(r => r.ItemCode));
+        Assert.Equal(["A", "B"], none.Rows.Select(r => r.ItemCode));
     }
 
     private static FiscalInventoryOpeningBalance Opening(decimal qty, decimal value, DateTime date, string itemCode = "10001") => new()

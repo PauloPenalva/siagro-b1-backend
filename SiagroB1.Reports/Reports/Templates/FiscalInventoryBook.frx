@@ -13,7 +13,6 @@
       <Column Name="NcmGroupTotal" DataType="System.Decimal"/>
       <Column Name="NcmGroupTotalText" DataType="System.String"/>
     </BusinessObjectDataSource>
-    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
     <Parameter Name="pLegalName" DataType="System.String" AsString=""/>
     <Parameter Name="pTaxId" DataType="System.String" AsString=""/>
     <Parameter Name="pStateRegistration" DataType="System.String" AsString=""/>
@@ -34,7 +33,7 @@
       <TextObject Name="txtSheetOpening" Left="518.2" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
       <TextObject Name="txtOpeningTitle" Top="80" Width="718.2" Height="30" Text="TERMO DE ABERTURA" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
       <TextObject Name="txtOpeningSubtitle" Top="115" Width="718.2" Height="22" Text="REGISTRO DE INVENTÁRIO - MODELO 7 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
-      <TextObject Name="txtOpeningTerm" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e servirá para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtOpeningTerm" CanGrow="true" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e servirá para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
       <TextObject Name="txtOpeningCityDate" Left="40" Top="380" Width="638.2" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
       <TextObject Name="txtOpeningSign1" Left="40" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
       <TextObject Name="txtOpeningSign2" Left="398.2" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>
@@ -60,14 +59,14 @@
       <TextObject Name="hdrValue" Left="528" Top="100" Width="90" Height="30" Border.Lines="Top, Bottom" Text="Parcial" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
       <TextObject Name="hdrNcmTotal" Left="618.2" Top="100" Width="100" Height="30" Border.Lines="Top, Bottom" Text="Total" HorzAlign="Right" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
     </PageHeaderBand>
-    <DataBand Name="Data1" Top="136" Width="718.2" Height="15" DataSource="Rows">
-      <TextObject Name="txtNcm" Width="70" Height="15" Text="[Rows.Ncm]" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtDescription" Left="70" Width="245" Height="15" Text="[Rows.Description]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtQuantity" Left="315" Width="85" Height="15" Text="[Rows.QuantityText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtUnit" Left="400" Width="38" Height="15" Text="[Rows.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtUnitCost" Left="438" Width="90" Height="15" Text="[Rows.UnitCostText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtValue" Left="528" Width="90" Height="15" Text="[Rows.ValueText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
-      <TextObject Name="txtNcmTotal" Left="618.2" Width="100" Height="15" Text="[Rows.NcmGroupTotalText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+    <DataBand Name="Data1" Top="136" Width="718.2" Height="15" CanGrow="true" CanShrink="true" DataSource="Rows">
+      <TextObject Name="txtNcm" GrowToBottom="true" Width="70" Height="15" Text="[Rows.Ncm]" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtDescription" Left="70" Width="245" Height="15" Text="[Rows.Description]" CanGrow="true" VertAlign="Center" Font="Arial, 7pt"/>
+      <TextObject Name="txtQuantity" GrowToBottom="true" Left="315" Width="85" Height="15" Text="[Rows.QuantityText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtUnit" GrowToBottom="true" Left="400" Width="38" Height="15" Text="[Rows.UnitOfMeasureCode]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtUnitCost" GrowToBottom="true" Left="438" Width="90" Height="15" Text="[Rows.UnitCostText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtValue" GrowToBottom="true" Left="528" Width="90" Height="15" Text="[Rows.ValueText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt"/>
+      <TextObject Name="txtNcmTotal" GrowToBottom="true" Left="618.2" Width="100" Height="15" Text="[Rows.NcmGroupTotalText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
     </DataBand>
     <ReportSummaryBand Name="ReportSummary1" Top="155" Width="718.2" Height="22">
       <TextObject Name="txtGrandTotalLabel" Left="418.2" Top="2" Width="200" Height="18" Border.Lines="Top" Text="Total geral" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
@@ -85,7 +84,7 @@
       <TextObject Name="txtSheetClosing" Left="518.2" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
       <TextObject Name="txtClosingTitle" Top="80" Width="718.2" Height="30" Text="TERMO DE ENCERRAMENTO" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
       <TextObject Name="txtClosingSubtitle" Top="115" Width="718.2" Height="22" Text="REGISTRO DE INVENTÁRIO - MODELO 7 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
-      <TextObject Name="txtClosingTerm" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e serviu para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtClosingTerm" CanGrow="true" Left="40" Top="180" Width="638.2" Height="160" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e serviu para o lançamento do Registro de Inventário existente em [pInventoryDate] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
       <TextObject Name="txtClosingCityDate" Left="40" Top="380" Width="638.2" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
       <TextObject Name="txtClosingSign1" Left="40" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
       <TextObject Name="txtClosingSign2" Left="398.2" Top="520" Width="280" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>

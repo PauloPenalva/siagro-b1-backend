@@ -189,6 +189,59 @@ public class FiscalInventoryBookTests : IDisposable
         Assert.All(rows, r => Assert.Equal("", r.NcmGroupTotalText));
     }
 
+    [Fact]
+    public async Task Book_OnlySelectedItems()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        await Seed(db, items: 5);
+
+        var request = Request();
+        request.ItemCodes = ["P002", "P004"];
+        using var report = await Service(db).PrepareBookAsync(request);
+
+        Assert.Equal(["P002 - PRODUTO P002", "P004 - PRODUTO P004"], Texts(report, 1, "txtDescription"));
+        Assert.Equal(Money(2 * 10.37m + 0.01m + 4 * 10.37m + 0.01m), Text(report, report.PreparedPages.Count - 2, "txtGrandTotal"));
+    }
+
+    [Fact]
+    public async Task Book_LongDescriptionWrapsAndCarryForwardStillMatches()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        await Seed(db, items: 130);
+        var longName = "SOJA EM GRÃOS TIPO EXPORTAÇÃO SAFRA 2025/2026 PADRÃO OFICIAL COM UMIDADE MÁXIMA DE 14% IMPUREZAS ATÉ 1% E AVARIADOS ATÉ 8% ARMAZÉM GERAL BR 163";
+        Assert.True(longName.Length >= 140);
+        // produtos perto da virada da 1ª página do inventário
+        for (var i = 30; i <= 50; i++)
+        {
+            var item = db.Context.Items.Single(x => x.ItemCode == $"P{i:000}");
+            item.ItemName = longName;
+            var opening = db.Context.FiscalInventoryOpeningBalances.Single(x => x.ItemCode == $"P{i:000}");
+            opening.ItemName = longName;
+        }
+        await Save(db);
+
+        using var report = await Service(db).PrepareBookAsync(Request());
+        var count = report.PreparedPages.Count;
+        var running = 0m;
+        var fullTextFound = false;
+        for (var page = 1; page <= count - 2; page++)
+        {
+            var carryIn = Text(report, page, "txtCarryIn");
+            Assert.Equal(page == 1 ? "" : Money(running), carryIn);
+            running += Texts(report, page, "txtValue").Select(t => decimal.Parse(t, PtBr)).Sum();
+            Assert.Equal(page == count - 2 ? "" : Money(running), Text(report, page, "txtCarryOut"));
+
+            var descriptions = report.PreparedPages.GetPage(page).AllObjects.OfType<TextObject>()
+                .Where(t => t.Name == "txtDescription" && t.Text.Contains(longName, StringComparison.Ordinal)).ToList();
+            if (descriptions.Count > 0)
+            {
+                fullTextFound = true;
+                Assert.All(descriptions, d => Assert.True(d.WordWrap && d.Height > 20f, $"altura {d.Height}"));
+            }
+        }
+        Assert.True(fullTextFound);
+    }
+
     // ---- apoio ----
 
     private static string Money(decimal value) => value.ToString("N2", PtBr);

@@ -20,8 +20,12 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
     public async Task<FiscalInventoryData> BuildAsync(FiscalInventoryRequest request)
     {
         var date = request.Date.Date;
-        var itemCode = string.IsNullOrWhiteSpace(request.ItemCode) ? null : request.ItemCode;
-        var items = await kardex.OpenLayersAsync(request.BranchCode, itemCode, date);
+        var selected = (request.ItemCodes ?? []).Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToHashSet(StringComparer.Ordinal);
+        // um produto só: o Kardex já filtra na consulta; vários: carrega a filial e filtra aqui
+        var items = await kardex.OpenLayersAsync(request.BranchCode, selected.Count == 1 ? selected.Single() : null, date);
+        if (selected.Count > 1)
+            items = items.Where(i => selected.Contains(i.ItemCode)).ToList();
 
         var codes = items.Select(x => x.ItemCode).ToList();
         var ncms = await db.Context.Items
@@ -90,7 +94,7 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
         if (missing.Count > 0)
             throw new BusinessException($"Complete o cadastro da filial antes de imprimir: {string.Join(", ", missing)}.");
 
-        var rows = await BookRowsAsync(request.BranchCode, request.Date);
+        var rows = await BookRowsAsync(request.BranchCode, request.Date, request.ItemCodes);
         if (rows.Count == 0)
             throw new BusinessException("Não há saldo a inventariar nesta data.");
 
@@ -117,9 +121,10 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
     /// Linhas do livro na ordem da grade, com o subtotal do NCM na última linha de cada NCM.
     /// Complemento de valor pendente fica de fora (já não entra no valor da linha).
     /// </summary>
-    public async Task<List<FiscalInventoryBookRowDto>> BookRowsAsync(string branchCode, DateTime date)
+    public async Task<List<FiscalInventoryBookRowDto>> BookRowsAsync(string branchCode, DateTime date,
+        List<string>? itemCodes = null)
     {
-        var data = await BuildAsync(new FiscalInventoryRequest { BranchCode = branchCode, Date = date });
+        var data = await BuildAsync(new FiscalInventoryRequest { BranchCode = branchCode, Date = date, ItemCodes = itemCodes });
         var rows = data.Rows.Select(r => new FiscalInventoryBookRowDto
         {
             Ncm = r.Ncm,
