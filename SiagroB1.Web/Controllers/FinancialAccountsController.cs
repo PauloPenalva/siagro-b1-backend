@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OData.Deltas;
+using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.Financials;
@@ -42,6 +44,19 @@ public class FinancialAccountsController(
         try
         {
             await updateService.ExecuteAsync(key, entity);
+            return NoContent();
+        }
+        catch (Exception e) { return Map(e); }
+    }
+
+    // A tela (OData V4 do UI5) grava com PATCH; sem esta action o roteamento devolvia 404.
+    public async Task<IActionResult> Patch([FromODataUri] string key, [FromBody] Delta<FinancialAccount> patch)
+    {
+        if (patch is null) return BadRequest("Corpo da requisição inválido.");
+
+        try
+        {
+            await updateService.ExecuteAsync(key, account => patch.Patch(account));
             return NoContent();
         }
         catch (Exception e) { return Map(e); }
