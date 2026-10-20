@@ -78,5 +78,6 @@ SPED H005/H010; valor para fins de IR (H020); assinatura digital do PDF; modo SA
    casas (só exibição). Grade, Excel e livro mostram o mesmo valor; o total geral é a soma das linhas.
 7. **Quantidade negativa**: quantidade negativa, custo unitário em branco, valor = Σ camadas (em geral
    0,00); entra no total geral.
-8. **Filtro de produto** vale só para a grade; com produto preenchido o botão "Imprimir livro" fica
-   desabilitado (o livro é sempre da filial inteira).
+8. **Seleção de produtos** (decisão do usuário 20/10, como o MATR460 do Protheus): a tela tem seleção
+   de vários produtos; ela vale para a grade **e para o livro** (o livro sai só com os produtos
+   escolhidos; vazio = todos). A tela lembra a última seleção de cada usuário.
