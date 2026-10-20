@@ -38,8 +38,10 @@ public class FinancialPortfolioReportService(IUnitOfWork db, IFastReportService 
         var cardCode = string.IsNullOrWhiteSpace(request.CardCode) ? null : request.CardCode.Trim();
 
         var position = await FinancialPositionQuery.LoadAsync(db.Context,
-            new FinancialPositionFilter(request.Direction, cardCode, baseDate), request.Mode, CancellationToken.None);
+            new FinancialPositionFilter(request.Direction, cardCode, baseDate, from, baseDate), request.Mode, CancellationToken.None);
 
+        // Filtros repetidos de propósito: a expansão do grupo de composição traz documentos de outro parceiro, de outra
+        // direção ou fora do período, que entram no cálculo mas não na carteira.
         var titles = position.Titles
             .Where(t => t.Document.Direction == request.Direction
                         && (cardCode is null || t.Document.CardCode == cardCode)

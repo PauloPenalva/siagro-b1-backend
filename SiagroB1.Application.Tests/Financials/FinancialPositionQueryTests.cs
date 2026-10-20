@@ -68,4 +68,35 @@ public class FinancialPositionQueryTests
         Assert.Equal(200m, title.Amount);
         Assert.Equal(50m, title.OpenAtBase);
     }
+
+    [Fact]
+    public async Task Out_of_period_firm_composed_in_same_provisional_is_still_loaded()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("C1", FinancialDirection.Payable, FinancialDocumentNature.Provisional, 200m);
+        var inPeriod = Doc("C1", FinancialDirection.Payable);
+        inPeriod.DueDate = new DateTime(2026, 10, 20);
+        var outOfPeriod = Doc("C1", FinancialDirection.Payable);
+        outOfPeriod.DueDate = new DateTime(2026, 10, 5);
+        db.Context.FinancialDocuments.AddRange(provisional, inPeriod, outOfPeriod);
+        db.Context.FinancialSettlements.AddRange(
+            Offset(inPeriod, provisional, 100m), Offset(outOfPeriod, provisional, 100m),
+            new FinancialSettlement
+            {
+                Key = Guid.NewGuid(), FinancialDocumentKey = provisional.Key, Amount = 100m,
+                SettlementDate = new DateTime(2026, 10, 6), Origin = FinancialSettlementOrigin.Manual
+            });
+        await db.Context.SaveChangesAsync();
+
+        var position = await FinancialPositionQuery.LoadAsync(db.Context,
+            new FinancialPositionFilter(FinancialDirection.Payable, "C1", new DateTime(2026, 10, 31),
+                new DateTime(2026, 10, 15), new DateTime(2026, 10, 31)),
+            FinancialPositionMode.Firm, CancellationToken.None);
+
+        // O firme de vencimento anterior (fora do período) absorve o pagamento primeiro.
+        var byKey = position.Titles.ToDictionary(t => t.Document.Key);
+        Assert.Equal(100m, byKey[outOfPeriod.Key].SettledAtBase);
+        Assert.Equal(0m, byKey[inPeriod.Key].SettledAtBase);
+        Assert.Equal(100m, byKey[inPeriod.Key].OpenAtBase);
+    }
 }

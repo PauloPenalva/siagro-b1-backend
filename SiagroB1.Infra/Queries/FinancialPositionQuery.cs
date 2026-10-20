@@ -6,7 +6,10 @@ namespace SiagroB1.Infra.Queries;
 
 /// <param name="Direction">Nulo: as duas direções.</param>
 /// <param name="CardCode">Nulo: todos os parceiros.</param>
-public sealed record FinancialPositionFilter(FinancialDirection? Direction, string? CardCode, DateTime BaseDate);
+/// <param name="DueDateFrom">Opcional: só restringe a SELEÇÃO; o grupo de composição traz membros fora do período.</param>
+/// <param name="DueDateTo">Idem.</param>
+public sealed record FinancialPositionFilter(FinancialDirection? Direction, string? CardCode, DateTime BaseDate,
+    DateTime? DueDateFrom = null, DateTime? DueDateTo = null);
 
 /// <summary>
 /// Carrega do banco o que o <see cref="FinancialPositionCalculator"/> precisa e o chama. Depois de selecionar por direção
@@ -19,7 +22,20 @@ public static class FinancialPositionQuery
     public static async Task<FinancialPosition> LoadAsync(AppDbContext ctx, FinancialPositionFilter f,
         FinancialPositionMode mode, CancellationToken ct)
     {
-        var query = ctx.FinancialDocuments.AsNoTracking().AsQueryable();
+        // Pré-filtro só da seleção (evita ler a tabela inteira); a expansão abaixo não usa estes filtros.
+        var dayAfterBase = f.BaseDate.Date.AddDays(1);
+        var query = ctx.FinancialDocuments.AsNoTracking()
+            .Where(d => d.Status != FinancialDocumentStatus.Canceled && d.DocumentDate < dayAfterBase);
+        if (f.DueDateFrom is { } dueFrom)
+        {
+            var from = dueFrom.Date;
+            query = query.Where(d => d.DueDate >= from);
+        }
+        if (f.DueDateTo is { } dueTo)
+        {
+            var toExclusive = dueTo.Date.AddDays(1);
+            query = query.Where(d => d.DueDate < toExclusive);
+        }
         if (f.Direction is { } direction) query = query.Where(d => d.Direction == direction);
         if (!string.IsNullOrWhiteSpace(f.CardCode))
         {
