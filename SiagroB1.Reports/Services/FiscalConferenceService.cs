@@ -3,6 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
+using SiagroB1.Reports.Services.Fiscal;
 
 namespace SiagroB1.Reports.Services;
 
@@ -12,13 +13,6 @@ namespace SiagroB1.Reports.Services;
 /// </summary>
 public class FiscalConferenceService(IUnitOfWork db)
 {
-    /// <summary>NF-e que não vale como documento escriturável.</summary>
-    private static readonly NfeStatus[] VoidNfeStatuses = [NfeStatus.Cancelled, NfeStatus.Denied, NfeStatus.Voided];
-
-    private static readonly InvoiceStatus[] BookableStatuses = [InvoiceStatus.Confirmed, InvoiceStatus.Returned];
-
-    private static readonly TaxDocumentKind[] BookableKinds = [TaxDocumentKind.Nfe, TaxDocumentKind.Other];
-
     public async Task<FiscalConferenceData> BuildAsync(FiscalConferenceRequest request)
     {
         var (included, unauthorized) = await LoadLinesAsync(request);
@@ -45,16 +39,10 @@ public class FiscalConferenceService(IUnitOfWork db)
         var toExclusive = from.AddMonths(1);
         var branch = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode;
 
-        IQueryable<PurchaseInvoiceItem> Bookable() => db.Context.PurchaseInvoicesItems
-            .AsNoTracking()
-            .Include(i => i.PurchaseInvoice)
-            .Where(i => i.PurchaseInvoice != null)
+        IQueryable<PurchaseInvoiceItem> Bookable() => BookableInvoiceLines.Purchases(db.Context.PurchaseInvoicesItems
+                .AsNoTracking()
+                .Include(i => i.PurchaseInvoice))
             .Where(i => i.PurchaseInvoice!.IssueDate >= from && i.PurchaseInvoice.IssueDate < toExclusive)
-            .Where(i => BookableStatuses.Contains(i.PurchaseInvoice!.InvoiceStatus))
-            .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus))
-            .Where(i => i.PurchaseInvoice!.IssuerType != DocumentIssuerType.Own
-                     || i.PurchaseInvoice.TaxDocumentKind != TaxDocumentKind.Nfe
-                     || i.PurchaseInvoice.NfeStatus == NfeStatus.Authorized)
             .Where(i => branch == null || i.PurchaseInvoice!.BranchCode == branch);
 
         var origins = await Bookable()
@@ -254,50 +242,33 @@ public class FiscalConferenceService(IUnitOfWork db)
         var toExclusive = from.AddMonths(1);
         var branch = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode;
 
-        var sales = db.Context.SalesInvoicesItems
+        IQueryable<SalesInvoiceItem> SalesOfPeriod() => db.Context.SalesInvoicesItems
             .AsNoTracking()
             .Include(i => i.SalesInvoice)
             .Where(i => i.SalesInvoice != null)
-            .Where(i => i.SalesInvoice!.InvoiceStatus != null && BookableStatuses.Contains(i.SalesInvoice.InvoiceStatus.Value))
-            .Where(i => !i.SalesInvoice!.WithoutTaxDocument)
-            .Where(i => BookableKinds.Contains(i.SalesInvoice!.TaxDocumentKind))
-            .Where(i => !VoidNfeStatuses.Contains(i.SalesInvoice!.NfeStatus))
-            .Where(i => i.SalesInvoice!.InvoiceDate >= from && i.SalesInvoice.InvoiceDate < toExclusive);
+            .Where(i => i.SalesInvoice!.InvoiceDate >= from && i.SalesInvoice.InvoiceDate < toExclusive)
+            .Where(i => branch == null || i.SalesInvoice!.BranchCode == branch);
 
-        var purchases = db.Context.PurchaseInvoicesItems
+        IQueryable<PurchaseInvoiceItem> PurchasesOfPeriod() => db.Context.PurchaseInvoicesItems
             .AsNoTracking()
             .Include(i => i.PurchaseInvoice)
             .Where(i => i.PurchaseInvoice != null)
-            .Where(i => BookableStatuses.Contains(i.PurchaseInvoice!.InvoiceStatus))
-            .Where(i => BookableKinds.Contains(i.PurchaseInvoice!.TaxDocumentKind))
-            .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus))
             .Where(i => (i.PurchaseInvoice!.PostingDate ?? i.PurchaseInvoice.IssueDate) >= from
-                     && (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive);
-
-        if (branch is not null)
-        {
-            sales = sales.Where(i => i.SalesInvoice!.BranchCode == branch);
-            purchases = purchases.Where(i => i.PurchaseInvoice!.BranchCode == branch);
-        }
+                     && (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive)
+            .Where(i => branch == null || i.PurchaseInvoice!.BranchCode == branch);
 
         var included = new List<FiscalDocumentLineDto>();
         var unauthorized = new List<FiscalDocumentLineDto>();
 
-        foreach (var item in await sales.ToListAsync())
-        {
-            var invoice = item.SalesInvoice!;
-            var notAuthorized = invoice.TaxDocumentKind == TaxDocumentKind.Nfe && invoice.NfeStatus != NfeStatus.Authorized;
-            (notAuthorized ? unauthorized : included).Add(SaleLine(item, invoice));
-        }
+        foreach (var item in await BookableInvoiceLines.Sales(SalesOfPeriod()).ToListAsync())
+            included.Add(SaleLine(item, item.SalesInvoice!));
+        foreach (var item in await BookableInvoiceLines.UnauthorizedOwnSales(SalesOfPeriod()).ToListAsync())
+            unauthorized.Add(SaleLine(item, item.SalesInvoice!));
 
-        foreach (var item in await purchases.ToListAsync())
-        {
-            var invoice = item.PurchaseInvoice!;
-            var notAuthorized = invoice.IssuerType == DocumentIssuerType.Own
-                && invoice.TaxDocumentKind == TaxDocumentKind.Nfe
-                && invoice.NfeStatus != NfeStatus.Authorized;
-            (notAuthorized ? unauthorized : included).Add(PurchaseLine(item, invoice));
-        }
+        foreach (var item in await BookableInvoiceLines.Purchases(PurchasesOfPeriod()).ToListAsync())
+            included.Add(PurchaseLine(item, item.PurchaseInvoice!));
+        foreach (var item in await BookableInvoiceLines.UnauthorizedOwnPurchases(PurchasesOfPeriod()).ToListAsync())
+            unauthorized.Add(PurchaseLine(item, item.PurchaseInvoice!));
 
         return (Sort(included), Sort(unauthorized));
     }
