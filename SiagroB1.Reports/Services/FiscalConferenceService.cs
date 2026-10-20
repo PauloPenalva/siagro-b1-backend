@@ -12,9 +12,6 @@ namespace SiagroB1.Reports.Services;
 /// </summary>
 public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportService funrural)
 {
-    // Reservado para a aba R-2055 (Task 4).
-    private readonly FunruralWithholdingReportService _funrural = funrural;
-
     /// <summary>NF-e que não vale como documento escriturável.</summary>
     private static readonly NfeStatus[] VoidNfeStatuses = [NfeStatus.Cancelled, NfeStatus.Denied, NfeStatus.Voided];
 
@@ -32,9 +29,75 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
             Summary = BuildSummary(included),
             Assessment = assessment,
             AssessmentTotals = totals,
+            R2055 = await BuildR2055Async(request),
             Issues = BuildIssues(included, unauthorized),
         };
     }
+
+    /// <summary>
+    /// Prévia do R-2055: Funrural retido no mês por produtor. Reaproveita o relatório de Funrural
+    /// (mesma fonte e mesmo abatimento das devoluções), somando só Item e Return — o Net repetiria.
+    /// </summary>
+    private async Task<List<R2055ProducerRowDto>> BuildR2055Async(FiscalConferenceRequest request)
+    {
+        var from = new DateTime(request.Year, request.Month, 1);
+        var data = await funrural.BuildAsync(new FunruralWithholdingRequest
+        {
+            FromDate = from,
+            ToDate = from.AddMonths(1).AddDays(-1),
+            BranchCode = string.IsNullOrWhiteSpace(request.BranchCode) ? null : request.BranchCode,
+        });
+
+        var totals = data.Rows
+            .Where(r => r.Kind is FunruralRowKind.Item or FunruralRowKind.Return)
+            .GroupBy(r => r.CardCode)
+            .Select(g => (CardCode: g.Key,
+                Name: PartnerName(g.First(r => r.Kind == FunruralRowKind.Item).Partner, g.Key),
+                Amounts: new FunruralAmounts(g.Sum(r => r.Base), g.Sum(r => r.InssValue), g.Sum(r => r.RatValue), g.Sum(r => r.SenarValue))))
+            .ToList();
+
+        var codes = totals.Select(t => t.CardCode).ToArray();
+        var partners = await db.Context.BusinessPartners
+            .AsNoTracking()
+            .Where(p => codes.Contains(p.CardCode))
+            .ToDictionaryAsync(p => p.CardCode);
+
+        return totals
+            .Select(t =>
+            {
+                partners.TryGetValue(t.CardCode, out var partner);
+                return new R2055ProducerRowDto
+                {
+                    CardCode = t.CardCode,
+                    CardName = partner?.CardName ?? t.Name,
+                    TaxId = !string.IsNullOrWhiteSpace(partner?.RuralProducerCpf) ? partner!.RuralProducerCpf! : partner?.TaxId ?? "",
+                    ProducerType = ProducerTypeText(partner?.RuralProducerType),
+                    Base = t.Amounts.Base,
+                    Inss = t.Amounts.InssValue,
+                    Rat = t.Amounts.RatValue,
+                    Senar = t.Amounts.SenarValue,
+                    Total = t.Amounts.Total,
+                };
+            })
+            .OrderBy(r => r.CardName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(r => r.CardCode, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>Tira o prefixo "(código) " do texto do parceiro; sem nome sobra o código.</summary>
+    private static string PartnerName(string partner, string cardCode)
+    {
+        var prefix = $"({cardCode}) ";
+        return partner.StartsWith(prefix, StringComparison.Ordinal) ? partner[prefix.Length..] : partner;
+    }
+
+    private static string ProducerTypeText(RuralProducerType? type) => type switch
+    {
+        RuralProducerType.Individual => "Pessoa física",
+        RuralProducerType.SpecialInsured => "Segurado especial",
+        RuralProducerType.LegalEntity => "Pessoa jurídica",
+        _ => "",
+    };
 
     private const string RuleNoCfop = "Item sem CFOP";
     private const string RuleNoCst = "Item sem CST de ICMS";

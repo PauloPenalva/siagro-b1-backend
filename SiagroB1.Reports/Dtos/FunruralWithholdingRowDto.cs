@@ -23,6 +23,9 @@ public class FunruralWithholdingRowDto
     public string InternalNumber { get; set; } = "";
     public string DocumentNumber { get; set; } = "";
     public string Partner { get; set; } = "";
+
+    /// <summary>Código do produtor da linha de origem (a devolução e o líquido herdam o do item).</summary>
+    public string CardCode { get; set; } = "";
     public string Description { get; set; } = "";
     public decimal Base { get; set; }
     public string InssRate { get; set; } = "";

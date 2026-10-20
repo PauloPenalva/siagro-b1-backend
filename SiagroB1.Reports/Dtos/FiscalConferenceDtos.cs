@@ -83,7 +83,23 @@ public class IcmsAssessmentTotalsDto
     public decimal Balance { get; set; }
 }
 
-public class R2055ProducerRowDto;
+/// <summary>Prévia do R-2055: Funrural retido do mês somado por produtor, já líquido das devoluções.</summary>
+public class R2055ProducerRowDto
+{
+    public string CardCode { get; set; } = "";
+    public string CardName { get; set; } = "";
+
+    /// <summary>CPF do produtor (RuralProducerCpf) quando houver, senão o CPF/CNPJ do cadastro.</summary>
+    public string TaxId { get; set; } = "";
+
+    /// <summary>Enquadramento do produtor em pt-BR; vazio sem cadastro ou sem tipo.</summary>
+    public string ProducerType { get; set; } = "";
+    public decimal Base { get; set; }
+    public decimal Inss { get; set; }
+    public decimal Rat { get; set; }
+    public decimal Senar { get; set; }
+    public decimal Total { get; set; }
+}
 
 /// <summary>Uma inconsistência: documento, item (nulo quando vale para o documento todo) e regra violada.</summary>
 public class FiscalIssueDto

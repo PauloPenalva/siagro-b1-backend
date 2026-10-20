@@ -285,6 +285,63 @@ public class FiscalConferenceServiceTests
     private static async Task<List<FiscalIssueDto>> IssuesOf(IUnitOfWork db, string rule) =>
         (await Service(db).BuildAsync(Request())).Issues.Where(i => i.Rule == rule).ToList();
 
+    [Fact]
+    public async Task Build_R2055GroupsByProducer()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("A1", cardCode: "F001", cardName: "ZE", items: Withheld(1000m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A2", cardCode: "F001", cardName: "ZE", items: Withheld(500m)));
+        db.Context.PurchaseInvoices.Add(Purchase("B1", cardCode: "F002", cardName: "ANA", items: Withheld(200m)));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Request())).R2055;
+
+        Assert.Equal(new[] { "F002", "F001" }, rows.Select(r => r.CardCode));
+        var ze = rows.Single(r => r.CardCode == "F001");
+        Assert.Equal((1500m, 18m, 1.5m, 3m, 22.5m), (ze.Base, ze.Inss, ze.Rat, ze.Senar, ze.Total));
+        Assert.Equal(200m, rows.Single(r => r.CardCode == "F002").Base);
+    }
+
+    [Fact]
+    public async Task Build_R2055DeductsReturns()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 7, 20), origin, 400m));
+        await Save(db);
+
+        var row = (await Service(db).BuildAsync(Request())).R2055.Single();
+
+        Assert.Equal("F001", row.CardCode);
+        Assert.Equal((600m, 7.20m), (row.Base, row.Inss));
+    }
+
+    [Fact]
+    public async Task Build_R2055UsesRuralProducerCpfWhenPresent()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.BusinessPartners.Add(new BusinessPartner
+        {
+            CardCode = "F001", CardName = "ZE", TaxId = "12345678000195",
+            RuralProducerCpf = "11122233344", RuralProducerType = RuralProducerType.SpecialInsured,
+        });
+        db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "F002", CardName = "ANA", TaxId = "99988877766" });
+        db.Context.PurchaseInvoices.Add(Purchase("A1", cardCode: "F001", items: Withheld(1000m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A2", cardCode: "F002", items: Withheld(1000m)));
+        db.Context.PurchaseInvoices.Add(Purchase("A3", cardCode: "F003", items: Withheld(1000m)));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(Request())).R2055;
+
+        var withCpf = rows.Single(r => r.CardCode == "F001");
+        Assert.Equal(("11122233344", "Segurado especial"), (withCpf.TaxId, withCpf.ProducerType));
+        var noCpf = rows.Single(r => r.CardCode == "F002");
+        Assert.Equal(("99988877766", ""), (noCpf.TaxId, noCpf.ProducerType));
+        var missing = rows.Single(r => r.CardCode == "F003");
+        Assert.Equal(("", ""), (missing.TaxId, missing.ProducerType));
+    }
+
     private static PurchaseInvoiceItem CleanPurchaseLine(string? cfop = "1101")
     {
         var line = PurchaseLine(cfop);
