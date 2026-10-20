@@ -140,9 +140,8 @@ public class FinancialPortfolioReportServiceTests : IDisposable
         var pdf = await new FinancialPortfolioReportService(db, FastReport()).ExecuteAsync(Request());
 
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
-        var folder = Path.Combine(Path.GetTempPath(), "siagro-portfolio-reports");
-        Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "FinancialPortfolio.pdf"), pdf);
+        // Amostra só sob demanda (SIAGRO_WRITE_SAMPLE_PDF=1): o teste não deixa lixo no %TEMP%.
+        ReportSample.WriteIfRequested("siagro-portfolio-reports", "FinancialPortfolio.pdf", pdf);
     }
 
     private FastReportService FastReport()

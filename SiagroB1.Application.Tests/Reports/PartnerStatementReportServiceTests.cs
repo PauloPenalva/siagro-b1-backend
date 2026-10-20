@@ -269,9 +269,8 @@ public class PartnerStatementReportServiceTests : IDisposable
         var pdf = await new PartnerStatementReportService(db, FastReport()).ExecuteAsync(Request());
 
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
-        var folder = Path.Combine(Path.GetTempPath(), "siagro-partner-statement-reports");
-        Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "PartnerStatement.pdf"), pdf);
+        // Amostra só sob demanda (SIAGRO_WRITE_SAMPLE_PDF=1): o teste não deixa lixo no %TEMP%.
+        ReportSample.WriteIfRequested("siagro-partner-statement-reports", "PartnerStatement.pdf", pdf);
     }
 
     private FastReportService FastReport()
