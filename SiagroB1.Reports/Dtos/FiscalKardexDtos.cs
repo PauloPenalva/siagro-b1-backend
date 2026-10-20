@@ -11,6 +11,12 @@ public class FiscalInventoryItemLayers
 
     /// <summary>Chave da camada = linha de nota que a criou, ou a chave do saldo inicial.</summary>
     public List<FifoLayer> Layers { get; set; } = [];
+
+    /// <summary>Quantidade em saldo negativo (saiu sem camada). Saldo = Σ camadas − Deficit.</summary>
+    public decimal Deficit { get; set; }
+
+    /// <summary>Complemento de valor sem camada aberta, fora do saldo até a próxima entrada.</summary>
+    public decimal PendingValue { get; set; }
 }
 
 /// <summary>Filtros do Kardex Fiscal: filial obrigatória, produto opcional, período inclusivo em dias.</summary>

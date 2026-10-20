@@ -362,6 +362,70 @@ public class FiscalKardexServiceTests
         Assert.Equal("Custo da venda de origem não encontrado", line.Warning);
     }
 
+    [Fact]
+    public async Task OpenLayers_MatchesKardexClosing_WithNegativeBalance()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sell("V1", Oct05, 10m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+        var layers = Assert.Single(await Service(db).OpenLayersAsync("01", null, new DateTime(2026, 10, 31)));
+
+        Assert.Equal(-10m, item.ClosingQuantity);
+        Assert.Equal(0m, item.ClosingValue);
+        Assert.Empty(layers.Layers);
+        Assert.Equal(10m, layers.Deficit);
+        Assert.Equal(0m, layers.PendingValue);
+        Assert.Equal(item.ClosingQuantity, layers.Layers.Sum(l => l.Quantity) - layers.Deficit);
+    }
+
+    [Fact]
+    public async Task Build_SalesSideEntryWithoutOrigin_WarnsInvoicePrice()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sell("RE", Oct05, 2m, cfop: "1949"));
+        await Save(db);
+
+        var line = Assert.Single(Assert.Single((await Service(db).BuildAsync(October())).Items).Lines);
+
+        Assert.Equal("Entrada", line.Kind);
+        Assert.Equal(400m, line.ValueIn);
+        Assert.Equal(UnlinkedEntryWarning, line.Warning);
+    }
+
+    [Theory]
+    [InlineData("1949", UnlinkedEntryWarning)]
+    [InlineData("2906", UnlinkedEntryWarning)]
+    [InlineData("1102", null)]
+    public async Task Build_PurchaseRemittanceEntryWithoutOrigin_Warns(string cfop, string? warning)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Buy("C1", Oct05, 10m, 100m, cfop: cfop));
+        await Save(db);
+
+        var line = Assert.Single(Assert.Single((await Service(db).BuildAsync(October())).Items).Lines);
+
+        Assert.Equal(1000m, line.ValueIn);
+        Assert.Equal(warning, line.Warning);
+    }
+
+    [Fact]
+    public async Task Build_SameDayOrdersInternalNumbersNumerically()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Buy("10", Oct05, 1m, 100m));
+        db.Context.PurchaseInvoices.Add(Buy("9", Oct05, 1m, 100m));
+        db.Context.PurchaseInvoices.Add(Buy("100", Oct05, 1m, 100m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal(new[] { "9", "10", "100" }, item.Lines.Select(l => l.InternalNumber));
+    }
+
+    private const string UnlinkedEntryWarning = "Entrada sem vínculo valorizada pelo preço da nota";
+
     private static SalesInvoice Return(string number, DateTime date, SalesInvoice origin)
     {
         var returned = Sell(number, date, 2m, cfop: "1202");

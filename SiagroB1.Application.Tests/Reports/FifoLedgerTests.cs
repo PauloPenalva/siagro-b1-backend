@@ -276,4 +276,49 @@ public class FifoLedgerTests
         Assert.Equal(r.Lines.Last().BalanceQuantity, r.OpenLayers.Sum(x => x.Quantity) - deficit);
         Assert.All(r.OpenLayers, x => Assert.True(x.Quantity > 0));
     }
+
+    public static TheoryData<string> Scenarios => new() { "simple", "deficit", "deficitWithPending", "partialCover", "mixed" };
+
+    private static List<InventoryMovement> Scenario(string name)
+    {
+        var a = M(InventoryMovementKind.Entry, 10, 100m);
+        return name switch
+        {
+            "simple" => [a, M(InventoryMovementKind.Exit, 4, date: D1.AddDays(1))],
+            "deficit" => [M(InventoryMovementKind.Exit, 10)],
+            "deficitWithPending" => [M(InventoryMovementKind.Exit, 10),
+                M(InventoryMovementKind.ValueComplement, 0, 25m, D1.AddDays(1))],
+            "partialCover" => [M(InventoryMovementKind.Exit, 10),
+                M(InventoryMovementKind.Entry, 4, 40m, D1.AddDays(1))],
+            _ => [M(InventoryMovementKind.Opening, 3, 31m), a,
+                M(InventoryMovementKind.Exit, 20, date: D1.AddDays(1)),
+                M(InventoryMovementKind.ValueComplement, 0, 7m, D1.AddDays(2)),
+                M(InventoryMovementKind.Entry, 9, 101m, D1.AddDays(3)),
+                M(InventoryMovementKind.SalesReturn, 1, date: D1.AddDays(4))],
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(Scenarios))]
+    public void Result_ExposesDeficitAndPendingValue_MatchingLastBalance(string name)
+    {
+        var r = FifoLedger.Run(Scenario(name));
+        var last = r.Lines.Last();
+
+        Assert.Equal(last.BalanceQuantity, r.OpenLayers.Sum(x => x.Quantity) - r.Deficit);
+        Assert.Equal(last.BalanceValue, r.OpenLayers.Sum(x => x.Value));
+        Assert.True(r.Deficit >= 0m);
+    }
+
+    [Fact]
+    public void Result_FullDeficitWithPendingComplement()
+    {
+        var r = FifoLedger.Run(Scenario("deficitWithPending"));
+
+        Assert.Empty(r.OpenLayers);
+        Assert.Equal(10m, r.Deficit);
+        Assert.Equal(25m, r.PendingValue);
+        Assert.Equal(-10m, r.Lines.Last().BalanceQuantity);
+        Assert.Equal(0m, r.Lines.Last().BalanceValue);
+    }
 }

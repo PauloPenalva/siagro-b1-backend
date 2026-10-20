@@ -170,7 +170,8 @@ public static class FifoLedger
         }
 
         return new FifoResult(lines,
-            layers.Select(l => new FifoLayer(l.LineKey, l.Date, l.Quantity, l.Value)).ToList());
+            layers.Select(l => new FifoLayer(l.LineKey, l.Date, l.Quantity, l.Value)).ToList(),
+            deficit, pendingValue);
     }
 
     /// <summary>Data; no mesmo dia, saldo inicial, depois entradas, depois saídas; então DaySequence.</summary>

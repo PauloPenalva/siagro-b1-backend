@@ -50,4 +50,9 @@ public record ValuedMovement(
 public record FifoLayer(Guid LineKey, DateTime Date, decimal Quantity, decimal Value);
 
 /// <summary>Resultado do custeio: linhas valorizadas e camadas que sobraram (base do inventário).</summary>
-public record FifoResult(List<ValuedMovement> Lines, List<FifoLayer> OpenLayers);
+/// <remarks>
+/// Saldo final = camadas − <c>Deficit</c> em quantidade e = soma das camadas em valor.
+/// <c>Deficit</c>: quantidade que saiu sem camada (saldo negativo), ≥ 0. <c>PendingValue</c>: complemento
+/// sem camada aberta, fora do saldo, que entrará na próxima camada criada.
+/// </remarks>
+public record FifoResult(List<ValuedMovement> Lines, List<FifoLayer> OpenLayers, decimal Deficit = 0m, decimal PendingValue = 0m);

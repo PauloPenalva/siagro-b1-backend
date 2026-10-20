@@ -17,6 +17,7 @@ public class FiscalKardexService(IUnitOfWork db)
 {
     private const string WarningInsufficient = "Saldo insuficiente";
     private const string WarningDifferentUnit = "Unidade diferente";
+    private const string WarningUnlinkedEntry = "Entrada sem vínculo valorizada pelo preço da nota";
     private const string WarningCostNotFound = "Custo da venda de origem não encontrado";
     private const string WarningPendingComplement = "Complemento sem saldo: somado à próxima entrada";
 
@@ -28,7 +29,8 @@ public class FiscalKardexService(IUnitOfWork db)
         string Cfop,
         string UsageName,
         decimal InvoiceValue,
-        string? ItemName);
+        string? ItemName,
+        bool UnlinkedEntry = false);
 
     /// <summary>Movimentos de um produto, já sem o que está até a data do saldo inicial.</summary>
     private sealed record ItemLedger(
@@ -85,6 +87,8 @@ public class FiscalKardexService(IUnitOfWork db)
                 ItemName = l.ItemName,
                 UnitOfMeasureCode = l.UnitOfMeasureCode,
                 Layers = l.Result.OpenLayers,
+                Deficit = l.Result.Deficit,
+                PendingValue = l.Result.PendingValue,
             })
             .ToList();
 
@@ -121,7 +125,9 @@ public class FiscalKardexService(IUnitOfWork db)
 
         var movements = sales.Select(s => (Code: s.ItemCode, Movement: SaleMovement(s)))
             .Concat(purchases.Select(p => (Code: p.ItemCode!, Movement: PurchaseMovement(p))))
-            .OrderBy(m => ((LineSource)m.Movement.Source!).InternalNumber, StringComparer.Ordinal)
+            // nº interno em ordem numérica: "9" antes de "10" (comprimento, depois ordinal)
+            .OrderBy(m => ((LineSource)m.Movement.Source!).InternalNumber.Length)
+            .ThenBy(m => ((LineSource)m.Movement.Source!).InternalNumber, StringComparer.Ordinal)
             .ThenBy(m => m.Movement.LineKey)
             .Select((m, index) => (m.Code, Movement: m.Movement with { DaySequence = index }))
             .ToList();
@@ -172,7 +178,8 @@ public class FiscalKardexService(IUnitOfWork db)
         return new InventoryMovement(i.Key ?? Guid.Empty, (invoice.InvoiceDate ?? default).Date, 0, kind, i.Quantity, value, origin,
             i.UnitOfMeasureCode,
             new LineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
-                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName));
+                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
+                UnlinkedEntry: kind == InventoryMovementKind.Entry));
     }
 
     /// <summary>
@@ -211,8 +218,13 @@ public class FiscalKardexService(IUnitOfWork db)
         return new InventoryMovement(i.Key ?? Guid.Empty, (invoice.PostingDate ?? invoice.IssueDate ?? default).Date, 0, kind, quantity, value,
             origin, i.UnitOfMeasureCode,
             new LineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
-                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName));
+                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
+                UnlinkedEntry: kind == InventoryMovementKind.Entry && i.PurchaseInvoiceItemOriginKey == null && IsRemittanceCfop(i.Cfop)));
     }
+
+    /// <summary>CFOP 1.9xx/2.9xx (remessas e retornos): sem origem, o preço da nota não é custo confiável.</summary>
+    private static bool IsRemittanceCfop(string? cfop) =>
+        cfop?.Trim() is { } c && (c.StartsWith("19") || c.StartsWith("29"));
 
     private static FiscalKardexLineDto Line(ValuedMovement v, string? itemUnit)
     {
@@ -222,6 +234,7 @@ public class FiscalKardexService(IUnitOfWork db)
         if (v.InsufficientBalance) warnings.Add(WarningInsufficient);
         if (v.PendingValue) warnings.Add(WarningPendingComplement);
         if (v.CostNotFound) warnings.Add(WarningCostNotFound);
+        if (source.UnlinkedEntry && !v.IsNegativeBalanceAdjustment) warnings.Add(WarningUnlinkedEntry);
         if (!v.IsNegativeBalanceAdjustment && !string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
             && !string.Equals(m.UnitOfMeasure.Trim(), itemUnit.Trim(), StringComparison.OrdinalIgnoreCase))
             warnings.Add(WarningDifferentUnit);
