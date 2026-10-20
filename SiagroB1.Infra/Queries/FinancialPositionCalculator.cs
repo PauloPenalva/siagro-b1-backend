@@ -24,7 +24,9 @@ public static class FinancialPositionCalculator
         var settlements = input.Settlements
             .Where(s => byKey.ContainsKey(s.FinancialDocumentKey)
                         && s.SettlementDate.Date <= baseDay
-                        && !(mode == FinancialPositionMode.Firm && IsCompositionOffset(s)))
+                        && !((mode == FinancialPositionMode.Firm
+                              || byKey[s.FinancialDocumentKey].Nature == FinancialDocumentNature.Provisional)
+                             && IsCompositionOffset(s)))
             .Select(s => new EffectiveSettlement(byKey[s.FinancialDocumentKey], s, s.SettlementDate.Date,
                 s.Amount, s.InterestAmount, s.FineAmount, s.DiscountAmount, false))
             .ToList();
@@ -33,19 +35,54 @@ public static class FinancialPositionCalculator
         if (mode == FinancialPositionMode.Firm)
             Distribute(input, baseDay, byKey, settlements);
 
+        // R8: no modo Provisórios o valor do provisório é só o composto nele até a data-base (firmes − devoluções).
+        Dictionary<Guid, decimal>? composedAtBase = null;
+        if (mode == FinancialPositionMode.Provisional)
+        {
+            var eligible = input.Documents
+                .Where(d => d.Status != FinancialDocumentStatus.Canceled && d.DocumentDate.Date <= baseDay)
+                .ToDictionary(d => d.Key);
+            composedAtBase = ComposedAtBase(input, baseDay, eligible)
+                .ToDictionary(g => g.Key, g => g.Value.Sum(x => IsReturn(x.Document) ? -x.Amount : x.Amount));
+            documents = documents
+                .Where(d => d.Nature != FinancialDocumentNature.Provisional || composedAtBase.ContainsKey(d.Key)).ToList();
+            var kept = documents.Select(d => d.Key).ToHashSet();
+            settlements = settlements.Where(s => kept.Contains(s.Document.Key)).ToList();
+        }
+
         var settledByDocument = settlements
             .GroupBy(s => s.Document.Key)
             .ToDictionary(g => g.Key, g => g.Sum(s => s.Amount));
 
         var titles = documents.Select(d =>
         {
-            var amount = IsReturn(d) ? -d.NetAmount : d.NetAmount;
+            var amount = composedAtBase is not null && d.Nature == FinancialDocumentNature.Provisional
+                ? composedAtBase[d.Key]
+                : IsReturn(d) ? -d.NetAmount : d.NetAmount;
             var settled = settledByDocument.GetValueOrDefault(d.Key);
             return new PositionTitle(d, amount, settled, amount - settled);
         }).ToList();
 
         return new FinancialPosition(titles, settlements);
     }
+
+    /// <summary>
+    /// Composto na data-base por provisório, reconstruído pelo ledger (InvoiceOffset/Reversal com CompositionKey no
+    /// firme/devolução, apontando o provisório em RelatedDocumentKey, Date &lt;= base). Só entram os documentos de
+    /// <paramref name="eligible"/> com saldo composto positivo. Valores positivos mesmo para devolução.
+    /// </summary>
+    private static Dictionary<Guid, List<(FinancialDocument Document, decimal Amount)>> ComposedAtBase(
+        FinancialPositionInput input, DateTime baseDay, Dictionary<Guid, FinancialDocument> eligible) =>
+        input.Settlements
+            .Where(s => IsCompositionOffset(s) && s.RelatedDocumentKey is not null
+                        && s.SettlementDate.Date <= baseDay && eligible.ContainsKey(s.FinancialDocumentKey))
+            .GroupBy(s => s.RelatedDocumentKey!.Value)
+            .Select(group => (group.Key, Composed: group.GroupBy(s => s.FinancialDocumentKey)
+                .Select(g => (Document: eligible[g.Key], Amount: g.Sum(s => s.Amount)))
+                .Where(x => x.Amount > 0m)
+                .ToList()))
+            .Where(x => x.Composed.Count > 0)
+            .ToDictionary(x => x.Key, x => x.Composed);
 
     private sealed class Slot(FinancialDocument document, decimal capacity)
     {
@@ -68,22 +105,12 @@ public static class FinancialPositionCalculator
     {
         var allDocs = input.Documents.ToDictionary(d => d.Key);
 
-        var composedLines = input.Settlements
-            .Where(s => IsCompositionOffset(s) && s.RelatedDocumentKey is not null
-                        && s.SettlementDate.Date <= baseDay && byKey.ContainsKey(s.FinancialDocumentKey))
-            .GroupBy(s => s.RelatedDocumentKey!.Value);
-
-        foreach (var group in composedLines)
+        foreach (var (provisionalKey, composed) in ComposedAtBase(input, baseDay, byKey))
         {
-            if (!allDocs.TryGetValue(group.Key, out var provisional)
+            if (!allDocs.TryGetValue(provisionalKey, out var provisional)
                 || provisional.Nature != FinancialDocumentNature.Provisional
                 || provisional.Status == FinancialDocumentStatus.Canceled)
                 continue;
-
-            var composed = group.GroupBy(s => s.FinancialDocumentKey)
-                .Select(g => (Document: byKey[g.Key], Amount: g.Sum(s => s.Amount)))
-                .Where(x => x.Amount > 0m)
-                .ToList();
 
             var returns = composed.Where(x => IsReturn(x.Document)).Select(x => new Slot(x.Document, x.Amount)).ToList();
             var firms = composed.Where(x => !IsReturn(x.Document))

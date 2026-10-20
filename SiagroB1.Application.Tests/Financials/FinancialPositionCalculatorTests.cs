@@ -107,7 +107,9 @@ public class FinancialPositionCalculatorTests
         var provisional = Doc(FinancialDocumentNature.Provisional, FinancialDocumentOrigin.PurchaseContractPriceFixation);
         var firm = Doc(FinancialDocumentNature.Firm, FinancialDocumentOrigin.PurchaseFiscalReconciliation);
         var ret = Doc(FinancialDocumentNature.PurchaseReturn, FinancialDocumentOrigin.PurchaseFiscalReconciliation);
-        var position = Compute([provisional, firm, ret], [], Base, FinancialPositionMode.Provisional);
+        // R8: o provisório só aparece se houver algo composto nele na data-base.
+        var position = Compute([provisional, firm, ret], [Offset(firm, provisional, 100m, new DateTime(2026, 10, 3))],
+            Base, FinancialPositionMode.Provisional);
         Assert.Equal(provisional.Key, Assert.Single(position.Titles).Document.Key);
     }
 
@@ -414,5 +416,57 @@ public class FinancialPositionCalculatorTests
     {
         foreach (var t in p.Titles)
             Assert.Equal(t.SettledAtBase, p.Settlements.Where(s => s.Document.Key == t.Document.Key).Sum(s => s.Amount));
+    }
+
+    // ---- Task 3: provisório mostra só o composto na data-base (R8) ----
+
+    [Fact]
+    public void Provisional_amount_is_composed_at_base()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 20));
+        var f2 = FirmDue(new DateTime(2026, 10, 25), 50m);
+        var p = Compute([prov, f1, f2],
+            [Offset(f1, prov, 100m, new DateTime(2026, 10, 3)), Offset(f2, prov, 50m, new DateTime(2026, 10, 12))],
+            Base, FinancialPositionMode.Provisional);
+        var title = Assert.Single(p.Titles);
+        Assert.Equal(100m, title.Amount);
+        Assert.Equal(100m, title.OpenAtBase);
+    }
+
+    [Fact]
+    public void Provisional_with_nothing_composed_is_absent()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 20));
+        var p = Compute([prov, f1], [Offset(f1, prov, 100m, new DateTime(2026, 10, 12))],
+            Base, FinancialPositionMode.Provisional);
+        Assert.Empty(p.Titles);
+        Assert.Empty(Compute([prov], [], Base, FinancialPositionMode.Provisional).Titles);
+    }
+
+    [Fact]
+    public void Provisional_open_is_composed_minus_its_settlements()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 20));
+        var p = Compute([prov, f1],
+            [Offset(f1, prov, 100m, Composed), Pay(prov, 40m, new DateTime(2026, 10, 5)), Pay(prov, 10m, new DateTime(2026, 10, 11))],
+            Base, FinancialPositionMode.Provisional);
+        var title = Assert.Single(p.Titles);
+        Assert.Equal(100m, title.Amount);
+        Assert.Equal(40m, title.SettledAtBase);
+        Assert.Equal(60m, title.OpenAtBase);
+    }
+
+    [Fact]
+    public void Return_reduces_composed_amount()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 20));
+        var ret = FirmDue(new DateTime(2026, 10, 20), 30m, FinancialDocumentNature.PurchaseReturn);
+        var p = Compute([prov, f1, ret], [Offset(f1, prov, 100m, Composed), Offset(ret, prov, 30m, Composed)],
+            Base, FinancialPositionMode.Provisional);
+        Assert.Equal(70m, Assert.Single(p.Titles).Amount);
     }
 }
