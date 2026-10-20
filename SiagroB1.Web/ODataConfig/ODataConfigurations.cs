@@ -1675,6 +1675,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
         modelBuilder.EntitySet<FinancialAccountEntry>("FinancialAccountEntries");
+        modelBuilder.EntitySet<FinancialAccountTransfer>("FinancialAccountTransfers");
         modelBuilder.EntitySet<FinancialAccountReconciliation>("FinancialAccountReconciliations");
 
         // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
@@ -1716,6 +1717,15 @@ public static class ODataConfigurations
         accountEntryCreate.Parameter<string>("DocumentReference").Optional();
         accountEntryCreate.Parameter<string>("Notes").Optional();
         accountEntryCreate.Returns<Guid>();
+
+        var accountTransferCreate = modelBuilder.Action("FinancialAccountTransfersCreate");
+        accountTransferCreate.Parameter<string>("FromAccountCode");
+        accountTransferCreate.Parameter<string>("ToAccountCode");
+        accountTransferCreate.Parameter<string>("TransferDate");
+        accountTransferCreate.Parameter<double>("Amount");
+        accountTransferCreate.Parameter<string>("Description").Optional();
+        accountTransferCreate.Parameter<string>("Notes").Optional();
+        accountTransferCreate.Returns<Guid>();
 
         var reconciliationOpen = modelBuilder.Action("FinancialAccountReconciliationsOpen");
         reconciliationOpen.Parameter<string>("FinancialAccountCode");
