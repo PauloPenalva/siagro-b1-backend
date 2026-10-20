@@ -14,6 +14,9 @@ public class FinancialAccountEntriesDeleteService(IUnitOfWork db)
         var entry = await db.Context.FinancialAccountEntries.FirstOrDefaultAsync(x => x.Key == key)
                     ?? throw new KeyNotFoundException("Lançamento não encontrado.");
 
+        if (entry.TransferKey is not null)
+            throw new ApplicationException("Lançamento de transferência: exclua pela transferência.");
+
         if (entry.ReconciliationKey is not null)
             throw new ApplicationException("Lançamento conciliado não pode ser excluído. Remova a conciliação primeiro.");
 
