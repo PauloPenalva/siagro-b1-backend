@@ -361,6 +361,20 @@ public class FiscalConferenceServiceTests
     }
 
     [Fact]
+    public async Task Build_R2055ReturnWithoutFunruralCreatesNoRow()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var origin = Withheld(1000m);
+        db.Context.PurchaseInvoices.Add(Purchase("A1", new DateTime(2026, 9, 10), items: origin));
+        db.Context.PurchaseInvoices.Add(Return("D1", new DateTime(2026, 10, 5), origin, 0m));
+        await Save(db);
+
+        var rows = (await Service(db).BuildAsync(new FiscalConferenceRequest { Year = 2026, Month = 10 })).R2055;
+
+        Assert.Empty(rows);
+    }
+
+    [Fact]
     public async Task Build_R2055IgnoresCancelledReturn()
     {
         var db = TestDb.CreateUnitOfWork();

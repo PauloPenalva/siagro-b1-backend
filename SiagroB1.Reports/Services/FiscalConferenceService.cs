@@ -64,9 +64,11 @@ public class FiscalConferenceService(IUnitOfWork db)
 
         var returns = await Bookable()
             .Where(i => i.PurchaseInvoice!.IsNfeReturn && i.PurchaseInvoiceItemOriginKey != null)
+            .Where(i => i.FunruralInssValue + i.FunruralRatValue + i.FunruralSenarValue > 0)
             .ToListAsync();
 
-        // Produtor da linha de origem, em qualquer mês de emissão.
+        // Produtor da linha de origem, em qualquer mês de emissão; a situação da origem não é
+        // checada de propósito (a devolução abate no próprio mês, seja qual for a origem).
         var originKeys = returns.Select(r => r.PurchaseInvoiceItemOriginKey).Distinct().ToArray();
         var originProducers = await db.Context.PurchaseInvoicesItems
             .AsNoTracking()
