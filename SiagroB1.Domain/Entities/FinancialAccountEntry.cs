@@ -13,6 +13,7 @@ namespace SiagroB1.Domain.Entities;
 [Index(nameof(FinancialAccountCode))]
 [Index(nameof(EntryDate))]
 [Index(nameof(ReconciliationKey))]
+[Index(nameof(TransferKey))]
 public class FinancialAccountEntry : BaseEntity
 {
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
@@ -38,4 +39,9 @@ public class FinancialAccountEntry : BaseEntity
     [ForeignKey(nameof(Reconciliation))]
     public Guid? ReconciliationKey { get; set; }
     public virtual FinancialAccountReconciliation? Reconciliation { get; set; }
+
+    /// <summary>Preenchida quando a linha nasceu de uma transferência entre contas.</summary>
+    [ForeignKey(nameof(Transfer))]
+    public Guid? TransferKey { get; set; }
+    public virtual FinancialAccountTransfer? Transfer { get; set; }
 }
