@@ -137,6 +137,8 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
             if (i + 1 < rows.Count && rows[i + 1].Ncm == rows[i].Ncm)
                 continue;
             var ncm = rows[i].Ncm;
+            if (ncm == "")
+                continue; // sem classificação fiscal não há subtotal de NCM
             var subtotal = rows.Where(r => r.Ncm == ncm).Sum(r => r.Value);
             rows[i].NcmGroupTotal = subtotal;
             rows[i].NcmGroupTotalText = Money(subtotal);

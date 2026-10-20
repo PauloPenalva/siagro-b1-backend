@@ -80,9 +80,6 @@ public class FiscalInventoryBookTests : IDisposable
         var pdf = await Service(db).BookAsync(Request(book: 3, sheet: 51));
 
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
-        var folder = Path.Combine(Path.GetTempPath(), "siagro-invoice-reports");
-        Directory.CreateDirectory(folder);
-        File.WriteAllBytes(Path.Combine(folder, "FiscalInventoryBook.pdf"), pdf);
     }
 
     [Fact]
@@ -104,9 +101,9 @@ public class FiscalInventoryBookTests : IDisposable
         }
 
         var last = 51 + count - 1;
-        Assert.Contains($"Contém este livro {count} folhas numeradas tipograficamente, do nº 51 ao nº {last}, e servirá",
+        Assert.Contains($"Contém este livro {count} folhas numeradas tipograficamente, do nº 51 ao nº {last}, e servirá para o lançamento do Registro de Inventário existente em 31/12/2026 de ACME AGRO LTDA",
             Text(report, 0, "txtOpeningTerm"));
-        Assert.Contains($"Contém este livro {count} folhas numeradas tipograficamente, do nº 51 ao nº {last}, e serviu",
+        Assert.Contains($"Contém este livro {count} folhas numeradas tipograficamente, do nº 51 ao nº {last}, e serviu para o lançamento do Registro de Inventário existente em 31/12/2026 de ACME AGRO LTDA",
             Text(report, count - 1, "txtClosingTerm"));
         Assert.Contains("ACME AGRO LTDA", Text(report, 0, "txtOpeningTerm"));
         Assert.Contains("Livro nº 3", Text(report, 1, "txtBookNumber"));
@@ -172,10 +169,24 @@ public class FiscalInventoryBookTests : IDisposable
         var rows = await Service(db).BookRowsAsync("01", Dec31);
 
         Assert.Equal(["I1", "I2", "I3", "I4"], rows.Select(r => r.ItemCode));
-        Assert.Equal([null, 155.5m, 7m, 3m], rows.Select(r => r.NcmGroupTotal));
+        Assert.Equal([null, 155.5m, 7m, null], rows.Select(r => r.NcmGroupTotal));
 
         using var report = await Service(db).PrepareBookAsync(Request());
-        Assert.Equal(["", "155,50", "7,00", "3,00"], Texts(report, 1, "txtNcmTotal"));
+        Assert.Equal(["", "155,50", "7,00", ""], Texts(report, 1, "txtNcmTotal"));
+    }
+
+    [Fact]
+    public async Task Book_NoSubtotalForBlankNcm()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        Add(db, "S1", null, 1m, 10m);
+        Add(db, "S2", "", 2m, 20m);
+        await Save(db);
+
+        var rows = await Service(db).BookRowsAsync("01", Dec31);
+
+        Assert.All(rows, r => Assert.Null(r.NcmGroupTotal));
+        Assert.All(rows, r => Assert.Equal("", r.NcmGroupTotalText));
     }
 
     // ---- apoio ----
