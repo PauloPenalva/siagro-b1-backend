@@ -53,6 +53,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<IcmsItemStateRate> IcmsItemStateRates { get; set; }
     public DbSet<BranchNfeSettings> BranchNfeSettings { get; set; }
     public DbSet<BranchNfeSeries> BranchNfeSeries { get; set; }
+    public DbSet<ReceivedDfe> ReceivedDfes { get; set; }
+    public DbSet<BranchDfeSyncState> BranchDfeSyncStates { get; set; }
     public DbSet<EmailSettings> EmailSettings { get; set; }
     public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
@@ -336,6 +338,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(x => x.SeriesList)
                 .HasForeignKey(x => x.BranchCode)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReceivedDfe>(e =>
+        {
+            e.HasIndex(x => new { x.BranchCode, x.AccessKey }).IsUnique();
+            e.HasIndex(x => x.IssueDate);
         });
 
         modelBuilder.Entity<ItemComplement>()
