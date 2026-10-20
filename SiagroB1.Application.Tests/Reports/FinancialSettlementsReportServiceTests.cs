@@ -1,0 +1,234 @@
+using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Infra;
+using SiagroB1.Infra.Queries;
+using SiagroB1.Reports.Dtos;
+using SiagroB1.Reports.Services;
+
+namespace SiagroB1.Application.Tests.Reports;
+
+public class FinancialSettlementsReportServiceTests : IDisposable
+{
+    private readonly string _contentRoot;
+
+    public FinancialSettlementsReportServiceTests()
+    {
+        global::FastReport.Utils.RegisteredObjects.AddConnection(typeof(global::FastReport.Data.MsSqlDataConnection));
+        global::FastReport.Utils.Config.WebMode = true;
+
+        _contentRoot = Path.Combine(Path.GetTempPath(), "siagro-settlements-pdf", Guid.NewGuid().ToString("N"));
+        var templates = Path.Combine(_contentRoot, "Reports", "Templates");
+        Directory.CreateDirectory(templates);
+        foreach (var file in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "ReportTemplates"), "*.frx"))
+            File.Copy(file, Path.Combine(templates, Path.GetFileName(file)));
+
+        var images = Path.Combine(_contentRoot, "wwwroot", "images");
+        Directory.CreateDirectory(images);
+        File.Copy(
+            Path.Combine(AppContext.BaseDirectory, "ReportsContentRoot", "wwwroot", "images", "logo.png"),
+            Path.Combine(images, "logo.png"));
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_contentRoot))
+            Directory.Delete(_contentRoot, recursive: true);
+        GC.SuppressFinalize(this);
+    }
+
+    private static FinancialDocument Doc(string code, decimal amount = 100m, string cardCode = "C1",
+        FinancialDocumentNature nature = FinancialDocumentNature.Firm, FinancialDirection direction = FinancialDirection.Receivable) => new()
+    {
+        Key = Guid.NewGuid(), Code = code, CardCode = cardCode, CardName = "Parceiro " + cardCode,
+        Nature = nature, OriginType = FinancialDocumentOrigin.Manual,
+        DocumentDate = new DateTime(2026, 9, 1), DueDate = new DateTime(2026, 10, 30), NetAmount = amount,
+        Direction = direction
+    };
+
+    private static FinancialSettlement Settle(FinancialDocument doc, decimal amount, DateTime date,
+        FinancialSettlementOrigin origin = FinancialSettlementOrigin.Manual, string? account = null) => new()
+    {
+        Key = Guid.NewGuid(), FinancialDocumentKey = doc.Key, Amount = amount, SettlementDate = date, Origin = origin,
+        FinancialAccountCode = account
+    };
+
+    private static FinancialSettlementsRequest Request() => new()
+    {
+        Direction = FinancialDirection.Receivable, DateFrom = new DateTime(2026, 10, 1),
+        DateTo = new DateTime(2026, 10, 31), Mode = FinancialPositionMode.Firm
+    };
+
+    private static async Task<List<FinancialSettlementRowDto>> RowsAsync(IUnitOfWork db, FinancialSettlementsRequest? request = null)
+    {
+        var recorder = new RecordingFastReportService();
+        await new FinancialSettlementsReportService(db, recorder).ExecuteAsync(request ?? Request());
+        Assert.Equal("FinancialSettlements.frx", recorder.LastReportName);
+        return Assert.IsAssignableFrom<ICollection<FinancialSettlementRowDto>>(recorder.LastData).ToList();
+    }
+
+    [Fact]
+    public void Validate_requires_ordered_period()
+    {
+        Assert.Equal("Informe o período.", FinancialSettlementsReportService.Validate(new FinancialSettlementsRequest()));
+        var reversed = Request();
+        reversed.DateFrom = reversed.DateTo.AddDays(1);
+        Assert.Equal("A data inicial deve ser menor ou igual à final.", FinancialSettlementsReportService.Validate(reversed));
+        Assert.Null(FinancialSettlementsReportService.Validate(Request()));
+    }
+
+    [Fact]
+    public async Task Filters_by_settlement_date()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1", 300m);
+        db.Context.FinancialDocuments.Add(doc);
+        db.Context.FinancialSettlements.AddRange(
+            Settle(doc, 50m, new DateTime(2026, 9, 30)), Settle(doc, 70m, new DateTime(2026, 10, 1)),
+            Settle(doc, 80m, new DateTime(2026, 10, 31)), Settle(doc, 90m, new DateTime(2026, 11, 1)));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db);
+
+        Assert.Equal(new[] { 70m, 80m }, rows.Select(r => r.Amount).ToArray());
+        Assert.Equal(new[] { "01/10/2026", "31/10/2026" }, rows.Select(r => r.Date).ToArray());
+    }
+
+    [Fact]
+    public async Task Distributed_slice_shows_on_firm_with_provisional_account()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        db.Context.FinancialDocuments.AddRange(provisional, firm);
+        db.Context.FinancialSettlements.AddRange(
+            new FinancialSettlement
+            {
+                Key = Guid.NewGuid(), FinancialDocumentKey = firm.Key, Amount = 100m, SettlementDate = new DateTime(2026, 9, 2),
+                Origin = FinancialSettlementOrigin.InvoiceOffset, CompositionKey = Guid.NewGuid(), RelatedDocumentKey = provisional.Key
+            },
+            Settle(provisional, 60m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+        request.CardCode = "C1";
+
+        var rows = await RowsAsync(db, request);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(("FIRM", "CX1", "Baixa", 60m), (row.Document, row.Account, row.Method, row.Amount));
+    }
+
+    [Fact]
+    public async Task Reversal_shows_negative()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1");
+        db.Context.FinancialDocuments.Add(doc);
+        db.Context.FinancialSettlements.AddRange(Settle(doc, 100m, new DateTime(2026, 10, 5), account: "CX1"),
+            Settle(doc, -100m, new DateTime(2026, 10, 6), FinancialSettlementOrigin.Reversal, "CX1"));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db);
+
+        Assert.Equal(new[] { 100m, -100m }, rows.Select(r => r.Amount).ToArray());
+        Assert.Equal("Estorno", rows[1].Method);
+    }
+
+    [Theory]
+    [InlineData(FinancialSettlementOrigin.Manual, "Baixa")]
+    [InlineData(FinancialSettlementOrigin.Reversal, "Estorno")]
+    [InlineData(FinancialSettlementOrigin.InvoiceOffset, "Abatimento")]
+    [InlineData(FinancialSettlementOrigin.AdvanceApplication, "Aplicação de adiantamento")]
+    [InlineData(FinancialSettlementOrigin.Netting, "Encontro de contas")]
+    [InlineData(FinancialSettlementOrigin.AdvanceRefund, "Devolução de adiantamento")]
+    [InlineData(FinancialSettlementOrigin.Dation, "Dação")]
+    [InlineData(FinancialSettlementOrigin.AdvanceTransfer, "Transferência de adiantamento")]
+    public async Task Origin_labels_pt_BR(FinancialSettlementOrigin origin, string label)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1");
+        db.Context.FinancialDocuments.Add(doc);
+        db.Context.FinancialSettlements.Add(Settle(doc, 10m, new DateTime(2026, 10, 5), origin));
+        await db.Context.SaveChangesAsync();
+
+        var rows = await RowsAsync(db);
+
+        Assert.Equal(label, Assert.Single(rows).Method);
+    }
+
+    [Fact]
+    public async Task Filters_by_account()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1", 300m);
+        db.Context.FinancialDocuments.Add(doc);
+        db.Context.FinancialSettlements.AddRange(Settle(doc, 10m, new DateTime(2026, 10, 5), account: "CX1"),
+            Settle(doc, 20m, new DateTime(2026, 10, 5), account: "CX2"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.AccountCode = "CX2";
+
+        var rows = await RowsAsync(db, request);
+
+        var row = Assert.Single(rows);
+        Assert.Equal((20m, "CX2"), (row.Amount, row.Account));
+    }
+
+    [Fact]
+    public async Task Totals_are_per_currency()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1", 300m);
+        var usd = Doc("D2", 300m, "C2");
+        usd.Currency = CurrencyType.Usd;
+        db.Context.FinancialDocuments.AddRange(doc, usd);
+        db.Context.FinancialSettlements.AddRange(Settle(doc, 10m, new DateTime(2026, 10, 5)), Settle(usd, 5m, new DateTime(2026, 10, 5)));
+        await db.Context.SaveChangesAsync();
+        var recorder = new RecordingFastReportService();
+
+        await new FinancialSettlementsReportService(db, recorder).ExecuteAsync(Request());
+
+        var lines = ((string)recorder.LastParameters!["pTotals"]).Split('\n');
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("BRL: valor 10,00", lines[0]);
+        Assert.Contains("USD: valor 5,00", lines[1]);
+        Assert.Equal("Baixas de Recebíveis", recorder.LastParameters["pTitle"]);
+        Assert.Equal("Baixas de 01/10/2026 a 31/10/2026", recorder.LastParameters["pPeriod"]);
+    }
+
+    [Fact]
+    public async Task Generates_pdf()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var doc = Doc("D1", 300m);
+        db.Context.FinancialDocuments.Add(doc);
+        db.Context.FinancialSettlements.AddRange(Settle(doc, 10m, new DateTime(2026, 10, 5), account: "CX1"),
+            Settle(doc, 20m, new DateTime(2026, 10, 6)));
+        await db.Context.SaveChangesAsync();
+
+        var pdf = await new FinancialSettlementsReportService(db, FastReport()).ExecuteAsync(Request());
+
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
+        var folder = Path.Combine(Path.GetTempPath(), "siagro-settlements-reports");
+        Directory.CreateDirectory(folder);
+        File.WriteAllBytes(Path.Combine(folder, "FinancialSettlements.pdf"), pdf);
+    }
+
+    private FastReportService FastReport()
+    {
+        var env = new TestWebHostEnvironment(_contentRoot);
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Erp"] = "STANDALONE",
+                ["CompanyName"] = "ACME AGRO LTDA",
+                ["CompanyLogoPath"] = "wwwroot/images/logo.png",
+            })
+            .Build();
+        return new FastReportService(env, configuration,
+            new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()),
+            FakeCompanyContext.Unresolved());
+    }
+}

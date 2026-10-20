@@ -8,8 +8,9 @@ namespace SiagroB1.Infra.Queries;
 /// <param name="CardCode">Nulo: todos os parceiros.</param>
 /// <param name="DueDateFrom">Opcional: só restringe a SELEÇÃO; o grupo de composição traz membros fora do período.</param>
 /// <param name="DueDateTo">Idem.</param>
+/// <param name="SettlementDateFrom">Opcional: a SELEÇÃO só mantém documentos com ao menos uma baixa em [SettlementDateFrom, BaseDate].</param>
 public sealed record FinancialPositionFilter(FinancialDirection? Direction, string? CardCode, DateTime BaseDate,
-    DateTime? DueDateFrom = null, DateTime? DueDateTo = null);
+    DateTime? DueDateFrom = null, DateTime? DueDateTo = null, DateTime? SettlementDateFrom = null);
 
 /// <summary>
 /// Carrega do banco o que o <see cref="FinancialPositionCalculator"/> precisa e o chama. Depois de selecionar por direção
@@ -35,6 +36,14 @@ public static class FinancialPositionQuery
         {
             var toExclusive = dueTo.Date.AddDays(1);
             query = query.Where(d => d.DueDate < toExclusive);
+        }
+        // Só sem parceiro: com parceiro a seleção já é pequena, e o firme pode ter sido pago pelo provisório de OUTRO parceiro
+        // (a baixa não está nele), que só entra pela expansão do grupo.
+        if (f.SettlementDateFrom is { } settledFrom && string.IsNullOrWhiteSpace(f.CardCode))
+        {
+            var sFrom = settledFrom.Date;
+            query = query.Where(d => ctx.FinancialSettlements.Any(s => s.FinancialDocumentKey == d.Key
+                                                                       && s.SettlementDate >= sFrom && s.SettlementDate < dayAfterBase));
         }
         if (f.Direction is { } direction) query = query.Where(d => d.Direction == direction);
         if (!string.IsNullOrWhiteSpace(f.CardCode))
