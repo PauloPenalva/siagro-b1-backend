@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using System.Globalization;
 using FastReport;
 using Microsoft.Extensions.Configuration;
@@ -304,6 +305,6 @@ public class FiscalInventoryBookTests : IDisposable
         var fastReport = new FastReportService(env, configuration,
             new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()),
             FakeCompanyContext.Unresolved());
-        return new FiscalInventoryService(db, new FiscalKardexService(db), fastReport);
+        return new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), fastReport);
     }
 }

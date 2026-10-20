@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using Microsoft.AspNetCore.Mvc;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Reports.Controllers;
@@ -11,7 +12,7 @@ public class FiscalInventoryControllerTests
     private static FiscalInventoryController Controller(string erp)
     {
         var db = TestDb.CreateUnitOfWork();
-        return new(new FiscalInventoryService(db, new FiscalKardexService(db), null!), TestConfiguration.Erp(erp));
+        return new(new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!), TestConfiguration.Erp(erp));
     }
 
     private static FiscalInventoryRequest Request(string branch = "01", int year = 2026) => new()

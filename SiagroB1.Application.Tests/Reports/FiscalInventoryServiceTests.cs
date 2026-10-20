@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -27,7 +28,7 @@ public class FiscalInventoryServiceTests
 
         // Oct10 inclui o movimento do próprio dia (a venda V1)
         var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10 });
-        var kardex = await new FiscalKardexService(db).BuildAsync(new FiscalKardexRequest
+        var kardex = await new FiscalKardexService(new FiscalStockLedgerLoader(db)).BuildAsync(new FiscalKardexRequest
         {
             BranchCode = "01", FromDate = Sep30, ToDate = Oct10,
         });
@@ -51,7 +52,7 @@ public class FiscalInventoryServiceTests
         db.Context.SalesInvoices.Add(Sell("V1", Oct05, 10m, "A"));
         await Save(db);
 
-        var layers = Assert.Single(await new FiscalKardexService(db).OpenLayersAsync("01", "A", Oct10));
+        var layers = Assert.Single(await new FiscalKardexService(new FiscalStockLedgerLoader(db)).OpenLayersAsync("01", "A", Oct10));
         var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10 });
 
         var row = Assert.Single(data.Rows);
@@ -105,7 +106,7 @@ public class FiscalInventoryServiceTests
         db.Context.PurchaseInvoices.Add(complement);
         await Save(db);
 
-        var layers = Assert.Single(await new FiscalKardexService(db).OpenLayersAsync("01", "P", Oct10));
+        var layers = Assert.Single(await new FiscalKardexService(new FiscalStockLedgerLoader(db)).OpenLayersAsync("01", "P", Oct10));
         Assert.True(layers.PendingValue > 0m, "pré-condição: complemento sem camada aberta");
 
         var data = await Service(db).BuildAsync(new FiscalInventoryRequest { BranchCode = "01", Date = Oct10 });
@@ -184,7 +185,7 @@ public class FiscalInventoryServiceTests
         return sale;
     }
 
-    private static FiscalInventoryService Service(IUnitOfWork db) => new(db, new FiscalKardexService(db), null!);
+    private static FiscalInventoryService Service(IUnitOfWork db) => new(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!);
 
     private static async Task Save(IUnitOfWork db)
     {

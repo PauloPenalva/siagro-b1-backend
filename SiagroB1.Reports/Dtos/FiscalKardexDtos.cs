@@ -1,4 +1,4 @@
-using SiagroB1.Reports.Services.Fiscal;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Reports.Dtos;
 

@@ -1,4 +1,4 @@
-namespace SiagroB1.Reports.Services.Fiscal;
+namespace SiagroB1.Infra.FiscalStock;
 
 /// <summary>
 /// Motor PEPS (FIFO) puro do estoque fiscal — sem EF, sem entidades. Regras (spec itens 4–6):

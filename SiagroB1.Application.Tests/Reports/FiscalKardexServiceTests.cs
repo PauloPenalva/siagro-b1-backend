@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -472,7 +473,7 @@ public class FiscalKardexServiceTests
         ToDate = new DateTime(2026, 10, 31),
     };
 
-    private static FiscalKardexService Service(IUnitOfWork db) => new(db);
+    private static FiscalKardexService Service(IUnitOfWork db) => new(new FiscalStockLedgerLoader(db));
 
     private static async Task Save(IUnitOfWork db)
     {

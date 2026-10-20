@@ -1,4 +1,4 @@
-namespace SiagroB1.Reports.Services.Fiscal;
+namespace SiagroB1.Infra.FiscalStock;
 
 /// <summary>Natureza do movimento de estoque fiscal para o custeio PEPS.</summary>
 public enum InventoryMovementKind

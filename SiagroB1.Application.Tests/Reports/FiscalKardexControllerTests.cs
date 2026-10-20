@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using Microsoft.AspNetCore.Mvc;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Reports.Controllers;
@@ -9,7 +10,7 @@ namespace SiagroB1.Application.Tests.Reports;
 public class FiscalKardexControllerTests
 {
     private static FiscalKardexController Controller(string erp) =>
-        new(new FiscalKardexService(TestDb.CreateUnitOfWork()), TestConfiguration.Erp(erp));
+        new(new FiscalKardexService(new FiscalStockLedgerLoader(TestDb.CreateUnitOfWork())), TestConfiguration.Erp(erp));
 
     private static FiscalKardexRequest Request(string branch = "01", int fromYear = 2026, int toYear = 2026, int toMonth = 10) => new()
     {
