@@ -154,7 +154,7 @@ public class FiscalInventoryServiceTests
         return sale;
     }
 
-    private static FiscalInventoryService Service(IUnitOfWork db) => new(db, new FiscalKardexService(db));
+    private static FiscalInventoryService Service(IUnitOfWork db) => new(db, new FiscalKardexService(db), null!);
 
     private static async Task Save(IUnitOfWork db)
     {
