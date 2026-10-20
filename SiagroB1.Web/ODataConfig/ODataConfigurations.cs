@@ -1675,6 +1675,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<FinancialSettlement>("FinancialSettlements");
         modelBuilder.EntitySet<FinancialDocumentChangeLog>("FinancialDocumentChangeLogs");
         modelBuilder.EntitySet<FinancialAccountEntry>("FinancialAccountEntries");
+        modelBuilder.EntitySet<FinancialAccountTransfer>("FinancialAccountTransfers");
         modelBuilder.EntitySet<FinancialAccountReconciliation>("FinancialAccountReconciliations");
 
         // [NotMapped] some do EDM: sem estes AddProperty, $select=OpenAmount devolve 400 e a
@@ -1716,6 +1717,15 @@ public static class ODataConfigurations
         accountEntryCreate.Parameter<string>("DocumentReference").Optional();
         accountEntryCreate.Parameter<string>("Notes").Optional();
         accountEntryCreate.Returns<Guid>();
+
+        var accountTransferCreate = modelBuilder.Action("FinancialAccountTransfersCreate");
+        accountTransferCreate.Parameter<string>("FromAccountCode");
+        accountTransferCreate.Parameter<string>("ToAccountCode");
+        accountTransferCreate.Parameter<string>("TransferDate");
+        accountTransferCreate.Parameter<double>("Amount");
+        accountTransferCreate.Parameter<string>("Description").Optional();
+        accountTransferCreate.Parameter<string>("Notes").Optional();
+        accountTransferCreate.Returns<Guid>();
 
         var reconciliationOpen = modelBuilder.Action("FinancialAccountReconciliationsOpen");
         reconciliationOpen.Parameter<string>("FinancialAccountCode");
@@ -1767,8 +1777,12 @@ public static class ODataConfigurations
 
         // Adiantamento a contrato: o único documento LIQUIDÁVEL da Fase 1.
         var financialAdvance = modelBuilder.Action("FinancialAdvancesCreate");
-        financialAdvance.Parameter<string>("ContractType");   // "Purchase" | "Sales" — string, nunca enum
-        financialAdvance.Parameter<Guid>("ContractKey");
+        // Contrato opcional (spec 2026-10-19): sem ContractKey, o adiantamento é livre e exige Direction/CardCode/BranchCode.
+        financialAdvance.Parameter<string>("ContractType").Optional();   // "Purchase" | "Sales" — string, nunca enum
+        financialAdvance.Parameter<Guid>("ContractKey").Optional();
+        financialAdvance.Parameter<string>("Direction").Optional();      // "Payable" | "Receivable" — string, nunca enum
+        financialAdvance.Parameter<string>("CardCode").Optional();
+        financialAdvance.Parameter<string>("BranchCode").Optional();
         financialAdvance.Parameter<double>("Amount");
         financialAdvance.Parameter<string>("DueDate");
         // Nasce pago (spec 2026-10-19): conta e data da baixa gravada junto.

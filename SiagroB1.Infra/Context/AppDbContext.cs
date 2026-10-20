@@ -142,6 +142,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialDocumentComposition> FinancialDocumentCompositions { get; set; }
     public DbSet<FinancialAccountEntry> FinancialAccountEntries { get; set; }
     public DbSet<FinancialAccountReconciliation> FinancialAccountReconciliations { get; set; }
+    public DbSet<FinancialAccountTransfer> FinancialAccountTransfers { get; set; }
 
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
     public DbSet<PurchaseTransactionChange> PurchaseTransactionChanges { get; set; }

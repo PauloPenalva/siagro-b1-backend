@@ -7,10 +7,11 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Financials;
 
 /// <summary>
-/// Candidatos do "Compensar adiantamento" (spec 2026-10-14, regras 2 e 4): adiantamentos não cancelados do MESMO
-/// contrato de compra e MESMA moeda do provisório, com crédito > 0, com o valor sugerido. Título que não é provisório
-/// de compra ativo devolve lista vazia — a tela só oferece o botão no provisório. Projeção em memória porque
-/// AvailableAdvanceAmount/AvailableToSettleAmount são [NotMapped].
+/// Candidatos do "Compensar adiantamento" (spec 2026-10-14, regras 2 e 4; spec 2026-10-19, decisão 1): adiantamentos
+/// não cancelados, com crédito > 0 e na MESMA moeda do título, com o valor sugerido. Para qualquer título (provisório,
+/// firme ou manual) entram os adiantamentos SEM contrato do mesmo parceiro e direção; para o provisório de contrato,
+/// também os do MESMO contrato. Título cancelado ou que seja adiantamento devolve lista vazia. Projeção em memória
+/// porque AvailableAdvanceAmount/AvailableToSettleAmount são [NotMapped].
 /// </summary>
 public class FinancialDocumentsGetAdvanceCandidatesService(IUnitOfWork db)
 {
@@ -19,22 +20,32 @@ public class FinancialDocumentsGetAdvanceCandidatesService(IUnitOfWork db)
         var provisional = await db.Context.FinancialDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Key == key)
                           ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
-        if (provisional.Nature != FinancialDocumentNature.Provisional ||
-            provisional.Status == FinancialDocumentStatus.Canceled ||
-            (provisional.PurchaseContractKey is null && provisional.SalesContractKey is null))
+        if (provisional.Nature == FinancialDocumentNature.Advance ||
+            provisional.Status == FinancialDocumentStatus.Canceled)
             return [];
 
         var available = provisional.AvailableToSettleAmount;
+        var hasContract = provisional.PurchaseContractKey is not null || provisional.SalesContractKey is not null;
+        var contractCandidates = hasContract && provisional.Nature == FinancialDocumentNature.Provisional;
 
-        var advances = await db.Context.FinancialDocuments.AsNoTracking()
-            .Where(d => d.PurchaseContractKey == provisional.PurchaseContractKey &&
-                        d.SalesContractKey == provisional.SalesContractKey &&
-                        d.Nature == FinancialDocumentNature.Advance &&
-                        d.Status != FinancialDocumentStatus.Canceled &&
-                        d.Currency == provisional.Currency &&
-                        d.SettledAmount - d.AppliedAmount > 0m)
+        // Spec 2026-10-19 (decisão 1): os SEM contrato do mesmo parceiro/direção/moeda servem a qualquer título; os do
+        // contrato, só ao provisório do contrato (regra de 2026-10-14 intacta). CardCode filtrado em memória
+        // (case-insensitive independente da collation).
+        var advances = (await db.Context.FinancialDocuments.AsNoTracking()
+                .Where(d => d.Nature == FinancialDocumentNature.Advance &&
+                            d.Status != FinancialDocumentStatus.Canceled &&
+                            d.Currency == provisional.Currency &&
+                            d.SettledAmount - d.AppliedAmount > 0m &&
+                            ((d.PurchaseContractKey == null && d.SalesContractKey == null &&
+                              d.Direction == provisional.Direction) ||
+                             (contractCandidates &&
+                              d.PurchaseContractKey == provisional.PurchaseContractKey &&
+                              d.SalesContractKey == provisional.SalesContractKey)))
+                .ToListAsync())
+            .Where(d => d.PurchaseContractKey is not null || d.SalesContractKey is not null ||
+                        string.Equals(d.CardCode, provisional.CardCode, StringComparison.OrdinalIgnoreCase))
             .OrderBy(d => d.DocumentDate).ThenBy(d => d.Code)
-            .ToListAsync();
+            .ToList();
 
         return advances.Select(d => new FinancialDocumentAdvanceCandidateDto
         {

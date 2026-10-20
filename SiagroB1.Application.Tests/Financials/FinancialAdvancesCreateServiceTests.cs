@@ -1,4 +1,5 @@
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -191,6 +192,74 @@ public class FinancialAdvancesCreateServiceTests
 
         await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteAsync(
             "Purchase", contract.Key, 5000m, DateTime.Today, "CX02", DateTime.Today, null, "tester"));
+
+        Assert.Empty(_db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task Creates_advance_without_contract_paid_on_account()
+    {
+        SeedAccount("BCO1");
+
+        var advance = await Service().ExecuteWithoutContractAsync(
+            FinancialDirection.Payable, "F0001", "01", 500m, DateTime.Today.AddDays(5), "BCO1", DateTime.Today,
+            "prestador", "tester");
+
+        Assert.Equal(FinancialDocumentNature.Advance, advance.Nature);
+        Assert.Equal(FinancialDirection.Payable, advance.Direction);
+        Assert.Null(advance.PurchaseContractKey);
+        Assert.Null(advance.SalesContractKey);
+        Assert.Equal(CurrencyType.Brl, advance.Currency);
+        Assert.Equal("01", advance.BranchCode);
+        Assert.Equal("PRODUTOR TESTE", advance.CardName);
+        Assert.True(string.IsNullOrEmpty(advance.OriginDocNumber));
+        var settlement = Assert.Single(_db.Context.FinancialSettlements.Where(x => x.FinancialDocumentKey == advance.Key));
+        Assert.Equal("BCO1", settlement.FinancialAccountCode);
+        Assert.Equal(500m, settlement.Amount);
+    }
+
+    [Fact]
+    public async Task Without_contract_currency_comes_from_the_account()
+    {
+        SeedAccount("USD1", currency: CurrencyType.Usd);
+
+        var advance = await Service().ExecuteWithoutContractAsync(
+            FinancialDirection.Receivable, "F0001", "01", 500m, DateTime.Today, "USD1", DateTime.Today, null, "tester");
+
+        Assert.Equal(CurrencyType.Usd, advance.Currency);
+        Assert.Equal(FinancialDirection.Receivable, advance.Direction);
+    }
+
+    [Fact]
+    public async Task Without_contract_requires_partner()
+    {
+        SeedAccount("BCO1");
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteWithoutContractAsync(
+            FinancialDirection.Payable, " ", "01", 500m, DateTime.Today, "BCO1", DateTime.Today, null, "tester"));
+
+        Assert.Contains("Informe o parceiro", error.Message);
+        Assert.Empty(_db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task Without_contract_requires_branch()
+    {
+        SeedAccount("BCO1");
+
+        var error = await Assert.ThrowsAsync<ApplicationException>(() => Service().ExecuteWithoutContractAsync(
+            FinancialDirection.Payable, "F0001", "", 500m, DateTime.Today, "BCO1", DateTime.Today, null, "tester"));
+
+        Assert.Contains("Informe a filial", error.Message);
+    }
+
+    [Fact]
+    public async Task Without_contract_rejects_unknown_partner()
+    {
+        SeedAccount("BCO1");
+
+        await Assert.ThrowsAsync<NotFoundException>(() => Service().ExecuteWithoutContractAsync(
+            FinancialDirection.Payable, "X9999", "01", 500m, DateTime.Today, "BCO1", DateTime.Today, null, "tester"));
 
         Assert.Empty(_db.Context.FinancialDocuments);
     }

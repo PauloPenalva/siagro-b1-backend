@@ -130,7 +130,7 @@ public class FinancialDocumentsApplyAdvanceTests
         var error = await Assert.ThrowsAsync<ApplicationException>(() => seed.ApplyAsync(1_000m, advance: dollar));
 
         Assert.Equal(
-            "O adiantamento FN-ADT-2 está em US$ e o provisório FN-PROV-1 em R$: compensação entre moedas diferentes não é suportada.",
+            "O adiantamento FN-ADT-2 está em US$ e o título FN-PROV-1 em R$: compensação entre moedas diferentes não é suportada.",
             error.Message);
     }
 

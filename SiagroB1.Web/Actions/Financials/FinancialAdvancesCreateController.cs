@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Actions.Financials;
@@ -16,11 +17,25 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
 
         try
         {
-            if (!parameters.TryGetValue("ContractType", out var typeObj) || typeObj is null)
+            parameters.TryGetValue("ContractKey", out var contractObj);
+            var withContract = contractObj is not null && !string.IsNullOrWhiteSpace(contractObj.ToString());
+
+            object? typeObj = null;
+            if (withContract && (!parameters.TryGetValue("ContractType", out typeObj) || typeObj is null))
                 return BadRequest("Informe o tipo de contrato.");
 
-            if (!parameters.TryGetValue("ContractKey", out var contractObj) || contractObj is null)
-                return BadRequest("Informe o contrato.");
+            FinancialDirection direction = default;
+            if (!withContract)
+            {
+                parameters.TryGetValue("Direction", out var directionObj);
+                var directionText = directionObj?.ToString();
+                if (string.Equals(directionText, "Payable", StringComparison.OrdinalIgnoreCase))
+                    direction = FinancialDirection.Payable;
+                else if (string.Equals(directionText, "Receivable", StringComparison.OrdinalIgnoreCase))
+                    direction = FinancialDirection.Receivable;
+                else
+                    return BadRequest("Informe a direção do adiantamento (a pagar ou a receber).");
+            }
 
             if (!parameters.TryGetValue("Amount", out var amountObj) || amountObj is null)
                 return BadRequest("Informe o valor do adiantamento.");
@@ -37,9 +52,28 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
 
             parameters.TryGetValue("Comments", out var commentsObj);
 
+            if (!withContract)
+            {
+                parameters.TryGetValue("CardCode", out var cardObj);
+                parameters.TryGetValue("BranchCode", out var branchObj);
+
+                var free = await service.ExecuteWithoutContractAsync(
+                    direction: direction,
+                    cardCode: cardObj?.ToString() ?? string.Empty,
+                    branchCode: branchObj?.ToString() ?? string.Empty,
+                    amount: Convert.ToDecimal(amountObj),
+                    dueDate: DateTime.Parse(dueObj.ToString()!),
+                    financialAccountCode: accountObj.ToString()!,
+                    paymentDate: DateTime.Parse(paymentObj.ToString()!),
+                    comments: commentsObj?.ToString(),
+                    userName: User.Identity?.Name ?? "Unknown");
+
+                return Ok(new { free.Key, free.Code });
+            }
+
             var advance = await service.ExecuteAsync(
-                contractType: typeObj.ToString()!,
-                contractKey: Guid.Parse(contractObj.ToString()!),
+                contractType: typeObj!.ToString()!,
+                contractKey: Guid.Parse(contractObj!.ToString()!),
                 amount: Convert.ToDecimal(amountObj),
                 dueDate: DateTime.Parse(dueObj.ToString()!),
                 financialAccountCode: accountObj.ToString()!,
