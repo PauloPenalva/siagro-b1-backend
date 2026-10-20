@@ -120,6 +120,79 @@ public class FinancialSettlementsReportServiceTests : IDisposable
         Assert.Equal(("FIRM", "CX1", "Baixa", 60m), (row.Document, row.Account, row.Method, row.Amount));
     }
 
+    private static FinancialSettlement Offset(FinancialDocument composed, FinancialDocument provisional, decimal amount) => new()
+    {
+        Key = Guid.NewGuid(), FinancialDocumentKey = composed.Key, Amount = amount, SettlementDate = new DateTime(2026, 9, 2),
+        Origin = FinancialSettlementOrigin.InvoiceOffset, CompositionKey = Guid.NewGuid(), RelatedDocumentKey = provisional.Key
+    };
+
+    [Fact]
+    public async Task Distributed_slice_without_partner_filter_shows_firm_whose_own_lines_are_earlier()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        db.Context.FinancialDocuments.AddRange(provisional, firm);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m),
+            Settle(provisional, 60m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+
+        var rows = await RowsAsync(db, request);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(("FIRM", "CX1", "Baixa", 60m), (row.Document, row.Account, row.Method, row.Amount));
+    }
+
+    [Fact]
+    public async Task Provisional_mode_without_partner_filter_shows_payment_on_provisional()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        db.Context.FinancialDocuments.AddRange(provisional, firm);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m),
+            Settle(provisional, 60m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+        request.Mode = FinancialPositionMode.Provisional;
+
+        var rows = await RowsAsync(db, request);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(("PROV", "CX1", "Baixa", 60m), (row.Document, row.Account, row.Method, row.Amount));
+    }
+
+    [Fact]
+    public async Task Return_netting_has_own_label_no_account_and_is_excluded_by_account_filter()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        var ret = Doc("RET", 30m, "C1", FinancialDocumentNature.PurchaseReturn, FinancialDirection.Payable);
+        db.Context.FinancialDocuments.AddRange(provisional, firm, ret);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m), Offset(ret, provisional, 30m),
+            Settle(provisional, 70m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+
+        var all = await RowsAsync(db, request);
+
+        var netting = all.Where(r => r.Method == "Abatimento de devolução").ToList();
+        Assert.NotEmpty(netting);
+        Assert.All(netting, r => Assert.Equal(string.Empty, r.Account));
+        Assert.Contains(all, r => r.Method == "Baixa" && r.Account == "CX1" && r.Amount == 70m);
+
+        request.AccountCode = "CX1";
+        var filtered = await RowsAsync(db, request);
+
+        Assert.DoesNotContain(filtered, r => r.Method == "Abatimento de devolução");
+        Assert.Contains(filtered, r => r.Method == "Baixa" && r.Amount == 70m);
+    }
+
     [Fact]
     public async Task Reversal_shows_negative()
     {

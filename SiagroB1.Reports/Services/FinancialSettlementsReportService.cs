@@ -45,7 +45,8 @@ public class FinancialSettlementsReportService(IUnitOfWork db, IFastReportServic
             .Where(s => s.Document.Direction == request.Direction
                         && (cardCode is null || s.Document.CardCode == cardCode)
                         && s.Date >= from && s.Date <= baseDate
-                        && (accountCode is null || s.Source.FinancialAccountCode == accountCode))
+                        // Abatimento de devolução não tem conta (não é dinheiro): o filtro por conta não o inclui.
+                        && (accountCode is null || (!s.IsReturnNetting && s.Source.FinancialAccountCode == accountCode)))
             .OrderBy(s => s.Date)
             .ThenBy(s => s.Document.Currency)
             .ThenBy(s => PartnerName(s.Document), StringComparer.CurrentCultureIgnoreCase)
