@@ -21,7 +21,12 @@ public sealed record FinancialPositionFilter(FinancialDirection? Direction, stri
 public static class FinancialPositionQuery
 {
     public static async Task<FinancialPosition> LoadAsync(AppDbContext ctx, FinancialPositionFilter f,
-        FinancialPositionMode mode, CancellationToken ct)
+        FinancialPositionMode mode, CancellationToken ct) =>
+        FinancialPositionCalculator.Compute(await LoadInputAsync(ctx, f, ct), f.BaseDate, mode);
+
+    /// <summary>Só a carga (seleção + expansão do grupo), para quem precisa calcular a posição em várias datas &lt;= BaseDate.</summary>
+    public static async Task<FinancialPositionInput> LoadInputAsync(AppDbContext ctx, FinancialPositionFilter f,
+        CancellationToken ct)
     {
         // Pré-filtro só da seleção (evita ler a tabela inteira); a expansão abaixo não usa estes filtros.
         var dayAfterBase = f.BaseDate.Date.AddDays(1);
@@ -85,7 +90,6 @@ public static class FinancialPositionQuery
             .Where(c => keyList.Contains(c.ProvisionalDocumentKey) || keyList.Contains(c.ComposedDocumentKey))
             .ToListAsync(ct);
 
-        return FinancialPositionCalculator.Compute(
-            new FinancialPositionInput(documents, settlements, compositions), f.BaseDate, mode);
+        return new FinancialPositionInput(documents, settlements, compositions);
     }
 }
