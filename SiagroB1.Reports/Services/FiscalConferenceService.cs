@@ -136,7 +136,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
                     issues.Add(Issue(line, RuleOutgoingCfopInIncoming));
             }
 
-            if (Math.Abs(line.IcmsBase * line.IcmsRate / 100m - line.IcmsValue) > IcmsTolerance)
+            if (Math.Abs(Math.Round(line.IcmsBase * line.IcmsRate / 100m, 2) - line.IcmsDeferredValue - line.IcmsValue) > IcmsTolerance)
                 issues.Add(Issue(line, RuleIcmsMismatch));
 
             if (line.Model == "55" && !IsValidAccessKey(line.AccessKey))
@@ -299,6 +299,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
         DocumentType = "Saída",
         DocumentKey = invoice.Key,
         IsReturn = invoice.InvoiceType == SalesInvoiceType.Return,
+        IcmsDeferredValue = item.IcmsDeferredValue,
     };
 
     private static FiscalDocumentLineDto PurchaseLine(PurchaseInvoiceItem item, PurchaseInvoice invoice) => new()
@@ -326,6 +327,7 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
         DocumentType = "Entrada",
         DocumentKey = invoice.Key,
         IsReturn = invoice.InvoiceType == PurchaseInvoiceType.Return,
+        IcmsDeferredValue = item.IcmsDeferredValue,
     };
 
     /// <summary>1/2/3 = entrada, 5/6/7 = saída; sem CFOP vale a direção do documento.</summary>

@@ -443,6 +443,34 @@ public class FiscalConferenceServiceTests
     }
 
     [Fact]
+    public async Task Build_FullDeferralIsNotAnIcmsIssue()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var sale = OwnSale("DIF", Icms("51", 18m, 64525.80m, 0m));
+        sale.Items.First().IcmsDeferredValue = 11614.64m;
+        db.Context.SalesInvoices.Add(sale);
+        await Save(db);
+
+        Assert.Empty(await IssuesOf(db, "ICMS difere de base × alíquota"));
+    }
+
+    [Fact]
+    public async Task Build_PartialDeferralMismatchIsAnIssue()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var bad = OwnSale("RUIM", Icms("51", 12m, 1000m, 100m));
+        bad.Items.First().IcmsDeferredValue = 40m;
+        var good = OwnSale("BOM", Icms("51", 12m, 1000m, 80m));
+        good.Items.First().IcmsDeferredValue = 40m;
+        db.Context.SalesInvoices.AddRange(bad, good);
+        await Save(db);
+
+        var issue = Assert.Single(await IssuesOf(db, "ICMS difere de base × alíquota"));
+
+        Assert.Equal("RUIM", issue.InternalNumber);
+    }
+
+    [Fact]
     public async Task Build_NfeWithoutAccessKey()
     {
         var db = TestDb.CreateUnitOfWork();

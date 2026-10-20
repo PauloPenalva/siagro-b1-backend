@@ -51,6 +51,10 @@ public class FiscalDocumentLineDto
     /// <summary>Devolução (compra ou venda); só serve às regras de inconsistência, não vai ao JSON.</summary>
     [JsonIgnore]
     public bool IsReturn { get; set; }
+
+    /// <summary>ICMS diferido da linha; entra na conta da regra de ICMS, não vai ao JSON.</summary>
+    [JsonIgnore]
+    public decimal IcmsDeferredValue { get; set; }
 }
 
 /// <summary>Resumo por Direção + CST + CFOP + alíquota (equivale ao C190 do SPED Fiscal).</summary>
