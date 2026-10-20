@@ -124,6 +124,10 @@ public static class FinancialPositionCalculator
             var net = firms.Sum(x => x.Capacity) - returned;
             var netted = false;
 
+            // Líquido composto <= 0 (ex.: firmes compostos cancelados, sobrou só a devolução): não há o que distribuir —
+            // firmes e devoluções ficam com o valor composto, sem abatimento (Math.Clamp lançaria com max < min).
+            if (net <= 0m) continue;
+
             var pool = input.Settlements
                 .Where(s => s.FinancialDocumentKey == provisional.Key && s.CompositionKey is null
                             && s.SettlementDate.Date <= baseDay)

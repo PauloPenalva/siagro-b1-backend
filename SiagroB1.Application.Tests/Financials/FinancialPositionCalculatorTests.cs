@@ -493,4 +493,16 @@ public class FinancialPositionCalculatorTests
             new DateTime(2026, 10, 10)).Titles);
         Assert.Equal(-20m, title.OpenAtBase);
     }
+
+    [Fact]
+    public void Provisional_with_only_composed_return_does_not_throw()
+    {
+        // Firmes compostos cancelados depois: sobra só a devolução composta → líquido < 0; nada a distribuir.
+        var prov = Provisional();
+        var ret = FirmDue(new DateTime(2026, 10, 2), 30m, FinancialDocumentNature.PurchaseReturn);
+        var p = Compute([prov, ret], [Offset(ret, prov, -30m, Composed), Pay(prov, 50m, new DateTime(2026, 10, 8))], Base);
+
+        Assert.Equal(-30m, OpenOf(p, ret));
+        Assert.DoesNotContain(p.Settlements, s => s.IsDistributed);
+    }
 }
