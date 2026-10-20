@@ -209,6 +209,99 @@ public class FiscalConferenceServiceTests
         Assert.Equal("E", data.Documents.Single(d => d.InternalNumber == "P").Direction);
     }
 
+    [Fact]
+    public async Task Build_SummaryGroupsByDirectionCstCfopAndRate()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(OwnSale("V1", icms: Icms("00", 12m, 1000m, 120m)));
+        db.Context.SalesInvoices.Add(OwnSale("V2", icms: Icms("00", 12m, 500m, 60m)));
+        db.Context.SalesInvoices.Add(OwnSale("V3", icms: Icms("00", 7m, 200m, 14m)));
+        db.Context.PurchaseInvoices.Add(Purchase("C1", items: [PurchaseLine("1101", Icms("00", 12m, 300m, 36m))]));
+        await Save(db);
+
+        var summary = (await Service(db).BuildAsync(Request())).Summary;
+
+        Assert.Equal(3, summary.Count);
+        Assert.Equal(new[] { "E", "S", "S" }, summary.Select(r => r.Direction));
+        var e = summary[0];
+        Assert.Equal(("1101", "00", 12m, 300m, 36m), (e.Cfop, e.CstIcms, e.IcmsRate, e.IcmsBase, e.IcmsValue));
+        var s12 = summary.Single(r => r.Direction == "S" && r.IcmsRate == 12m);
+        Assert.Equal(1500m, s12.IcmsBase);
+        Assert.Equal(180m, s12.IcmsValue);
+        Assert.Equal(1500m, s12.OperationValue);
+        Assert.Equal(200m, summary.Single(r => r.IcmsRate == 7m).IcmsBase);
+        Assert.Equal(7m, summary[1].IcmsRate);
+    }
+
+    [Fact]
+    public async Task Build_AssessmentDebitsOutgoingAndCreditsIncoming()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(OwnSale("V1", icms: Icms("00", 12m, 1000m, 120m)));
+        db.Context.PurchaseInvoices.Add(Purchase("C1", items: [PurchaseLine("1101", Icms("00", 7m, 1000m, 70m))]));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        Assert.Equal(120m, data.AssessmentTotals.Debits);
+        Assert.Equal(70m, data.AssessmentTotals.Credits);
+        Assert.Equal(50m, data.AssessmentTotals.Balance);
+        Assert.Equal(new[] { "1101", "5101" }, data.Assessment.Select(a => a.Cfop));
+        Assert.Equal(70m, data.Assessment[0].Credit);
+        Assert.Equal(0m, data.Assessment[0].Debit);
+        Assert.Equal(120m, data.Assessment[1].Debit);
+    }
+
+    [Fact]
+    public async Task Build_OwnPurchaseReturnWithOutgoingCfopIsDebit()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Purchase("DEV", type: PurchaseInvoiceType.Return, issuer: DocumentIssuerType.Own,
+                items: [PurchaseLine("5202", Icms("00", 12m, 250m, 30m))])
+            .With(p => { p.NfeStatus = NfeStatus.Authorized; p.ChaveNFe = Key44; }));
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        Assert.Equal(30m, data.AssessmentTotals.Debits);
+        Assert.Equal(0m, data.AssessmentTotals.Credits);
+        Assert.Equal(30m, data.AssessmentTotals.Balance);
+    }
+
+    [Fact]
+    public async Task Build_ComplementCountsInAssessment()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var sale = OwnSale("COMPL", icms: Icms("90", 0m, 0m, 10m));
+        sale.InvoiceType = SalesInvoiceType.IcmsComplement;
+        db.Context.SalesInvoices.Add(sale);
+        await Save(db);
+
+        var data = await Service(db).BuildAsync(Request());
+
+        Assert.Equal(10m, data.AssessmentTotals.Debits);
+    }
+
+    private static (string Cst, decimal Rate, decimal Base, decimal Value) Icms(string cst, decimal rate, decimal @base, decimal value) =>
+        (cst, rate, @base, value);
+
+    private static SalesInvoice OwnSale(string number, (string Cst, decimal Rate, decimal Base, decimal Value) icms)
+    {
+        var sale = OwnSale(number);
+        var item = sale.Items.First();
+        item.CstIcms = icms.Cst; item.IcmsRate = icms.Rate; item.IcmsBase = icms.Base; item.IcmsValue = icms.Value;
+        item.Quantity = 1m; item.UnitPrice = icms.Base;
+        return sale;
+    }
+
+    private static PurchaseInvoiceItem PurchaseLine(string? cfop, (string Cst, decimal Rate, decimal Base, decimal Value) icms)
+    {
+        var item = PurchaseLine(cfop);
+        item.CstIcms = icms.Cst; item.IcmsRate = icms.Rate; item.IcmsBase = icms.Base; item.IcmsValue = icms.Value;
+        item.Quantity = 1m; item.UnitPrice = icms.Base;
+        return item;
+    }
+
     private static SalesInvoice OwnSale(
         string number,
         InvoiceStatus status = InvoiceStatus.Confirmed,

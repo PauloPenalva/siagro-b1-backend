@@ -47,14 +47,33 @@ public class FiscalDocumentLineDto
     public Guid DocumentKey { get; set; }
 }
 
-public class FiscalSummaryRowDto;
+/// <summary>Resumo por Direção + CST + CFOP + alíquota (equivale ao C190 do SPED Fiscal).</summary>
+public class FiscalSummaryRowDto
+{
+    public string Direction { get; set; } = "";
+    public string CstIcms { get; set; } = "";
+    public string Cfop { get; set; } = "";
+    public decimal IcmsRate { get; set; }
+    public decimal OperationValue { get; set; }
+    public decimal IcmsBase { get; set; }
+    public decimal IcmsValue { get; set; }
+}
 
-public class IcmsAssessmentRowDto;
+/// <summary>Apuração do ICMS por CFOP (equivale ao E110): saída debita, entrada credita.</summary>
+public class IcmsAssessmentRowDto
+{
+    public string Cfop { get; set; } = "";
+    public decimal OperationValue { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+}
 
 public class IcmsAssessmentTotalsDto
 {
     public decimal Debits { get; set; }
     public decimal Credits { get; set; }
+
+    /// <summary>Débitos - Créditos; positivo = a recolher.</summary>
     public decimal Balance { get; set; }
 }
 

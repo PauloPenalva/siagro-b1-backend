@@ -25,7 +25,54 @@ public class FiscalConferenceService(IUnitOfWork db, FunruralWithholdingReportSe
     public async Task<FiscalConferenceData> BuildAsync(FiscalConferenceRequest request)
     {
         var (included, _) = await LoadLinesAsync(request);
-        return new FiscalConferenceData { Documents = included };
+        var (assessment, totals) = BuildAssessment(included);
+        return new FiscalConferenceData
+        {
+            Documents = included,
+            Summary = BuildSummary(included),
+            Assessment = assessment,
+            AssessmentTotals = totals,
+        };
+    }
+
+    /// <summary>Agrupa por direção, CST, CFOP e alíquota; "E" vem antes de "S".</summary>
+    private static List<FiscalSummaryRowDto> BuildSummary(List<FiscalDocumentLineDto> lines) => lines
+        .GroupBy(l => (l.Direction, l.CstIcms, l.Cfop, l.IcmsRate))
+        .Select(g => new FiscalSummaryRowDto
+        {
+            Direction = g.Key.Direction,
+            CstIcms = g.Key.CstIcms,
+            Cfop = g.Key.Cfop,
+            IcmsRate = g.Key.IcmsRate,
+            OperationValue = g.Sum(l => l.OperationValue),
+            IcmsBase = g.Sum(l => l.IcmsBase),
+            IcmsValue = g.Sum(l => l.IcmsValue),
+        })
+        .OrderBy(r => r.Direction, StringComparer.Ordinal)
+        .ThenBy(r => r.Cfop, StringComparer.Ordinal)
+        .ThenBy(r => r.CstIcms, StringComparer.Ordinal)
+        .ThenBy(r => r.IcmsRate)
+        .ToList();
+
+    /// <summary>Saída (CFOP 5/6/7) debita o ICMS; entrada (1/2/3) credita. A direção já vem do CFOP.</summary>
+    private static (List<IcmsAssessmentRowDto> Rows, IcmsAssessmentTotalsDto Totals) BuildAssessment(
+        List<FiscalDocumentLineDto> lines)
+    {
+        var rows = lines
+            .GroupBy(l => l.Cfop)
+            .Select(g => new IcmsAssessmentRowDto
+            {
+                Cfop = g.Key,
+                OperationValue = g.Sum(l => l.OperationValue),
+                Debit = g.Where(l => l.Direction == "S").Sum(l => l.IcmsValue),
+                Credit = g.Where(l => l.Direction == "E").Sum(l => l.IcmsValue),
+            })
+            .OrderBy(r => r.Cfop, StringComparer.Ordinal)
+            .ToList();
+
+        var debits = rows.Sum(r => r.Debit);
+        var credits = rows.Sum(r => r.Credit);
+        return (rows, new IcmsAssessmentTotalsDto { Debits = debits, Credits = credits, Balance = debits - credits });
     }
 
     /// <summary>
