@@ -17,6 +17,6 @@ public sealed record FinancialPositionInput(
 public sealed record PositionTitle(FinancialDocument Document, decimal Amount, decimal SettledAtBase, decimal OpenAtBase);
 
 public sealed record EffectiveSettlement(FinancialDocument Document, FinancialSettlement Source, DateTime Date,
-    decimal Amount, decimal Interest, decimal Fine, decimal Discount, bool IsDistributed);
+    decimal Amount, decimal Interest, decimal Fine, decimal Discount, bool IsDistributed, bool IsReturnNetting = false);
 
 public sealed record FinancialPosition(IReadOnlyList<PositionTitle> Titles, IReadOnlyList<EffectiveSettlement> Settlements);

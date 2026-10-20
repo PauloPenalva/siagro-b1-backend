@@ -358,6 +358,58 @@ public class FinancialPositionCalculatorTests
         AssertSettledMatchesSlices(p);
     }
 
+    [Fact]
+    public void Excess_payment_then_reversal_keeps_firms_paid()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 1));
+        var f2 = FirmDue(new DateTime(2026, 10, 5));
+        var p = Compute([prov, f1, f2],
+        [
+            Offset(f1, prov, 100m, Composed), Offset(f2, prov, 100m, Composed),
+            Pay(prov, 250m, new DateTime(2026, 10, 6)),
+            Pay(prov, -50m, new DateTime(2026, 10, 7), FinancialSettlementOrigin.Reversal)
+        ], Base);
+        Assert.Equal(0m, OpenOf(p, f1));
+        Assert.Equal(0m, OpenOf(p, f2));
+        AssertSettledMatchesSlices(p);
+    }
+
+    [Fact]
+    public void Excess_payment_then_reversal_keeps_return_netted()
+    {
+        var prov = Provisional();
+        var f1 = FirmDue(new DateTime(2026, 10, 1));
+        var f2 = FirmDue(new DateTime(2026, 10, 5));
+        var ret = FirmDue(new DateTime(2026, 10, 2), 30m, FinancialDocumentNature.PurchaseReturn);
+        var p = Compute([prov, f1, f2, ret],
+        [
+            Offset(f1, prov, 100m, Composed), Offset(f2, prov, 100m, Composed), Offset(ret, prov, -30m, Composed),
+            Pay(prov, 170m, new DateTime(2026, 10, 6)), Pay(prov, 50m, new DateTime(2026, 10, 7)),
+            Pay(prov, -50m, new DateTime(2026, 10, 8), FinancialSettlementOrigin.Reversal)
+        ], Base);
+        Assert.All(p.Titles, t => Assert.Equal(0m, t.OpenAtBase));
+        AssertSettledMatchesSlices(p);
+        Assert.All(p.Settlements.Where(s => s.Document.Key == ret.Key), s => Assert.True(s.IsReturnNetting));
+        Assert.Equal(30m, p.Settlements.Where(s => s.IsReturnNetting && s.Document.Key != ret.Key).Sum(s => s.Amount));
+    }
+
+    [Fact]
+    public void Proration_slices_sum_exactly_to_source()
+    {
+        var prov = Provisional();
+        var firms = new[] { FirmDue(new DateTime(2026, 10, 1)), FirmDue(new DateTime(2026, 10, 2)), FirmDue(new DateTime(2026, 10, 3)) };
+        var pay = Pay(prov, 300m, new DateTime(2026, 10, 8));
+        pay.InterestAmount = 0.10m; pay.FineAmount = 0.05m; pay.DiscountAmount = 1.00m;
+        var p = Compute([prov, .. firms], [.. firms.Select(f => Offset(f, prov, 100m, Composed)), pay], Base);
+        var slices = p.Settlements.Where(s => s.Source == pay).ToList();
+        Assert.Equal(3, slices.Count);
+        Assert.Equal(0.10m, slices.Sum(s => s.Interest));
+        Assert.Equal(0.05m, slices.Sum(s => s.Fine));
+        Assert.Equal(1.00m, slices.Sum(s => s.Discount));
+        Assert.All(slices, s => Assert.False(s.IsReturnNetting));
+    }
+
     private static void AssertSettledMatchesSlices(FinancialPosition p)
     {
         foreach (var t in p.Titles)

@@ -102,28 +102,28 @@ public static class FinancialPositionCalculator
                 .OrderBy(s => s.SettlementDate.Date).ThenBy(s => s.Amount < 0m ? 1 : 0)
                 .ToList();
 
+            // Dinheiro distribuído = min(pool acumulado, líquido composto): o excedente fica no provisório, e o estorno
+            // só desfaz o que o pool deixa de cobrir (não o que ainda está lá).
+            var cum = new Dictionary<FinancialSettlement, decimal>(ReferenceEqualityComparer.Instance);
+            var poolTotal = 0m;
             foreach (var payment in pool)
             {
-                if (payment.Amount > 0m)
+                poolTotal += payment.Amount;
+                var shouldNet = returned > 0m && poolTotal >= net;
+                if (netted && !shouldNet)
                 {
-                    // Antes do abatimento o dinheiro não passa do líquido: o resto da capacidade é da devolução.
-                    var cash = firms.Sum(x => x.Cash);
-                    var amount = netted || returned == 0m ? payment.Amount : Math.Min(payment.Amount, net - cash);
-                    Fill(payment, amount, firms, output);
-                    if (!netted && returned > 0m && firms.Sum(x => x.Cash) >= net)
-                    {
-                        Net(payment, firms, returns, output, +1);
-                        netted = true;
-                    }
+                    Net(payment, firms, returns, output, -1);
+                    netted = false;
                 }
-                else if (payment.Amount < 0m)
+
+                var diff = Math.Clamp(poolTotal, 0m, net) - firms.Sum(x => x.Cash);
+                if (diff > 0m) Fill(payment, diff, firms, output, cum);
+                else if (diff < 0m) Unwind(payment, -diff, firms, output, cum);
+
+                if (!netted && shouldNet)
                 {
-                    if (netted && firms.Sum(x => x.Cash) + payment.Amount < net)
-                    {
-                        Net(payment, firms, returns, output, -1);
-                        netted = false;
-                    }
-                    Unwind(payment, firms, output);
+                    Net(payment, firms, returns, output, +1);
+                    netted = true;
                 }
             }
         }
@@ -142,14 +142,14 @@ public static class FinancialPositionCalculator
                 if (piece <= 0m) continue;
                 firms[i].Netted += piece;
                 remaining -= piece;
-                output.Add(Slice(firms[i].Document, source, piece, false));
+                output.Add(Slice(firms[i].Document, source, piece, null, true));
             }
         }
         else
         {
             foreach (var firm in firms.Where(x => x.Netted > 0m))
             {
-                output.Add(Slice(firm.Document, source, -firm.Netted, false));
+                output.Add(Slice(firm.Document, source, -firm.Netted, null, true));
                 firm.Netted = 0m;
             }
         }
@@ -157,11 +157,12 @@ public static class FinancialPositionCalculator
         foreach (var ret in returns)
         {
             ret.Netted = sign > 0 ? ret.Capacity : 0m;
-            output.Add(Slice(ret.Document, source, -sign * ret.Capacity, false));
+            output.Add(Slice(ret.Document, source, -sign * ret.Capacity, null, true));
         }
     }
 
-    private static void Fill(FinancialSettlement payment, decimal amount, List<Slot> slots, List<EffectiveSettlement> output)
+    private static void Fill(FinancialSettlement payment, decimal amount, List<Slot> slots, List<EffectiveSettlement> output,
+        Dictionary<FinancialSettlement, decimal> cum)
     {
         var remaining = amount;
         foreach (var slot in slots)
@@ -171,31 +172,41 @@ public static class FinancialPositionCalculator
             if (piece <= 0m) continue;
             slot.Cash += piece;
             remaining -= piece;
-            output.Add(Slice(slot.Document, payment, piece, true));
+            output.Add(Slice(slot.Document, payment, piece, cum));
         }
     }
 
-    private static void Unwind(FinancialSettlement reversal, List<Slot> slots, List<EffectiveSettlement> output)
+    private static void Unwind(FinancialSettlement reversal, decimal amount, List<Slot> slots, List<EffectiveSettlement> output,
+        Dictionary<FinancialSettlement, decimal> cum)
     {
-        var remaining = -reversal.Amount;
+        var remaining = amount;
         for (var i = slots.Count - 1; i >= 0 && remaining > 0m; i--)
         {
             var piece = Math.Min(slots[i].Cash, remaining);
             if (piece <= 0m) continue;
             slots[i].Cash -= piece;
             remaining -= piece;
-            output.Add(Slice(slots[i].Document, reversal, -piece, true));
+            output.Add(Slice(slots[i].Document, reversal, -piece, cum));
         }
     }
 
     // Juros/multa/desconto rateados pela proporção do pedaço na baixa real.
-    // Abatimento da devolução não é dinheiro: sem juros/multa/desconto.
-    private static EffectiveSettlement Slice(FinancialDocument document, FinancialSettlement source, decimal piece, bool prorate)
+    // Abatimento da devolução não é dinheiro: sem juros/multa/desconto. Dinheiro: juros/multa/desconto rateados pela
+    // proporção ACUMULADA do pedaço na baixa real (round(acum) − round(acum anterior)), para as fatias somarem a linha.
+    private static EffectiveSettlement Slice(FinancialDocument document, FinancialSettlement source, decimal piece,
+        Dictionary<FinancialSettlement, decimal>? cum, bool isReturnNetting = false)
     {
-        var ratio = !prorate || source.Amount == 0m ? 0m : piece / source.Amount;
+        if (cum is null || source.Amount == 0m)
+            return new EffectiveSettlement(document, source, source.SettlementDate.Date, piece, 0m, 0m, 0m, true, isReturnNetting);
+
+        var before = cum.GetValueOrDefault(source);
+        var after = before + Math.Abs(piece);
+        cum[source] = after;
+        var sign = Math.Sign(piece) * Math.Sign(source.Amount);
+        var total = Math.Abs(source.Amount);
+        decimal Share(decimal value) => sign * (decimal.Round(value * after / total, 2) - decimal.Round(value * before / total, 2));
         return new EffectiveSettlement(document, source, source.SettlementDate.Date, piece,
-            decimal.Round(source.InterestAmount * ratio, 2), decimal.Round(source.FineAmount * ratio, 2),
-            decimal.Round(source.DiscountAmount * ratio, 2), true);
+            Share(source.InterestAmount), Share(source.FineAmount), Share(source.DiscountAmount), true);
     }
 
     // Firmes: tudo menos o provisório. Provisórios: o provisório entra NO LUGAR dos firmes/devoluções de contrato.
