@@ -87,15 +87,28 @@ public sealed class ZeusNfeSefazClient : INfeSefazClient
 
     public Task<NfeDistributionResult> DistributionByNsuAsync(
         string recipientTaxId, long lastNsu, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
-        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
-            settings.IssuerState, recipientTaxId, lastNsu.ToString("D15", CultureInfo.InvariantCulture), string.Empty, string.Empty).Retorno),
-            cancellationToken);
+        RunAsync(settings, services =>
+        {
+            var (ultNsu, nsu, key) = DistributionByNsuArguments(lastNsu);
+            return NfeSefazResponseMapper.FromDistribution(
+                services.NfeDistDFeInteresse(settings.IssuerState, recipientTaxId, ultNsu, nsu, key).Retorno);
+        }, cancellationToken);
 
     public Task<NfeDistributionResult> DistributionByKeyAsync(
         string recipientTaxId, string accessKey, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
-        RunAsync(settings, services => NfeSefazResponseMapper.FromDistribution(services.NfeDistDFeInteresse(
-            settings.IssuerState, recipientTaxId, string.Empty, string.Empty, accessKey).Retorno),
-            cancellationToken);
+        RunAsync(settings, services =>
+        {
+            var (ultNsu, nsu, key) = DistributionByKeyArguments(accessKey);
+            return NfeSefazResponseMapper.FromDistribution(
+                services.NfeDistDFeInteresse(settings.IssuerState, recipientTaxId, ultNsu, nsu, key).Retorno);
+        }, cancellationToken);
+
+    // Na Zeus, nSU diferente de "0" vira consulta de um NSU só (consNSU) e descarta o distNSU: sempre "0" aqui.
+    internal static (string UltNsu, string Nsu, string Key) DistributionByNsuArguments(long lastNsu) =>
+        (lastNsu.ToString("D15", CultureInfo.InvariantCulture), "0", string.Empty);
+
+    internal static (string UltNsu, string Nsu, string Key) DistributionByKeyArguments(string accessKey) =>
+        ("0", "0", accessKey);
 
     public Task<NfeEventResult> SendManifestationAsync(
         NfeManifestationRequest request, NfeServiceSettings settings, CancellationToken cancellationToken = default) =>
