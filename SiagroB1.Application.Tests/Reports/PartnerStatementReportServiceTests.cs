@@ -289,4 +289,22 @@ public class PartnerStatementReportServiceTests : IDisposable
             new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()),
             FakeCompanyContext.Unresolved());
     }
+
+    [Fact]
+    public async Task Uncomposed_return_own_netting_keeps_invariant_and_closes_at_zero()
+    {
+        var ret = Doc("DEV", 30m, nature: FinancialDocumentNature.SalesReturn, date: new DateTime(2026, 9, 5));
+        var part = Doc("DEV2", 50m, nature: FinancialDocumentNature.SalesReturn, date: new DateTime(2026, 10, 2));
+        var db = await SeedAsync([ret, part], Settle(ret, 30m, new DateTime(2026, 10, 15), FinancialSettlementOrigin.Netting),
+            Settle(part, 20m, new DateTime(2026, 10, 16), FinancialSettlementOrigin.Netting));
+
+        var opening = await PositionAsync(db, From.AddDays(-1), FinancialPositionMode.Firm, FinancialDirection.Receivable);
+        var closing = await PositionAsync(db, To, FinancialPositionMode.Firm, FinancialDirection.Receivable);
+        var (rows, _) = await RunAsync(db);
+
+        Assert.Equal((-30m, -30m), (opening, closing));
+        AssertInvariant(rows, opening, closing);
+        Assert.Equal(new[] { ("Emissão DEV2", 0m, 50m), ("Encontro de contas DEV", 30m, 0m), ("Encontro de contas DEV2", 20m, 0m) },
+            rows.Select(r => (r.History, r.Debit, r.Credit)).ToArray());
+    }
 }

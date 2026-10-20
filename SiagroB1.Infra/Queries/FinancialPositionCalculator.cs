@@ -27,8 +27,9 @@ public static class FinancialPositionCalculator
                         && !((mode == FinancialPositionMode.Firm
                               || byKey[s.FinancialDocumentKey].Nature == FinancialDocumentNature.Provisional)
                              && IsCompositionOffset(s)))
+            // Devolução: o ledger grava baixa positiva (reduz a devolução); aqui o valor dela é negativo, então a baixa também.
             .Select(s => new EffectiveSettlement(byKey[s.FinancialDocumentKey], s, s.SettlementDate.Date,
-                s.Amount, s.InterestAmount, s.FineAmount, s.DiscountAmount, false))
+                IsReturn(byKey[s.FinancialDocumentKey]) ? -s.Amount : s.Amount, s.InterestAmount, s.FineAmount, s.DiscountAmount, false))
             .ToList();
 
         // Ajuste não-caixa do abatimento da devolução composta (R7): não é baixa, mas fecha o firme/devolução.

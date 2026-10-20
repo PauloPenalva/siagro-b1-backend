@@ -304,4 +304,37 @@ public class FinancialSettlementsReportServiceTests : IDisposable
             new ReportHeaderService(env, configuration, new TestLogger<ReportHeaderService>(), FakeCompanyContext.Unresolved()),
             FakeCompanyContext.Unresolved());
     }
+
+    [Fact]
+    public async Task Return_settlement_shows_recorded_positive_sign()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var ret = Doc("DEV", 30m, nature: FinancialDocumentNature.SalesReturn);
+        db.Context.FinancialDocuments.Add(ret);
+        db.Context.FinancialSettlements.Add(Settle(ret, 30m, new DateTime(2026, 10, 5), FinancialSettlementOrigin.Netting));
+        await db.Context.SaveChangesAsync();
+
+        var row = Assert.Single(await RowsAsync(db));
+
+        Assert.Equal(("Encontro de contas", 30m), (row.Method, row.Amount));
+    }
+
+    [Fact]
+    public async Task Return_netting_slice_on_composed_return_shows_positive()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var provisional = Doc("PROV", 300m, "C9", FinancialDocumentNature.Provisional, FinancialDirection.Payable);
+        var firm = Doc("FIRM", 100m, "C1", direction: FinancialDirection.Payable);
+        var ret = Doc("RET", 30m, "C1", FinancialDocumentNature.PurchaseReturn, FinancialDirection.Payable);
+        db.Context.FinancialDocuments.AddRange(provisional, firm, ret);
+        db.Context.FinancialSettlements.AddRange(Offset(firm, provisional, 100m), Offset(ret, provisional, 30m),
+            Settle(provisional, 70m, new DateTime(2026, 10, 5), account: "CX1"));
+        await db.Context.SaveChangesAsync();
+        var request = Request();
+        request.Direction = FinancialDirection.Payable;
+
+        var rows = await RowsAsync(db, request);
+
+        Assert.Equal(30m, Assert.Single(rows, r => r.Document == "RET").Amount);
+    }
 }

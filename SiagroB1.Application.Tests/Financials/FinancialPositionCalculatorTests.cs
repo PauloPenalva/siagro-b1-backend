@@ -469,4 +469,28 @@ public class FinancialPositionCalculatorTests
             Base, FinancialPositionMode.Provisional);
         Assert.Equal(70m, Assert.Single(p.Titles).Amount);
     }
+
+    [Fact]
+    public void Uncomposed_return_own_full_netting_closes_it()
+    {
+        var ret = Doc(FinancialDocumentNature.PurchaseReturn, FinancialDocumentOrigin.Manual, amount: 30m);
+        var netting = Settle(ret, 30m, new DateTime(2026, 10, 10), FinancialSettlementOrigin.Netting);
+
+        var before = Assert.Single(Compute([ret], [netting], new DateTime(2026, 10, 9)).Titles);
+        var after = Compute([ret], [netting], new DateTime(2026, 10, 10));
+
+        Assert.Equal((-30m, 0m, -30m), (before.Amount, before.SettledAtBase, before.OpenAtBase));
+        var title = Assert.Single(after.Titles);
+        Assert.Equal((-30m, -30m, 0m), (title.Amount, title.SettledAtBase, title.OpenAtBase));
+        Assert.Equal(-30m, Assert.Single(after.Settlements).Amount);
+    }
+
+    [Fact]
+    public void Uncomposed_return_partial_netting_reduces_magnitude()
+    {
+        var ret = Doc(FinancialDocumentNature.SalesReturn, FinancialDocumentOrigin.Manual, amount: 30m);
+        var title = Assert.Single(Compute([ret], [Settle(ret, 10m, new DateTime(2026, 10, 10), FinancialSettlementOrigin.Netting)],
+            new DateTime(2026, 10, 10)).Titles);
+        Assert.Equal(-20m, title.OpenAtBase);
+    }
 }

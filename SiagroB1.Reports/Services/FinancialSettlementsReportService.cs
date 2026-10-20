@@ -65,7 +65,8 @@ public class FinancialSettlementsReportService(IUnitOfWork db, IFastReportServic
                 Account = s.IsReturnNetting ? string.Empty : s.Source.FinancialAccountCode ?? string.Empty,
                 Method = s.IsReturnNetting ? "Abatimento de devolução" : MethodLabel(s.Source.Origin),
                 Currency = currency,
-                Amount = s.Amount,
+                // Devolução: o calculador usa sinal negativo; o relatório mostra o sinal gravado no ledger.
+                Amount = IsReturn(s.Document) ? -s.Amount : s.Amount,
                 Interest = s.Interest,
                 Fine = s.Fine,
                 Discount = s.Discount
@@ -103,6 +104,9 @@ public class FinancialSettlementsReportService(IUnitOfWork db, IFastReportServic
         FinancialSettlementOrigin.AdvanceTransfer => "Transferência de adiantamento",
         _ => origin.ToString()
     };
+
+    private static bool IsReturn(FinancialDocument d) =>
+        d.Nature is FinancialDocumentNature.PurchaseReturn or FinancialDocumentNature.SalesReturn;
 
     private static string PartnerName(FinancialDocument d) =>
         string.IsNullOrWhiteSpace(d.CardName) ? d.CardCode : d.CardName;
