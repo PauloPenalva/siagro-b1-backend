@@ -299,6 +299,19 @@ else
     RecurringJob.RemoveIfExists(CompanyScopedJobRunner.NfeEmailSweep);
 }
 
+// Consulta de DF-e destinados à filial: os horários são do usuário, o job só verifica a cada 5 minutos o que venceu.
+if (ErpMode.IsStandalone(app.Configuration))
+{
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        CompanyScopedJobRunner.ReceivedDfeSync,
+        runner => runner.RunReceivedDfeSyncAsync(CompanyScopedJobRunner.ReceivedDfeSync, CancellationToken.None),
+        ReceivedDfeSyncJob.CronExpression);
+}
+else
+{
+    RecurringJob.RemoveIfExists(CompanyScopedJobRunner.ReceivedDfeSync);
+}
+
 // Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que
 // enxerga quem sumiu do OUSR - o provisionamento no login só vê quem está entrando.
 if (string.Equals(erp.Trim(), "SAPB1", StringComparison.OrdinalIgnoreCase))

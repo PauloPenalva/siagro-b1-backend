@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/20/2026 10:00:00" ReportInfo.Modified="10/20/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="SettlementRows" ReferenceName="SettlementRows" DataType="System.Int32" Enabled="true">
+      <Column Name="GroupKey" DataType="System.String"/>
+      <Column Name="Date" DataType="System.String"/>
+      <Column Name="Partner" DataType="System.String"/>
+      <Column Name="Document" DataType="System.String"/>
+      <Column Name="NfeNumber" DataType="System.String"/>
+      <Column Name="NfeSeries" DataType="System.String"/>
+      <Column Name="Account" DataType="System.String"/>
+      <Column Name="Method" DataType="System.String"/>
+      <Column Name="Currency" DataType="System.String"/>
+      <Column Name="Amount" DataType="System.Decimal"/>
+      <Column Name="Interest" DataType="System.Decimal"/>
+      <Column Name="Fine" DataType="System.Decimal"/>
+      <Column Name="Discount" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pTitle" DataType="System.String" AsString=""/>
+    <Parameter Name="pPeriod" DataType="System.String" AsString=""/>
+    <Parameter Name="pMode" DataType="System.String" AsString=""/>
+    <Parameter Name="pTotals" DataType="System.String" AsString=""/>
+    <Parameter Name="pRowCount" DataType="System.Int32" AsString="0"/>
+    <Total Name="DayAmount" Expression="[SettlementRows.Amount]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="DayInterest" Expression="[SettlementRows.Interest]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="DayFine" Expression="[SettlementRows.Fine]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+    <Total Name="DayDiscount" Expression="[SettlementRows.Discount]" Evaluator="Data1" PrintOn="GroupFooter1"/>
+  </Dictionary>
+  <ReportPage Name="Page1" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1062.18" Height="132">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="760" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="914.78" Top="2" Width="147.4" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="1062.18" Height="26" Text="[pTitle]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtPeriod" Top="76" Width="1062.18" Height="17" Text="[pPeriod]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="txtMode" Top="93" Width="1062.18" Height="17" Text="[pMode]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Bold"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Top="135.2" Width="1062.18" Height="19" Border.Lines="Bottom">
+      <TextObject Name="hdrPartner" Left="0" Width="190" Height="17" Text="Parceiro" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDocument" Left="192" Width="110" Height="17" Text="Título" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeNumber" Left="304" Width="70" Height="17" Text="Nº NF-e" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrNfeSeries" Left="376" Width="36" Height="17" Text="Série" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAccount" Left="414" Width="90" Height="17" Text="Conta" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrMethod" Left="506" Width="140" Height="17" Text="Forma" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAmount" Left="648" Width="100" Height="17" Text="Valor" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrInterest" Left="750" Width="100" Height="17" Text="Juros" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrFine" Left="852" Width="100" Height="17" Text="Multa" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDiscount" Left="954" Width="100" Height="17" Text="Desconto" HorzAlign="Right" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <GroupHeaderBand Name="GroupHeader1" Top="157.4" Width="1062.18" Height="21" Condition="[SettlementRows.GroupKey]" KeepWithData="true">
+      <TextObject Name="txtGroupDate" Left="0" Top="2" Width="1062.18" Height="17" Text="[SettlementRows.Date] ([SettlementRows.Currency])" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Bold"/>
+      <DataBand Name="Data1" Top="181.6" Width="1062.18" Height="17" DataSource="SettlementRows">
+        <TextObject Name="txtRowPartner" Left="0" Width="190" Height="17" Text="[SettlementRows.Partner]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDocument" Left="192" Width="110" Height="17" Text="[SettlementRows.Document]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeNumber" Left="304" Width="70" Height="17" Text="[SettlementRows.NfeNumber]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowNfeSeries" Left="376" Width="36" Height="17" Text="[SettlementRows.NfeSeries]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowAccount" Left="414" Width="90" Height="17" Text="[SettlementRows.Account]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowMethod" Left="506" Width="140" Height="17" Text="[SettlementRows.Method]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowAmount" Left="648" Width="100" Height="17" Text="[SettlementRows.Amount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowInterest" Left="750" Width="100" Height="17" Text="[SettlementRows.Interest]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowFine" Left="852" Width="100" Height="17" Text="[SettlementRows.Fine]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDiscount" Left="954" Width="100" Height="17" Text="[SettlementRows.Discount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      </DataBand>
+      <GroupFooterBand Name="GroupFooter1" Top="201.8" Width="1062.18" Height="21" Border.Lines="Top" Border.Style="Dot">
+        <TextObject Name="lblDayTotal" Left="192" Top="2" Width="454" Height="17" Text="Total do dia [SettlementRows.Date] ([SettlementRows.Currency]):" HorzAlign="Right" VertAlign="Center" WordWrap="false" Trimming="EllipsisCharacter" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtDayAmount" Left="648" Top="2" Width="100" Height="17" Text="[DayAmount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtDayInterest" Left="750" Top="2" Width="100" Height="17" Text="[DayInterest]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtDayFine" Left="852" Top="2" Width="100" Height="17" Text="[DayFine]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+        <TextObject Name="txtDayDiscount" Left="954" Top="2" Width="100" Height="17" Text="[DayDiscount]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="226" Width="1062.18" Height="40" CanGrow="true" Border.Lines="Top">
+      <TextObject Name="txtTotals" Left="0" Top="4" Width="1062.18" Height="17" CanGrow="true" Text="[pTotals]" HorzAlign="Right" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtEmpty" Left="0" Top="22" Width="1062.18" Height="17" Text="[IIf([pRowCount] == 0, &quot;Nenhuma baixa no período.&quot;, &quot;&quot;)]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Consolas, 8pt, style=Italic"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="269.2" Width="1062.18" Height="22">
+      <TextObject Name="txtFooterNote" Left="0" Width="860" Height="17" Text="Estornos aparecem negativos. Baixa de provisório aparece no título firme composto, com a conta do pagamento." VertAlign="Center" WordWrap="false" Font="Consolas, 6pt, style=Italic"/>
+      <TextObject Name="txtPage" Left="914.78" Width="147.4" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

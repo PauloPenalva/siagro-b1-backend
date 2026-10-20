@@ -43,7 +43,7 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
             // SAÍDA (e os estornos delas); pago = todo o resto, inclusive a transferência de ENTRADA.
             var lines = await LedgerAsync(context, documentKey);
             var byKey = lines.ToDictionary(x => x.Key);
-            var applied = lines.Where(x => CountsAsApplied(document, x, byKey)).Sum(x => x.Amount);
+            var applied = lines.Where(x => AdvanceSettlementAxis.CountsAsApplied(document, x, byKey)).Sum(x => x.Amount);
 
             document.AppliedAmount = decimal.Round(applied, 2, MidpointRounding.ToEven);
             document.SettledAmount = decimal.Round(lines.Sum(x => x.Amount) - applied, 2, MidpointRounding.ToEven);
@@ -113,28 +113,9 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
             .ToList();
     }
 
-    /// <summary>
-    /// Transferência de ENTRADA: a linha do adiantamento NOVO, nascido do desmembramento, que aponta para o original
-    /// (OriginType = FinancialDocument e OriginKey = RelatedDocumentKey). Depende só de dados do próprio documento.
-    /// </summary>
+    /// <inheritdoc cref="AdvanceSettlementAxis.IsIncomingTransfer"/>
     internal static bool IsIncomingTransfer(FinancialDocument advance, FinancialSettlement line) =>
-        line.Origin == FinancialSettlementOrigin.AdvanceTransfer &&
-        advance.OriginType == FinancialDocumentOrigin.FinancialDocument &&
-        advance.OriginKey is not null &&
-        line.RelatedDocumentKey == advance.OriginKey;
-
-    private static bool IsAppliedAxis(FinancialDocument advance, FinancialSettlement line) =>
-        line.Origin == FinancialSettlementOrigin.AdvanceApplication ||
-        (line.Origin == FinancialSettlementOrigin.AdvanceTransfer && !IsIncomingTransfer(advance, line));
-
-    /// <summary>O estorno segue o eixo da linha que ele estorna — a espelho fica sempre no mesmo título.</summary>
-    private static bool CountsAsApplied(
-        FinancialDocument advance, FinancialSettlement line, IReadOnlyDictionary<Guid, FinancialSettlement> byKey) =>
-        line.Origin == FinancialSettlementOrigin.Reversal
-            ? line.ReversedSettlementKey is { } reversed &&
-              byKey.TryGetValue(reversed, out var original) &&
-              IsAppliedAxis(advance, original)
-            : IsAppliedAxis(advance, line);
+        AdvanceSettlementAxis.IsIncomingTransfer(advance, line);
 
     private static decimal PendingDelta<T>(IEnumerable<EntityEntry<T>> entries, Func<T, decimal> amount) where T : class =>
         entries.Sum(e => e.State switch

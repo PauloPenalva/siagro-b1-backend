@@ -23,6 +23,7 @@ public sealed class CompanyScopedJobRunner(
     public const string ContractNotificationSweep = "contract-notification-sweep";
     public const string ContractDraftsReconcile = "contract-drafts-reconcile";
     public const string NfeEmailSweep = "nfe-email-sweep";
+    public const string ReceivedDfeSync = "received-dfe-sync";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -31,6 +32,7 @@ public sealed class CompanyScopedJobRunner(
             [ContractNotificationSweep] = (sp, ct) => sp.GetRequiredService<IContractNotificationSweepJob>().ExecuteAsync(ct),
             [ContractDraftsReconcile] = (sp, ct) => sp.GetRequiredService<ContractDraftsReconcileJob>().ExecuteAsync(ct),
             [NfeEmailSweep] = (sp, ct) => sp.GetRequiredService<NfeEmailSweepJob>().ExecuteAsync(ct),
+            [ReceivedDfeSync] = (sp, ct) => sp.GetRequiredService<ReceivedDfeSyncJob>().ExecuteAsync(ct),
         };
 
     /// <summary>
@@ -41,6 +43,15 @@ public sealed class CompanyScopedJobRunner(
     [AutomaticRetry(Attempts = 0)]
     [DisplayName("{0} (todas as empresas)")]
     public Task RunForAllCompaniesWithoutRetryAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
+
+    /// <summary>
+    /// DF-e: sem retry e nunca duas execuções ao mesmo tempo (uma execução lenta não pode se sobrepor à seguinte
+    /// e mandar o mesmo NSU à SEFAZ). A trava por filial no serviço cobre o clique manual.
+    /// </summary>
+    [AutomaticRetry(Attempts = 0)]
+    [DisableConcurrentExecution(timeoutInSeconds: 60)]
+    [DisplayName("{0} (todas as empresas)")]
+    public Task RunReceivedDfeSyncAsync(string jobKey, CancellationToken ct) => RunForAllCompaniesAsync(jobKey, ct);
 
     [DisplayName("{0} (todas as empresas)")]
     public async Task RunForAllCompaniesAsync(string jobKey, CancellationToken ct)

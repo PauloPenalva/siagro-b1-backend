@@ -172,5 +172,10 @@ public class PurchaseInvoicesCreateService(
 
         await db.Context.PurchaseInvoices.AddAsync(invoice);
         await db.SaveChangesAsync();
+
+        // Entrada vinda da manifestação do destinatário: o DF-e da mesma filial e chave passa a apontar para o documento.
+        // Depois do primeiro save porque o número (RowId) nasce no banco. A chave duplicada já foi recusada acima.
+        await PurchaseInvoiceReceivedDfeLink.LinkAsync(db.Context, invoice);
+        await db.SaveChangesAsync();
     }
 }
