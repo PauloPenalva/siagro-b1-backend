@@ -39,10 +39,10 @@ public class PurchaseInvoicesCreateService(
         // Dimensões gerenciais: cabeçalho pelo fornecedor; linhas pelo cabeçalho, fornecedor e natureza. Antes de numerar:
         // a recusa não pode consumir número. No-op fora do STANDALONE.
         await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, invoice, null,
-            invoice.CardCode, null, previous: null);
+            invoice.CardCode, null, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate);
         foreach (var item in invoice.Items)
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
-                invoice.CardCode, item.UsageCode, previous: null);
+                invoice.CardCode, item.UsageCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate);
 
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);

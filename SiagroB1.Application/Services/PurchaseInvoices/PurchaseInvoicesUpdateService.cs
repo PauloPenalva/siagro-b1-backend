@@ -123,7 +123,7 @@ public class PurchaseInvoicesUpdateService(
         // As linhas existentes não são reescritas (ver SyncItemsAsync).
         AccountingAssignmentSnapshot.Copy(entity, existing);
         await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, null,
-            existing.CardCode, null, previousDims);
+            existing.CardCode, null, previousDims, documentDate: existing.PostingDate ?? existing.IssueDate);
 
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
@@ -300,7 +300,7 @@ public class PurchaseInvoicesUpdateService(
                 // Dimensões gerenciais da linha nova: o corpo, completado pelo cabeçalho, fornecedor e natureza.
                 AccountingAssignmentSnapshot.Copy(line, newLine);
                 await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
-                    existing.CardCode, newLine.UsageCode, previous: null);
+                    existing.CardCode, newLine.UsageCode, previous: null, documentDate: existing.PostingDate ?? existing.IssueDate);
 
                 db.Context.PurchaseInvoicesItems.Add(newLine);
 
@@ -320,7 +320,8 @@ public class PurchaseInvoicesUpdateService(
             var previousLineDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(current).OriginalValues[n]);
             AccountingAssignmentSnapshot.Copy(line, current);
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, current, existing,
-                existing.CardCode, current.UsageCode, previousLineDims, applyDefaults: false);
+                existing.CardCode, current.UsageCode, previousLineDims, applyDefaults: false,
+                documentDate: existing.PostingDate ?? existing.IssueDate);
 
             current.ItemCode = line.ItemCode;
             current.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(

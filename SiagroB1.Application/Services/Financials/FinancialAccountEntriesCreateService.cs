@@ -32,9 +32,9 @@ public class FinancialAccountEntriesCreateService(
         // Lançamento nasce pronto: só valida (sem parceiro nem natureza para herdar).
         var dimensions = AccountingAssignmentSnapshot.From(entry);
         if (dimensionValidator is not null)
-            await dimensionValidator.NormalizeAndValidateAsync(dimensions);
+            await dimensionValidator.NormalizeAndValidateAsync(dimensions, null, entry.EntryDate.Date);
         if (dimensionGuard is not null)
-            await dimensionGuard.EnsureAsync([dimensions]);
+            await dimensionGuard.EnsureAsync([dimensions], null, entry.EntryDate.Date);
 
         var created = new FinancialAccountEntry
         {

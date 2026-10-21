@@ -75,7 +75,7 @@ public class SalesInvoicesConfirmService(
         string userName,
         CommitMode commitMode = CommitMode.Auto,
         IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null,
-        bool enforceDimensionRequirements = false)
+        bool enforceAccountingAssignment = false)
     {
         var invoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
@@ -97,14 +97,14 @@ public class SalesInvoicesConfirmService(
         // A saída cai no estoque fiscal na InvoiceDate: mês fechado recusa.
         await _periodGuard.EnsureOpenAsync(invoice);
 
-        // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
+        // Amarração contábil exigida pela conta (flags do plano de contas): só ao confirmar.
         // Só na confirmação pedida pelo usuário: fluxos do sistema (faturamento de romaneio, devolução, NF-e autorizada)
         // geram linhas sem padrão e não podem travar quando a empresa liga a obrigatoriedade.
-        if (enforceDimensionRequirements && dimensionGuard is not null)
+        if (enforceAccountingAssignment && dimensionGuard is not null)
         {
             // Ordem estável (sem campo de ordem nas linhas): o rótulo da linha não muda entre chamadas.
             var orderedItems = invoice.Items.OrderBy(x => x.ItemCode).ThenBy(x => x.Key).ToList();
-            await dimensionGuard.EnsureAsync(orderedItems, i => $"{i + 1} ({orderedItems[i].ItemCode})");
+            await dimensionGuard.EnsureAsync(orderedItems, i => $"{i + 1} ({orderedItems[i].ItemCode})", invoice.InvoiceDate);
         }
 
         // Complemento de ICMS (spec 2026-10-18 S8): só fiscal. Leva a natureza da original — a de uma nota de custódia tem

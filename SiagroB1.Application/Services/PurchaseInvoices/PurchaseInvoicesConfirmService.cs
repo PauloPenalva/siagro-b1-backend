@@ -37,7 +37,7 @@ public class PurchaseInvoicesConfirmService(
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
-    public async Task ExecuteAsync(Guid key, string userName, bool enforceDimensionRequirements = false)
+    public async Task ExecuteAsync(Guid key, string userName, bool enforceAccountingAssignment = false)
     {
         var invoice = await db.Context.PurchaseInvoices
                           .FirstOrDefaultAsync(x => x.Key == key)
@@ -76,13 +76,13 @@ public class PurchaseInvoicesConfirmService(
             await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, lines);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
 
-        // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
+        // Amarração contábil exigida pela conta (flags do plano de contas): só ao confirmar.
         // Só na confirmação pedida pelo usuário: fluxos do sistema (NF-e autorizada, contra-nota, complemento) não travam.
-        if (enforceDimensionRequirements && dimensionGuard is not null)
+        if (enforceAccountingAssignment && dimensionGuard is not null)
         {
             // Ordem estável (sem campo de ordem nas linhas): o rótulo da linha não muda entre chamadas.
             var ordered = lines.OrderBy(x => x.ItemCode).ThenBy(x => x.Key).ToList();
-            await dimensionGuard.EnsureAsync(ordered, i => $"{i + 1} ({ordered[i].ItemCode})");
+            await dimensionGuard.EnsureAsync(ordered, i => $"{i + 1} ({ordered[i].ItemCode})", FiscalStockPeriodGuard.StockDate(invoice));
         }
 
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).

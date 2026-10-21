@@ -154,15 +154,29 @@ public class FinancialDocumentsManualUpdateService(
         var previous = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(document).OriginalValues[n]);
         var target = AccountingAssignmentSnapshot.From(document);
 
-        // TODO Task 3: exclusividade rateio x CC/Item ao trocar de modo.
         if (changes.CostCenterCode is not null) target.CostCenterCode = changes.CostCenterCode;
         if (changes.AccountingItemCode is not null) target.AccountingItemCode = changes.AccountingItemCode;
         if (changes.DistributionRuleCode is not null) target.DistributionRuleCode = changes.DistributionRuleCode;
 
+        // Troca de modo: quem informa só um lado limpa o outro (rateio x CC/Item nunca ficam juntos). Se os dois
+        // lados vierem preenchidos, o validador recusa.
+        var typedRule = !string.IsNullOrWhiteSpace(changes.DistributionRuleCode);
+        var typedCcItem = !string.IsNullOrWhiteSpace(changes.CostCenterCode)
+                          || !string.IsNullOrWhiteSpace(changes.AccountingItemCode);
+        if (typedRule && changes.CostCenterCode is null && changes.AccountingItemCode is null)
+        {
+            target.CostCenterCode = null;
+            target.AccountingItemCode = null;
+        }
+        else if (typedCcItem && changes.DistributionRuleCode is null)
+        {
+            target.DistributionRuleCode = null;
+        }
+
         if (changes.LedgerAccountCode is not null) target.LedgerAccountCode = changes.LedgerAccountCode;
 
         if (dimensionValidator is not null)
-            await dimensionValidator.NormalizeAndValidateAsync(target, previous);
+            await dimensionValidator.NormalizeAndValidateAsync(target, previous, document.DocumentDate);
 
         AccountingAssignmentSnapshot.Copy(target, document);
     }

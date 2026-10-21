@@ -71,7 +71,8 @@ public class SalesInvoicesUpdateService(
             // Fora de nota pendente só valida (nota confirmada não ganha dimensão por baixo).
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, null,
                 existingEntity.CardCode, null, previousDims,
-                applyDefaults: existingEntity.InvoiceStatus is null or InvoiceStatus.Pending);
+                applyDefaults: existingEntity.InvoiceStatus is null or InvoiceStatus.Pending,
+                documentDate: existingEntity.InvoiceDate);
 
             SalesInvoiceNfeLock.EnsureHeaderEditable(entry, confirmedFrozen);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);

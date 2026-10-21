@@ -22,7 +22,7 @@ public class PurchaseInvoicesConfirmController(PurchaseInvoicesConfirmService se
 
             await service.ExecuteAsync(
                 Guid.Parse(keyObj.ToString()!), User.Identity?.Name ?? "Unknown",
-                enforceDimensionRequirements: true);
+                enforceAccountingAssignment: true);
 
             return Ok();
         }

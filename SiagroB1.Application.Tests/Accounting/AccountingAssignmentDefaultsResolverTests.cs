@@ -63,6 +63,36 @@ public class AccountingAssignmentDefaultsResolverTests
     }
 
     [Fact]
+    public async Task Header_rule_beats_partner_cost_center()
+    {
+        var db = await NewDb();
+        await AddPartner(db, "CC02", "IT02");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target,
+            new AccountingAssignmentSnapshot { DistributionRuleCode = "R01" }, "P1", null, Today);
+
+        Assert.Equal("R01", target.DistributionRuleCode);
+        Assert.Null(target.CostCenterCode);
+        Assert.Null(target.AccountingItemCode);
+    }
+
+    [Fact]
+    public async Task Partner_cost_center_beats_usage_rule()
+    {
+        var db = await NewDb();
+        await AddPartner(db, "CC02");
+        var usage = await AddUsage(db, item: "IT01", rule: "R01");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target, null, "P1", usage, Today);
+
+        Assert.Null(target.DistributionRuleCode);
+        Assert.Equal("CC02", target.CostCenterCode);
+        Assert.Equal("IT01", target.AccountingItemCode);
+    }
+
+    [Fact]
     public async Task Partner_wins_over_usage()
     {
         var db = await NewDb();

@@ -257,7 +257,6 @@ public class BusinessPartnerService(
         if (configuration is null || !ErpMode.IsStandalone(configuration) || dimensionValidator is null)
             return;
 
-        // TODO Task 3: validação de CC/Item analítico, ativo e vigente.
         var fields = new AccountingAssignmentSnapshot
         {
             CostCenterCode = model.DefaultCostCenterCode,

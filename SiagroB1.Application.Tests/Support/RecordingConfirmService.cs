@@ -19,7 +19,7 @@ public sealed class RecordingConfirmService(UnitOfWork db, Exception? failWith =
     public override async Task ExecuteAsync(
         Guid key, string userName, CommitMode commitMode = CommitMode.Auto,
         IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null,
-        bool enforceDimensionRequirements = false)
+        bool enforceAccountingAssignment = false)
     {
         Calls++;
 
