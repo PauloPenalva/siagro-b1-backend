@@ -129,6 +129,46 @@ public class FifoLedgerTests
         Assert.Equal((6m, 500m), (l.Quantity, l.Value));
     }
 
+    private static void AssertBalanceMatchesLayers(FifoResult r) =>
+        Assert.Equal(r.Lines.Last().BalanceValue, r.OpenLayers.Sum(x => x.Value) + r.PendingValue);
+
+    [Fact]
+    public void Adjustment_out_whole_layer_sends_difference_to_pending()
+    {
+        var r = FifoLedger.Run([M(InventoryMovementKind.Entry, 10, 100m),
+            M(InventoryMovementKind.AdjustmentOut, 10, 80m, D1.AddDays(1))]);
+
+        Assert.Equal(80m, r.Lines[1].ValueOut);
+        Assert.Empty(r.OpenLayers);
+        Assert.Equal(20m, r.PendingValue);
+        AssertBalanceMatchesLayers(r);
+    }
+
+    [Theory]
+    [InlineData(80, 220)]
+    [InlineData(150, 150)]
+    public void Adjustment_out_revalues_next_layer(decimal informed, decimal expected)
+    {
+        var r = FifoLedger.Run([M(InventoryMovementKind.Entry, 10, 100m), M(InventoryMovementKind.Entry, 10, 200m),
+            M(InventoryMovementKind.AdjustmentOut, 10, informed, D1.AddDays(1))]);
+
+        Assert.Equal(informed, r.Lines[2].ValueOut);
+        var l = Assert.Single(r.OpenLayers);
+        Assert.Equal((10m, expected), (l.Quantity, l.Value));
+        AssertBalanceMatchesLayers(r);
+    }
+
+    [Fact]
+    public void Adjustment_out_partial_layer_revalues_rest()
+    {
+        var r = FifoLedger.Run([M(InventoryMovementKind.Entry, 10, 100m),
+            M(InventoryMovementKind.AdjustmentOut, 4, 90m, D1.AddDays(1))]);
+
+        var l = Assert.Single(r.OpenLayers);
+        Assert.Equal((6m, 10m), (l.Quantity, l.Value));
+        AssertBalanceMatchesLayers(r);
+    }
+
     [Fact]
     public void Seed_layers_start_balance()
     {

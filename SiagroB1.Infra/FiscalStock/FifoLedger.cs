@@ -175,28 +175,23 @@ public static class FifoLedger
 
                 case InventoryMovementKind.AdjustmentOut:
                 {
-                    // Quantidade sai pelo FIFO; o valor é o informado, rateado pela quantidade consumida de cada
-                    // camada (a última leva o resto). A parte sem camada vira pendência, como numa saída.
-                    var qty = m.Quantity;
-                    var remaining = m.Value;
-                    decimal value = 0m;
-                    while (qty > 0 && layers.Count > 0)
+                    // A quantidade sai das camadas pelo FIFO ao valor contábil (como uma saída). A diferença
+                    // D = valor contábil baixado − valor informado reavalia a primeira camada que sobrou (sem
+                    // deixá-la negativa); o que não couber, ou tudo se não sobrar camada, vai para o valor
+                    // pendente. A linha sai pelo valor informado; a falta de quantidade vira pendência.
+                    var (book, missing) = ConsumeFifo(m.Quantity);
+                    var d = book - m.Value;
+                    if (layers.Count > 0 && d != 0)
                     {
-                        var layer = layers[0];
-                        var take = Math.Min(qty, layer.Quantity);
-                        var part = take == qty ? remaining : Money(m.Value * take / m.Quantity);
-                        remaining -= part;
-                        value += part;
-                        qty -= take;
-                        if (take >= layer.Quantity)
-                            layers.Remove(layer);
-                        else
-                        {
-                            layer.Quantity -= take;
-                            layer.Value -= part;
-                            layer.UnitCost = Cost(layer.Value, layer.Quantity);
-                        }
+                        var first = layers[0];
+                        var applied = Math.Max(d, -first.Value);
+                        first.Value += applied;
+                        first.UnitCost = Cost(first.Value, first.Quantity);
+                        d -= applied;
                     }
+                    pendingValue += d;
+                    var value = m.Value;
+                    var qty = missing;
                     Outflow(m, value, qty);
                     break;
                 }
