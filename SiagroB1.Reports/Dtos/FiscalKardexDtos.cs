@@ -58,7 +58,7 @@ public class FiscalKardexLineDto
     public string Direction { get; set; } = string.Empty;
 
     /// <summary>"Saldo inicial", "Entrada", "Saída", "Devolução de compra", "Devolução de venda",
-    /// "Complemento de valor" ou "Acerto de saldo negativo".</summary>
+    /// "Complemento de valor".</summary>
     public string Kind { get; set; } = string.Empty;
 
     public string InternalNumber { get; set; } = string.Empty;

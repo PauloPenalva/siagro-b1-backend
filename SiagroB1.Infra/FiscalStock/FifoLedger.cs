@@ -1,13 +1,14 @@
 namespace SiagroB1.Infra.FiscalStock;
 
 /// <summary>
-/// Motor PEPS (FIFO) puro do estoque fiscal — sem EF, sem entidades. Regras (spec itens 4–6):
-/// saída consome as camadas mais antigas; sem saldo, o restante sai a custo zero e a linha é
-/// marcada; a entrada seguinte cobre o déficit numa linha de "acerto de saldo negativo" pelo custo
-/// dela; devolução de compra baixa da camada de origem; devolução de venda entra pelo custo com que
-/// a saída de origem foi baixada (origem desconhecida: camada mais antiga em aberto); complemento de valor soma na camada de origem (ou mais antiga, ou
-/// na próxima a ser criada). Custo unitário com 6 casas, valores com 2 (ToEven); o último consumo de
-/// uma camada leva o valor que restou nela, sem centavo residual.
+/// Motor PEPS (FIFO) puro do estoque fiscal — sem EF, sem entidades. Regras: saída consome as camadas
+/// mais antigas; sem saldo, o restante fica pendente e a linha é marcada; a entrada seguinte cobre a
+/// pendência pelo custo dela, somando no valor da própria saída (nunca há linha automática de acerto —
+/// o saldo pode ficar negativo em quantidade e valor no meio do período); devolução de compra baixa da
+/// camada de origem; devolução de venda entra pelo custo com que a saída de origem foi baixada até ali
+/// (origem desconhecida: camada mais antiga em aberto); complemento de valor soma na camada de origem
+/// (ou mais antiga, ou na próxima a ser criada); ajuste de saída sai pelo valor informado. Custo unitário
+/// com 6 casas, valores com 2 (ToEven); o último consumo de uma camada leva o valor que restou nela.
 /// </summary>
 public static class FifoLedger
 {
@@ -18,27 +19,33 @@ public static class FifoLedger
         public decimal Quantity { get; set; } = quantity;
         public decimal Value { get; set; } = value;
 
-        /// <summary>Custo unitário fixado na criação; só muda com complemento de valor.</summary>
+        /// <summary>Custo unitário fixado na criação; só muda com complemento de valor ou ajuste.</summary>
         public decimal UnitCost { get; set; } = Cost(value, quantity);
     }
 
-    public static FifoResult Run(IEnumerable<InventoryMovement> movements)
+    /// <param name="seed">Camadas iniciais (instantâneo), em ordem PEPS.</param>
+    public static FifoResult Run(IEnumerable<InventoryMovement> movements, IEnumerable<FifoLayer>? seed = null)
     {
-        var layers = new List<Layer>();
+        var layers = (seed ?? []).Select(l => new Layer(l.LineKey, l.Date, l.Quantity, l.Value)).ToList();
+        var seedQty = layers.Sum(l => l.Quantity);
+        var seedValue = layers.Sum(l => l.Value);
         var lines = new List<ValuedMovement>();
         var exitCosts = new Dictionary<Guid, (decimal Qty, decimal Value)>();
-        decimal deficit = 0m;        // quantidade que saiu sem camada (saldo negativo)
-        decimal pendingValue = 0m;   // complemento sem camada aberta, fora do saldo até a próxima camada
-
-        decimal BalanceQty() => layers.Sum(l => l.Quantity) - deficit;
-        decimal BalanceValue() => layers.Sum(l => l.Value);
+        var pending = new List<(int Index, decimal Qty)>(); // saídas sem camada, da mais antiga à mais nova
+        decimal pendingValue = 0m; // complemento sem camada aberta, fora do saldo até a próxima camada
 
         void Add(InventoryMovement m, decimal qIn, decimal qOut, decimal vIn, decimal vOut,
-            bool insufficient = false, bool adjustment = false, bool pending = false)
+            bool insufficient = false, bool pendingComplement = false)
         {
             var uc = qIn > 0 ? Cost(vIn, qIn) : qOut > 0 ? Cost(vOut, qOut) : 0m;
-            lines.Add(new ValuedMovement(m, qIn, qOut, uc, vIn, vOut, BalanceQty(), BalanceValue(),
-                insufficient, adjustment, pending));
+            lines.Add(new ValuedMovement(m, qIn, qOut, uc, vIn, vOut, 0m, 0m, insufficient, [], pendingComplement));
+        }
+
+        void TrackExitCost(InventoryMovement m, decimal qty, decimal value)
+        {
+            if (m.Kind != InventoryMovementKind.Exit) return;
+            exitCosts.TryGetValue(m.LineKey, out var prev);
+            exitCosts[m.LineKey] = (prev.Qty + qty, prev.Value + value);
         }
 
         // Retira qty de uma camada; o último consumo leva o valor restante.
@@ -59,7 +66,6 @@ public static class FifoLedger
             return value;
         }
 
-        // Saída FIFO; devolve (valor, quantidade que ficou sem camada).
         (decimal Value, decimal Missing) ConsumeFifo(decimal qty)
         {
             decimal value = 0m;
@@ -73,26 +79,49 @@ public static class FifoLedger
             return (value, qty);
         }
 
-        // Entrada: cobre o déficit e cria camada com o restante (levando o complemento pendente).
-        // A linha da entrada mostra a entrada inteira; o acerto de saldo negativo é uma linha só de
-        // valor (quantidade já foi compensada no saldo) pelo custo da parte que cobriu o déficit.
+        // Entrada: cobre as saídas pendentes (mais antiga primeiro) pelo custo dela, somando no ValueOut da
+        // própria saída; o excedente vira camada com o valor restante (levando o complemento pendente).
         void Inflow(InventoryMovement m, decimal qty, decimal value)
         {
-            var cover = Math.Min(deficit, qty);
-            var adjustValue = cover == 0 ? 0m : cover == qty ? value : Money(cover * Cost(value, qty));
-            var rest = qty - cover;
+            var unit = Cost(value, qty);
+            var restQty = qty;
+            var restValue = value;
+            while (restQty > 0 && pending.Count > 0)
+            {
+                var (index, pq) = pending[0];
+                var cover = Math.Min(pq, restQty);
+                var coverValue = cover == restQty ? restValue : Money(cover * unit);
+                restQty -= cover;
+                restValue -= coverValue;
+                var line = lines[index];
+                var stillPending = pq - cover;
+                lines[index] = line with
+                {
+                    ValueOut = line.ValueOut + coverValue,
+                    UnitCost = Cost(line.ValueOut + coverValue, line.QuantityOut),
+                    CoveredByLineKeys = [.. line.CoveredByLineKeys, m.LineKey],
+                    InsufficientBalance = stillPending > 0,
+                };
+                TrackExitCost(line.Movement, 0m, coverValue);
+                if (stillPending > 0) pending[0] = (index, stillPending);
+                else pending.RemoveAt(0);
+            }
+
             var valueIn = value;
-            if (rest > 0)
+            if (restQty > 0)
             {
                 valueIn += pendingValue;
-                layers.Add(new Layer(m.LineKey, m.Date, rest, value - adjustValue + pendingValue));
+                layers.Add(new Layer(m.LineKey, m.Date, restQty, restValue + pendingValue));
                 pendingValue = 0m;
             }
-            deficit -= cover;
-            lines.Add(new ValuedMovement(m, qty, 0m, Cost(valueIn, qty), valueIn, 0m,
-                BalanceQty(), BalanceValue() + adjustValue, false, false));
-            if (cover > 0)
-                Add(m, 0m, 0m, 0m, adjustValue, adjustment: true);
+            Add(m, qty, 0m, valueIn, 0m);
+        }
+
+        void Outflow(InventoryMovement m, decimal value, decimal missing)
+        {
+            TrackExitCost(m, m.Quantity, value);
+            if (missing > 0) pending.Add((lines.Count, missing));
+            Add(m, 0m, m.Quantity, 0m, value, insufficient: missing > 0);
         }
 
         foreach (var m in Order(movements))
@@ -101,13 +130,14 @@ public static class FifoLedger
             {
                 case InventoryMovementKind.Opening:
                 case InventoryMovementKind.Entry:
+                case InventoryMovementKind.AdjustmentIn:
                     Inflow(m, m.Quantity, m.Value);
                     break;
 
                 case InventoryMovementKind.SalesReturn:
                 {
-                    // Saída de origem conhecida: custo com que foi baixada. Senão (sem vínculo ou origem antes
-                    // do saldo inicial): custo da camada mais antiga em aberto; sem camada, zero e marcado.
+                    // Saída de origem conhecida: custo com que foi baixada até aqui (sem re-encadear coberturas
+                    // futuras). Senão: custo da camada mais antiga em aberto; sem camada, zero e marcado.
                     decimal uc;
                     var notFound = false;
                     if (m.OriginLineKey is { } o && exitCosts.TryGetValue(o, out var e) && e.Qty > 0)
@@ -132,7 +162,7 @@ public static class FifoLedger
                     if (target is null)
                     {
                         pendingValue += m.Value;
-                        Add(m, 0m, 0m, 0m, 0m, pending: true);
+                        Add(m, 0m, 0m, 0m, 0m, pendingComplement: true);
                     }
                     else
                     {
@@ -140,6 +170,34 @@ public static class FifoLedger
                         target.UnitCost = Cost(target.Value, target.Quantity);
                         Add(m, 0m, 0m, m.Value, 0m);
                     }
+                    break;
+                }
+
+                case InventoryMovementKind.AdjustmentOut:
+                {
+                    // Quantidade sai pelo FIFO; o valor é o informado, rateado pela quantidade consumida de cada
+                    // camada (a última leva o resto). A parte sem camada vira pendência, como numa saída.
+                    var qty = m.Quantity;
+                    var remaining = m.Value;
+                    decimal value = 0m;
+                    while (qty > 0 && layers.Count > 0)
+                    {
+                        var layer = layers[0];
+                        var take = Math.Min(qty, layer.Quantity);
+                        var part = take == qty ? remaining : Money(m.Value * take / m.Quantity);
+                        remaining -= part;
+                        value += part;
+                        qty -= take;
+                        if (take >= layer.Quantity)
+                            layers.Remove(layer);
+                        else
+                        {
+                            layer.Quantity -= take;
+                            layer.Value -= part;
+                            layer.UnitCost = Cost(layer.Value, layer.Quantity);
+                        }
+                    }
+                    Outflow(m, value, qty);
                     break;
                 }
 
@@ -156,22 +214,25 @@ public static class FifoLedger
                         qty -= take;
                     }
                     var (fifoValue, missing) = ConsumeFifo(qty);
-                    value += fifoValue;
-                    deficit += missing;
-                    if (m.Kind == InventoryMovementKind.Exit)
-                    {
-                        exitCosts.TryGetValue(m.LineKey, out var prev);
-                        exitCosts[m.LineKey] = (prev.Qty + m.Quantity, prev.Value + value);
-                    }
-                    Add(m, 0m, m.Quantity, 0m, value, insufficient: missing > 0);
+                    Outflow(m, value + fifoValue, missing);
                     break;
                 }
             }
         }
 
+        // Saldos acumulados linha a linha, já com as saídas recusteadas pelas entradas que as cobriram.
+        decimal bq = seedQty, bv = seedValue;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var l = lines[i];
+            bq += l.QuantityIn - l.QuantityOut;
+            bv += l.ValueIn - l.ValueOut;
+            lines[i] = l with { BalanceQuantity = bq, BalanceValue = bv };
+        }
+
         return new FifoResult(lines,
             layers.Select(l => new FifoLayer(l.LineKey, l.Date, l.Quantity, l.Value)).ToList(),
-            deficit, pendingValue);
+            pending.Sum(p => p.Qty), pendingValue);
     }
 
     /// <summary>Data; no mesmo dia, saldo inicial, depois entradas, depois saídas; então DaySequence.</summary>
@@ -182,7 +243,7 @@ public static class FifoLedger
             {
                 InventoryMovementKind.Opening => 0,
                 InventoryMovementKind.Entry or InventoryMovementKind.SalesReturn
-                    or InventoryMovementKind.ValueComplement => 1,
+                    or InventoryMovementKind.ValueComplement or InventoryMovementKind.AdjustmentIn => 1,
                 _ => 2,
             })
             .ThenBy(m => m.DaySequence);

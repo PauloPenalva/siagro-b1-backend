@@ -77,19 +77,19 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
         if (v.InsufficientBalance) warnings.Add(WarningInsufficient);
         if (v.PendingValue) warnings.Add(WarningPendingComplement);
         if (v.CostNotFound) warnings.Add(WarningCostNotFound);
-        if (source.UnlinkedEntry && !v.IsNegativeBalanceAdjustment) warnings.Add(WarningUnlinkedEntry);
-        if (!v.IsNegativeBalanceAdjustment && !string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
+        if (source.UnlinkedEntry) warnings.Add(WarningUnlinkedEntry);
+        if (!string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
             && !string.Equals(m.UnitOfMeasure.Trim(), itemUnit.Trim(), StringComparison.OrdinalIgnoreCase))
             warnings.Add(WarningDifferentUnit);
 
-        var isExit = v.IsNegativeBalanceAdjustment
-                     || m.Kind is InventoryMovementKind.Exit or InventoryMovementKind.PurchaseReturn;
+        var isExit = m.Kind is InventoryMovementKind.Exit or InventoryMovementKind.PurchaseReturn
+                     or InventoryMovementKind.AdjustmentOut;
 
         return new FiscalKardexLineDto
         {
             Date = m.Date,
             Direction = isExit ? "S" : "E",
-            Kind = v.IsNegativeBalanceAdjustment ? "Acerto de saldo negativo" : KindText(m.Kind),
+            Kind = KindText(m.Kind),
             InternalNumber = source.InternalNumber,
             DocumentNumber = source.DocumentNumber,
             Partner = source.Partner,
@@ -102,7 +102,7 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
             ValueOut = v.ValueOut,
             BalanceQuantity = v.BalanceQuantity,
             BalanceValue = v.BalanceValue,
-            InvoiceValue = v.IsNegativeBalanceAdjustment ? 0m : source.InvoiceValue,
+            InvoiceValue = source.InvoiceValue,
             Warning = warnings.Count == 0 ? null : string.Join("; ", warnings),
         };
     }

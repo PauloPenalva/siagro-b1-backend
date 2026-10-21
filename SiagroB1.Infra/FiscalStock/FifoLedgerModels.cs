@@ -9,6 +9,8 @@ public enum InventoryMovementKind
     PurchaseReturn,
     SalesReturn,
     ValueComplement,
+    AdjustmentIn,
+    AdjustmentOut,
 }
 
 /// <summary>
@@ -30,6 +32,7 @@ public record InventoryMovement(
 /// <summary>
 /// Linha valorizada do Kardex, com saldo acumulado após o movimento. <c>PendingValue</c>: complemento
 /// sem camada aberta — não entra no saldo agora; soma no ValueIn da próxima entrada que criar camada.
+/// <c>CoveredByLineKeys</c>: entradas que custearam a saída feita sem saldo, em ordem de cobertura (vazio se nenhuma).
 /// <c>CostNotFound</c>: devolução de venda sem saída de origem conhecida e sem camada aberta — entrou a custo zero.
 /// </summary>
 public record ValuedMovement(
@@ -42,7 +45,7 @@ public record ValuedMovement(
     decimal BalanceQuantity,
     decimal BalanceValue,
     bool InsufficientBalance,
-    bool IsNegativeBalanceAdjustment,
+    IReadOnlyList<Guid> CoveredByLineKeys,
     bool PendingValue = false,
     bool CostNotFound = false);
 

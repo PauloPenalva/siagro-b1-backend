@@ -255,9 +255,11 @@ public class FiscalKardexServiceTests
 
         var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
 
-        Assert.Equal(new[] { "Saída", "Entrada", "Acerto de saldo negativo" }, item.Lines.Select(l => l.Kind));
-        Assert.Equal("Saldo insuficiente", item.Lines[0].Warning);
+        Assert.Equal(new[] { "Saída", "Entrada" }, item.Lines.Select(l => l.Kind));
+        Assert.Null(item.Lines[0].Warning); // coberta pela entrada seguinte
+        Assert.Equal(300m, item.Lines[0].ValueOut);
         Assert.Equal(-3m, item.Lines[0].BalanceQuantity);
+        Assert.Equal(-300m, item.Lines[0].BalanceValue);
         Assert.Equal(7m, item.ClosingQuantity);
         Assert.Equal(700m, item.ClosingValue);
     }
