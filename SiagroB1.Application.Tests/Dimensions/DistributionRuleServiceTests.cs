@@ -140,6 +140,30 @@ public class DistributionRuleServiceTests
     }
 
     [Fact]
+    public async Task Past_dated_new_version_is_rejected()
+    {
+        var (_, service) = await CreateAsync();
+        await service.CreateAsync(Rule("R01", Version(Today.AddDays(-10), ("CC01", 60), ("CC02", 40))));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.SaveVersionAsync("R01", Version(Today.AddDays(-5), ("CC01", 50), ("CC02", 50)), Today));
+
+        Assert.Equal("A nova versão deve começar depois de hoje; versões passadas não podem ser criadas.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Today_dated_new_version_is_rejected()
+    {
+        var (_, service) = await CreateAsync();
+        await service.CreateAsync(Rule("R01", Version(Today.AddDays(-10), ("CC01", 60), ("CC02", 40))));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.SaveVersionAsync("R01", Version(Today, ("CC01", 50), ("CC02", 50)), Today));
+
+        Assert.Equal("A nova versão deve começar depois de hoje; versões passadas não podem ser criadas.", ex.Message);
+    }
+
+    [Fact]
     public async Task Current_version_cannot_be_deleted()
     {
         var (_, service) = await CreateAsync();

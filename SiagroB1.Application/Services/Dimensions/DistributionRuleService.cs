@@ -125,6 +125,12 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
                 $"A versão vigente em {FormatDate(validFrom)} já está em uso e não pode ser alterada; crie uma versão com nova data.");
         }
 
+        // Mudar percentuais nunca reescreve o passado: nova versão só a partir de amanhã.
+        if (existing == null && rule.Versions.Count > 0 && validFrom <= today.Date)
+        {
+            throw new DefaultException("A nova versão deve começar depois de hoje; versões passadas não podem ser criadas.");
+        }
+
         var built = await BuildVersionAsync(rule, version);
 
         if (existing != null)
