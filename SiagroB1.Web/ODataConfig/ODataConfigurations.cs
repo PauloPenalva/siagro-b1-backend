@@ -58,6 +58,7 @@ public static class ODataConfigurations
         // registra o Model, nunca a entidade.
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
         modelBuilder.EntitySet<AccountingDimension>("AccountingDimensions");
+        modelBuilder.EntitySet<DimensionCodeModel>("DimensionCodes");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");

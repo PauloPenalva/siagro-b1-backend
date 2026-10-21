@@ -14,4 +14,7 @@ public class CostCenterModel
     public required string Name { get; set; }
 
     public bool Inactive { get; set; }
+
+    /// <summary>Dimensão gerencial (1 a 5) a que o centro pertence. No SAPB1 é sempre 1.</summary>
+    public int DimensionNumber { get; set; } = 1;
 }
