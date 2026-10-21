@@ -44,15 +44,7 @@ public class WeighingTicketPrintDataService(
         report.GetDataSource("QualityInspections").Enabled = true;
 
         if (!await report.PrepareAsync()) return Array.Empty<byte>();
-        var pdfExport = new PDFSimpleExport();
-        pdfExport.ShowProgress = false;
-        pdfExport.Title = "WeighingTicket";
-            
-        using var stream = new MemoryStream();
-            
-        report.Export(pdfExport, stream);
-
-        return stream.ToArray();
+        return PdfExporter.Export(report, "WeighingTicket");
     }
     
     

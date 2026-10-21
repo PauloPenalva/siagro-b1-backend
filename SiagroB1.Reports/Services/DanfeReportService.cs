@@ -88,7 +88,8 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
         using var relatorio = report.Relatorio;
 
-        return (report.ExportarPdf(), $"{proc.protNFe.infProt.chNFe}-cce-{sequence}.pdf");
+        relatorio.Prepare();
+        return (PdfExporter.Export(relatorio, null), $"{proc.protNFe.infProt.chNFe}-cce-{sequence}.pdf");
     }
 
     private (byte[] Pdf, string FileName) Render(string xml, bool cancelled)
@@ -112,6 +113,7 @@ public class DanfeReportService(IUnitOfWork db, IWebHostEnvironment env, ReportH
             desenvolvedor: "IDX Consultoria e Sistemas", arquivoRelatorio: template);
         using var report = danfe.Relatorio;
 
-        return (danfe.ExportarPdf(), $"{proc.protNFe.infProt.chNFe}-danfe.pdf");
+        report.Prepare();
+        return (PdfExporter.Export(report, null), $"{proc.protNFe.infProt.chNFe}-danfe.pdf");
     }
 }

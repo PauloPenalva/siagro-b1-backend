@@ -79,15 +79,7 @@ public class FastReportService(
         ApplyParameters(report, parameters);
 
         if (!await report.PrepareAsync()) return Array.Empty<byte>();
-        var pdfExport = new PDFSimpleExport();
-        pdfExport.ShowProgress = false;
-        pdfExport.Title = reportName;
-            
-        using var stream = new MemoryStream();
-            
-        report.Export(pdfExport, stream);
-
-        return stream.ToArray();
+        return PdfExporter.Export(report, reportName);
     }
     
     public async Task<byte[]> GeneratePdfAsync<T>(
@@ -143,12 +135,7 @@ public class FastReportService(
 
     public static byte[] ExportPdf(Report report, string title)
     {
-        var pdfExport = new PDFSimpleExport();
-        pdfExport.ShowProgress = false;
-        pdfExport.Title = title;
-        using var stream = new MemoryStream();
-        report.Export(pdfExport, stream);
-        return stream.ToArray();
+        return PdfExporter.Export(report, title);
     }
 
 }

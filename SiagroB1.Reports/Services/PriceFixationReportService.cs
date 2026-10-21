@@ -40,12 +40,7 @@ public class PriceFixationReportService(
         if (!await report.PrepareAsync())
             throw new BusinessException("Falha ao preparar o espelho de fixação para impressão.");
 
-        var pdfExport = new PDFSimpleExport { ShowProgress = false, Title = "EspelhoFixacao" };
-
-        using var stream = new MemoryStream();
-        report.Export(pdfExport, stream);
-
-        return stream.ToArray();
+        return PdfExporter.Export(report, "EspelhoFixacao");
     }
 
     private async Task<PriceFixationPrintDto> GetAsync(Guid key)

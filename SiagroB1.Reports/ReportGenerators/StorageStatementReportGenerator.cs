@@ -45,11 +45,7 @@ public class StorageStatementReportGenerator(
 
         report.Prepare();
 
-        using var ms = new MemoryStream();
-        using var export = new PDFSimpleExport();
-        report.Export(export, ms);
-
-        return ms.ToArray();
+        return SiagroB1.Reports.Services.PdfExporter.Export(report, null);
     }
 
     private static string BuildPeriod(StorageStatementReportFilter filter)

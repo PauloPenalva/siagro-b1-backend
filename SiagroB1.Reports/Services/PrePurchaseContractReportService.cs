@@ -61,12 +61,7 @@ public class PrePurchaseContractReportService(
         if (!await report.PrepareAsync())
             throw new BusinessException("Falha ao preparar o pré-contrato para impressão.");
 
-        var pdfExport = new PDFSimpleExport { ShowProgress = false, Title = "PreContrato" };
-
-        using var stream = new MemoryStream();
-        report.Export(pdfExport, stream);
-
-        return stream.ToArray();
+        return PdfExporter.Export(report, "PreContrato");
     }
 
     public async Task<PrePurchaseContractPrintDto> GetAsync(Guid key)
