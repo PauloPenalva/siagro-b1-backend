@@ -251,7 +251,8 @@ public class BusinessPartnerService(
             return;
 
         model.DefaultDimensionCode = DimensionCodeValidator.NormalizeCode(model.DefaultDimensionCode);
-        if (model.DefaultDimensionCode is null)
+        if (model.DefaultDimensionCode is null
+            || model.DefaultDimensionCode == DimensionCodeValidator.NormalizeCode(previous))
             return;
 
         var dimension = await db.Context.AccountingDimensions.AsNoTracking()

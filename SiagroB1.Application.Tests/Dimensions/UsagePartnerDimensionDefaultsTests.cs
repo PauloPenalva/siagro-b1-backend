@@ -73,4 +73,26 @@ public class UsagePartnerDimensionDefaultsTests
         model.DefaultDimensionCode = "ZZZ";
         await Assert.ThrowsAsync<DefaultException>(() => Partners().UpdateAsync(model.CardCode, model));
     }
+
+    [Fact]
+    public async Task Unchanged_partner_default_survives_role_removal()
+    {
+        await DimensionTestData.SeedDimensions(_db);
+        _db.Context.AccountingDimensions.Single(x => x.Number == 1).Role = DimensionRole.Partner;
+        _db.Context.CostCenters.Add(new CostCenter { Code = "PRT", Name = "Parceiro", DimensionNumber = 1 });
+        _db.Context.CostCenters.Add(new CostCenter { Code = "OUT", Name = "Outro", DimensionNumber = 1 });
+        await _db.SaveChangesAsync();
+        var model = new BusinessPartnerModel { CardCode = "C90001", CardName = "CLIENTE", CardType = "C", DefaultDimensionCode = "PRT" };
+        await Partners().CreateAsync(model);
+
+        _db.Context.AccountingDimensions.Single(x => x.Number == 1).Role = DimensionRole.None;
+        await _db.SaveChangesAsync();
+
+        model.CardName = "NOVO NOME";
+        await Partners().UpdateAsync(model.CardCode, model);
+        Assert.Equal("NOVO NOME", _db.Context.BusinessPartners.Single(x => x.CardCode == "C90001").CardName);
+
+        model.DefaultDimensionCode = "OUT";
+        await Assert.ThrowsAsync<DefaultException>(() => Partners().UpdateAsync(model.CardCode, model));
+    }
 }
