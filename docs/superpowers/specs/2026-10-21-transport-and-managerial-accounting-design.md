@@ -89,6 +89,14 @@ primeira versão foi substituído pela estrutura do SIGACTB do Protheus, que o u
 Na transportadora, a sugestão é: CC = área (Operação, Oficina, Administrativo) e Item = veículo ou
 conjunto. Na rural, mais tarde: CC = atividade e Item = safra ou talhão.
 
+#### Módulo Contabilidade no menu (pedido do usuário, 21/10)
+
+O menu principal ganha o módulo raiz **Contabilidade**, logo depois de Financeiro, com Plano de
+Contas, Centro de Custo, Item Contábil e Rateios Pré-configurados.
+
+- Plano de Contas e Centro de Custo **saem de Cadastros** e vão para Contabilidade.
+- O sub-projeto 5 (lançamentos, períodos, razão, DRE) também entra nesse módulo.
+
 #### Cadastros (CTT e CTD)
 
 `COST_CENTERS` (já existe) e `ACCOUNTING_ITEMS` (novo) têm a mesma forma:

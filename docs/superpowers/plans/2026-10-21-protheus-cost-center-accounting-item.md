@@ -83,7 +83,18 @@ A interface `IDimensionFields` vira `IAccountingAssignment`, com campos fixos.
   - `AppDbContext.cs`.
 - Create migrations:
   - `AddCostCenterAccountingItems` (App): one migration from `main`, with defaults: `Class = 2`, flags `1/1/0/0`.
-  - `AddAccountingEntityMenus` (Common): items `costCenters` (already exists, keep), `accountingItems` "Item Contábil", `distributionRules` "Rateios Pré-configurados", all under `registers` and `StandaloneOnly`. Shift siblings with a relative `UPDATE [Order] = [Order] + 2 WHERE ParentKey='registers' AND [Order] >= 12 AND Key NOT IN (...)` before inserting at 12/13. Add `ROLE_MENUS` for ADMIN. `Down` reverses.
+  - `AddAccountingModuleMenus` (Common): new **root module "Contabilidade"** (user request 21/10), following the pattern of `20260907224917_AddFinancialMenus.cs` (root = `ParentKey null`).
+    - Key `accounting`, icon `sap-icon://accounting-document-verification`, Order 8, i.e. right after Financeiro (7). Shift the other roots with a relative `UPDATE MENU_ITEMS SET [Order]=[Order]+1 WHERE ParentKey IS NULL AND [Order] >= 8 AND [Key] <> 'accounting'`.
+    - The root is **not** `StandaloneOnly`, because Plano de Contas and Centro de Custo still show read-only from SAP in SAPB1.
+    - Children, in order:
+      1. `ledgerAccounts` "Plano de Contas": **moved** from `registers` with `UPDATE ... SET ParentKey='accounting', [Order]=1`.
+      2. `costCenters` "Centro de Custo": **moved**, Order 2.
+      3. `accountingItems` "Item Contábil": new, `StandaloneOnly`.
+      4. `distributionRules` "Rateios Pré-configurados": new, `StandaloneOnly`.
+    - Do not reorder the remaining `registers` children; gaps are fine.
+    - `ROLE_MENUS`: insert `accounting` for **every role that already has `ledgerAccounts` or `costCenters`**, via an `INSERT ... SELECT DISTINCT NEWID(), RoleCode, 'accounting' FROM ROLE_MENUS WHERE MenuItemKey IN (...) AND NOT EXISTS (...)`. Insert the two new children for ADMIN.
+    - `Down` reverses: move the two items back to `registers` with their original orders (read them from earlier migrations: `ledgerAccounts` 12, `costCenters` 11), delete the new rows, and shift the roots back.
+    - Remove the first version's `AddAccountingDimensionMenus`; it is deleted together with the App migration.
 - Test: rewrite `Dimensions/DimensionSchemaTests.cs` → `Accounting/AccountingSchemaTests.cs`.
 
 - [ ] **Step 1:** Write `AccountingSchemaTests`:
@@ -93,7 +104,7 @@ A interface `IDimensionFields` vira `IAccountingAssignment`, com campos fixos.
 - [ ] **Step 2:** Apply the entity changes and delete the obsolete files. The build will fail across the services; that is expected. Fix compile errors in services and tests only by deleting code that belongs to removed concepts: `AccountingDimensionService`/Controller, `CompanySettingsService`/Controller and their tests, and `DimensionCodeQueryService` (replaced in Task 2). Leave a `// TODO Task N` stub in services that Tasks 2–5 rewrite, so the solution compiles.
 - [ ] **Step 3:** Regenerate both migrations and check them by hand: no drop of `SALES_INVOICES_ITEMS.CostCenterCode`; `Down` is symmetric; the menu shift is relative. Run `dotnet ef migrations has-pending-model-changes` for both contexts and expect no changes.
 - [ ] **Step 4:** Run `dotnet build SiagroB1.sln` and `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~Accounting"`. Expected: PASS.
-- [ ] **Step 5:** Commit `refactor(master-data): centro de custo e item contábil no lugar das dimensões genéricas`, with the trailers `DB: AddCostCenterAccountingItems` and `DB: AddAccountingEntityMenus`.
+- [ ] **Step 5:** Commit `refactor(master-data): centro de custo e item contábil no lugar das dimensões genéricas`, with the trailers `DB: AddCostCenterAccountingItems` and `DB: AddAccountingModuleMenus`.
 
 ### Task 2: Cadastros CTT, CTD e flags da conta
 
