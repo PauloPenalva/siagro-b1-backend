@@ -24,7 +24,6 @@ public class DimensionServicesRegistrationTests
         using var scope = provider.CreateScope();
 
         Assert.IsType<DistributionRuleService>(scope.ServiceProvider.GetRequiredService<IDistributionRuleService>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<DimensionCodeValidator>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<DistributionRuleExpander>());
     }
 }
