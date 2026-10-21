@@ -78,7 +78,11 @@ public class PurchaseInvoicesConfirmService(
 
         // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
         if (dimensionGuard is not null)
-            await dimensionGuard.EnsureAsync(lines, i => $"{i + 1} ({lines[i].ItemCode})");
+        {
+            // Ordem estável (sem campo de ordem nas linhas): o rótulo da linha não muda entre chamadas.
+            var ordered = lines.OrderBy(x => x.ItemCode).ThenBy(x => x.Key).ToList();
+            await dimensionGuard.EnsureAsync(ordered, i => $"{i + 1} ({ordered[i].ItemCode})");
+        }
 
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).
         await taxApply.RefreshDifalForConfirmAsync(invoice, lines);

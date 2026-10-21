@@ -25,7 +25,7 @@ public class DimensionRequirementGuard(IUnitOfWork db, IConfiguration configurat
             return;
         }
 
-        var settings = await settingsService.GetAsync();
+        var settings = await settingsService.GetReadOnlyAsync();
         if (!settings.RequireCostCenter && !settings.RequireLedgerAccount)
         {
             return;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.PurchaseInvoices;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Application.Services.SalesInvoices;
 using SiagroB1.Application.Services.SalesShipmentReleases;
@@ -65,6 +66,42 @@ public class DimensionRequirementGuardTests
         return invoice;
     }
 
+    private static async Task<PurchaseInvoice> SeedPurchaseInvoice(
+        UnitOfWork db, InvoiceStatus status = InvoiceStatus.Pending, string? ledger = null)
+    {
+        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F1", InvoiceStatus = status };
+        db.Context.PurchaseInvoices.Add(invoice);
+        db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "MILHO", Quantity = 1m, UnitPrice = 1m,
+            LedgerAccountCode = ledger,
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        return invoice;
+    }
+
+    private static FinancialDocumentsManualCreateService ManualCreate(UnitOfWork db) =>
+        new(db, new FakeDocNumberSequenceService(),
+            new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE" }),
+            new DimensionCodeValidator(db, Config()), new DimensionDefaultsResolver(db, Config()), Guard(db));
+
+    private static FinancialDocument ManualInput() => new()
+    {
+        CardCode = "C0001", BranchCode = "01", Direction = FinancialDirection.Receivable,
+        DocumentDate = DateTime.Today, DueDate = DateTime.Today.AddDays(30), NetAmount = 100m,
+    };
+
+    private static async Task<FinancialAdvancesCreateService> AdvanceService(UnitOfWork db)
+    {
+        db.Context.FinancialAccounts.Add(new FinancialAccount { Code = "BCO1", Name = "Banco", Currency = CurrencyType.Brl });
+        await db.SaveChangesAsync();
+        return new FinancialAdvancesCreateService(db, new FakeDocNumberSequenceService(),
+            new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE" }),
+            new FinancialDocumentsSettleService(db),
+            new DimensionCodeValidator(db, Config()), new DimensionDefaultsResolver(db, Config()), Guard(db));
+    }
+
     [Fact]
     public async Task Blocks_sales_confirm_when_line_missing_cost_center()
     {
@@ -80,19 +117,24 @@ public class DimensionRequirementGuardTests
     public async Task Blocks_purchase_confirm_when_line_missing_ledger_account()
     {
         var db = await NewDb(ledger: true);
-        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F1", InvoiceStatus = InvoiceStatus.Pending };
-        db.Context.PurchaseInvoices.Add(invoice);
-        db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
-        {
-            Key = Guid.NewGuid(), PurchaseInvoiceKey = invoice.Key, ItemCode = "MILHO", Quantity = 1m, UnitPrice = 1m,
-        });
-        await db.SaveChangesAsync();
-        db.Context.ChangeTracker.Clear();
+        var invoice = await SeedPurchaseInvoice(db);
 
         var confirm = TaxTestServices.PurchaseConfirm(db, dimensionGuard: Guard(db));
         var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester"));
 
         Assert.Equal("Informe a conta contábil na linha 1 (MILHO).", ex.Message);
+    }
+
+    [Fact]
+    public async Task Purchase_confirm_blocked_when_cost_center_required()
+    {
+        var db = await NewDb(costCenter: true);
+        var invoice = await SeedPurchaseInvoice(db, ledger: "1.1.01");
+
+        var confirm = TaxTestServices.PurchaseConfirm(db, dimensionGuard: Guard(db));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester"));
+
+        Assert.Equal("Informe Dimensão 1 na linha 1 (MILHO).", ex.Message);
     }
 
     [Fact]
@@ -106,6 +148,17 @@ public class DimensionRequirementGuardTests
         var settings = await new CompanySettingsService(db).GetAsync();
         Assert.False(settings.RequireCostCenter);
         Assert.False(settings.RequireLedgerAccount);
+    }
+
+    [Fact]
+    public async Task Guard_does_not_write_when_settings_row_is_missing()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        await DimensionTestData.SeedDimensions(db);
+
+        await Guard(db).EnsureAsync([new DimensionSnapshot()], i => $"{i + 1}");
+
+        Assert.Empty(db.Context.CompanySettings);
     }
 
     [Fact]
@@ -132,33 +185,134 @@ public class DimensionRequirementGuardTests
     }
 
     [Fact]
+    public void Draft_services_do_not_take_the_requirement_guard()
+    {
+        // Nenhum serviço do caminho do rascunho recebe a guarda: ela só existe ao confirmar/criar pronto.
+        Type[] draftServices =
+        [
+            typeof(SalesInvoicesCreateService), typeof(SalesInvoicesUpdateService),
+            typeof(SalesInvoicesItemsCreateService), typeof(SalesInvoicesItemsUpdateService),
+            typeof(PurchaseInvoicesCreateService), typeof(PurchaseInvoicesUpdateService),
+            typeof(PurchaseInvoicesItemsCreateService), typeof(PurchaseInvoicesItemsUpdateService),
+        ];
+
+        foreach (var type in draftServices)
+        {
+            var takesGuard = type.GetConstructors()
+                .SelectMany(c => c.GetParameters())
+                .Any(p => p.ParameterType == typeof(DimensionRequirementGuard));
+            Assert.False(takesGuard, $"{type.Name} não deve receber DimensionRequirementGuard.");
+        }
+    }
+
+    [Fact]
     public async Task Already_confirmed_invoice_is_not_revalidated()
     {
+        // As chaves ligam DEPOIS de a nota existir confirmada sem centro nem conta: o estorno passa.
         var db = await NewDb(costCenter: true, ledger: true);
-        var invoice = await SeedSalesInvoice(db, InvoiceStatus.Confirmed);
+        var invoice = await SeedPurchaseInvoice(db, InvoiceStatus.Confirmed);
 
-        // Só a regra de "pendente" responde: a obrigatoriedade não roda de novo sobre nota confirmada.
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => SalesConfirm(db).ExecuteAsync(invoice.Key, "tester"));
+        var reverse = new PurchaseInvoicesReverseConfirmService(db,
+            FinancialDocumentTestServices.OtherPurchase(db, new FakeDocNumberSequenceService(), "STANDALONE",
+                new FakeBusinessPartnerService()));
+        await reverse.ExecuteAsync(invoice.Key, "tester");
 
+        Assert.Equal(InvoiceStatus.Pending, db.Context.PurchaseInvoices.Single(x => x.Key == invoice.Key).InvoiceStatus);
+
+        // Confirmar de novo uma venda já confirmada cai na regra de pendente, não na obrigatoriedade.
+        var sales = await SeedSalesInvoice(db, InvoiceStatus.Confirmed);
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => SalesConfirm(db).ExecuteAsync(sales.Key, "tester"));
         Assert.Equal("Invoice is not pending.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Positive_path_passes_when_both_fields_filled()
+    {
+        var db = await NewDb(costCenter: true, ledger: true);
+
+        await Guard(db).EnsureAsync(
+            [new DimensionSnapshot { Dim1Code = "CC01", LedgerAccountCode = "1.1.01" }], i => $"{i + 1}");
+    }
+
+    [Fact]
+    public async Task Second_row_failure_uses_second_row_label()
+    {
+        var db = await NewDb(costCenter: true);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Guard(db).EnsureAsync(
+            [new DimensionSnapshot { Dim1Code = "CC01" }, new DimensionSnapshot()], i => $"{i + 1} (X{i})"));
+
+        Assert.Equal("Informe Dimensão 1 na linha 2 (X1).", ex.Message);
     }
 
     [Fact]
     public async Task Manual_title_create_blocked_when_required()
     {
         var db = await NewDb(costCenter: true);
-        var create = new FinancialDocumentsManualCreateService(db, new FakeDocNumberSequenceService(),
-            new FakeBusinessPartnerService(new Dictionary<string, string> { ["C0001"] = "CLIENTE" }),
-            new DimensionCodeValidator(db, Config()), new DimensionDefaultsResolver(db, Config()), Guard(db));
-        var input = new FinancialDocument
-        {
-            CardCode = "C0001", BranchCode = "01", Direction = FinancialDirection.Receivable,
-            DocumentDate = DateTime.Today, DueDate = DateTime.Today.AddDays(30), NetAmount = 100m,
-        };
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => create.ExecuteAsync(input, "tester"));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ManualCreate(db).ExecuteAsync(ManualInput(), "tester"));
 
         Assert.Equal("Informe Dimensão 1.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Manual_title_create_blocked_when_ledger_required()
+    {
+        var db = await NewDb(ledger: true);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => ManualCreate(db).ExecuteAsync(ManualInput(), "tester"));
+
+        Assert.Equal("Informe a conta contábil.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Advance_without_contract_blocked_when_required()
+    {
+        var db = await NewDb(costCenter: true);
+        var service = await AdvanceService(db);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteWithoutContractAsync(
+            FinancialDirection.Payable, "C0001", "01", 50m, DateTime.Today, "BCO1", DateTime.Today, null, "tester"));
+
+        Assert.Equal("Informe Dimensão 1.", ex.Message);
+        Assert.Empty(db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task Advance_with_contract_blocked_when_required()
+    {
+        var db = await NewDb(ledger: true);
+        var contract = new PurchaseContract
+        {
+            Key = Guid.NewGuid(), Code = "PC1", CardCode = "C0001", BranchCode = "01", Status = ContractStatus.Approved,
+            ItemCode = "MILHO", UnitOfMeasureCode = "KG", HarvestSeasonCode = "25", DeliveryLocationCode = "L1",
+        };
+        db.Context.PurchaseContracts.Add(contract);
+        await db.SaveChangesAsync();
+        var service = await AdvanceService(db);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(
+            "Purchase", contract.Key, 50m, DateTime.Today, "BCO1", DateTime.Today, null, "tester"));
+
+        Assert.Equal("Informe a conta contábil.", ex.Message);
+        Assert.Empty(db.Context.FinancialDocuments);
+    }
+
+    [Fact]
+    public async Task Account_entry_blocked_when_required()
+    {
+        var db = await NewDb(costCenter: true);
+        db.Context.FinancialAccounts.Add(new FinancialAccount { Code = "BCO1", Name = "Banco", Currency = CurrencyType.Brl });
+        await db.SaveChangesAsync();
+        var service = new FinancialAccountEntriesCreateService(db, new DimensionCodeValidator(db, Config()), Guard(db));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteAsync(new FinancialAccountEntry
+        {
+            FinancialAccountCode = "BCO1", EntryDate = DateTime.Today, Amount = 10m, Description = "x",
+        }, "tester"));
+
+        Assert.Equal("Informe Dimensão 1.", ex.Message);
+        Assert.Empty(db.Context.FinancialAccountEntries);
     }
 
     [Fact]

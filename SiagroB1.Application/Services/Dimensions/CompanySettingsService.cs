@@ -21,6 +21,16 @@ public class CompanySettingsService(IUnitOfWork db)
         return settings;
     }
 
+    /// <summary>
+    /// Leitura SEM escrita, para a guarda: linha ausente = obrigatoriedades desligadas. Nunca chama
+    /// SaveChanges, para não gravar no meio de uma confirmação as mudanças rastreadas de quem chama.
+    /// </summary>
+    public async Task<CompanySettings> GetReadOnlyAsync()
+    {
+        return await db.Context.CompanySettings.AsNoTracking().FirstOrDefaultAsync(x => x.Id == 1)
+               ?? new CompanySettings { Id = 1 };
+    }
+
     public async Task<CompanySettings> UpdateAsync(bool requireCostCenter, bool requireLedgerAccount)
     {
         var settings = await GetAsync();
