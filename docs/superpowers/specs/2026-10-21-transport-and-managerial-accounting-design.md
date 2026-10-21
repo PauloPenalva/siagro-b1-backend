@@ -55,7 +55,7 @@ próprio sub-projeto.
 
 | # | Sub-projeto | Depende de | Entrega para o usuário |
 |---|---|---|---|
-| 1 | Dimensões gerenciais e rateio nos documentos | — | Cada documento financeiro/fiscal leva centro(s) de custo |
+| 1 | Centro de Custo + Item Contábil + rateio nos documentos (modelo Protheus) | — | Cada documento financeiro/fiscal leva CC/Item ou rateio |
 | 2 | Cadastros de transporte | 1 | Veículo, conjunto, motorista e dados ANTT completos; veículo = centro de custo |
 | 3 | Emissão de CT-e (modelo 57, versão 4.00) | 2 | Faturamento do frete com título a receber e dimensões |
 | 4 | Emissão de MDF-e (modelo 58, versão 3.00) | 3 | Manifesto, encerramento e inclusão de condutor |
@@ -74,89 +74,100 @@ porque só se encontram no 6.
 
 ## Arquitetura comum
 
-### A. Dimensões (modelo SAP B1: OPRC/ODIM + OOCR) — sub-projeto 1
+### A. Entidades contábeis no modelo do Protheus (CTT / CTD) — sub-projeto 1
 
-- **Cinco dimensões por empresa** (`ACCOUNTING_DIMENSIONS`: número 1–5, nome, ativa). O
-  nome é configurável. Sugestão para a transportadora:
-  - 1 = Unidade de negócio;
-  - 2 = Veículo/Conjunto;
-  - 3 = Cliente/Rota.
+**Revisão de 21/10 (decisão do usuário).** O modelo de "5 dimensões genéricas" (SAP B1) da
+primeira versão foi substituído pela estrutura do SIGACTB do Protheus, que o usuário prefere:
 
-  A rural, no futuro: Atividade / Safra / Talhão.
-- `COST_CENTERS` já existe (`Code`, `Name`, `Inactive`) e ganha **`DimensionNumber`** (1–5).
-  Um centro de custo pertence a uma dimensão, como o OPRC. Os centros atuais vão para a
-  dimensão 1 por migration.
-  - Em SAPB1 o cadastro continua vindo do SAP, e nada disso aparece.
-- **Regra de distribuição** (`DISTRIBUTION_RULES` + `DISTRIBUTION_RULE_LINES`): código, nome,
-  dimensão, ativa, e as linhas (centro de custo + percentual, somando 100%).
-  - Um centro sozinho funciona como regra implícita de 100%. Assim, todo campo de dimensão
-    aceita **centro ou regra**, como no SAP B1, onde OcrCode recebe os dois.
-  - Rateio por km, hora ou área calculado automaticamente fica **fora** (minha decisão). Os
-    percentuais são fixos e revistos pelo usuário. A regra tem vigência (`ValidFrom`), para que
-    mudar o percentual não reescreva o passado.
-- **Onde as dimensões são gravadas** (minha decisão): cinco colunas `Dim1Code`…`Dim5Code`
-  (centro ou regra), no mesmo formato em todo lugar:
-  - linha do documento de saída e do documento de entrada (`SalesInvoiceItem` já tem
-    `CostCenterCode`, que vira `Dim1Code`);
-  - título financeiro (`FinancialDocument`), lançamento na conta (`FinancialAccountEntry`)
-    e, no sub-projeto 3, o CT-e.
-  - O cabeçalho do documento tem um **padrão** que a linha herda e pode trocar.
-- **Preenchimento padrão** (minha decisão), em ordem:
-  1. o que o usuário digitou;
-  2. o padrão do parceiro, quando a dimensão é Cliente;
-  3. o padrão do veículo, no CT-e e no MDF-e;
-  4. o padrão da natureza de operação (`USAGES`).
-- Duas chaves por empresa ("Exige centro de custo", "Exige conta contábil") tornam esses campos
-  **obrigatórios**. Desligadas, que é o padrão, nada muda para quem já usa o sistema.
+- **Plano de Contas** (CT1, `LEDGER_ACCOUNTS`): visão contábil geral.
+- **Centro de Custo** (CTT, `COST_CENTERS`): visão por departamento ou área.
+- **Item Contábil** (CTD, novo `ACCOUNTING_ITEMS`): detalhe por projeto, cliente, fornecedor ou
+  veículo.
+- **Classe de Valor (CTH) e as entidades 05–09 (CV0) ficam fora** por decisão do usuário. Não
+  devem ser criadas colunas para elas.
 
-#### Detalhes do sub-projeto 1 (todos minha decisão, a partir da revisão do desenho)
+Na transportadora, a sugestão é: CC = área (Operação, Oficina, Administrativo) e Item = veículo ou
+conjunto. Na rural, mais tarde: CC = atividade e Item = safra ou talhão.
 
-- **O documento guarda só o código, não o rateio.** Uma regra de distribuição é **versionada
-  por `ValidFrom`**, e uma versão usada por algum documento não pode mais ser editada; mudar o
-  percentual cria uma versão nova. A contabilização (sub-projeto 6) expande a regra pela
-  **versão vigente na data do documento**, não na data do lançamento contábil. Assim um
-  documento antigo contabilizado depois sai com o rateio da época, sem tabela de rateio por linha.
-- **Um código só por empresa para centro e regra**: o mesmo código não pode existir como
-  centro e como regra (validado nos dois cadastros). Cada código pertence a uma dimensão, e o
-  campo `DimNCode` só aceita códigos da dimensão N. Não há FK (a coluna aceita os dois tipos);
-  a validação fica no serviço, e o value help mostra centros e regras juntos, com uma coluna Tipo.
-- **Papel da dimensão:** `ACCOUNTING_DIMENSIONS` ganha `Role` (Nenhum / Veículo / Parceiro),
-  com no máximo uma dimensão por papel. É assim que o sistema sabe qual dimensão recebe o padrão
-  do parceiro e qual recebe o do veículo, sem número fixo.
-- **Documentos que ganham dimensões no sub-projeto 1:** linhas do documento de saída e do de
-  entrada, `FinancialDocument` (o que inclui título manual e adiantamento) e
-  `FinancialAccountEntry`. O CT-e entra no sub-projeto 3.
-  - **Ficam de fora:** contratos e fatura de armazenagem.
-  - **Transferência entre contas não leva dimensão**, porque é só patrimonial.
-- **Título nascido de documento:** o resultado da operação é contabilizado pelas **linhas do
-  documento de origem**, não pelo título, que é patrimonial. Por isso o título só herda o
-  padrão do cabeçalho da origem, como informação, e não carrega rateio por linha. As dimensões do
-  título só entram no DRE quando ele **não** tem documento de resultado por trás (título manual,
-  adiantamento sem contrato, juros e descontos na baixa). A baixa e o lançamento na conta herdam
-  do título.
-- **Conta contábil nos documentos (decisão do usuário, 21/10):** `LedgerAccountCode` entra nos
-  mesmos documentos e linhas que recebem as dimensões. `SalesInvoiceItem` já tem esse campo. O
-  padrão vem da natureza de operação, e o código é validado contra contas analíticas ativas
-  (`AllowsPosting`). Na contabilização (sub-projeto 6), a conta informada prevalece sobre a
-  determinação automática.
-- **Obrigatoriedade por parâmetro da empresa (decisão do usuário, 21/10):** a tabela de uma linha
-  `COMPANY_SETTINGS`, no banco da empresa, tem duas chaves: **"Exige centro de custo"**, que
-  exige a **dimensão 1**, e **"Exige conta contábil"**. As duas valem para todos os documentos
-  com dimensões e são editadas na tela "Parâmetros da Empresa".
-  - Bloqueia **confirmar ou autorizar**, nunca salvar o rascunho.
-  - Documentos já confirmados antes de ligar a obrigatoriedade continuam válidos e não são
-    revalidados (evita a armadilha do campo readonly+required em linhas antigas).
-- **Apenas STANDALONE (decisão do usuário, 21/10).** Todo o desenho, dimensões incluídas, só
-  existe em STANDALONE. Não há mapeamento para o OcrCode do SAP nem nada a preservar em SAPB1. Em
-  SAPB1 as colunas novas ficam no banco (o schema é um só), mas nenhum serviço, tela ou menu as usa.
-  `SalesInvoiceItem.CostCenterCode` hoje não é lido por nenhum serviço (só por um teste), então
-  **é renomeado para `Dim1Code`** na migration do sub-projeto 1.
-- **Padrões:** `USAGES` ganha os cinco campos de padrão no sub-projeto 1. O padrão do parceiro
-  (`BusinessPartner`, para a dimensão de papel Parceiro) também entra no 1. O padrão do veículo
-  entra no sub-projeto 2.
-- **Cada empresa tem o próprio plano, dimensões e regras**, no próprio banco. "Mesmo modelo"
-  quer dizer a mesma tela e a mesma lógica, não uma tabela compartilhada na COMMON. Copiar a
-  configuração de uma empresa para outra fica para depois.
+#### Cadastros (CTT e CTD)
+
+`COST_CENTERS` (já existe) e `ACCOUNTING_ITEMS` (novo) têm a mesma forma:
+
+| Campo | Protheus | Regra |
+|---|---|---|
+| `Code` (VARCHAR 20), `Name` | `_CUSTO`/`_ITEM`, `_DESC01` | código em maiúsculas, sem espaços |
+| `Class` (Synthetic/Analytic) | `_CLASSE` 1/2 | só **analítico** recebe documento ou rateio |
+| `ParentCode` | `_CCSUP`/`_ITSUP` | o pai precisa ser **sintético**; não pode haver ciclo |
+| `Inactive` | `_BLOQ` | bloqueado não aceita código **novo** em documento |
+| `ValidFrom`, `ValidTo` (opcionais) | `_DTEXIS`/`_DTEXSF` | o documento precisa estar dentro da vigência |
+
+Fica fora: código reduzido, contas de lucros e perdas e de ponte, e a amarração CC→Item
+(`CTT_ACITEM`), que entram com o núcleo contábil se forem necessários.
+
+#### Amarração pela conta contábil (CT1_ACCUST / CT1_CCOBRG)
+
+`LEDGER_ACCOUNTS` ganha:
+
+- `AcceptsCostCenter`, `RequiresCostCenter`;
+- `AcceptsAccountingItem`, `RequiresAccountingItem`.
+
+O padrão é aceitar e não exigir.
+
+A obrigatoriedade é **só por conta contábil** (decisão do usuário). Não há mais parâmetro da
+empresa, e `COMPANY_SETTINGS` sai. A validação roda em toda linha que tem `LedgerAccountCode`:
+
+- a conta exige CC e ele está vazio: "A conta {conta} exige centro de custo (linha …).";
+- a conta não aceita CC e ele foi informado: "A conta {conta} não aceita centro de custo (linha …).";
+- as mesmas duas regras valem para o Item Contábil.
+
+Uma linha sem conta contábil não é validada agora. Ela passa a ser quando a contabilização
+automática (sub-projeto 6) determinar a conta.
+
+Quando a validação roda:
+
+- na **confirmação feita pelo usuário** (documento de saída e de entrada);
+- na **criação** de título manual, adiantamento e lançamento na conta.
+
+Fluxos automáticos, como o faturamento de carga, a devolução e a confirmação depois da
+autorização da NF-e, não são bloqueados. Essa regra foi mantida da primeira versão.
+
+Um rateio satisfaz "exige CC" se todas as linhas dele têm CC, e "exige Item" se todas as linhas
+têm item.
+
+#### Rateio pré-configurado (CTJ)
+
+- `DISTRIBUTION_RULES` (código, nome, inativa) mantém **versões por vigência**. Uma versão nova
+  só pode começar depois de hoje, e versões vigentes ou passadas não se alteram (regra mantida).
+- Cada linha tem `CostCenterCode`, `AccountingItemCode` e `Percentage`:
+  - os códigos precisam ser **analíticos e ativos**, e pelo menos um dos dois tem que estar
+    preenchido;
+  - a soma das linhas é 100%;
+  - não pode repetir o mesmo par CC+Item.
+- Exemplo: diesel 60% Operação/CAM01 e 40% Operação/CAM02.
+- O documento recebe `DistributionRuleCode` **em vez de** CC e Item. Os dois modos são
+  exclusivos: informar a regra limpa e bloqueia CC e Item.
+- A expansão em linhas usa a versão vigente na **data do documento** (regra mantida).
+- A conta contábil não fica na regra. Ela vem do documento, porque o CTJ do Protheus tem conta
+  mas aqui ela é determinada pelo documento (minha decisão).
+
+#### Onde os campos ficam
+
+Os campos são `CostCenterCode`, `AccountingItemCode`, `DistributionRuleCode` e
+`LedgerAccountCode`, nos mesmos documentos da primeira versão:
+
+- linhas e cabeçalho do documento de saída e do documento de entrada;
+- `FinancialDocument`, que inclui título manual e adiantamento;
+- `FinancialAccountEntry`;
+- `Usage` (natureza), como padrão.
+
+O parceiro ganha `DefaultCostCenterCode` e `DefaultAccountingItemCode`. No Protheus o item
+contábil costuma ser o próprio cliente ou fornecedor.
+
+O preenchimento padrão segue a ordem: digitado → cabeçalho → parceiro → natureza. O padrão do
+veículo entra no sub-projeto 2.
+
+Continua **apenas STANDALONE**. Os cadastros e serviços são registrados nos dois modos, mas não
+fazem nada em SAPB1.
 
 ### B. Cadastros de transporte — sub-projeto 2
 
@@ -240,9 +251,9 @@ documento só acrescenta as dimensões:
     DRE vem do plano, não de uma estrutura separada).
 - **Lançamento** (`JOURNAL_ENTRIES` / `JOURNAL_ENTRY_LINES`):
   - linhas com conta, débito, crédito e parceiro;
-  - **`Dim1Code`…`Dim5Code`**: centro ou regra, a regra é **expandida na gravação** em linhas
-    por centro, com o percentual aplicado. O razão guarda só centros, nunca regras, para que o
-    DRE não dependa da vigência da regra (minha decisão);
+  - **`CostCenterCode` e `AccountingItemCode`** (como CT2_CCD/CCC e ITEMD/ITEMC). O rateio do
+    documento é **expandido na gravação** em linhas por CC+Item, com o percentual aplicado. O razão
+    guarda só CC e Item, nunca a regra, para que o DRE não dependa da vigência dela (minha decisão);
   - origem (tipo e chave do documento);
   - invariantes: débito = crédito; imutável depois de lançado; cancelamento = lançamento
     inverso; período bloqueado não aceita lançamento.
@@ -268,8 +279,8 @@ documento só acrescenta as dimensões:
 - A emissão de CT-e e MDF-e é ligada por filial (chaves "Emite CT-e" e "Emite MDF-e"), como a
   "Emite NF-e".
 - Toda migration roda em **todas as empresas** da COMMON, porque o Web recusa subir com
-  migration pendente. As migrations devem ser aditivas, com centros existentes migrados para a
-  dimensão 1.
+  migration pendente. As migrations devem ser aditivas; os centros de custo existentes viram
+  analíticos sem pai.
 - Identificadores em inglês e textos de tela em pt-BR.
 - Homologação na SEFAZ antes de qualquer produção. A SEFAZ autorizadora do CT-e e do MDF-e
   depende da UF do emitente (SVRS para várias UFs, SP própria no CT-e). Isso é **pendente**:
