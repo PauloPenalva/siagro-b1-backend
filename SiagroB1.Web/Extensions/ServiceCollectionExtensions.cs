@@ -118,6 +118,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Application.Services.Dimensions.DimensionCodeQueryService>();
         services.AddScoped<IDistributionRuleService, Application.Services.Dimensions.DistributionRuleService>();
         services.AddScoped<Application.Services.Dimensions.DistributionRuleExpander>();
+        services.AddScoped<Application.Services.Dimensions.DimensionCodeValidator>();
+        services.AddScoped<Application.Services.Dimensions.DimensionDefaultsResolver>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
