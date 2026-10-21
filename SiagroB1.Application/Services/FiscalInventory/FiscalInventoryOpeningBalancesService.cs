@@ -42,7 +42,11 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db, FiscalStockPe
         if (existing is null) return null;
 
         await ValidateAsync(entity, ignoreKey: key);
-        await _periodGuard.EnsureOpenAsync(existing.BranchCode, existing.BalanceDate);
+        // O controller aplica o PATCH na própria entidade rastreada: o valor gravado está nos OriginalValues.
+        var entry = db.Context.Entry(existing);
+        var storedBranch = entry.OriginalValues.GetValue<string>(nameof(FiscalInventoryOpeningBalance.BranchCode));
+        var storedDate = entry.OriginalValues.GetValue<DateTime>(nameof(FiscalInventoryOpeningBalance.BalanceDate));
+        await _periodGuard.EnsureOpenAsync(storedBranch, storedDate);
         await _periodGuard.EnsureOpenAsync(entity.BranchCode, entity.BalanceDate);
 
         existing.BranchCode = entity.BranchCode;

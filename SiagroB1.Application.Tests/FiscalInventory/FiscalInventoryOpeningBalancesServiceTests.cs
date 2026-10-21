@@ -1,6 +1,7 @@
 using SiagroB1.Application.Services.FiscalInventory;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -174,5 +175,23 @@ public class FiscalInventoryOpeningBalancesServiceTests
         Assert.True(await service.DeleteAsync(created.Key));
         Assert.Null(await service.GetByKeyAsync(created.Key));
         Assert.False(await service.DeleteAsync(created.Key));
+    }
+
+    [Fact]
+    public async Task Update_patching_tracked_entity_out_of_closed_month_is_refused()
+    {
+        var (db, service) = await Arrange();
+        var created = await service.CreateAsync(Balance());
+        db.Context.FiscalStockPeriods.Add(new FiscalStockPeriod
+            { BranchCode = "01", Year = 2026, Month = 1, Status = FiscalStockPeriodStatus.Closed });
+        await db.SaveChangesAsync();
+
+        var tracked = (await service.GetByKeyAsync(created.Key))!;
+        tracked.BalanceDate = new DateTime(2026, 3, 1);
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.UpdateAsync(created.Key, tracked));
+
+        Assert.Equal(
+            "O estoque fiscal de 01/2026 da filial 01 está fechado. Use uma data de entrada no estoque a partir de 01/02/2026 ou peça a reabertura do mês.",
+            ex.Message);
     }
 }
