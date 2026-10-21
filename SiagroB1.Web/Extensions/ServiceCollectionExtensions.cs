@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWarehouseService, Application.Services.WarehouseService>();
         services.AddScoped<IBusinessPartnerAddressService, Application.Services.BusinessPartnerAddressService>();
         services.AddScoped<ICostCenterService, Application.Services.CostCenterService>();
+        services.AddScoped<IAccountingDimensionService, Application.Services.Dimensions.AccountingDimensionService>();
         services.AddScoped<ILedgerAccountService, Application.Services.LedgerAccountService>();
         services.AddScoped<IUsage, Application.Services.UsageService>();
 
