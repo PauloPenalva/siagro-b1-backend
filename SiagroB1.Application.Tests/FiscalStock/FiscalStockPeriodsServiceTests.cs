@@ -233,7 +233,7 @@ public class FiscalStockPeriodsServiceTests
             new DbUpdateException("save", new InvalidOperationException())));
 
     /// <summary>SqlException não tem construtor público: monta via reflexão (SqlError + SqlErrorCollection).</summary>
-    private static Microsoft.Data.SqlClient.SqlException FakeSqlException(int number)
+    internal static Microsoft.Data.SqlClient.SqlException FakeSqlException(int number)
     {
         const System.Reflection.BindingFlags any = System.Reflection.BindingFlags.NonPublic |
             System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
@@ -286,5 +286,70 @@ public class FiscalStockPeriodsServiceTests
         Assert.NotNull(model.EntityContainer.FindEntitySet("FiscalStockPeriods"));
         Assert.NotEmpty(model.EntityContainer.FindOperationImports("FiscalStockPeriodsClose"));
         Assert.NotEmpty(model.EntityContainer.FindOperationImports("FiscalStockPeriodsReopen"));
+    }
+
+    private static void AddSale(IUnitOfWork db, string number, NfeStatus status, DateTime date, bool movesStock = true,
+        TaxDocumentKind kind = TaxDocumentKind.Nfe)
+    {
+        var invoice = new SalesInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = "C0001", InvoiceNumber = number, InvoiceDate = date,
+            InvoiceStatus = InvoiceStatus.Confirmed, InvoiceType = SalesInvoiceType.Normal, TaxDocumentKind = kind,
+            NfeStatus = status,
+        };
+        invoice.AddItem(new SalesInvoiceItem
+        {
+            Key = Guid.NewGuid(), ItemCode = "SOJA", UnitOfMeasureCode = "SC", Quantity = 1m, UnitPrice = 1m, MovesFiscalInventory = movesStock,
+        });
+        db.Context.SalesInvoices.Add(invoice);
+    }
+
+    private static void AddPurchase(IUnitOfWork db, string number, DocumentIssuerType issuer, NfeStatus status, DateTime date)
+    {
+        var invoice = new PurchaseInvoice
+        {
+            Key = Guid.NewGuid(), BranchCode = "01", CardCode = "F0001", InvoiceNumber = number, IssueDate = date,
+            PostingDate = date, InvoiceStatus = InvoiceStatus.Confirmed, TaxDocumentKind = TaxDocumentKind.Nfe,
+            IssuerType = issuer, NfeStatus = status,
+        };
+        invoice.AddItem(new PurchaseInvoiceItem
+        {
+            Key = Guid.NewGuid(), ItemCode = "SOJA", Quantity = 1m, UnitPrice = 1m, MovesFiscalInventory = true,
+        });
+        db.Context.PurchaseInvoices.Add(invoice);
+    }
+
+    [Fact]
+    public async Task Close_with_confirmed_nfe_not_yet_authorized_is_refused_listing_documents()
+    {
+        var (db, service) = await Arrange();
+        AddSale(db, "DS0000002", NfeStatus.Rejected, new DateTime(2026, 9, 20));
+        AddSale(db, "DS0000001", NfeStatus.None, new DateTime(2026, 9, 5));
+        AddPurchase(db, "DE0000003", DocumentIssuerType.Own, NfeStatus.Processing, new DateTime(2026, 9, 12));
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CloseAsync("01", 2026, 9, "paulo"));
+
+        Assert.Equal(
+            "Há NF-e confirmadas ainda não autorizadas no mês: DS0000001, DS0000002, DE0000003. Transmita ou cancele antes de fechar.",
+            ex.Message);
+        Assert.False(await db.Context.FiscalStockPeriods.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Close_ignores_authorized_void_third_party_other_month_and_non_stock_nfe()
+    {
+        var (db, service) = await Arrange();
+        AddSale(db, "DS0000001", NfeStatus.Cancelled, new DateTime(2026, 9, 5));
+        AddSale(db, "DS0000002", NfeStatus.Denied, new DateTime(2026, 9, 5));
+        AddSale(db, "DS0000003", NfeStatus.None, new DateTime(2026, 10, 1));
+        AddSale(db, "DS0000004", NfeStatus.None, new DateTime(2026, 9, 5), movesStock: false);
+        AddSale(db, "DS0000005", NfeStatus.None, new DateTime(2026, 9, 5), kind: TaxDocumentKind.Other);
+        AddPurchase(db, "DE0000001", DocumentIssuerType.ThirdParty, NfeStatus.None, new DateTime(2026, 9, 12));
+        await db.SaveChangesAsync();
+
+        var period = await service.CloseAsync("01", 2026, 9, "paulo");
+
+        Assert.Equal(FiscalStockPeriodStatus.Closed, period.Status);
     }
 }

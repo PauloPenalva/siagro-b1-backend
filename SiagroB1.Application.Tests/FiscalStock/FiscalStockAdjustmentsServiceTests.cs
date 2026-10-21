@@ -143,4 +143,42 @@ public class FiscalStockAdjustmentsServiceTests
 
         Assert.NotNull(builder.GetEdmModel().EntityContainer.FindEntitySet("FiscalStockAdjustments"));
     }
+
+    [Fact]
+    public async Task Out_value_counts_the_residual_value_of_previous_outs()
+    {
+        // Saldo 100 / R$ 5.000; a saída de 50 por R$ 4.000 deixa a camada 50 / R$ 2.500 e resíduo -R$ 1.500:
+        // em estoque, R$ 1.000.
+        var (_, service) = await Arrange(withStock: true);
+        await service.CreateAsync(Adjustment(FiscalStockAdjustmentDirection.Out, 50m, 4000m), "paulo");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.CreateAsync(Adjustment(FiscalStockAdjustmentDirection.Out, 10m, 2000m), "paulo"));
+
+        Assert.Equal("O valor do ajuste passa do valor em estoque: disponível R$ 1.000,00.", ex.Message);
+        await service.CreateAsync(Adjustment(FiscalStockAdjustmentDirection.Out, 10m, 1000m), "paulo");
+    }
+
+    [Theory]
+    [InlineData(2601)]
+    [InlineData(2627)]
+    public async Task Duplicate_number_on_save_becomes_friendly_message(int sqlNumber)
+    {
+        var (db, _) = await Arrange();
+        var service = new FiscalStockAdjustmentsService(new DuplicateOnSaveUnitOfWork(db, sqlNumber));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CreateAsync(Adjustment(), "paulo"));
+
+        Assert.Equal("Outro ajuste foi gravado ao mesmo tempo. Tente de novo.", ex.Message);
+    }
+
+    private sealed class DuplicateOnSaveUnitOfWork(IUnitOfWork inner, int sqlNumber) : IUnitOfWork
+    {
+        public Task BeginTransactionAsync() => inner.BeginTransactionAsync();
+        public Task CommitAsync() => inner.CommitAsync();
+        public Task RollbackAsync() => inner.RollbackAsync();
+        public SiagroB1.Infra.Context.AppDbContext Context => inner.Context;
+        public Task SaveChangesAsync() => throw new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "save", FiscalStockPeriodsServiceTests.FakeSqlException(sqlNumber));
+    }
 }

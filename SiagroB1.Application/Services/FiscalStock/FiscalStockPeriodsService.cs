@@ -65,6 +65,8 @@ public class FiscalStockPeriodsService(
                 throw new DefaultException($"Feche antes {previous:MM/yyyy}.");
         }
 
+        await EnsureNoPendingNfeAsync(branchCode, first);
+
         var lastDay = first.AddMonths(1).AddDays(-1);
         var ledgers = await _ledgerLoader.LoadAsync(branchCode, itemCode: null, toDate: lastDay);
         EnsureClean(ledgers);
@@ -186,6 +188,33 @@ public class FiscalStockPeriodsService(
         db.Context.FiscalStockPeriods.AnyAsync(p =>
             p.BranchCode == branchCode && p.Year == year && p.Month == month &&
             p.Status == FiscalStockPeriodStatus.Closed);
+
+    /// <summary>
+    /// NF-e própria Confirmada/Devolvida que mexe no estoque e ainda não foi autorizada fica FORA do instantâneo
+    /// (só a autorizada é escriturável); autorizada depois do fechamento, mudaria o mês fechado em silêncio.
+    /// </summary>
+    private async Task EnsureNoPendingNfeAsync(string branchCode, DateTime first)
+    {
+        var next = first.AddMonths(1);
+        var sales = await BookableInvoiceLines.UnauthorizedOwnSales(db.Context.SalesInvoicesItems.AsNoTracking())
+            .Where(i => i.MovesFiscalInventory && i.SalesInvoice!.BranchCode == branchCode &&
+                        i.SalesInvoice.InvoiceDate >= first && i.SalesInvoice.InvoiceDate < next)
+            .Select(i => i.SalesInvoice!.InvoiceNumber).Distinct().ToListAsync();
+        var purchases = await BookableInvoiceLines.UnauthorizedOwnPurchases(db.Context.PurchaseInvoicesItems.AsNoTracking())
+            .Where(i => i.MovesFiscalInventory && i.PurchaseInvoice!.BranchCode == branchCode &&
+                        (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) >= first &&
+                        (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) < next)
+            .Select(i => i.PurchaseInvoice!.InvoiceNumber).Distinct().ToListAsync();
+
+        var numbers = sales.Order(StringComparer.Ordinal).Concat(purchases.Order(StringComparer.Ordinal))
+            .Select(n => string.IsNullOrWhiteSpace(n) ? "(sem número)" : n!).ToList();
+        if (numbers.Count == 0) return;
+
+        var more = numbers.Count > MaxListedItems ? $" (e mais {numbers.Count - MaxListedItems})" : "";
+        throw new DefaultException(
+            $"Há NF-e confirmadas ainda não autorizadas no mês: {string.Join(", ", numbers.Take(MaxListedItems))}{more}. " +
+            "Transmita ou cancele antes de fechar.");
+    }
 
     /// <summary>
     /// Todo produto precisa fechar com o saldo igual às camadas abertas: sem saída a descoberto (Deficit),

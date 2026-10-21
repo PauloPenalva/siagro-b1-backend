@@ -39,7 +39,7 @@ public class FiscalStockAdjustmentsService(
         entity.DocNumber = await NextDocNumberAsync(entity.BranchCode);
         entity.CreatedBy = userName;
         await db.Context.FiscalStockAdjustments.AddAsync(entity);
-        await db.SaveChangesAsync();
+        await SaveAsync();
         return entity;
     }
 
@@ -73,7 +73,7 @@ public class FiscalStockAdjustmentsService(
         await EnsureOutFitsAsync(existing, key);
         if (branchChanged) existing.DocNumber = await NextDocNumberAsync(existing.BranchCode);
 
-        await db.SaveChangesAsync();
+        await SaveAsync();
         return existing;
     }
 
@@ -86,6 +86,19 @@ public class FiscalStockAdjustmentsService(
         db.Context.FiscalStockAdjustments.Remove(existing);
         await db.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>Índice único filial+número: dois ajustes ao mesmo tempo pegam o mesmo AJ; o segundo tenta de novo.</summary>
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException e) when (FiscalStockPeriodsService.IsUniqueViolation(e))
+        {
+            throw new DefaultException("Outro ajuste foi gravado ao mesmo tempo. Tente de novo.");
+        }
     }
 
     private static void Validate(FiscalStockAdjustment entity)
@@ -127,7 +140,8 @@ public class FiscalStockAdjustmentsService(
             .FirstOrDefault(l => l.ItemCode == entity.ItemCode);
 
         var availableQuantity = ledger == null ? 0m : ledger.Result.OpenLayers.Sum(l => l.Quantity) - ledger.Result.Deficit;
-        var availableValue = ledger == null ? 0m : ledger.Result.OpenLayers.Sum(l => l.Value);
+        // Saldo em valor = camadas + resíduo (diferença de saídas anteriores pelo valor informado).
+        var availableValue = ledger == null ? 0m : ledger.Result.OpenLayers.Sum(l => l.Value) + ledger.Result.ResidualValue;
 
         if (entity.Quantity > availableQuantity)
             throw new DefaultException(

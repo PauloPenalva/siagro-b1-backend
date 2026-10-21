@@ -162,4 +162,37 @@ public class FiscalStockPeriodGuardTests
         ex = await Assert.ThrowsAsync<DefaultException>(() => service.DeleteAsync(balance.Key));
         Assert.Equal(ClosedMessage, ex.Message);
     }
+
+    [Fact]
+    public async Task Ensure_open_refuses_date_before_first_open_date_even_in_never_closed_month()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        await CloseAsync(db, 2026, 9);
+        var guard = new FiscalStockPeriodGuard(db);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => guard.EnsureOpenAsync("01", new DateTime(2026, 7, 15)));
+
+        Assert.Equal(
+            "O estoque fiscal de 07/2026 da filial 01 está fechado. Use uma data de entrada no estoque a partir de 01/10/2026 ou peça a reabertura do mês.",
+            ex.Message);
+    }
+
+    [Fact]
+    public async Task Opening_balance_for_new_item_before_first_closed_month_is_refused()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.Items.Add(new Item { ItemCode = "MILHO", ItemName = "MILHO EM GRAOS" });
+        await db.SaveChangesAsync();
+        await CloseAsync(db, 2026, 9);
+        var service = new FiscalInventoryOpeningBalancesService(db);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CreateAsync(new FiscalInventoryOpeningBalance
+        {
+            BranchCode = "01", ItemCode = "MILHO", BalanceDate = new DateTime(2026, 8, 1),
+            Quantity = 10m, TotalValue = 100m, UnitOfMeasureCode = "SC",
+        }));
+
+        Assert.StartsWith("O estoque fiscal de 08/2026 da filial 01 está fechado.", ex.Message);
+        Assert.False(await db.Context.FiscalInventoryOpeningBalances.AnyAsync());
+    }
 }

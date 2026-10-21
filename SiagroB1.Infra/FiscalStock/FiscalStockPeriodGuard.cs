@@ -9,7 +9,8 @@ namespace SiagroB1.Infra.FiscalStock;
 /// <summary>
 /// Trava do mês fechado do estoque fiscal: nenhum lançamento que mexe no estoque fiscal pode cair
 /// (entrar, sair ou ser desfeito) num mês fechado da filial. A data conferida é a data de entrada no
-/// estoque: entrada = PostingDate ?? IssueDate; saída = InvoiceDate; saldo inicial = BalanceDate.
+/// estoque: entrada = PostingDate ?? IssueDate; saída = InvoiceDate; saldo inicial = BalanceDate. Recusa toda
+/// data anterior ao 1º dia aberto (o mês seguinte ao último fechado), não só a do mês fechado.
 /// </summary>
 public class FiscalStockPeriodGuard(IUnitOfWork db)
 {
@@ -31,10 +32,12 @@ public class FiscalStockPeriodGuard(IUnitOfWork db)
 
     public async Task EnsureOpenAsync(string branchCode, DateTime stockDate, CancellationToken ct = default)
     {
-        if (!await IsClosedAsync(branchCode, stockDate.Year, stockDate.Month, ct))
+        // Tudo antes do 1º dia aberto está congelado — inclusive o mês nunca fechado anterior ao primeiro
+        // fechado (o instantâneo do fechamento já é o saldo a partir dali).
+        var firstOpen = await FirstOpenDateAsync(branchCode, ct);
+        if (firstOpen == null || stockDate.Date >= firstOpen.Value)
             return;
 
-        var firstOpen = await FirstOpenDateAsync(branchCode, ct);
         throw new DefaultException(string.Create(CultureInfo.InvariantCulture,
             $"O estoque fiscal de {stockDate:MM/yyyy} da filial {branchCode} está fechado. " +
             $"Use uma data de entrada no estoque a partir de {firstOpen:dd/MM/yyyy} ou peça a reabertura do mês."));
