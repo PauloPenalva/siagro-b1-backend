@@ -59,6 +59,15 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
         modelBuilder.EntitySet<AccountingDimension>("AccountingDimensions");
         modelBuilder.EntitySet<DimensionCodeModel>("DimensionCodes");
+        modelBuilder.EntitySet<DistributionRule>("DistributionRules");
+        // Versões da regra: actions de topo (navegação dá 404 neste projeto); linhas em listas paralelas.
+        var distributionRulesSaveVersion = modelBuilder.Action("DistributionRulesSaveVersion");
+        distributionRulesSaveVersion.Parameter<string>("Code");
+        distributionRulesSaveVersion.Parameter<DateOnly>("ValidFrom");
+        distributionRulesSaveVersion.CollectionParameter<string>("LineCostCenterCodes");
+        distributionRulesSaveVersion.CollectionParameter<double>("LinePercentages");
+        var distributionRulesDeleteVersion = modelBuilder.Action("DistributionRulesDeleteVersion");
+        distributionRulesDeleteVersion.Parameter<Guid>("VersionId");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");

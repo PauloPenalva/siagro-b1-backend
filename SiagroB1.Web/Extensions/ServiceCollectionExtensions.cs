@@ -116,6 +116,8 @@ public static class ServiceCollectionExtensions
         // o que depende delas é registrado aqui para resolver em qualquer modo.
         services.AddScoped<IAccountingDimensionService, Application.Services.Dimensions.AccountingDimensionService>();
         services.AddScoped<Application.Services.Dimensions.DimensionCodeQueryService>();
+        services.AddScoped<IDistributionRuleService, Application.Services.Dimensions.DistributionRuleService>();
+        services.AddScoped<Application.Services.Dimensions.DistributionRuleExpander>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
