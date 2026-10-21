@@ -371,6 +371,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFiscalInventoryOpeningBalancesService, FiscalInventoryOpeningBalancesService>();
         services.AddScoped<IFiscalStockAdjustmentsService, FiscalStockAdjustmentsService>();
         services.AddScoped<IFiscalStockPeriodsService, FiscalStockPeriodsService>();
+        services.AddScoped<IFiscalStockPeriodLock, SqlServerFiscalStockPeriodLock>();
         services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockLedgerLoader>();
         services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockPeriodGuard>();
         services.AddScoped<MunicipalityService>();

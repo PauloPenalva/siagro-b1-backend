@@ -14,10 +14,12 @@ namespace SiagroB1.Application.Services.FiscalStock;
 /// inicial mais antigo, e só se todo produto fecha limpo — sem saída a descoberto, valor pendente ou resíduo —
 /// para que o instantâneo seja exatamente o saldo. Reabrir só o último fechado, com motivo.
 /// </summary>
-public class FiscalStockPeriodsService(IUnitOfWork db, FiscalStockLedgerLoader? ledgerLoader = null)
+public class FiscalStockPeriodsService(
+    IUnitOfWork db, FiscalStockLedgerLoader? ledgerLoader = null, IFiscalStockPeriodLock? periodLock = null)
     : IFiscalStockPeriodsService
 {
     private readonly FiscalStockLedgerLoader _ledgerLoader = ledgerLoader ?? new FiscalStockLedgerLoader(db);
+    private readonly IFiscalStockPeriodLock _lock = periodLock ?? new InMemoryFiscalStockPeriodLock();
 
     private const int MaxListedItems = 20;
     private static readonly CultureInfo PtBr = new("pt-BR");
@@ -27,9 +29,22 @@ public class FiscalStockPeriodsService(IUnitOfWork db, FiscalStockLedgerLoader? 
     public async Task<FiscalStockPeriod> CloseAsync(string branchCode, int year, int month, string userName)
     {
         var first = ValidateMonth(branchCode, year, month);
+        try
+        {
+            return await RunLockedAsync(branchCode, () => CloseLockedAsync(branchCode, year, month, first, userName));
+        }
+        catch (DbUpdateException)
+        {
+            // Índice único filial+ano+mês: outro fechamento gravou a linha antes deste.
+            throw new DefaultException(AlreadyClosed(first));
+        }
+    }
+
+    private async Task<FiscalStockPeriod> CloseLockedAsync(string branchCode, int year, int month, DateTime first, string userName)
+    {
         var period = await FindAsync(branchCode, year, month);
         if (period?.Status == FiscalStockPeriodStatus.Closed)
-            throw new DefaultException($"O estoque fiscal de {first:MM/yyyy} já está fechado.");
+            throw new DefaultException(AlreadyClosed(first));
 
         var oldestOpening = await db.Context.FiscalInventoryOpeningBalances
             .Where(o => o.BranchCode == branchCode)
@@ -53,42 +68,36 @@ public class FiscalStockPeriodsService(IUnitOfWork db, FiscalStockLedgerLoader? 
         var ledgers = await _ledgerLoader.LoadAsync(branchCode, itemCode: null, toDate: lastDay);
         EnsureClean(ledgers);
 
-        await db.BeginTransactionAsync();
-        try
+        var now = DateTime.Now;
+        if (period == null)
         {
-            var now = DateTime.Now;
-            if (period == null)
-            {
-                period = new FiscalStockPeriod { BranchCode = branchCode, Year = year, Month = month };
-                await db.Context.FiscalStockPeriods.AddAsync(period);
-            }
-
-            period.Status = FiscalStockPeriodStatus.Closed;
-            period.ClosedAt = now;
-            period.ClosedBy = userName;
-            db.Context.FiscalStockPeriodEvents.Add(new FiscalStockPeriodEvent
-                { Period = period, EventType = FiscalStockPeriodEventType.Closed, At = now, By = userName });
-
-            foreach (var ledger in ledgers)
-            {
-                var sequence = 0;
-                foreach (var layer in ledger.Result.OpenLayers)
-                    db.Context.FiscalStockPeriodLayers.Add(new FiscalStockPeriodLayer
-                    {
-                        Period = period, ItemCode = ledger.ItemCode, ItemName = ledger.ItemName,
-                        UnitOfMeasureCode = ledger.UnitOfMeasureCode, LayerDate = layer.Date,
-                        SourceLineKey = layer.LineKey, Quantity = layer.Quantity, Value = layer.Value,
-                        Sequence = ++sequence,
-                    });
-            }
-
-            await db.SaveChangesAsync();
-            await db.CommitAsync();
+            period = new FiscalStockPeriod { BranchCode = branchCode, Year = year, Month = month };
+            await db.Context.FiscalStockPeriods.AddAsync(period);
         }
-        catch
+        else
         {
-            await db.RollbackAsync();
-            throw;
+            // Defesa: um instantâneo velho (reabertura incompleta) nunca soma com o novo.
+            db.Context.FiscalStockPeriodLayers.RemoveRange(
+                await db.Context.FiscalStockPeriodLayers.Where(l => l.PeriodKey == period.Key).ToListAsync());
+        }
+
+        period.Status = FiscalStockPeriodStatus.Closed;
+        period.ClosedAt = now;
+        period.ClosedBy = userName;
+        db.Context.FiscalStockPeriodEvents.Add(new FiscalStockPeriodEvent
+            { Period = period, EventType = FiscalStockPeriodEventType.Closed, At = now, By = userName });
+
+        foreach (var ledger in ledgers)
+        {
+            var sequence = 0;
+            foreach (var layer in ledger.Result.OpenLayers)
+                db.Context.FiscalStockPeriodLayers.Add(new FiscalStockPeriodLayer
+                {
+                    Period = period, ItemCode = ledger.ItemCode, ItemName = ledger.ItemName,
+                    UnitOfMeasureCode = ledger.UnitOfMeasureCode, LayerDate = layer.Date,
+                    SourceLineKey = layer.LineKey, Quantity = layer.Quantity, Value = layer.Value,
+                    Sequence = ++sequence,
+                });
         }
 
         return period;
@@ -99,44 +108,61 @@ public class FiscalStockPeriodsService(IUnitOfWork db, FiscalStockLedgerLoader? 
         var first = ValidateMonth(branchCode, year, month);
         if (string.IsNullOrWhiteSpace(reason))
             throw new DefaultException("Informe o motivo da reabertura.");
-        reason = reason.Trim();
+        var trimmed = reason.Trim();
 
-        var period = await FindAsync(branchCode, year, month);
-        if (period?.Status != FiscalStockPeriodStatus.Closed)
-            throw new DefaultException($"O estoque fiscal de {first:MM/yyyy} não está fechado.");
-
-        var next = first.AddMonths(1);
-        if (await IsClosedAsync(branchCode, next.Year, next.Month))
-            throw new DefaultException($"Reabra antes {next:MM/yyyy}.");
-
-        await db.BeginTransactionAsync();
-        try
+        return await RunLockedAsync(branchCode, async () =>
         {
+            var period = await FindAsync(branchCode, year, month);
+            if (period?.Status != FiscalStockPeriodStatus.Closed)
+                throw new DefaultException($"O estoque fiscal de {first:MM/yyyy} não está fechado.");
+
+            var next = first.AddMonths(1);
+            if (await IsClosedAsync(branchCode, next.Year, next.Month))
+                throw new DefaultException($"Reabra antes {next:MM/yyyy}.");
+
             var now = DateTime.Now;
-            var layers = await db.Context.FiscalStockPeriodLayers.Where(l => l.PeriodKey == period.Key).ToListAsync();
-            db.Context.FiscalStockPeriodLayers.RemoveRange(layers);
+            db.Context.FiscalStockPeriodLayers.RemoveRange(
+                await db.Context.FiscalStockPeriodLayers.Where(l => l.PeriodKey == period.Key).ToListAsync());
 
             period.Status = FiscalStockPeriodStatus.Open;
             period.ReopenedAt = now;
             period.ReopenedBy = userName;
-            period.ReopenReason = reason;
+            period.ReopenReason = trimmed;
             db.Context.FiscalStockPeriodEvents.Add(new FiscalStockPeriodEvent
             {
                 PeriodKey = period.Key, EventType = FiscalStockPeriodEventType.Reopened, At = now, By = userName,
-                Reason = reason,
+                Reason = trimmed,
             });
+            return period;
+        });
+    }
 
-            await db.SaveChangesAsync();
-            await db.CommitAsync();
+    /// <summary>
+    /// Transação + trava da filial ANTES de qualquer conferência: quem chega depois espera e confere de novo o que
+    /// o primeiro gravou. Grava e confirma tudo junto (status, evento, camadas); qualquer recusa desfaz.
+    /// </summary>
+    private async Task<T> RunLockedAsync<T>(string branchCode, Func<Task<T>> work)
+    {
+        await db.BeginTransactionAsync();
+        try
+        {
+            await using (await _lock.AcquireAsync(branchCode))
+            {
+                var result = await work();
+                await db.SaveChangesAsync();
+                await db.CommitAsync();
+                return result;
+            }
         }
         catch
         {
             await db.RollbackAsync();
+            db.Context.ChangeTracker.Clear();
             throw;
         }
-
-        return period;
     }
+
+    private static string AlreadyClosed(DateTime first) => $"O estoque fiscal de {first:MM/yyyy} já está fechado.";
 
     private static DateTime ValidateMonth(string branchCode, int year, int month)
     {

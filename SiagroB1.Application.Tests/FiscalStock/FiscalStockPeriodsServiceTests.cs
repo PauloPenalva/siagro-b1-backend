@@ -166,6 +166,82 @@ public class FiscalStockPeriodsServiceTests
     }
 
     [Fact]
+    public async Task October_snapshot_starts_from_september_and_consumes_its_layers()
+    {
+        var (db, service) = await Arrange();
+        AddAdjustment(db, FiscalStockAdjustmentDirection.In, 20m, 1200m, new DateTime(2026, 9, 15), "AJ000001");
+        await db.SaveChangesAsync();
+        await service.CloseAsync("01", 2026, 9, "paulo");
+        AddAdjustment(db, FiscalStockAdjustmentDirection.Out, 110m, 5600m, new DateTime(2026, 10, 5), "AJ000002");
+        await db.SaveChangesAsync();
+
+        var october = await service.CloseAsync("01", 2026, 10, "paulo");
+
+        var layer = Assert.Single(await db.Context.FiscalStockPeriodLayers.Where(l => l.PeriodKey == october.Key).ToListAsync());
+        Assert.Equal((10m, 600m, new DateTime(2026, 9, 15), 1), (layer.Quantity, layer.Value, layer.LayerDate, layer.Sequence));
+        Assert.Equal(3, await db.Context.FiscalStockPeriodLayers.CountAsync()); // setembro (2) intacto + outubro (1)
+    }
+
+    [Fact]
+    public async Task Close_and_reopen_take_the_branch_lock()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalInventoryOpeningBalances.Add(new FiscalInventoryOpeningBalance
+        {
+            BranchCode = "01", ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", UnitOfMeasureCode = "SC",
+            BalanceDate = new DateTime(2026, 9, 1), Quantity = 100m, TotalValue = 5000m,
+        });
+        await db.SaveChangesAsync();
+        var periodLock = new RecordingLock();
+        var service = new FiscalStockPeriodsService(db, periodLock: periodLock);
+
+        await service.CloseAsync("01", 2026, 9, "paulo");
+        await service.ReopenAsync("01", 2026, 9, "motivo", "paulo");
+
+        Assert.Equal(["01", "01"], periodLock.Acquired);
+        Assert.Equal(2, periodLock.Released);
+    }
+
+    [Fact]
+    public async Task Close_losing_the_unique_index_race_reports_already_closed()
+    {
+        var db = TestDb.CreateUnitOfWork(new ThrowOnSaveInterceptor(e =>
+            e.Entity is FiscalStockPeriod && e.State == EntityState.Added));
+        db.Context.FiscalInventoryOpeningBalances.Add(new FiscalInventoryOpeningBalance
+        {
+            BranchCode = "01", ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", UnitOfMeasureCode = "SC",
+            BalanceDate = new DateTime(2026, 9, 1), Quantity = 100m, TotalValue = 5000m,
+        });
+        await db.SaveChangesAsync();
+        var service = new FiscalStockPeriodsService(db);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CloseAsync("01", 2026, 9, "paulo"));
+
+        Assert.Equal("O estoque fiscal de 09/2026 já está fechado.", ex.Message);
+    }
+
+    private sealed class RecordingLock : IFiscalStockPeriodLock
+    {
+        public List<string> Acquired { get; } = [];
+        public int Released { get; private set; }
+
+        public Task<IAsyncDisposable> AcquireAsync(string branchCode, CancellationToken ct = default)
+        {
+            Acquired.Add(branchCode);
+            return Task.FromResult<IAsyncDisposable>(new Releaser(this));
+        }
+
+        private sealed class Releaser(RecordingLock owner) : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync()
+            {
+                owner.Released++;
+                return ValueTask.CompletedTask;
+            }
+        }
+    }
+
+    [Fact]
     public void Edm_exposes_FiscalStockPeriods_and_actions()
     {
         var builder = new ODataConventionModelBuilder();
