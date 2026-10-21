@@ -14,7 +14,9 @@ namespace SiagroB1.Migrations.CommonContext
             // (App.controller.ts navega com navTo(item.getKey())). Sem ROLE_MENUS o item não aparece.
             // StandaloneOnly: dimensões, regras de distribuição e parâmetros só existem em STANDALONE.
             // Orders 12 a 14: logo após Centros de Custo (11); os irmãos de Order >= 12 deslocam 3 posições.
-            ShiftSiblings(migrationBuilder, shifted: true);
+            migrationBuilder.Sql(
+                "UPDATE MENU_ITEMS SET [Order] = [Order] + 3 WHERE ParentKey = 'registers' AND [Order] >= 12 " +
+                "AND [Key] NOT IN ('accountingDimensions','distributionRules','companySettings')");
 
             migrationBuilder.InsertData(
                 table: "MENU_ITEMS",
@@ -48,26 +50,8 @@ namespace SiagroB1.Migrations.CommonContext
             migrationBuilder.DeleteData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "distributionRules");
             migrationBuilder.DeleteData(table: "MENU_ITEMS", keyColumn: "Key", keyValue: "companySettings");
 
-            ShiftSiblings(migrationBuilder, shifted: false);
-        }
-
-        // Irmãos de "registers" que ficavam depois de costCenters (11), deslocados 3 posições (Up) ou de volta ao Order original (Down).
-        private static void ShiftSiblings(MigrationBuilder migrationBuilder, bool shifted)
-        {
-            (string Key, int Order)[] siblings =
-            [
-                ("ledgerAccounts", 12),
-                ("contractTemplates", 14),
-                ("companySignatories", 15),
-                ("paymentConditions", 16),
-                ("emailSettings", 19),
-            ];
-
-            foreach (var (key, order) in siblings)
-            {
-                migrationBuilder.UpdateData(
-                    table: "MENU_ITEMS", keyColumn: "Key", keyValue: key, column: "Order", value: shifted ? order + 3 : order);
-            }
+            // Os irmãos deslocados no Up estão em Order >= 15 (12 + 3); os 3 itens novos já foram apagados.
+            migrationBuilder.Sql("UPDATE MENU_ITEMS SET [Order] = [Order] - 3 WHERE ParentKey = 'registers' AND [Order] >= 15");
         }
     }
 }
