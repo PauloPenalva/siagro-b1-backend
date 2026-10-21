@@ -17,6 +17,9 @@ public class FiscalInventoryItemLayers
 
     /// <summary>Complemento de valor sem camada aberta, fora do saldo até a próxima entrada.</summary>
     public decimal PendingValue { get; set; }
+
+    /// <summary>Valor no saldo sem camada (diferença de ajuste de saída). Valor = soma das camadas + ResidualValue.</summary>
+    public decimal ResidualValue { get; set; }
 }
 
 /// <summary>Filtros do Kardex Fiscal: filial obrigatória, produto opcional, período inclusivo em dias.</summary>

@@ -66,6 +66,7 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
                 Layers = l.Result.OpenLayers,
                 Deficit = l.Result.Deficit,
                 PendingValue = l.Result.PendingValue,
+                ResidualValue = l.Result.ResidualValue,
             })
             .ToList();
 

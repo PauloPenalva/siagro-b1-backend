@@ -41,7 +41,7 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
                 pending.Add($"{item.ItemCode} - {item.ItemName}");
 
             var quantity = item.Layers.Sum(l => l.Quantity) - item.Deficit;
-            var value = item.Layers.Sum(l => l.Value);
+            var value = item.Layers.Sum(l => l.Value) + item.ResidualValue;
             // só sai quem tem quantidade E valor zerados; saldo negativo (valor 0) entra
             if (quantity == 0m && value == 0m)
                 continue;

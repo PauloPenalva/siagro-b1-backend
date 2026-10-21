@@ -31,8 +31,10 @@ public static class FifoLedger
         var seedValue = layers.Sum(l => l.Value);
         var lines = new List<ValuedMovement>();
         var exitCosts = new Dictionary<Guid, (decimal Qty, decimal Value)>();
-        var pending = new List<(int Index, decimal Qty)>(); // saídas sem camada, da mais antiga à mais nova
+        // saídas sem camada, da mais antiga à mais nova; FixedValue = ajuste de saída, cujo valor já foi informado
+        var pending = new List<(int Index, decimal Qty, bool FixedValue)>();
         decimal pendingValue = 0m; // complemento sem camada aberta, fora do saldo até a próxima camada
+        decimal residual = 0m;     // valor que está no saldo mas não tem camada (diferença do ajuste de saída)
 
         void Add(InventoryMovement m, decimal qIn, decimal qOut, decimal vIn, decimal vOut,
             bool insufficient = false, bool pendingComplement = false)
@@ -88,39 +90,56 @@ public static class FifoLedger
             var restValue = value;
             while (restQty > 0 && pending.Count > 0)
             {
-                var (index, pq) = pending[0];
+                var (index, pq, fixedValue) = pending[0];
                 var cover = Math.Min(pq, restQty);
                 var coverValue = cover == restQty ? restValue : Money(cover * unit);
                 restQty -= cover;
                 restValue -= coverValue;
                 var line = lines[index];
                 var stillPending = pq - cover;
-                lines[index] = line with
+                if (fixedValue)
                 {
-                    ValueOut = line.ValueOut + coverValue,
-                    UnitCost = Cost(line.ValueOut + coverValue, line.QuantityOut),
-                    CoveredByLineKeys = [.. line.CoveredByLineKeys, m.LineKey],
-                    InsufficientBalance = stillPending > 0,
-                };
-                TrackExitCost(line.Movement, 0m, coverValue);
-                if (stillPending > 0) pending[0] = (index, stillPending);
+                    // ajuste de saída já saiu pelo valor informado: o custo da cobertura fica no saldo, sem camada
+                    residual += coverValue;
+                    lines[index] = line with
+                    {
+                        CoveredByLineKeys = [.. line.CoveredByLineKeys, m.LineKey],
+                        InsufficientBalance = stillPending > 0,
+                    };
+                }
+                else
+                {
+                    lines[index] = line with
+                    {
+                        ValueOut = line.ValueOut + coverValue,
+                        UnitCost = Cost(line.ValueOut + coverValue, line.QuantityOut),
+                        CoveredByLineKeys = [.. line.CoveredByLineKeys, m.LineKey],
+                        InsufficientBalance = stillPending > 0,
+                    };
+                    TrackExitCost(line.Movement, 0m, coverValue);
+                }
+                if (stillPending > 0) pending[0] = (index, stillPending, fixedValue);
                 else pending.RemoveAt(0);
             }
 
             var valueIn = value;
             if (restQty > 0)
             {
+                // a camada nova absorve o complemento pendente (que entra no ValueIn) e o resíduo (que já
+                // está no saldo, fora do ValueIn), sem ficar negativa; o que não couber segue no resíduo
                 valueIn += pendingValue;
-                layers.Add(new Layer(m.LineKey, m.Date, restQty, restValue + pendingValue));
+                var layerValue = restValue + pendingValue + residual;
+                residual = Math.Min(layerValue, 0m);
+                layers.Add(new Layer(m.LineKey, m.Date, restQty, layerValue - residual));
                 pendingValue = 0m;
             }
             Add(m, qty, 0m, valueIn, 0m);
         }
 
-        void Outflow(InventoryMovement m, decimal value, decimal missing)
+        void Outflow(InventoryMovement m, decimal value, decimal missing, bool fixedValue = false)
         {
             TrackExitCost(m, m.Quantity, value);
-            if (missing > 0) pending.Add((lines.Count, missing));
+            if (missing > 0) pending.Add((lines.Count, missing, fixedValue));
             Add(m, 0m, m.Quantity, 0m, value, insufficient: missing > 0);
         }
 
@@ -175,24 +194,22 @@ public static class FifoLedger
 
                 case InventoryMovementKind.AdjustmentOut:
                 {
-                    // A quantidade sai das camadas pelo FIFO ao valor contábil (como uma saída). A diferença
-                    // D = valor contábil baixado − valor informado reavalia a primeira camada que sobrou (sem
-                    // deixá-la negativa); o que não couber, ou tudo se não sobrar camada, vai para o valor
-                    // pendente. A linha sai pelo valor informado; a falta de quantidade vira pendência.
+                    // A quantidade disponível sai das camadas pelo FIFO ao valor contábil. A diferença
+                    // D = contábil baixado − informado reavalia as camadas que sobraram, em ordem, sem deixar
+                    // nenhuma negativa; o que não couber vai para o resíduo (no saldo, sem camada). A linha sai
+                    // pelo valor informado; a falta de quantidade vira pendência de valor fixo.
                     var (book, missing) = ConsumeFifo(m.Quantity);
                     var d = book - m.Value;
-                    if (layers.Count > 0 && d != 0)
+                    foreach (var layer in layers)
                     {
-                        var first = layers[0];
-                        var applied = Math.Max(d, -first.Value);
-                        first.Value += applied;
-                        first.UnitCost = Cost(first.Value, first.Quantity);
+                        if (d == 0) break;
+                        var applied = Math.Max(d, -layer.Value);
+                        layer.Value += applied;
+                        layer.UnitCost = Cost(layer.Value, layer.Quantity);
                         d -= applied;
                     }
-                    pendingValue += d;
-                    var value = m.Value;
-                    var qty = missing;
-                    Outflow(m, value, qty);
+                    residual += d;
+                    Outflow(m, m.Value, missing, fixedValue: true);
                     break;
                 }
 
@@ -227,7 +244,7 @@ public static class FifoLedger
 
         return new FifoResult(lines,
             layers.Select(l => new FifoLayer(l.LineKey, l.Date, l.Quantity, l.Value)).ToList(),
-            pending.Sum(p => p.Qty), pendingValue);
+            pending.Sum(p => p.Qty), pendingValue, residual);
     }
 
     /// <summary>Data; no mesmo dia, saldo inicial, depois entradas, depois saídas; então DaySequence.</summary>
