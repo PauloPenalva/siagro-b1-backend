@@ -19,4 +19,7 @@ public class CostCenter
     public required string Name { get; set; }
 
     public bool Inactive { get; set; }
+
+    /// <summary>Dimensão gerencial (1 a 5) a que o centro pertence.</summary>
+    public int DimensionNumber { get; set; } = 1;
 }

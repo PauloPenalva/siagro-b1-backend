@@ -17,6 +17,10 @@ public class BusinessPartner
     [Column("AliasName", TypeName = "VARCHAR(200)")]
     public string? CardFName { get; set; }
     
+    /// <summary>Código padrão (centro/regra) da dimensão com papel Parceiro.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DefaultDimensionCode { get; set; }
+
     /// <summary>
     /// BPType
     /// </summary>

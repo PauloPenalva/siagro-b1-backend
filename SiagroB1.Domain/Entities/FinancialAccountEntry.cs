@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Shared.Base;
 
@@ -14,7 +15,7 @@ namespace SiagroB1.Domain.Entities;
 [Index(nameof(EntryDate))]
 [Index(nameof(ReconciliationKey))]
 [Index(nameof(TransferKey))]
-public class FinancialAccountEntry : BaseEntity
+public class FinancialAccountEntry : BaseEntity, IDimensionFields
 {
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey(nameof(FinancialAccount))]
@@ -44,4 +45,24 @@ public class FinancialAccountEntry : BaseEntity
     [ForeignKey(nameof(Transfer))]
     public Guid? TransferKey { get; set; }
     public virtual FinancialAccountTransfer? Transfer { get; set; }
+
+    /// <summary>Dimensão gerencial 1 (centro de custo). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim1Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim2Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim3Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim4Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim5Code { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

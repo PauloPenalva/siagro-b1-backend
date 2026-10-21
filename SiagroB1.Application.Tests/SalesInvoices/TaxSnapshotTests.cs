@@ -58,14 +58,14 @@ public class TaxSnapshotTests
 
         item.IcmsValue = 999m;
         item.Cfop = "9999";
-        item.CostCenterCode = "CC01";
+        item.Dim1Code = "CC01";
 
         TaxSnapshot.RestoreLocked(db.Context.Entry(item));
 
         Assert.Equal(0m, item.IcmsValue);
         Assert.Null(item.Cfop);
         // Centro de custo não é travado.
-        Assert.Equal("CC01", item.CostCenterCode);
+        Assert.Equal("CC01", item.Dim1Code);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Entities;
@@ -21,7 +22,7 @@ namespace SiagroB1.Domain.Entities;
 /// é o <c>OUSG.ID</c>.
 /// </summary>
 [Table("USAGES")]
-public class Usage
+public class Usage : IDimensionFields
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -141,4 +142,24 @@ public class Usage
     /// Entrada; a contra-nota usa esta MESMA natureza e os mesmos tributos da escrituração (D5).
     /// </summary>
     public bool AllowsCounterNote { get; set; }
+
+    /// <summary>Dimensão gerencial 1 (centro de custo). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim1Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim2Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim3Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim4Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim5Code { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

@@ -6,7 +6,7 @@ using SiagroB1.Domain.Shared.Base;
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_INVOICES")]
-public class SalesInvoice : DocumentEntity, INfeDocument
+public class SalesInvoice : DocumentEntity, INfeDocument, IDimensionFields
 {
     [Column(TypeName = "VARCHAR(9)")] 
     public string? InvoiceNumber { get; set; } = string.Empty;
@@ -328,4 +328,24 @@ public class SalesInvoice : DocumentEntity, INfeDocument
         item.SalesInvoice = this;
         Items.Add(item);
     }
+
+    /// <summary>Dimensão gerencial 1 (centro de custo). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim1Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim2Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim3Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim4Code { get; set; }
+
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? Dim5Code { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }
