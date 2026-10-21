@@ -139,9 +139,11 @@ porque só se encontram no 6.
   - Bloqueia **confirmar ou autorizar**, nunca salvar o rascunho.
   - Documentos já confirmados antes de ligar a obrigatoriedade continuam válidos e não são
     revalidados (evita a armadilha do campo readonly+required em linhas antigas).
-- **SAPB1:** `SalesInvoiceItem.CostCenterCode` **não é renomeado** e continua sendo a dimensão 1
-  nos dois modos. Só se acrescentam `Dim2Code`…`Dim5Code`, que existem no banco mas não aparecem
-  em SAPB1 (a contabilidade é do SAP).
+- **Apenas STANDALONE (decisão do usuário, 21/10).** Todo o desenho, dimensões incluídas, só
+  existe em STANDALONE. Não há mapeamento para o OcrCode do SAP nem nada a preservar em SAPB1. Em
+  SAPB1 as colunas novas ficam no banco (o schema é um só), mas nenhum serviço, tela ou menu as usa.
+  `SalesInvoiceItem.CostCenterCode` hoje não é lido por nenhum serviço (só por um teste), então
+  **é renomeado para `Dim1Code`** na migration do sub-projeto 1.
 - **Padrões:** `USAGES` ganha os cinco campos de padrão no sub-projeto 1. O padrão do parceiro
   (`BusinessPartner`, para a dimensão de papel Parceiro) também entra no 1. O padrão do veículo
   entra no sub-projeto 2.
