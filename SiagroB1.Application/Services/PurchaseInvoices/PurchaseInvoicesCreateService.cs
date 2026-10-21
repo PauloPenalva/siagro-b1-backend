@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.DocNumbers;
@@ -22,7 +23,9 @@ public class PurchaseInvoicesCreateService(
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     PurchaseInvoicesTaxApplyService taxApply,
-    DocNumberSequenceService numberSequenceService)
+    DocNumberSequenceService numberSequenceService,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(PurchaseInvoice invoice, string userName, bool nfeReturn = false, bool counterNote = false)
     {
@@ -32,6 +35,14 @@ public class PurchaseInvoicesCreateService(
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5): em toda filial.
         foreach (var item in invoice.Items)
             InvoiceLineChargeRules.Ensure(item);
+
+        // Dimensões gerenciais: cabeçalho pelo fornecedor; linhas pelo cabeçalho, fornecedor e natureza. Antes de numerar:
+        // a recusa não pode consumir número. No-op fora do STANDALONE.
+        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, invoice, null,
+            invoice.CardCode, null, previous: null);
+        foreach (var item in invoice.Items)
+            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
+                invoice.CardCode, item.UsageCode, previous: null);
 
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);

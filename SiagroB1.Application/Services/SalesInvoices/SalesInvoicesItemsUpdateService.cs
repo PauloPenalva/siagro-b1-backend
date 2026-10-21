@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -25,7 +26,9 @@ public class SalesInvoicesItemsUpdateService(
     SalesInvoicesFiscalComplementApplier fiscalComplement,
     PurchaseDischargeTransactionsSyncService dischargeSync,
     ILogger<SalesInvoicesUpdateService> logger,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionDefaults = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
@@ -114,8 +117,19 @@ public class SalesInvoicesItemsUpdateService(
             // Numeração do item na NF-e é do servidor: só a emissão a grava.
             var storedNfeItemNumber = (int?)original[nameof(SalesInvoiceItem.NfeItemNumber)];
 
+            // O "antes" das dimensões, do rastreador: no PATCH a entidade já chega mutada.
+            var previousDims = DimensionSnapshot.FromOriginal(original);
+
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
             existingEntity.NfeItemNumber = storedNfeItemNumber;
+
+            // Dimensões gerenciais: padrões só em linha de nota ainda pendente (a conferência de entrega usa este serviço
+            // em nota confirmada e não pode preencher dimensão por baixo); validação só do que mudou.
+            var dimHeader = await db.Context.SalesInvoices.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Key == existingEntity.SalesInvoiceKey);
+            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, dimHeader,
+                dimHeader?.CardCode, existingEntity.UsageCode, previousDims,
+                applyDefaults: dimHeader?.InvoiceStatus is null or InvoiceStatus.Pending);
 
             var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == existingEntity.SalesInvoiceKey)

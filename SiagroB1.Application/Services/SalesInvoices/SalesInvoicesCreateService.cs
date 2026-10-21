@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,9 @@ public class SalesInvoicesCreateService(
     SalesInvoicesCfopResolveService cfopResolve,
     SalesInvoicesTaxApplyService taxApply,
     SalesInvoicesFiscalComplementApplier fiscalComplement,
-    ILogger<SalesInvoicesCreateService> logger)
+    ILogger<SalesInvoicesCreateService> logger,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(
         SalesInvoice salesInvoice, string userName, CommitMode commitMode = CommitMode.Auto, bool nfeReturn = false)
@@ -43,6 +46,14 @@ public class SalesInvoicesCreateService(
         // em toda filial.
         foreach (var item in salesInvoice.Items)
             InvoiceLineChargeRules.Ensure(item);
+
+        // Dimensões gerenciais: cabeçalho pelo parceiro; linhas pelo cabeçalho, parceiro e natureza. Antes de numerar:
+        // a recusa não pode consumir número. No-op fora do STANDALONE.
+        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, salesInvoice, null,
+            salesInvoice.CardCode, null, previous: null);
+        foreach (var item in salesInvoice.Items)
+            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, salesInvoice,
+                salesInvoice.CardCode, item.UsageCode, previous: null);
 
         // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
         // da confirmação direta.

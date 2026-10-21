@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.Nfe;
@@ -25,7 +26,9 @@ public class PurchaseInvoicesUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
-    PurchaseInvoicesTaxApplyService taxApply)
+    PurchaseInvoicesTaxApplyService taxApply,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoice entity, string userName)
     {
@@ -44,6 +47,9 @@ public class PurchaseInvoicesUpdateService(
         // O Own vira NF-e logo abaixo, e o CT-e sumiria em silêncio: recusa antes (spec 2026-10-17).
         if (entity.IssuerType == DocumentIssuerType.Own && PurchaseInvoiceCteRules.IsCte(entity))
             throw new DefaultException(PurchaseInvoiceCteRules.OwnIssuerMessage);
+
+        // O "antes" das dimensões do cabeçalho, capturado antes da cópia do corpo.
+        var previousDims = DimensionSnapshot.FromOriginal(db.Context.Entry(existing).OriginalValues);
 
         existing.InvoiceType = entity.InvoiceType;
         existing.IssuerType = entity.IssuerType;
@@ -112,6 +118,12 @@ public class PurchaseInvoicesUpdateService(
             existing.CteIcmsCst = null;
             existing.CteIcmsValue = null;
         }
+
+        // Dimensões do cabeçalho: copiadas do corpo, completadas pelo padrão do fornecedor e validadas só no que mudou.
+        // As linhas existentes não são reescritas (ver SyncItemsAsync).
+        DimensionSnapshot.Copy(entity, existing);
+        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, null,
+            existing.CardCode, null, previousDims);
 
         existing.UpdatedAt = DateTime.Now;
         existing.UpdatedBy = userName;
@@ -259,7 +271,7 @@ public class PurchaseInvoicesUpdateService(
                 // com chave já preenchida entrando pela NAVEGAÇÃO é lida pelo EF como registro
                 // existente sendo reanexado — vira UPDATE de linha inexistente. O Add explícito
                 // força o estado Added; a coleção do pai é preenchida pelo fixup.
-                db.Context.PurchaseInvoicesItems.Add(new PurchaseInvoiceItem
+                var newLine = new PurchaseInvoiceItem
                 {
                     Key = line.Key ?? Guid.NewGuid(),
                     PurchaseInvoiceKey = existing.Key,
@@ -283,7 +295,14 @@ public class PurchaseInvoicesUpdateService(
                     // Complemento de ICMS (spec 2026-10-17 D4): base e valor são informados; nos demais o motor calcula.
                     IcmsBase = typedIcms ? line.IcmsBase : 0m,
                     IcmsValue = typedIcms ? line.IcmsValue : 0m,
-                });
+                };
+
+                // Dimensões gerenciais da linha nova: o corpo, completado pelo cabeçalho, fornecedor e natureza.
+                DimensionSnapshot.Copy(line, newLine);
+                await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
+                    existing.CardCode, newLine.UsageCode, previous: null);
+
+                db.Context.PurchaseInvoicesItems.Add(newLine);
 
                 continue;
             }
@@ -296,6 +315,12 @@ public class PurchaseInvoicesUpdateService(
 
             // Capturado ANTES da atribuição: depois dela a comparação é sempre falsa.
             var itemCodeChanged = current.ItemCode != line.ItemCode;
+
+            // Linha existente: valida só o que mudou e NÃO aplica padrões — mudar o cabeçalho não reescreve as linhas.
+            var previousLineDims = DimensionSnapshot.FromOriginal(db.Context.Entry(current).OriginalValues);
+            DimensionSnapshot.Copy(line, current);
+            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, current, existing,
+                existing.CardCode, current.UsageCode, previousLineDims, applyDefaults: false);
 
             current.ItemCode = line.ItemCode;
             current.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
