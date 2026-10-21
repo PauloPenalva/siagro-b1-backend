@@ -368,6 +368,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<RuralContributionRatesService>();
         services.AddScoped<IFiscalInventoryOpeningBalancesService, FiscalInventoryOpeningBalancesService>();
+        services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockPeriodGuard>();
         services.AddScoped<MunicipalityService>();
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();

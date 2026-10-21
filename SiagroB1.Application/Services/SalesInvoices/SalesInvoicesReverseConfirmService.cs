@@ -13,6 +13,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
@@ -25,8 +26,11 @@ public class SalesInvoicesReverseConfirmService(
     ShipmentLoadsClosureHookService loadClosureHook,
     IStringLocalizer<Resource> resource,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
-    FinancialDocumentsSalesNoContractService? salesNoContract = null)
+    FinancialDocumentsSalesNoContractService? salesNoContract = null,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var invoice = await db.Context.SalesInvoices
@@ -56,6 +60,9 @@ public class SalesInvoicesReverseConfirmService(
             throw new ApplicationException(
                 "Invoice is not confirmed.");
         }
+
+        // O estorno devolve a saída ao estoque fiscal do mês gravado: mês fechado recusa.
+        await _periodGuard.EnsureOpenAsync(invoice);
 
         // Spec 2026-10-15: firme composto, ou com dação/encontro de contas, recusa antes de mexer em qualquer coisa.
         if (salesFirmSync is not null)

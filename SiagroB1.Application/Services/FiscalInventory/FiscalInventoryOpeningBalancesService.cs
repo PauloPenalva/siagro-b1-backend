@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.FiscalInventory;
 
@@ -9,8 +10,12 @@ namespace SiagroB1.Application.Services.FiscalInventory;
 /// Cadastro do saldo inicial valorizado do estoque fiscal (Kardex Fiscal), um lançamento por filial + produto.
 /// Só existe no modo STANDALONE (o controller recusa SAPB1). Nome e unidade vêm do cadastro local do produto.
 /// </summary>
-public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInventoryOpeningBalancesService
+public class FiscalInventoryOpeningBalancesService(IUnitOfWork db, FiscalStockPeriodGuard? periodGuard = null)
+    : IFiscalInventoryOpeningBalancesService
 {
+    /// <summary>Trava do mês fechado: o saldo inicial não entra, muda nem sai de mês fechado (data antiga e nova).</summary>
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     /// <summary>Largura da coluna UnitOfMeasureCode (VARCHAR(4)).</summary>
     private const int UnitOfMeasureMaxLength = 4;
 
@@ -23,6 +28,7 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInve
     public async Task<FiscalInventoryOpeningBalance> CreateAsync(FiscalInventoryOpeningBalance entity)
     {
         await ValidateAsync(entity, ignoreKey: null);
+        await _periodGuard.EnsureOpenAsync(entity.BranchCode, entity.BalanceDate);
         await FillFromItemAsync(entity);
         entity.Key = Guid.Empty;
         await db.Context.FiscalInventoryOpeningBalances.AddAsync(entity);
@@ -36,6 +42,8 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInve
         if (existing is null) return null;
 
         await ValidateAsync(entity, ignoreKey: key);
+        await _periodGuard.EnsureOpenAsync(existing.BranchCode, existing.BalanceDate);
+        await _periodGuard.EnsureOpenAsync(entity.BranchCode, entity.BalanceDate);
 
         existing.BranchCode = entity.BranchCode;
         existing.ItemCode = entity.ItemCode;
@@ -55,6 +63,7 @@ public class FiscalInventoryOpeningBalancesService(IUnitOfWork db) : IFiscalInve
         var existing = await db.Context.FiscalInventoryOpeningBalances.FirstOrDefaultAsync(x => x.Key == key);
         if (existing is null) return false;
 
+        await _periodGuard.EnsureOpenAsync(existing.BranchCode, existing.BalanceDate);
         db.Context.FiscalInventoryOpeningBalances.Remove(existing);
         await db.SaveChangesAsync();
         return true;

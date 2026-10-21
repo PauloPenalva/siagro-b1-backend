@@ -84,6 +84,7 @@ SiagroB1.Reports.Services.ReportFonts.RegisterSubstitutes();
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockLedgerLoader>();
+builder.Services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockPeriodGuard>();
 builder.Services.AddReportServices();
 
 builder.Services.AddControllers();

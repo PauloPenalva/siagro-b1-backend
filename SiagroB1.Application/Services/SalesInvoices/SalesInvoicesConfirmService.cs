@@ -13,6 +13,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Infra.Enums;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
@@ -30,8 +31,11 @@ public class SalesInvoicesConfirmService(
     TaxCalculationGate? gate = null,
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
-    FinancialDocumentsSalesNoContractService? salesNoContract = null)
+    FinancialDocumentsSalesNoContractService? salesNoContract = null,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     /// <summary>Tolerância de fechamento, a mesma casa decimal das quantidades.</summary>
     private const decimal Tolerance = 0.001m;
 
@@ -86,6 +90,9 @@ public class SalesInvoicesConfirmService(
             throw new ApplicationException(
                 "Invoice is not pending.");
         }
+
+        // A saída cai no estoque fiscal na InvoiceDate: mês fechado recusa.
+        await _periodGuard.EnsureOpenAsync(invoice);
 
         // Complemento de ICMS (spec 2026-10-18 S8): só fiscal. Leva a natureza da original — a de uma nota de custódia tem
         // papel de custódia —, mas não tem romaneio nem efeito de custódia: a guarda recusaria a confirmação que a NF-e
