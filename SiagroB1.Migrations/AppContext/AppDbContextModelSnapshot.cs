@@ -22,61 +22,33 @@ namespace SiagroB1.Migrations.AppContext
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("SiagroB1.Domain.Entities.AccountingDimension", b =>
+            modelBuilder.Entity("SiagroB1.Domain.Entities.AccountingItem", b =>
                 {
-                    b.Property<int>("Number")
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<int>("Class")
                         .HasColumnType("int");
 
-                    b.Property<bool>("Active")
+                    b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("VARCHAR(50) NOT NULL");
+                        .HasColumnType("VARCHAR(100) NOT NULL");
 
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
+                    b.Property<string>("ParentCode")
+                        .HasColumnType("VARCHAR(20)");
 
-                    b.HasKey("Number");
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("DATE");
 
-                    b.ToTable("ACCOUNTING_DIMENSIONS");
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("DATE");
 
-                    b.HasData(
-                        new
-                        {
-                            Number = 1,
-                            Active = true,
-                            Name = "Dimensão 1",
-                            Role = 0
-                        },
-                        new
-                        {
-                            Number = 2,
-                            Active = false,
-                            Name = "Dimensão 2",
-                            Role = 0
-                        },
-                        new
-                        {
-                            Number = 3,
-                            Active = false,
-                            Name = "Dimensão 3",
-                            Role = 0
-                        },
-                        new
-                        {
-                            Number = 4,
-                            Active = false,
-                            Name = "Dimensão 4",
-                            Role = 0
-                        },
-                        new
-                        {
-                            Number = 5,
-                            Active = false,
-                            Name = "Dimensão 5",
-                            Role = 0
-                        });
+                    b.HasKey("Code");
+
+                    b.ToTable("ACCOUNTING_ITEMS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Address", b =>
@@ -316,8 +288,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CardType")
                         .HasColumnType("VARCHAR(1)");
 
-                    b.Property<string>("DefaultDimensionCode")
-                        .HasColumnType("VARCHAR(10)");
+                    b.Property<string>("DefaultAccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DefaultCostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
@@ -456,30 +431,6 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("BUSINESS_PARTNER_SIGNATORIES");
-                });
-
-            modelBuilder.Entity("SiagroB1.Domain.Entities.CompanySettings", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("RequireCostCenter")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RequireLedgerAccount")
-                        .HasColumnType("bit");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("COMPANY_SETTINGS");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            RequireCostCenter = false,
-                            RequireLedgerAccount = false
-                        });
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.CompanySignatory", b =>
@@ -785,12 +736,10 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.CostCenter", b =>
                 {
                     b.Property<string>("Code")
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(20) NOT NULL");
 
-                    b.Property<int>("DimensionNumber")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
+                    b.Property<int>("Class")
+                        .HasColumnType("int");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
@@ -798,6 +747,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("ParentCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime?>("ValidFrom")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("DATE");
 
                     b.HasKey("Code");
 
@@ -830,9 +788,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
-                    b.Property<int>("DimensionNumber")
-                        .HasColumnType("int");
-
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
@@ -851,9 +806,11 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<string>("CostCenterCode")
-                        .IsRequired()
-                        .HasColumnType("VARCHAR(10) NOT NULL");
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<decimal>("Percentage")
                         .HasColumnType("DECIMAL(9,4)");
@@ -1032,6 +989,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<decimal>("Amount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
@@ -1047,6 +1007,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("CanceledBy")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1057,19 +1020,7 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(200) NOT NULL");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
+                    b.Property<string>("DistributionRuleCode")
                         .HasColumnType("VARCHAR(10)");
 
                     b.Property<string>("DocumentReference")
@@ -1262,6 +1213,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<decimal>("AppliedAmount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
@@ -1299,6 +1253,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("ComposedAmount")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1308,23 +1265,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("Currency")
                         .HasColumnType("INT DEFAULT 1");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
-                        .HasColumnType("VARCHAR(10)");
-
                     b.Property<int>("Direction")
                         .HasColumnType("int");
+
+                    b.Property<string>("DistributionRuleCode")
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
@@ -2121,6 +2066,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(20) NOT NULL");
 
+                    b.Property<bool>("AcceptsAccountingItem")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("AcceptsCostCenter")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("AllowsPosting")
                         .HasColumnType("bit");
 
@@ -2130,6 +2081,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<bool>("RequiresAccountingItem")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequiresCostCenter")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("Type")
                         .HasColumnType("int");
@@ -3484,6 +3441,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -3512,6 +3472,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Comments")
                         .HasColumnType("VARCHAR(500)");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -3530,19 +3493,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("CustodyStorageTransactionKey")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
+                    b.Property<string>("DistributionRuleCode")
                         .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid?>("DocNumberKey")
@@ -3808,6 +3759,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<decimal>("CbsRate")
                         .HasColumnType("DECIMAL(7,4) DEFAULT 0");
 
@@ -3835,6 +3789,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("ComplementedItemKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
 
@@ -3859,23 +3816,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal>("DifalValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
-                        .HasColumnType("VARCHAR(10)");
-
                     b.Property<decimal>("DiscountValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("DistributionRuleCode")
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<decimal>("FcpRate")
                         .HasColumnType("DECIMAL(7,4) DEFAULT 0");
@@ -5063,6 +5008,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("ApprovedAt")
                         .HasColumnType("datetime2");
 
@@ -5091,6 +5039,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Comments")
                         .HasColumnType("VARCHAR(500)");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -5115,19 +5066,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("DeliveryStatus")
                         .HasColumnType("int");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
+                    b.Property<string>("DistributionRuleCode")
                         .HasColumnType("VARCHAR(10)");
 
                     b.Property<Guid?>("DocNumberKey")
@@ -5359,6 +5298,9 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<decimal>("CbsRate")
                         .HasColumnType("DECIMAL(7,4) DEFAULT 0");
 
@@ -5382,6 +5324,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<Guid?>("ComplementedItemKey")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
@@ -5412,23 +5357,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("DeliveryStatus")
                         .HasColumnType("int");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
-                        .HasColumnType("VARCHAR(10)");
-
                     b.Property<decimal>("DiscountValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("DistributionRuleCode")
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<decimal>("FreightValue")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
@@ -7538,6 +7471,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Code"));
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<bool>("AllowsCounterNote")
                         .HasColumnType("bit");
 
@@ -7562,6 +7498,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal?>("CofinsRate")
                         .HasColumnType("DECIMAL(7,4)");
 
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
 
@@ -7574,23 +7513,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Description")
                         .HasColumnType("VARCHAR(200)");
 
-                    b.Property<string>("Dim1Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim2Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim3Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim4Code")
-                        .HasColumnType("VARCHAR(10)");
-
-                    b.Property<string>("Dim5Code")
-                        .HasColumnType("VARCHAR(10)");
-
                     b.Property<int>("Direction")
                         .HasColumnType("int");
+
+                    b.Property<string>("DistributionRuleCode")
+                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<bool>("ExcludeIcmsFromPisCofinsBase")
                         .HasColumnType("bit");

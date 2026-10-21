@@ -32,11 +32,9 @@ public class FinancialAccountEntriesCreateController(FinancialAccountEntriesCrea
                 Description = Text(parameters, "Description") ?? string.Empty,
                 DocumentReference = Text(parameters, "DocumentReference"),
                 Notes = Text(parameters, "Notes"),
-                Dim1Code = Text(parameters, "Dim1Code"),
-                Dim2Code = Text(parameters, "Dim2Code"),
-                Dim3Code = Text(parameters, "Dim3Code"),
-                Dim4Code = Text(parameters, "Dim4Code"),
-                Dim5Code = Text(parameters, "Dim5Code"),
+                CostCenterCode = Text(parameters, "CostCenterCode"),
+                AccountingItemCode = Text(parameters, "AccountingItemCode"),
+                DistributionRuleCode = Text(parameters, "DistributionRuleCode"),
                 LedgerAccountCode = Text(parameters, "LedgerAccountCode")
             }, User.Identity?.Name ?? "Unknown");
 

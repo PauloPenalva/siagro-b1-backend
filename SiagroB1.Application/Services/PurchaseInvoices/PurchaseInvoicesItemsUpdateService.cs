@@ -64,7 +64,7 @@ public class PurchaseInvoicesItemsUpdateService(
         }
 
         // O "antes" das dimensões, do rastreador (vale para a entidade solta e para a já rastreada).
-        var previousDims = DimensionSnapshot.FromOriginal(db.Context.Entry(existing).OriginalValues);
+        var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(existing).OriginalValues[n]);
 
         existing.ItemCode = entity.ItemCode;
         var parent = await db.Context.PurchaseInvoices.AsNoTracking().FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
@@ -95,7 +95,7 @@ public class PurchaseInvoicesItemsUpdateService(
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
 
         // Dimensões gerenciais: copiadas do corpo, completadas pelos padrões e validadas só no que mudou.
-        DimensionSnapshot.Copy(entity, existing);
+        AccountingAssignmentSnapshot.Copy(entity, existing);
         await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, invoice,
             invoice.CardCode, existing.UsageCode, previousDims);
 

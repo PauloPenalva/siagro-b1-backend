@@ -57,9 +57,6 @@ public static class ODataConfigurations
         // dual-mode (SAPB1 lê de OPRC/OACT, STANDALONE das tabelas locais):
         // registra o Model, nunca a entidade.
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
-        modelBuilder.EntitySet<AccountingDimension>("AccountingDimensions");
-        modelBuilder.EntitySet<CompanySettings>("CompanySettings");
-        modelBuilder.EntitySet<DimensionCodeModel>("DimensionCodes");
         modelBuilder.EntitySet<DistributionRule>("DistributionRules");
         // Versões da regra: actions de topo (navegação dá 404 neste projeto); linhas em listas paralelas.
         var distributionRulesSaveVersion = modelBuilder.Action("DistributionRulesSaveVersion");
@@ -1772,11 +1769,9 @@ public static class ODataConfigurations
         accountEntryCreate.Parameter<string>("Description");
         accountEntryCreate.Parameter<string>("DocumentReference").Optional();
         accountEntryCreate.Parameter<string>("Notes").Optional();
-        accountEntryCreate.Parameter<string>("Dim1Code").Optional();
-        accountEntryCreate.Parameter<string>("Dim2Code").Optional();
-        accountEntryCreate.Parameter<string>("Dim3Code").Optional();
-        accountEntryCreate.Parameter<string>("Dim4Code").Optional();
-        accountEntryCreate.Parameter<string>("Dim5Code").Optional();
+        accountEntryCreate.Parameter<string>("CostCenterCode").Optional();
+        accountEntryCreate.Parameter<string>("AccountingItemCode").Optional();
+        accountEntryCreate.Parameter<string>("DistributionRuleCode").Optional();
         accountEntryCreate.Parameter<string>("LedgerAccountCode").Optional();
         accountEntryCreate.Returns<Guid>();
 
@@ -1851,11 +1846,9 @@ public static class ODataConfigurations
         financialAdvance.Parameter<string>("FinancialAccountCode");
         financialAdvance.Parameter<string>("PaymentDate");
         financialAdvance.Parameter<string>("Comments").Optional();
-        financialAdvance.Parameter<string>("Dim1Code").Optional();
-        financialAdvance.Parameter<string>("Dim2Code").Optional();
-        financialAdvance.Parameter<string>("Dim3Code").Optional();
-        financialAdvance.Parameter<string>("Dim4Code").Optional();
-        financialAdvance.Parameter<string>("Dim5Code").Optional();
+        financialAdvance.Parameter<string>("CostCenterCode").Optional();
+        financialAdvance.Parameter<string>("AccountingItemCode").Optional();
+        financialAdvance.Parameter<string>("DistributionRuleCode").Optional();
         financialAdvance.Parameter<string>("LedgerAccountCode").Optional();
         financialAdvance.Returns<IActionResult>();
 

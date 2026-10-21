@@ -49,7 +49,7 @@ public class PurchaseInvoicesUpdateService(
             throw new DefaultException(PurchaseInvoiceCteRules.OwnIssuerMessage);
 
         // O "antes" das dimensões do cabeçalho, capturado antes da cópia do corpo.
-        var previousDims = DimensionSnapshot.FromOriginal(db.Context.Entry(existing).OriginalValues);
+        var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(existing).OriginalValues[n]);
 
         existing.InvoiceType = entity.InvoiceType;
         existing.IssuerType = entity.IssuerType;
@@ -121,7 +121,7 @@ public class PurchaseInvoicesUpdateService(
 
         // Dimensões do cabeçalho: copiadas do corpo, completadas pelo padrão do fornecedor e validadas só no que mudou.
         // As linhas existentes não são reescritas (ver SyncItemsAsync).
-        DimensionSnapshot.Copy(entity, existing);
+        AccountingAssignmentSnapshot.Copy(entity, existing);
         await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, null,
             existing.CardCode, null, previousDims);
 
@@ -298,7 +298,7 @@ public class PurchaseInvoicesUpdateService(
                 };
 
                 // Dimensões gerenciais da linha nova: o corpo, completado pelo cabeçalho, fornecedor e natureza.
-                DimensionSnapshot.Copy(line, newLine);
+                AccountingAssignmentSnapshot.Copy(line, newLine);
                 await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
                     existing.CardCode, newLine.UsageCode, previous: null);
 
@@ -317,8 +317,8 @@ public class PurchaseInvoicesUpdateService(
             var itemCodeChanged = current.ItemCode != line.ItemCode;
 
             // Linha existente: valida só o que mudou e NÃO aplica padrões — mudar o cabeçalho não reescreve as linhas.
-            var previousLineDims = DimensionSnapshot.FromOriginal(db.Context.Entry(current).OriginalValues);
-            DimensionSnapshot.Copy(line, current);
+            var previousLineDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(current).OriginalValues[n]);
+            AccountingAssignmentSnapshot.Copy(line, current);
             await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, current, existing,
                 existing.CardCode, current.UsageCode, previousLineDims, applyDefaults: false);
 

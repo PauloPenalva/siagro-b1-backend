@@ -37,16 +37,6 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
             throw new DefaultException("Informe o nome da regra.");
         }
 
-        if (rule.DimensionNumber is < 1 or > 5)
-        {
-            throw new DefaultException("Dimensão inválida.");
-        }
-
-        if (await db.Context.CostCenters.AnyAsync(x => x.Code == code))
-        {
-            throw new DefaultException($"O código {code} já é um centro de custo.");
-        }
-
         if (await db.Context.DistributionRules.AnyAsync(x => x.Code == code))
         {
             throw new DefaultException($"Regra de distribuição {code} já cadastrada.");
@@ -61,7 +51,6 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
         {
             Code = code,
             Name = name,
-            DimensionNumber = rule.DimensionNumber,
             Inactive = rule.Inactive,
         };
 
@@ -181,38 +170,49 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
             throw new DefaultException("Informe ao menos uma linha na versão da regra.");
         }
 
-        var dimension = await db.Context.AccountingDimensions
-            .FirstOrDefaultAsync(x => x.Number == rule.DimensionNumber);
-        var dimensionName = dimension?.Name ?? $"Dimensão {rule.DimensionNumber}";
-
         var versionId = Guid.NewGuid();
         var lines = new List<DistributionRuleLine>();
 
         foreach (var line in input.Lines)
         {
-            var centerCode = NormalizeCode(line.CostCenterCode);
+            // TODO Task 3: exigir CC/Item analítico, ativo e vigente (hoje só existência e bloqueio).
+            var centerCode = NormalizeOptional(line.CostCenterCode);
+            var itemCode = NormalizeOptional(line.AccountingItemCode);
+            var label = $"{centerCode ?? "-"}/{itemCode ?? "-"}";
 
-            if (lines.Any(x => x.CostCenterCode == centerCode))
+            if (centerCode is null && itemCode is null)
             {
-                throw new DefaultException($"O centro {centerCode} aparece mais de uma vez na regra.");
+                throw new DefaultException("Informe o centro de custo ou o item contábil em cada linha do rateio.");
             }
 
-            var center = await db.Context.CostCenters.FirstOrDefaultAsync(x => x.Code == centerCode)
-                ?? throw new DefaultException($"O centro {centerCode} não existe.");
-
-            if (center.DimensionNumber != rule.DimensionNumber)
+            if (lines.Any(x => x.CostCenterCode == centerCode && x.AccountingItemCode == itemCode))
             {
-                throw new DefaultException($"O centro {centerCode} não pertence à dimensão {dimensionName}.");
+                throw new DefaultException($"O par {label} aparece mais de uma vez no rateio.");
             }
 
-            if (center.Inactive)
+            if (centerCode is not null)
             {
-                throw new DefaultException($"O centro {centerCode} está inativo.");
+                var center = await db.Context.CostCenters.FirstOrDefaultAsync(x => x.Code == centerCode)
+                    ?? throw new DefaultException($"O centro {centerCode} não existe.");
+                if (center.Inactive)
+                {
+                    throw new DefaultException($"O centro {centerCode} está inativo.");
+                }
+            }
+
+            if (itemCode is not null)
+            {
+                var item = await db.Context.AccountingItems.FirstOrDefaultAsync(x => x.Code == itemCode)
+                    ?? throw new DefaultException($"O item contábil {itemCode} não existe.");
+                if (item.Inactive)
+                {
+                    throw new DefaultException($"O item contábil {itemCode} está inativo.");
+                }
             }
 
             if (line.Percentage <= 0)
             {
-                throw new DefaultException($"O percentual do centro {centerCode} deve ser maior que zero.");
+                throw new DefaultException($"O percentual da linha {label} deve ser maior que zero.");
             }
 
             lines.Add(new DistributionRuleLine
@@ -220,6 +220,7 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
                 Id = Guid.NewGuid(),
                 VersionId = versionId,
                 CostCenterCode = centerCode,
+                AccountingItemCode = itemCode,
                 Percentage = line.Percentage,
             });
         }
@@ -246,5 +247,11 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
     private static string FormatDate(DateTime date)
     {
         return date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+    }
+
+    private static string? NormalizeOptional(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed.ToUpperInvariant();
     }
 }

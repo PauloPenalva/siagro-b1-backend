@@ -46,7 +46,7 @@ public class FinancialAdvancesCreateService(
         string? comments,
         string userName,
         CommitMode commitMode = CommitMode.Auto,
-        IDimensionFields? dimensions = null)
+        IAccountingAssignment? dimensions = null)
     {
         if (amount <= 0m)
             throw new ApplicationException("O valor do adiantamento deve ser maior que zero.");
@@ -123,7 +123,7 @@ public class FinancialAdvancesCreateService(
         string? comments,
         string userName,
         CommitMode commitMode = CommitMode.Auto,
-        IDimensionFields? dimensions = null)
+        IAccountingAssignment? dimensions = null)
     {
         if (amount <= 0m)
             throw new ApplicationException("O valor do adiantamento deve ser maior que zero.");
@@ -170,10 +170,10 @@ public class FinancialAdvancesCreateService(
         FinancialDirection direction, string cardCode, string? cardName, string branchCode, CurrencyType currency,
         decimal amount, DateTime dueDate, string? contractCode, Guid? purchaseContractKey, Guid? salesContractKey,
         string paymentTerms, string? comments, string accountCode, DateTime paymentDate, string userName,
-        CommitMode commitMode, IDimensionFields? input)
+        CommitMode commitMode, IAccountingAssignment? input)
     {
         // Padrão do parceiro + validação antes de consumir número e de abrir a transação.
-        var dimensions = input is null ? new DimensionSnapshot() : DimensionSnapshot.From(input);
+        var dimensions = input is null ? new AccountingAssignmentSnapshot() : AccountingAssignmentSnapshot.From(input);
         await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
         if (dimensionGuard is not null)
             await dimensionGuard.EnsureAsync([dimensions]);
@@ -206,11 +206,9 @@ public class FinancialAdvancesCreateService(
             SalesContractKey = salesContractKey,
             PaymentTermsText = paymentTerms,
             Comments = comments,
-            Dim1Code = dimensions.Dim1Code,
-            Dim2Code = dimensions.Dim2Code,
-            Dim3Code = dimensions.Dim3Code,
-            Dim4Code = dimensions.Dim4Code,
-            Dim5Code = dimensions.Dim5Code,
+            CostCenterCode = dimensions.CostCenterCode,
+            AccountingItemCode = dimensions.AccountingItemCode,
+            DistributionRuleCode = dimensions.DistributionRuleCode,
             LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedAt = DateTime.Now,
             CreatedBy = userName,

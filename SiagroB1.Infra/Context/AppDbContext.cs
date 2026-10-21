@@ -40,11 +40,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<CostCenter> CostCenters { get; set; }
-    public DbSet<AccountingDimension> AccountingDimensions { get; set; }
+    public DbSet<AccountingItem> AccountingItems { get; set; }
     public DbSet<DistributionRule> DistributionRules { get; set; }
     public DbSet<DistributionRuleVersion> DistributionRuleVersions { get; set; }
     public DbSet<DistributionRuleLine> DistributionRuleLines { get; set; }
-    public DbSet<CompanySettings> CompanySettings { get; set; }
     public DbSet<LedgerAccount> LedgerAccounts { get; set; }
     public DbSet<Usage> Usages { get; set; }
     public DbSet<UsageEffect> UsageEffects { get; set; }
@@ -168,20 +167,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
-
-        // Dimensões gerenciais: 5 posições fixas; só a 1 (centro de custo) nasce ativa.
-        modelBuilder.Entity<AccountingDimension>().HasData(
-            new AccountingDimension { Number = 1, Name = "Dimensão 1", Active = true, Role = DimensionRole.None },
-            new AccountingDimension { Number = 2, Name = "Dimensão 2", Active = false, Role = DimensionRole.None },
-            new AccountingDimension { Number = 3, Name = "Dimensão 3", Active = false, Role = DimensionRole.None },
-            new AccountingDimension { Number = 4, Name = "Dimensão 4", Active = false, Role = DimensionRole.None },
-            new AccountingDimension { Number = 5, Name = "Dimensão 5", Active = false, Role = DimensionRole.None });
-
-        // Parâmetros da empresa: linha única (Id = 1), obrigatoriedades desligadas.
-        modelBuilder.Entity<CompanySettings>().HasData(
-            new CompanySettings { Id = 1, RequireCostCenter = false, RequireLedgerAccount = false });
-
-        modelBuilder.Entity<CostCenter>().Property(x => x.DimensionNumber).HasDefaultValue(1);
 
         // Regra de distribuição: versão única por (regra, vigência); versões e linhas caem em cascata.
         modelBuilder.Entity<DistributionRuleVersion>()

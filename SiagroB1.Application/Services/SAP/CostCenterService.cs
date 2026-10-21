@@ -23,7 +23,6 @@ public class CostCenterService(SapErpDbContext context, ILogger<CostCenterServic
                 Code = x.Code,
                 Name = x.Name,
                 Inactive = false,
-                DimensionNumber = 1,
             })
             .AsNoTracking();
     }

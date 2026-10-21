@@ -42,11 +42,9 @@ public class UsageService(
                     CfopIncomingInState = x.usage.CfopIncomingInState,
                     CfopIncomingOutState = x.usage.CfopIncomingOutState,
                     Inactive = x.usage.Inactive,
-                    Dim1Code = x.usage.Dim1Code,
-                    Dim2Code = x.usage.Dim2Code,
-                    Dim3Code = x.usage.Dim3Code,
-                    Dim4Code = x.usage.Dim4Code,
-                    Dim5Code = x.usage.Dim5Code,
+                    CostCenterCode = x.usage.CostCenterCode,
+                    AccountingItemCode = x.usage.AccountingItemCode,
+                    DistributionRuleCode = x.usage.DistributionRuleCode,
                     LedgerAccountCode = x.usage.LedgerAccountCode,
                     Direction = x.usage.Direction,
                     InvoiceOperationText = x.usage.InvoiceOperationText,
@@ -198,7 +196,7 @@ public class UsageService(
 
         // Padrão inativado depois de gravado continua aceito; só um código novo é validado.
         if (dimensionValidator is not null)
-            await dimensionValidator.NormalizeAndValidateAsync(entity, DimensionSnapshot.From(usage));
+            await dimensionValidator.NormalizeAndValidateAsync(entity, AccountingAssignmentSnapshot.From(usage));
 
         UsageTaxationMapper.CopyToEntity(entity, usage);
 

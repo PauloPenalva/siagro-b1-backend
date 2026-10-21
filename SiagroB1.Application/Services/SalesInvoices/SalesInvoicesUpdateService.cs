@@ -62,7 +62,7 @@ public class SalesInvoicesUpdateService(
             }
 
             // O "antes" das dimensões, do rastreador (no PATCH a instância já chega mutada).
-            var previousDims = DimensionSnapshot.FromOriginal(db.Context.Entry(existingEntity).OriginalValues);
+            var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(existingEntity).OriginalValues[n]);
 
             var entry = db.Context.Entry(existingEntity);
             entry.CurrentValues.SetValues(entity);

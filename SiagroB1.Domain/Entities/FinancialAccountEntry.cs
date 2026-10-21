@@ -15,7 +15,7 @@ namespace SiagroB1.Domain.Entities;
 [Index(nameof(EntryDate))]
 [Index(nameof(ReconciliationKey))]
 [Index(nameof(TransferKey))]
-public class FinancialAccountEntry : BaseEntity, IDimensionFields
+public class FinancialAccountEntry : BaseEntity, IAccountingAssignment
 {
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     [ForeignKey(nameof(FinancialAccount))]
@@ -46,21 +46,17 @@ public class FinancialAccountEntry : BaseEntity, IDimensionFields
     public Guid? TransferKey { get; set; }
     public virtual FinancialAccountTransfer? Transfer { get; set; }
 
-    /// <summary>Dimensão gerencial 1 (centro de custo). Sem FK: o cadastro é dual-mode.</summary>
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? Dim1Code { get; set; }
+    /// <summary>Centro de custo (CTT). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CostCenterCode { get; set; }
 
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? Dim2Code { get; set; }
+    /// <summary>Item contábil (CTD). Sem FK: validado por serviço.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
 
+    /// <summary>Rateio pré-configurado (CTJ). Exclusivo com centro de custo/item contábil.</summary>
     [Column(TypeName = "VARCHAR(10)")]
-    public string? Dim3Code { get; set; }
-
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? Dim4Code { get; set; }
-
-    [Column(TypeName = "VARCHAR(10)")]
-    public string? Dim5Code { get; set; }
+    public string? DistributionRuleCode { get; set; }
 
     /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
     [Column(TypeName = "VARCHAR(20)")]

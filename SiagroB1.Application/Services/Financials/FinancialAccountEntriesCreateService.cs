@@ -1,3 +1,4 @@
+using SiagroB1.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Domain.Entities;
@@ -29,7 +30,7 @@ public class FinancialAccountEntriesCreateService(
             throw new ApplicationException("Informe a descrição do lançamento.");
 
         // Lançamento nasce pronto: só valida (sem parceiro nem natureza para herdar).
-        var dimensions = DimensionSnapshot.From(entry);
+        var dimensions = AccountingAssignmentSnapshot.From(entry);
         if (dimensionValidator is not null)
             await dimensionValidator.NormalizeAndValidateAsync(dimensions);
         if (dimensionGuard is not null)
@@ -43,11 +44,9 @@ public class FinancialAccountEntriesCreateService(
             Description = entry.Description.Trim(),
             DocumentReference = string.IsNullOrWhiteSpace(entry.DocumentReference) ? null : entry.DocumentReference.Trim(),
             Notes = string.IsNullOrWhiteSpace(entry.Notes) ? null : entry.Notes.Trim(),
-            Dim1Code = dimensions.Dim1Code,
-            Dim2Code = dimensions.Dim2Code,
-            Dim3Code = dimensions.Dim3Code,
-            Dim4Code = dimensions.Dim4Code,
-            Dim5Code = dimensions.Dim5Code,
+            CostCenterCode = dimensions.CostCenterCode,
+            AccountingItemCode = dimensions.AccountingItemCode,
+            DistributionRuleCode = dimensions.DistributionRuleCode,
             LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedBy = userName,
             UpdatedBy = userName

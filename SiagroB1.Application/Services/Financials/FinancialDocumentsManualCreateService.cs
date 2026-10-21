@@ -34,7 +34,7 @@ public class FinancialDocumentsManualCreateService(
 
         // Padrão do parceiro (dimensão de papel Parceiro) entra no que veio vazio; depois valida e normaliza.
         // Antes do número: erro de dimensão não pode consumir numeração.
-        var dimensions = DimensionSnapshot.From(input);
+        var dimensions = AccountingAssignmentSnapshot.From(input);
         await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
         if (dimensionGuard is not null)
             await dimensionGuard.EnsureAsync([dimensions]);
@@ -64,11 +64,9 @@ public class FinancialDocumentsManualCreateService(
             TaxDocumentNumber = FinancialDocumentsManualRules.Clean(input.TaxDocumentNumber),
             PaymentTermsText = FinancialDocumentsManualRules.Clean(input.PaymentTermsText),
             Comments = FinancialDocumentsManualRules.Clean(input.Comments),
-            Dim1Code = dimensions.Dim1Code,
-            Dim2Code = dimensions.Dim2Code,
-            Dim3Code = dimensions.Dim3Code,
-            Dim4Code = dimensions.Dim4Code,
-            Dim5Code = dimensions.Dim5Code,
+            CostCenterCode = dimensions.CostCenterCode,
+            AccountingItemCode = dimensions.AccountingItemCode,
+            DistributionRuleCode = dimensions.DistributionRuleCode,
             LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedAt = now,
             CreatedBy = userName,

@@ -55,7 +55,8 @@ public class BusinessPartnerService(
                     RuralProducerType = x.RuralProducerType,
                     RuralProducerCpf = x.RuralProducerCpf,
                     RuralPayrollOption = x.RuralPayrollOption,
-                    DefaultDimensionCode = x.DefaultDimensionCode,
+                    DefaultCostCenterCode = x.DefaultCostCenterCode,
+                    DefaultAccountingItemCode = x.DefaultAccountingItemCode,
                     // O Include acima é decorativo sem esta projeção: o EF materializa o
                     // Model, não a entidade, e a coleção voltava SEMPRE vazia. Quem depende
                     // dela é a resolução de CFOP (UF do destinatário), que rejeitaria todo
@@ -93,7 +94,7 @@ public class BusinessPartnerService(
         NormalizeRuralProducer(model);
         ValidateRuralProducer(model);
         ValidateNfeFields(model);
-        await ValidateDefaultDimensionAsync(model, previous: null);
+        await ValidateDefaultAssignmentAsync(model, previous: null);
 
         foreach (var address in model.Addresses)
             AddressTypes.EnsureValid(address.AdresType, resource);
@@ -117,7 +118,8 @@ public class BusinessPartnerService(
             RuralProducerType = model.RuralProducerType,
             RuralProducerCpf = model.RuralProducerCpf,
             RuralPayrollOption = model.RuralPayrollOption,
-            DefaultDimensionCode = model.DefaultDimensionCode,
+            DefaultCostCenterCode = model.DefaultCostCenterCode,
+            DefaultAccountingItemCode = model.DefaultAccountingItemCode,
         };
 
         // A tela cria o parceiro com os endereços aninhados (deep insert). Sem copiá-los o
@@ -202,7 +204,11 @@ public class BusinessPartnerService(
         if (entity == null)
             throw new NotFoundException(resource["BP_NOT_FOUND"]);
 
-        await ValidateDefaultDimensionAsync(model, entity.DefaultDimensionCode);
+        await ValidateDefaultAssignmentAsync(model, new AccountingAssignmentSnapshot
+        {
+            CostCenterCode = entity.DefaultCostCenterCode,
+            AccountingItemCode = entity.DefaultAccountingItemCode,
+        });
         
         db.Context.Entry(entity).State = EntityState.Modified;
 
@@ -219,7 +225,8 @@ public class BusinessPartnerService(
         entity.RuralProducerType = model.RuralProducerType;
         entity.RuralProducerCpf = model.RuralProducerCpf;
         entity.RuralPayrollOption = model.RuralPayrollOption;
-        entity.DefaultDimensionCode = model.DefaultDimensionCode;
+        entity.DefaultCostCenterCode = model.DefaultCostCenterCode;
+        entity.DefaultAccountingItemCode = model.DefaultAccountingItemCode;
 
         ReplaceNfeEmails(entity, model.NfeEmails);
 
@@ -242,31 +249,23 @@ public class BusinessPartnerService(
     }
 
     /// <summary>
-    /// O padrão do parceiro vale para a dimensão com papel Parceiro (a única que o resolvedor consulta). Só um código
-    /// novo é validado: o gravado que foi inativado depois continua aceito. Só STANDALONE.
+    /// Centro de custo e item contábil padrão do parceiro. Só um código novo é validado: o gravado que foi
+    /// inativado depois continua aceito. Só STANDALONE.
     /// </summary>
-    private async Task ValidateDefaultDimensionAsync(BusinessPartnerModel model, string? previous)
+    private async Task ValidateDefaultAssignmentAsync(BusinessPartnerModel model, AccountingAssignmentSnapshot? previous)
     {
-        if (configuration is null || !ErpMode.IsStandalone(configuration))
+        if (configuration is null || !ErpMode.IsStandalone(configuration) || dimensionValidator is null)
             return;
 
-        model.DefaultDimensionCode = DimensionCodeValidator.NormalizeCode(model.DefaultDimensionCode);
-        if (model.DefaultDimensionCode is null
-            || model.DefaultDimensionCode == DimensionCodeValidator.NormalizeCode(previous))
-            return;
-
-        var dimension = await db.Context.AccountingDimensions.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Active && x.Role == DimensionRole.Partner)
-            ?? throw new DefaultException("Nenhuma dimensão tem o papel Parceiro.");
-
-        if (dimensionValidator is null)
-            return;
-
-        var fields = new DimensionSnapshot();
-        fields.SetDim(dimension.Number, model.DefaultDimensionCode);
-        var before = new DimensionSnapshot();
-        before.SetDim(dimension.Number, previous);
-        await dimensionValidator.NormalizeAndValidateAsync(fields, before);
+        // TODO Task 3: validação de CC/Item analítico, ativo e vigente.
+        var fields = new AccountingAssignmentSnapshot
+        {
+            CostCenterCode = model.DefaultCostCenterCode,
+            AccountingItemCode = model.DefaultAccountingItemCode,
+        };
+        await dimensionValidator.NormalizeAndValidateAsync(fields, previous);
+        model.DefaultCostCenterCode = fields.CostCenterCode;
+        model.DefaultAccountingItemCode = fields.AccountingItemCode;
     }
 
     public async Task<bool> DeleteAsync(string code)
@@ -368,7 +367,8 @@ public class BusinessPartnerService(
                 RuralProducerType = x.RuralProducerType,
                 RuralProducerCpf = x.RuralProducerCpf,
                 RuralPayrollOption = x.RuralPayrollOption,
-                DefaultDimensionCode = x.DefaultDimensionCode,
+                DefaultCostCenterCode = x.DefaultCostCenterCode,
+                    DefaultAccountingItemCode = x.DefaultAccountingItemCode,
                 Addresses = x.Addresses
                     .Where(a => a.CardCode == x.CardCode)
                     .Select(a => new AddressModel()

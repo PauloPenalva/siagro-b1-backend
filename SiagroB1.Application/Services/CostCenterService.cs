@@ -22,7 +22,6 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
                 Code = x.Code,
                 Name = x.Name,
                 Inactive = x.Inactive,
-                DimensionNumber = x.DimensionNumber,
             })
             .AsNoTracking();
     }
@@ -47,18 +46,12 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
 
     public async Task<CostCenterModel> CreateAsync(CostCenterModel entity)
     {
-        // O código é único entre centros e regras: normaliza antes de validar e gravar.
+        // TODO Task 2: classe, pai, vigência e hierarquia (CTT).
         var code = (entity.Code ?? string.Empty).Trim().ToUpperInvariant();
-        ValidateDimension(entity.DimensionNumber);
 
         if (await db.Context.CostCenters.AnyAsync(x => x.Code == code))
         {
             throw new DefaultException($"Centro de custo {code} já cadastrado.");
-        }
-
-        if (await db.Context.DistributionRules.AnyAsync(x => x.Code == code))
-        {
-            throw new DefaultException($"O código {code} já é uma regra de distribuição.");
         }
 
         var costCenter = new CostCenter()
@@ -66,7 +59,6 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             Code = code,
             Name = entity.Name,
             Inactive = entity.Inactive,
-            DimensionNumber = entity.DimensionNumber,
         };
 
         await db.Context.CostCenters.AddAsync(costCenter);
@@ -86,11 +78,8 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             return null;
         }
 
-        ValidateDimension(entity.DimensionNumber);
-
         costCenter.Name = entity.Name;
         costCenter.Inactive = entity.Inactive;
-        costCenter.DimensionNumber = entity.DimensionNumber;
 
         try
         {
@@ -111,7 +100,6 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             Code = costCenter.Code,
             Name = costCenter.Name,
             Inactive = costCenter.Inactive,
-            DimensionNumber = costCenter.DimensionNumber,
         };
     }
 
@@ -133,14 +121,6 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
     public Task<bool> DeleteAsyncWithTransaction(string code, Func<CostCenterModel, Task>? preDeleteAction = null)
     {
         throw new NotImplementedException();
-    }
-
-    private static void ValidateDimension(int dimensionNumber)
-    {
-        if (dimensionNumber is < 1 or > 5)
-        {
-            throw new DefaultException("Dimensão inválida.");
-        }
     }
 
     private bool EntityExists(string code)

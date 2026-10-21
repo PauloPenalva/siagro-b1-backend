@@ -90,11 +90,9 @@ public class FinancialDocumentsController(
                 PaymentTermsText = Text(nameof(FinancialDocument.PaymentTermsText)),
                 HasComments = changed.Contains(nameof(FinancialDocument.Comments)),
                 Comments = Text(nameof(FinancialDocument.Comments)),
-                Dim1Code = Dim(nameof(FinancialDocument.Dim1Code)),
-                Dim2Code = Dim(nameof(FinancialDocument.Dim2Code)),
-                Dim3Code = Dim(nameof(FinancialDocument.Dim3Code)),
-                Dim4Code = Dim(nameof(FinancialDocument.Dim4Code)),
-                Dim5Code = Dim(nameof(FinancialDocument.Dim5Code)),
+                CostCenterCode = Dim(nameof(FinancialDocument.CostCenterCode)),
+                AccountingItemCode = Dim(nameof(FinancialDocument.AccountingItemCode)),
+                DistributionRuleCode = Dim(nameof(FinancialDocument.DistributionRuleCode)),
                 LedgerAccountCode = Dim(nameof(FinancialDocument.LedgerAccountCode)),
             };
 

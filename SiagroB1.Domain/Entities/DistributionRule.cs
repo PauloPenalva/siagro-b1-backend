@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SiagroB1.Domain.Entities;
 
-/// <summary>Regra de distribuição: reparte um valor entre centros de custo de uma dimensão, por vigência.</summary>
+/// <summary>Regra de distribuição: rateio pré-configurado (CTJ): reparte um valor entre CC/Item Contábil, por vigência.</summary>
 [Table("DISTRIBUTION_RULES")]
 public class DistributionRule
 {
@@ -13,8 +13,6 @@ public class DistributionRule
 
     [Column(TypeName = "VARCHAR(100) NOT NULL")]
     public required string Name { get; set; }
-
-    public int DimensionNumber { get; set; }
 
     public bool Inactive { get; set; }
 

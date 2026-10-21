@@ -118,7 +118,7 @@ public class SalesInvoicesItemsUpdateService(
             var storedNfeItemNumber = (int?)original[nameof(SalesInvoiceItem.NfeItemNumber)];
 
             // O "antes" das dimensões, do rastreador: no PATCH a entidade já chega mutada.
-            var previousDims = DimensionSnapshot.FromOriginal(original);
+            var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => original[n]);
 
             db.Context.Entry(existingEntity).CurrentValues.SetValues(entity);
             existingEntity.NfeItemNumber = storedNfeItemNumber;

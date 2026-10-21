@@ -29,4 +29,16 @@ public class LedgerAccount
     public bool AllowsPosting { get; set; } = true;
 
     public bool Inactive { get; set; }
+
+    /// <summary>Aceita centro de custo (CT1_ACCUST).</summary>
+    public bool AcceptsCostCenter { get; set; } = true;
+
+    /// <summary>Exige centro de custo (CT1_CCOBRG).</summary>
+    public bool RequiresCostCenter { get; set; }
+
+    /// <summary>Aceita item contábil (CT1_ACITEM).</summary>
+    public bool AcceptsAccountingItem { get; set; } = true;
+
+    /// <summary>Exige item contábil (CT1_ITOBRG).</summary>
+    public bool RequiresAccountingItem { get; set; }
 }

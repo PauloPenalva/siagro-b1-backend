@@ -1,54 +1,19 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Dimensions;
 
 /// <summary>
-/// Aplica a obrigatoriedade dos parâmetros da empresa (centro de custo e conta contábil) ao
-/// confirmar uma nota ou criar um título/adiantamento/lançamento. Roda depois dos padrões e
-/// antes de numerar/gravar. Não faz nada em SAPB1.
+/// Obrigatoriedade da amarração contábil ao confirmar uma nota ou criar um título/adiantamento/lançamento.
 /// </summary>
-public class DimensionRequirementGuard(IUnitOfWork db, IConfiguration configuration, CompanySettingsService settingsService)
+// TODO Task 3: substituir por AccountingAssignmentGuard (flags Requires*/Accepts* da conta contábil).
+public class DimensionRequirementGuard(IUnitOfWork db, IConfiguration configuration)
 {
-    public DimensionRequirementGuard(IUnitOfWork db, IConfiguration configuration)
-        : this(db, configuration, new CompanySettingsService(db))
+    public Task EnsureAsync(IEnumerable<IAccountingAssignment> rows, Func<int, string>? rowLabel = null)
     {
-    }
-
-    public async Task EnsureAsync(IEnumerable<IDimensionFields> rows, Func<int, string>? rowLabel = null)
-    {
-        if (!ErpMode.IsStandalone(configuration))
-        {
-            return;
-        }
-
-        var settings = await settingsService.GetReadOnlyAsync();
-        if (!settings.RequireCostCenter && !settings.RequireLedgerAccount)
-        {
-            return;
-        }
-
-        string? dimensionName = null;
-        var index = 0;
-        foreach (var row in rows)
-        {
-            var suffix = rowLabel is null ? string.Empty : $" na linha {rowLabel(index)}";
-            index++;
-
-            if (settings.RequireCostCenter && string.IsNullOrWhiteSpace(row.Dim1Code))
-            {
-                dimensionName ??= (await db.Context.AccountingDimensions.AsNoTracking()
-                    .Where(x => x.Number == 1).Select(x => x.Name).FirstOrDefaultAsync()) ?? "o centro de custo";
-                throw new DefaultException($"Informe {dimensionName}{suffix}.");
-            }
-
-            if (settings.RequireLedgerAccount && string.IsNullOrWhiteSpace(row.LedgerAccountCode))
-            {
-                throw new DefaultException($"Informe a conta contábil{suffix}.");
-            }
-        }
+        _ = db;
+        _ = configuration;
+        return Task.CompletedTask;
     }
 }

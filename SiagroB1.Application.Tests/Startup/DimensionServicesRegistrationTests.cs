@@ -8,7 +8,7 @@ using SiagroB1.Web.Extensions;
 namespace SiagroB1.Application.Tests.Startup;
 
 /// <summary>
-/// Os serviços de dimensão têm que resolver nos dois modos (SAPB1 e STANDALONE), pois os
+/// Os serviços de amarração contábil têm que resolver nos dois modos (SAPB1 e STANDALONE), pois os
 /// conjuntos OData e os validadores comuns dependem deles.
 /// </summary>
 public class DimensionServicesRegistrationTests
@@ -23,7 +23,8 @@ public class DimensionServicesRegistrationTests
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
 
-        Assert.IsType<AccountingDimensionService>(scope.ServiceProvider.GetRequiredService<IAccountingDimensionService>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<DimensionCodeQueryService>());
+        Assert.IsType<DistributionRuleService>(scope.ServiceProvider.GetRequiredService<IDistributionRuleService>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<DimensionCodeValidator>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<DistributionRuleExpander>());
     }
 }

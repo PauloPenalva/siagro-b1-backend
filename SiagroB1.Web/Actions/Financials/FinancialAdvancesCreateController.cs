@@ -1,3 +1,4 @@
+using SiagroB1.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
@@ -93,13 +94,15 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
         }
     }
 
-    private static DimensionSnapshot Dimensions(ODataActionParameters p)
+    private static AccountingAssignmentSnapshot Dimensions(ODataActionParameters p)
     {
         string? Text(string name) => p.TryGetValue(name, out var v) ? v?.ToString() : null;
-        return new DimensionSnapshot
+        return new AccountingAssignmentSnapshot
         {
-            Dim1Code = Text("Dim1Code"), Dim2Code = Text("Dim2Code"), Dim3Code = Text("Dim3Code"),
-            Dim4Code = Text("Dim4Code"), Dim5Code = Text("Dim5Code"), LedgerAccountCode = Text("LedgerAccountCode"),
+            CostCenterCode = Text("CostCenterCode"),
+            AccountingItemCode = Text("AccountingItemCode"),
+            DistributionRuleCode = Text("DistributionRuleCode"),
+            LedgerAccountCode = Text("LedgerAccountCode"),
         };
     }
 }

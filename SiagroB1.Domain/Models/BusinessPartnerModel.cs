@@ -42,8 +42,10 @@ public class BusinessPartnerModel
 
     public bool RuralPayrollOption { get; set; }
 
-    /// <summary>Código padrão (centro/regra) da dimensão com papel Parceiro. Só STANDALONE.</summary>
-    public string? DefaultDimensionCode { get; set; }
+    /// <summary>Centro de custo e item contábil padrão. Só STANDALONE.</summary>
+    public string? DefaultCostCenterCode { get; set; }
+
+    public string? DefaultAccountingItemCode { get; set; }
     
     public ICollection<AddressModel> Addresses { get; set; } = new List<AddressModel>();
 }

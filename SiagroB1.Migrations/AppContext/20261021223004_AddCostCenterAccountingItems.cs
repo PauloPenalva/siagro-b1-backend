@@ -3,107 +3,73 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-#pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
-
 namespace SiagroB1.Migrations.AppContext
 {
     /// <inheritdoc />
-    public partial class AddAccountingDimensions : Migration
+    public partial class AddCostCenterAccountingItems : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
+            migrationBuilder.AddColumn<string>(
+                name: "AccountingItemCode",
+                table: "USAGES",
+                type: "VARCHAR(20)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "CostCenterCode",
+                table: "USAGES",
+                type: "VARCHAR(20)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "DistributionRuleCode",
+                table: "USAGES",
+                type: "VARCHAR(10)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "LedgerAccountCode",
+                table: "USAGES",
+                type: "VARCHAR(20)",
+                nullable: true);
+
+            migrationBuilder.AlterColumn<string>(
                 name: "CostCenterCode",
                 table: "SALES_INVOICES_ITEMS",
-                newName: "Dim1Code");
+                type: "VARCHAR(20)",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "VARCHAR(10)",
+                oldNullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "LedgerAccountCode",
-                table: "USAGES",
+                name: "AccountingItemCode",
+                table: "SALES_INVOICES_ITEMS",
                 type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "DistributionRuleCode",
                 table: "SALES_INVOICES_ITEMS",
                 type: "VARCHAR(10)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "SALES_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "SALES_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
-                table: "SALES_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "SALES_INVOICES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "SALES_INVOICES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "SALES_INVOICES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "SALES_INVOICES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "SALES_INVOICES",
                 type: "VARCHAR(10)",
                 nullable: true);
@@ -115,31 +81,19 @@ namespace SiagroB1.Migrations.AppContext
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "PURCHASE_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "PURCHASE_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "PURCHASE_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "PURCHASE_INVOICES_ITEMS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "PURCHASE_INVOICES_ITEMS",
                 type: "VARCHAR(10)",
                 nullable: true);
@@ -151,31 +105,19 @@ namespace SiagroB1.Migrations.AppContext
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "PURCHASE_INVOICES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "PURCHASE_INVOICES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "PURCHASE_INVOICES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "PURCHASE_INVOICES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "PURCHASE_INVOICES",
                 type: "VARCHAR(10)",
                 nullable: true);
@@ -186,32 +128,48 @@ namespace SiagroB1.Migrations.AppContext
                 type: "VARCHAR(20)",
                 nullable: true);
 
+            migrationBuilder.AddColumn<bool>(
+                name: "AcceptsAccountingItem",
+                table: "LEDGER_ACCOUNTS",
+                type: "bit",
+                nullable: false,
+                defaultValue: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "AcceptsCostCenter",
+                table: "LEDGER_ACCOUNTS",
+                type: "bit",
+                nullable: false,
+                defaultValue: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "RequiresAccountingItem",
+                table: "LEDGER_ACCOUNTS",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "RequiresCostCenter",
+                table: "LEDGER_ACCOUNTS",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "FINANCIAL_DOCUMENTS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "FINANCIAL_DOCUMENTS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "FINANCIAL_DOCUMENTS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "FINANCIAL_DOCUMENTS",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "FINANCIAL_DOCUMENTS",
                 type: "VARCHAR(10)",
                 nullable: true);
@@ -223,31 +181,19 @@ namespace SiagroB1.Migrations.AppContext
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "Dim3Code",
-                table: "FINANCIAL_ACCOUNT_ENTRIES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim4Code",
-                table: "FINANCIAL_ACCOUNT_ENTRIES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES",
                 type: "VARCHAR(10)",
                 nullable: true);
@@ -257,45 +203,72 @@ namespace SiagroB1.Migrations.AppContext
                 table: "FINANCIAL_ACCOUNT_ENTRIES",
                 type: "VARCHAR(20)",
                 nullable: true);
+
+            // Code é a PK: o SQL Server não altera coluna usada por índice, então a PK sai e volta.
+            migrationBuilder.DropPrimaryKey(name: "PK_COST_CENTERS", table: "COST_CENTERS");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "Code",
+                table: "COST_CENTERS",
+                type: "VARCHAR(20)",
+                nullable: false,
+                oldClrType: typeof(string),
+                oldType: "VARCHAR(10)");
+
+            migrationBuilder.AddPrimaryKey(name: "PK_COST_CENTERS", table: "COST_CENTERS", column: "Code");
 
             migrationBuilder.AddColumn<int>(
-                name: "DimensionNumber",
+                name: "Class",
                 table: "COST_CENTERS",
                 type: "int",
                 nullable: false,
-                defaultValue: 1);
+                defaultValue: 2); // Centros existentes migram como analíticos (AccountingEntityClass.Analytic), sem pai.
 
             migrationBuilder.AddColumn<string>(
-                name: "DefaultDimensionCode",
+                name: "ParentCode",
+                table: "COST_CENTERS",
+                type: "VARCHAR(20)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "ValidFrom",
+                table: "COST_CENTERS",
+                type: "DATE",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "ValidTo",
+                table: "COST_CENTERS",
+                type: "DATE",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "DefaultAccountingItemCode",
                 table: "BUSINESS_PARTNERS",
-                type: "VARCHAR(10)",
+                type: "VARCHAR(20)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "DefaultCostCenterCode",
+                table: "BUSINESS_PARTNERS",
+                type: "VARCHAR(20)",
                 nullable: true);
 
             migrationBuilder.CreateTable(
-                name: "ACCOUNTING_DIMENSIONS",
+                name: "ACCOUNTING_ITEMS",
                 columns: table => new
                 {
-                    Number = table.Column<int>(type: "int", nullable: false),
-                    Name = table.Column<string>(type: "VARCHAR(50)", nullable: false),
-                    Active = table.Column<bool>(type: "bit", nullable: false),
-                    Role = table.Column<int>(type: "int", nullable: false)
+                    Code = table.Column<string>(type: "VARCHAR(20)", nullable: false),
+                    Name = table.Column<string>(type: "VARCHAR(100)", nullable: false),
+                    Class = table.Column<int>(type: "int", nullable: false),
+                    ParentCode = table.Column<string>(type: "VARCHAR(20)", nullable: true),
+                    Inactive = table.Column<bool>(type: "bit", nullable: false),
+                    ValidFrom = table.Column<DateTime>(type: "DATE", nullable: true),
+                    ValidTo = table.Column<DateTime>(type: "DATE", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ACCOUNTING_DIMENSIONS", x => x.Number);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "COMPANY_SETTINGS",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false),
-                    RequireCostCenter = table.Column<bool>(type: "bit", nullable: false),
-                    RequireLedgerAccount = table.Column<bool>(type: "bit", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_COMPANY_SETTINGS", x => x.Id);
+                    table.PrimaryKey("PK_ACCOUNTING_ITEMS", x => x.Code);
                 });
 
             migrationBuilder.CreateTable(
@@ -304,7 +277,6 @@ namespace SiagroB1.Migrations.AppContext
                 {
                     Code = table.Column<string>(type: "VARCHAR(10)", nullable: false),
                     Name = table.Column<string>(type: "VARCHAR(100)", nullable: false),
-                    DimensionNumber = table.Column<int>(type: "int", nullable: false),
                     Inactive = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
@@ -337,7 +309,8 @@ namespace SiagroB1.Migrations.AppContext
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     VersionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CostCenterCode = table.Column<string>(type: "VARCHAR(10)", nullable: false),
+                    CostCenterCode = table.Column<string>(type: "VARCHAR(20)", nullable: true),
+                    AccountingItemCode = table.Column<string>(type: "VARCHAR(20)", nullable: true),
                     Percentage = table.Column<decimal>(type: "DECIMAL(9,4)", nullable: false)
                 },
                 constraints: table =>
@@ -350,23 +323,6 @@ namespace SiagroB1.Migrations.AppContext
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.InsertData(
-                table: "ACCOUNTING_DIMENSIONS",
-                columns: new[] { "Number", "Active", "Name", "Role" },
-                values: new object[,]
-                {
-                    { 1, true, "Dimensão 1", 0 },
-                    { 2, false, "Dimensão 2", 0 },
-                    { 3, false, "Dimensão 3", 0 },
-                    { 4, false, "Dimensão 4", 0 },
-                    { 5, false, "Dimensão 5", 0 }
-                });
-
-            migrationBuilder.InsertData(
-                table: "COMPANY_SETTINGS",
-                columns: new[] { "Id", "RequireCostCenter", "RequireLedgerAccount" },
-                values: new object[] { 1, false, false });
 
             migrationBuilder.CreateIndex(
                 name: "IX_DISTRIBUTION_RULE_LINES_VersionId",
@@ -384,10 +340,7 @@ namespace SiagroB1.Migrations.AppContext
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "ACCOUNTING_DIMENSIONS");
-
-            migrationBuilder.DropTable(
-                name: "COMPANY_SETTINGS");
+                name: "ACCOUNTING_ITEMS");
 
             migrationBuilder.DropTable(
                 name: "DISTRIBUTION_RULE_LINES");
@@ -399,23 +352,15 @@ namespace SiagroB1.Migrations.AppContext
                 name: "DISTRIBUTION_RULES");
 
             migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "USAGES");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "USAGES");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "USAGES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "USAGES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "USAGES");
 
             migrationBuilder.DropColumn(
@@ -423,39 +368,23 @@ namespace SiagroB1.Migrations.AppContext
                 table: "USAGES");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "AccountingItemCode",
                 table: "SALES_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
+                name: "DistributionRuleCode",
                 table: "SALES_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "SALES_INVOICES_ITEMS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
-                table: "SALES_INVOICES_ITEMS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "SALES_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "SALES_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "SALES_INVOICES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "SALES_INVOICES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "SALES_INVOICES");
 
             migrationBuilder.DropColumn(
@@ -463,23 +392,15 @@ namespace SiagroB1.Migrations.AppContext
                 table: "SALES_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "PURCHASE_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "PURCHASE_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "PURCHASE_INVOICES_ITEMS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "PURCHASE_INVOICES_ITEMS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "PURCHASE_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
@@ -487,23 +408,15 @@ namespace SiagroB1.Migrations.AppContext
                 table: "PURCHASE_INVOICES_ITEMS");
 
             migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "PURCHASE_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "PURCHASE_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "PURCHASE_INVOICES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "PURCHASE_INVOICES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "PURCHASE_INVOICES");
 
             migrationBuilder.DropColumn(
@@ -511,23 +424,31 @@ namespace SiagroB1.Migrations.AppContext
                 table: "PURCHASE_INVOICES");
 
             migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AcceptsAccountingItem",
+                table: "LEDGER_ACCOUNTS");
+
+            migrationBuilder.DropColumn(
+                name: "AcceptsCostCenter",
+                table: "LEDGER_ACCOUNTS");
+
+            migrationBuilder.DropColumn(
+                name: "RequiresAccountingItem",
+                table: "LEDGER_ACCOUNTS");
+
+            migrationBuilder.DropColumn(
+                name: "RequiresCostCenter",
+                table: "LEDGER_ACCOUNTS");
+
+            migrationBuilder.DropColumn(
+                name: "AccountingItemCode",
                 table: "FINANCIAL_DOCUMENTS");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "FINANCIAL_DOCUMENTS");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "FINANCIAL_DOCUMENTS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "FINANCIAL_DOCUMENTS");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "FINANCIAL_DOCUMENTS");
 
             migrationBuilder.DropColumn(
@@ -535,23 +456,15 @@ namespace SiagroB1.Migrations.AppContext
                 table: "FINANCIAL_DOCUMENTS");
 
             migrationBuilder.DropColumn(
-                name: "Dim1Code",
+                name: "AccountingItemCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES");
 
             migrationBuilder.DropColumn(
-                name: "Dim2Code",
+                name: "CostCenterCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES");
 
             migrationBuilder.DropColumn(
-                name: "Dim3Code",
-                table: "FINANCIAL_ACCOUNT_ENTRIES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim4Code",
-                table: "FINANCIAL_ACCOUNT_ENTRIES");
-
-            migrationBuilder.DropColumn(
-                name: "Dim5Code",
+                name: "DistributionRuleCode",
                 table: "FINANCIAL_ACCOUNT_ENTRIES");
 
             migrationBuilder.DropColumn(
@@ -559,17 +472,49 @@ namespace SiagroB1.Migrations.AppContext
                 table: "FINANCIAL_ACCOUNT_ENTRIES");
 
             migrationBuilder.DropColumn(
-                name: "DimensionNumber",
+                name: "Class",
                 table: "COST_CENTERS");
 
             migrationBuilder.DropColumn(
-                name: "DefaultDimensionCode",
+                name: "ParentCode",
+                table: "COST_CENTERS");
+
+            migrationBuilder.DropColumn(
+                name: "ValidFrom",
+                table: "COST_CENTERS");
+
+            migrationBuilder.DropColumn(
+                name: "ValidTo",
+                table: "COST_CENTERS");
+
+            migrationBuilder.DropColumn(
+                name: "DefaultAccountingItemCode",
                 table: "BUSINESS_PARTNERS");
 
-            migrationBuilder.RenameColumn(
-                name: "Dim1Code",
+            migrationBuilder.DropColumn(
+                name: "DefaultCostCenterCode",
+                table: "BUSINESS_PARTNERS");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "CostCenterCode",
                 table: "SALES_INVOICES_ITEMS",
-                newName: "CostCenterCode");
+                type: "VARCHAR(10)",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "VARCHAR(20)",
+                oldNullable: true);
+
+            migrationBuilder.DropPrimaryKey(name: "PK_COST_CENTERS", table: "COST_CENTERS");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "Code",
+                table: "COST_CENTERS",
+                type: "VARCHAR(10)",
+                nullable: false,
+                oldClrType: typeof(string),
+                oldType: "VARCHAR(20)");
+
+            migrationBuilder.AddPrimaryKey(name: "PK_COST_CENTERS", table: "COST_CENTERS", column: "Code");
         }
     }
 }
