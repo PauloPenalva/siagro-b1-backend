@@ -63,6 +63,7 @@ public sealed class SqlServerFiscalStockPeriodLock(IUnitOfWork db) : IFiscalStoc
         command.CommandText =
             "DECLARE @r int; EXEC @r = sp_getapplock @Resource = @res, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 30000; SELECT @r;";
         command.Transaction = transaction.GetDbTransaction();
+        command.CommandTimeout = 45; // acima do @LockTimeout de 30 s: quem responde é o sp_getapplock
         var parameter = command.CreateParameter();
         parameter.ParameterName = "@res";
         parameter.DbType = DbType.String;

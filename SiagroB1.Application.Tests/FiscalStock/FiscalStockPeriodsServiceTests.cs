@@ -203,7 +203,7 @@ public class FiscalStockPeriodsServiceTests
     }
 
     [Fact]
-    public async Task Close_losing_the_unique_index_race_reports_already_closed()
+    public async Task Close_with_unrelated_save_failure_is_not_reported_as_already_closed()
     {
         var db = TestDb.CreateUnitOfWork(new ThrowOnSaveInterceptor(e =>
             e.Entity is FiscalStockPeriod && e.State == EntityState.Added));
@@ -215,9 +215,44 @@ public class FiscalStockPeriodsServiceTests
         await db.SaveChangesAsync();
         var service = new FiscalStockPeriodsService(db);
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => service.CloseAsync("01", 2026, 9, "paulo"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => service.CloseAsync("01", 2026, 9, "paulo"));
+    }
 
-        Assert.Equal("O estoque fiscal de 09/2026 já está fechado.", ex.Message);
+    [Theory]
+    [InlineData(2601, true)]
+    [InlineData(2627, true)]
+    [InlineData(8152, false)]
+    [InlineData(547, false)]
+    public void Only_duplicate_key_is_unique_violation(int number, bool expected) =>
+        Assert.Equal(expected, FiscalStockPeriodsService.IsUniqueViolation(
+            new DbUpdateException("save", FakeSqlException(number))));
+
+    [Fact]
+    public void Non_sql_inner_exception_is_not_unique_violation() =>
+        Assert.False(FiscalStockPeriodsService.IsUniqueViolation(
+            new DbUpdateException("save", new InvalidOperationException())));
+
+    /// <summary>SqlException não tem construtor público: monta via reflexão (SqlError + SqlErrorCollection).</summary>
+    private static Microsoft.Data.SqlClient.SqlException FakeSqlException(int number)
+    {
+        const System.Reflection.BindingFlags any = System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static;
+        var errorType = typeof(Microsoft.Data.SqlClient.SqlError);
+        var ctor = errorType.GetConstructors(any).OrderByDescending(c => c.GetParameters().Length).First();
+        var args = ctor.GetParameters().Select(p => p.ParameterType switch
+        {
+            var t when t == typeof(int) && p.Name == "infoNumber" => (object?)number,
+            var t when t == typeof(string) => "x",
+            var t when t.IsValueType => Activator.CreateInstance(t),
+            _ => null,
+        }).ToArray();
+        var error = ctor.Invoke(args);
+        var collection = Activator.CreateInstance(typeof(Microsoft.Data.SqlClient.SqlErrorCollection), true)!;
+        typeof(Microsoft.Data.SqlClient.SqlErrorCollection).GetMethod("Add", any)!.Invoke(collection, [error]);
+        var create = typeof(Microsoft.Data.SqlClient.SqlException).GetMethods(any)
+            .First(m => m.Name == "CreateException" && m.GetParameters().Length == 2 &&
+                        m.GetParameters()[1].ParameterType == typeof(string));
+        return (Microsoft.Data.SqlClient.SqlException)create.Invoke(null, [collection, "16.0"])!;
     }
 
     private sealed class RecordingLock : IFiscalStockPeriodLock

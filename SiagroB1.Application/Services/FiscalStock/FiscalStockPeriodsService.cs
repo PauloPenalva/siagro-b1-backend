@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -33,7 +34,7 @@ public class FiscalStockPeriodsService(
         {
             return await RunLockedAsync(branchCode, () => CloseLockedAsync(branchCode, year, month, first, userName));
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException e) when (IsUniqueViolation(e))
         {
             // Índice único filial+ano+mês: outro fechamento gravou a linha antes deste.
             throw new DefaultException(AlreadyClosed(first));
@@ -161,6 +162,10 @@ public class FiscalStockPeriodsService(
             throw;
         }
     }
+
+    /// <summary>Só a chave duplicada (2601/2627) é a corrida do fechamento; o resto (truncamento, FK...) sobe como está.</summary>
+    public static bool IsUniqueViolation(DbUpdateException e) =>
+        e.InnerException is SqlException { Number: 2601 or 2627 };
 
     private static string AlreadyClosed(DateTime first) => $"O estoque fiscal de {first:MM/yyyy} já está fechado.";
 
