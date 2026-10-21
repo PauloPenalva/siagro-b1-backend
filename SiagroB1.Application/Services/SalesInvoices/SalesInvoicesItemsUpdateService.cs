@@ -13,6 +13,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
@@ -23,8 +24,10 @@ public class SalesInvoicesItemsUpdateService(
     SalesInvoicesTaxApplyService taxApply,
     SalesInvoicesFiscalComplementApplier fiscalComplement,
     PurchaseDischargeTransactionsSyncService dischargeSync,
-    ILogger<SalesInvoicesUpdateService> logger)
+    ILogger<SalesInvoicesUpdateService> logger,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<SalesInvoiceItem?> ExecuteAsync(Guid key, SalesInvoiceItem entity, string userName)
     {
         var existingEntity = await db.Context.SalesInvoicesItems
@@ -84,6 +87,21 @@ public class SalesInvoicesItemsUpdateService(
                 ? await dischargeSync.PrepareAsync(
                     key, entity.DeliveryStatus, entity.Quantity, entity.DeliveredQuantity, entity.QuantityLoss)
                 : null;
+
+            // Quantidade ou "movimenta estoque" de linha que conta no estoque fiscal, em documento confirmado/retornado:
+            // mês fechado recusa (antes da transação).
+            var originalMoves = (bool)original[nameof(SalesInvoiceItem.MovesFiscalInventory)]!;
+            if ((originalMoves || entity.MovesFiscalInventory) &&
+                ((decimal?)original[nameof(SalesInvoiceItem.Quantity)] != entity.Quantity ||
+                 originalMoves != entity.MovesFiscalInventory))
+            {
+                var parent = await db.Context.SalesInvoices.AsNoTracking()
+                    .Where(i => i.Key == storedInvoiceKey)
+                    .Select(i => new { i.InvoiceStatus, i.BranchCode, i.InvoiceDate })
+                    .FirstOrDefaultAsync();
+                if (parent is not null && FiscalStockPeriodGuard.IsBookable(parent.InvoiceStatus))
+                    await _periodGuard.EnsureOpenIfDatedAsync(parent.BranchCode, parent.InvoiceDate);
+            }
 
             // Daqui em diante tudo é uma coisa só: conferência, recálculos da venda e acerto da compra.
             await db.BeginTransactionAsync();

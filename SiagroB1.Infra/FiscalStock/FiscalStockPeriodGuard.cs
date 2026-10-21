@@ -61,6 +61,16 @@ public class FiscalStockPeriodGuard(IUnitOfWork db)
         await EnsureOpenAsync(invoice.BranchCode, invoice.InvoiceDate.Value, ct);
     }
 
+    /// <summary>Confere filial + data quando as duas existem (documento sem filial/data não conta).</summary>
+    public Task EnsureOpenIfDatedAsync(string? branchCode, DateTime? stockDate, CancellationToken ct = default) =>
+        string.IsNullOrEmpty(branchCode) || stockDate == null
+            ? Task.CompletedTask
+            : EnsureOpenAsync(branchCode, stockDate.Value, ct);
+
+    /// <summary>Alguma linha do documento de saída movimenta o estoque fiscal.</summary>
+    public Task<bool> SalesMovesStockAsync(Guid? invoiceKey, CancellationToken ct = default) =>
+        db.Context.SalesInvoicesItems.AnyAsync(l => l.SalesInvoiceKey == invoiceKey && l.MovesFiscalInventory, ct);
+
     /// <summary>Status que conta no estoque fiscal (o desfazer desse documento mexe no mês gravado).</summary>
     public static bool IsBookable(InvoiceStatus? status) =>
         status is InvoiceStatus.Confirmed or InvoiceStatus.Returned;
