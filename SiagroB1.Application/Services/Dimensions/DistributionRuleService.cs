@@ -163,6 +163,12 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
                 $"A versão vigente em {FormatDate(version.ValidFrom)} já está em uso e não pode ser excluída.");
         }
 
+        var versionCount = await db.Context.DistributionRuleVersions.CountAsync(x => x.RuleCode == version.RuleCode);
+        if (versionCount <= 1)
+        {
+            throw new DefaultException("A regra precisa ter ao menos uma versão.");
+        }
+
         db.Context.DistributionRuleLines.RemoveRange(version.Lines);
         db.Context.DistributionRuleVersions.Remove(version);
         await db.SaveChangesAsync();

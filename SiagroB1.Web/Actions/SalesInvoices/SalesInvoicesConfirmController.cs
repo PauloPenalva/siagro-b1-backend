@@ -27,7 +27,7 @@ public class SalesInvoicesConfirmController(
             var userName = User.Identity?.Name ?? "Unknown";
             var key = Guid.Parse(keyObj.ToString());
             
-            await service.ExecuteAsync(key,userName);
+            await service.ExecuteAsync(key, userName, enforceDimensionRequirements: true);
             
             return Ok();
         }

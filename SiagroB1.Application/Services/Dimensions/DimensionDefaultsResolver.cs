@@ -69,7 +69,8 @@ public class DimensionDefaultsResolver(IUnitOfWork db, IConfiguration configurat
             foreach (var raw in candidates)
             {
                 var code = DimensionCodeValidator.NormalizeCode(raw);
-                if (code is not null && valid.Any(x => x.DimensionNumber == dimension.Number && x.Code == code))
+                if (code is not null && valid.Any(x => x.DimensionNumber == dimension.Number
+                        && string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase)))
                 {
                     target.SetDim(dimension.Number, code);
                     break;

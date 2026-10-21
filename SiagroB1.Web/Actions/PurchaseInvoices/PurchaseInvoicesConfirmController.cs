@@ -21,7 +21,8 @@ public class PurchaseInvoicesConfirmController(PurchaseInvoicesConfirmService se
                 return BadRequest("Chave do documento não informada.");
 
             await service.ExecuteAsync(
-                Guid.Parse(keyObj.ToString()!), User.Identity?.Name ?? "Unknown");
+                Guid.Parse(keyObj.ToString()!), User.Identity?.Name ?? "Unknown",
+                enforceDimensionRequirements: true);
 
             return Ok();
         }

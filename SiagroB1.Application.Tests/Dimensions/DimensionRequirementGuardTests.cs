@@ -108,7 +108,7 @@ public class DimensionRequirementGuardTests
         var db = await NewDb(costCenter: true);
         var invoice = await SeedSalesInvoice(db);
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => SalesConfirm(db).ExecuteAsync(invoice.Key, "tester"));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => SalesConfirm(db).ExecuteAsync(invoice.Key, "tester", enforceDimensionRequirements: true));
 
         Assert.Equal("Informe Dimensão 1 na linha 1 (SOJA).", ex.Message);
     }
@@ -120,7 +120,7 @@ public class DimensionRequirementGuardTests
         var invoice = await SeedPurchaseInvoice(db);
 
         var confirm = TaxTestServices.PurchaseConfirm(db, dimensionGuard: Guard(db));
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester"));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester", enforceDimensionRequirements: true));
 
         Assert.Equal("Informe a conta contábil na linha 1 (MILHO).", ex.Message);
     }
@@ -132,9 +132,32 @@ public class DimensionRequirementGuardTests
         var invoice = await SeedPurchaseInvoice(db, ledger: "1.1.01");
 
         var confirm = TaxTestServices.PurchaseConfirm(db, dimensionGuard: Guard(db));
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester"));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => confirm.ExecuteAsync(invoice.Key, "tester", enforceDimensionRequirements: true));
 
         Assert.Equal("Informe Dimensão 1 na linha 1 (MILHO).", ex.Message);
+    }
+
+    [Fact]
+    public async Task System_sales_confirm_is_not_blocked_even_when_flags_are_on()
+    {
+        // Faturamento de romaneio, devolução, NF-e autorizada etc. confirmam sem a obrigatoriedade (flag omitida).
+        var db = await NewDb(costCenter: true, ledger: true);
+        var invoice = await SeedSalesInvoice(db);
+
+        await SalesConfirm(db).ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, db.Context.SalesInvoices.Single(x => x.Key == invoice.Key).InvoiceStatus);
+    }
+
+    [Fact]
+    public async Task System_purchase_confirm_is_not_blocked_even_when_flags_are_on()
+    {
+        var db = await NewDb(costCenter: true, ledger: true);
+        var invoice = await SeedPurchaseInvoice(db);
+
+        await TaxTestServices.PurchaseConfirm(db, dimensionGuard: Guard(db)).ExecuteAsync(invoice.Key, "tester");
+
+        Assert.Equal(InvoiceStatus.Confirmed, db.Context.PurchaseInvoices.Single(x => x.Key == invoice.Key).InvoiceStatus);
     }
 
     [Fact]

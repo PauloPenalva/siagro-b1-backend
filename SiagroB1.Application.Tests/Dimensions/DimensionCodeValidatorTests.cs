@@ -82,6 +82,17 @@ public class DimensionCodeValidatorTests
     }
 
     [Fact]
+    public async Task Accepts_code_stored_in_lowercase()
+    {
+        var db = await NewDb();
+        db.Context.CostCenters.Add(new CostCenter { Code = "cc9", Name = "Legado", DimensionNumber = 1 });
+        await db.SaveChangesAsync();
+        var v = new DimensionCodeValidator(db, Config("STANDALONE"));
+
+        await v.NormalizeAndValidateAsync(new Fields { Dim1Code = "cc9" });
+    }
+
+    [Fact]
     public async Task Unchanged_inactive_code_is_accepted_when_previous_given()
     {
         var db = await NewDb();

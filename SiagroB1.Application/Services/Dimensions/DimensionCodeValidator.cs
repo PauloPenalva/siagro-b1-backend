@@ -51,7 +51,7 @@ public class DimensionCodeValidator(IUnitOfWork db, IConfiguration configuration
             var numbers = changedDims.Select(x => x.Number).ToList();
             var codes = changedDims.Select(x => x.Code).ToList();
             var valid = await new DimensionCodeQueryService(db).QueryAll()
-                .Where(x => !x.Inactive && numbers.Contains(x.DimensionNumber) && codes.Contains(x.Code))
+                .Where(x => !x.Inactive && numbers.Contains(x.DimensionNumber) && codes.Contains(x.Code.ToUpper()))
                 .Select(x => new { x.DimensionNumber, x.Code })
                 .ToListAsync();
 
@@ -59,7 +59,8 @@ public class DimensionCodeValidator(IUnitOfWork db, IConfiguration configuration
             {
                 var dimension = dimensions.FirstOrDefault(x => x.Number == number);
                 var ok = dimension is { Active: true }
-                    && valid.Any(x => x.DimensionNumber == number && x.Code == code);
+                    && valid.Any(x => x.DimensionNumber == number
+                        && string.Equals(x.Code, code, StringComparison.OrdinalIgnoreCase));
                 if (!ok)
                 {
                     var name = dimension?.Name ?? $"Dimensão {number}";

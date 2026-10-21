@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+﻿using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -74,7 +74,8 @@ public class SalesInvoicesConfirmService(
         Guid key,
         string userName,
         CommitMode commitMode = CommitMode.Auto,
-        IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null)
+        IReadOnlyDictionary<Guid, StorageTransactionsStatus>? shipmentOutcomes = null,
+        bool enforceDimensionRequirements = false)
     {
         var invoice = await db.Context.SalesInvoices
             .Include(x => x.SalesTransactions)
@@ -97,7 +98,9 @@ public class SalesInvoicesConfirmService(
         await _periodGuard.EnsureOpenAsync(invoice);
 
         // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
-        if (dimensionGuard is not null)
+        // Só na confirmação pedida pelo usuário: fluxos do sistema (faturamento de romaneio, devolução, NF-e autorizada)
+        // geram linhas sem padrão e não podem travar quando a empresa liga a obrigatoriedade.
+        if (enforceDimensionRequirements && dimensionGuard is not null)
         {
             // Ordem estável (sem campo de ordem nas linhas): o rótulo da linha não muda entre chamadas.
             var orderedItems = invoice.Items.OrderBy(x => x.ItemCode).ThenBy(x => x.Key).ToList();

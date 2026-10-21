@@ -178,6 +178,18 @@ public class DistributionRuleServiceTests
     }
 
     [Fact]
+    public async Task Deleting_the_last_remaining_version_is_refused()
+    {
+        var (_, service) = await CreateAsync();
+        var rule = await service.CreateAsync(Rule("R01", Version(Today.AddDays(1), ("CC01", 60), ("CC02", 40))));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            service.DeleteVersionAsync(rule.Versions[0].Id, Today));
+
+        Assert.Equal("A regra precisa ter ao menos uma versão.", ex.Message);
+    }
+
+    [Fact]
     public async Task UpdateHeader_changes_name_and_inactive()
     {
         var (_, service) = await CreateAsync();

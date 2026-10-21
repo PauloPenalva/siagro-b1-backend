@@ -4,14 +4,16 @@ using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Domain.Constants;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 
 namespace SiagroB1.Web.Controllers;
 
-/// <summary>Parâmetros da empresa: linha única (chave 1), então só há GET e PATCH.</summary>
-public class CompanySettingsController(CompanySettingsService service) : ODataController
+/// <summary>Parâmetros da empresa: linha única (chave 1), então só há GET e PATCH (PATCH só para administradores).</summary>
+public class CompanySettingsController(CompanySettingsService service, IUserPermissions userPermissions) : ODataController
 {
     [EnableQuery]
     public virtual async Task<ActionResult> Get()
@@ -36,6 +38,12 @@ public class CompanySettingsController(CompanySettingsService service) : ODataCo
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
+        }
+
+        // Papel ADMIN via perfil (HasRoleAsync), não a flag IsAdmin do usuário.
+        if (!await userPermissions.HasRoleAsync(User.Identity?.Name ?? string.Empty, Roles.Admin))
+        {
+            return StatusCode(403, "Somente administradores podem alterar os parâmetros da empresa.");
         }
 
         if (key != 1)

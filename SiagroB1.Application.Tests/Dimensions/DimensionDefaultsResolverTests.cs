@@ -83,6 +83,20 @@ public class DimensionDefaultsResolverTests
     }
 
     [Fact]
+    public async Task Default_matches_cost_center_stored_in_lowercase()
+    {
+        var db = await NewDb();
+        db.Context.CostCenters.Add(new CostCenter { Code = "low", Name = "Legado", DimensionNumber = 1 });
+        await db.SaveChangesAsync();
+        var usage = await AddUsage(db, "low");
+        var target = new Fields();
+
+        await new DimensionDefaultsResolver(db, Config()).ApplyAsync(target, null, null, usage);
+
+        Assert.Equal("LOW", target.Dim1Code);
+    }
+
+    [Fact]
     public async Task Typed_value_is_never_overwritten()
     {
         var db = await NewDb();
