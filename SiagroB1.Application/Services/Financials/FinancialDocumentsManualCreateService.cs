@@ -17,7 +17,8 @@ public class FinancialDocumentsManualCreateService(
     DocNumberSequenceService docNumberSequence,
     IBusinessPartnerService businessPartnerService,
     DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionResolver = null)
+    DimensionDefaultsResolver? dimensionResolver = null,
+    DimensionRequirementGuard? dimensionGuard = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(FinancialDocument input, string userName)
     {
@@ -35,6 +36,8 @@ public class FinancialDocumentsManualCreateService(
         // Antes do número: erro de dimensão não pode consumir numeração.
         var dimensions = DimensionSnapshot.From(input);
         await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync([dimensions]);
 
         // Número buscado ANTES da gravação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(

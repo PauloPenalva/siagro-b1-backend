@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,8 @@ public class PurchaseInvoicesConfirmService(
     FinancialDocumentsFirmSyncService firmSync,
     FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
     PurchaseInvoicesTaxApplyService taxApply,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    DimensionRequirementGuard? dimensionGuard = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -73,6 +75,10 @@ public class PurchaseInvoicesConfirmService(
         if (PurchaseInvoiceCteRules.IsCte(invoice))
             await PurchaseInvoiceCteRules.EnsureAsync(db.Context, invoice, lines);
         await StorageCustodyGuard.EnsurePurchaseAsync(db.Context, invoice, lines);
+
+        // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync(lines, i => $"{i + 1} ({lines[i].ItemCode})");
 
         // Spec 2026-10-17 §2: DIFAL sem a alíquota interna da UF não confirma; senão regrava o DIFAL (a UF pode ter sido cadastrada depois).
         await taxApply.RefreshDifalForConfirmAsync(invoice, lines);

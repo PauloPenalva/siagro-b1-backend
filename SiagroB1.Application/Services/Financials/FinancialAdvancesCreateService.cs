@@ -33,7 +33,8 @@ public class FinancialAdvancesCreateService(
     IBusinessPartnerService businessPartnerService,
     FinancialDocumentsSettleService settleService,
     DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionResolver = null)
+    DimensionDefaultsResolver? dimensionResolver = null,
+    DimensionRequirementGuard? dimensionGuard = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(
         string contractType,
@@ -174,6 +175,8 @@ public class FinancialAdvancesCreateService(
         // Padrão do parceiro + validação antes de consumir número e de abrir a transação.
         var dimensions = input is null ? new DimensionSnapshot() : DimensionSnapshot.From(input);
         await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync([dimensions]);
 
         // Número buscado ANTES da transação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(

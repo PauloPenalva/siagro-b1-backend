@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,8 @@ public class SalesInvoicesConfirmService(
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    DimensionRequirementGuard? dimensionGuard = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -93,6 +95,13 @@ public class SalesInvoicesConfirmService(
 
         // A saída cai no estoque fiscal na InvoiceDate: mês fechado recusa.
         await _periodGuard.EnsureOpenAsync(invoice);
+
+        // Obrigatoriedade de centro de custo / conta contábil (parâmetros da empresa): só ao confirmar.
+        if (dimensionGuard is not null)
+        {
+            var orderedItems = invoice.Items.ToList();
+            await dimensionGuard.EnsureAsync(orderedItems, i => $"{i + 1} ({orderedItems[i].ItemCode})");
+        }
 
         // Complemento de ICMS (spec 2026-10-18 S8): só fiscal. Leva a natureza da original — a de uma nota de custódia tem
         // papel de custódia —, mas não tem romaneio nem efeito de custódia: a guarda recusaria a confirmação que a NF-e

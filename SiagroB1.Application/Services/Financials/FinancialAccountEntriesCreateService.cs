@@ -6,7 +6,10 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Financials;
 
 /// <summary>Lançamento manual na conta financeira (tarifa, depósito, rendimento, saldo inicial...).</summary>
-public class FinancialAccountEntriesCreateService(IUnitOfWork db, DimensionCodeValidator? dimensionValidator = null)
+public class FinancialAccountEntriesCreateService(
+    IUnitOfWork db,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionRequirementGuard? dimensionGuard = null)
 {
     public async Task<FinancialAccountEntry> ExecuteAsync(FinancialAccountEntry entry, string userName)
     {
@@ -29,6 +32,8 @@ public class FinancialAccountEntriesCreateService(IUnitOfWork db, DimensionCodeV
         var dimensions = DimensionSnapshot.From(entry);
         if (dimensionValidator is not null)
             await dimensionValidator.NormalizeAndValidateAsync(dimensions);
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync([dimensions]);
 
         var created = new FinancialAccountEntry
         {

@@ -58,6 +58,7 @@ public static class ODataConfigurations
         // registra o Model, nunca a entidade.
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
         modelBuilder.EntitySet<AccountingDimension>("AccountingDimensions");
+        modelBuilder.EntitySet<CompanySettings>("CompanySettings");
         modelBuilder.EntitySet<DimensionCodeModel>("DimensionCodes");
         modelBuilder.EntitySet<DistributionRule>("DistributionRules");
         // Versões da regra: actions de topo (navegação dá 404 neste projeto); linhas em listas paralelas.
