@@ -113,7 +113,8 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
         {
             openings.TryGetValue(code, out var opening);
             seeds.TryGetValue(code, out var seedLayers);
-            seedLayers ??= [];
+            // saldo inicial depois do mês fechado substitui a história, inclusive o instantâneo
+            if (seedLayers == null || opening != null) seedLayers = [];
             var own = movements
                 .Where(m => m.Code == code)
                 .Select(m => m.Movement)
