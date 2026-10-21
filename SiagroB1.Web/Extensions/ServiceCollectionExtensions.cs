@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBranchService, BranchService>();
         // Dimensões gerenciais: as tabelas locais existem nos dois modos (no SAPB1 ficam sem uso);
         // o que depende delas é registrado aqui para resolver em qualquer modo.
+        services.AddScoped<IAccountingItemService, Application.Services.Accounting.AccountingItemService>();
         services.AddScoped<IDistributionRuleService, Application.Services.Dimensions.DistributionRuleService>();
         services.AddScoped<Application.Services.Dimensions.DistributionRuleExpander>();
         services.AddScoped<Application.Services.Dimensions.DimensionCodeValidator>();

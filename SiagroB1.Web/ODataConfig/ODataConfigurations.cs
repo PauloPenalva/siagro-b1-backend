@@ -57,6 +57,7 @@ public static class ODataConfigurations
         // dual-mode (SAPB1 lê de OPRC/OACT, STANDALONE das tabelas locais):
         // registra o Model, nunca a entidade.
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
+        modelBuilder.EntitySet<AccountingItemModel>("AccountingItems");
         modelBuilder.EntitySet<DistributionRule>("DistributionRules");
         // Versões da regra: actions de topo (navegação dá 404 neste projeto); linhas em listas paralelas.
         var distributionRulesSaveVersion = modelBuilder.Action("DistributionRulesSaveVersion");

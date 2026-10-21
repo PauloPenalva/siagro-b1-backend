@@ -20,4 +20,12 @@ public class LedgerAccountModel
     public bool AllowsPosting { get; set; }
 
     public bool Inactive { get; set; }
+
+    public bool AcceptsCostCenter { get; set; } = true;
+
+    public bool RequiresCostCenter { get; set; }
+
+    public bool AcceptsAccountingItem { get; set; } = true;
+
+    public bool RequiresAccountingItem { get; set; }
 }
