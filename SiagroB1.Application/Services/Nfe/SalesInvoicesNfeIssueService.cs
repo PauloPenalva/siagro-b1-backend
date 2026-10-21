@@ -8,6 +8,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.Nfe;
 
@@ -34,6 +35,9 @@ public class SalesInvoicesNfeIssueService(
         db, gate, new SalesInvoiceNfeStore(db), settingsService, reservation, sefaz, resultHandler, options, logger, clock, storageZone)
 {
     private readonly IUnitOfWork _db = db;
+
+    protected override Task EnsureStockPeriodOpenAsync(SalesInvoice invoice) =>
+        new FiscalStockPeriodGuard(_db).EnsureOpenAsync(invoice);
 
     protected override void EnsureIssuableType(SalesInvoice invoice)
     {

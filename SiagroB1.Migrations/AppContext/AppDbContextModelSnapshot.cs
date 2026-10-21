@@ -1498,6 +1498,286 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("FISCAL_INVENTORY_OPENING_BALANCES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockAdjustment", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AdjustmentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DocNumber")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(19,6)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(500) NOT NULL");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<decimal>("TotalValue")
+                        .HasColumnType("DECIMAL(19,2)");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode", "DocNumber")
+                        .IsUnique();
+
+                    b.ToTable("FISCAL_STOCK_ADJUSTMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriod", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReopenReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("ReopenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReopenedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode", "Year", "Month")
+                        .IsUnique();
+
+                    b.ToTable("FISCAL_STOCK_PERIODS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriodEvent", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("By")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PeriodKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PeriodKey");
+
+                    b.ToTable("FISCAL_STOCK_PERIOD_EVENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriodLayer", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<DateTime>("LayerDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PeriodKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(19,6)");
+
+                    b.Property<int>("RowId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RowId"));
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SourceLineKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnitOfMeasureCode")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("DECIMAL(19,2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PeriodKey");
+
+                    b.ToTable("FISCAL_STOCK_PERIOD_LAYERS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
                     b.Property<string>("Code")
@@ -7945,6 +8225,28 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Reconciliation");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriodEvent", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FiscalStockPeriod", "Period")
+                        .WithMany("Events")
+                        .HasForeignKey("PeriodKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Period");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriodLayer", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FiscalStockPeriod", "Period")
+                        .WithMany("Layers")
+                        .HasForeignKey("PeriodKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Period");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.NotificationOutboxMessage", "OutboxMessage")
@@ -9446,6 +9748,13 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("ChangeLogs");
 
                     b.Navigation("Settlements");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FiscalStockPeriod", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("Layers");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroup", b =>

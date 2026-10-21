@@ -1,7 +1,7 @@
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 
-namespace SiagroB1.Reports.Services.Fiscal;
+namespace SiagroB1.Infra.FiscalStock;
 
 /// <summary>
 /// Regra única de "linha escriturável" dos relatórios fiscais (Conferência, Kardex): documento

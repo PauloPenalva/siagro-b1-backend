@@ -1,7 +1,7 @@
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
-using SiagroB1.Reports.Services.Fiscal;
+using SiagroB1.Infra.FiscalStock;
 using static SiagroB1.Application.Tests.Support.InvoiceReportSeed;
 
 namespace SiagroB1.Application.Tests.Reports;

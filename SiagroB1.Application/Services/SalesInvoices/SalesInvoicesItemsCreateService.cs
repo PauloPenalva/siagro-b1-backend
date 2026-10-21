@@ -5,6 +5,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
@@ -13,8 +14,10 @@ public class SalesInvoicesItemsCreateService(
     IItemService itemService,
     SalesInvoicesTaxApplyService taxApply,
     SalesInvoicesFiscalComplementApplier fiscalComplement,
-    ILogger<SalesInvoicesItemsCreateService> logger)
+    ILogger<SalesInvoicesItemsCreateService> logger,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task ExecuteAsync(SalesInvoiceItem salesInvoiceItem, string userName)
     {
         // Frete, seguro, desconto e outras despesas da linha (spec 2026-10-05 §5). Fora do try: 400 com a mensagem.
@@ -38,6 +41,10 @@ public class SalesInvoicesItemsCreateService(
 
             SalesInvoiceNfeLock.EnsureLinesChangeable(invoice.NfeStatus, SalesInvoiceNfeLock.IsConfirmedFrozen(
                 invoice.InvoiceStatus, invoice.InvoiceType, await taxApply.IsBranchActiveAsync(invoice.BranchCode)));
+
+            // Linha que movimenta o estoque fiscal num documento que já conta: mês fechado recusa.
+            if (salesInvoiceItem.MovesFiscalInventory && FiscalStockPeriodGuard.IsBookable(invoice.InvoiceStatus))
+                await _periodGuard.EnsureOpenIfDatedAsync(invoice.BranchCode, invoice.InvoiceDate);
 
             // Complemento fiscal do contrato antes do imposto: a natureza dele é a que o cálculo usa (spec 2026-10-07
             // §4.2). Pode preencher a condição do documento rastreado — o SaveChanges abaixo a grava junto.

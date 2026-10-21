@@ -12,6 +12,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Infra.Queries;
 using SiagroB1.Infra.Enums;
 
@@ -25,8 +26,11 @@ public class SalesInvoicesCancelService(
     ILogger<SalesInvoicesCancelService> logger,
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
-    FinancialDocumentsSalesNoContractService? salesNoContract = null)
+    FinancialDocumentsSalesNoContractService? salesNoContract = null,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
     /// <summary>Fase 2 do cancelamento da NF-e: a SEFAZ já cancelou; a trava da NF-e não se aplica.</summary>
@@ -208,6 +212,11 @@ public class SalesInvoicesCancelService(
     {
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
             throw new DefaultException("Documento já está cancelado.");
+
+        // Documento que conta no estoque fiscal não sai de mês fechado (InvoiceDate gravada). Vale também no ensaio
+        // do cancelamento da NF-e, antes de falar com a SEFAZ.
+        if (FiscalStockPeriodGuard.IsBookable(invoice.InvoiceStatus))
+            await _periodGuard.EnsureOpenAsync(invoice);
 
         // Título baixado (parcial ou integral), por qualquer caminho: primeira recusa, antes da SEFAZ.
         await InvoiceSettledFinancialGuard.EnsureSalesHasNoSettlementAsync(db.Context, invoice.Key, invoice.InvoiceNumber);

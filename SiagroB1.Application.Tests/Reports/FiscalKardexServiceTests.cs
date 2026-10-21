@@ -1,3 +1,4 @@
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -254,9 +255,11 @@ public class FiscalKardexServiceTests
 
         var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
 
-        Assert.Equal(new[] { "Saída", "Entrada", "Acerto de saldo negativo" }, item.Lines.Select(l => l.Kind));
-        Assert.Equal("Saldo insuficiente", item.Lines[0].Warning);
+        Assert.Equal(new[] { "Saída", "Entrada" }, item.Lines.Select(l => l.Kind));
+        Assert.Equal("Custo pela entrada C1 de 10/10/2026", item.Lines[0].Warning); // coberta pela entrada seguinte
+        Assert.Equal(300m, item.Lines[0].ValueOut);
         Assert.Equal(-3m, item.Lines[0].BalanceQuantity);
+        Assert.Equal(-300m, item.Lines[0].BalanceValue);
         Assert.Equal(7m, item.ClosingQuantity);
         Assert.Equal(700m, item.ClosingValue);
     }
@@ -426,6 +429,191 @@ public class FiscalKardexServiceTests
 
     private const string UnlinkedEntryWarning = "Entrada sem vínculo valorizada pelo preço da nota";
 
+    [Fact]
+    public async Task Adjustment_lines_show_in_kardex()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalStockAdjustments.Add(Adjustment("AJ000001", Oct05, FiscalStockAdjustmentDirection.In, 10m, 1000m, "Sobra de inventário"));
+        await Save(db);
+
+        var line = Assert.Single(Assert.Single((await Service(db).BuildAsync(October())).Items).Lines);
+
+        Assert.Equal("Ajuste manual — entrada", line.Kind);
+        Assert.Equal("E", line.Direction);
+        Assert.Equal("AJ000001", line.InternalNumber);
+        Assert.Equal("Sobra de inventário", line.UsageName);
+        Assert.Equal(10m, line.QuantityIn);
+        Assert.Equal(1000m, line.ValueIn);
+    }
+
+    [Fact]
+    public async Task Adjustment_out_is_exit()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Buy("C1", Oct05, 10m, 100m));
+        db.Context.FiscalStockAdjustments.Add(Adjustment("AJ000002", Oct10, FiscalStockAdjustmentDirection.Out, 4m, 400m, "Quebra"));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal("Ajuste manual — saída", item.Lines[1].Kind);
+        Assert.Equal("S", item.Lines[1].Direction);
+        Assert.Equal(4m, item.Lines[1].QuantityOut);
+        Assert.Equal(6m, item.ClosingQuantity);
+        Assert.Equal(600m, item.ClosingValue);
+    }
+
+    [Fact]
+    public async Task Covered_exit_shows_cost_warning()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.SalesInvoices.Add(Sell("V1", Oct10, 3m));
+        db.Context.PurchaseInvoices.Add(Buy("DE000007", new DateTime(2026, 10, 25), 10m, 100m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal("Custo pela entrada DE000007 de 25/10/2026", item.Lines[0].Warning);
+    }
+
+    [Fact]
+    public async Task Closed_period_snapshot_seeds_later_query()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Buy("AGO", new DateTime(2026, 8, 10), 50m, 7m));
+        db.Context.FiscalStockPeriods.Add(new FiscalStockPeriod
+        {
+            BranchCode = "01", Year = 2026, Month = 9, Status = FiscalStockPeriodStatus.Closed,
+            Layers = [new FiscalStockPeriodLayer
+            {
+                ItemCode = "10001", ItemName = "SOJA", UnitOfMeasureCode = "TN", LayerDate = new DateTime(2026, 9, 1),
+                SourceLineKey = Guid.NewGuid(), Quantity = 10m, Value = 1000m, Sequence = 1,
+            }],
+        });
+        db.Context.SalesInvoices.Add(Sell("V1", Oct10, 4m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal(10m, item.OpeningQuantity);
+        Assert.Equal(1000m, item.OpeningValue);
+        Assert.Equal(new[] { "V1" }, item.Lines.Select(l => l.InternalNumber));
+        Assert.Equal(400m, item.Lines[0].ValueOut);
+        Assert.Equal(6m, item.ClosingQuantity);
+        Assert.Equal(600m, item.ClosingValue);
+    }
+
+    [Fact]
+    public async Task From_after_closed_period_matches_full_recalculation()
+    {
+        async Task<FiscalKardexItemDto> Run(bool closed)
+        {
+            var db = TestDb.CreateUnitOfWork();
+            var buy = Buy("C1", new DateTime(2026, 9, 10), 10m, 100m);
+            db.Context.PurchaseInvoices.Add(buy);
+            db.Context.SalesInvoices.Add(Sell("V0", new DateTime(2026, 9, 20), 4m));
+            db.Context.PurchaseInvoices.Add(Buy("C2", Oct05, 5m, 130m));
+            db.Context.SalesInvoices.Add(Sell("V1", Oct10, 8m));
+            if (closed)
+                db.Context.FiscalStockPeriods.Add(new FiscalStockPeriod
+                {
+                    BranchCode = "01", Year = 2026, Month = 9, Status = FiscalStockPeriodStatus.Closed,
+                    Layers = [new FiscalStockPeriodLayer
+                    {
+                        ItemCode = "10001", UnitOfMeasureCode = "TN", LayerDate = new DateTime(2026, 9, 10),
+                        SourceLineKey = buy.Items.First().Key ?? Guid.Empty, Quantity = 6m, Value = 600m, Sequence = 1,
+                    }],
+                });
+            await Save(db);
+            return Assert.Single((await Service(db).BuildAsync(October())).Items);
+        }
+
+        var full = await Run(false);
+        var seeded = await Run(true);
+
+        Assert.Equal(full.OpeningQuantity, seeded.OpeningQuantity);
+        Assert.Equal(full.OpeningValue, seeded.OpeningValue);
+        Assert.Equal(full.Lines.Select(l => (l.BalanceQuantity, l.BalanceValue, l.ValueOut)),
+            seeded.Lines.Select(l => (l.BalanceQuantity, l.BalanceValue, l.ValueOut)));
+        Assert.Equal(full.ClosingQuantity, seeded.ClosingQuantity);
+        Assert.Equal(full.ClosingValue, seeded.ClosingValue);
+    }
+
+    private static FiscalStockPeriod ClosedPeriod(int month, decimal qty, decimal value, string branch = "01") => new()
+    {
+        BranchCode = branch, Year = 2026, Month = month, Status = FiscalStockPeriodStatus.Closed,
+        Layers = [new FiscalStockPeriodLayer
+        {
+            ItemCode = "10001", UnitOfMeasureCode = "TN", LayerDate = new DateTime(2026, month, 1),
+            SourceLineKey = Guid.NewGuid(), Quantity = qty, Value = value, Sequence = 1,
+        }],
+    };
+
+    [Fact]
+    public async Task From_inside_closed_month_uses_previous_closed_month()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalStockPeriods.AddRange(ClosedPeriod(9, 10m, 1000m), ClosedPeriod(10, 99m, 9900m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(new FiscalKardexRequest
+            { BranchCode = "01", FromDate = new DateTime(2026, 10, 15), ToDate = new DateTime(2026, 10, 31) })).Items);
+
+        Assert.Equal(10m, item.OpeningQuantity);
+        Assert.Equal(1000m, item.OpeningValue);
+    }
+
+    [Fact]
+    public async Task Open_layers_seed_from_closed_month_before_date()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.PurchaseInvoices.Add(Buy("AGO", new DateTime(2026, 8, 10), 50m, 7m));
+        db.Context.FiscalStockPeriods.Add(ClosedPeriod(9, 10m, 1000m));
+        db.Context.PurchaseInvoices.Add(Buy("C1", Oct05, 5m, 120m));
+        await Save(db);
+
+        var inv = Assert.Single(await Service(db).OpenLayersAsync("01", null, Oct10));
+
+        Assert.Equal(new[] { 10m, 5m }, inv.Layers.Select(l => l.Quantity));
+        Assert.Equal(1600m, inv.Layers.Sum(l => l.Value));
+    }
+
+    [Fact]
+    public async Task Closed_period_of_other_branch_is_ignored()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalStockPeriods.Add(ClosedPeriod(9, 10m, 1000m, branch: "02"));
+        db.Context.PurchaseInvoices.Add(Buy("SET", new DateTime(2026, 9, 10), 3m, 100m));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal(3m, item.OpeningQuantity);
+        Assert.Equal(300m, item.OpeningValue);
+    }
+
+    [Fact]
+    public async Task Opening_after_closed_month_replaces_snapshot()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.FiscalStockPeriods.Add(ClosedPeriod(9, 10m, 1000m));
+        db.Context.FiscalInventoryOpeningBalances.Add(Opening(4m, 480m, Oct05));
+        await Save(db);
+
+        var item = Assert.Single((await Service(db).BuildAsync(October())).Items);
+
+        Assert.Equal(0m, item.OpeningQuantity);
+        Assert.Equal(4m, item.ClosingQuantity);
+        Assert.Equal(480m, item.ClosingValue);
+    }
+
+    private static FiscalStockAdjustment Adjustment(string number, DateTime date, FiscalStockAdjustmentDirection direction,
+        decimal qty, decimal value, string reason) => new()
+    {
+        BranchCode = "01", DocNumber = number, AdjustmentDate = date, ItemCode = "10001", ItemName = "SOJA",
+        UnitOfMeasureCode = "TN", Direction = direction, Quantity = qty, TotalValue = value, Reason = reason, CreatedBy = "teste",
+    };
+
     private static SalesInvoice Return(string number, DateTime date, SalesInvoice origin)
     {
         var returned = Sell(number, date, 2m, cfop: "1202");
@@ -472,7 +660,7 @@ public class FiscalKardexServiceTests
         ToDate = new DateTime(2026, 10, 31),
     };
 
-    private static FiscalKardexService Service(IUnitOfWork db) => new(db);
+    private static FiscalKardexService Service(IUnitOfWork db) => new(new FiscalStockLedgerLoader(db));
 
     private static async Task Save(IUnitOfWork db)
     {

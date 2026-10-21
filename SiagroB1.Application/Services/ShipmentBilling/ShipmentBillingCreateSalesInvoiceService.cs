@@ -8,6 +8,7 @@ using SiagroB1.Application.Services.ShipmentLoads;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.ShipmentBilling;
 
@@ -45,8 +46,11 @@ public class ShipmentBillingCreateSalesInvoiceService(
     ShipmentLoadsRecalculateInvoicedService loadRecalc,
     ShipmentLoadsMovementLogService movementLog,
     ILogger<ShipmentBillingCreateSalesInvoiceService> logger,
-    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+    FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public async Task ExecuteAsync(SalesInvoice salesInvoice, string username)
     {
         Validate(salesInvoice);
@@ -85,6 +89,9 @@ public class ShipmentBillingCreateSalesInvoiceService(
             await db.BeginTransactionAsync();
 
             await salesInvoicesCreateService.ExecuteAsync(salesInvoice, username);
+
+            // Grava Confirmado direto (sem o SalesInvoicesConfirmService): a trava do mês fechado vale aqui também.
+            await _periodGuard.EnsureOpenAsync(salesInvoice);
 
             salesInvoice.InvoiceStatus = InvoiceStatus.Confirmed;
             await db.SaveChangesAsync();

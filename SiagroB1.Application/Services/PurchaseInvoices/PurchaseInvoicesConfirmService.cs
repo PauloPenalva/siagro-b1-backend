@@ -8,6 +8,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -29,8 +30,11 @@ public class PurchaseInvoicesConfirmService(
     SupplierNfeAuthorizationService supplierNfe,
     FinancialDocumentsFirmSyncService firmSync,
     FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
-    PurchaseInvoicesTaxApplyService taxApply)
+    PurchaseInvoicesTaxApplyService taxApply,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var invoice = await db.Context.PurchaseInvoices
@@ -39,6 +43,9 @@ public class PurchaseInvoicesConfirmService(
 
         if (invoice.InvoiceStatus != InvoiceStatus.Pending)
             throw new DefaultException("Somente documento pendente pode ser confirmado.");
+
+        // A entrada cai no estoque fiscal na data de entrada (PostingDate ?? IssueDate): mês fechado recusa.
+        await _periodGuard.EnsureOpenAsync(invoice, FiscalStockPeriodGuard.StockDate(invoice));
 
         // Emitir é o que confirma (spec D3): na filial com a regra ativa, o documento de emissão própria só
         // confirma com a NF-e autorizada — é o que a emissão chama. O de terceiro tem a conferência própria logo abaixo.

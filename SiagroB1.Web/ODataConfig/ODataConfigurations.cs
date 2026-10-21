@@ -62,6 +62,20 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");
         modelBuilder.EntitySet<FiscalInventoryOpeningBalance>("FiscalInventoryOpeningBalances");
+        modelBuilder.EntitySet<FiscalStockAdjustment>("FiscalStockAdjustments");
+        modelBuilder.EntitySet<FiscalStockPeriod>("FiscalStockPeriods");
+        // Fechar/reabrir o mês do estoque fiscal: actions de topo (navegação dá 404 neste projeto).
+        var fiscalStockPeriodsClose = modelBuilder.Action("FiscalStockPeriodsClose");
+        fiscalStockPeriodsClose.Parameter<string>("BranchCode");
+        fiscalStockPeriodsClose.Parameter<int>("Year");
+        fiscalStockPeriodsClose.Parameter<int>("Month");
+        fiscalStockPeriodsClose.ReturnsFromEntitySet<FiscalStockPeriod>("FiscalStockPeriods");
+        var fiscalStockPeriodsReopen = modelBuilder.Action("FiscalStockPeriodsReopen");
+        fiscalStockPeriodsReopen.Parameter<string>("BranchCode");
+        fiscalStockPeriodsReopen.Parameter<int>("Year");
+        fiscalStockPeriodsReopen.Parameter<int>("Month");
+        fiscalStockPeriodsReopen.Parameter<string>("Reason");
+        fiscalStockPeriodsReopen.ReturnsFromEntitySet<FiscalStockPeriod>("FiscalStockPeriods");
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");

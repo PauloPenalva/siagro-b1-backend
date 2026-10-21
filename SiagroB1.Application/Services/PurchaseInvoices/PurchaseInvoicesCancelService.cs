@@ -5,6 +5,7 @@ using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Infra.Queries;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
@@ -17,8 +18,13 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// por status e o rastro do que foi lançado precisa sobreviver. A chave da NF-e de TERCEIRO volta a
 /// ficar livre para relançamento; a da NF-e PRÓPRIA nunca é reaproveitada (o número é da reserva).
 /// </summary>
-public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
+public class PurchaseInvoicesCancelService(
+    IUnitOfWork db,
+    FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public Task ExecuteAsync(Guid key, string userName) => CancelAsync(key, userName, afterNfe: false);
 
     /// <summary>Fase 2 do cancelamento da NF-e: a SEFAZ já cancelou; a trava da NF-e não se aplica.</summary>
@@ -31,6 +37,14 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOth
                       ?? throw new NotFoundException("Documento de entrada não encontrado.");
 
         await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus, invoice.InvoiceNumber);
+        await EnsurePeriodOpenAsync(invoice);
+    }
+
+    /// <summary>Documento que conta no estoque fiscal não sai de mês fechado (data gravada).</summary>
+    private async Task EnsurePeriodOpenAsync(Domain.Entities.PurchaseInvoice invoice)
+    {
+        if (FiscalStockPeriodGuard.IsBookable(invoice.InvoiceStatus))
+            await _periodGuard.EnsureOpenAsync(invoice, FiscalStockPeriodGuard.StockDate(invoice));
     }
 
     private async Task CancelAsync(Guid key, string userName, bool afterNfe)
@@ -52,6 +66,7 @@ public class PurchaseInvoicesCancelService(IUnitOfWork db, FinancialDocumentsOth
         }
 
         await EnsureBusinessRulesAsync(invoice.Key, invoice.InvoiceStatus, invoice.InvoiceNumber);
+        await EnsurePeriodOpenAsync(invoice);
 
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
         invoice.CanceledAt = DateTime.Now;

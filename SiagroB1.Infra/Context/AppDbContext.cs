@@ -147,6 +147,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<FinancialAccountTransfer> FinancialAccountTransfers { get; set; }
 
     public DbSet<FiscalInventoryOpeningBalance> FiscalInventoryOpeningBalances { get; set; }
+    public DbSet<FiscalStockAdjustment> FiscalStockAdjustments { get; set; }
+    public DbSet<FiscalStockPeriod> FiscalStockPeriods { get; set; }
+    public DbSet<FiscalStockPeriodEvent> FiscalStockPeriodEvents { get; set; }
+    public DbSet<FiscalStockPeriodLayer> FiscalStockPeriodLayers { get; set; }
 
     public DbSet<ShippingReleaseChange> ShippingReleaseChanges { get; set; }
     public DbSet<PurchaseTransactionChange> PurchaseTransactionChanges { get; set; }
@@ -164,6 +168,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<FiscalInventoryOpeningBalance>()
             .HasIndex(x => new { x.BranchCode, x.ItemCode })
             .IsUnique();
+
+        // Ajuste manual do estoque fiscal: numeração AJ000001 única por filial.
+        modelBuilder.Entity<FiscalStockAdjustment>()
+            .HasIndex(x => new { x.BranchCode, x.DocNumber })
+            .IsUnique();
+
+        // Período fiscal: um por filial + ano + mês; eventos e camadas congeladas caem em cascata.
+        modelBuilder.Entity<FiscalStockPeriod>()
+            .HasIndex(x => new { x.BranchCode, x.Year, x.Month })
+            .IsUnique();
+        modelBuilder.Entity<FiscalStockPeriodEvent>()
+            .HasOne(x => x.Period).WithMany(x => x.Events)
+            .HasForeignKey(x => x.PeriodKey)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<FiscalStockPeriodLayer>()
+            .HasOne(x => x.Period).WithMany(x => x.Layers)
+            .HasForeignKey(x => x.PeriodKey)
+            .OnDelete(DeleteBehavior.Cascade);
         
         // Cobre a soma do saldo por lote (StorageAddressesGetService.QueryAll). Sem estas colunas o
         // plano varria STORAGE_TRANSACTIONS inteira e, sem READ_COMMITTED_SNAPSHOT, um romaneio

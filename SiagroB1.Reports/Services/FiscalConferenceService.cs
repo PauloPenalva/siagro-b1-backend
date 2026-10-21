@@ -3,7 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
-using SiagroB1.Reports.Services.Fiscal;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Reports.Services;
 

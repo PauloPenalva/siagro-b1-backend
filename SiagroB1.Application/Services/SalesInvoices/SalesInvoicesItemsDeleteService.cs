@@ -5,14 +5,17 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
 public class SalesInvoicesItemsDeleteService(
     IUnitOfWork db,
     SalesInvoicesTaxApplyService taxApply,
-    ILogger<SalesInvoicesItemsDeleteService> logger)
+    ILogger<SalesInvoicesItemsDeleteService> logger,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<bool> ExecuteAsync(Guid key)
     {
         return await DeleteAsyncWithTransaction(key, async entity =>
@@ -45,8 +48,13 @@ public class SalesInvoicesItemsDeleteService(
             // para o XML (ver SalesInvoiceNfeLock.IsConfirmedFrozen).
             var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == salesInvoiceKey)
-                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode })
+                .Select(i => new { i.NfeStatus, i.InvoiceStatus, i.InvoiceType, i.BranchCode, i.InvoiceDate })
                 .FirstOrDefaultAsync();
+
+            // Linha que movimenta o estoque fiscal saindo de documento que já conta: mês fechado recusa.
+            if (stored is not null && entity.MovesFiscalInventory && FiscalStockPeriodGuard.IsBookable(stored.InvoiceStatus))
+                await _periodGuard.EnsureOpenIfDatedAsync(stored.BranchCode, stored.InvoiceDate);
+
             // Complemento de ICMS (spec 2026-10-18 S6): as linhas são as escolhidas na criação; para mudar, exclua o documento.
             if (stored?.InvoiceType == SalesInvoiceType.IcmsComplement)
                 throw new DefaultException(SalesInvoiceIcmsComplementLock.LinesChangeMessage);

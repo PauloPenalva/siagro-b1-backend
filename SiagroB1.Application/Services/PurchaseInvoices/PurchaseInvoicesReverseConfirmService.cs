@@ -4,6 +4,7 @@ using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.PurchaseInvoices;
 
@@ -15,8 +16,13 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 /// confirmação são canceladas no mesmo SaveChanges, e recusadas se já tiverem baixa. A confirmação é idempotente por
 /// título ativo, então sem este cancelamento um estorno + edição + nova confirmação manteria títulos velhos.
 /// </summary>
-public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db, FinancialDocumentsOtherPurchaseService otherPurchaseTitles)
+public class PurchaseInvoicesReverseConfirmService(
+    IUnitOfWork db,
+    FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
+
     public async Task ExecuteAsync(Guid key, string userName)
     {
         var invoice = await db.Context.PurchaseInvoices
@@ -30,6 +36,9 @@ public class PurchaseInvoicesReverseConfirmService(IUnitOfWork db, FinancialDocu
 
         if (invoice.InvoiceStatus != InvoiceStatus.Confirmed)
             throw new DefaultException("Somente documento confirmado pode ser estornado.");
+
+        // O estorno tira a entrada do estoque fiscal do mês gravado: mês fechado recusa.
+        await _periodGuard.EnsureOpenAsync(invoice, FiscalStockPeriodGuard.StockDate(invoice));
 
         // A contra-nota referencia a chave desta escrituração (spec 2026-10-10 D10).
         await PurchaseInvoiceCounterNote.EnsureNoValidAsync(db.Context, invoice.Key, "estornar a confirmação");

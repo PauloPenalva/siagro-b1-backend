@@ -1,9 +1,5 @@
-using Microsoft.EntityFrameworkCore;
-using SiagroB1.Domain.Entities;
-using SiagroB1.Domain.Enums;
-using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 using SiagroB1.Reports.Dtos;
-using SiagroB1.Reports.Services.Fiscal;
 
 namespace SiagroB1.Reports.Services;
 
@@ -13,37 +9,19 @@ namespace SiagroB1.Reports.Services;
 /// <see cref="FifoLedger"/>. Tudo é recalculado do saldo inicial (ou do primeiro movimento) a cada
 /// consulta; nada é gravado.
 /// </summary>
-public class FiscalKardexService(IUnitOfWork db)
+public class FiscalKardexService(FiscalStockLedgerLoader loader)
 {
+    private static readonly System.Globalization.CultureInfo PtBr = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
     private const string WarningInsufficient = "Saldo insuficiente";
     private const string WarningDifferentUnit = "Unidade diferente";
     private const string WarningUnlinkedEntry = "Entrada sem vínculo valorizada pelo preço da nota";
     private const string WarningCostNotFound = "Custo da venda de origem não encontrado";
     private const string WarningPendingComplement = "Complemento sem saldo: somado à próxima entrada";
 
-    /// <summary>Metadados de exibição levados pelo motor em <see cref="InventoryMovement.Source"/>.</summary>
-    private sealed record LineSource(
-        string InternalNumber,
-        string DocumentNumber,
-        string Partner,
-        string Cfop,
-        string UsageName,
-        decimal InvoiceValue,
-        string? ItemName,
-        bool UnlinkedEntry = false);
-
-    /// <summary>Movimentos de um produto, já sem o que está até a data do saldo inicial.</summary>
-    private sealed record ItemLedger(
-        string ItemCode,
-        string ItemName,
-        string? UnitOfMeasureCode,
-        FiscalInventoryOpeningBalance? Opening,
-        FifoResult Result);
-
     public async Task<FiscalKardexData> BuildAsync(FiscalKardexRequest request)
     {
         var from = request.FromDate.Date;
-        var ledgers = await LoadLedgersAsync(request.BranchCode, request.ItemCode, request.ToDate.Date);
+        var ledgers = await loader.LoadAsync(request.BranchCode, request.ItemCode, request.ToDate.Date, from);
 
         var items = new List<FiscalKardexItemDto>();
         foreach (var ledger in ledgers)
@@ -53,8 +31,10 @@ public class FiscalKardexService(IUnitOfWork db)
             var period = lines.Where(l => l.Movement.Date >= from).ToList();
             var last = lines.LastOrDefault();
 
-            var openingQuantity = previous?.BalanceQuantity ?? 0m;
-            var openingValue = previous?.BalanceValue ?? 0m;
+            // sem movimento antes do início: parte do instantâneo do mês fechado (zero se não houver)
+            var openingQuantity = previous?.BalanceQuantity ?? ledger.SeedQuantity;
+            var openingValue = previous?.BalanceValue ?? ledger.SeedValue;
+            var entries = lines.GroupBy(l => l.Movement.LineKey).ToDictionary(g => g.Key, g => g.First().Movement);
             if (period.Count == 0 && openingQuantity == 0m && openingValue == 0m)
                 continue;
 
@@ -65,9 +45,9 @@ public class FiscalKardexService(IUnitOfWork db)
                 UnitOfMeasureCode = ledger.UnitOfMeasureCode,
                 OpeningQuantity = openingQuantity,
                 OpeningValue = openingValue,
-                Lines = period.Select(l => Line(l, ledger.UnitOfMeasureCode)).ToList(),
-                ClosingQuantity = last?.BalanceQuantity ?? 0m,
-                ClosingValue = last?.BalanceValue ?? 0m,
+                Lines = period.Select(l => Line(l, ledger.UnitOfMeasureCode, entries)).ToList(),
+                ClosingQuantity = last?.BalanceQuantity ?? openingQuantity,
+                ClosingValue = last?.BalanceValue ?? openingValue,
             });
         }
 
@@ -80,7 +60,7 @@ public class FiscalKardexService(IUnitOfWork db)
     /// </summary>
     /// Um registro por produto com saldo inicial ou movimento até a data, ordenado por ItemCode.
     public async Task<List<FiscalInventoryItemLayers>> OpenLayersAsync(string branchCode, string? itemCode, DateTime atDate) =>
-        (await LoadLedgersAsync(branchCode, itemCode, atDate.Date))
+        (await loader.LoadAsync(branchCode, itemCode, atDate.Date))
             .Select(l => new FiscalInventoryItemLayers
             {
                 ItemCode = l.ItemCode,
@@ -89,164 +69,34 @@ public class FiscalKardexService(IUnitOfWork db)
                 Layers = l.Result.OpenLayers,
                 Deficit = l.Result.Deficit,
                 PendingValue = l.Result.PendingValue,
+                ResidualValue = l.Result.ResidualValue,
             })
             .ToList();
 
-    private async Task<List<ItemLedger>> LoadLedgersAsync(string branchCode, string? itemCode, DateTime toDate)
-    {
-        var toExclusive = toDate.AddDays(1);
-        var item = string.IsNullOrWhiteSpace(itemCode) ? null : itemCode;
-
-        var openings = await db.Context.FiscalInventoryOpeningBalances
-            .AsNoTracking()
-            .Where(o => o.BranchCode == branchCode && o.BalanceDate < toExclusive)
-            .Where(o => item == null || o.ItemCode == item)
-            .ToDictionaryAsync(o => o.ItemCode);
-
-        var sales = await BookableInvoiceLines.Sales(db.Context.SalesInvoicesItems
-                .AsNoTracking()
-                .Include(i => i.SalesInvoice))
-            .Where(i => i.SalesInvoice!.BranchCode == branchCode)
-            .Where(i => i.SalesInvoice!.InvoiceDate < toExclusive)
-            .Where(i => i.SalesInvoice!.InvoiceType != SalesInvoiceType.IcmsComplement)
-            .Where(i => i.MovesFiscalInventory && i.ItemCode != null && i.ItemCode != "")
-            .Where(i => item == null || i.ItemCode == item)
-            .ToListAsync();
-
-        var purchases = await BookableInvoiceLines.Purchases(db.Context.PurchaseInvoicesItems
-                .AsNoTracking()
-                .Include(i => i.PurchaseInvoice))
-            .Where(i => i.PurchaseInvoice!.BranchCode == branchCode)
-            .Where(i => (i.PurchaseInvoice!.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive)
-            .Where(i => i.PurchaseInvoice!.InvoiceType != PurchaseInvoiceType.IcmsComplement)
-            .Where(i => i.MovesFiscalInventory && i.ItemCode != null && i.ItemCode != "")
-            .Where(i => item == null || i.ItemCode == item)
-            .ToListAsync();
-
-        var movements = sales.Select(s => (Code: s.ItemCode, Movement: SaleMovement(s)))
-            .Concat(purchases.Select(p => (Code: p.ItemCode!, Movement: PurchaseMovement(p))))
-            // nº interno em ordem numérica: "9" antes de "10" (comprimento, depois ordinal)
-            .OrderBy(m => ((LineSource)m.Movement.Source!).InternalNumber.Length)
-            .ThenBy(m => ((LineSource)m.Movement.Source!).InternalNumber, StringComparer.Ordinal)
-            .ThenBy(m => m.Movement.LineKey)
-            .Select((m, index) => (m.Code, Movement: m.Movement with { DaySequence = index }))
-            .ToList();
-
-        var codes = movements.Select(m => m.Code).Concat(openings.Keys).Distinct().Order(StringComparer.Ordinal);
-
-        var ledgers = new List<ItemLedger>();
-        foreach (var code in codes)
-        {
-            openings.TryGetValue(code, out var opening);
-            var own = movements
-                .Where(m => m.Code == code)
-                .Select(m => m.Movement)
-                .Where(m => opening == null || m.Date > opening.BalanceDate.Date)
-                .ToList();
-            if (opening != null)
-                own.Add(OpeningMovement(opening));
-
-            var chronological = own.OrderBy(m => m.Date).ThenBy(m => m.Kind == InventoryMovementKind.Opening ? 0 : 1)
-                .ThenBy(m => m.DaySequence).ToList();
-            var unit = opening?.UnitOfMeasureCode ?? chronological.Select(m => m.UnitOfMeasure).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
-            var name = chronological.Select(m => ((LineSource)m.Source!).ItemName).LastOrDefault(n => !string.IsNullOrWhiteSpace(n))
-                       ?? opening?.ItemName ?? "";
-
-            ledgers.Add(new ItemLedger(code, name, unit, opening, FifoLedger.Run(own)));
-        }
-
-        return ledgers;
-    }
-
-    private static InventoryMovement OpeningMovement(FiscalInventoryOpeningBalance o) => new(
-        o.Key, o.BalanceDate.Date, -1, InventoryMovementKind.Opening, o.Quantity, o.TotalValue, null,
-        o.UnitOfMeasureCode, new LineSource("", "", "", "", "", 0m, o.ItemName));
-
-    /// <summary>Linha de saída: devolução de venda (CFOP de entrada + origem) entra pelo custo da saída de origem.</summary>
-    private static InventoryMovement SaleMovement(SalesInvoiceItem i)
-    {
-        var invoice = i.SalesInvoice!;
-        var direction = DirectionOf(i.Cfop, "S");
-        var kind = direction == "E"
-            ? invoice.InvoiceType == SalesInvoiceType.Return && i.SalesInvoiceItemOriginKey != null
-                ? InventoryMovementKind.SalesReturn
-                : InventoryMovementKind.Entry
-            : InventoryMovementKind.Exit;
-        var origin = kind == InventoryMovementKind.SalesReturn ? i.SalesInvoiceItemOriginKey : null;
-        var value = direction == "E" ? i.GrandTotal - i.IcmsValue : 0m;
-
-        return new InventoryMovement(i.Key ?? Guid.Empty, (invoice.InvoiceDate ?? default).Date, 0, kind, i.Quantity, value, origin,
-            i.UnitOfMeasureCode,
-            new LineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
-                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
-                UnlinkedEntry: kind == InventoryMovementKind.Entry));
-    }
-
-    /// <summary>
-    /// Linha de entrada: complemento de valor soma na camada de origem; devolução de compra (CFOP de
-    /// saída + origem) baixa da camada de origem; entrada com vínculo a linha de saída
-    /// (<c>SalesInvoiceItemKey</c>, devolução de venda emitida pelo cliente) entra pelo custo da saída.
-    /// </summary>
-    private static InventoryMovement PurchaseMovement(PurchaseInvoiceItem i)
-    {
-        var invoice = i.PurchaseInvoice!;
-        var direction = DirectionOf(i.Cfop, "E");
-        InventoryMovementKind kind;
-        Guid? origin = null;
-        if (invoice.InvoiceType == PurchaseInvoiceType.ValueComplement)
-        {
-            kind = InventoryMovementKind.ValueComplement;
-            origin = i.ComplementedItemKey;
-        }
-        else if (direction == "S")
-        {
-            var isReturn = invoice.InvoiceType == PurchaseInvoiceType.Return && i.PurchaseInvoiceItemOriginKey != null;
-            kind = isReturn ? InventoryMovementKind.PurchaseReturn : InventoryMovementKind.Exit;
-            origin = isReturn ? i.PurchaseInvoiceItemOriginKey : null;
-        }
-        else if (i.SalesInvoiceItemKey != null)
-        {
-            kind = InventoryMovementKind.SalesReturn;
-            origin = i.SalesInvoiceItemKey;
-        }
-        else
-            kind = InventoryMovementKind.Entry;
-
-        var quantity = kind == InventoryMovementKind.ValueComplement ? 0m : i.Quantity;
-        var value = direction == "E" || kind == InventoryMovementKind.ValueComplement ? i.GrandTotal - i.IcmsValue : 0m;
-
-        return new InventoryMovement(i.Key ?? Guid.Empty, (invoice.PostingDate ?? invoice.IssueDate ?? default).Date, 0, kind, quantity, value,
-            origin, i.UnitOfMeasureCode,
-            new LineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
-                Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
-                UnlinkedEntry: kind == InventoryMovementKind.Entry && i.PurchaseInvoiceItemOriginKey == null && IsRemittanceCfop(i.Cfop)));
-    }
-
-    /// <summary>CFOP 1.9xx/2.9xx (remessas e retornos): sem origem, o preço da nota não é custo confiável.</summary>
-    private static bool IsRemittanceCfop(string? cfop) =>
-        cfop?.Trim() is { } c && (c.StartsWith("19") || c.StartsWith("29"));
-
-    private static FiscalKardexLineDto Line(ValuedMovement v, string? itemUnit)
+    private static FiscalKardexLineDto Line(ValuedMovement v, string? itemUnit, IReadOnlyDictionary<Guid, InventoryMovement> entries)
     {
         var m = v.Movement;
-        var source = (LineSource)m.Source!;
+        var source = (FiscalStockLineSource)m.Source!;
         var warnings = new List<string>();
         if (v.InsufficientBalance) warnings.Add(WarningInsufficient);
         if (v.PendingValue) warnings.Add(WarningPendingComplement);
         if (v.CostNotFound) warnings.Add(WarningCostNotFound);
-        if (source.UnlinkedEntry && !v.IsNegativeBalanceAdjustment) warnings.Add(WarningUnlinkedEntry);
-        if (!v.IsNegativeBalanceAdjustment && !string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
+        if (source.UnlinkedEntry) warnings.Add(WarningUnlinkedEntry);
+        foreach (var key in v.CoveredByLineKeys)
+            if (entries.TryGetValue(key, out var entry))
+                warnings.Add($"Custo pela entrada {((FiscalStockLineSource)entry.Source!).InternalNumber} de {entry.Date.ToString("dd/MM/yyyy", PtBr)}");
+        if (!string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
             && !string.Equals(m.UnitOfMeasure.Trim(), itemUnit.Trim(), StringComparison.OrdinalIgnoreCase))
             warnings.Add(WarningDifferentUnit);
 
-        var isExit = v.IsNegativeBalanceAdjustment
-                     || m.Kind is InventoryMovementKind.Exit or InventoryMovementKind.PurchaseReturn;
+        var isExit = m.Kind is InventoryMovementKind.Exit or InventoryMovementKind.PurchaseReturn
+                     or InventoryMovementKind.AdjustmentOut;
 
         return new FiscalKardexLineDto
         {
             Date = m.Date,
             Direction = isExit ? "S" : "E",
-            Kind = v.IsNegativeBalanceAdjustment ? "Acerto de saldo negativo" : KindText(m.Kind),
+            Kind = KindText(m.Kind),
             InternalNumber = source.InternalNumber,
             DocumentNumber = source.DocumentNumber,
             Partner = source.Partner,
@@ -259,7 +109,7 @@ public class FiscalKardexService(IUnitOfWork db)
             ValueOut = v.ValueOut,
             BalanceQuantity = v.BalanceQuantity,
             BalanceValue = v.BalanceValue,
-            InvoiceValue = v.IsNegativeBalanceAdjustment ? 0m : source.InvoiceValue,
+            InvoiceValue = source.InvoiceValue,
             Warning = warnings.Count == 0 ? null : string.Join("; ", warnings),
         };
     }
@@ -272,22 +122,8 @@ public class FiscalKardexService(IUnitOfWork db)
         InventoryMovementKind.PurchaseReturn => "Devolução de compra",
         InventoryMovementKind.SalesReturn => "Devolução de venda",
         InventoryMovementKind.ValueComplement => "Complemento de valor",
+        InventoryMovementKind.AdjustmentIn => "Ajuste manual — entrada",
+        InventoryMovementKind.AdjustmentOut => "Ajuste manual — saída",
         _ => "",
     };
-
-    /// <summary>1/2/3 = entrada, 5/6/7 = saída; sem CFOP vale a direção do documento.</summary>
-    private static string DirectionOf(string? cfop, string documentDirection) => cfop?.Trim() switch
-    {
-        [var first, ..] when first is '1' or '2' or '3' => "E",
-        [var first, ..] when first is '5' or '6' or '7' => "S",
-        _ => documentDirection,
-    };
-
-    private static string DocumentNumber(string? number, string? series, string? internalNumber)
-    {
-        var n = string.IsNullOrWhiteSpace(number) ? internalNumber ?? "" : number;
-        return string.IsNullOrWhiteSpace(series) ? n : $"{n}/{series}";
-    }
-
-    private static string Partner(string code, string? name) => string.IsNullOrWhiteSpace(name) ? code : $"({code}) {name}";
 }

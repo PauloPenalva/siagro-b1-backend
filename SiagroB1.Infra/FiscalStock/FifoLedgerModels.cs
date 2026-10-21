@@ -1,4 +1,4 @@
-namespace SiagroB1.Reports.Services.Fiscal;
+namespace SiagroB1.Infra.FiscalStock;
 
 /// <summary>Natureza do movimento de estoque fiscal para o custeio PEPS.</summary>
 public enum InventoryMovementKind
@@ -9,6 +9,8 @@ public enum InventoryMovementKind
     PurchaseReturn,
     SalesReturn,
     ValueComplement,
+    AdjustmentIn,
+    AdjustmentOut,
 }
 
 /// <summary>
@@ -30,6 +32,7 @@ public record InventoryMovement(
 /// <summary>
 /// Linha valorizada do Kardex, com saldo acumulado após o movimento. <c>PendingValue</c>: complemento
 /// sem camada aberta — não entra no saldo agora; soma no ValueIn da próxima entrada que criar camada.
+/// <c>CoveredByLineKeys</c>: entradas que custearam a saída feita sem saldo, em ordem de cobertura (vazio se nenhuma).
 /// <c>CostNotFound</c>: devolução de venda sem saída de origem conhecida e sem camada aberta — entrou a custo zero.
 /// </summary>
 public record ValuedMovement(
@@ -42,7 +45,7 @@ public record ValuedMovement(
     decimal BalanceQuantity,
     decimal BalanceValue,
     bool InsufficientBalance,
-    bool IsNegativeBalanceAdjustment,
+    IReadOnlyList<Guid> CoveredByLineKeys,
     bool PendingValue = false,
     bool CostNotFound = false);
 
@@ -53,6 +56,8 @@ public record FifoLayer(Guid LineKey, DateTime Date, decimal Quantity, decimal V
 /// <remarks>
 /// Saldo final = camadas − <c>Deficit</c> em quantidade e = soma das camadas em valor.
 /// <c>Deficit</c>: quantidade que saiu sem camada (saldo negativo), ≥ 0. <c>PendingValue</c>: complemento
-/// sem camada aberta, fora do saldo, que entrará na próxima camada criada.
+/// sem camada aberta, fora do saldo, que entrará na próxima camada criada. <c>ResidualValue</c>: valor no saldo
+/// sem camada (diferença de ajuste de saída); saldo final em valor = soma das camadas + ResidualValue.
 /// </remarks>
-public record FifoResult(List<ValuedMovement> Lines, List<FifoLayer> OpenLayers, decimal Deficit = 0m, decimal PendingValue = 0m);
+public record FifoResult(List<ValuedMovement> Lines, List<FifoLayer> OpenLayers, decimal Deficit = 0m, decimal PendingValue = 0m,
+    decimal ResidualValue = 0m);

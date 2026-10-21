@@ -7,6 +7,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Application.Services.SalesInvoices;
 
@@ -15,8 +16,10 @@ public class SalesInvoicesUpdateService(
     IBusinessPartnerService businessPartnerService,
     SalesInvoicesTaxApplyService taxApply,
     SalesInvoicesFiscalComplementApplier fiscalComplement,
-    ILogger<SalesInvoicesUpdateService> logger)
+    ILogger<SalesInvoicesUpdateService> logger,
+    FiscalStockPeriodGuard? periodGuard = null)
 {
+    private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<SalesInvoice?> ExecuteAsync(Guid key, SalesInvoice entity, string userName)
     {
         var existingEntity = await db.Context.SalesInvoices
@@ -42,6 +45,18 @@ public class SalesInvoicesUpdateService(
                 (InvoiceStatus?)original[nameof(SalesInvoice.InvoiceStatus)],
                 (SalesInvoiceType)original[nameof(SalesInvoice.InvoiceType)]!,
                 await taxApply.IsBranchActiveAsync((string?)original[nameof(SalesInvoice.BranchCode)]));
+
+            // Documento que conta no estoque fiscal: trocar data/filial tira a saída de um mês e põe em outro — os dois
+            // precisam estar abertos (pelo gravado: no PATCH a instância já chega mutada).
+            var originalBranch = (string?)original[nameof(SalesInvoice.BranchCode)];
+            var originalDate = (DateTime?)original[nameof(SalesInvoice.InvoiceDate)];
+            if (FiscalStockPeriodGuard.IsBookable((InvoiceStatus?)original[nameof(SalesInvoice.InvoiceStatus)]) &&
+                (!Equals(originalDate, entity.InvoiceDate) || !Equals(originalBranch, entity.BranchCode)) &&
+                await _periodGuard.SalesMovesStockAsync(existingEntity.Key))
+            {
+                await _periodGuard.EnsureOpenIfDatedAsync(originalBranch, originalDate);
+                await _periodGuard.EnsureOpenIfDatedAsync(entity.BranchCode, entity.InvoiceDate);
+            }
 
             var entry = db.Context.Entry(existingEntity);
             entry.CurrentValues.SetValues(entity);

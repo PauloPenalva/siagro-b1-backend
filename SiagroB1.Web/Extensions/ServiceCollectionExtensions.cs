@@ -1,6 +1,7 @@
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.FiscalInventory;
+using SiagroB1.Application.Services.FiscalStock;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Companies;
 using SiagroB1.Application.Services.CompanySignatories;
@@ -368,6 +369,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IbsCbsRatesService>();
         services.AddScoped<RuralContributionRatesService>();
         services.AddScoped<IFiscalInventoryOpeningBalancesService, FiscalInventoryOpeningBalancesService>();
+        services.AddScoped<IFiscalStockAdjustmentsService, FiscalStockAdjustmentsService>();
+        services.AddScoped<IFiscalStockPeriodsService, FiscalStockPeriodsService>();
+        services.AddScoped<IFiscalStockPeriodLock, SqlServerFiscalStockPeriodLock>();
+        services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockLedgerLoader>();
+        services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockPeriodGuard>();
         services.AddScoped<MunicipalityService>();
         services.AddScoped<CountryService>();
         services.AddScoped<PaymentConditionsService>();

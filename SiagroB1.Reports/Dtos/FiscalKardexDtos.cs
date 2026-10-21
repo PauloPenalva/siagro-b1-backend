@@ -1,4 +1,4 @@
-using SiagroB1.Reports.Services.Fiscal;
+using SiagroB1.Infra.FiscalStock;
 
 namespace SiagroB1.Reports.Dtos;
 
@@ -17,6 +17,9 @@ public class FiscalInventoryItemLayers
 
     /// <summary>Complemento de valor sem camada aberta, fora do saldo até a próxima entrada.</summary>
     public decimal PendingValue { get; set; }
+
+    /// <summary>Valor no saldo sem camada (diferença de ajuste de saída). Valor = soma das camadas + ResidualValue.</summary>
+    public decimal ResidualValue { get; set; }
 }
 
 /// <summary>Filtros do Kardex Fiscal: filial obrigatória, produto opcional, período inclusivo em dias.</summary>
@@ -58,7 +61,7 @@ public class FiscalKardexLineDto
     public string Direction { get; set; } = string.Empty;
 
     /// <summary>"Saldo inicial", "Entrada", "Saída", "Devolução de compra", "Devolução de venda",
-    /// "Complemento de valor" ou "Acerto de saldo negativo".</summary>
+    /// "Complemento de valor", "Ajuste manual — entrada", "Ajuste manual — saída".</summary>
     public string Kind { get; set; } = string.Empty;
 
     public string InternalNumber { get; set; } = string.Empty;

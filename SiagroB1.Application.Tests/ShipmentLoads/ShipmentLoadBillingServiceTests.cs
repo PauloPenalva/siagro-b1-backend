@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Financials;
@@ -345,5 +345,28 @@ public class ShipmentLoadBillingServiceTests
         var saved = await _db.Context.SalesContracts.AsNoTracking().SingleAsync();
         Assert.True(saved.AvaiableVolume < decimal.Zero);
         Assert.Equal(1, await _db.Context.SalesInvoices.CountAsync());
+    }
+
+    /// <summary>O faturamento grava Confirmado direto: respeita a trava do mês fechado do estoque fiscal.</summary>
+    [Fact]
+    public async Task Billing_into_a_closed_fiscal_stock_month_is_refused_without_writing_anything()
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        _db.Context.FiscalStockPeriods.Add(new FiscalStockPeriod
+            { BranchCode = "01", Year = 2026, Month = 9, Status = FiscalStockPeriodStatus.Closed });
+        await _db.SaveChangesAsync();
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+        invoice.InvoiceDate = new DateTime(2026, 9, 30);
+        invoice.Items.Single().MovesFiscalInventory = true;
+
+        var e = await Assert.ThrowsAnyAsync<Exception>(() => Service().ExecuteAsync(invoice, "tester"));
+
+        Assert.Equal(
+            "O estoque fiscal de 09/2026 da filial 01 está fechado. Use uma data de entrada no estoque a partir de 01/10/2026 ou peça a reabertura do mês.",
+            e.Message);
+        // A trava roda depois do create (o cálculo de impostos é que marca MovesFiscalInventory), dentro da transação:
+        // no SQL Server o rollback desfaz o documento; o InMemory não tem transação, então confere-se o resto.
+        Assert.Empty(await _db.Context.SalesContractsAllocations.AsNoTracking().ToListAsync());
+        Assert.Equal(0m, (await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync()).InvoicedQuantity);
     }
 }
