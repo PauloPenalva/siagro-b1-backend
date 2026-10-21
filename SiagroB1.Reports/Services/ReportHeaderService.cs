@@ -45,11 +45,16 @@ public class ReportHeaderService(
             // is deliberate: it keeps any imaging failure inside this try/catch. On Linux
             // FastReport draws through System.Drawing.Common 4.7.3 / libgdiplus, so a logo
             // the platform cannot decode must cost us the logo, never the whole report.
-            using var stream = new MemoryStream(logo, writable: false);
-            using var decoded = Image.FromStream(stream);
-            // Copy into a standalone Bitmap: an Image created from a stream keeps reading
-            // from it lazily, and FastReport serializes the image long after Apply returns.
-            picLogo.Image = new Bitmap(decoded);
+            //
+            // The stream is NOT disposed: an Image created from a stream may read from it lazily,
+            // and FastReport serializes the image long after Apply returns. The image keeps the
+            // stream alive. No copy via new Bitmap(decoded): that constructor draws into a fresh
+            // Bitmap, and libgdiplus never frees a Bitmap that had a Graphics (measured on the VPS
+            // 21/10/2026: +4 MB per report with an 800x640 logo).
+            var decoded = Image.FromStream(new MemoryStream(logo, writable: false));
+            _ = decoded.Width; // força a decodificação aqui, dentro do try
+            picLogo.Image = decoded;
+            picLogo.ShouldDisposeImage = true;
         }
         catch (Exception ex)
         {

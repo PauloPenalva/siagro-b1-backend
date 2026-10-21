@@ -44,6 +44,16 @@ public class DanfeLogoTests
     }
 
     [Fact]
+    public void Same_logo_is_fitted_once_and_reused()
+    {
+        // Desenhar num Bitmap novo vaza a memória dele no libgdiplus (Linux): o encaixe não pode
+        // ser refeito a cada DANFE.
+        var logo = Png(800, 640, Color.Blue);
+
+        Assert.Same(DanfeLogo.FitToBox(logo), DanfeLogo.FitToBox(logo));
+    }
+
+    [Fact]
     public void Missing_logo_stays_missing()
     {
         Assert.Null(DanfeLogo.FitToBox(null));

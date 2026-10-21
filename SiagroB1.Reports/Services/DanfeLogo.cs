@@ -24,6 +24,15 @@ public static class DanfeLogo
         if (logo is null)
             return null;
 
+        // Um encaixe por logo (o ReportHeaderService devolve sempre a mesma instância de bytes):
+        // desenhar num Bitmap novo vaza a memória dele no libgdiplus (Linux), ~3 MB por DANFE.
+        return Fitted.GetValue(logo, Fit);
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], byte[]> Fitted = new();
+
+    private static byte[] Fit(byte[] logo)
+    {
         try
         {
             using var input = new MemoryStream(logo, writable: false);

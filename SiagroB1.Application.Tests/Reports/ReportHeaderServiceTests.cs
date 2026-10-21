@@ -70,6 +70,22 @@ public class ReportHeaderServiceTests : IDisposable
     }
 
     [Fact]
+    public void Apply_HandsTheDecodedLogoToTheReport_WhichOwnsIt()
+    {
+        // Sem cópia via new Bitmap(imagem): esse construtor desenha num Bitmap novo, o que vaza a
+        // memória dele no libgdiplus (Linux). A imagem decodificada vai direto e o relatório a descarta.
+        WriteLogo(Path.Combine("wwwroot", "images", "logo.png"));
+        var service = CreateService(companyName: "ACME", logoPath: "wwwroot/images/logo.png");
+        using var report = CreateReport(withLogoObject: true);
+
+        service.Apply(report);
+
+        var logo = GetLogo(report)!;
+        Assert.True(logo.ShouldDisposeImage);
+        Assert.Equal(System.Drawing.Imaging.ImageFormat.Png.Guid, logo.Image!.RawFormat.Guid);
+    }
+
+    [Fact]
     public void Apply_WithAbsoluteLogoPath_UsesItAsIs()
     {
         var logoFile = WriteLogo(Path.Combine("assets", "brand.png"));
