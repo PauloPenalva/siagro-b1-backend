@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Models;
@@ -41,6 +41,9 @@ public class BusinessPartnerModel
     public string? RuralProducerCpf { get; set; }
 
     public bool RuralPayrollOption { get; set; }
+
+    /// <summary>Código padrão (centro/regra) da dimensão com papel Parceiro. Só STANDALONE.</summary>
+    public string? DefaultDimensionCode { get; set; }
     
     public ICollection<AddressModel> Addresses { get; set; } = new List<AddressModel>();
 }

@@ -67,6 +67,8 @@ public class FinancialDocumentsController(
         var changed = patch.GetChangedPropertyNames().ToHashSet();
         T? Value<T>(string name) => changed.Contains(name) && patch.TryGetPropertyValue(name, out var v) ? (T?)v : default;
         string? Text(string name) => Value<string>(name);
+        // Dimensão enviada como null no PATCH limpa o campo (vazio); ausente = não mexer (null).
+        string? Dim(string name) => changed.Contains(name) ? Text(name) ?? string.Empty : null;
 
         try
         {
@@ -88,6 +90,12 @@ public class FinancialDocumentsController(
                 PaymentTermsText = Text(nameof(FinancialDocument.PaymentTermsText)),
                 HasComments = changed.Contains(nameof(FinancialDocument.Comments)),
                 Comments = Text(nameof(FinancialDocument.Comments)),
+                Dim1Code = Dim(nameof(FinancialDocument.Dim1Code)),
+                Dim2Code = Dim(nameof(FinancialDocument.Dim2Code)),
+                Dim3Code = Dim(nameof(FinancialDocument.Dim3Code)),
+                Dim4Code = Dim(nameof(FinancialDocument.Dim4Code)),
+                Dim5Code = Dim(nameof(FinancialDocument.Dim5Code)),
+                LedgerAccountCode = Dim(nameof(FinancialDocument.LedgerAccountCode)),
             };
 
             var updated = await updateService.ExecuteAsync(key, changes, User.Identity?.Name ?? "Unknown");

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -25,6 +26,14 @@ public sealed class ManualFinancialDocumentChanges
     public string? PaymentTermsText { get; init; }
     public bool HasComments { get; init; }
     public string? Comments { get; init; }
+
+    // Dimensões: nulo = não mexer; vazio = limpar.
+    public string? Dim1Code { get; init; }
+    public string? Dim2Code { get; init; }
+    public string? Dim3Code { get; init; }
+    public string? Dim4Code { get; init; }
+    public string? Dim5Code { get; init; }
+    public string? LedgerAccountCode { get; init; }
 }
 
 /// <summary>
@@ -35,7 +44,8 @@ public sealed class ManualFinancialDocumentChanges
 public class FinancialDocumentsManualUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
-    FinancialDocumentChangeLogService changeLog)
+    FinancialDocumentChangeLogService changeLog,
+    DimensionCodeValidator? dimensionValidator = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -130,11 +140,37 @@ public class FinancialDocumentsManualUpdateService(
             document.Comments = Text(document, FinancialDocumentChangeLogFields.Comments,
                 document.Comments, changes.Comments, userName);
 
+        await ApplyDimensionsAsync(document, changes);
+
         document.UpdatedAt = DateTime.Now;
         document.UpdatedBy = userName;
 
         await db.Context.SaveChangesAsync();
         return document;
+    }
+
+    // Só os campos enviados mudam; o validador compara com o gravado, então centro inativado depois de usado
+    // continua aceito no título antigo e só um código novo é recusado.
+    private async Task ApplyDimensionsAsync(FinancialDocument document, ManualFinancialDocumentChanges changes)
+    {
+        var previous = DimensionSnapshot.FromOriginal(db.Context.Entry(document).OriginalValues);
+        var target = DimensionSnapshot.From(document);
+
+        for (var n = 1; n <= 5; n++)
+        {
+            var value = n switch
+            {
+                1 => changes.Dim1Code, 2 => changes.Dim2Code, 3 => changes.Dim3Code, 4 => changes.Dim4Code, _ => changes.Dim5Code,
+            };
+            if (value is not null) target.SetDim(n, value);
+        }
+
+        if (changes.LedgerAccountCode is not null) target.LedgerAccountCode = changes.LedgerAccountCode;
+
+        if (dimensionValidator is not null)
+            await dimensionValidator.NormalizeAndValidateAsync(target, previous);
+
+        DimensionSnapshot.Copy(target, document);
     }
 
     private string? Text(FinancialDocument document, string field, string? current, string? value, string userName)

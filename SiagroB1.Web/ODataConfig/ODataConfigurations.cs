@@ -1771,6 +1771,12 @@ public static class ODataConfigurations
         accountEntryCreate.Parameter<string>("Description");
         accountEntryCreate.Parameter<string>("DocumentReference").Optional();
         accountEntryCreate.Parameter<string>("Notes").Optional();
+        accountEntryCreate.Parameter<string>("Dim1Code").Optional();
+        accountEntryCreate.Parameter<string>("Dim2Code").Optional();
+        accountEntryCreate.Parameter<string>("Dim3Code").Optional();
+        accountEntryCreate.Parameter<string>("Dim4Code").Optional();
+        accountEntryCreate.Parameter<string>("Dim5Code").Optional();
+        accountEntryCreate.Parameter<string>("LedgerAccountCode").Optional();
         accountEntryCreate.Returns<Guid>();
 
         var accountTransferCreate = modelBuilder.Action("FinancialAccountTransfersCreate");
@@ -1844,6 +1850,12 @@ public static class ODataConfigurations
         financialAdvance.Parameter<string>("FinancialAccountCode");
         financialAdvance.Parameter<string>("PaymentDate");
         financialAdvance.Parameter<string>("Comments").Optional();
+        financialAdvance.Parameter<string>("Dim1Code").Optional();
+        financialAdvance.Parameter<string>("Dim2Code").Optional();
+        financialAdvance.Parameter<string>("Dim3Code").Optional();
+        financialAdvance.Parameter<string>("Dim4Code").Optional();
+        financialAdvance.Parameter<string>("Dim5Code").Optional();
+        financialAdvance.Parameter<string>("LedgerAccountCode").Optional();
         financialAdvance.Returns<IActionResult>();
 
         // As três saídas de um adiantamento pago cujo contrato alguém quer cancelar: estornar a

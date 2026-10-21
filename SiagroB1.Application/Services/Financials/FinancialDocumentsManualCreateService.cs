@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -14,7 +15,9 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialDocumentsManualCreateService(
     IUnitOfWork db,
     DocNumberSequenceService docNumberSequence,
-    IBusinessPartnerService businessPartnerService)
+    IBusinessPartnerService businessPartnerService,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionResolver = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(FinancialDocument input, string userName)
     {
@@ -27,6 +30,11 @@ public class FinancialDocumentsManualCreateService(
         var cardCode = input.CardCode.Trim();
         var partner = await businessPartnerService.GetByIdAsync(cardCode)
                       ?? throw new ApplicationException($"Parceiro de negócio {cardCode} não encontrado.");
+
+        // Padrão do parceiro (dimensão de papel Parceiro) entra no que veio vazio; depois valida e normaliza.
+        // Antes do número: erro de dimensão não pode consumir numeração.
+        var dimensions = DimensionSnapshot.From(input);
+        await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
 
         // Número buscado ANTES da gravação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
@@ -53,6 +61,12 @@ public class FinancialDocumentsManualCreateService(
             TaxDocumentNumber = FinancialDocumentsManualRules.Clean(input.TaxDocumentNumber),
             PaymentTermsText = FinancialDocumentsManualRules.Clean(input.PaymentTermsText),
             Comments = FinancialDocumentsManualRules.Clean(input.Comments),
+            Dim1Code = dimensions.Dim1Code,
+            Dim2Code = dimensions.Dim2Code,
+            Dim3Code = dimensions.Dim3Code,
+            Dim4Code = dimensions.Dim4Code,
+            Dim5Code = dimensions.Dim5Code,
+            LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedAt = now,
             CreatedBy = userName,
             UpdatedAt = now,

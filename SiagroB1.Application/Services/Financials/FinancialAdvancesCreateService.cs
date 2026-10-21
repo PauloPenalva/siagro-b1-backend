@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -30,7 +31,9 @@ public class FinancialAdvancesCreateService(
     IUnitOfWork db,
     DocNumberSequenceService docNumberSequence,
     IBusinessPartnerService businessPartnerService,
-    FinancialDocumentsSettleService settleService)
+    FinancialDocumentsSettleService settleService,
+    DimensionCodeValidator? dimensionValidator = null,
+    DimensionDefaultsResolver? dimensionResolver = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(
         string contractType,
@@ -41,7 +44,8 @@ public class FinancialAdvancesCreateService(
         DateTime paymentDate,
         string? comments,
         string userName,
-        CommitMode commitMode = CommitMode.Auto)
+        CommitMode commitMode = CommitMode.Auto,
+        IDimensionFields? dimensions = null)
     {
         if (amount <= 0m)
             throw new ApplicationException("O valor do adiantamento deve ser maior que zero.");
@@ -99,7 +103,7 @@ public class FinancialAdvancesCreateService(
         return await CreatePaidAsync(
             isPurchase ? FinancialDirection.Payable : FinancialDirection.Receivable, cardCode, partner?.CardName,
             branchCode, currency, amount, dueDate, contractCode, isPurchase ? contractKey : null,
-            isSales ? contractKey : null, paymentTerms, comments, accountCode, paymentDate, userName, commitMode);
+            isSales ? contractKey : null, paymentTerms, comments, accountCode, paymentDate, userName, commitMode, dimensions);
     }
 
     /// <summary>
@@ -117,7 +121,8 @@ public class FinancialAdvancesCreateService(
         DateTime paymentDate,
         string? comments,
         string userName,
-        CommitMode commitMode = CommitMode.Auto)
+        CommitMode commitMode = CommitMode.Auto,
+        IDimensionFields? dimensions = null)
     {
         if (amount <= 0m)
             throw new ApplicationException("O valor do adiantamento deve ser maior que zero.");
@@ -136,7 +141,7 @@ public class FinancialAdvancesCreateService(
 
         return await CreatePaidAsync(
             direction, partnerCode, partner.CardName, branchCode.Trim(), account.Currency, amount,
-            dueDate, null, null, null, string.Empty, comments, accountCode, paymentDate, userName, commitMode);
+            dueDate, null, null, null, string.Empty, comments, accountCode, paymentDate, userName, commitMode, dimensions);
     }
 
     // O adiantamento nasce PAGO: sem a baixa ele não tem crédito para compensar. A conta é validada antes de consumir
@@ -164,8 +169,12 @@ public class FinancialAdvancesCreateService(
         FinancialDirection direction, string cardCode, string? cardName, string branchCode, CurrencyType currency,
         decimal amount, DateTime dueDate, string? contractCode, Guid? purchaseContractKey, Guid? salesContractKey,
         string paymentTerms, string? comments, string accountCode, DateTime paymentDate, string userName,
-        CommitMode commitMode)
+        CommitMode commitMode, IDimensionFields? input)
     {
+        // Padrão do parceiro + validação antes de consumir número e de abrir a transação.
+        var dimensions = input is null ? new DimensionSnapshot() : DimensionSnapshot.From(input);
+        await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
+
         // Número buscado ANTES da transação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
             TransactionCode.FinancialDocument, null, null, 50,
@@ -194,6 +203,12 @@ public class FinancialAdvancesCreateService(
             SalesContractKey = salesContractKey,
             PaymentTermsText = paymentTerms,
             Comments = comments,
+            Dim1Code = dimensions.Dim1Code,
+            Dim2Code = dimensions.Dim2Code,
+            Dim3Code = dimensions.Dim3Code,
+            Dim4Code = dimensions.Dim4Code,
+            Dim5Code = dimensions.Dim5Code,
+            LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedAt = DateTime.Now,
             CreatedBy = userName,
             UpdatedAt = DateTime.Now,

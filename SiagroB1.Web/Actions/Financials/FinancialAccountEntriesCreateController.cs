@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Application.Services.Dimensions;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
@@ -30,7 +31,13 @@ public class FinancialAccountEntriesCreateController(FinancialAccountEntriesCrea
                 Amount = Convert.ToDecimal(amountObj),
                 Description = Text(parameters, "Description") ?? string.Empty,
                 DocumentReference = Text(parameters, "DocumentReference"),
-                Notes = Text(parameters, "Notes")
+                Notes = Text(parameters, "Notes"),
+                Dim1Code = Text(parameters, "Dim1Code"),
+                Dim2Code = Text(parameters, "Dim2Code"),
+                Dim3Code = Text(parameters, "Dim3Code"),
+                Dim4Code = Text(parameters, "Dim4Code"),
+                Dim5Code = Text(parameters, "Dim5Code"),
+                LedgerAccountCode = Text(parameters, "LedgerAccountCode")
             }, User.Identity?.Name ?? "Unknown");
 
             return Ok(created.Key);

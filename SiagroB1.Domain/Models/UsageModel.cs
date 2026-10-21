@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Models;
@@ -9,7 +9,7 @@ namespace SiagroB1.Domain.Models;
 /// traz os seis CFOPs mas não conhece os efeitos de negócio — e ali os campos de tributação
 /// voltam nulos, porque a tributação é do SAP.
 /// </summary>
-public class UsageModel
+public class UsageModel : Interfaces.IDimensionFields
 {
     [Key]
     public int Code { get; set; }
@@ -119,4 +119,12 @@ public class UsageModel
     public bool HasConfiguredEffects { get; set; }
 
     public bool Inactive { get; set; }
+
+    /// <summary>Padrões de dimensão e conta contábil da natureza. Só STANDALONE; SAPB1 devolve nulo.</summary>
+    public string? Dim1Code { get; set; }
+    public string? Dim2Code { get; set; }
+    public string? Dim3Code { get; set; }
+    public string? Dim4Code { get; set; }
+    public string? Dim5Code { get; set; }
+    public string? LedgerAccountCode { get; set; }
 }
