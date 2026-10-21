@@ -163,7 +163,7 @@ public class ContractStatementReportService(IUnitOfWork db, IFastReportService r
             contract.Code, contract.Type, contract.Status, contract.CardCode, contract.CardName,
             contract.ItemCode, contract.ItemName, await HarvestNameAsync(contract.HarvestSeasonCode),
             contract.UnitOfMeasureCode, contract.DeliveryStartDate, contract.DeliveryEndDate,
-            contract.TotalVolume, contract.StandardPrice, contract.StandardCurrency, contract.FreightTerms.ToString(),
+            contract.TotalVolume, contract.StandardPrice, contract.StandardCurrency, FreightText(contract.FreightTerms),
             contract.StandardCashFlowDate, contract.PaymentTerms);
 
         var contractValue = ContractValue(contract.Type, contract.TotalVolume, contract.StandardPrice, fixations);
@@ -272,7 +272,7 @@ public class ContractStatementReportService(IUnitOfWork db, IFastReportService r
             contract.Code, contract.Type, contract.Status, contract.CardCode, contract.CardName,
             contract.ItemCode, contract.ItemName, await HarvestNameAsync(contract.HarvestSeasonCode),
             contract.UnitOfMeasureCode, contract.DeliveryStartDate, contract.DeliveryEndDate,
-            contract.TotalVolume, contract.Price, contract.StandardCurrency, contract.FreightTerms.ToString(),
+            contract.TotalVolume, contract.Price, contract.StandardCurrency, FreightText(contract.FreightTerms),
             contract.StandardCashFlowDate, contract.PaymentTerms);
 
         var contractValue = ContractValue(contract.Type, contract.TotalVolume, contract.Price, fixations);
@@ -420,7 +420,7 @@ public class ContractStatementReportService(IUnitOfWork db, IFastReportService r
         var priceText = type == ContractType.Fixed
             ? $"   Preço: {currencyText} {price.ToString("N4", PtBr)}   Valor: {currencyText} {Round2(volume * price).ToString("N2", PtBr)}"
             : "";
-        sb.Append($"Quantidade: {volume.ToString("N3", PtBr)} {uom}{priceText}   Frete: {freight.ToUpperInvariant()}");
+        sb.Append($"Quantidade: {volume.ToString("N3", PtBr)} {uom}{priceText}   Frete: {freight}");
         if (dueDate is not null)
             sb.Append($"   Vencimento: {Day(dueDate)}");
         if (!string.IsNullOrWhiteSpace(paymentTerms))
@@ -620,6 +620,15 @@ public class ContractStatementReportService(IUnitOfWork db, IFastReportService r
         FinancialSettlementOrigin.Dation => "Dação",
         FinancialSettlementOrigin.AdvanceTransfer => "Transferência adiant.",
         _ => origin.ToString(),
+    };
+
+    public static string FreightText(FreightTerms terms) => terms switch
+    {
+        FreightTerms.Cif => "CIF",
+        FreightTerms.Fob => "FOB",
+        FreightTerms.Ter => "Terceiros",
+        FreightTerms.None => "Sem frete",
+        _ => terms.ToString(),
     };
 
     private static string ContractStatusText(ContractStatus? status) => status switch

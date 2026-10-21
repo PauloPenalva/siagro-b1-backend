@@ -225,6 +225,23 @@ public class ContractStatementReportServiceTests
         }
     }
 
+    // O GroupHeader ordena por Section por padrão, e essa ordenação não é estável: embaralhava as
+    // datas dentro da seção. O serviço já entrega as linhas na ordem.
+    [Fact]
+    public void Template_keeps_the_service_row_order()
+    {
+        using var report = new global::FastReport.Report();
+        report.Load(Path.Combine(AppContext.BaseDirectory, "ReportTemplates", "ContractStatement.frx"));
+        var group = (global::FastReport.GroupHeaderBand)report.FindObject("GroupHeader1");
+        Assert.Equal(global::FastReport.SortOrder.None, group.SortOrder);
+    }
+
+    [Theory]
+    [InlineData(FreightTerms.Cif, "CIF")]
+    [InlineData(FreightTerms.None, "Sem frete")]
+    public void Freight_is_translated(FreightTerms terms, string expected) =>
+        Assert.Equal(expected, ContractStatementReportService.FreightText(terms));
+
     [Fact]
     public async Task Unknown_contract_is_not_found()
     {

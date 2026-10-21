@@ -53,7 +53,7 @@
       <TextObject Name="txtTitle" Left="0" Top="44" Width="1084" Height="26" Text="[pTitle]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
       <TextObject Name="txtHeader" Left="0" Top="74" Width="1084" Height="20" CanGrow="true" Text="[pHeader]" Font="Consolas, 8pt"/>
     </PageHeaderBand>
-    <GroupHeaderBand Name="GroupHeader1" Width="1084" Height="44" Condition="[Rows.Section]" KeepWithData="true" RepeatOnEveryPage="true">
+    <GroupHeaderBand Name="GroupHeader1" Width="1084" Height="44" Condition="[Rows.Section]" SortOrder="None" KeepWithData="true" RepeatOnEveryPage="true">
       <TextObject Name="txtSectionTitle" Left="0" Top="6" Width="1084" Height="18" Text="[Rows.SectionTitle]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 9pt, style=Bold" Fill.Color="Gainsboro"/>
       <LineObject Name="lnHeader" Left="0" Top="43" Width="1084" Height="0"/>
       <TextObject Name="hdrDate" Left="0" Top="26" Width="60" Height="17" Text="[Rows.HDate]" VertAlign="Bottom" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
