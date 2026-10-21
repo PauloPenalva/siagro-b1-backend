@@ -21,7 +21,9 @@ public sealed record FiscalStockItemLedger(
     string ItemName,
     string? UnitOfMeasureCode,
     FiscalInventoryOpeningBalance? Opening,
-    FifoResult Result);
+    FifoResult Result,
+    decimal SeedQuantity = 0m,
+    decimal SeedValue = 0m);
 
 /// <summary>
 /// Carrega as linhas escrituráveis que movimentam estoque fiscal e o saldo inicial lançado, e as
@@ -29,23 +31,55 @@ public sealed record FiscalStockItemLedger(
 /// </summary>
 public class FiscalStockLedgerLoader(IUnitOfWork db)
 {
-    /// <param name="fromDate">Reservado: sem efeito até o fechamento por período (Task 4).</param>
+    /// <param name="fromDate">
+    /// Início da consulta: o último mês FECHADO da filial que termina antes dele (ou de
+    /// <paramref name="toDate"/>) vira a partida — as camadas do instantâneo semeiam o PEPS e só
+    /// entram movimentos posteriores ao fim do mês; saldo inicial até essa data é ignorado.
+    /// </param>
     public async Task<List<FiscalStockItemLedger>> LoadAsync(string branchCode, string? itemCode, DateTime toDate, DateTime? fromDate = null)
     {
         var toExclusive = toDate.AddDays(1);
         var item = string.IsNullOrWhiteSpace(itemCode) ? null : itemCode;
 
+        var limit = (fromDate ?? toDate).Date;
+        var basePeriod = (await db.Context.FiscalStockPeriods
+                .AsNoTracking()
+                .Where(p => p.BranchCode == branchCode && p.Status == FiscalStockPeriodStatus.Closed)
+                .ToListAsync())
+            .Select(p => (Period: p, End: new DateTime(p.Year, p.Month, 1).AddMonths(1).AddDays(-1)))
+            .Where(p => p.End < limit)
+            .OrderByDescending(p => p.End)
+            .FirstOrDefault();
+        DateTime? baseEnd = basePeriod.Period == null ? null : basePeriod.End;
+        var baseExclusive = baseEnd?.AddDays(1) ?? DateTime.MinValue;
+
+        var seeds = basePeriod.Period == null
+            ? new Dictionary<string, List<FiscalStockPeriodLayer>>()
+            : (await db.Context.FiscalStockPeriodLayers
+                    .AsNoTracking()
+                    .Where(l => l.PeriodKey == basePeriod.Period.Key)
+                    .Where(l => item == null || l.ItemCode == item)
+                    .ToListAsync())
+                .GroupBy(l => l.ItemCode)
+                .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Sequence).ToList());
+
         var openings = await db.Context.FiscalInventoryOpeningBalances
             .AsNoTracking()
-            .Where(o => o.BranchCode == branchCode && o.BalanceDate < toExclusive)
+            .Where(o => o.BranchCode == branchCode && o.BalanceDate < toExclusive && o.BalanceDate >= baseExclusive)
             .Where(o => item == null || o.ItemCode == item)
             .ToDictionaryAsync(o => o.ItemCode);
+
+        var adjustments = await db.Context.FiscalStockAdjustments
+            .AsNoTracking()
+            .Where(a => a.BranchCode == branchCode && a.AdjustmentDate < toExclusive && a.AdjustmentDate >= baseExclusive)
+            .Where(a => item == null || a.ItemCode == item)
+            .ToListAsync();
 
         var sales = await BookableInvoiceLines.Sales(db.Context.SalesInvoicesItems
                 .AsNoTracking()
                 .Include(i => i.SalesInvoice))
             .Where(i => i.SalesInvoice!.BranchCode == branchCode)
-            .Where(i => i.SalesInvoice!.InvoiceDate < toExclusive)
+            .Where(i => i.SalesInvoice!.InvoiceDate < toExclusive && i.SalesInvoice.InvoiceDate >= baseExclusive)
             .Where(i => i.SalesInvoice!.InvoiceType != SalesInvoiceType.IcmsComplement)
             .Where(i => i.MovesFiscalInventory && i.ItemCode != null && i.ItemCode != "")
             .Where(i => item == null || i.ItemCode == item)
@@ -55,7 +89,8 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
                 .AsNoTracking()
                 .Include(i => i.PurchaseInvoice))
             .Where(i => i.PurchaseInvoice!.BranchCode == branchCode)
-            .Where(i => (i.PurchaseInvoice!.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive)
+            .Where(i => (i.PurchaseInvoice!.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive
+                        && (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) >= baseExclusive)
             .Where(i => i.PurchaseInvoice!.InvoiceType != PurchaseInvoiceType.IcmsComplement)
             .Where(i => i.MovesFiscalInventory && i.ItemCode != null && i.ItemCode != "")
             .Where(i => item == null || i.ItemCode == item)
@@ -63,6 +98,7 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
 
         var movements = sales.Select(s => (Code: s.ItemCode, Movement: SaleMovement(s)))
             .Concat(purchases.Select(p => (Code: p.ItemCode!, Movement: PurchaseMovement(p))))
+            .Concat(adjustments.Select(a => (Code: a.ItemCode, Movement: AdjustmentMovement(a))))
             // nº interno em ordem numérica: "9" antes de "10" (comprimento, depois ordinal)
             .OrderBy(m => ((FiscalStockLineSource)m.Movement.Source!).InternalNumber.Length)
             .ThenBy(m => ((FiscalStockLineSource)m.Movement.Source!).InternalNumber, StringComparer.Ordinal)
@@ -70,12 +106,14 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
             .Select((m, index) => (m.Code, Movement: m.Movement with { DaySequence = index }))
             .ToList();
 
-        var codes = movements.Select(m => m.Code).Concat(openings.Keys).Distinct().Order(StringComparer.Ordinal);
+        var codes = movements.Select(m => m.Code).Concat(openings.Keys).Concat(seeds.Keys).Distinct().Order(StringComparer.Ordinal);
 
         var ledgers = new List<FiscalStockItemLedger>();
         foreach (var code in codes)
         {
             openings.TryGetValue(code, out var opening);
+            seeds.TryGetValue(code, out var seedLayers);
+            seedLayers ??= [];
             var own = movements
                 .Where(m => m.Code == code)
                 .Select(m => m.Movement)
@@ -86,11 +124,16 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
 
             var chronological = own.OrderBy(m => m.Date).ThenBy(m => m.Kind == InventoryMovementKind.Opening ? 0 : 1)
                 .ThenBy(m => m.DaySequence).ToList();
-            var unit = opening?.UnitOfMeasureCode ?? chronological.Select(m => m.UnitOfMeasure).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+            var unit = opening?.UnitOfMeasureCode
+                       ?? seedLayers.Select(l => l.UnitOfMeasureCode).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u))
+                       ?? chronological.Select(m => m.UnitOfMeasure).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
             var name = chronological.Select(m => ((FiscalStockLineSource)m.Source!).ItemName).LastOrDefault(n => !string.IsNullOrWhiteSpace(n))
-                       ?? opening?.ItemName ?? "";
+                       ?? opening?.ItemName
+                       ?? seedLayers.Select(l => l.ItemName).LastOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? "";
 
-            ledgers.Add(new FiscalStockItemLedger(code, name, unit, opening, FifoLedger.Run(own)));
+            var seed = seedLayers.Select(l => new FifoLayer(l.SourceLineKey, l.LayerDate.Date, l.Quantity, l.Value)).ToList();
+            ledgers.Add(new FiscalStockItemLedger(code, name, unit, opening, FifoLedger.Run(chronological, seed),
+                seed.Sum(l => l.Quantity), seed.Sum(l => l.Value)));
         }
 
         return ledgers;
@@ -99,6 +142,13 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
     private static InventoryMovement OpeningMovement(FiscalInventoryOpeningBalance o) => new(
         o.Key, o.BalanceDate.Date, -1, InventoryMovementKind.Opening, o.Quantity, o.TotalValue, null,
         o.UnitOfMeasureCode, new FiscalStockLineSource("", "", "", "", "", 0m, o.ItemName));
+
+    /// <summary>Ajuste manual: nº do ajuste como nº interno e o motivo no lugar da natureza.</summary>
+    private static InventoryMovement AdjustmentMovement(FiscalStockAdjustment a) => new(
+        a.Key, a.AdjustmentDate.Date, 0,
+        a.Direction == FiscalStockAdjustmentDirection.Out ? InventoryMovementKind.AdjustmentOut : InventoryMovementKind.AdjustmentIn,
+        a.Quantity, a.TotalValue, null, a.UnitOfMeasureCode,
+        new FiscalStockLineSource(a.DocNumber, a.DocNumber, "", "", a.Reason, a.TotalValue, a.ItemName));
 
     /// <summary>Linha de saída: devolução de venda (CFOP de entrada + origem) entra pelo custo da saída de origem.</summary>
     private static InventoryMovement SaleMovement(SalesInvoiceItem i)

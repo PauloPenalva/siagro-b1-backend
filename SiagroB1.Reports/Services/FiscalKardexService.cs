@@ -11,6 +11,7 @@ namespace SiagroB1.Reports.Services;
 /// </summary>
 public class FiscalKardexService(FiscalStockLedgerLoader loader)
 {
+    private static readonly System.Globalization.CultureInfo PtBr = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
     private const string WarningInsufficient = "Saldo insuficiente";
     private const string WarningDifferentUnit = "Unidade diferente";
     private const string WarningUnlinkedEntry = "Entrada sem vínculo valorizada pelo preço da nota";
@@ -20,7 +21,7 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
     public async Task<FiscalKardexData> BuildAsync(FiscalKardexRequest request)
     {
         var from = request.FromDate.Date;
-        var ledgers = await loader.LoadAsync(request.BranchCode, request.ItemCode, request.ToDate.Date);
+        var ledgers = await loader.LoadAsync(request.BranchCode, request.ItemCode, request.ToDate.Date, from);
 
         var items = new List<FiscalKardexItemDto>();
         foreach (var ledger in ledgers)
@@ -30,8 +31,10 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
             var period = lines.Where(l => l.Movement.Date >= from).ToList();
             var last = lines.LastOrDefault();
 
-            var openingQuantity = previous?.BalanceQuantity ?? 0m;
-            var openingValue = previous?.BalanceValue ?? 0m;
+            // sem movimento antes do início: parte do instantâneo do mês fechado (zero se não houver)
+            var openingQuantity = previous?.BalanceQuantity ?? ledger.SeedQuantity;
+            var openingValue = previous?.BalanceValue ?? ledger.SeedValue;
+            var entries = lines.GroupBy(l => l.Movement.LineKey).ToDictionary(g => g.Key, g => g.First().Movement);
             if (period.Count == 0 && openingQuantity == 0m && openingValue == 0m)
                 continue;
 
@@ -42,9 +45,9 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
                 UnitOfMeasureCode = ledger.UnitOfMeasureCode,
                 OpeningQuantity = openingQuantity,
                 OpeningValue = openingValue,
-                Lines = period.Select(l => Line(l, ledger.UnitOfMeasureCode)).ToList(),
-                ClosingQuantity = last?.BalanceQuantity ?? 0m,
-                ClosingValue = last?.BalanceValue ?? 0m,
+                Lines = period.Select(l => Line(l, ledger.UnitOfMeasureCode, entries)).ToList(),
+                ClosingQuantity = last?.BalanceQuantity ?? openingQuantity,
+                ClosingValue = last?.BalanceValue ?? openingValue,
             });
         }
 
@@ -70,7 +73,7 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
             })
             .ToList();
 
-    private static FiscalKardexLineDto Line(ValuedMovement v, string? itemUnit)
+    private static FiscalKardexLineDto Line(ValuedMovement v, string? itemUnit, IReadOnlyDictionary<Guid, InventoryMovement> entries)
     {
         var m = v.Movement;
         var source = (FiscalStockLineSource)m.Source!;
@@ -79,6 +82,9 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
         if (v.PendingValue) warnings.Add(WarningPendingComplement);
         if (v.CostNotFound) warnings.Add(WarningCostNotFound);
         if (source.UnlinkedEntry) warnings.Add(WarningUnlinkedEntry);
+        foreach (var key in v.CoveredByLineKeys)
+            if (entries.TryGetValue(key, out var entry))
+                warnings.Add($"Custo pela entrada {((FiscalStockLineSource)entry.Source!).InternalNumber} de {entry.Date.ToString("dd/MM/yyyy", PtBr)}");
         if (!string.IsNullOrWhiteSpace(m.UnitOfMeasure) && !string.IsNullOrWhiteSpace(itemUnit)
             && !string.Equals(m.UnitOfMeasure.Trim(), itemUnit.Trim(), StringComparison.OrdinalIgnoreCase))
             warnings.Add(WarningDifferentUnit);
@@ -116,6 +122,8 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
         InventoryMovementKind.PurchaseReturn => "Devolução de compra",
         InventoryMovementKind.SalesReturn => "Devolução de venda",
         InventoryMovementKind.ValueComplement => "Complemento de valor",
+        InventoryMovementKind.AdjustmentIn => "Ajuste manual — entrada",
+        InventoryMovementKind.AdjustmentOut => "Ajuste manual — saída",
         _ => "",
     };
 }
