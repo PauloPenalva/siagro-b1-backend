@@ -88,8 +88,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWarehouseService, Application.Services.WarehouseService>();
         services.AddScoped<IBusinessPartnerAddressService, Application.Services.BusinessPartnerAddressService>();
         services.AddScoped<ICostCenterService, Application.Services.CostCenterService>();
-        services.AddScoped<IAccountingDimensionService, Application.Services.Dimensions.AccountingDimensionService>();
-        services.AddScoped<Application.Services.Dimensions.DimensionCodeQueryService>();
         services.AddScoped<ILedgerAccountService, Application.Services.LedgerAccountService>();
         services.AddScoped<IUsage, Application.Services.UsageService>();
 
@@ -114,6 +112,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemComplementService, ItemComplementService>();
         services.AddScoped<IWarehouseComplementService, WarehouseComplementService>();
         services.AddScoped<IBranchService, BranchService>();
+        // Dimensões gerenciais: as tabelas locais existem nos dois modos (no SAPB1 ficam sem uso);
+        // o que depende delas é registrado aqui para resolver em qualquer modo.
+        services.AddScoped<IAccountingDimensionService, Application.Services.Dimensions.AccountingDimensionService>();
+        services.AddScoped<Application.Services.Dimensions.DimensionCodeQueryService>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
