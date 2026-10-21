@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using SiagroB1.Application.Services.Nfe;
@@ -27,8 +27,8 @@ public class PurchaseInvoicesUpdateService(
     IBusinessPartnerService businessPartnerService,
     IItemService itemService,
     PurchaseInvoicesTaxApplyService taxApply,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionDefaults = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoice entity, string userName)
     {
@@ -122,7 +122,7 @@ public class PurchaseInvoicesUpdateService(
         // Dimensões do cabeçalho: copiadas do corpo, completadas pelo padrão do fornecedor e validadas só no que mudou.
         // As linhas existentes não são reescritas (ver SyncItemsAsync).
         AccountingAssignmentSnapshot.Copy(entity, existing);
-        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, null,
+        await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, null,
             existing.CardCode, null, previousDims);
 
         existing.UpdatedAt = DateTime.Now;
@@ -299,7 +299,7 @@ public class PurchaseInvoicesUpdateService(
 
                 // Dimensões gerenciais da linha nova: o corpo, completado pelo cabeçalho, fornecedor e natureza.
                 AccountingAssignmentSnapshot.Copy(line, newLine);
-                await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
+                await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
                     existing.CardCode, newLine.UsageCode, previous: null);
 
                 db.Context.PurchaseInvoicesItems.Add(newLine);
@@ -319,7 +319,7 @@ public class PurchaseInvoicesUpdateService(
             // Linha existente: valida só o que mudou e NÃO aplica padrões — mudar o cabeçalho não reescreve as linhas.
             var previousLineDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(current).OriginalValues[n]);
             AccountingAssignmentSnapshot.Copy(line, current);
-            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, current, existing,
+            await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, current, existing,
                 existing.CardCode, current.UsageCode, previousLineDims, applyDefaults: false);
 
             current.ItemCode = line.ItemCode;

@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +19,8 @@ public class SalesInvoicesUpdateService(
     SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesUpdateService> logger,
     FiscalStockPeriodGuard? periodGuard = null,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionDefaults = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<SalesInvoice?> ExecuteAsync(Guid key, SalesInvoice entity, string userName)
@@ -69,7 +69,7 @@ public class SalesInvoicesUpdateService(
 
             // Dimensões do cabeçalho: padrão do parceiro e validação do que mudou. As linhas existentes NÃO são reescritas.
             // Fora de nota pendente só valida (nota confirmada não ganha dimensão por baixo).
-            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, null,
+            await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, null,
                 existingEntity.CardCode, null, previousDims,
                 applyDefaults: existingEntity.InvoiceStatus is null or InvoiceStatus.Pending);
 

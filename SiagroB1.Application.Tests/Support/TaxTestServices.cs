@@ -50,7 +50,7 @@ public static class TaxTestServices
     public static PurchaseInvoicesConfirmService PurchaseConfirm(
         UnitOfWork db, string? erp = "STANDALONE", IBusinessPartnerService? partners = null, FakeNfeSefazClient? sefaz = null,
         FakeDocNumberSequenceService? firmNumbers = null,
-        Services.Dimensions.DimensionRequirementGuard? dimensionGuard = null)
+        Services.Accounting.AccountingAssignmentGuard? dimensionGuard = null)
     {
         sefaz ??= new FakeNfeSefazClient();
         firmNumbers ??= new FakeDocNumberSequenceService();

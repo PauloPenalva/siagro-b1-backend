@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -17,8 +17,8 @@ public class SalesInvoicesItemsCreateService(
     SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesItemsCreateService> logger,
     FiscalStockPeriodGuard? periodGuard = null,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionDefaults = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task ExecuteAsync(SalesInvoiceItem salesInvoiceItem, string userName)
@@ -56,7 +56,7 @@ public class SalesInvoicesItemsCreateService(
 
             // Dimensões gerenciais: o que a linha não trouxe vem do cabeçalho, do parceiro e da natureza; depois valida.
             // Fora do try: a recusa chega à tela como 400. No-op fora do STANDALONE.
-            await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, salesInvoiceItem, invoice,
+            await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, salesInvoiceItem, invoice,
                 invoice.CardCode, salesInvoiceItem.UsageCode, previous: null);
         }
 

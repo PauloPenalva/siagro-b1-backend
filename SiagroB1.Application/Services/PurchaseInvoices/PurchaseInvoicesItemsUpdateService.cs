@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
@@ -22,8 +22,8 @@ public class PurchaseInvoicesItemsUpdateService(
     IUnitOfWork db,
     IItemService itemService,
     PurchaseInvoicesTaxApplyService taxApply,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionDefaults = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoiceItem entity, string userName)
     {
@@ -96,7 +96,7 @@ public class PurchaseInvoicesItemsUpdateService(
 
         // Dimensões gerenciais: copiadas do corpo, completadas pelos padrões e validadas só no que mudou.
         AccountingAssignmentSnapshot.Copy(entity, existing);
-        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, invoice,
+        await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, invoice,
             invoice.CardCode, existing.UsageCode, previousDims);
 
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).

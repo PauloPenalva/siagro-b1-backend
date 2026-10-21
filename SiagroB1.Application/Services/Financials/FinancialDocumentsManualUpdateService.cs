@@ -1,6 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -43,7 +43,7 @@ public class FinancialDocumentsManualUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
     FinancialDocumentChangeLogService changeLog,
-    DimensionCodeValidator? dimensionValidator = null)
+    AccountingAssignmentValidator? dimensionValidator = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 

@@ -5,7 +5,7 @@ using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
 
-namespace SiagroB1.Application.Services.Dimensions;
+namespace SiagroB1.Application.Services.Accounting;
 
 /// <summary>
 /// Regras de distribuição (tabelas locais DISTRIBUTION_RULES/_VERSIONS/_LINES). Cada versão vale a partir
@@ -175,7 +175,6 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
 
         foreach (var line in input.Lines)
         {
-            // TODO Task 3: exigir CC/Item analítico, ativo e vigente (hoje só existência e bloqueio).
             var centerCode = NormalizeOptional(line.CostCenterCode);
             var itemCode = NormalizeOptional(line.AccountingItemCode);
             var label = $"{centerCode ?? "-"}/{itemCode ?? "-"}";
@@ -187,27 +186,18 @@ public class DistributionRuleService(IUnitOfWork db) : IDistributionRuleService
 
             if (lines.Any(x => x.CostCenterCode == centerCode && x.AccountingItemCode == itemCode))
             {
-                throw new DefaultException($"O par {label} aparece mais de uma vez no rateio.");
+                throw new DefaultException("O par centro de custo/item contábil se repete na versão.");
             }
 
-            if (centerCode is not null)
+            // Só analítico e ativo; a vigência é conferida no documento, na data dele.
+            if (centerCode is not null && !await AccountingAssignmentLookup.IsUsableCostCenterAsync(db, centerCode, null))
             {
-                var center = await db.Context.CostCenters.FirstOrDefaultAsync(x => x.Code == centerCode)
-                    ?? throw new DefaultException($"O centro {centerCode} não existe.");
-                if (center.Inactive)
-                {
-                    throw new DefaultException($"O centro {centerCode} está inativo.");
-                }
+                throw new DefaultException($"O centro de custo {centerCode} não existe, é sintético ou está bloqueado.");
             }
 
-            if (itemCode is not null)
+            if (itemCode is not null && !await AccountingAssignmentLookup.IsUsableAccountingItemAsync(db, itemCode, null))
             {
-                var item = await db.Context.AccountingItems.FirstOrDefaultAsync(x => x.Code == itemCode)
-                    ?? throw new DefaultException($"O item contábil {itemCode} não existe.");
-                if (item.Inactive)
-                {
-                    throw new DefaultException($"O item contábil {itemCode} está inativo.");
-                }
+                throw new DefaultException($"O item contábil {itemCode} não existe, é sintético ou está bloqueado.");
             }
 
             if (line.Percentage <= 0)

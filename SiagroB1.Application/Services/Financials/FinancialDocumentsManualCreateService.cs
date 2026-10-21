@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -16,9 +16,9 @@ public class FinancialDocumentsManualCreateService(
     IUnitOfWork db,
     DocNumberSequenceService docNumberSequence,
     IBusinessPartnerService businessPartnerService,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionResolver = null,
-    DimensionRequirementGuard? dimensionGuard = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionResolver = null,
+    AccountingAssignmentGuard? dimensionGuard = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(FinancialDocument input, string userName)
     {
@@ -35,7 +35,7 @@ public class FinancialDocumentsManualCreateService(
         // Padrão do parceiro (dimensão de papel Parceiro) entra no que veio vazio; depois valida e normaliza.
         // Antes do número: erro de dimensão não pode consumir numeração.
         var dimensions = AccountingAssignmentSnapshot.From(input);
-        await DimensionWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
+        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null);
         if (dimensionGuard is not null)
             await dimensionGuard.EnsureAsync([dimensions]);
 

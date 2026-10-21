@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Commons.Resources;
 using SiagroB1.Domain.Dtos;
@@ -21,7 +21,7 @@ public class BusinessPartnerService(
     IStringLocalizer<Resource> resource,
     DocNumberSequenceService docNumbers,
     IConfiguration? configuration = null,
-    DimensionCodeValidator? dimensionValidator = null
+    AccountingAssignmentValidator? dimensionValidator = null
     ) 
     : IBusinessPartnerService
 {

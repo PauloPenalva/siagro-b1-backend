@@ -1,4 +1,4 @@
-﻿using SiagroB1.Application.Services.Dimensions;
+﻿using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +33,7 @@ public class PurchaseInvoicesConfirmService(
     FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
     PurchaseInvoicesTaxApplyService taxApply,
     FiscalStockPeriodGuard? periodGuard = null,
-    DimensionRequirementGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 

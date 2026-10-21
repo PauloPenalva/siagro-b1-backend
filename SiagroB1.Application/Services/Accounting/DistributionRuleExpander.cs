@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
-namespace SiagroB1.Application.Services.Dimensions;
+namespace SiagroB1.Application.Services.Accounting;
 
 /// <summary>
 /// Transforma um rateio pré-configurado em linhas CC/Item/percentual, usando a versão de maior

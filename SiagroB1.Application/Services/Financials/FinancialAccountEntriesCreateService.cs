@@ -1,6 +1,6 @@
 using SiagroB1.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 
@@ -9,8 +9,8 @@ namespace SiagroB1.Application.Services.Financials;
 /// <summary>Lançamento manual na conta financeira (tarifa, depósito, rendimento, saldo inicial...).</summary>
 public class FinancialAccountEntriesCreateService(
     IUnitOfWork db,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionRequirementGuard? dimensionGuard = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentGuard? dimensionGuard = null)
 {
     public async Task<FinancialAccountEntry> ExecuteAsync(FinancialAccountEntry entry, string userName)
     {

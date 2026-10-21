@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Infra;
@@ -18,6 +18,7 @@ public class DimensionServicesRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => TestDb.CreateUnitOfWork());
+        services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(SiagroB1.Application.Tests.Accounting.AccountingTestData.Config("SAPB1"));
         services.AddApplicationServices();
 
         using var provider = services.BuildServiceProvider();
@@ -25,5 +26,8 @@ public class DimensionServicesRegistrationTests
 
         Assert.IsType<DistributionRuleService>(scope.ServiceProvider.GetRequiredService<IDistributionRuleService>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<DistributionRuleExpander>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AccountingAssignmentValidator>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AccountingAssignmentDefaultsResolver>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AccountingAssignmentGuard>());
     }
 }

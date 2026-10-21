@@ -8,11 +8,11 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 
-namespace SiagroB1.Web.Actions.Dimensions;
+namespace SiagroB1.Web.Actions.Accounting;
 
 /// <summary>
 /// Salvar/excluir versão de regra de distribuição. As linhas chegam em listas paralelas
-/// (LineCostCenterCodes/LinePercentages), como nas demais actions de topo do projeto.
+/// (LineCostCenterCodes/LineAccountingItemCodes/LinePercentages; vazio = sem código), como nas demais actions de topo do projeto.
 /// </summary>
 public class DistributionRuleVersionsActionsController(IDistributionRuleService service) : ODataController
 {
@@ -20,21 +20,31 @@ public class DistributionRuleVersionsActionsController(IDistributionRuleService 
     public async Task<IActionResult> SaveVersionAsync([FromBody] ODataActionParameters parameters)
     {
         if (parameters is null || !parameters.ContainsKey("Code") || !parameters.ContainsKey("ValidFrom"))
-            return BadRequest("Parâmetros obrigatórios: Code, ValidFrom, LineCostCenterCodes, LinePercentages.");
+            return BadRequest("Parâmetros obrigatórios: Code, ValidFrom, LineCostCenterCodes, LineAccountingItemCodes, LinePercentages.");
 
         try
         {
             var centers = Strings(parameters, "LineCostCenterCodes");
+            var items = Strings(parameters, "LineAccountingItemCodes");
             var percentages = Decimals(parameters, "LinePercentages");
 
-            if (centers.Count != percentages.Count)
+            // Listas ausentes valem como "nenhum código" em todas as linhas.
+            if (centers.Count == 0) centers = percentages.Select(_ => string.Empty).ToList();
+            if (items.Count == 0) items = percentages.Select(_ => string.Empty).ToList();
+
+            if (centers.Count != percentages.Count || items.Count != percentages.Count)
                 return BadRequest("As linhas da regra chegaram incompletas.");
 
             var version = new DistributionRuleVersion
             {
                 ValidFrom = ToDate(parameters["ValidFrom"]),
                 Lines = centers
-                    .Select((center, i) => new DistributionRuleLine { CostCenterCode = center, Percentage = percentages[i] })
+                    .Select((center, i) => new DistributionRuleLine
+                    {
+                        CostCenterCode = center,
+                        AccountingItemCode = items[i],
+                        Percentage = percentages[i],
+                    })
                     .ToList(),
             };
 

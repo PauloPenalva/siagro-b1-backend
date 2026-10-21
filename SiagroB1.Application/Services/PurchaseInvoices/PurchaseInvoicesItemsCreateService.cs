@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +19,8 @@ public class PurchaseInvoicesItemsCreateService(
     IUnitOfWork db,
     IItemService itemService,
     PurchaseInvoicesTaxApplyService taxApply,
-    DimensionCodeValidator? dimensionValidator = null,
-    DimensionDefaultsResolver? dimensionDefaults = null)
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(PurchaseInvoiceItem item, string userName)
     {
@@ -42,7 +42,7 @@ public class PurchaseInvoicesItemsCreateService(
 
         // Dimensões gerenciais: o que a linha não trouxe vem do cabeçalho, do fornecedor e da natureza; depois valida.
         // No-op fora do STANDALONE.
-        await DimensionWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
+        await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
             invoice.CardCode, item.UsageCode, previous: null);
 
         // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem (informado no "Devolver").

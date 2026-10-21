@@ -64,6 +64,7 @@ public static class ODataConfigurations
         distributionRulesSaveVersion.Parameter<string>("Code");
         distributionRulesSaveVersion.Parameter<DateOnly>("ValidFrom");
         distributionRulesSaveVersion.CollectionParameter<string>("LineCostCenterCodes");
+        distributionRulesSaveVersion.CollectionParameter<string>("LineAccountingItemCodes");
         distributionRulesSaveVersion.CollectionParameter<double>("LinePercentages");
         var distributionRulesDeleteVersion = modelBuilder.Action("DistributionRulesDeleteVersion");
         distributionRulesDeleteVersion.Parameter<Guid>("VersionId");

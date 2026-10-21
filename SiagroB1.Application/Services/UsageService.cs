@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Domain.Entities;
@@ -19,7 +19,7 @@ namespace SiagroB1.Application.Services;
 public class UsageService(
     IUnitOfWork db,
     ILogger<UsageService> logger,
-    DimensionCodeValidator? dimensionValidator = null)
+    AccountingAssignmentValidator? dimensionValidator = null)
     : IUsage
 {
     public IQueryable<UsageModel> QueryAll()

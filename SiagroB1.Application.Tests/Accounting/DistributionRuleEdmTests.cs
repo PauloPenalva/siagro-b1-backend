@@ -2,7 +2,7 @@ using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Web.ODataConfig;
 
-namespace SiagroB1.Application.Tests.Dimensions;
+namespace SiagroB1.Application.Tests.Accounting;
 
 /// <summary>O conjunto DistributionRules e as actions de versão precisam existir no EDM, senão dão 404.</summary>
 public class DistributionRuleEdmTests
@@ -19,7 +19,7 @@ public class DistributionRuleEdmTests
 
         var save = model.EntityContainer.OperationImports().Single(x => x.Name == "DistributionRulesSaveVersion");
         Assert.Equal(
-            ["Code", "ValidFrom", "LineCostCenterCodes", "LinePercentages"],
+            ["Code", "ValidFrom", "LineCostCenterCodes", "LineAccountingItemCodes", "LinePercentages"],
             save.Operation.Parameters.Select(x => x.Name));
         Assert.Contains(model.EntityContainer.OperationImports(), x => x.Name == "DistributionRulesDeleteVersion");
     }

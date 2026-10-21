@@ -2,7 +2,7 @@ using SiagroB1.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
-using SiagroB1.Application.Services.Dimensions;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
