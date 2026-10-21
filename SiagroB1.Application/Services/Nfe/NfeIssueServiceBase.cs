@@ -185,6 +185,9 @@ public abstract class NfeIssueServiceBase<TDocument>(
     /// <summary>As linhas do documento (as mesmas instâncias rastreadas: a numeração grava nelas).</summary>
     protected abstract IReadOnlyList<INfeTaxedLine> Lines(TDocument document);
 
+    /// <summary>Trava do mês fechado do estoque fiscal na data de entrada no estoque, antes de reservar e enviar.</summary>
+    protected abstract Task EnsureStockPeriodOpenAsync(TDocument document);
+
     /// <summary>Última conferência antes de reservar o número (ex.: o saldo da origem na devolução).</summary>
     protected virtual Task EnsureBeforeReservationAsync(TDocument document) => Task.CompletedTask;
 
@@ -258,6 +261,9 @@ public abstract class NfeIssueServiceBase<TDocument>(
         if (uncalculated is not null)
             throw new DefaultException(
                 $"O item {uncalculated.ItemCode} está sem os tributos calculados. Salve o documento para recalcular antes de emitir.");
+
+        // Só a NF-e autorizada conta no estoque fiscal: transmitir num mês fechado mudaria o mês fechado.
+        await EnsureStockPeriodOpenAsync(invoice);
 
         await EnsureBeforeReservationAsync(invoice);
     }
