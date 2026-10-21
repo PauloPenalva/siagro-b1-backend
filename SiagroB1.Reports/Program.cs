@@ -8,6 +8,10 @@ using SiagroB1.Reports.DI;
 using SiagroB1.Reports.PartnerSources;
 using SiagroB1.Security.Middlewares;
 
+// Processo filho que só rasteriza um relatório preparado em PDF (ver PdfExporter): sai antes de montar o host web.
+if (args.Length > 0 && args[0] == SiagroB1.Reports.Services.PdfExporter.ChildFlag)
+    return SiagroB1.Reports.Services.PdfExporter.RunAsChild(args);
+
 var builder = WebApplication.CreateBuilder(args);
 
 if (OperatingSystem.IsWindows())
@@ -81,6 +85,10 @@ FastReport.Utils.RegisteredObjects.AddConnection(typeof(FastReport.Data.MsSqlDat
 SiagroB1.Reports.Services.DanfeReportService.DisableScriptStubs();
 // Linux: sem substitutos o FastReport troca Times New Roman/Arial/Tahoma por DejaVu Sans e o texto estoura.
 SiagroB1.Reports.Services.ReportFonts.RegisterSubstitutes();
+// Linux: o PDF é rasterizado num processo filho porque o libgdiplus não devolve a memória das páginas.
+var isolatePdf = builder.Configuration.GetValue<bool?>("Reports:IsolatePdfExport");
+if (isolatePdf.HasValue)
+    SiagroB1.Reports.Services.PdfExporter.IsolateByDefault = isolatePdf.Value;
 
 builder.Services.AddScoped<IUnitOfWork,  UnitOfWork>();
 builder.Services.AddScoped<SiagroB1.Infra.FiscalStock.FiscalStockLedgerLoader>();
@@ -102,3 +110,4 @@ app.UseRouting()
     );
 
 app.Run();
+return 0;

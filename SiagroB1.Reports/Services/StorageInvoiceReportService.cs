@@ -36,10 +36,6 @@ public class StorageInvoiceReportService(
 
         report.Prepare();
 
-        using var ms = new MemoryStream();
-        using var pdf = new PDFSimpleExport();
-        report.Export(pdf, ms);
-
-        return ms.ToArray();
+        return PdfExporter.Export(report, null);
     }
 }

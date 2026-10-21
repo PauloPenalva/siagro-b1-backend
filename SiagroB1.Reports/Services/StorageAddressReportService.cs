@@ -33,11 +33,7 @@ public class StorageAddressReportService(
 
         report.Prepare();
 
-        using var ms = new MemoryStream();
-        var pdf = new PDFSimpleExport();
-        report.Export(pdf, ms);
-
-        return ms.ToArray();
+        return PdfExporter.Export(report, null);
     }
 
     private IQueryable<StorageAddressReportResponse> BuildQuery(StorageAddressReportRequest filter)
