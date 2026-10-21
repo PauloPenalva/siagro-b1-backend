@@ -62,6 +62,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");
         modelBuilder.EntitySet<FiscalInventoryOpeningBalance>("FiscalInventoryOpeningBalances");
+        modelBuilder.EntitySet<FiscalStockAdjustment>("FiscalStockAdjustments");
         modelBuilder.EntitySet<Municipality>("Municipalities");
         modelBuilder.EntitySet<Country>("Countries");
         modelBuilder.EntitySet<PaymentCondition>("PaymentConditions");

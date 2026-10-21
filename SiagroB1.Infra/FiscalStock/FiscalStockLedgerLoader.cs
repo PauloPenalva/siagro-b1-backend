@@ -36,7 +36,7 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
     /// <paramref name="toDate"/>) vira a partida — as camadas do instantâneo semeiam o PEPS e só
     /// entram movimentos posteriores ao fim do mês; saldo inicial até essa data é ignorado.
     /// </param>
-    public async Task<List<FiscalStockItemLedger>> LoadAsync(string branchCode, string? itemCode, DateTime toDate, DateTime? fromDate = null)
+    public async Task<List<FiscalStockItemLedger>> LoadAsync(string branchCode, string? itemCode, DateTime toDate, DateTime? fromDate = null, Guid? excludeAdjustmentKey = null)
     {
         var toExclusive = toDate.AddDays(1);
         var item = string.IsNullOrWhiteSpace(itemCode) ? null : itemCode;
@@ -73,6 +73,7 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
             .AsNoTracking()
             .Where(a => a.BranchCode == branchCode && a.AdjustmentDate < toExclusive && a.AdjustmentDate >= baseExclusive)
             .Where(a => item == null || a.ItemCode == item)
+            .Where(a => excludeAdjustmentKey == null || a.Key != excludeAdjustmentKey)
             .ToListAsync();
 
         var sales = await BookableInvoiceLines.Sales(db.Context.SalesInvoicesItems
