@@ -106,8 +106,8 @@ porque só se encontram no 6.
   2. o padrão do parceiro, quando a dimensão é Cliente;
   3. o padrão do veículo, no CT-e e no MDF-e;
   4. o padrão da natureza de operação (`USAGES`).
-- Uma chave por empresa diz quais dimensões são **obrigatórias** em quais documentos.
-  Desligada, nada muda para quem já usa o sistema.
+- Duas chaves por empresa ("Exige centro de custo", "Exige conta contábil") tornam esses campos
+  **obrigatórios**. Desligadas, que é o padrão, nada muda para quem já usa o sistema.
 
 #### Detalhes do sub-projeto 1 (todos minha decisão, a partir da revisão do desenho)
 
@@ -134,8 +134,15 @@ porque só se encontram no 6.
   título só entram no DRE quando ele **não** tem documento de resultado por trás (título manual,
   adiantamento sem contrato, juros e descontos na baixa). A baixa e o lançamento na conta herdam
   do título.
-- **Obrigatoriedade:** a tabela `DIMENSION_REQUIREMENTS` fica no banco da empresa (tipo de
-  documento × dimensão → obrigatória) e é editada numa tela de configuração.
+- **Conta contábil nos documentos (decisão do usuário, 21/10):** `LedgerAccountCode` entra nos
+  mesmos documentos e linhas que recebem as dimensões. `SalesInvoiceItem` já tem esse campo. O
+  padrão vem da natureza de operação, e o código é validado contra contas analíticas ativas
+  (`AllowsPosting`). Na contabilização (sub-projeto 6), a conta informada prevalece sobre a
+  determinação automática.
+- **Obrigatoriedade por parâmetro da empresa (decisão do usuário, 21/10):** a tabela de uma linha
+  `COMPANY_SETTINGS`, no banco da empresa, tem duas chaves: **"Exige centro de custo"**, que
+  exige a **dimensão 1**, e **"Exige conta contábil"**. As duas valem para todos os documentos
+  com dimensões e são editadas na tela "Parâmetros da Empresa".
   - Bloqueia **confirmar ou autorizar**, nunca salvar o rascunho.
   - Documentos já confirmados antes de ligar a obrigatoriedade continuam válidos e não são
     revalidados (evita a armadilha do campo readonly+required em linhas antigas).

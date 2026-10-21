@@ -31,6 +31,12 @@ TypeScript, QUnit.
   `DECIMAL(9,4)`, e a soma das linhas de uma versão tem que ser exatamente `100`.
 - Um código é único por empresa entre `COST_CENTERS` e `DISTRIBUTION_RULES`.
 - No máximo uma dimensão por papel (`Vehicle`, `Partner`); `None` pode repetir.
+- `LedgerAccountCode` (VARCHAR(20), anulável, mesmo tamanho do campo existente) acompanha as dimensões em todo documento que as
+  recebe; `SalesInvoiceItem.LedgerAccountCode` já existe e é mantido. Válido = `LedgerAccount`
+  ativa com `AllowsPosting`.
+- Obrigatoriedade por **parâmetro da empresa** (`COMPANY_SETTINGS`, uma linha no banco da
+  empresa): `RequireCostCenter` exige `Dim1Code`, `RequireLedgerAccount` exige `LedgerAccountCode`.
+  As duas vêm desligadas.
 - Obrigatoriedade bloqueia **confirmar** (notas) ou **criar** (título manual, adiantamento,
   lançamento na conta, que nascem prontos), nunca salvar o rascunho de nota. Documentos já
   confirmados não são revalidados.
@@ -47,8 +53,9 @@ TypeScript, QUnit.
 2. **Centro ou regra inativados depois de usados**: o documento antigo continua abrindo e
    confirmando; só um código **novo** digitado é recusado. Teste na Task 5 (o validador só
    recebe os campos alterados) e na Task 7.
-3. **Dimensão desativada com documentos que a usam**: o campo some da tela, o valor gravado é
-   preservado e a guarda de obrigatoriedade ignora dimensão inativa. Teste na Task 8.
+3. **Ligar "Exige centro de custo" com rascunhos antigos sem centro**: o rascunho passa a
+   exigir o centro só ao confirmar, e as notas já confirmadas não são revalidadas. A dimensão 1
+   nunca pode ser desativada, porque é ela que a chave exige. Testes nas Tasks 2 e 8.
 4. **Regra com versão nova vigente amanhã**: um documento de hoje ainda expande pela versão
    atual. Teste na Task 4.
 5. **Trocar o papel "Parceiro" para outra dimensão**: o padrão gravado no parceiro passa a ir
@@ -66,11 +73,11 @@ Backend (`siagro-b1-backend-transport/`):
 | `SiagroB1.Domain/Entities/AccountingDimension.cs` | Dimensão 1–5 (nome, ativa, papel) |
 | `SiagroB1.Domain/Enums/DimensionRole.cs` | `None`, `Vehicle`, `Partner` |
 | `SiagroB1.Domain/Entities/DistributionRule.cs`, `DistributionRuleVersion.cs`, `DistributionRuleLine.cs` | Regra, versões, linhas |
-| `SiagroB1.Domain/Entities/DimensionRequirement.cs` + `Enums/DimensionDocumentType.cs` | Obrigatoriedade |
+| `SiagroB1.Domain/Entities/CompanySettings.cs` | Parâmetros da empresa (exige centro / conta) |
 | `SiagroB1.Domain/Interfaces/IDimensionFields.cs` | `Dim1Code`…`Dim5Code` |
 | `SiagroB1.Domain/Models/DimensionCodeModel.cs` | União centro+regra para o value help |
 | `SiagroB1.Application/Services/Dimensions/*` | Serviços, validador, resolvedor, guarda, expansão |
-| `SiagroB1.Web/Controllers/{AccountingDimensions,DistributionRules,DimensionCodes,DimensionRequirements}Controller.cs` | OData |
+| `SiagroB1.Web/Controllers/{AccountingDimensions,DistributionRules,DimensionCodes,CompanySettings}Controller.cs` | OData |
 | `SiagroB1.Migrations/AppContext/*_AddAccountingDimensions.cs` | Tabelas, colunas, rename, seed |
 | `SiagroB1.Migrations/CommonContext/*_AddAccountingDimensionMenus.cs` | Menus |
 | `SiagroB1.Application.Tests/Dimensions/*` | Testes |
@@ -79,7 +86,8 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `webapp/view/accountingDimensions/Main.view.xml` + controller | Dimensões + matriz de obrigatoriedade |
+| `webapp/view/accountingDimensions/Main.view.xml` + controller | Dimensões |
+| `webapp/view/companySettings/Main.view.xml` + controller | Parâmetros da Empresa |
 | `webapp/view/distributionRules/{Main,Add,Edit}.view.xml` + controllers | Regras e versões |
 | `webapp/dialogs/fragments/DimensionCodesSelectDialog.fragment.xml` | Value help por dimensão |
 | `webapp/view/common/fragments/DimensionFields.fragment.xml` | Bloco reutilizável com os 5 campos |
@@ -90,7 +98,7 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 ### Task 1: Esquema — entidades, colunas e migration
 
 **Files:**
-- Create: `SiagroB1.Domain/Interfaces/IDimensionFields.cs`, `Enums/DimensionRole.cs`, `Enums/DimensionDocumentType.cs`, `Entities/AccountingDimension.cs`, `Entities/DistributionRule.cs`, `Entities/DistributionRuleVersion.cs`, `Entities/DistributionRuleLine.cs`, `Entities/DimensionRequirement.cs`
+- Create: `SiagroB1.Domain/Interfaces/IDimensionFields.cs`, `Enums/DimensionRole.cs`, `Entities/AccountingDimension.cs`, `Entities/DistributionRule.cs`, `Entities/DistributionRuleVersion.cs`, `Entities/DistributionRuleLine.cs`, `Entities/CompanySettings.cs`
 - Modify: `Entities/CostCenter.cs` (+`DimensionNumber`), `SalesInvoiceItem.cs:291` (rename + Dim2–5), `SalesInvoice.cs`, `PurchaseInvoice.cs`, `PurchaseInvoiceItem.cs`, `FinancialDocument.cs`, `FinancialAccountEntry.cs`, `Usage.cs` (todos implementam `IDimensionFields`), `BusinessPartner.cs` (+`DefaultDimensionCode`), `SiagroB1.Infra/Context/AppDbContext.cs`
 - Modify: `SiagroB1.Application.Tests/SalesInvoices/TaxSnapshotTests.cs:61,68` (`CostCenterCode` → `Dim1Code`)
 - Create: migration `AddAccountingDimensions` (AppContext)
@@ -104,8 +112,9 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
   - `DistributionRule { string Code PK; string Name; int DimensionNumber; bool Inactive; List<DistributionRuleVersion> Versions }` → `DISTRIBUTION_RULES`.
   - `DistributionRuleVersion { Guid Id; string RuleCode; DateTime ValidFrom (date); List<DistributionRuleLine> Lines }` → `DISTRIBUTION_RULE_VERSIONS`, índice único `(RuleCode, ValidFrom)`, cascade das linhas.
   - `DistributionRuleLine { Guid Id; Guid VersionId; string CostCenterCode; decimal Percentage }` → `DISTRIBUTION_RULE_LINES`.
-  - `DimensionRequirement { DimensionDocumentType DocumentType; int DimensionNumber }`, PK composta → `DIMENSION_REQUIREMENTS`.
-  - `enum DimensionDocumentType { SalesInvoice = 1, PurchaseInvoice = 2, FinancialDocument = 3, FinancialAccountEntry = 4 }`; `enum DimensionRole { None = 0, Vehicle = 1, Partner = 2 }`.
+  - `CompanySettings { int Id (PK, sempre 1); bool RequireCostCenter; bool RequireLedgerAccount }` → `COMPANY_SETTINGS`, linha `(1,false,false)` semeada.
+  - `IDimensionFields` também tem `string? LedgerAccountCode`. `SalesInvoiceItem` mantém o seu; os outros ganham a coluna `VARCHAR(20)`.
+  - `enum DimensionRole { None = 0, Vehicle = 1, Partner = 2 }`.
 
 - [ ] **Step 1: Escrever o teste `DimensionSchemaTests.Persists_dimension_fields_on_all_documents`.** Grava um `SalesInvoiceItem`, um `PurchaseInvoiceItem`, um `FinancialDocument` e um `FinancialAccountEntry` com `Dim1Code="CC01"` e `Dim5Code="R5"`, e confere que voltam do `TestDb`. Na mesma classe, `Rule_version_lines_cascade`: grava uma regra com versão e 2 linhas e confere que a regra volta com `Include` das versões e das linhas.
 - [ ] **Step 2: Rodar.** `dotnet test SiagroB1.Application.Tests --filter "FullyQualifiedName~DimensionSchemaTests"`. Esperado: falha de compilação (os tipos não existem).
@@ -131,6 +140,7 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
   - `Update_renames_and_activates`.
   - `Second_dimension_with_same_role_is_rejected`: dim 2 é `Vehicle`, e pôr `Vehicle` na dim 3 lança `DefaultException("A dimensão Dimensão 2 já tem o papel Veículo.")`.
   - `Role_none_can_repeat`.
+  - `Dimension_1_cannot_be_deactivated`: lança `DefaultException("A dimensão 1 é o centro de custo e não pode ser desativada.")`.
   - `Name_is_required`: um nome em branco lança `DefaultException("Informe o nome da dimensão.")`.
 - [ ] **Step 2: Rodar.** Esperado: falha (o serviço não existe).
 - [ ] **Step 3: Implementar o serviço e o controller.** Seguir o padrão de `CostCentersController`. O nome é gravado com trim. O texto do papel na mensagem vem de um mapa: `Vehicle` → "Veículo", `Partner` → "Parceiro".
@@ -205,10 +215,11 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
     - Valida só os campos cujo valor difere de `previous`. Se `previous` é null, valida todos os preenchidos.
     - O código precisa ser um centro **ativo** ou uma regra **ativa** da dimensão N, e a dimensão N precisa estar **ativa**.
     - Erro: `"O código {code} não é centro de custo nem regra de distribuição ativa da dimensão {Name}."`.
+    - `LedgerAccountCode` alterado precisa ser uma `LedgerAccount` ativa com `AllowsPosting`. Erro: `"A conta contábil {code} não existe, está inativa ou não aceita lançamento."`.
     - Em SAPB1, não faz nada.
   - `DimensionDefaultsResolver(IUnitOfWork db, IConfiguration configuration)`
     - `.ApplyAsync(IDimensionFields target, IDimensionFields? header, string? partnerCode, int? usageCode) : Task`
-    - Para cada dimensão ativa N com `target` vazio, preenche na ordem: `header`, depois o `BusinessPartner.DefaultDimensionCode` (só se N for a dimensão de papel `Partner`), depois `Usage.DimNCode`.
+    - Para cada dimensão ativa N com `target` vazio, preenche na ordem: `header`, depois o `BusinessPartner.DefaultDimensionCode` (só se N for a dimensão de papel `Partner`), depois `Usage.DimNCode`. A `LedgerAccountCode` vazia é preenchida com a do `header` e depois com `Usage.LedgerAccountCode`.
     - Um candidato inválido para a dimensão (inexistente ou inativo) é pulado em silêncio, e o resolvedor tenta o próximo.
     - Nunca sobrescreve um valor já preenchido.
 
@@ -225,6 +236,7 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
   - `Typed_value_is_never_overwritten`.
   - `Invalid_partner_default_falls_through_to_usage` (Review Focus 5).
   - `Inactive_dimension_is_not_filled`.
+  - `Ledger_account_from_usage`, `Rejects_non_posting_ledger_account` (no teste do validador).
 - [ ] **Step 3: Rodar.** Esperado: falha.
 - [ ] **Step 4: Implementar.** Carregar uma vez por chamada as dimensões ativas e os códigos válidos por dimensão (`DimensionCodeQueryService`).
 - [ ] **Step 5: Rodar.** Esperado: PASS.
@@ -278,33 +290,33 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 - [ ] **Step 4: Rodar as suítes `Financials`, `Usages` e `BusinessPartners` e a classe nova.** Esperado: PASS.
 - [ ] **Step 5: Commit.** `feat(financial): dimensões nos títulos, lançamentos, natureza e parceiro`.
 
-### Task 8: Obrigatoriedade
+### Task 8: Parâmetros da empresa e obrigatoriedade
 
 **Files:**
-- Create: `Services/Dimensions/DimensionRequirementService.cs`, `DimensionRequirementGuard.cs`, `SiagroB1.Web/Controllers/DimensionRequirementsController.cs`
+- Create: `Services/Dimensions/CompanySettingsService.cs`, `DimensionRequirementGuard.cs`, `SiagroB1.Web/Controllers/CompanySettingsController.cs` (GET e PATCH da linha única, chave 1)
 - Modify: `SalesInvoicesConfirmService.cs` (junto do `usageGuard.ValidateAsync`, ~linha 199), `PurchaseInvoicesConfirmService.cs` (depois do `StorageCustodyGuard`, ~linha 75), e os serviços de create da Task 7
 - Test: `SiagroB1.Application.Tests/Dimensions/DimensionRequirementGuardTests.cs`
 
 **Interfaces:**
-- `DimensionRequirementService`:
-  - `Task<IReadOnlyList<DimensionRequirement>> GetAllAsync()`;
-  - `Task ReplaceAllAsync(IEnumerable<DimensionRequirement> rows)`: grava a matriz inteira, recusando dimensão fora de 1–5. OData: ação não ligada `dimensionRequirementsReplace(Rows)`.
-- `DimensionRequirementGuard.EnsureAsync(DimensionDocumentType type, IEnumerable<IDimensionFields> rows, Func<int,string> rowLabel) : Task`.
-  - Considera só as dimensões **ativas**.
-  - Erro: `"Informe {Nome da dimensão} na linha {rowLabel(i)}."`. Para documento sem linhas (título, lançamento), a mensagem é `"Informe {Nome da dimensão}."`.
+- `CompanySettingsService`: `Task<CompanySettings> GetAsync()` (cria a linha 1 se faltar) e `Task<CompanySettings> UpdateAsync(bool requireCostCenter, bool requireLedgerAccount)`.
+- `DimensionRequirementGuard.EnsureAsync(IEnumerable<IDimensionFields> rows, Func<int,string>? rowLabel) : Task`.
+  - Com `RequireCostCenter`, exige `Dim1Code`. Erro: `"Informe {Nome da dimensão 1} na linha {rowLabel(i)}."`.
+  - Com `RequireLedgerAccount`, exige `LedgerAccountCode`. Erro: `"Informe a conta contábil na linha {rowLabel(i)}."`.
+  - Para documento sem linhas (`rowLabel` nulo), a mensagem termina sem "na linha …".
   - Em SAPB1, não faz nada.
 
 - [ ] **Step 1: Testes.**
-  - `Blocks_sales_confirm_when_line_missing_required_dim`.
+  - `Blocks_sales_confirm_when_line_missing_cost_center`.
+  - `Blocks_purchase_confirm_when_line_missing_ledger_account`.
+  - `Both_flags_off_by_default_nothing_blocked`.
   - `Draft_save_is_not_blocked`.
-  - `Inactive_required_dimension_is_ignored` (Review Focus 3).
-  - `Already_confirmed_invoice_is_not_revalidated`: ligar a obrigação e depois estornar ou consultar a nota já confirmada não lança erro.
+  - `Already_confirmed_invoice_is_not_revalidated` (Review Focus 3): ligar a chave e depois estornar ou consultar a nota já confirmada não lança erro.
   - `Manual_title_create_blocked_when_required`.
   - `Noop_in_sapb1`.
 - [ ] **Step 2: Rodar.** Esperado: falha.
 - [ ] **Step 3: Implementar e plugar nos pontos listados.** O rótulo da linha de nota é `"{LineNum} ({ItemCode})"`.
 - [ ] **Step 4: Rodar a suíte inteira.** `dotnet test SiagroB1.Application.Tests`. Esperado: PASS, com o mesmo número de testes de antes mais os novos.
-- [ ] **Step 5: Commit.** `feat(financial): obrigatoriedade de dimensões na confirmação`.
+- [ ] **Step 5: Commit.** `feat(financial): parâmetros da empresa exigindo centro de custo e conta contábil`.
 
 ### Task 9: Menus
 
@@ -314,8 +326,9 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 - [ ] **Step 1: Gerar e escrever a migration.**
   - Inserir em `MENU_ITEMS`, sob o pai de cadastros `registers`, logo depois de `costCenters`:
     - `accountingDimensions` / "Dimensões Gerenciais";
-    - `distributionRules` / "Regras de Distribuição".
-  - Os dois com `StandaloneOnly = true`, mais `ROLE_MENUS` para `ADMIN` e `UpdateData` deslocando o `Order` dos irmãos.
+    - `distributionRules` / "Regras de Distribuição";
+    - `companySettings` / "Parâmetros da Empresa".
+  - Os três com `StandaloneOnly = true`, mais `ROLE_MENUS` para `ADMIN` e `UpdateData` deslocando o `Order` dos irmãos.
   - O `Down` remove as linhas.
 - [ ] **Step 2: Aplicar numa cópia e conferir.** `dotnet build SiagroB1.sln`, depois `dotnet ef database update` nas duas contexts contra um banco **cópia** do CEAGUI dev (nunca no compartilhado; ver a memória do banco local com migration de outro branch). Esperado: as duas migrations aplicadas e `SELECT Dim1Code FROM SALES_INVOICE_ITEMS` com os valores antigos de `CostCenterCode`.
 - [ ] **Step 3: Commit.** `feat(master-data): menus de dimensões e regras de distribuição` com o trailer `DB: AddAccountingDimensionMenus`.
@@ -348,7 +361,8 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 - Modify: `webapp/manifest.json` (rotas `accountingDimensions` → `accounting-dimensions`, `distributionRules`/`distributionRulesNew`/`distributionRulesEdit` → `distribution-rules`, `/new`, `/{id}/edit`), `webapp/view/costCenters/*` (coluna e Select de Dimensão)
 
 **Comportamento:**
-- **Dimensões:** tabela das 5 linhas, com edição de Nome, Ativa e Papel (Select: Nenhum / Veículo / Parceiro). Abaixo, a matriz de obrigatoriedade: as linhas são os 4 tipos de documento ("Documento de Saída", "Documento de Entrada", "Título financeiro", "Lançamento na conta"), as colunas são as dimensões ativas, com CheckBox. O botão Salvar chama o PATCH de cada dimensão alterada e depois `dimensionRequirementsReplace`. Lembrar `targetType:'any'` nos booleanos com formatter (memória).
+- **Dimensões:** tabela das 5 linhas, com edição de Nome, Ativa e Papel (Select: Nenhum / Veículo / Parceiro). O Salvar faz o PATCH de cada dimensão alterada. A dimensão 1 tem o "Ativa" travado.
+- **Parâmetros da Empresa:** página com dois Switch, "Exige centro de custo" e "Exige conta contábil", e Salvar fazendo PATCH em `CompanySettings(1)`. Rota `companySettings` → `company-settings`. Lembrar `targetType:'any'` nos booleanos com formatter (memória).
 - **Regras:** lista com Código, Nome, Dimensão e Inativa. A edição tem o cabeçalho e uma tabela de versões (ValidFrom). Ao selecionar uma versão, aparecem as linhas: centro com value help filtrado pela dimensão da regra, percentual e total ao vivo. A versão vigente ou passada fica só leitura, e o botão "Nova versão" pede a data.
 - **Centro de custo:** coluna Dimensão, mostrando o nome da dimensão, e Select no Add/Edit.
 
@@ -361,7 +375,7 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 
 **Files:**
 - Modify:
-  - `webapp/view/salesInvoices/fragments/ItemFiscalDialog.fragment.xml` e `Items.fragment.xml`: trocar `CostCenterCode` por `Dim1Code`, e incluir o fragmento de dimensões no diálogo do item e na seção do cabeçalho;
+  - `webapp/view/salesInvoices/fragments/ItemFiscalDialog.fragment.xml` e `Items.fragment.xml`: trocar `CostCenterCode` por `Dim1Code`, e incluir o fragmento de dimensões no diálogo do item e na seção do cabeçalho. O fragmento também tem o campo Conta contábil, com value help em `LedgerAccounts` filtrando ativas que aceitam lançamento;
   - os equivalentes em `purchaseInvoices/`;
   - `financialDocuments/fragments/Form.fragment.xml`;
   - `financialAccountMovements/fragments/AddEntryDialog.fragment.xml`;
@@ -374,7 +388,7 @@ Frontend (worktree irmão `siagro-b1-frontend-transport/`):
 - [ ] **Step 3: Verificar no navegador, pelo caminho do usuário.**
   - Natureza com Dim1 padrão: a linha nova da nota de entrada vem preenchida.
   - Cabeçalho da saída com Dim2 = `CAM01`: a linha nova herda.
-  - Marcar a Dim2 como obrigatória no Documento de Saída: confirmar uma nota sem Dim2 mostra "Informe Veículo na linha …", e salvar o rascunho continua funcionando.
+  - Ligar "Exige centro de custo" nos Parâmetros da Empresa: confirmar uma nota sem Dim2 mostra "Informe {nome da dimensão 1} na linha …", e salvar o rascunho continua funcionando.
   - O título manual pega o padrão do parceiro.
   - Um lançamento na conta com código de outra dimensão é recusado.
   - Tirar prints de cada passo.
