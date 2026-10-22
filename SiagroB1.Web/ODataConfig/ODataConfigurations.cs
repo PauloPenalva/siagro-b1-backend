@@ -87,6 +87,13 @@ public static class ODataConfigurations
         accountingSettingsSave.Parameter<string>("DefaultResultClosingAccountCode");
         accountingSettingsSave.Parameter<int>("ClosingFrequency");
         accountingSettingsSave.Returns<AccountingSettings>();
+        // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
+        modelBuilder.EntitySet<JournalEntry>("JournalEntries");
+        modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");
+        var journalEntriesReverse = modelBuilder.Action("JournalEntriesReverse");
+        journalEntriesReverse.Parameter<int>("DocEntry");
+        journalEntriesReverse.Parameter<DateTime>("Date");
+        journalEntriesReverse.ReturnsFromEntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");

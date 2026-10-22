@@ -12,7 +12,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261022044213_AddAccountingCore")]
+    [Migration("20261022045647_AddAccountingCore")]
     partial class AddAccountingCore
     {
         /// <inheritdoc />
@@ -2208,12 +2208,16 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasKey("DocEntry");
 
+                    b.HasIndex("ReversalOfDocEntry");
+
+                    b.HasIndex("ReversedByDocEntry");
+
                     b.HasIndex("PostingDate", "Batch", "SubBatch", "DocumentNumber")
                         .IsUnique();
 
                     b.HasIndex("StandardPostingCode", "SourceDocumentType", "SourceDocumentKey", "SourceEvent")
                         .IsUnique()
-                        .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL");
+                        .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL");
 
                     b.ToTable("JOURNAL_ENTRIES");
                 });
@@ -8689,6 +8693,23 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
 
                     b.Navigation("Period");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.JournalEntry", "ReversalOf")
+                        .WithMany()
+                        .HasForeignKey("ReversalOfDocEntry")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.JournalEntry", "ReversedBy")
+                        .WithMany()
+                        .HasForeignKey("ReversedByDocEntry")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("ReversalOf");
+
+                    b.Navigation("ReversedBy");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntryLine", b =>

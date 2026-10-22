@@ -45,9 +45,15 @@ public class JournalEntry
     [Column(TypeName = "VARCHAR(20)")]
     public string? SourceEvent { get; set; }
 
+    /// <summary>Lançamento que este estorna.</summary>
     public int? ReversalOfDocEntry { get; set; }
 
+    public JournalEntry? ReversalOf { get; set; }
+
+    /// <summary>Estorno que anulou este lançamento; preenchido, o evento de origem pode ser contabilizado de novo.</summary>
     public int? ReversedByDocEntry { get; set; }
+
+    public JournalEntry? ReversedBy { get; set; }
 
     [Column(TypeName = "VARCHAR(250)")]
     public string? Comments { get; set; }

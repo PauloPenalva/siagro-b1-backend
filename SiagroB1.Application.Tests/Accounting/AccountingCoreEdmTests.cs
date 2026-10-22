@@ -24,5 +24,7 @@ public class AccountingCoreEdmTests
         Assert.Contains("AccountingPeriodsSetStatus", names);
         Assert.Contains("AccountingSettingsGet", names);
         Assert.Contains("AccountingSettingsSave", names);
+        Assert.Contains("JournalEntriesReverse", names);
+        Assert.NotNull(model.EntityContainer.FindEntitySet("JournalEntries")!.EntityType.FindProperty("Lines"));
     }
 }

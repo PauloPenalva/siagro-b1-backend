@@ -115,6 +115,16 @@ namespace SiagroB1.Migrations.AppContext
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_JOURNAL_ENTRIES", x => x.DocEntry);
+                    table.ForeignKey(
+                        name: "FK_JOURNAL_ENTRIES_JOURNAL_ENTRIES_ReversalOfDocEntry",
+                        column: x => x.ReversalOfDocEntry,
+                        principalTable: "JOURNAL_ENTRIES",
+                        principalColumn: "DocEntry");
+                    table.ForeignKey(
+                        name: "FK_JOURNAL_ENTRIES_JOURNAL_ENTRIES_ReversedByDocEntry",
+                        column: x => x.ReversedByDocEntry,
+                        principalTable: "JOURNAL_ENTRIES",
+                        principalColumn: "DocEntry");
                 });
 
             migrationBuilder.CreateTable(
@@ -171,11 +181,21 @@ namespace SiagroB1.Migrations.AppContext
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_JOURNAL_ENTRIES_ReversalOfDocEntry",
+                table: "JOURNAL_ENTRIES",
+                column: "ReversalOfDocEntry");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JOURNAL_ENTRIES_ReversedByDocEntry",
+                table: "JOURNAL_ENTRIES",
+                column: "ReversedByDocEntry");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_JOURNAL_ENTRIES_StandardPostingCode_SourceDocumentType_SourceDocumentKey_SourceEvent",
                 table: "JOURNAL_ENTRIES",
                 columns: new[] { "StandardPostingCode", "SourceDocumentType", "SourceDocumentKey", "SourceEvent" },
                 unique: true,
-                filter: "[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL");
+                filter: "[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_JOURNAL_ENTRY_LINES_CreditAccountCode",

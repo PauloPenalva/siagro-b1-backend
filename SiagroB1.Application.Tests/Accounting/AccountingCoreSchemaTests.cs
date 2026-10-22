@@ -24,7 +24,7 @@ public class AccountingCoreSchemaTests
             nameof(JournalEntry.SourceDocumentKey), nameof(JournalEntry.SourceEvent),
         ]));
         Assert.True(source.IsUnique);
-        Assert.Equal("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL", source.GetFilter());
+        Assert.Equal("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL", source.GetFilter());
 
         var period = model.FindEntityType(typeof(AccountingPeriod))!;
         Assert.Contains(period.GetIndexes(), i => i.IsUnique &&

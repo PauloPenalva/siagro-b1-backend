@@ -186,7 +186,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Cascade);
 
         // Contabilidade: um período por ano + mês; documento contábil único por data + lote + sublote + doc;
-        // um lançamento por evento de origem (o estorno não conta, para poder repetir depois de estornado).
+        // um lançamento vivo por evento de origem (estorno e estornado saem do índice, para poder repetir).
         modelBuilder.Entity<AccountingPeriod>()
             .HasIndex(x => new { x.Year, x.Month })
             .IsUnique();
@@ -196,7 +196,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<JournalEntry>()
             .HasIndex(x => new { x.StandardPostingCode, x.SourceDocumentType, x.SourceDocumentKey, x.SourceEvent })
             .IsUnique()
-            .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL");
+            .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL");
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(x => x.ReversalOf).WithMany()
+            .HasForeignKey(x => x.ReversalOfDocEntry)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(x => x.ReversedBy).WithMany()
+            .HasForeignKey(x => x.ReversedByDocEntry)
+            .OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<JournalEntryLine>()
             .HasOne<JournalEntry>().WithMany(x => x.Lines)
             .HasForeignKey(x => x.DocEntry)

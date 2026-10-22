@@ -122,6 +122,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Application.Services.Accounting.IAccountingPeriodsService, Application.Services.Accounting.AccountingPeriodsService>();
         services.AddScoped<Application.Services.Accounting.IAccountingSettingsService, Application.Services.Accounting.AccountingSettingsService>();
         services.AddScoped<Application.Services.Accounting.IJournalEntryPostingService, Application.Services.Accounting.JournalEntryPostingService>();
+        services.AddScoped<Application.Services.Accounting.IJournalEntriesService, Application.Services.Accounting.JournalEntriesService>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
