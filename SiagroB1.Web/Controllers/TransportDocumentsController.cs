@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Cte;
+using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -23,6 +25,8 @@ public class TransportDocumentsController(
     TransportDocumentsConfirmService confirmService,
     TransportDocumentsReopenService reopenService,
     TransportDocumentsDiscardNumberService discardService,
+    TransportDocumentsTransmitService transmitService,
+    TransportDocumentsConsultService consultService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -156,6 +160,43 @@ public class TransportDocumentsController(
     [HttpPost("odata/TransportDocumentsDiscardNumber")]
     public Task<IActionResult> DiscardNumberAsync([FromBody] ODataActionParameters parameters) =>
         RunAsync(parameters, key => discardService.DiscardNumberAsync(key, Text(parameters, "Reason")));
+
+    [HttpPost("odata/TransportDocumentsTransmit")]
+    public Task<IActionResult> TransmitAsync([FromBody] ODataActionParameters parameters) =>
+        RunSefazAsync(parameters, key => transmitService.TransmitAsync(key, User.Identity?.Name ?? "Unknown"));
+
+    [HttpPost("odata/TransportDocumentsConsult")]
+    public Task<IActionResult> ConsultAsync([FromBody] ODataActionParameters parameters) =>
+        RunSefazAsync(parameters, consultService.ConsultAsync);
+
+    /// <summary>cteProc autorizado (CT-e assinado + protCTe) para download.</summary>
+    [HttpGet("odata/TransportDocumentsXml(Key={key})")]
+    public async Task<IActionResult> XmlAsync([FromRoute] Guid key)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(BranchCteSettingsService.StandaloneOnly);
+        var doc = await db.Context.TransportDocuments.AsNoTracking().Where(x => x.Key == key)
+            .Select(x => new { x.AccessKey, Xml = x.Xmls.Where(m => m.Kind == CteXmlKind.Authorized).Select(m => m.Xml).FirstOrDefault() })
+            .FirstOrDefaultAsync();
+        if (doc?.Xml is null) return NotFound("O CT-e não tem XML autorizado.");
+
+        return File(System.Text.Encoding.UTF8.GetBytes(doc.Xml), "application/xml", $"{doc.AccessKey}-cte.xml");
+    }
+
+    private static async Task<IActionResult> RunSefazAsync(ODataActionParameters parameters, Func<Guid, Task<NfeSefazResult>> action)
+    {
+        if (parameters is null || !TryParseKey(Text(parameters, "Key"), out var documentKey) || documentKey is null)
+            return new BadRequestObjectResult(InvalidKey);
+
+        try
+        {
+            var result = await action(documentKey.Value);
+            return new OkObjectResult(new NfeServiceStatusDto { StatusCode = result.StatusCode, Reason = result.Reason });
+        }
+        catch (DefaultException e)
+        {
+            return new BadRequestObjectResult(e.Message);
+        }
+    }
 
     private static async Task<IActionResult> RunAsync(ODataActionParameters parameters, Func<Guid, Task> action)
     {

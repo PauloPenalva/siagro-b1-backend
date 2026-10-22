@@ -425,6 +425,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsConfirmService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsReopenService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsDiscardNumberService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteServiceContextFactory>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsTransmitService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsConsultService>();
+        services.AddSingleton<SiagroB1.Fiscal.Cte.ICteSefazClient, SiagroB1.Fiscal.Cte.ZeusCteSefazClient>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();
         services.AddScoped<SalesInvoicesNfeIssueService>();

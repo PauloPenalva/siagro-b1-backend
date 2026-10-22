@@ -25,5 +25,8 @@ public class TransportDocumentsEdmTests
         Assert.Contains("TransportDocumentsConfirm", imports);
         Assert.Contains("TransportDocumentsReopen", imports);
         Assert.Contains("TransportDocumentsDiscardNumber", imports);
+        Assert.Contains("TransportDocumentsTransmit", imports);
+        Assert.Contains("TransportDocumentsConsult", imports);
+        Assert.Contains("TransportDocumentsXml", imports);
     }
 }

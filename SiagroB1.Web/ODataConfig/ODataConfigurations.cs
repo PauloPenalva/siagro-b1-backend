@@ -137,6 +137,18 @@ public static class ODataConfigurations
         transportDocumentsDiscardNumber.Parameter<string>("Key");
         transportDocumentsDiscardNumber.Parameter<string>("Reason");
 
+        var transportDocumentsTransmit = modelBuilder.Action("TransportDocumentsTransmit");
+        transportDocumentsTransmit.Parameter<string>("Key");
+        transportDocumentsTransmit.Returns<NfeServiceStatusDto>();
+
+        var transportDocumentsConsult = modelBuilder.Action("TransportDocumentsConsult");
+        transportDocumentsConsult.Parameter<string>("Key");
+        transportDocumentsConsult.Returns<NfeServiceStatusDto>();
+
+        var transportDocumentsXml = modelBuilder.Function("TransportDocumentsXml");
+        transportDocumentsXml.Parameter<Guid>("Key");
+        transportDocumentsXml.Returns<IActionResult>();
+
         var branchTransportSettingsTestAverba = modelBuilder.Action("BranchTransportSettingsTestAverba");
         branchTransportSettingsTestAverba.Parameter<string>("BranchCode");
         branchTransportSettingsTestAverba.Parameter<string>("AverbaUser").Optional();

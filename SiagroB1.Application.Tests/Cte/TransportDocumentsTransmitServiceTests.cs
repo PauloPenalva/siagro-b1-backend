@@ -1,0 +1,263 @@
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Cte;
+using SiagroB1.Application.Services.Nfe;
+using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Fiscal.Certificates;
+using SiagroB1.Fiscal.Cte;
+using SiagroB1.Fiscal.Tests.Support;
+using SiagroB1.Infra;
+
+namespace SiagroB1.Application.Tests.Cte;
+
+/// <summary>Transmitir/consultar o CT-e com a SEFAZ simulada: recuperação por consulta, sem reenvio.</summary>
+public class TransportDocumentsTransmitServiceTests
+{
+    private static readonly DateTimeOffset October = new(2026, 10, 22, 10, 0, 0, TimeSpan.FromHours(-3));
+
+    private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
+    private readonly FakeCteNumberReservationService _numbers = new(100);
+    private readonly FakeCteSefazClient _sefaz = new();
+    private DateTimeOffset _now = October;
+
+    private TransportDocumentsTransmitService Transmit()
+    {
+        var config = NfeTestSeed.Config();
+        return new TransportDocumentsTransmitService(
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now);
+    }
+
+    private TransportDocumentsConsultService Consult()
+    {
+        var config = NfeTestSeed.Config();
+        return new TransportDocumentsConsultService(
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config));
+    }
+
+    private async Task<Guid> SeedConfirmedAsync(NfeEnvironment environment = NfeEnvironment.Homologation)
+    {
+        _db.Context.Branchs.Add(new Branch
+        {
+            Code = "01", BranchName = "TRANSPORTADORA", LegalName = "CEAGUI CEREAIS LTDA", TaxId = "12345678000195",
+            StateCode = "SP", StateRegistration = "387000000110", TaxRegime = TaxRegime.Normal, IssuesNfe = true,
+            Street = "RODOVIA SP 258", StreetNumber = "KM 290", District = "ZONA RURAL", MunicipalityCode = "3521705",
+            ZipCode = "18440000",
+        });
+        _db.Context.Municipalities.AddRange(
+            new Municipality { Code = "3521705", Name = "ITABERA", StateAbbreviation = "SP" },
+            new Municipality { Code = "3550308", Name = "SAO PAULO", StateAbbreviation = "SP" });
+        _db.Context.BranchCteSettings.Add(new BranchCteSettings { BranchCode = "01", Enabled = true, Environment = environment });
+        _db.Context.BranchNfeSettings.Add(new BranchNfeSettings
+        {
+            BranchCode = "01",
+            CertificatePfx = TestCertificates.CreatePfx("12345678000195"),
+            CertificatePasswordCipher = CertificatePasswordCipher.FromBase64(NfeTestSeed.CertificateKey).Encrypt(TestCertificates.Password),
+            CertificateValidUntil = DateTime.Now.AddYears(1),
+        });
+
+        var issuedAt = October.DateTime;
+        var doc = new TransportDocument
+        {
+            BranchCode = "01", Series = 1, Number = 100, RandomCode = "12345678", IssuedAt = issuedAt,
+            AccessKey = CteAccessKey.Build("35", issuedAt, "12345678000195", 1, 100, 1, "12345678"),
+            Status = CteStatus.Confirmed, Environment = environment,
+            UsageCode = 5, Cfop = "5352", NatureText = "PRESTACAO DE SERVICO DE TRANSPORTE", TakerRole = 3,
+            StartMunicipalityCode = "3521705", StartState = "SP", EndMunicipalityCode = "3550308", EndState = "SP",
+            PredominantProduct = "SOJA EM GRAOS", CargoValue = 60000m, ServiceTotal = 1000m, AmountToReceive = 1000m,
+            IcmsCst = "00", IcmsBase = 1000m, IcmsRate = 12m, IcmsValue = 120m,
+            Rntrc = "12345678", TractionPlate = "ABC1D23", TrailerPlates = "REB1A11,REB2B22",
+            DriverCpf = "52998224725", DriverName = "JOAO DA SILVA", Tracked = true, OwnTransport = false,
+            Observation = "FRETE CONFORME CONTRATO",
+            Parties =
+            [
+                Party(CtePartyRole.Sender, "11222333000181", "COSTA PRODUTOR RURAL LTDA", "3521705", "ITABERA"),
+                Party(CtePartyRole.Recipient, "33444555000122", "ARMAZEM DESTINO LTDA", "3550308", "SAO PAULO"),
+            ],
+            NfeKeys = [new TransportDocumentNfeKey { AccessKey = CteTestKeys.Nfe(1), Order = 0 }],
+            Quantities = [new TransportDocumentQuantity { UnitCode = "01", MeasureType = "PESO BRUTO", Quantity = 30000m }],
+            Components = [new TransportDocumentComponent { Name = "FRETE PESO", Value = 1000m }],
+        };
+        _db.Context.TransportDocuments.Add(doc);
+        await _db.SaveChangesAsync();
+        return doc.Key;
+    }
+
+    private static TransportDocumentParty Party(CtePartyRole role, string taxId, string name, string municipality, string city) => new()
+    {
+        Role = role, TaxId = taxId, Name = name, StateRegistration = "111222333444", IndIE = 1,
+        Street = "RUA A", Number = "1", Neighborhood = "CENTRO", MunicipalityCode = municipality, MunicipalityName = city,
+        State = "SP", ZipCode = "01001000",
+    };
+
+    private Task<TransportDocument> LoadAsync(Guid key) =>
+        _db.Context.TransportDocuments.AsNoTracking().Include(x => x.Xmls).SingleAsync(x => x.Key == key);
+
+    [Fact]
+    public async Task Authorized_stores_protocol_and_xml()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+
+        var result = await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(100, result.StatusCode);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        Assert.Equal(FakeCteSefazClient.AuthorizationProtocol, doc.Protocol);
+        Assert.NotNull(doc.AuthorizedAt);
+        var xml = Assert.Single(doc.Xmls);
+        Assert.Equal(CteXmlKind.Authorized, xml.Kind);
+        Assert.StartsWith("<?xml", xml.Xml);
+        Assert.Contains("<cteProc versao=\"4.00\"", xml.Xml);
+        Assert.Contains("<protCTe", xml.Xml);
+        Assert.Contains("<qrCodCTe>", xml.Xml);
+        Assert.Equal(0, _numbers.LocksHeld);
+    }
+
+    [Fact]
+    public async Task Rejected_then_retransmit_keeps_number_and_key()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => FakeCteSefazClient.Rejected());
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var rejected = await LoadAsync(key);
+        Assert.Equal(CteStatus.Rejected, rejected.Status);
+        Assert.Equal("209", rejected.StatusCode);
+        Assert.Equal("Rejeição: IE do emitente inválida", rejected.StatusReason);
+
+        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        Assert.Equal(100, doc.Number);
+        Assert.Equal(rejected.AccessKey, doc.AccessKey);
+        Assert.Equal(rejected.RandomCode, doc.RandomCode);
+        Assert.All(_sefaz.Sent, s => Assert.Equal(rejected.AccessKey, s.AccessKey));
+        Assert.Equal(0, _numbers.Calls);
+    }
+
+    [Fact]
+    public async Task Timeout_recovers_authorization_by_consult_without_resending()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
+        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+
+        var result = await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(100, result.StatusCode);
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+        Assert.Equal(1, _sefaz.ConsultCalls);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        Assert.Equal(CteXmlKind.Authorized, Assert.Single(doc.Xmls).Kind);
+    }
+
+    [Fact]
+    public async Task Timeout_without_authorization_is_rejected_with_consult_hint()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
+        _sefaz.ConsultResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(217, "CT-e não consta na base"));
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Rejected, doc.Status);
+        Assert.Equal(TransportDocumentsTransmitService.NoResponse, doc.StatusReason);
+    }
+
+    [Fact]
+    public async Task Duplicate_539_recovers_by_consult()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(539, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(CteStatus.Authorized, (await LoadAsync(key)).Status);
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+    }
+
+    [Fact]
+    public async Task Different_month_is_refused_with_discard_hint()
+    {
+        var key = await SeedConfirmedAsync();
+        _now = new DateTimeOffset(2026, 11, 2, 9, 0, 0, TimeSpan.FromHours(-3));
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Transmit().TransmitAsync(key, "tester"));
+
+        Assert.Equal("A chave foi gerada em 10/2026 e a emissão cairia em outro mês. Descarte o número e confirme de novo.", e.Message);
+        Assert.Equal(0, _sefaz.AuthorizeCalls);
+        Assert.Equal(CteStatus.Confirmed, (await LoadAsync(key)).Status);
+    }
+
+    [Fact]
+    public async Task Draft_cannot_be_transmitted()
+    {
+        var key = await SeedConfirmedAsync();
+        var doc = await _db.Context.TransportDocuments.SingleAsync();
+        doc.Status = CteStatus.Draft;
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() => Transmit().TransmitAsync(key, "tester"));
+        Assert.Equal(0, _sefaz.AuthorizeCalls);
+    }
+
+    [Fact]
+    public async Task Xml_carries_obscont_plate_and_driver()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var xml = Assert.Single(_sefaz.Sent).Xml;
+        Assert.Contains("<ObsCont xCampo=\"PLACA\"><xTexto>ABC1D23, REB1A11, REB2B22</xTexto></ObsCont>", xml);
+        Assert.Contains("<ObsCont xCampo=\"CPFMOTORISTA\"><xTexto>52998224725</xTexto></ObsCont>", xml);
+        Assert.Contains("<ObsCont xCampo=\"NOMEMOTORISTA\"><xTexto>JOAO DA SILVA</xTexto></ObsCont>", xml);
+        Assert.Contains("<ObsCont xCampo=\"RASTREADO\"><xTexto>SIM</xTexto></ObsCont>", xml);
+        Assert.Contains("<ObsCont xCampo=\"TranspProprio\"><xTexto>NAO</xTexto></ObsCont>", xml);
+        Assert.Contains(
+            "<xObs>Motorista: JOAO DA SILVA | CPF: 52998224725 | Placa: ABC1D23, REB1A11, REB2B22 | FRETE CONFORME CONTRATO</xObs>", xml);
+    }
+
+    [Fact]
+    public async Task Homologation_replaces_recipient_name()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var xml = Assert.Single(_sefaz.Sent).Xml;
+        Assert.Contains($"<xNome>{CteIssueInputAssembler.HomologationName}</xNome>", xml);
+        Assert.Contains("<tpAmb>2</tpAmb>", xml);
+        Assert.DoesNotContain("ARMAZEM DESTINO LTDA", xml);
+    }
+
+    [Fact]
+    public async Task Consult_recovers_rejected_that_sefaz_authorized()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
+        _sefaz.ConsultResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(217, "CT-e não consta na base"));
+        await Transmit().TransmitAsync(key, "tester");
+        Assert.Equal(CteStatus.Rejected, (await LoadAsync(key)).Status);
+
+        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+        var result = await Consult().ConsultAsync(key);
+
+        Assert.Equal(100, result.StatusCode);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        Assert.Contains("<cteProc", Assert.Single(doc.Xmls).Xml);
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+    }
+}

@@ -82,4 +82,14 @@ public class CteXmlBuilderTests
 
         Assert.Contains("RNTRC", error.Message);
     }
+
+    [Fact]
+    public void Build_adds_qr_code_with_key_and_environment()
+    {
+        var signed = Sign(CteTestData.Input());
+        Assert.Contains("<infCTeSupl><qrCodCTe>", signed.Xml);
+        Assert.Contains($"chCTe={signed.AccessKey}&amp;tpAmb=2</qrCodCTe>", signed.Xml);
+        // URL da tabela da Zeus: em SP a homologação usa homologacao.nfe.fazenda.sp.gov.br.
+        Assert.Contains("<qrCodCTe>https://homologacao.nfe.fazenda.sp.gov.br/CTeConsulta/qrCode?chCTe=", signed.Xml);
+    }
 }

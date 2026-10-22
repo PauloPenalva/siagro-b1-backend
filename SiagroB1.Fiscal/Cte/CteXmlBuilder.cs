@@ -17,6 +17,7 @@ using CTe.Classes.Informacoes.Recebedor;
 using CTe.Classes.Informacoes.Remetente;
 using CTe.Classes.Informacoes.Tipos;
 using CTe.Classes.Informacoes.Valores;
+using CTe.Servicos.Enderecos.Helpers;
 using DFe.Classes.Entidades;
 using DFe.Classes.Flags;
 using SiagroB1.Domain.Enums;
@@ -48,6 +49,7 @@ public static class CteXmlBuilder
 
         return new ZeusCte
         {
+            infCTeSupl = new infCTeSupl { qrCodCTe = QrCode(input, issuerState, key) },
             infCte = new infCte
             {
                 versao = CteVersion.ve400,
@@ -81,6 +83,26 @@ public static class CteXmlBuilder
                     },
             },
         };
+    }
+
+    /// <summary>
+    /// <c>infCTeSupl/qrCodCTe</c>: o XSD aceita sem, mas a SEFAZ recusa o CT-e 4.00 sem QR Code.
+    /// A URL por UF/ambiente vem da tabela da Zeus (<c>UrlHelper.ObterUrlQrCode</c>).
+    /// </summary>
+    private static string QrCode(CteIssueInput input, Estado issuerState, string key)
+    {
+        CteZeusConfiguration.PinGlobalLayout();
+        var url = UrlHelper.ObterUrlQrCode(new CTe.Classes.ConfiguracaoServico
+        {
+            cUF = issuerState,
+            tpAmb = NfeXmlBuilder.Environment(input.Environment),
+            VersaoLayout = CTe.Classes.Servicos.Tipos.versao.ve400,
+        });
+        if (string.IsNullOrWhiteSpace(url))
+            throw new DefaultException($"Sem URL do QR Code do CT-e para a UF {issuerState}.");
+
+        var environment = input.Environment == NfeEnvironment.Production ? 1 : 2;
+        return $"{url}?chCTe={key}&tpAmb={environment}";
     }
 
     private static ide BuildIde(CteIssueInput input, Estado issuerState, string key)
