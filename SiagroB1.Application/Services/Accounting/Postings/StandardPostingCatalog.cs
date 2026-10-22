@@ -108,12 +108,12 @@ public static class StandardPostingCatalog
         Sales("630", "Estorno/cancelamento de saída de NF – itens", true, "610"),
         Sales("635", "Estorno/cancelamento de saída de NF – total", false, "620"),
         Financial("500", "Inclusão de título a receber", PostingContextKind.FinancialDocument, null,
-            "Títulos manuais, washout, adiantamentos e desdobramentos. Títulos de nota fiscal não passam aqui.",
+            "Títulos manuais, washout, adiantamentos e desdobramentos. Títulos de nota fiscal não passam aqui. Pendente: a devolução de adiantamento não é contabilizada automaticamente — lance à mão.",
             TitleAccounts, ["Document.NetAmount"]),
         Financial("505", "Cancelamento de título a receber", PostingContextKind.FinancialDocument, "500",
             "Estorna o 500 do título.", TitleAccounts, ["Document.NetAmount"]),
         Financial("510", "Inclusão de título a pagar", PostingContextKind.FinancialDocument, null,
-            "Títulos manuais, outras compras sem nota, adiantamentos e desdobramentos. Títulos de nota fiscal não passam aqui.",
+            "Títulos manuais, outras compras sem nota, adiantamentos e desdobramentos. Títulos de nota fiscal não passam aqui. Pendente: a devolução de adiantamento não é contabilizada automaticamente — lance à mão.",
             TitleAccounts, ["Document.NetAmount"]),
         Financial("515", "Cancelamento de título a pagar", PostingContextKind.FinancialDocument, "510",
             "Estorna o 510 do título.", TitleAccounts, ["Document.NetAmount"]),
@@ -141,10 +141,10 @@ public static class StandardPostingCatalog
         Financial("561", "Exclusão de transferência entre contas", PostingContextKind.Transfer, "560",
             "Estorna o 560.", TransferAccounts, ["Transfer.Amount"]),
         new("670", "CMV do período (fechamento do estoque fiscal)", PostingContextKind.CostOfSales, true, CostOfSalesBatch,
-            null, "Roda no fechamento do mês do estoque fiscal, uma vez por produto. Pré-requisito: saldo inicial do estoque fiscal lançado.",
-            ["Item.LedgerAccount", Fixed], ["Item.CostOfSales"], ["{ItemCode}", "{Date}"]),
+            null, "Roda no fechamento do mês do estoque fiscal, uma vez por produto. CostOfSales = custo das saídas de venda (CFOP x.1xx); SalesReturnCost = custo devolvido pelas devoluções de venda (configure uma sequência para cada). Pré-requisito: saldo inicial do estoque fiscal lançado.",
+            ["Item.LedgerAccount", Fixed], ["Item.CostOfSales", "Item.SalesReturnCost"], ["{ItemCode}", "{Date}"]),
         new("675", "Estorno do CMV (reabertura do estoque fiscal)", PostingContextKind.CostOfSales, true, CostOfSalesBatch,
-            "670", "Estorna o 670 do mês reaberto.", ["Item.LedgerAccount", Fixed], ["Item.CostOfSales"], ["{ItemCode}", "{Date}"]),
+            "670", "Estorna o 670 do mês reaberto.", ["Item.LedgerAccount", Fixed], ["Item.CostOfSales", "Item.SalesReturnCost"], ["{ItemCode}", "{Date}"]),
     ];
 
     private static readonly Dictionary<string, StandardPostingDefinition> ByCode = All.ToDictionary(d => d.Code);

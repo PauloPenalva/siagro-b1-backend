@@ -22,7 +22,9 @@ public class CostOfSalesPostingTests
             BalanceDate = new DateTime(2026, 9, 1), Quantity = 100m, TotalValue = 5000m,
         });
         if (withLp)
-            db.Context.StandardPostings.Add(Lp("670", Seq("001", "Fixed", "4.2.01", "Item.LedgerAccount", null, "Item.CostOfSales", "CMV {ItemCode}")));
+            db.Context.StandardPostings.Add(Lp("670",
+                Seq("001", "Fixed", "4.2.01", "Item.LedgerAccount", null, "Item.CostOfSales", "CMV {ItemCode}"),
+                Seq("002", "Item.LedgerAccount", null, "Fixed", "4.2.01", "Item.SalesReturnCost", "Devolução {ItemCode}")));
         await db.SaveChangesAsync();
         return db;
     }
@@ -36,10 +38,11 @@ public class CostOfSalesPostingTests
         return line;
     }
 
-    private static async Task<SalesInvoiceItem> SellAsync(IUnitOfWork db, decimal quantity)
+    private static async Task<SalesInvoiceItem> SellAsync(IUnitOfWork db, decimal quantity, string cfop = "5102",
+        int day = 10)
     {
-        var line = Line(quantity, "5102");
-        var sale = InvoiceReportSeed.Sale("DS1", new DateTime(2026, 9, 10), items: line);
+        var line = Line(quantity, cfop);
+        var sale = InvoiceReportSeed.Sale("DS" + day, new DateTime(2026, 9, day), items: line);
         sale.TaxDocumentKind = TaxDocumentKind.Other;
         db.Context.SalesInvoices.Add(sale);
         await db.SaveChangesAsync();
@@ -69,7 +72,7 @@ public class CostOfSalesPostingTests
     }
 
     [Fact]
-    public async Task Sales_return_reduces_cost_of_sales()
+    public async Task Sales_return_posts_its_own_line()
     {
         var db = await SeedAsync();
         var sold = await SellAsync(db, 40m);
@@ -81,7 +84,10 @@ public class CostOfSalesPostingTests
 
         await Periods(db).CloseAsync("01", 2026, 9, "admin");
 
-        Assert.Equal(1500m, (await Entries(db)).Single().Lines.Single().Amount); // 2.000 − 10 × 50
+        // Custo das saídas e custo devolvido saem em linhas próprias: nada se perde num saldo líquido negativo.
+        var lines = (await Entries(db)).Single().Lines.OrderBy(l => l.LineNumber).ToList();
+        Assert.Equal([2000m, 500m], lines.Select(l => l.Amount));
+        Assert.Equal("4.2.01", lines[1].CreditAccountCode);
     }
 
     [Fact]
@@ -118,5 +124,35 @@ public class CostOfSalesPostingTests
         var period = await Periods(db).CloseAsync("01", 2026, 9, "admin");
         Assert.Equal(FiscalStockPeriodStatus.Closed, period.Status);
         Assert.Empty(await Entries(db));
+    }
+
+    [Fact]
+    public async Task Remittance_exit_is_not_cost_of_sales()
+    {
+        var db = await SeedAsync();
+        await SellAsync(db, 40m);
+        await SellAsync(db, 20m, cfop: "5905", day: 12); // remessa para depósito: sai do estoque, mas não é venda
+
+        await Periods(db).CloseAsync("01", 2026, 9, "admin");
+
+        Assert.Equal(2000m, (await Entries(db)).Single().Lines.Single().Amount);
+    }
+
+    [Fact]
+    public async Task Close_in_closed_accounting_month_posts_on_first_open_day()
+    {
+        var db = await SeedAsync();
+        await SellAsync(db, 40m);
+        db.Context.AccountingPeriods.Add(new AccountingPeriod
+        {
+            Year = 2026, Month = 9, StartDate = new DateTime(2026, 9, 1), EndDate = new DateTime(2026, 9, 30),
+            Status = AccountingPeriodStatus.Closed,
+        });
+        await db.SaveChangesAsync();
+
+        var period = await Periods(db).CloseAsync("01", 2026, 9, "admin");
+
+        Assert.Equal(FiscalStockPeriodStatus.Closed, period.Status);
+        Assert.Equal(new DateTime(2026, 10, 1), (await Entries(db)).Single().PostingDate);
     }
 }
