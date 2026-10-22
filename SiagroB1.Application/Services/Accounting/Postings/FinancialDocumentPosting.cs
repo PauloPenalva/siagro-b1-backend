@@ -43,7 +43,7 @@ public static class FinancialDocumentPosting
     {
         if (engine is null || !IsPostable(document)) return;
         var code = document.Direction == FinancialDirection.Receivable ? "500" : "510";
-        await engine.PostAsync(code, await ContextAsync(db, document, CreateEvent, document.DocumentDate), user);
+        await engine.PostAsync(code, await BuildContextAsync(db, document, CreateEvent, document.DocumentDate), user);
     }
 
     public static async Task CancelAsync(IAccountingPostingService? engine, AppDbContext db, FinancialDocument document,
@@ -51,10 +51,10 @@ public static class FinancialDocumentPosting
     {
         if (engine is null || !IsPostable(document)) return;
         var code = document.Direction == FinancialDirection.Receivable ? "505" : "515";
-        await engine.PostReversalAsync(code, await ContextAsync(db, document, CancelEvent, DateTime.Today), CreateEvent, user);
+        await engine.PostReversalAsync(code, await BuildContextAsync(db, document, CancelEvent, DateTime.Today), CreateEvent, user);
     }
 
-    private static async Task<PostingContext> ContextAsync(AppDbContext db, FinancialDocument document, string evt, DateTime date)
+    public static async Task<PostingContext> BuildContextAsync(AppDbContext db, FinancialDocument document, string evt, DateTime date)
     {
         var partnerAccount = await db.BusinessPartners.AsNoTracking()
             .Where(p => p.CardCode == document.CardCode).Select(p => p.DefaultLedgerAccountCode).FirstOrDefaultAsync();

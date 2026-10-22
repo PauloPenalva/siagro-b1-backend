@@ -19,7 +19,7 @@ public static class AccountEntryPosting
         string user)
     {
         if (engine is null || entry.TransferKey is not null || entry.Amount == 0) return;
-        await engine.PostAsync(entry.Amount > 0 ? "563" : "562", await EntryContextAsync(db, entry, CreateEvent, entry.EntryDate), user);
+        await engine.PostAsync(entry.Amount > 0 ? "563" : "562", await BuildEntryContextAsync(db, entry, CreateEvent, entry.EntryDate), user);
     }
 
     public static async Task CancelEntryAsync(IAccountingPostingService? engine, AppDbContext db, FinancialAccountEntry entry,
@@ -27,21 +27,21 @@ public static class AccountEntryPosting
     {
         if (engine is null || entry.TransferKey is not null || entry.Amount == 0) return;
         await engine.PostReversalAsync(entry.Amount > 0 ? "565" : "564",
-            await EntryContextAsync(db, entry, CancelEvent, DateTime.Today), CreateEvent, user);
+            await BuildEntryContextAsync(db, entry, CancelEvent, DateTime.Today), CreateEvent, user);
     }
 
     public static async Task CreateTransferAsync(IAccountingPostingService? engine, AppDbContext db,
         FinancialAccountTransfer transfer, string user)
     {
         if (engine is null) return;
-        await engine.PostAsync("560", await TransferContextAsync(db, transfer, CreateEvent, transfer.TransferDate), user);
+        await engine.PostAsync("560", await BuildTransferContextAsync(db, transfer, CreateEvent, transfer.TransferDate), user);
     }
 
     public static async Task CancelTransferAsync(IAccountingPostingService? engine, AppDbContext db,
         FinancialAccountTransfer transfer, string user)
     {
         if (engine is null) return;
-        await engine.PostReversalAsync("561", await TransferContextAsync(db, transfer, CancelEvent, DateTime.Today), CreateEvent, user);
+        await engine.PostReversalAsync("561", await BuildTransferContextAsync(db, transfer, CancelEvent, DateTime.Today), CreateEvent, user);
     }
 
     private static Task<(string? Ledger, string? Branch)> AccountAsync(AppDbContext db, string? code) =>
@@ -49,7 +49,7 @@ public static class AccountEntryPosting
             .Select(a => new ValueTuple<string?, string?>(a.LedgerAccountCode, a.BranchCode))
             .FirstOrDefaultAsync();
 
-    private static async Task<PostingContext> EntryContextAsync(AppDbContext db, FinancialAccountEntry entry, string evt,
+    public static async Task<PostingContext> BuildEntryContextAsync(AppDbContext db, FinancialAccountEntry entry, string evt,
         DateTime date)
     {
         var (ledger, branch) = await AccountAsync(db, entry.FinancialAccountCode);
@@ -69,7 +69,7 @@ public static class AccountEntryPosting
             await PostingBranch.ResolveAsync(db, branch), null, [row]);
     }
 
-    private static async Task<PostingContext> TransferContextAsync(AppDbContext db, FinancialAccountTransfer transfer,
+    public static async Task<PostingContext> BuildTransferContextAsync(AppDbContext db, FinancialAccountTransfer transfer,
         string evt, DateTime date)
     {
         var (fromLedger, fromBranch) = await AccountAsync(db, transfer.FromAccountCode);

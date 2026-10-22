@@ -16,6 +16,15 @@ public static class SettlementPosting
     public const string SettleEvent = "Settle";
     public const string ReverseEvent = "Reverse";
 
+    // Composição (e o desfazer dela) só liga o provisório ao título da nota: não é pagamento.
+    // Devolução de adiantamento é dinheiro voltando: com as fontes da fase 2 sairia como pagamento; fica manual.
+    private static bool IsPostableOrigin(FinancialSettlement settlement) =>
+        settlement.Origin is not (FinancialSettlementOrigin.InvoiceOffset or FinancialSettlementOrigin.AdvanceRefund);
+
+    /// <summary>Baixa (ou estorno) que contabiliza: origem de pagamento e título não provisório.</summary>
+    public static bool IsPostable(FinancialSettlement settlement, FinancialDocument document) =>
+        IsPostableOrigin(settlement) && document.Nature != FinancialDocumentNature.Provisional;
+
     public static async Task EnqueuePendingAsync(IAccountingPostingService? engine, AppDbContext db, string user)
     {
         if (engine is null) return;
@@ -27,28 +36,25 @@ public static class SettlementPosting
 
         foreach (var settlement in pending)
         {
-            // Composição (e o desfazer dela) só liga o provisório ao título da nota: não é pagamento.
-            // Devolução de adiantamento é dinheiro voltando: com as fontes da fase 2 sairia como pagamento; fica manual.
-            if (settlement.Origin is FinancialSettlementOrigin.InvoiceOffset or FinancialSettlementOrigin.AdvanceRefund) continue;
-
+            if (!IsPostableOrigin(settlement)) continue;
             var document = await db.FinancialDocuments.FindAsync(settlement.FinancialDocumentKey);
-            if (document is null || document.Nature == FinancialDocumentNature.Provisional) continue;
+            if (document is null || !IsPostable(settlement, document)) continue;
 
             var receivable = document.Direction == FinancialDirection.Receivable;
             if (settlement.Amount > 0)
             {
                 await engine.PostAsync(receivable ? "520" : "530",
-                    await ContextAsync(db, settlement, document, settlement.Key, SettleEvent), user);
+                    await BuildContextAsync(db, settlement, document, settlement.Key, SettleEvent), user);
             }
             else if (settlement.Amount < 0 && settlement.ReversedSettlementKey is { } original)
             {
                 await engine.PostReversalAsync(receivable ? "527" : "531",
-                    await ContextAsync(db, settlement, document, original, ReverseEvent), SettleEvent, user);
+                    await BuildContextAsync(db, settlement, document, original, ReverseEvent), SettleEvent, user);
             }
         }
     }
 
-    private static async Task<PostingContext> ContextAsync(AppDbContext db, FinancialSettlement settlement,
+    public static async Task<PostingContext> BuildContextAsync(AppDbContext db, FinancialSettlement settlement,
         FinancialDocument document, Guid key, string evt)
     {
         var account = settlement.FinancialAccountCode is null
