@@ -69,6 +69,16 @@ public static class ODataConfigurations
         var distributionRulesDeleteVersion = modelBuilder.Action("DistributionRulesDeleteVersion");
         distributionRulesDeleteVersion.Parameter<Guid>("VersionId");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
+        // Calendário contábil: lista + actions de topo (gerar exercício, mudar a situação do mês).
+        modelBuilder.EntitySet<AccountingPeriod>("AccountingPeriods");
+        var accountingPeriodsGenerateYear = modelBuilder.Action("AccountingPeriodsGenerateYear");
+        accountingPeriodsGenerateYear.Parameter<int>("Year");
+        accountingPeriodsGenerateYear.ReturnsCollectionFromEntitySet<AccountingPeriod>("AccountingPeriods");
+        var accountingPeriodsSetStatus = modelBuilder.Action("AccountingPeriodsSetStatus");
+        accountingPeriodsSetStatus.Parameter<int>("Id");
+        accountingPeriodsSetStatus.Parameter<int>("Status");
+        accountingPeriodsSetStatus.Parameter<string>("Reason");
+        accountingPeriodsSetStatus.ReturnsFromEntitySet<AccountingPeriod>("AccountingPeriods");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");

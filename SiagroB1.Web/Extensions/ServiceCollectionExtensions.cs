@@ -117,6 +117,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAccountingItemService, Application.Services.Accounting.AccountingItemService>();
         services.AddScoped<IDistributionRuleService, Application.Services.Accounting.DistributionRuleService>();
         services.AddScoped<Application.Services.Accounting.DistributionRuleExpander>();
+        // Núcleo contábil (calendário, lançamentos): só exposto em STANDALONE pelos controllers.
+        services.AddScoped<SiagroB1.Infra.Accounting.AccountingPeriodGuard>();
+        services.AddScoped<Application.Services.Accounting.IAccountingPeriodsService, Application.Services.Accounting.AccountingPeriodsService>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
