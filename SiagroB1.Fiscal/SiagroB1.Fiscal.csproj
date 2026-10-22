@@ -18,6 +18,7 @@
 
     <ItemGroup>
       <PackageReference Include="Zeus.Net.NFe.NFCe" Version="2026.9.24.1416" />
+      <PackageReference Include="Zeus.Net.CTe" Version="2026.9.24.1416" />
       <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.0" />
     </ItemGroup>
 
