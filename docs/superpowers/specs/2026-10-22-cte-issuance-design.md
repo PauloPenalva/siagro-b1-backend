@@ -286,8 +286,13 @@ CT-e cancela o título.
 
 ## Pendências que dependem do cliente
 
-1. **Unidade da quantidade:** hoje sai "00" (M3) com números de kg. O padrão novo será KG (01) se o
-   cliente confirmar.
-2. **Operação interestadual:** todas as chaves são de SP e o ICMS é 12%. Falta saber se a COSTA E
-   COSTA presta serviço com início ou fim fora de SP, o que muda as naturezas a cadastrar.
+1. ~~Unidade da quantidade~~ **Respondido (22/10):**
+   - A COSTA E COSTA transporta **combustível**, e a unidade é **M3** mesmo.
+   - Outros clientes podem usar outra medida. Por isso a unidade padrão fica **configurável por
+     filial** (aba CT-e, padrão M3) e editável em cada linha de quantidade, e o XML da NF-e
+     importado não troca a unidade.
+2. ~~Operação interestadual~~ **Respondido (22/10):**
+   - A COSTA E COSTA opera **só dentro de SP**: início e fim em SP, CFOP de prestação interna.
+   - Clientes futuros podem operar fora de SP. A regra de CFOP/alíquota por UF de início × fim
+     continua genérica, testada para os dois casos, mas só o caso interno será homologado agora.
 3. **Responsável técnico** (`infRespTec`): dados de quem assina pelo sistema.
