@@ -23,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TruckCombination> TruckCombinations { get; set; }
     public DbSet<TruckCombinationTrailer> TruckCombinationTrailers { get; set; }
     public DbSet<BranchTransportSettings> BranchTransportSettings { get; set; }
+    public DbSet<BranchCteSettings> BranchCteSettings { get; set; }
+    public DbSet<BranchCteSeries> BranchCteSeries { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
@@ -467,6 +469,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
 
         modelBuilder.Entity<BranchNfeSeries>(e =>
+        {
+            e.HasKey(x => new { x.BranchCode, x.Series });
+            e.HasOne(x => x.Settings)
+                .WithMany(x => x.SeriesList)
+                .HasForeignKey(x => x.BranchCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BranchCteSeries>(e =>
         {
             e.HasKey(x => new { x.BranchCode, x.Series });
             e.HasOne(x => x.Settings)

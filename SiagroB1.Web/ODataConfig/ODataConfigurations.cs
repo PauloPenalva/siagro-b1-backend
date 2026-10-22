@@ -63,6 +63,22 @@ public static class ODataConfigurations
         branchTransportSettingsSave.Parameter<int>("AverbaEnvironment");
         branchTransportSettingsSave.Returns<BranchTransportSettingsModel>();
 
+        // Configuração do CT-e por filial (só STANDALONE).
+        var branchCteSettingsGet = modelBuilder.Function("BranchCteSettingsGet");
+        branchCteSettingsGet.Parameter<string>("BranchCode");
+        branchCteSettingsGet.Returns<BranchCteSettingsModel>();
+
+        var branchCteSettingsSave = modelBuilder.Action("BranchCteSettingsSave");
+        branchCteSettingsSave.Parameter<string>("BranchCode");
+        branchCteSettingsSave.Parameter<bool>("Enabled");
+        branchCteSettingsSave.Parameter<int>("Environment");
+        branchCteSettingsSave.Parameter<int>("DefaultSeries");
+        branchCteSettingsSave.Parameter<string>("DefaultQuantityUnit");
+        branchCteSettingsSave.CollectionParameter<int>("Series");
+        branchCteSettingsSave.CollectionParameter<string>("Descriptions");
+        branchCteSettingsSave.CollectionParameter<int>("NextNumbers");
+        branchCteSettingsSave.Returns<BranchCteSettingsModel>();
+
         var branchTransportSettingsTestAverba = modelBuilder.Action("BranchTransportSettingsTestAverba");
         branchTransportSettingsTestAverba.Parameter<string>("BranchCode");
         branchTransportSettingsTestAverba.Parameter<string>("AverbaUser").Optional();

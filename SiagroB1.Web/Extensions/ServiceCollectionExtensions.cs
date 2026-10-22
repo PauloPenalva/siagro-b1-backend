@@ -415,6 +415,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NfeEmailMessagesGetService>();
         services.AddScoped<SupplierNfeAuthorizationService>();
         services.AddScoped<NfeNumberReservationService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.BranchCteSettingsService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteNumberReservationService>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();
         services.AddScoped<SalesInvoicesNfeIssueService>();
