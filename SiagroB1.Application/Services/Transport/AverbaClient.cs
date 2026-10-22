@@ -36,14 +36,15 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
                 new Dictionary<string, string> { ["usuario"] = user, ["senha"] = password, ["codigoatm"] = code },
                 ct);
 
-            if (!response.IsSuccessStatusCode)
-                return new AverbaLoginResult(false, null, $"A AT&M respondeu HTTP {(int)response.StatusCode}.");
-
-            var body = await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken: ct);
+            // A AT&M recusa credencial inválida com HTTP 400 e o motivo no corpo: lê o corpo antes do status.
+            var body = await ReadBodyAsync(response, ct);
             var error = body?.Errors?.Error?.FirstOrDefault()?.Description;
 
             if (!string.IsNullOrWhiteSpace(error))
                 return new AverbaLoginResult(false, null, error);
+
+            if (!response.IsSuccessStatusCode)
+                return new AverbaLoginResult(false, null, $"A AT&M respondeu HTTP {(int)response.StatusCode}.");
 
             return string.IsNullOrWhiteSpace(body?.Bearer)
                 ? new AverbaLoginResult(false, null, "A AT&M não devolveu o token de acesso.")
@@ -52,6 +53,20 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException)
         {
             return new AverbaLoginResult(false, null, $"Não foi possível conectar à AT&M: {e.Message}");
+        }
+    }
+
+    /// <summary>Corpo como JSON da AT&amp;M, ou null quando não é JSON (ex.: página de erro do servidor).</summary>
+    private static async Task<LoginResponse?> ReadBodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        var text = await response.Content.ReadAsStringAsync(ct);
+        try
+        {
+            return string.IsNullOrWhiteSpace(text) ? null : JsonSerializer.Deserialize<LoginResponse>(text);
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 

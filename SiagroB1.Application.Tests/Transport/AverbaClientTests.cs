@@ -79,6 +79,19 @@ public class AverbaClientTests
     }
 
     [Fact]
+    public async Task Http_error_with_error_body_reads_description()
+    {
+        // A AT&M recusa credencial inválida com HTTP 400 e o motivo no corpo.
+        var handler = new StubHttpMessageHandler(HttpStatusCode.BadRequest,
+            "{\"Erros\":{\"Erro\":[{\"Codigo\":\"901\",\"Descricao\":\"Usuário não encontrado\"}]}}");
+
+        var result = await Client(handler).LoginAsync(NfeEnvironment.Production, "x", "y", "z", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("Usuário não encontrado", result.Error);
+    }
+
+    [Fact]
     public async Task Network_failure_is_reported()
     {
         var handler = new StubHttpMessageHandler(new HttpRequestException("sem rota"));
