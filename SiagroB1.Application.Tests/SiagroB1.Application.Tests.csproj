@@ -30,6 +30,10 @@
   <ItemGroup>
     <Compile Include="..\SiagroB1.Fiscal.Tests\Support\TestCertificates.cs" Link="Support\TestCertificates.cs" />
     <Compile Include="..\SiagroB1.Fiscal.Tests\Support\NfeTestData.cs" Link="Support\NfeTestData.cs" />
+    <Compile Include="..\SiagroB1.Fiscal.Tests\Support\CteTestData.cs" Link="Support\CteTestData.cs" />
+    <None Include="..\SiagroB1.Reports\Reports\Templates\Dacte.frx"
+          Link="ReportsContentRoot\Reports\Templates\Dacte.frx"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\SiagroB1.Reports\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
           Link="ReportsContentRoot\ThirdParty\Zeus-LGPL\NFe.Danfe.Base\NFe\NFeRetrato.frx"
           CopyToOutputDirectory="PreserveNewest" />
