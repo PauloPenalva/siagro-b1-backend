@@ -79,6 +79,54 @@ public static class ODataConfigurations
         branchCteSettingsSave.CollectionParameter<int>("NextNumbers");
         branchCteSettingsSave.Returns<BranchCteSettingsModel>();
 
+        // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
+        // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.
+        modelBuilder.EntitySet<TransportDocument>("TransportDocuments");
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Cte.TransportDocumentSaveResult>();
+
+        var transportDocumentsSave = modelBuilder.Action("TransportDocumentsSave");
+        transportDocumentsSave.Parameter<string>("Key").Optional();
+        transportDocumentsSave.Parameter<string>("BranchCode");
+        transportDocumentsSave.Parameter<int>("Series");
+        transportDocumentsSave.Parameter<int?>("UsageCode").Optional();
+        transportDocumentsSave.Parameter<int>("TakerRole");
+        transportDocumentsSave.CollectionParameter<int>("PartyRoles");
+        transportDocumentsSave.CollectionParameter<string>("PartyCardCodes");
+        transportDocumentsSave.CollectionParameter<string>("PartyAddressNames").Optional();
+        transportDocumentsSave.Parameter<string>("StartMunicipalityCode").Optional();
+        transportDocumentsSave.Parameter<string>("EndMunicipalityCode").Optional();
+        transportDocumentsSave.CollectionParameter<string>("NfeKeys");
+        transportDocumentsSave.Parameter<string>("PredominantProduct").Optional();
+        transportDocumentsSave.Parameter<double>("CargoValue");
+        transportDocumentsSave.CollectionParameter<string>("QuantityUnits");
+        transportDocumentsSave.CollectionParameter<string>("QuantityMeasureTypes");
+        transportDocumentsSave.CollectionParameter<double>("QuantityValues");
+        transportDocumentsSave.CollectionParameter<string>("ComponentNames");
+        transportDocumentsSave.CollectionParameter<double>("ComponentValues");
+        transportDocumentsSave.Parameter<string>("TruckCombinationCode").Optional();
+        transportDocumentsSave.Parameter<string>("TractionPlate").Optional();
+        transportDocumentsSave.Parameter<string>("DriverCpf").Optional();
+        transportDocumentsSave.Parameter<string>("InsuranceResponsible").Optional();
+        transportDocumentsSave.Parameter<string>("InsurerTaxId").Optional();
+        transportDocumentsSave.Parameter<string>("InsurerName").Optional();
+        transportDocumentsSave.Parameter<string>("PolicyNumber").Optional();
+        transportDocumentsSave.Parameter<bool>("Tracked");
+        transportDocumentsSave.Parameter<bool>("OwnTransport");
+        transportDocumentsSave.Parameter<string>("Observation").Optional();
+        transportDocumentsSave.Parameter<string>("CostCenterCode").Optional();
+        transportDocumentsSave.Parameter<string>("AccountingItemCode").Optional();
+        transportDocumentsSave.Parameter<string>("DistributionRuleCode").Optional();
+        transportDocumentsSave.Returns<SiagroB1.Application.Services.Cte.TransportDocumentSaveResult>();
+
+        var transportDocumentsImportNfe = modelBuilder.Action("TransportDocumentsImportNfe");
+        transportDocumentsImportNfe.Parameter<string>("Key").Optional();
+        transportDocumentsImportNfe.Parameter<string>("BranchCode");
+        transportDocumentsImportNfe.CollectionParameter<string>("Xmls");
+        transportDocumentsImportNfe.Returns<Guid>();
+
+        var transportDocumentsDelete = modelBuilder.Action("TransportDocumentsDelete");
+        transportDocumentsDelete.Parameter<string>("Key");
+
         var branchTransportSettingsTestAverba = modelBuilder.Action("BranchTransportSettingsTestAverba");
         branchTransportSettingsTestAverba.Parameter<string>("BranchCode");
         branchTransportSettingsTestAverba.Parameter<string>("AverbaUser").Optional();

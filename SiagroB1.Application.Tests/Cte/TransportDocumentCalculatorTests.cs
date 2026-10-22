@@ -48,6 +48,17 @@ public class TransportDocumentCalculatorTests
     }
 
     [Fact]
+    public void Half_cent_rounds_away_from_zero()
+    {
+        var doc = Doc(10m, 0, 0.25m);
+
+        TransportDocumentCalculator.Recalculate(doc);
+
+        // 0,25 × 10% = 0,025: AwayFromZero → 0,03 (ToEven daria 0,02).
+        Assert.Equal(0.03m, doc.IcmsValue);
+    }
+
+    [Fact]
     public void New_document_is_draft_tracked_and_own_transport()
     {
         var doc = new TransportDocument { BranchCode = "01" };

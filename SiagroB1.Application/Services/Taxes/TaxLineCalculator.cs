@@ -41,6 +41,24 @@ public class TaxLineCalculator(IUnitOfWork db, IbsCbsRatesService ibsCbsRatesSer
         return new TaxLineResult(cfop, product, taxes);
     }
 
+    /// <summary>
+    /// Prestação de serviço sem produto (CT-e): mesmas regras da natureza, com a origem da mercadoria informada
+    /// (0 no serviço). <see cref="TaxLineRequest.ItemCode"/> é ignorado.
+    /// </summary>
+    public async Task<(string Cfop, TaxCalculationResult Taxes)> CalculateServiceAsync(TaxLineRequest request, byte goodsOrigin)
+    {
+        var cfop = ResolveCfop(request.Usage, request.CfopInState ?? request.InState, request.IncomingCfop);
+        var icms = ResolveIcmsRule(request.Usage, request.InState, request.Regime);
+        var pisCofins = ResolvePisCofinsRule(request.Usage);
+        var (ibsCbs, rates) = await ResolveIbsCbsAsync(request.Usage, request.RateDate);
+
+        var taxes = TaxCalculator.Calculate(new TaxCalculationInput(
+            request.Amount, request.InState, request.OriginState, request.DestinationState, request.Regime,
+            goodsOrigin, icms, pisCofins, ibsCbs, rates));
+
+        return (cfop, taxes);
+    }
+
     /// <summary>Grava na linha a natureza, o CFOP, NCM/origem do produto, as flags e a fotografia.</summary>
     public static void Apply(INfeTaxedLine line, UsageModel usage, TaxLineResult result)
     {

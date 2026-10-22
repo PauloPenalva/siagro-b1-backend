@@ -417,6 +417,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NfeNumberReservationService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.BranchCteSettingsService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteNumberReservationService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentDefaults>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsTaxApplyService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsSaveService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsImportNfeService>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();
         services.AddScoped<SalesInvoicesNfeIssueService>();

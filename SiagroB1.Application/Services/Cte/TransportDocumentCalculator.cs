@@ -9,7 +9,7 @@ public static class TransportDocumentCalculator
     {
         doc.ServiceTotal = doc.Components.Sum(c => c.Value);
         doc.AmountToReceive = doc.ServiceTotal;
-        doc.IcmsBase = decimal.Round(doc.ServiceTotal * (1 - doc.IcmsReduction / 100m), 2, MidpointRounding.ToEven);
-        doc.IcmsValue = decimal.Round(doc.IcmsBase * doc.IcmsRate / 100m, 2, MidpointRounding.ToEven);
+        doc.IcmsBase = decimal.Round(doc.ServiceTotal * (1 - doc.IcmsReduction / 100m), 2, MidpointRounding.AwayFromZero);
+        doc.IcmsValue = decimal.Round(doc.IcmsBase * doc.IcmsRate / 100m, 2, MidpointRounding.AwayFromZero);
     }
 }
