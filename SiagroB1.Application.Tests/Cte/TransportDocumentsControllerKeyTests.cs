@@ -32,3 +32,27 @@ public class TransportDocumentsControllerKeyTests
         Assert.Equal("Chave do documento inválida.", TransportDocumentsController.InvalidKey);
     }
 }
+
+public class CteNumbersVoidActionTests
+{
+    [Fact]
+    public async Task Void_without_series_or_with_null_series_is_bad_request()
+    {
+        var controller = new TransportDocumentsController(
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        foreach (object? series in new object?[] { null, "absent" })
+        {
+            var parameters = new Microsoft.AspNetCore.OData.Formatter.ODataActionParameters
+            {
+                ["BranchCode"] = "01", ["From"] = 1, ["To"] = 2, ["Justification"] = "justificativa valida aqui",
+            };
+            if (!"absent".Equals(series))
+                parameters["Series"] = series;
+
+            var result = await controller.VoidNumbersAsync(parameters);
+
+            Assert.IsType<Microsoft.AspNetCore.OData.Results.BadRequestODataResult>(result);
+        }
+    }
+}

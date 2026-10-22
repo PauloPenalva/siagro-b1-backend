@@ -68,6 +68,21 @@ public class TransportDocumentsCorrectionServiceTests : CteEventsTestBase
     }
 
     [Fact]
+    public async Task Correction_xobs_over_500_chars_is_rejected_before_sefaz()
+    {
+        var key = await SeedAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(
+            () => Service().SendCorrectionAsync(key, Obs(new string('A', 501)), "tester"));
+
+        Assert.Equal(0, Sefaz.CorrectionCalls);
+    }
+
+    [Fact]
+    public void No_correctable_field_exceeds_the_xsd_value_limit() =>
+        Assert.All(CteCorrectableFields.All, f => Assert.True(f.MaxLength <= 500));
+
+    [Fact]
     public async Task Correction_requires_authorized_status()
     {
         var key = await SeedAsync(CteStatus.Cancelled);

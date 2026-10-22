@@ -193,7 +193,7 @@ public class TransportDocumentsController(
     [HttpPost("odata/CteNumbersVoid")]
     public async Task<IActionResult> VoidNumbersAsync([FromBody] ODataActionParameters parameters)
     {
-        if (parameters is null || !parameters.ContainsKey("BranchCode") || !parameters.ContainsKey("Series") || !parameters.ContainsKey("From") || !parameters.ContainsKey("To"))
+        if (parameters is null || !parameters.ContainsKey("BranchCode") || Int(parameters, "Series") is null || !parameters.ContainsKey("From") || !parameters.ContainsKey("To"))
             return BadRequest("Parâmetros obrigatórios: BranchCode, Series, From, To, Justification.");
 
         try
