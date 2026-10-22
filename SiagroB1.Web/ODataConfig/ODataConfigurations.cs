@@ -29,6 +29,19 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<TruckDriver>("TruckDrivers");
         modelBuilder.EntitySet<State>("States");
         modelBuilder.EntitySet<Truck>("Trucks");
+
+        // Conjunto de veículos (só STANDALONE): leitura pelo entity set; gravação pela ação, que
+        // substitui a lista de reboques de uma vez (o PATCH não faz isso).
+        modelBuilder.EntitySet<TruckCombination>("TruckCombinations");
+        var truckCombinationsSave = modelBuilder.Action("TruckCombinationsSave");
+        truckCombinationsSave.Parameter<string>("Code");
+        truckCombinationsSave.Parameter<string>("Description");
+        truckCombinationsSave.Parameter<string>("TractionTruckCode");
+        truckCombinationsSave.Parameter<string>("DefaultDriverCode").Optional();
+        truckCombinationsSave.Parameter<bool>("Inactive");
+        truckCombinationsSave.Parameter<bool>("IsNew");
+        truckCombinationsSave.CollectionParameter<string>("TrailerCodes");
+        truckCombinationsSave.Returns<string>();
         modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
         modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
         modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");

@@ -7921,6 +7921,63 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("TRUCKS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombination", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DefaultDriverCode")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TractionTruckCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.HasKey("Code");
+
+                    b.HasIndex("DefaultDriverCode");
+
+                    b.HasIndex("TractionTruckCode");
+
+                    b.ToTable("TRUCK_COMBINATIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombinationTrailer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CombinationCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrailerTruckCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrailerTruckCode");
+
+                    b.HasIndex("CombinationCode", "TrailerTruckCode")
+                        .IsUnique();
+
+                    b.ToTable("TRUCK_COMBINATION_TRAILERS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckDriver", b =>
                 {
                     b.Property<string>("Code")
@@ -10437,6 +10494,41 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("State");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombination", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TruckDriver", "DefaultDriver")
+                        .WithMany()
+                        .HasForeignKey("DefaultDriverCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.Truck", "Traction")
+                        .WithMany()
+                        .HasForeignKey("TractionTruckCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("DefaultDriver");
+
+                    b.Navigation("Traction");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombinationTrailer", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TruckCombination", null)
+                        .WithMany("Trailers")
+                        .HasForeignKey("CombinationCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Truck", "Trailer")
+                        .WithMany()
+                        .HasForeignKey("TrailerTruckCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Trailer");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Usage", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Usage", "ReturnUsage")
@@ -10772,6 +10864,11 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.Navigation("QualityInspections");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombination", b =>
+                {
+                    b.Navigation("Trailers");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.WarehouseReconciliation", b =>

@@ -20,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<HarvestSeason> HarvestSeasons { get; set; }
     public DbSet<TruckDriver> TruckDrivers { get; set; }
     public DbSet<Truck> Trucks { get; set; }
+    public DbSet<TruckCombination> TruckCombinations { get; set; }
+    public DbSet<TruckCombinationTrailer> TruckCombinationTrailers { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
@@ -453,6 +455,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Address>()
             .HasKey(a => new { a.CardCode, a.AddressName, a.AdresType });
+
+        // Conjunto: reboques caem com o conjunto; veículo usado em conjunto não pode ser excluído.
+        modelBuilder.Entity<TruckCombinationTrailer>(e =>
+        {
+            e.HasIndex(x => new { x.CombinationCode, x.TrailerTruckCode }).IsUnique();
+            e.HasOne<TruckCombination>().WithMany(x => x.Trailers)
+                .HasForeignKey(x => x.CombinationCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<BranchNfeSeries>(e =>
         {

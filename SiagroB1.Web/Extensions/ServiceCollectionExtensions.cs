@@ -143,6 +143,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITaxService, TaxService>();
         services.AddScoped<ITruckDriverService, TruckDriverService>();
         services.AddScoped<ITruckService, TruckService>();
+        services.AddScoped<SiagroB1.Application.Services.Transport.TruckCombinationService>();
         services.AddScoped<IWeighingTicketService, WeighingTicketService>();
         services.AddScoped<IQualityAttribService, QualityAttribService>();
         services.AddScoped<TruckScaleService>();
