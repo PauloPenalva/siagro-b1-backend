@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" DoublePass="true" ReportInfo.Created="10/22/2026 10:00:00" ReportInfo.Modified="10/22/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="JournalRows" ReferenceName="JournalRows" DataType="System.Int32" Enabled="true">
+      <Column Name="Date" DataType="System.DateTime"/>
+      <Column Name="Batch" DataType="System.String"/>
+      <Column Name="SubBatch" DataType="System.String"/>
+      <Column Name="DocumentNumber" DataType="System.String"/>
+      <Column Name="LineNumber" DataType="System.Int32"/>
+      <Column Name="BranchCode" DataType="System.String"/>
+      <Column Name="Account" DataType="System.String"/>
+      <Column Name="AccountName" DataType="System.String"/>
+      <Column Name="Debit" DataType="System.Decimal"/>
+      <Column Name="Credit" DataType="System.Decimal"/>
+      <Column Name="History" DataType="System.String"/>
+      <Column Name="CostCenter" DataType="System.String"/>
+      <Column Name="Item" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pPeriod" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pLegalName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTaxId" DataType="System.String" AsString=""/>
+    <Parameter Name="pBookNumber" DataType="System.Int32" AsString="1"/>
+    <Parameter Name="pStartPage" DataType="System.Int32" AsString="1"/>
+    <Parameter Name="pTotalDebit" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pTotalCredit" DataType="System.Decimal" AsString="0"/>
+  </Dictionary>
+  <ReportPage Name="OpeningPage" PaperWidth="210" PaperHeight="297" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="OpeningTitle" Width="733.4" Height="400">
+      <TextObject Name="txtOpeningTitle" Top="120" Width="733.4" Height="30" Text="TERMO DE ABERTURA" HorzAlign="Center" VertAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtOpeningBody" Left="60" Top="180" Width="613.4" Height="160" Text="Contém este livro Diário nº [pBookNumber] [TotalPages] folhas, numeradas de [pStartPage] a [[pStartPage] + [TotalPages] - 1], que servirão para o lançamento das operações de [pLegalName], CNPJ [pTaxId], no período de [pPeriod]." HorzAlign="Justify" Font="Arial, 11pt"/>
+    </ReportTitleBand>
+    <PageFooterBand Name="OpeningFooter" Width="733.4" Height="22">
+      <TextObject Name="txtSheetOpening" Left="586" Width="147.4" Height="17" Text="Folha [[pStartPage] + [Page] - 1]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="733.4" Height="98">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="480" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtTitle" Top="45" Width="733.4" Height="26" Text="Livro Diário nº [pBookNumber]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtPeriod" Top="73" Width="733.4" Height="17" Text="[pPeriod]   [pFilters]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Italic"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Width="733.4" Height="19" Border.Lines="Bottom">
+      <TextObject Name="hdrDate" Width="52" Height="17" Text="Data" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDoc" Left="53" Width="95" Height="17" Text="Lote/Doc/Lin" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrAccount" Left="149" Width="190" Height="17" Text="Conta" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrHistory" Left="340" Width="213" Height="17" Text="Histórico" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDebit" Left="554" Width="89" Height="17" Text="Débito" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCredit" Left="644" Width="89.4" Height="17" Text="Crédito" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Width="733.4" Height="15" DataSource="JournalRows">
+      <TextObject Name="txtRowDate" Width="52" Height="15" Text="[JournalRows.Date]" Format="Date" Format.Format="dd/MM/yy" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+      <TextObject Name="txtRowDoc" Left="53" Width="95" Height="15" Text="[JournalRows.Batch]/[JournalRows.DocumentNumber]/[JournalRows.LineNumber]" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+      <TextObject Name="txtRowAccount" Left="149" Width="190" Height="15" Text="[JournalRows.Account] [JournalRows.AccountName]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+      <TextObject Name="txtRowHistory" Left="340" Width="213" Height="15" Text="[JournalRows.History]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+      <TextObject Name="txtRowDebit" Left="554" Width="89" Height="15" Text="[IIf([JournalRows.Debit] == 0, &quot;&quot;, Format(&quot;{0:N2}&quot;, [JournalRows.Debit]))]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+      <TextObject Name="txtRowCredit" Left="644" Width="89.4" Height="15" Text="[IIf([JournalRows.Credit] == 0, &quot;&quot;, Format(&quot;{0:N2}&quot;, [JournalRows.Credit]))]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 6.5pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Width="733.4" Height="22" Border.Lines="Top">
+      <TextObject Name="lblTotals" Left="340" Top="3" Width="213" Height="17" Text="Totais do período:" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtTotalDebit" Left="554" Top="3" Width="89" Height="17" Text="[pTotalDebit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtTotalCredit" Left="644" Top="3" Width="89.4" Height="17" Text="[pTotalCredit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Width="733.4" Height="22">
+      <TextObject Name="txtSheet" Left="586" Width="147.4" Height="17" Text="Folha [[pStartPage] + [Page] - 1]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+  <ReportPage Name="ClosingPage" PaperWidth="210" PaperHeight="297" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ClosingTitle" Width="733.4" Height="400">
+      <TextObject Name="txtClosingTitle" Top="120" Width="733.4" Height="30" Text="TERMO DE ENCERRAMENTO" HorzAlign="Center" VertAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtClosingBody" Left="60" Top="180" Width="613.4" Height="160" Text="Contém este livro Diário nº [pBookNumber] [TotalPages] folhas, numeradas de [pStartPage] a [[pStartPage] + [TotalPages] - 1], que serviram para o lançamento das operações de [pLegalName], CNPJ [pTaxId], no período de [pPeriod]." HorzAlign="Justify" Font="Arial, 11pt"/>
+    </ReportTitleBand>
+    <PageFooterBand Name="ClosingFooter" Width="733.4" Height="22">
+      <TextObject Name="txtSheetClosing" Left="586" Width="147.4" Height="17" Text="Folha [[pStartPage] + [Page] - 1]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

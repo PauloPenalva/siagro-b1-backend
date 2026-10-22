@@ -34,7 +34,8 @@ public class SalesInvoicesConfirmService(
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
     FiscalStockPeriodGuard? periodGuard = null,
-    AccountingAssignmentGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -218,6 +219,16 @@ public class SalesInvoicesConfirmService(
             invoice.InvoiceStatus = InvoiceStatus.Confirmed;
             invoice.ApprovedBy = userName;
             invoice.ApprovedAt = DateTime.Now;
+
+            // Contabilização on-line (610 itens / 620 total), na mesma transação: LP com erro recusa a confirmação.
+            if (accounting is not null)
+            {
+                var (itemsCtx, documentCtx) = await Accounting.Postings.SalesInvoicePostingContext.BuildAsync(db, invoice,
+                    invoice.Items.ToList(), Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent,
+                    invoice.InvoiceDate ?? DateTime.Today);
+                await accounting.PostAsync("610", itemsCtx, userName);
+                await accounting.PostAsync("620", documentCtx, userName);
+            }
 
             // GAC-1171 (rateio): a quantidade devolvida da ORIGEM nasce aqui, com a devolução já
             // Confirmada no rastreador. A Recusa de carga passa por este ponto, e o recálculo da

@@ -25,7 +25,8 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialAdvancesRelinkContractService(
     IUnitOfWork db,
     FinancialDocumentChangeLogService changeLog,
-    DocNumberSequenceService docNumberSequence)
+    DocNumberSequenceService docNumberSequence,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task ExecuteAsync(
         Guid documentKey, string targetContractType, Guid targetContractKey, string userName)
@@ -181,10 +182,12 @@ public class FinancialAdvancesRelinkContractService(
             CreatedAt = now, CreatedBy = userName, UpdatedAt = now, UpdatedBy = userName,
         };
         db.Context.FinancialDocuments.Add(split);
+        await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CreateAsync(accounting, db.Context, split, userName);
 
         db.Context.FinancialSettlements.AddRange(
             Transfer(original, split, credit, now, userName),
             Transfer(split, original, credit, now, userName));
+        await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
 
         changeLog.Register(original.Key, FinancialDocumentChangeLogFields.AdvanceTransfer, null,
             FinancialDocumentsComposeService.Describe(split.Code, credit), userName);

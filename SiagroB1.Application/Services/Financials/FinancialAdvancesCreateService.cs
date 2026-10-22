@@ -34,7 +34,8 @@ public class FinancialAdvancesCreateService(
     FinancialDocumentsSettleService settleService,
     AccountingAssignmentValidator? dimensionValidator = null,
     AccountingAssignmentDefaultsResolver? dimensionResolver = null,
-    AccountingAssignmentGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(
         string contractType,
@@ -222,6 +223,7 @@ public class FinancialAdvancesCreateService(
             if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
             db.Context.FinancialDocuments.Add(advance);
+            await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CreateAsync(accounting, db.Context, advance, userName);
             await db.Context.SaveChangesAsync();
 
             // Baixa na mesma transação: é ela que aparece na conta (extrato, reconciliação) e libera o crédito.

@@ -19,7 +19,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// Pagamento do adiantamento (regra 6): recusado se o pago ficaria abaixo do aplicado.
 /// Transferência (regra 9): estornar o par CANCELA o adiantamento nascido do desmembramento.
 /// </summary>
-public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
+public class FinancialDocumentsReverseSettlementService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     /// <summary>Motivo de cancelamento do adiantamento novo quando a transferência é estornada (spec 2026-10-14, regra 9).</summary>
     public const string SplitReversalReason = "Transferência de crédito estornada";
@@ -103,6 +103,7 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db)
             if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
             db.Context.FinancialSettlements.AddRange(reversals);
+            await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
             await db.Context.SaveChangesAsync();
 
             foreach (var line in settlements)

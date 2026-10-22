@@ -16,7 +16,8 @@ namespace SiagroB1.Application.Services.FiscalStock;
 /// para que o instantâneo seja exatamente o saldo. Reabrir só o último fechado, com motivo.
 /// </summary>
 public class FiscalStockPeriodsService(
-    IUnitOfWork db, FiscalStockLedgerLoader? ledgerLoader = null, IFiscalStockPeriodLock? periodLock = null)
+    IUnitOfWork db, FiscalStockLedgerLoader? ledgerLoader = null, IFiscalStockPeriodLock? periodLock = null,
+    Accounting.Postings.IAccountingPostingService? accounting = null)
     : IFiscalStockPeriodsService
 {
     private readonly FiscalStockLedgerLoader _ledgerLoader = ledgerLoader ?? new FiscalStockLedgerLoader(db);
@@ -103,6 +104,11 @@ public class FiscalStockPeriodsService(
                 });
         }
 
+        // CMV do mês pelo custo PEPS agora congelado (670), no mesmo SaveChanges do fechamento.
+        var costByItem = Accounting.Postings.CostOfSalesPosting.CostOfSalesByItem(
+            ledgers.Select(l => (l.ItemCode, l.Result)), first, lastDay);
+        await Accounting.Postings.CostOfSalesPosting.CloseAsync(accounting, db.Context, period, costByItem, userName);
+
         return period;
     }
 
@@ -127,6 +133,7 @@ public class FiscalStockPeriodsService(
             db.Context.FiscalStockPeriodLayers.RemoveRange(
                 await db.Context.FiscalStockPeriodLayers.Where(l => l.PeriodKey == period.Key).ToListAsync());
 
+            await Accounting.Postings.CostOfSalesPosting.ReopenAsync(accounting, db.Context, period, userName);
             period.Status = FiscalStockPeriodStatus.Open;
             period.ReopenedAt = now;
             period.ReopenedBy = userName;

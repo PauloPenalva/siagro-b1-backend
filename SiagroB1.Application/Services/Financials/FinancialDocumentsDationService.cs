@@ -12,7 +12,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// firme faturado acima do contrato é baixada pelo OPERADOR, com motivo, sem conta e sem dinheiro. Só em firme da
 /// conciliação (não em devolução nem provisório). Estornável pelo estorno genérico.
 /// </summary>
-public class FinancialDocumentsDationService(IUnitOfWork db)
+public class FinancialDocumentsDationService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -55,6 +55,7 @@ public class FinancialDocumentsDationService(IUnitOfWork db)
         };
 
         db.Context.FinancialSettlements.Add(settlement);
+        await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
         await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, document.Key);
         await db.SaveChangesAsync();
 

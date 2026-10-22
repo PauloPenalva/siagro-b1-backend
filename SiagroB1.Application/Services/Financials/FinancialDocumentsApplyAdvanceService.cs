@@ -18,7 +18,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// documento de entrada) e o crédito do adiantamento (pago − aplicado). Enqueue-only até o SaveChanges final; o
 /// RowVersion dos dois títulos protege a dupla compensação simultânea do mesmo crédito.
 /// </summary>
-public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocumentChangeLogService changeLog)
+public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocumentChangeLogService changeLog, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -93,6 +93,7 @@ public class FinancialDocumentsApplyAdvanceService(IUnitOfWork db, FinancialDocu
         context.FinancialSettlements.AddRange(
             Line(provisional, advance, value, settlementDate.Date, now, userName),
             Line(advance, provisional, value, settlementDate.Date, now, userName));
+        await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, context, userName);
 
         changeLog.Register(provisional.Key, FinancialDocumentChangeLogFields.AdvanceApplication, null,
             FinancialDocumentsComposeService.Describe(advance.Code, value), userName);

@@ -17,7 +17,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// de sempre — devolve tudo e o título fica cancelado. Com compensação, a devolução abate só o pago e o título NÃO é
 /// cancelado: fica quitado/parcial pelo que sobrou pago, que é igual ao aplicado.
 /// </summary>
-public class FinancialAdvancesRefundService(IUnitOfWork db)
+public class FinancialAdvancesRefundService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task ExecuteAsync(
         Guid documentKey,
@@ -91,6 +91,7 @@ public class FinancialAdvancesRefundService(IUnitOfWork db)
             if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
             db.Context.FinancialSettlements.Add(refund);
+            await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
             await db.Context.SaveChangesAsync();
 
             // O recálculo só ENFILEIRA a mudança no `document` rastreado; o save abaixo persiste

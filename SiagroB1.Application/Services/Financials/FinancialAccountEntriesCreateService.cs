@@ -10,7 +10,8 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialAccountEntriesCreateService(
     IUnitOfWork db,
     AccountingAssignmentValidator? dimensionValidator = null,
-    AccountingAssignmentGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task<FinancialAccountEntry> ExecuteAsync(FinancialAccountEntry entry, string userName)
     {
@@ -53,6 +54,7 @@ public class FinancialAccountEntriesCreateService(
         };
 
         db.Context.FinancialAccountEntries.Add(created);
+        await SiagroB1.Application.Services.Accounting.Postings.AccountEntryPosting.CreateEntryAsync(accounting, db.Context, created, userName);
         await db.SaveChangesAsync();
         return created;
     }

@@ -11,7 +11,9 @@ namespace SiagroB1.Application.Services.Financials;
 /// é a tentação óbvia desta feature. Cancelar também é o que LIBERA a origem no índice único
 /// filtrado, permitindo que a reabertura de contrato regenere o provisório.
 /// </summary>
-public class FinancialDocumentsCancelService(IUnitOfWork db)
+public class FinancialDocumentsCancelService(
+    IUnitOfWork db,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     private AppDbContext Context => db.Context;
 
@@ -87,6 +89,8 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                 $"O título {document.Code} foi gerado automaticamente e não pode ser cancelado manualmente.");
 
         Cancel(document, reason, userName);
+
+        await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CancelAsync(accounting, Context, document, userName);
         await db.SaveChangesAsync();
     }
 
@@ -104,7 +108,10 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
             .ToListAsync();
 
         foreach (var document in documents)
+        {
             Cancel(document, reason, userName);
+            await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CancelAsync(accounting, Context, document, userName);
+        }
     }
 
     /// <summary>
@@ -142,7 +149,10 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                 $"O título {blocked.Code} tem composição ou baixa: desfaça a composição e estorne as baixas antes de cancelar o contrato ou retirar a aprovação.");
 
         foreach (var document in documents)
+        {
             Cancel(document, reason, userName);
+            await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CancelAsync(accounting, Context, document, userName);
+        }
     }
 
     /// <summary>
@@ -180,7 +190,10 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
         foreach (var document in documents)
         {
             if (document.Status != FinancialDocumentStatus.Canceled)
+            {
                 Cancel(document, "Contrato excluído", userName);
+                await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CancelAsync(accounting, Context, document, userName);
+            }
 
             document.PurchaseContractKey = null;
             document.SalesContractKey = null;
@@ -204,6 +217,8 @@ public class FinancialDocumentsCancelService(IUnitOfWork db)
                 $"O documento {document.Code} possui baixas. Estorne a baixa antes.");
 
         Cancel(document, reason, userName);
+
+        await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CancelAsync(accounting, Context, document, userName);
     }
 
     internal static void Cancel(Domain.Entities.FinancialDocument document, string reason, string userName)

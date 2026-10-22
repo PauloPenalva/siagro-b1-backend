@@ -28,4 +28,16 @@ public class LedgerAccountModel
     public bool AcceptsAccountingItem { get; set; } = true;
 
     public bool RequiresAccountingItem { get; set; }
+
+    public string? ParentCode { get; set; }
+
+    public LedgerAccountNature? Nature { get; set; }
+
+    public string? ResultClosingAccountCode { get; set; }
+
+    public string? ReferentialCode { get; set; }
+
+    public DateTime? BlockedFrom { get; set; }
+
+    public DateTime? BlockedTo { get; set; }
 }

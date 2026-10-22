@@ -3,10 +3,10 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Financials;
 
-/// <summary>Exclui a transferência e as duas linhas juntas. Se qualquer ponta estiver conciliada, bloqueia.</summary>
-public class FinancialAccountTransfersDeleteService(IUnitOfWork db)
+/// <summary>Exclui (CANCELA, sem apagar) a transferência e as duas linhas juntas. Se qualquer ponta estiver conciliada, bloqueia.</summary>
+public class FinancialAccountTransfersDeleteService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
-    public async Task ExecuteAsync(Guid key)
+    public async Task ExecuteAsync(Guid key, string? userName = null)
     {
         var transfer = await db.Context.FinancialAccountTransfers.FirstOrDefaultAsync(x => x.Key == key)
                        ?? throw new KeyNotFoundException("Transferência não encontrada.");
@@ -20,8 +20,16 @@ public class FinancialAccountTransfersDeleteService(IUnitOfWork db)
         try
         {
             await db.BeginTransactionAsync();
-            db.Context.FinancialAccountEntries.RemoveRange(entries);
-            db.Context.FinancialAccountTransfers.Remove(transfer);
+            var now = DateTime.Now;
+            var user = userName ?? "Unknown";
+            foreach (var entry in entries)
+            {
+                entry.CanceledAt = now;
+                entry.CanceledBy = user;
+            }
+            transfer.CanceledAt = now;
+            transfer.CanceledBy = user;
+            await SiagroB1.Application.Services.Accounting.Postings.AccountEntryPosting.CancelTransferAsync(accounting, db.Context, transfer, user);
             await db.Context.SaveChangesAsync();
             await db.CommitAsync();
         }

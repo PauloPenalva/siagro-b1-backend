@@ -132,7 +132,7 @@ public class FinancialDocumentsComposeService(IUnitOfWork db, FinancialDocumentC
         db.Context.FinancialDocumentCompositions.Add(composition);
 
         // Regra 12: o abatimento no TÍTULO COMPOSTO, sem conta, sempre positivo (devolução abate o próprio saldo).
-        db.Context.FinancialSettlements.Add(new FinancialSettlement
+        db.Context.FinancialSettlements.Add(new FinancialSettlement // [settlement-posting: not applicable] composição não é pagamento
         {
             Key = Guid.NewGuid(),
             FinancialDocumentKey = document.Key,

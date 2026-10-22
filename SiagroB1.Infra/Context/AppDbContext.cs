@@ -60,6 +60,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ReceivedDfe> ReceivedDfes { get; set; }
     public DbSet<BranchDfeSyncState> BranchDfeSyncStates { get; set; }
     public DbSet<EmailSettings> EmailSettings { get; set; }
+    public DbSet<AccountingSettings> AccountingSettings { get; set; }
+    public DbSet<AccountingPeriod> AccountingPeriods { get; set; }
+    public DbSet<JournalEntry> JournalEntries { get; set; }
+    public DbSet<JournalEntryLine> JournalEntryLines { get; set; }
+    public DbSet<StandardPosting> StandardPostings { get; set; }
+    public DbSet<StandardPostingLine> StandardPostingLines { get; set; }
+    public DbSet<OfflinePostingRun> OfflinePostingRuns { get; set; }
+    public DbSet<ManagementView> ManagementViews { get; set; }
+    public DbSet<ManagementViewLine> ManagementViewLines { get; set; }
+    public DbSet<OfflinePostingRunItem> OfflinePostingRunItems { get; set; }
     public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
@@ -180,6 +190,73 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne<DistributionRuleVersion>().WithMany(x => x.Lines)
             .HasForeignKey(x => x.VersionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Contabilidade: um período por ano + mês; documento contábil único por data + lote + sublote + doc;
+        // um lançamento vivo por evento de origem (estorno e estornado saem do índice, para poder repetir).
+        modelBuilder.Entity<AccountingPeriod>()
+            .HasIndex(x => new { x.Year, x.Month })
+            .IsUnique();
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(x => new { x.PostingDate, x.Batch, x.SubBatch, x.DocumentNumber })
+            .IsUnique();
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(x => new { x.StandardPostingCode, x.SourceDocumentType, x.SourceDocumentKey, x.SourceEvent })
+            .IsUnique()
+            .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL");
+        modelBuilder.Entity<JournalEntry>()
+            .HasIndex(x => x.ReversalOfDocEntry)
+            .IsUnique()
+            .HasFilter("[ReversalOfDocEntry] IS NOT NULL");
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(x => x.ReversalOf).WithMany()
+            .HasForeignKey(x => x.ReversalOfDocEntry)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<JournalEntry>()
+            .HasOne(x => x.ReversedBy).WithMany()
+            .HasForeignKey(x => x.ReversedByDocEntry)
+            .OnDelete(DeleteBehavior.NoAction);
+        // Lançamento na conta e transferência excluídos ficam CANCELADOS (CanceledAt), não apagados: somem de toda
+        // leitura (saldo, extrato, conciliação, telas). Quem precisa deles usa IgnoreQueryFilters().
+        modelBuilder.Entity<FinancialAccountEntry>().HasQueryFilter(x => x.CanceledAt == null);
+        modelBuilder.Entity<FinancialAccountTransfer>().HasQueryFilter(x => x.CanceledAt == null);
+
+        // Lançamento padrão: sequência única por código; as sequências caem junto com o cabeçalho.
+        modelBuilder.Entity<ManagementViewLine>()
+            .HasIndex(x => new { x.ViewCode, x.Code })
+            .IsUnique();
+        modelBuilder.Entity<ManagementViewLine>()
+            .HasOne<ManagementView>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.ViewCode)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OfflinePostingRunItem>()
+            .HasOne<OfflinePostingRun>().WithMany(x => x.Items).HasForeignKey(x => x.RunKey).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StandardPostingLine>()
+            .HasIndex(x => new { x.Code, x.Sequence })
+            .IsUnique();
+        modelBuilder.Entity<StandardPostingLine>()
+            .HasOne<StandardPosting>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.Code)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasOne<JournalEntry>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.DocEntry)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasOne<LedgerAccount>().WithMany()
+            .HasForeignKey(x => x.DebitAccountCode)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasOne<LedgerAccount>().WithMany()
+            .HasForeignKey(x => x.CreditAccountCode)
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasIndex(x => x.DebitAccountCode)
+            .IncludeProperties(x => x.Amount);
+        modelBuilder.Entity<JournalEntryLine>()
+            .HasIndex(x => x.CreditAccountCode)
+            .IncludeProperties(x => x.Amount);
 
         // Um saldo inicial por filial + produto (Kardex Fiscal).
         modelBuilder.Entity<FiscalInventoryOpeningBalance>()

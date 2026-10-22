@@ -120,7 +120,8 @@ internal sealed class SalesFirmReceivableSeed
         await Context.SaveChangesAsync();
     }
 
-    public SalesInvoicesConfirmService Confirm(FinancialDocumentsSalesNoContractService? salesNoContract = null) => new(Db,
+    public SalesInvoicesConfirmService Confirm(FinancialDocumentsSalesNoContractService? salesNoContract = null,
+        SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null) => new(Db,
         new SalesShipmentReleasesRecalculateShippedService(Context),
         new SalesContractsAllocationCreateService(Db, new SalesContractsFixedVolumeService(Context)),
         new SalesContractsAllocationCreateForReturnService(Db, new SalesContractsFixedVolumeService(Context)),
@@ -130,24 +131,29 @@ internal sealed class SalesFirmReceivableSeed
         new ShipmentLoadsClosureHookService(Context, new ShipmentLoadsChangeLogService(Context)),
         new FakeStringLocalizer<Resource>(),
         salesFirmSync: Sync(),
-        salesNoContract: salesNoContract);
+        salesNoContract: salesNoContract,
+        accounting: accounting);
 
-    public SalesInvoicesReverseConfirmService ReverseConfirm(FinancialDocumentsSalesNoContractService? salesNoContract = null) => new(Db,
+    public SalesInvoicesReverseConfirmService ReverseConfirm(FinancialDocumentsSalesNoContractService? salesNoContract = null,
+        SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null) => new(Db,
         new SalesContractsAllocationDeleteForInvoiceService(Db),
         new ShipmentReleasesRecalculateShippedService(Context),
         new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
         new ShipmentLoadsClosureHookService(Context, new ShipmentLoadsChangeLogService(Context)),
         new FakeStringLocalizer<Resource>(),
         salesFirmSync: Sync(),
-        salesNoContract: salesNoContract);
+        salesNoContract: salesNoContract,
+        accounting: accounting);
 
-    public SalesInvoicesCancelService Cancel(FinancialDocumentsSalesNoContractService? salesNoContract = null) => new(Db,
+    public SalesInvoicesCancelService Cancel(FinancialDocumentsSalesNoContractService? salesNoContract = null,
+        SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null) => new(Db,
         new SalesShipmentReleasesRecalculateShippedService(Context),
         new SalesContractsAllocationDeleteForInvoiceService(Db),
         new ShipmentLoadsBalanceHookService(Context, new ShipmentLoadsMovementLogService(Context)),
         NullLogger<SalesInvoicesCancelService>.Instance,
         salesFirmSync: Sync(),
-        salesNoContract: salesNoContract);
+        salesNoContract: salesNoContract,
+        accounting: accounting);
 
     /// <summary>Documento avulso Pendente confirmado pelo serviço REAL (ledger FiscalAdjustment + firme).</summary>
     public async Task<(SalesInvoice Invoice, SalesInvoiceItem Line)> ConfirmedAsync(

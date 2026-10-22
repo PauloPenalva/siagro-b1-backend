@@ -69,6 +69,67 @@ public static class ODataConfigurations
         var distributionRulesDeleteVersion = modelBuilder.Action("DistributionRulesDeleteVersion");
         distributionRulesDeleteVersion.Parameter<Guid>("VersionId");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
+        // Calendário contábil: lista + actions de topo (gerar exercício, mudar a situação do mês).
+        modelBuilder.EntitySet<AccountingPeriod>("AccountingPeriods");
+        var accountingPeriodsGenerateYear = modelBuilder.Action("AccountingPeriodsGenerateYear");
+        accountingPeriodsGenerateYear.Parameter<int>("Year");
+        accountingPeriodsGenerateYear.ReturnsCollectionFromEntitySet<AccountingPeriod>("AccountingPeriods");
+        var accountingPeriodsSetStatus = modelBuilder.Action("AccountingPeriodsSetStatus");
+        accountingPeriodsSetStatus.Parameter<int>("Id");
+        accountingPeriodsSetStatus.Parameter<int>("Status");
+        accountingPeriodsSetStatus.Parameter<string>("Reason");
+        accountingPeriodsSetStatus.ReturnsFromEntitySet<AccountingPeriod>("AccountingPeriods");
+        // Configurações contábeis: linha única lida por função e gravada por action.
+        modelBuilder.ComplexType<AccountingSettings>();
+        modelBuilder.Function("AccountingSettingsGet").Returns<AccountingSettings>();
+        var accountingSettingsSave = modelBuilder.Action("AccountingSettingsSave");
+        accountingSettingsSave.Parameter<DateTime?>("CutoverDate");
+        accountingSettingsSave.Parameter<string>("DefaultResultClosingAccountCode");
+        accountingSettingsSave.Parameter<int>("ClosingFrequency");
+        accountingSettingsSave.Returns<AccountingSettings>();
+        // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
+        modelBuilder.EntitySet<JournalEntry>("JournalEntries");
+        modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");
+        // Lançamento padrão (CT5) + catálogo fixo de códigos e fontes.
+        modelBuilder.EntitySet<StandardPosting>("StandardPostings");
+        modelBuilder.EntitySet<StandardPostingLine>("StandardPostingLines");
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
+        modelBuilder.Function("StandardPostingCatalogGet")
+            .ReturnsCollection<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
+        // Contabilização off-line: execuções (GET com $expand=Items) + pedido por action de topo.
+        modelBuilder.EntitySet<OfflinePostingRun>("OfflinePostingRuns");
+        modelBuilder.EntitySet<OfflinePostingRunItem>("OfflinePostingRunItems");
+        var offlinePostingRequest = modelBuilder.Action("OfflinePostingRequest");
+        offlinePostingRequest.Parameter<DateTime>("DateFrom");
+        offlinePostingRequest.Parameter<DateTime>("DateTo");
+        offlinePostingRequest.Parameter<string>("BranchCode");
+        offlinePostingRequest.CollectionParameter<int>("Modules");
+        offlinePostingRequest.Parameter<bool>("Simulation");
+        offlinePostingRequest.ReturnsFromEntitySet<OfflinePostingRun>("OfflinePostingRuns");
+        // Apuração de resultado (CTBA211): prévia por função, apurar e estornar por actions de topo.
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.ResultBalance>();
+        // Visão gerencial (CTS): GET com $expand=Lines, POST = upsert por código.
+        modelBuilder.EntitySet<ManagementView>("ManagementViews");
+        modelBuilder.EntitySet<ManagementViewLine>("ManagementViewLines");
+        var periodsCloseWarnings = modelBuilder.Function("AccountingPeriodsCloseWarnings");
+        periodsCloseWarnings.Parameter<int>("Id");
+        periodsCloseWarnings.ReturnsCollection<string>();
+        var resultClosingPreview = modelBuilder.Function("AccountingResultClosingPreview");
+        resultClosingPreview.Parameter<DateTime>("Date");
+        resultClosingPreview.Parameter<string>("BranchCode");
+        resultClosingPreview.ReturnsCollection<SiagroB1.Application.Services.Accounting.ResultBalance>();
+        var resultClosingRun = modelBuilder.Action("AccountingResultClosingRun");
+        resultClosingRun.Parameter<DateTime>("Date");
+        resultClosingRun.Parameter<string>("BranchCode");
+        resultClosingRun.Parameter<string>("History");
+        resultClosingRun.ReturnsCollectionFromEntitySet<JournalEntry>("JournalEntries");
+        var resultClosingReverse = modelBuilder.Action("AccountingResultClosingReverse");
+        resultClosingReverse.Parameter<string>("BranchCode");
+        resultClosingReverse.ReturnsCollectionFromEntitySet<JournalEntry>("JournalEntries");
+        var journalEntriesReverse = modelBuilder.Action("JournalEntriesReverse");
+        journalEntriesReverse.Parameter<int>("DocEntry");
+        journalEntriesReverse.Parameter<DateTime>("Date");
+        journalEntriesReverse.ReturnsFromEntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");

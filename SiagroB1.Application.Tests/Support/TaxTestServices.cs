@@ -50,7 +50,8 @@ public static class TaxTestServices
     public static PurchaseInvoicesConfirmService PurchaseConfirm(
         UnitOfWork db, string? erp = "STANDALONE", IBusinessPartnerService? partners = null, FakeNfeSefazClient? sefaz = null,
         FakeDocNumberSequenceService? firmNumbers = null,
-        Services.Accounting.AccountingAssignmentGuard? dimensionGuard = null)
+        Services.Accounting.AccountingAssignmentGuard? dimensionGuard = null,
+        Services.Accounting.Postings.IAccountingPostingService? accounting = null)
     {
         sefaz ??= new FakeNfeSefazClient();
         firmNumbers ??= new FakeDocNumberSequenceService();
@@ -61,6 +62,6 @@ public static class TaxTestServices
             FinancialDocumentTestServices.FirmSync(db, firmNumbers, erp ?? "STANDALONE"),
             FinancialDocumentTestServices.OtherPurchase(db, firmNumbers, erp ?? "STANDALONE", partners ?? new FakeBusinessPartnerService()),
             PurchaseApply(db, partners ?? new FakeBusinessPartnerService(), erp ?? "STANDALONE"),
-            dimensionGuard: dimensionGuard);
+            dimensionGuard: dimensionGuard, accounting: accounting);
     }
 }

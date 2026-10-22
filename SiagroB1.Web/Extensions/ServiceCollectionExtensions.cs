@@ -117,6 +117,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAccountingItemService, Application.Services.Accounting.AccountingItemService>();
         services.AddScoped<IDistributionRuleService, Application.Services.Accounting.DistributionRuleService>();
         services.AddScoped<Application.Services.Accounting.DistributionRuleExpander>();
+        // Núcleo contábil (calendário, lançamentos): só exposto em STANDALONE pelos controllers.
+        services.AddScoped<SiagroB1.Infra.Accounting.AccountingPeriodGuard>();
+        services.AddScoped<Application.Services.Accounting.IAccountingPeriodsService, Application.Services.Accounting.AccountingPeriodsService>();
+        services.AddScoped<Application.Services.Accounting.IAccountingSettingsService, Application.Services.Accounting.AccountingSettingsService>();
+        services.AddScoped<Application.Services.Accounting.IJournalEntryPostingService, Application.Services.Accounting.JournalEntryPostingService>();
+        services.AddScoped<Application.Services.Accounting.IJournalEntriesService, Application.Services.Accounting.JournalEntriesService>();
+        services.AddScoped<Application.Services.Accounting.Postings.IStandardPostingsService, Application.Services.Accounting.Postings.StandardPostingsService>();
+        services.AddScoped<Application.Services.Accounting.Postings.IAccountingPostingService, Application.Services.Accounting.Postings.AccountingPostingService>();
+        services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.PurchaseInvoiceOfflineSource>();
+        services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.SalesInvoiceOfflineSource>();
+        services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.FinancialOfflineSource>();
+        services.AddScoped<Application.Services.Accounting.IManagementViewsService, Application.Services.Accounting.ManagementViewsService>();
+        services.AddScoped<Application.Services.Accounting.IResultClosingService, Application.Services.Accounting.ResultClosingService>();
+        services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingService, Application.Services.Accounting.Offline.OfflinePostingService>();
+        services.AddScoped<Application.Jobs.OfflinePostingJob>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();

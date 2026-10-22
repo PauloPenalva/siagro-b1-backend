@@ -41,4 +41,24 @@ public class LedgerAccount
 
     /// <summary>Exige item contábil (CT1_ITOBRG).</summary>
     public bool RequiresAccountingItem { get; set; }
+
+    /// <summary>Conta superior (CT1_CTASUP). Só conta sintética pode ser superior.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? ParentCode { get; set; }
+
+    /// <summary>Natureza devedora/credora (CT1_NORMAL).</summary>
+    public LedgerAccountNature? Nature { get; set; }
+
+    /// <summary>Conta de apuração do resultado (CT1_CTALP); só em conta de receita/despesa.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? ResultClosingAccountCode { get; set; }
+
+    /// <summary>Código no plano de contas referencial da RFB.</summary>
+    [Column(TypeName = "VARCHAR(30)")]
+    public string? ReferentialCode { get; set; }
+
+    /// <summary>Bloqueio por data (CT1_DTBLIN/CT1_DTBLFI). Fim vazio = bloqueada a partir do início.</summary>
+    public DateTime? BlockedFrom { get; set; }
+
+    public DateTime? BlockedTo { get; set; }
 }

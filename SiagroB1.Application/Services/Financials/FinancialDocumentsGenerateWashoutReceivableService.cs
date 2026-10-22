@@ -17,7 +17,8 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialDocumentsGenerateWashoutReceivableService(
     AppDbContext context,
     DocNumberSequenceService docNumberSequence,
-    IBusinessPartnerService businessPartnerService)
+    IBusinessPartnerService businessPartnerService,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     /// <summary>Washout de compra: título a receber do PRODUTOR, origem PurchaseContractWashout.</summary>
     public Task<FinancialDocument> EnqueueAsync(
@@ -89,6 +90,7 @@ public class FinancialDocumentsGenerateWashoutReceivableService(
         };
 
         context.FinancialDocuments.Add(document);
+        await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CreateAsync(accounting, context, document, userName);
         return document;
     }
 }

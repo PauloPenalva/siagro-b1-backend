@@ -18,7 +18,8 @@ public class FinancialDocumentsManualCreateService(
     IBusinessPartnerService businessPartnerService,
     AccountingAssignmentValidator? dimensionValidator = null,
     AccountingAssignmentDefaultsResolver? dimensionResolver = null,
-    AccountingAssignmentGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(FinancialDocument input, string userName)
     {
@@ -76,6 +77,7 @@ public class FinancialDocumentsManualCreateService(
         };
 
         db.Context.FinancialDocuments.Add(document);
+        await SiagroB1.Application.Services.Accounting.Postings.FinancialDocumentPosting.CreateAsync(accounting, db.Context, document, userName);
         await db.Context.SaveChangesAsync();
 
         return document;

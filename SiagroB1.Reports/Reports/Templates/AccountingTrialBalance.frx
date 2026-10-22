@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/22/2026 10:00:00" ReportInfo.Modified="10/22/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="TrialRows" ReferenceName="TrialRows" DataType="System.Int32" Enabled="true">
+      <Column Name="AccountCode" DataType="System.String"/>
+      <Column Name="AccountName" DataType="System.String"/>
+      <Column Name="Level" DataType="System.Int32"/>
+      <Column Name="Analytic" DataType="System.Boolean"/>
+      <Column Name="Opening" DataType="System.Decimal"/>
+      <Column Name="OpeningSide" DataType="System.String"/>
+      <Column Name="Debit" DataType="System.Decimal"/>
+      <Column Name="Credit" DataType="System.Decimal"/>
+      <Column Name="Closing" DataType="System.Decimal"/>
+      <Column Name="ClosingSide" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pPeriod" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+    <Parameter Name="pTotalDebit" DataType="System.Decimal" AsString="0"/>
+    <Parameter Name="pTotalCredit" DataType="System.Decimal" AsString="0"/>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="733.4" Height="115">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="480" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="586" Top="2" Width="147.4" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="733.4" Height="26" Text="Balancete de Verificação" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtPeriod" Top="73" Width="733.4" Height="17" Text="[pPeriod]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="txtFilters" Top="90" Width="733.4" Height="17" Text="[pFilters]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Width="733.4" Height="19" Border.Lines="Bottom">
+      <TextObject Name="hdrCode" Left="0" Top="0" Width="80" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Conta" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrName" Left="81" Top="0" Width="220" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Descrição" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrOpening" Left="302" Top="0" Width="105" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Saldo anterior" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDebit" Left="408" Top="0" Width="105" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Débito" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrCredit" Left="514" Top="0" Width="105" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Crédito" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrClosing" Left="620" Top="0" Width="113.4" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Saldo atual" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Width="733.4" Height="17" DataSource="TrialRows">
+      <TextObject Name="txtRowCode" Width="80" Height="17" Text="[TrialRows.AccountCode]" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="![TrialRows.Analytic]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtRowName" Left="81" Width="220" Height="17" Text="[TrialRows.AccountName]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="![TrialRows.Analytic]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtRowOpening" Left="302" Width="105" Height="17" Text="[Format(&quot;{0:N2}&quot;, [TrialRows.Opening])] [TrialRows.OpeningSide]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtRowDebit" Left="408" Width="105" Height="17" Text="[IIf([TrialRows.Debit] == 0, &quot;&quot;, Format(&quot;{0:N2}&quot;, [TrialRows.Debit]))]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtRowCredit" Left="514" Width="105" Height="17" Text="[IIf([TrialRows.Credit] == 0, &quot;&quot;, Format(&quot;{0:N2}&quot;, [TrialRows.Credit]))]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtRowClosing" Left="620" Width="113.4" Height="17" Text="[Format(&quot;{0:N2}&quot;, [TrialRows.Closing])] [TrialRows.ClosingSide]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Width="733.4" Height="22" Border.Lines="Top">
+      <TextObject Name="lblTotals" Left="81" Top="3" Width="326" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Totais das contas analíticas:" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtTotalDebit" Left="408" Top="3" Width="105" Height="17" Text="[pTotalDebit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+      <TextObject Name="txtTotalCredit" Left="514" Top="3" Width="105" Height="17" Text="[pTotalCredit]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt, style=Bold"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Width="733.4" Height="22">
+      <TextObject Name="txtPage" Left="586" Width="147.4" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

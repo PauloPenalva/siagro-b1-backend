@@ -19,7 +19,7 @@ public class FinancialAccountTransfersController(IUnitOfWork db, FinancialAccoun
     {
         try
         {
-            await deleteService.ExecuteAsync(key);
+            await deleteService.ExecuteAsync(key, User.Identity?.Name ?? "Unknown");
             return NoContent();
         }
         catch (Exception e)

@@ -5,5 +5,7 @@ public enum LedgerAccountType
     Asset,
     Liability,
     Revenue,
-    Expense
+    Expense,
+    /// <summary>Patrimônio líquido.</summary>
+    Equity
 }
