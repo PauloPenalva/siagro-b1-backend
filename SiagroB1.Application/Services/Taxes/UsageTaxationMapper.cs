@@ -1,4 +1,3 @@
-using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Models;
@@ -22,7 +21,6 @@ internal static class UsageTaxationMapper
 
         usage.Name = model.Name;
         usage.Description = model.Description;
-        AccountingAssignmentSnapshot.Copy(model, usage);
         usage.Inactive = model.Inactive;
         usage.Direction = direction;
 

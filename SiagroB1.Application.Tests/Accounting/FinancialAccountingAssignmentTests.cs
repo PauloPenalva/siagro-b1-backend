@@ -19,7 +19,7 @@ public class FinancialAccountingAssignmentTests
     {
         await SeedAsync(_db);
         await AddRuleAsync(_db, Rule("R01", Today.AddYears(-1), ("CC01", null, 100)));
-        _db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "C0001", CardName = "CLIENTE", DefaultCostCenterCode = "CC02" });
+        _db.Context.BusinessPartners.Add(new BusinessPartner { CardCode = "C0001", CardName = "CLIENTE", DefaultAccountingItemCode = "IT02" });
         _db.Context.FinancialAccounts.Add(new FinancialAccount { Code = "BCO1", Name = "Banco", Currency = CurrencyType.Brl });
         await _db.SaveChangesAsync();
     }
@@ -45,7 +45,7 @@ public class FinancialAccountingAssignmentTests
     {
         await SeedAllAsync();
         var doc = await Create().ExecuteAsync(Input(), "tester");
-        Assert.Equal("CC02", doc.CostCenterCode);
+        Assert.Equal("IT02", doc.AccountingItemCode);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class FinancialAccountingAssignmentTests
 
         var advance = await service.ExecuteWithoutContractAsync(
             FinancialDirection.Payable, "C0001", "01", 50m, DateTime.Today, "BCO1", DateTime.Today, null, "tester");
-        Assert.Equal("CC02", advance.CostCenterCode);
+        Assert.Equal("IT02", advance.AccountingItemCode);
 
         var bad = new FinancialAccountEntry { CostCenterCode = "CC01", DistributionRuleCode = "R01" };
         await Assert.ThrowsAsync<DefaultException>(() => service.ExecuteWithoutContractAsync(

@@ -7,14 +7,14 @@ using static SiagroB1.Application.Services.Accounting.AccountingAssignmentLookup
 namespace SiagroB1.Application.Services.Accounting;
 
 /// <summary>
-/// Preenche a amarração contábil vazia de um documento, por fonte: cabeçalho, parceiro e natureza.
+/// Preenche a amarração contábil vazia de um documento, por fonte: cabeçalho e parceiro (a natureza não traz padrão contábil).
 /// Nunca sobrescreve valor preenchido, nunca põe CC/Item onde já há rateio (nem o contrário) e pula
 /// em silêncio o candidato inválido na data do documento. Só STANDALONE.
 /// </summary>
 public class AccountingAssignmentDefaultsResolver(IUnitOfWork db, IConfiguration configuration)
 {
     public async Task ApplyAsync(IAccountingAssignment target, IAccountingAssignment? header, string? partnerCode,
-        int? usageCode, DateTime? documentDate = null)
+        DateTime? documentDate = null)
     {
         if (!ErpMode.IsStandalone(configuration))
         {
@@ -27,14 +27,10 @@ public class AccountingAssignmentDefaultsResolver(IUnitOfWork db, IConfiguration
             ? null
             : await db.Context.BusinessPartners.AsNoTracking()
                 .Where(x => x.CardCode == partnerCode)
-                .Select(x => new { x.DefaultCostCenterCode, x.DefaultAccountingItemCode })
+                .Select(x => new { x.DefaultAccountingItemCode, x.DefaultLedgerAccountCode })
                 .FirstOrDefaultAsync();
 
-        Domain.Entities.Usage? usage = usageCode is null
-            ? null
-            : await db.Context.Usages.AsNoTracking().FirstOrDefaultAsync(x => x.Code == usageCode.Value);
-
-        // Precedência por FONTE (cabeçalho → parceiro → natureza): a primeira fonte que traz rateio ou CC/Item
+        // Precedência por FONTE (cabeçalho → parceiro; o parceiro só oferece Item): a primeira fonte que traz rateio ou CC/Item
         // decide o modo. Com rateio (e nada de CC/Item digitado na linha), a linha recebe o rateio; senão CC/Item
         // vêm dessa fonte e das seguintes, nunca um rateio. Linha com rateio digitado não recebe CC/Item.
         if (string.IsNullOrWhiteSpace(target.DistributionRuleCode))
@@ -44,8 +40,7 @@ public class AccountingAssignmentDefaultsResolver(IUnitOfWork db, IConfiguration
             var sources = new (string? CostCenter, string? Item, string? Rule)[]
             {
                 (header?.CostCenterCode, header?.AccountingItemCode, header?.DistributionRuleCode),
-                (partner?.DefaultCostCenterCode, partner?.DefaultAccountingItemCode, null),
-                (usage?.CostCenterCode, usage?.AccountingItemCode, usage?.DistributionRuleCode),
+                (null, partner?.DefaultAccountingItemCode, null),
             };
 
             foreach (var source in sources)
@@ -77,7 +72,7 @@ public class AccountingAssignmentDefaultsResolver(IUnitOfWork db, IConfiguration
 
         if (string.IsNullOrWhiteSpace(target.LedgerAccountCode))
         {
-            target.LedgerAccountCode = await FirstLedgerAsync(header?.LedgerAccountCode, usage?.LedgerAccountCode)
+            target.LedgerAccountCode = await FirstLedgerAsync(header?.LedgerAccountCode, partner?.DefaultLedgerAccountCode)
                 ?? target.LedgerAccountCode;
         }
     }

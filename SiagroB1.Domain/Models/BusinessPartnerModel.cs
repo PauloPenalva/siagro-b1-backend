@@ -42,8 +42,8 @@ public class BusinessPartnerModel
 
     public bool RuralPayrollOption { get; set; }
 
-    /// <summary>Centro de custo e item contábil padrão. Só STANDALONE.</summary>
-    public string? DefaultCostCenterCode { get; set; }
+    /// <summary>Conta contábil e item contábil padrão. Só STANDALONE.</summary>
+    public string? DefaultLedgerAccountCode { get; set; }
 
     public string? DefaultAccountingItemCode { get; set; }
     

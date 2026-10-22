@@ -128,7 +128,7 @@ public class SalesInvoicesItemsUpdateService(
             var dimHeader = await db.Context.SalesInvoices.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Key == existingEntity.SalesInvoiceKey);
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, dimHeader,
-                dimHeader?.CardCode, existingEntity.UsageCode, previousDims,
+                dimHeader?.CardCode, previousDims,
                 applyDefaults: dimHeader?.InvoiceStatus is null or InvoiceStatus.Pending,
                 documentDate: dimHeader?.InvoiceDate);
 

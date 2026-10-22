@@ -35,7 +35,7 @@ public class FinancialDocumentsManualCreateService(
         // Padrão do parceiro (dimensão de papel Parceiro) entra no que veio vazio; depois valida e normaliza.
         // Antes do número: erro de dimensão não pode consumir numeração.
         var dimensions = AccountingAssignmentSnapshot.From(input);
-        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null,
+        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null,
             documentDate: documentDate);
         if (dimensionGuard is not null)
             await dimensionGuard.EnsureAsync([dimensions], null, documentDate);

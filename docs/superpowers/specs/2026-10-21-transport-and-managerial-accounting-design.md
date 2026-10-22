@@ -165,13 +165,17 @@ Os campos são `CostCenterCode`, `AccountingItemCode`, `DistributionRuleCode` e
 
 - linhas e cabeçalho do documento de saída e do documento de entrada;
 - `FinancialDocument`, que inclui título manual e adiantamento;
-- `FinancialAccountEntry`;
-- `Usage` (natureza), como padrão.
+- `FinancialAccountEntry`.
 
-O parceiro ganha `DefaultCostCenterCode` e `DefaultAccountingItemCode`. No Protheus o item
-contábil costuma ser o próprio cliente ou fornecedor.
+A natureza de operação (`Usage`) **não** carrega padrão contábil (decisão do usuário em 22/10).
 
-O preenchimento padrão segue a ordem: digitado → cabeçalho → parceiro → natureza. O padrão do
+O parceiro ganha `DefaultLedgerAccountCode` (como o `A1_CONTA`/`A2_CONTA` do Protheus; validada ao
+mudar: conta ativa que aceita lançamento) e `DefaultAccountingItemCode`. No Protheus o item contábil
+costuma ser o próprio cliente ou fornecedor. O parceiro não tem centro de custo padrão.
+
+O preenchimento padrão segue a ordem: digitado → cabeçalho → parceiro. CC, Item e rateio vêm do
+cabeçalho; o parceiro só oferece o Item. A conta contábil vem do cabeçalho e, na falta, do
+`DefaultLedgerAccountCode` do parceiro. O padrão do
 veículo entra no sub-projeto 2.
 
 Continua **apenas STANDALONE**. Os cadastros e serviços são registrados nos dois modos, mas não

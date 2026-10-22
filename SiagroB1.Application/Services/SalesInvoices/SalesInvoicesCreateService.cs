@@ -50,10 +50,10 @@ public class SalesInvoicesCreateService(
         // Dimensões gerenciais: cabeçalho pelo parceiro; linhas pelo cabeçalho, parceiro e natureza. Antes de numerar:
         // a recusa não pode consumir número. No-op fora do STANDALONE.
         await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, salesInvoice, null,
-            salesInvoice.CardCode, null, previous: null, documentDate: salesInvoice.InvoiceDate);
+            salesInvoice.CardCode, previous: null, documentDate: salesInvoice.InvoiceDate);
         foreach (var item in salesInvoice.Items)
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, salesInvoice,
-                salesInvoice.CardCode, item.UsageCode, previous: null, documentDate: salesInvoice.InvoiceDate);
+                salesInvoice.CardCode, previous: null, documentDate: salesInvoice.InvoiceDate);
 
         // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
         // da confirmação direta.

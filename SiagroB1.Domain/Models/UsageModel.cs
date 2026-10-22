@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Models;
@@ -9,7 +9,7 @@ namespace SiagroB1.Domain.Models;
 /// traz os seis CFOPs mas não conhece os efeitos de negócio — e ali os campos de tributação
 /// voltam nulos, porque a tributação é do SAP.
 /// </summary>
-public class UsageModel : Interfaces.IAccountingAssignment
+public class UsageModel
 {
     [Key]
     public int Code { get; set; }
@@ -119,10 +119,4 @@ public class UsageModel : Interfaces.IAccountingAssignment
     public bool HasConfiguredEffects { get; set; }
 
     public bool Inactive { get; set; }
-
-    /// <summary>Padrões de centro de custo, item contábil, rateio e conta contábil da natureza. Só STANDALONE; SAPB1 devolve nulo.</summary>
-    public string? CostCenterCode { get; set; }
-    public string? AccountingItemCode { get; set; }
-    public string? DistributionRuleCode { get; set; }
-    public string? LedgerAccountCode { get; set; }
 }

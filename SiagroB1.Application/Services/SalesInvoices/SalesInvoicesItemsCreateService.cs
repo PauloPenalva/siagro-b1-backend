@@ -57,7 +57,7 @@ public class SalesInvoicesItemsCreateService(
             // Dimensões gerenciais: o que a linha não trouxe vem do cabeçalho, do parceiro e da natureza; depois valida.
             // Fora do try: a recusa chega à tela como 400. No-op fora do STANDALONE.
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, salesInvoiceItem, invoice,
-                invoice.CardCode, salesInvoiceItem.UsageCode, previous: null, documentDate: invoice.InvoiceDate);
+                invoice.CardCode, previous: null, documentDate: invoice.InvoiceDate);
         }
 
         try

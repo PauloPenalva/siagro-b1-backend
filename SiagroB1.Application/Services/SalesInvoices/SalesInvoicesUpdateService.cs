@@ -70,7 +70,7 @@ public class SalesInvoicesUpdateService(
             // Dimensões do cabeçalho: padrão do parceiro e validação do que mudou. As linhas existentes NÃO são reescritas.
             // Fora de nota pendente só valida (nota confirmada não ganha dimensão por baixo).
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, null,
-                existingEntity.CardCode, null, previousDims,
+                existingEntity.CardCode, previousDims,
                 applyDefaults: existingEntity.InvoiceStatus is null or InvoiceStatus.Pending,
                 documentDate: existingEntity.InvoiceDate);
 

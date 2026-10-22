@@ -17,9 +17,9 @@ public class BusinessPartner
     [Column("AliasName", TypeName = "VARCHAR(200)")]
     public string? CardFName { get; set; }
     
-    /// <summary>Centro de custo padrão do parceiro. Só STANDALONE.</summary>
+    /// <summary>Conta contábil padrão do parceiro (como o A1_CONTA/A2_CONTA do Protheus). Só STANDALONE.</summary>
     [Column(TypeName = "VARCHAR(20)")]
-    public string? DefaultCostCenterCode { get; set; }
+    public string? DefaultLedgerAccountCode { get; set; }
 
     /// <summary>Item contábil padrão do parceiro (no Protheus costuma ser o próprio cliente/fornecedor).</summary>
     [Column(TypeName = "VARCHAR(20)")]

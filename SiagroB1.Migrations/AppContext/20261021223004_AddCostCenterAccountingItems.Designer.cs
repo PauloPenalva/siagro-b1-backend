@@ -294,7 +294,7 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("DefaultAccountingItemCode")
                         .HasColumnType("VARCHAR(20)");
 
-                    b.Property<string>("DefaultCostCenterCode")
+                    b.Property<string>("DefaultLedgerAccountCode")
                         .HasColumnType("VARCHAR(20)");
 
                     b.Property<Guid?>("DocNumberKey")
@@ -7474,9 +7474,6 @@ namespace SiagroB1.Migrations.AppContext
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Code"));
 
-                    b.Property<string>("AccountingItemCode")
-                        .HasColumnType("VARCHAR(20)");
-
                     b.Property<bool>("AllowsCounterNote")
                         .HasColumnType("bit");
 
@@ -7501,9 +7498,6 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<decimal?>("CofinsRate")
                         .HasColumnType("DECIMAL(7,4)");
 
-                    b.Property<string>("CostCenterCode")
-                        .HasColumnType("VARCHAR(20)");
-
                     b.Property<bool>("CreatesFinancialDocument")
                         .HasColumnType("bit");
 
@@ -7518,9 +7512,6 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<int>("Direction")
                         .HasColumnType("int");
-
-                    b.Property<string>("DistributionRuleCode")
-                        .HasColumnType("VARCHAR(10)");
 
                     b.Property<bool>("ExcludeIcmsFromPisCofinsBase")
                         .HasColumnType("bit");
@@ -7572,9 +7563,6 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<string>("InvoiceOperationText")
                         .HasColumnType("VARCHAR(60)");
-
-                    b.Property<string>("LedgerAccountCode")
-                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<bool>("MovesFiscalInventory")
                         .HasColumnType("bit");

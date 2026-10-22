@@ -32,9 +32,8 @@ public class AccountingSchemaTests
         var purchaseItem = new PurchaseInvoiceItem { Key = Guid.NewGuid() };
         var financialDocument = new FinancialDocument { Key = Guid.NewGuid(), Code = "FD-1", CardCode = "F1" };
         var entry = new FinancialAccountEntry { Key = Guid.NewGuid() };
-        var usage = new Usage { Name = "VENDA" };
 
-        IAccountingAssignment[] all = [sales, salesItem, purchase, purchaseItem, financialDocument, entry, usage];
+        IAccountingAssignment[] all = [sales, salesItem, purchase, purchaseItem, financialDocument, entry];
         for (var i = 0; i < all.Length; i++) Fill(all[i], i);
 
         db.Context.SalesInvoices.Add(sales);
@@ -43,7 +42,6 @@ public class AccountingSchemaTests
         db.Context.PurchaseInvoicesItems.Add(purchaseItem);
         db.Context.FinancialDocuments.Add(financialDocument);
         db.Context.FinancialAccountEntries.Add(entry);
-        db.Context.Usages.Add(usage);
         await db.SaveChangesAsync();
 
         var read = TestDb.CreateUnitOfWork(name);
@@ -55,7 +53,6 @@ public class AccountingSchemaTests
             await read.Context.PurchaseInvoicesItems.SingleAsync(x => x.Key == purchaseItem.Key),
             await read.Context.FinancialDocuments.SingleAsync(x => x.Key == financialDocument.Key),
             await read.Context.FinancialAccountEntries.SingleAsync(x => x.Key == entry.Key),
-            await read.Context.Usages.SingleAsync(x => x.Code == usage.Code),
         ];
 
         for (var i = 0; i < loaded.Length; i++)

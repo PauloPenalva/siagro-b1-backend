@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.Taxes;
 using SiagroB1.Fiscal.Taxes;
 using SiagroB1.Domain.Entities;
@@ -16,10 +15,7 @@ namespace SiagroB1.Application.Services;
 /// Naturezas de operação do modo STANDALONE: identidade fiscal em USAGES, efeito de negócio
 /// em USAGE_EFFECTS. O LEFT JOIN é o mesmo do modo SAPB1 — muda só a fonte da identidade.
 /// </summary>
-public class UsageService(
-    IUnitOfWork db,
-    ILogger<UsageService> logger,
-    AccountingAssignmentValidator? dimensionValidator = null)
+public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
     : IUsage
 {
     public IQueryable<UsageModel> QueryAll()
@@ -42,10 +38,6 @@ public class UsageService(
                     CfopIncomingInState = x.usage.CfopIncomingInState,
                     CfopIncomingOutState = x.usage.CfopIncomingOutState,
                     Inactive = x.usage.Inactive,
-                    CostCenterCode = x.usage.CostCenterCode,
-                    AccountingItemCode = x.usage.AccountingItemCode,
-                    DistributionRuleCode = x.usage.DistributionRuleCode,
-                    LedgerAccountCode = x.usage.LedgerAccountCode,
                     Direction = x.usage.Direction,
                     InvoiceOperationText = x.usage.InvoiceOperationText,
                     DefaultAdditionalInfo = x.usage.DefaultAdditionalInfo,
@@ -120,8 +112,6 @@ public class UsageService(
         ValidateDirectionRules(entity);
         UsageTaxationValidator.Validate(entity);
         await ValidateReturnUsageAsync(entity, key: null);
-        if (dimensionValidator is not null)
-            await dimensionValidator.NormalizeAndValidateAsync(entity);
 
         var usage = new Usage { Name = entity.Name };
         UsageTaxationMapper.CopyToEntity(entity, usage);
@@ -193,10 +183,6 @@ public class UsageService(
                 $"A natureza {usage.Name} é a natureza de devolução de outra natureza de entrada: " +
                 "o tipo não pode virar Entrada.");
         }
-
-        // Padrão inativado depois de gravado continua aceito; só um código novo é validado.
-        if (dimensionValidator is not null)
-            await dimensionValidator.NormalizeAndValidateAsync(entity, AccountingAssignmentSnapshot.From(usage));
 
         UsageTaxationMapper.CopyToEntity(entity, usage);
 

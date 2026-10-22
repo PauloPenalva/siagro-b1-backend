@@ -55,7 +55,7 @@ public class BusinessPartnerService(
                     RuralProducerType = x.RuralProducerType,
                     RuralProducerCpf = x.RuralProducerCpf,
                     RuralPayrollOption = x.RuralPayrollOption,
-                    DefaultCostCenterCode = x.DefaultCostCenterCode,
+                    DefaultLedgerAccountCode = x.DefaultLedgerAccountCode,
                     DefaultAccountingItemCode = x.DefaultAccountingItemCode,
                     // O Include acima é decorativo sem esta projeção: o EF materializa o
                     // Model, não a entidade, e a coleção voltava SEMPRE vazia. Quem depende
@@ -118,7 +118,7 @@ public class BusinessPartnerService(
             RuralProducerType = model.RuralProducerType,
             RuralProducerCpf = model.RuralProducerCpf,
             RuralPayrollOption = model.RuralPayrollOption,
-            DefaultCostCenterCode = model.DefaultCostCenterCode,
+            DefaultLedgerAccountCode = model.DefaultLedgerAccountCode,
             DefaultAccountingItemCode = model.DefaultAccountingItemCode,
         };
 
@@ -206,7 +206,7 @@ public class BusinessPartnerService(
 
         await ValidateDefaultAssignmentAsync(model, new AccountingAssignmentSnapshot
         {
-            CostCenterCode = entity.DefaultCostCenterCode,
+            LedgerAccountCode = entity.DefaultLedgerAccountCode,
             AccountingItemCode = entity.DefaultAccountingItemCode,
         });
         
@@ -225,7 +225,7 @@ public class BusinessPartnerService(
         entity.RuralProducerType = model.RuralProducerType;
         entity.RuralProducerCpf = model.RuralProducerCpf;
         entity.RuralPayrollOption = model.RuralPayrollOption;
-        entity.DefaultCostCenterCode = model.DefaultCostCenterCode;
+        entity.DefaultLedgerAccountCode = model.DefaultLedgerAccountCode;
         entity.DefaultAccountingItemCode = model.DefaultAccountingItemCode;
 
         ReplaceNfeEmails(entity, model.NfeEmails);
@@ -249,7 +249,7 @@ public class BusinessPartnerService(
     }
 
     /// <summary>
-    /// Centro de custo e item contábil padrão do parceiro. Só um código novo é validado: o gravado que foi
+    /// Conta contábil e item contábil padrão do parceiro. Só um código novo é validado: o gravado que foi
     /// inativado depois continua aceito. Só STANDALONE.
     /// </summary>
     private async Task ValidateDefaultAssignmentAsync(BusinessPartnerModel model, AccountingAssignmentSnapshot? previous)
@@ -259,11 +259,11 @@ public class BusinessPartnerService(
 
         var fields = new AccountingAssignmentSnapshot
         {
-            CostCenterCode = model.DefaultCostCenterCode,
+            LedgerAccountCode = model.DefaultLedgerAccountCode,
             AccountingItemCode = model.DefaultAccountingItemCode,
         };
         await dimensionValidator.NormalizeAndValidateAsync(fields, previous);
-        model.DefaultCostCenterCode = fields.CostCenterCode;
+        model.DefaultLedgerAccountCode = fields.LedgerAccountCode;
         model.DefaultAccountingItemCode = fields.AccountingItemCode;
     }
 
@@ -366,7 +366,7 @@ public class BusinessPartnerService(
                 RuralProducerType = x.RuralProducerType,
                 RuralProducerCpf = x.RuralProducerCpf,
                 RuralPayrollOption = x.RuralPayrollOption,
-                DefaultCostCenterCode = x.DefaultCostCenterCode,
+                DefaultLedgerAccountCode = x.DefaultLedgerAccountCode,
                     DefaultAccountingItemCode = x.DefaultAccountingItemCode,
                 Addresses = x.Addresses
                     .Where(a => a.CardCode == x.CardCode)

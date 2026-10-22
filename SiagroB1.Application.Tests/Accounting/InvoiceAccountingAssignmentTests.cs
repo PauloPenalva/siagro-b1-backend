@@ -65,20 +65,17 @@ public class InvoiceAccountingAssignmentTests
     }
 
     [Fact]
-    public async Task New_purchase_line_gets_usage_rule()
+    public async Task New_purchase_line_gets_header_rule()
     {
         var db = await NewDb();
         await AddRuleAsync(db, Rule("R01", Today.AddYears(-1), ("CC01", null, 60), ("CC02", null, 40)));
-        var usage = new Usage { Name = "Compra", DistributionRuleCode = "R01" };
-        db.Context.Usages.Add(usage);
-        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F1", InvoiceStatus = InvoiceStatus.Pending };
+        var invoice = new PurchaseInvoice { Key = Guid.NewGuid(), CardCode = "F1", InvoiceStatus = InvoiceStatus.Pending, DistributionRuleCode = "R01" };
         db.Context.PurchaseInvoices.Add(invoice);
         await db.SaveChangesAsync();
 
         var line = new PurchaseInvoiceItem
         {
             PurchaseInvoiceKey = invoice.Key, ItemCode = "SOJA", UnitOfMeasureCode = "KG", Quantity = 1m,
-            UsageCode = usage.Code,
         };
         await PurchaseLineCreate(db).ExecuteAsync(line, "tester");
 

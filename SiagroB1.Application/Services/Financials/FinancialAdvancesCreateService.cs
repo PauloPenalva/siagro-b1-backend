@@ -174,7 +174,7 @@ public class FinancialAdvancesCreateService(
     {
         // Padrão do parceiro + validação antes de consumir número e de abrir a transação.
         var dimensions = input is null ? new AccountingAssignmentSnapshot() : AccountingAssignmentSnapshot.From(input);
-        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null, null,
+        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null,
             documentDate: DateTime.Today);
         if (dimensionGuard is not null)
             await dimensionGuard.EnsureAsync([dimensions], null, DateTime.Today);

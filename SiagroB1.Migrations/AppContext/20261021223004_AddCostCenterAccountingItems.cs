@@ -11,30 +11,6 @@ namespace SiagroB1.Migrations.AppContext
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "AccountingItemCode",
-                table: "USAGES",
-                type: "VARCHAR(20)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "CostCenterCode",
-                table: "USAGES",
-                type: "VARCHAR(20)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "DistributionRuleCode",
-                table: "USAGES",
-                type: "VARCHAR(10)",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "LedgerAccountCode",
-                table: "USAGES",
-                type: "VARCHAR(20)",
-                nullable: true);
-
             migrationBuilder.AlterColumn<string>(
                 name: "CostCenterCode",
                 table: "SALES_INVOICES_ITEMS",
@@ -249,7 +225,7 @@ namespace SiagroB1.Migrations.AppContext
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "DefaultCostCenterCode",
+                name: "DefaultLedgerAccountCode",
                 table: "BUSINESS_PARTNERS",
                 type: "VARCHAR(20)",
                 nullable: true);
@@ -350,22 +326,6 @@ namespace SiagroB1.Migrations.AppContext
 
             migrationBuilder.DropTable(
                 name: "DISTRIBUTION_RULES");
-
-            migrationBuilder.DropColumn(
-                name: "AccountingItemCode",
-                table: "USAGES");
-
-            migrationBuilder.DropColumn(
-                name: "CostCenterCode",
-                table: "USAGES");
-
-            migrationBuilder.DropColumn(
-                name: "DistributionRuleCode",
-                table: "USAGES");
-
-            migrationBuilder.DropColumn(
-                name: "LedgerAccountCode",
-                table: "USAGES");
 
             migrationBuilder.DropColumn(
                 name: "AccountingItemCode",
@@ -492,7 +452,7 @@ namespace SiagroB1.Migrations.AppContext
                 table: "BUSINESS_PARTNERS");
 
             migrationBuilder.DropColumn(
-                name: "DefaultCostCenterCode",
+                name: "DefaultLedgerAccountCode",
                 table: "BUSINESS_PARTNERS");
 
             migrationBuilder.AlterColumn<string>(
