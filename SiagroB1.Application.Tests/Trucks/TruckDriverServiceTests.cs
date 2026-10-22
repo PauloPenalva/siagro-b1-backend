@@ -11,7 +11,16 @@ public class TruckDriverServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private TruckDriverService Service() => new(_db.Context, new TestLogger<TruckDriverService>());
+    private TruckDriverService Service(string erp = "STANDALONE") => new(_db.Context, TestConfiguration.Erp(erp), new TestLogger<TruckDriverService>());
+
+    [Fact]
+    public async Task Create_with_non_cpf_code_is_accepted_in_sapb1()
+    {
+        // Yokotobi (SAPB1) não emite CT-e/MDF-e e cadastra motorista com código livre.
+        var created = await Service("SAPB1").CreateAsync(Driver("MOT01"));
+
+        Assert.Equal("MOT01", created.Code);
+    }
 
     private static TruckDriver Driver(string code, string? category = null) =>
         new() { Code = code, Name = "João da Silva", Document = "RG 123", Phone = "", LicenseCategory = category };
