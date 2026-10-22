@@ -950,6 +950,42 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("COUNTRIES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.CteNumberToVoid", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<int>("Series")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VoidProtocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode", "Series", "Number")
+                        .IsUnique();
+
+                    b.ToTable("CTE_NUMBERS_TO_VOID");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.DistributionRule", b =>
                 {
                     b.Property<string>("Code")
@@ -7959,6 +7995,404 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("TAXES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocument", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccessKey")
+                        .HasColumnType("VARCHAR(44)");
+
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<decimal>("AmountToReceive")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<DateTime?>("AuthorizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("CancellationProtocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("CancellationReason")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CargoValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("CbsRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("CbsRateReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("CbsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("Cfop")
+                        .HasColumnType("VARCHAR(4)");
+
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("DistributionRuleCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("DriverCpf")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("DriverName")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("EndMunicipalityCode")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("EndState")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<int?>("Environment")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("IbsCbsBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("IbsCbsClassCode")
+                        .HasColumnType("VARCHAR(6)");
+
+                    b.Property<string>("IbsCbsCst")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<decimal>("IbsMunicipalRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsMunicipalValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IbsRateReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsStateRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IbsStateValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsBase")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("IcmsCst")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<decimal>("IcmsRate")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsReduction")
+                        .HasColumnType("DECIMAL(7,4) DEFAULT 0");
+
+                    b.Property<decimal>("IcmsValue")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("InsuranceResponsible")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("InsurerName")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<string>("InsurerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NatureText")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int?>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observation")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<bool>("OwnTransport")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PolicyNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("PredominantProduct")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Protocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("RandomCode")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("Rntrc")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int>("Series")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ServiceTotal")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("StartMunicipalityCode")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("StartState")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StatusCode")
+                        .HasColumnType("VARCHAR(5)");
+
+                    b.Property<string>("StatusReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("TakerRole")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Tracked")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TractionPlate")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("TrailerPlates")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("TruckCombinationCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int?>("UsageCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VehicleSnapshotJson")
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("AccessKey");
+
+                    b.HasIndex("BranchCode", "Series", "Number")
+                        .IsUnique()
+                        .HasFilter("[Number] IS NOT NULL");
+
+                    b.ToTable("TRANSPORT_DOCUMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentComponent", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_COMPONENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentCorrection", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ItemsJson")
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.Property<string>("Protocol")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_CORRECTIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentNfeKey", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccessKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(44)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_NFE_KEYS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentParty", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CardCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("Complement")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("IndIE")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MunicipalityCode")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("MunicipalityName")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Neighborhood")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Number")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<string>("State")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("StateRegistration")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("Street")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("TaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ZipCode")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_PARTIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentQuantity", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("MeasureType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("DECIMAL(15,4) DEFAULT 0");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnitCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_QUANTITIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentXml", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_XMLS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
                     b.Property<string>("Code")
@@ -10612,6 +11046,72 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("StorageTransaction");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentComponent", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Components")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentCorrection", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Corrections")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentNfeKey", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("NfeKeys")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentParty", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Parties")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentQuantity", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Quantities")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentXml", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Xmls")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.State", "State")
@@ -10997,6 +11497,21 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageTransaction", b =>
                 {
                     b.Navigation("QualityInspections");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocument", b =>
+                {
+                    b.Navigation("Components");
+
+                    b.Navigation("Corrections");
+
+                    b.Navigation("NfeKeys");
+
+                    b.Navigation("Parties");
+
+                    b.Navigation("Quantities");
+
+                    b.Navigation("Xmls");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombination", b =>

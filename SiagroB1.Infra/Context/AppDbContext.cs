@@ -25,6 +25,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchTransportSettings> BranchTransportSettings { get; set; }
     public DbSet<BranchCteSettings> BranchCteSettings { get; set; }
     public DbSet<BranchCteSeries> BranchCteSeries { get; set; }
+    public DbSet<TransportDocument> TransportDocuments { get; set; }
+    public DbSet<TransportDocumentParty> TransportDocumentParties { get; set; }
+    public DbSet<TransportDocumentNfeKey> TransportDocumentNfeKeys { get; set; }
+    public DbSet<TransportDocumentQuantity> TransportDocumentQuantities { get; set; }
+    public DbSet<TransportDocumentComponent> TransportDocumentComponents { get; set; }
+    public DbSet<TransportDocumentXml> TransportDocumentXmls { get; set; }
+    public DbSet<TransportDocumentCorrection> TransportDocumentCorrections { get; set; }
+    public DbSet<CteNumberToVoid> CteNumbersToVoid { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }
@@ -485,6 +493,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(x => x.BranchCode)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<TransportDocument>(e =>
+        {
+            // Número só existe depois do Confirmar; a unicidade vale só para quem já tem número.
+            e.HasIndex(x => new { x.BranchCode, x.Series, x.Number })
+                .IsUnique()
+                .HasFilter("[Number] IS NOT NULL");
+            e.HasIndex(x => x.AccessKey);
+            e.HasMany(x => x.Parties).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.NfeKeys).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Quantities).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Components).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Xmls).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Corrections).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CteNumberToVoid>(e =>
+            e.HasIndex(x => new { x.BranchCode, x.Series, x.Number }).IsUnique());
 
         modelBuilder.Entity<ReceivedDfe>(e =>
         {

@@ -110,9 +110,32 @@ public class BranchCteSettingsServiceTests
                 new() { Series = 2, Description = "B", NextNumber = 7 },
             ],
         }, "tester");
+        _db.Context.TransportDocuments.Add(new TransportDocument { BranchCode = "01", Series = 2, Number = 6 });
+        await _db.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().SaveAsync("01", Model(), "tester"));
 
         Assert.Contains("não pode ser excluída", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_allows_deleting_a_series_whose_counter_moved_but_has_no_numbered_document()
+    {
+        await SeedBranchAsync();
+        await Service().SaveAsync("01", new BranchCteSettingsModel
+        {
+            DefaultSeries = 1,
+            SeriesList =
+            [
+                new() { Series = 1, Description = "A", NextNumber = 1 },
+                new() { Series = 2, Description = "B", NextNumber = 7 },
+            ],
+        }, "tester");
+        _db.Context.TransportDocuments.Add(new TransportDocument { BranchCode = "01", Series = 2, Number = null });
+        await _db.SaveChangesAsync();
+
+        var saved = await Service().SaveAsync("01", Model(), "tester");
+
+        Assert.Single(saved.SeriesList);
     }
 }

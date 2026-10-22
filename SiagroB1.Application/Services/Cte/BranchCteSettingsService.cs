@@ -26,7 +26,7 @@ public class BranchCteSettingsService(IUnitOfWork db, IConfiguration configurati
             settings.SeriesList.Add(DefaultSeriesRow(branchCode));
         }
 
-        return ToModel(settings);
+        return ToModel(settings, await UsedSeriesAsync(branchCode));
     }
 
     public async Task<BranchCteSettingsModel> SaveAsync(string branchCode, BranchCteSettingsModel model, string userName)
@@ -96,7 +96,8 @@ public class BranchCteSettingsService(IUnitOfWork db, IConfiguration configurati
         }
 
         var removed = settings.SeriesList.Where(x => series.All(i => i.Series != x.Series)).ToList();
-        var blocked = removed.Where(IsUsed).OrderBy(x => x.Series).FirstOrDefault();
+        var usedSeries = await UsedSeriesAsync(branchCode);
+        var blocked = removed.Where(x => usedSeries.Contains(x.Series)).OrderBy(x => x.Series).FirstOrDefault();
         if (blocked is not null)
             throw new DefaultException($"A série {blocked.Series} já foi usada em CT-e e não pode ser excluída.");
 
@@ -132,7 +133,7 @@ public class BranchCteSettingsService(IUnitOfWork db, IConfiguration configurati
 
         await db.SaveChangesAsync();
 
-        return ToModel(settings);
+        return ToModel(settings, await UsedSeriesAsync(branchCode));
     }
 
     private void EnsureStandalone()
@@ -161,10 +162,13 @@ public class BranchCteSettingsService(IUnitOfWork db, IConfiguration configurati
     private static BranchCteSeries DefaultSeriesRow(string branchCode) =>
         new() { BranchCode = branchCode, Series = 1, Description = "Padrão", NextNumber = 1 };
 
-    // Ainda não há documento de CT-e: série usada = contador já andou.
-    private static bool IsUsed(BranchCteSeries row) => row.NextNumber > 1;
+    // Série usada = existe CT-e dela com número (o número nasce no Confirmar; rascunho não conta).
+    private async Task<HashSet<int>> UsedSeriesAsync(string branchCode) =>
+        (await db.Context.TransportDocuments.AsNoTracking()
+            .Where(d => d.BranchCode == branchCode && d.Number != null)
+            .Select(d => d.Series).Distinct().ToListAsync()).ToHashSet();
 
-    private static BranchCteSettingsModel ToModel(BranchCteSettings settings) => new()
+    private static BranchCteSettingsModel ToModel(BranchCteSettings settings, HashSet<int> usedSeries) => new()
     {
         BranchCode = settings.BranchCode,
         Enabled = settings.Enabled,
@@ -173,7 +177,7 @@ public class BranchCteSettingsService(IUnitOfWork db, IConfiguration configurati
         DefaultQuantityUnit = settings.DefaultQuantityUnit,
         SeriesList = settings.SeriesList.OrderBy(x => x.Series).Select(x => new BranchCteSeriesModel
         {
-            Series = x.Series, Description = x.Description, NextNumber = x.NextNumber, IsUsed = IsUsed(x),
+            Series = x.Series, Description = x.Description, NextNumber = x.NextNumber, IsUsed = usedSeries.Contains(x.Series),
         }).ToList(),
         UpdatedAt = settings.UpdatedAt,
         UpdatedBy = settings.UpdatedBy,
