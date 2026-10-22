@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Accounting.Postings;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
@@ -19,7 +20,8 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public class PurchaseInvoicesReverseConfirmService(
     IUnitOfWork db,
     FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    IAccountingPostingService? accounting = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -45,6 +47,16 @@ public class PurchaseInvoicesReverseConfirmService(
 
         await otherPurchaseTitles.EnsureCanUndoAsync(invoice.Key);
         otherPurchaseTitles.EnqueueUndo(invoice.Key, userName);
+
+        // Estorno da contabilização (655 itens / 665 total); sem lançamento da confirmação, não faz nada.
+        if (accounting is not null)
+        {
+            var postingLines = await db.Context.PurchaseInvoicesItems.Where(l => l.PurchaseInvoiceKey == invoice.Key).ToListAsync();
+            var (itemsCtx, documentCtx) = await PurchaseInvoicePostingContext.BuildAsync(db, invoice, postingLines,
+                PurchaseInvoicePostingContext.UndoEvent, DateTime.Today, false);
+            await accounting.PostReversalAsync("655", itemsCtx, PurchaseInvoicePostingContext.ConfirmEvent, userName);
+            await accounting.PostReversalAsync("665", documentCtx, PurchaseInvoicePostingContext.ConfirmEvent, userName);
+        }
 
         invoice.InvoiceStatus = InvoiceStatus.Pending;
         invoice.ApprovedAt = null;

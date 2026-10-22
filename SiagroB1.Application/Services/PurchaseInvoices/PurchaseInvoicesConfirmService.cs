@@ -1,4 +1,5 @@
 ﻿using SiagroB1.Application.Services.Accounting;
+using SiagroB1.Application.Services.Accounting.Postings;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,8 @@ public class PurchaseInvoicesConfirmService(
     FinancialDocumentsOtherPurchaseService otherPurchaseTitles,
     PurchaseInvoicesTaxApplyService taxApply,
     FiscalStockPeriodGuard? periodGuard = null,
-    AccountingAssignmentGuard? dimensionGuard = null)
+    AccountingAssignmentGuard? dimensionGuard = null,
+    IAccountingPostingService? accounting = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -103,6 +105,15 @@ public class PurchaseInvoicesConfirmService(
         invoice.InvoiceStatus = InvoiceStatus.Confirmed;
         invoice.ApprovedAt = DateTime.Now;
         invoice.ApprovedBy = userName;
+
+        // Contabilização on-line (650 itens / 660 total), no MESMO SaveChanges: LP com erro recusa a confirmação.
+        if (accounting is not null)
+        {
+            var (itemsCtx, documentCtx) = await PurchaseInvoicePostingContext.BuildAsync(db, invoice, lines,
+                PurchaseInvoicePostingContext.ConfirmEvent, FiscalStockPeriodGuard.StockDate(invoice) ?? DateTime.Today);
+            await accounting.PostAsync("650", itemsCtx, userName);
+            await accounting.PostAsync("660", documentCtx, userName);
+        }
 
         await db.SaveChangesAsync();
     }

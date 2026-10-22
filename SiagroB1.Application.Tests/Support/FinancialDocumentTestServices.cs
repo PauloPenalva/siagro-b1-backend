@@ -69,9 +69,11 @@ public static class FinancialDocumentTestServices
             NullLogger<FinancialDocumentsSalesNoContractService>.Instance);
     }
 
-    public static PurchaseInvoicesReverseConfirmService PurchaseReverse(IUnitOfWork db) =>
-        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()));
+    public static PurchaseInvoicesReverseConfirmService PurchaseReverse(IUnitOfWork db,
+        Services.Accounting.Postings.IAccountingPostingService? accounting = null) =>
+        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()), accounting: accounting);
 
-    public static PurchaseInvoicesCancelService PurchaseCancel(IUnitOfWork db) =>
-        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()));
+    public static PurchaseInvoicesCancelService PurchaseCancel(IUnitOfWork db,
+        Services.Accounting.Postings.IAccountingPostingService? accounting = null) =>
+        new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()), accounting: accounting);
 }
