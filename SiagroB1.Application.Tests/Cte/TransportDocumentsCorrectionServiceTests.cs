@@ -26,6 +26,39 @@ public class TransportDocumentsCorrectionServiceTests : CteEventsTestBase
     }
 
     [Fact]
+    public async Task Correction_address_field_sends_tag_name_group_only()
+    {
+        var key = await SeedAsync();
+        Sefaz.CorrectionResponses.Enqueue(r => FakeCteSefazClient.CorrectionRegistered(r));
+
+        await Service().SendCorrectionAsync(key, [("enderDest", "xLgr", "RUA NOVA")], "tester");
+
+        var item = Sefaz.CorrectionRequests.Single().Items.Single();
+        Assert.Equal(("enderDest", "xLgr", "RUA NOVA"), (item.Group, item.Field, item.Value));
+    }
+
+    [Fact]
+    public async Task Correction_path_style_group_is_rejected()
+    {
+        var key = await SeedAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(
+            () => Service().SendCorrectionAsync(key, [("dest/enderDest", "xLgr", "RUA")], "tester"));
+    }
+
+    [Fact]
+    public async Task Correction_duplicate_item_is_rejected()
+    {
+        var key = await SeedAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(
+            () => Service().SendCorrectionAsync(key, [("compl", "xObs", "A"), ("compl", "xObs", "B")], "tester"));
+
+        Assert.Equal("O campo compl/xObs aparece mais de uma vez.", e.Message);
+        Assert.Equal(0, Sefaz.CorrectionCalls);
+    }
+
+    [Fact]
     public async Task Correction_value_over_max_length_is_rejected()
     {
         var key = await SeedAsync();

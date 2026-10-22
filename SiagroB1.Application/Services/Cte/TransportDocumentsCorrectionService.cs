@@ -44,6 +44,8 @@ public class TransportDocumentsCorrectionService(
                 throw new DefaultException($"Informe o novo valor de {allowed.Label}.");
             if (text.Length > allowed.MaxLength)
                 throw new DefaultException($"{allowed.Label} aceita até {allowed.MaxLength} caracteres.");
+            if (request.Any(r => r.Group == allowed.Group && r.Field == allowed.Field))
+                throw new DefaultException($"O campo {allowed.Group}/{allowed.Field} aparece mais de uma vez.");
             request.Add(new CteCorrectionItem(allowed.Group, allowed.Field, text, null));
         }
 
