@@ -2351,6 +2351,83 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("LOGISTIC_REGIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementView", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("MANAGEMENT_VIEWS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementViewLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountFrom")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("AccountTo")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<bool>("Bold")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Formula")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<bool>("Hidden")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ParentCode")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<int>("Sign")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ViewCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ViewCode", "Code")
+                        .IsUnique();
+
+                    b.ToTable("MANAGEMENT_VIEW_LINES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Municipality", b =>
                 {
                     b.Property<string>("Code")
@@ -8930,6 +9007,15 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementViewLine", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.ManagementView", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("ViewCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.NotificationOutboxMessage", "OutboxMessage")
@@ -10469,6 +10555,11 @@ namespace SiagroB1.Migrations.AppContext
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementView", b =>
                 {
                     b.Navigation("Lines");
                 });

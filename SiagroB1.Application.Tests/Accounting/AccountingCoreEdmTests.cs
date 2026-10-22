@@ -54,5 +54,6 @@ public class AccountingCoreEdmTests
         Assert.Contains("AccountingResultClosingReverse", names);
         Assert.Contains("AccountingResultClosingPreview", names);
         Assert.Contains("AccountingPeriodsCloseWarnings", names);
+        Assert.NotNull(Model().EntityContainer.FindEntitySet("ManagementViews")!.EntityType.FindProperty("Lines"));
     }
 }

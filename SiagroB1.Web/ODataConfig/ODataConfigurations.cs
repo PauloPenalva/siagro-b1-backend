@@ -108,6 +108,9 @@ public static class ODataConfigurations
         offlinePostingRequest.ReturnsFromEntitySet<OfflinePostingRun>("OfflinePostingRuns");
         // Apuração de resultado (CTBA211): prévia por função, apurar e estornar por actions de topo.
         modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.ResultBalance>();
+        // Visão gerencial (CTS): GET com $expand=Lines, POST = upsert por código.
+        modelBuilder.EntitySet<ManagementView>("ManagementViews");
+        modelBuilder.EntitySet<ManagementViewLine>("ManagementViewLines");
         var periodsCloseWarnings = modelBuilder.Function("AccountingPeriodsCloseWarnings");
         periodsCloseWarnings.Parameter<int>("Id");
         periodsCloseWarnings.ReturnsCollection<string>();

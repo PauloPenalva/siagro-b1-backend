@@ -67,6 +67,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StandardPosting> StandardPostings { get; set; }
     public DbSet<StandardPostingLine> StandardPostingLines { get; set; }
     public DbSet<OfflinePostingRun> OfflinePostingRuns { get; set; }
+    public DbSet<ManagementView> ManagementViews { get; set; }
+    public DbSet<ManagementViewLine> ManagementViewLines { get; set; }
     public DbSet<OfflinePostingRunItem> OfflinePostingRunItems { get; set; }
     public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
@@ -219,6 +221,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<FinancialAccountTransfer>().HasQueryFilter(x => x.CanceledAt == null);
 
         // Lançamento padrão: sequência única por código; as sequências caem junto com o cabeçalho.
+        modelBuilder.Entity<ManagementViewLine>()
+            .HasIndex(x => new { x.ViewCode, x.Code })
+            .IsUnique();
+        modelBuilder.Entity<ManagementViewLine>()
+            .HasOne<ManagementView>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.ViewCode)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<OfflinePostingRunItem>()
             .HasOne<OfflinePostingRun>().WithMany(x => x.Items).HasForeignKey(x => x.RunKey).OnDelete(DeleteBehavior.Cascade);
 
