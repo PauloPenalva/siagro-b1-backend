@@ -27,4 +27,12 @@ public class AccountingCoreEdmTests
         Assert.Contains("JournalEntriesReverse", names);
         Assert.NotNull(model.EntityContainer.FindEntitySet("JournalEntries")!.EntityType.FindProperty("Lines"));
     }
+
+    [Fact]
+    public void Model_exposes_standard_postings_and_catalog()
+    {
+        var model = Model();
+        Assert.NotNull(model.EntityContainer.FindEntitySet("StandardPostings")!.EntityType.FindProperty("Lines"));
+        Assert.Contains(model.EntityContainer.OperationImports(), x => x.Name == "StandardPostingCatalogGet");
+    }
 }

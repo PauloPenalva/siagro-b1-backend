@@ -90,6 +90,12 @@ public static class ODataConfigurations
         // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
         modelBuilder.EntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");
+        // Lançamento padrão (CT5) + catálogo fixo de códigos e fontes.
+        modelBuilder.EntitySet<StandardPosting>("StandardPostings");
+        modelBuilder.EntitySet<StandardPostingLine>("StandardPostingLines");
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
+        modelBuilder.Function("StandardPostingCatalogGet")
+            .ReturnsCollection<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
         var journalEntriesReverse = modelBuilder.Action("JournalEntriesReverse");
         journalEntriesReverse.Parameter<int>("DocEntry");
         journalEntriesReverse.Parameter<DateTime>("Date");

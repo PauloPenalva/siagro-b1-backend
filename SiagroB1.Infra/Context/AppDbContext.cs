@@ -64,6 +64,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AccountingPeriod> AccountingPeriods { get; set; }
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<JournalEntryLine> JournalEntryLines { get; set; }
+    public DbSet<StandardPosting> StandardPostings { get; set; }
+    public DbSet<StandardPostingLine> StandardPostingLines { get; set; }
     public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
@@ -209,6 +211,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.ReversedBy).WithMany()
             .HasForeignKey(x => x.ReversedByDocEntry)
             .OnDelete(DeleteBehavior.NoAction);
+        // Lançamento padrão: sequência única por código; as sequências caem junto com o cabeçalho.
+        modelBuilder.Entity<StandardPostingLine>()
+            .HasIndex(x => new { x.Code, x.Sequence })
+            .IsUnique();
+        modelBuilder.Entity<StandardPostingLine>()
+            .HasOne<StandardPosting>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.Code)
+            .OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<JournalEntryLine>()
             .HasOne<JournalEntry>().WithMany(x => x.Lines)
             .HasForeignKey(x => x.DocEntry)

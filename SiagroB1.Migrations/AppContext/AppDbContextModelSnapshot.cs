@@ -6757,6 +6757,100 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("SHIPPING_TRANSACTIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StandardPosting", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("STANDARD_POSTINGS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StandardPostingLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("CreditAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("CreditAccountSource")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("CreditCostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("CreditCostCenterSource")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreditItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("CreditItemSource")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DebitAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DebitAccountSource")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("DebitCostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("DebitCostCenterSource")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DebitItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("DebitItemSource")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HistoryTemplate")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Sequence")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("ValueSource")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("STANDARD_POSTING_LINES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.State", b =>
                 {
                     b.Property<string>("Code")
@@ -9828,6 +9922,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("SalesStorageTransaction");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StandardPostingLine", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.StandardPosting", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("Code")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -10391,6 +10494,11 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentRelease", b =>
                 {
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.StandardPosting", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.StorageAddress", b =>
