@@ -45,4 +45,13 @@ public class AccountingCoreEdmTests
         Assert.Equal(["DateFrom", "DateTo", "BranchCode", "Modules", "Simulation"],
             request.Operation.Parameters.Select(p => p.Name));
     }
+
+    [Fact]
+    public void Model_exposes_result_closing_operations()
+    {
+        var names = Model().EntityContainer.OperationImports().Select(x => x.Name).ToList();
+        Assert.Contains("AccountingResultClosingRun", names);
+        Assert.Contains("AccountingResultClosingReverse", names);
+        Assert.Contains("AccountingResultClosingPreview", names);
+    }
 }

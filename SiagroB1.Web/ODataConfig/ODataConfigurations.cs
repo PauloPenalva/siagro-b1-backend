@@ -106,6 +106,20 @@ public static class ODataConfigurations
         offlinePostingRequest.CollectionParameter<int>("Modules");
         offlinePostingRequest.Parameter<bool>("Simulation");
         offlinePostingRequest.ReturnsFromEntitySet<OfflinePostingRun>("OfflinePostingRuns");
+        // Apuração de resultado (CTBA211): prévia por função, apurar e estornar por actions de topo.
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.ResultBalance>();
+        var resultClosingPreview = modelBuilder.Function("AccountingResultClosingPreview");
+        resultClosingPreview.Parameter<DateTime>("Date");
+        resultClosingPreview.Parameter<string>("BranchCode");
+        resultClosingPreview.ReturnsCollection<SiagroB1.Application.Services.Accounting.ResultBalance>();
+        var resultClosingRun = modelBuilder.Action("AccountingResultClosingRun");
+        resultClosingRun.Parameter<DateTime>("Date");
+        resultClosingRun.Parameter<string>("BranchCode");
+        resultClosingRun.Parameter<string>("History");
+        resultClosingRun.ReturnsCollectionFromEntitySet<JournalEntry>("JournalEntries");
+        var resultClosingReverse = modelBuilder.Action("AccountingResultClosingReverse");
+        resultClosingReverse.Parameter<string>("BranchCode");
+        resultClosingReverse.ReturnsCollectionFromEntitySet<JournalEntry>("JournalEntries");
         var journalEntriesReverse = modelBuilder.Action("JournalEntriesReverse");
         journalEntriesReverse.Parameter<int>("DocEntry");
         journalEntriesReverse.Parameter<DateTime>("Date");
