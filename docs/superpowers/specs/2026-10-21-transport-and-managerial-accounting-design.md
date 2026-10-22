@@ -173,10 +173,18 @@ O parceiro ganha `DefaultLedgerAccountCode` (como o `A1_CONTA`/`A2_CONTA` do Pro
 mudar: conta ativa que aceita lançamento) e `DefaultAccountingItemCode`. No Protheus o item contábil
 costuma ser o próprio cliente ou fornecedor. O parceiro não tem centro de custo padrão.
 
-O preenchimento padrão segue a ordem: digitado → cabeçalho → parceiro. CC, Item e rateio vêm do
-cabeçalho; o parceiro só oferece o Item. A conta contábil vem do cabeçalho e, na falta, do
-`DefaultLedgerAccountCode` do parceiro. O padrão do
+O produto (`ITEMS`) ganha `LedgerAccountCode`, `CostCenterCode` e `AccountingItemCode` (como
+`B1_CONTA`/`B1_CC`/`B1_ITEMCC` do Protheus; validados ao mudar, só STANDALONE — em SAPB1 o produto vem
+do OITM e os campos vêm nulos). Eles são padrão só das **linhas** dos documentos (venda e entrada).
+
+O preenchimento padrão segue a ordem: digitado → cabeçalho → produto (só linhas) → parceiro. A
+primeira fonte que traz rateio ou CC/Item decide o modo; rateio só vem do cabeçalho, o produto
+oferece CC/Item e o parceiro só o Item. A conta contábil segue cabeçalho → produto →
+`DefaultLedgerAccountCode` do parceiro, independente do modo. O padrão do
 veículo entra no sub-projeto 2.
+
+A conta financeira (caixa/banco) ganha `LedgerAccountCode` (validada ao mudar: ativa e aceita
+lançamento). Só fica gravada; quem a usa é a contabilização automática (sub-projetos 5 a 7).
 
 Continua **apenas STANDALONE**. Os cadastros e serviços são registrados nos dois modos, mas não
 fazem nada em SAPB1.

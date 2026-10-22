@@ -42,7 +42,7 @@ public class PurchaseInvoicesCreateService(
             invoice.CardCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate);
         foreach (var item in invoice.Items)
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
-                invoice.CardCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate);
+                invoice.CardCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate, itemCode: item.ItemCode);
 
         // O documento nunca nasce emitido, venha o que vier no corpo.
         PurchaseInvoiceNfeLock.ResetIssuanceFields(invoice);

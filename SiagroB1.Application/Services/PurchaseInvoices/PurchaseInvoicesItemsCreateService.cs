@@ -43,7 +43,7 @@ public class PurchaseInvoicesItemsCreateService(
         // Dimensões gerenciais: o que a linha não trouxe vem do cabeçalho, do fornecedor e da natureza; depois valida.
         // No-op fora do STANDALONE.
         await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, invoice,
-            invoice.CardCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate);
+            invoice.CardCode, previous: null, documentDate: invoice.PostingDate ?? invoice.IssueDate, itemCode: item.ItemCode);
 
         // Linha incluída depois da importação não é item da nota do fornecedor: sem nItem (informado no "Devolver").
         // A tributação vem da natureza, como em toda linha do terceiro Normal.

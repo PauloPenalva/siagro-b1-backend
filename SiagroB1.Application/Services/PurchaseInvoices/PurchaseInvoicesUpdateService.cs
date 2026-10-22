@@ -300,7 +300,7 @@ public class PurchaseInvoicesUpdateService(
                 // Dimensões gerenciais da linha nova: o corpo, completado pelo cabeçalho, fornecedor e natureza.
                 AccountingAssignmentSnapshot.Copy(line, newLine);
                 await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, newLine, existing,
-                    existing.CardCode, previous: null, documentDate: existing.PostingDate ?? existing.IssueDate);
+                    existing.CardCode, previous: null, documentDate: existing.PostingDate ?? existing.IssueDate, itemCode: newLine.ItemCode);
 
                 db.Context.PurchaseInvoicesItems.Add(newLine);
 

@@ -25,4 +25,13 @@ public class ItemModel
 
     /// <summary>CEST (7 dígitos), opcional. Nulo em SAPB1, pelo mesmo motivo.</summary>
     public string? Cest { get; set; }
+
+    /// <summary>Conta contábil padrão das linhas. Nula em SAPB1 (o produto vem do OITM).</summary>
+    public string? LedgerAccountCode { get; set; }
+
+    /// <summary>Centro de custo padrão das linhas. Nulo em SAPB1.</summary>
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil padrão das linhas. Nulo em SAPB1.</summary>
+    public string? AccountingItemCode { get; set; }
 }

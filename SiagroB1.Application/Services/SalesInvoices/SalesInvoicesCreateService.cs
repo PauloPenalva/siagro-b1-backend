@@ -53,7 +53,7 @@ public class SalesInvoicesCreateService(
             salesInvoice.CardCode, previous: null, documentDate: salesInvoice.InvoiceDate);
         foreach (var item in salesInvoice.Items)
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, item, salesInvoice,
-                salesInvoice.CardCode, previous: null, documentDate: salesInvoice.InvoiceDate);
+                salesInvoice.CardCode, previous: null, documentDate: salesInvoice.InvoiceDate, itemCode: item.ItemCode);
 
         // Os campos da NF-e só a emissão escreve: um corpo com "Autorizada" passaria pela guarda
         // da confirmação direta.

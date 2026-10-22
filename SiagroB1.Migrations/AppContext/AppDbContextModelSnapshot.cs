@@ -969,6 +969,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LedgerAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
@@ -2009,8 +2012,14 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("ItemCode")
                         .HasColumnType("VARCHAR(50) NOT NULL");
 
+                    b.Property<string>("AccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
                     b.Property<string>("Cest")
                         .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("CostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
@@ -2027,6 +2036,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<short?>("ItmsGrpCod")
                         .HasColumnType("smallint");
+
+                    b.Property<string>("LedgerAccountCode")
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<string>("Ncm")
                         .HasColumnType("VARCHAR(8)");

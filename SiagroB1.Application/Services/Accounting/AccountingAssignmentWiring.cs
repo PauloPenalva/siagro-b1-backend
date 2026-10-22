@@ -14,13 +14,15 @@ public static class AccountingAssignmentWiring
         AccountingAssignmentValidator? validator,
         IAccountingAssignment target,
         IAccountingAssignment? header,
-        string? partnerCode,
+        string? partnerCode,
+
         IAccountingAssignment? previous,
         bool applyDefaults = true,
-        DateTime? documentDate = null)
+        DateTime? documentDate = null,
+        string? itemCode = null)
     {
         if (applyDefaults && resolver is not null)
-            await resolver.ApplyAsync(target, header, partnerCode, documentDate);
+            await resolver.ApplyAsync(target, header, partnerCode, documentDate, itemCode);
 
         if (validator is not null)
             await validator.NormalizeAndValidateAsync(target, previous, documentDate);

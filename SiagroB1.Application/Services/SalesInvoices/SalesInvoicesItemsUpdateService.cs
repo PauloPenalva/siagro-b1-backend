@@ -130,7 +130,7 @@ public class SalesInvoicesItemsUpdateService(
             await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, dimHeader,
                 dimHeader?.CardCode, previousDims,
                 applyDefaults: dimHeader?.InvoiceStatus is null or InvoiceStatus.Pending,
-                documentDate: dimHeader?.InvoiceDate);
+                documentDate: dimHeader?.InvoiceDate, itemCode: existingEntity.ItemCode);
 
             var stored = await db.Context.SalesInvoices.AsNoTracking()
                 .Where(i => i.Key == existingEntity.SalesInvoiceKey)

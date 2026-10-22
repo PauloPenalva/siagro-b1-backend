@@ -140,4 +140,86 @@ public class AccountingAssignmentDefaultsResolverTests
         Assert.Null(target.AccountingItemCode);
         Assert.Null(target.LedgerAccountCode);
     }
+
+    private static async Task AddProduct(IUnitOfWork db, string? cc, string? item, string? ledger = null)
+    {
+        db.Context.Items.Add(new Item
+        {
+            ItemCode = "SOJA", ItemName = "Soja", CostCenterCode = cc, AccountingItemCode = item, LedgerAccountCode = ledger,
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Product_beats_partner()
+    {
+        var db = await NewDb();
+        await AddPartner(db, "IT02", "1.2");
+        await AddProduct(db, "CC02", "IT01", "H.1");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target, null, "P1", Today, "SOJA");
+
+        Assert.Equal("CC02", target.CostCenterCode);
+        Assert.Equal("IT01", target.AccountingItemCode);
+        Assert.Equal("H.1", target.LedgerAccountCode);
+    }
+
+    [Fact]
+    public async Task Header_beats_product()
+    {
+        var db = await NewDb();
+        await AddProduct(db, "CC02", "IT01", "1.2");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target,
+            new AccountingAssignmentSnapshot { CostCenterCode = "CC01", LedgerAccountCode = "H.1" }, null, Today, "SOJA");
+
+        Assert.Equal("CC01", target.CostCenterCode);
+        Assert.Equal("IT01", target.AccountingItemCode);
+        Assert.Equal("H.1", target.LedgerAccountCode);
+    }
+
+    [Fact]
+    public async Task Header_rule_beats_product_center()
+    {
+        var db = await NewDb();
+        await AddProduct(db, "CC02", "IT01", "1.2");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target,
+            new AccountingAssignmentSnapshot { DistributionRuleCode = "R01" }, null, Today, "SOJA");
+
+        Assert.Equal("R01", target.DistributionRuleCode);
+        Assert.Null(target.CostCenterCode);
+        Assert.Null(target.AccountingItemCode);
+        Assert.Equal("1.2", target.LedgerAccountCode);
+    }
+
+    [Fact]
+    public async Task Product_center_completes_with_partner_item()
+    {
+        var db = await NewDb();
+        await AddPartner(db, "IT02");
+        await AddProduct(db, "CC02", null);
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target, null, "P1", Today, "SOJA");
+
+        Assert.Equal("CC02", target.CostCenterCode);
+        Assert.Equal("IT02", target.AccountingItemCode);
+    }
+
+    [Fact]
+    public async Task Without_item_code_product_is_ignored()
+    {
+        var db = await NewDb();
+        await AddProduct(db, "CC02", "IT01", "H.1");
+        var target = new AccountingAssignmentSnapshot();
+
+        await Resolver(db).ApplyAsync(target, null, null, Today);
+
+        Assert.Null(target.CostCenterCode);
+        Assert.Null(target.LedgerAccountCode);
+    }
 }

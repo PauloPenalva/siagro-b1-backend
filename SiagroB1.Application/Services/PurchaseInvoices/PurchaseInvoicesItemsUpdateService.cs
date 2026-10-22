@@ -97,7 +97,7 @@ public class PurchaseInvoicesItemsUpdateService(
         // Dimensões gerenciais: copiadas do corpo, completadas pelos padrões e validadas só no que mudou.
         AccountingAssignmentSnapshot.Copy(entity, existing);
         await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, invoice,
-            invoice.CardCode, previousDims, documentDate: invoice.PostingDate ?? invoice.IssueDate);
+            invoice.CardCode, previousDims, documentDate: invoice.PostingDate ?? invoice.IssueDate, itemCode: existing.ItemCode);
 
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()

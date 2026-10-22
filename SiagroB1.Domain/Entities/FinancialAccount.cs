@@ -58,4 +58,8 @@ public class FinancialAccount
     public virtual Branch? Branch { get; set; }
 
     public bool Inactive { get; set; }
+
+    /// <summary>Conta contábil da conta financeira (caixa/banco), usada pela contabilização automática. Só STANDALONE.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

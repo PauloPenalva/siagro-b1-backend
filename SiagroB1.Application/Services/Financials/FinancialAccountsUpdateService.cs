@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Financials;
 
-public class FinancialAccountsUpdateService(IUnitOfWork db)
+public class FinancialAccountsUpdateService(IUnitOfWork db, AccountingAssignmentValidator? dimensionValidator = null)
 {
     public async Task<FinancialAccount> ExecuteAsync(string code, FinancialAccount entity)
     {
@@ -16,6 +17,8 @@ public class FinancialAccountsUpdateService(IUnitOfWork db)
             await db.Context.FinancialSettlements.AnyAsync(x => x.FinancialAccountCode == code))
             throw new ApplicationException(
                 "A conta já possui baixas: não é possível alterar a moeda.");
+
+        await FinancialAccountLedger.ValidateAsync(dimensionValidator, entity, existing.LedgerAccountCode);
 
         db.Context.Entry(existing).CurrentValues.SetValues(entity);
         existing.Code = code;
@@ -34,8 +37,11 @@ public class FinancialAccountsUpdateService(IUnitOfWork db)
                        ?? throw new NotFoundException($"Conta financeira {code} não encontrada.");
 
         var originalCurrency = existing.Currency;
+        var originalLedger = existing.LedgerAccountCode;
         applyChanges(existing);
         existing.Code = code;
+
+        await FinancialAccountLedger.ValidateAsync(dimensionValidator, existing, originalLedger);
 
         if (existing.Currency != originalCurrency &&
             await db.Context.FinancialSettlements.AnyAsync(x => x.FinancialAccountCode == code))
