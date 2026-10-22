@@ -20,6 +20,9 @@ namespace SiagroB1.Web.Controllers;
 public class TransportDocumentsController(
     TransportDocumentsSaveService saveService,
     TransportDocumentsImportNfeService importService,
+    TransportDocumentsConfirmService confirmService,
+    TransportDocumentsReopenService reopenService,
+    TransportDocumentsDiscardNumberService discardService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -139,6 +142,34 @@ public class TransportDocumentsController(
         catch (DefaultException e)
         {
             return BadRequest(e.Message);
+        }
+    }
+
+    [HttpPost("odata/TransportDocumentsConfirm")]
+    public Task<IActionResult> ConfirmAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, key => confirmService.ConfirmAsync(key, User.Identity?.Name ?? "Unknown"));
+
+    [HttpPost("odata/TransportDocumentsReopen")]
+    public Task<IActionResult> ReopenAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, reopenService.ReopenAsync);
+
+    [HttpPost("odata/TransportDocumentsDiscardNumber")]
+    public Task<IActionResult> DiscardNumberAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, key => discardService.DiscardNumberAsync(key, Text(parameters, "Reason")));
+
+    private static async Task<IActionResult> RunAsync(ODataActionParameters parameters, Func<Guid, Task> action)
+    {
+        if (parameters is null || !TryParseKey(Text(parameters, "Key"), out var documentKey) || documentKey is null)
+            return new BadRequestObjectResult(InvalidKey);
+
+        try
+        {
+            await action(documentKey.Value);
+            return new NoContentResult();
+        }
+        catch (DefaultException e)
+        {
+            return new BadRequestObjectResult(e.Message);
         }
     }
 

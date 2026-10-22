@@ -127,6 +127,16 @@ public static class ODataConfigurations
         var transportDocumentsDelete = modelBuilder.Action("TransportDocumentsDelete");
         transportDocumentsDelete.Parameter<string>("Key");
 
+        var transportDocumentsConfirm = modelBuilder.Action("TransportDocumentsConfirm");
+        transportDocumentsConfirm.Parameter<string>("Key");
+
+        var transportDocumentsReopen = modelBuilder.Action("TransportDocumentsReopen");
+        transportDocumentsReopen.Parameter<string>("Key");
+
+        var transportDocumentsDiscardNumber = modelBuilder.Action("TransportDocumentsDiscardNumber");
+        transportDocumentsDiscardNumber.Parameter<string>("Key");
+        transportDocumentsDiscardNumber.Parameter<string>("Reason");
+
         var branchTransportSettingsTestAverba = modelBuilder.Action("BranchTransportSettingsTestAverba");
         branchTransportSettingsTestAverba.Parameter<string>("BranchCode");
         branchTransportSettingsTestAverba.Parameter<string>("AverbaUser").Optional();
