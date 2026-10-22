@@ -27,6 +27,9 @@ public class TransportDocumentsController(
     TransportDocumentsDiscardNumberService discardService,
     TransportDocumentsTransmitService transmitService,
     TransportDocumentsConsultService consultService,
+    TransportDocumentsCancelService cancelService,
+    TransportDocumentsCorrectionService correctionService,
+    CteVoidNumbersService voidService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -168,6 +171,43 @@ public class TransportDocumentsController(
     [HttpPost("odata/TransportDocumentsConsult")]
     public Task<IActionResult> ConsultAsync([FromBody] ODataActionParameters parameters) =>
         RunSefazAsync(parameters, consultService.ConsultAsync);
+
+    [HttpPost("odata/TransportDocumentsCancel")]
+    public Task<IActionResult> CancelAsync([FromBody] ODataActionParameters parameters) =>
+        RunSefazAsync(parameters, key => cancelService.CancelAsync(key, Text(parameters, "Justification"), User.Identity?.Name ?? "Unknown"));
+
+    /// <summary>CC-e estruturada: coleções paralelas Groups/Fields/Values (um item por posição).</summary>
+    [HttpPost("odata/TransportDocumentsSendCorrection")]
+    public Task<IActionResult> SendCorrectionAsync([FromBody] ODataActionParameters parameters)
+    {
+        var groups = parameters is null ? [] : Texts(parameters, "Groups");
+        var fields = parameters is null ? [] : Texts(parameters, "Fields");
+        var values = parameters is null ? [] : Texts(parameters, "Values");
+        if (groups.Count != fields.Count || groups.Count != values.Count)
+            return Task.FromResult<IActionResult>(new BadRequestObjectResult("As listas de grupos, campos e valores estão com tamanhos diferentes."));
+
+        var items = groups.Select((g, i) => (g, fields[i], values[i])).ToList();
+        return RunSefazAsync(parameters!, key => correctionService.SendCorrectionAsync(key, items, User.Identity?.Name ?? "Unknown"));
+    }
+
+    [HttpPost("odata/CteNumbersVoid")]
+    public async Task<IActionResult> VoidNumbersAsync([FromBody] ODataActionParameters parameters)
+    {
+        if (parameters is null || !parameters.ContainsKey("BranchCode") || !parameters.ContainsKey("From") || !parameters.ContainsKey("To"))
+            return BadRequest("Parâmetros obrigatórios: BranchCode, Series, From, To, Justification.");
+
+        try
+        {
+            var result = await voidService.VoidAsync(
+                Text(parameters, "BranchCode") ?? string.Empty, Int(parameters, "Series") ?? 0,
+                Int(parameters, "From") ?? 0, Int(parameters, "To") ?? 0, Text(parameters, "Justification"));
+            return Ok(new NfeServiceStatusDto { StatusCode = result.StatusCode, Reason = result.Reason });
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
 
     /// <summary>cteProc autorizado (CT-e assinado + protCTe) para download.</summary>
     [HttpGet("odata/TransportDocumentsXml(Key={key})")]

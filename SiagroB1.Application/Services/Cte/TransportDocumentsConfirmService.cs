@@ -23,7 +23,7 @@ public class TransportDocumentsConfirmService(
     public const string NotDraft = "Só é possível confirmar CT-e em rascunho.";
 
     // Código IBGE da UF (cUF da chave de acesso).
-    private static readonly Dictionary<string, string> UfCodes = new(StringComparer.OrdinalIgnoreCase)
+    internal static readonly Dictionary<string, string> UfCodes = new(StringComparer.OrdinalIgnoreCase)
     {
         ["RO"] = "11", ["AC"] = "12", ["AM"] = "13", ["RR"] = "14", ["PA"] = "15", ["AP"] = "16", ["TO"] = "17",
         ["MA"] = "21", ["PI"] = "22", ["CE"] = "23", ["RN"] = "24", ["PB"] = "25", ["PE"] = "26", ["AL"] = "27",

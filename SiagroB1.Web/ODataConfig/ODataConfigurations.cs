@@ -145,6 +145,28 @@ public static class ODataConfigurations
         transportDocumentsConsult.Parameter<string>("Key");
         transportDocumentsConsult.Returns<NfeServiceStatusDto>();
 
+        var transportDocumentsCancel = modelBuilder.Action("TransportDocumentsCancel");
+        transportDocumentsCancel.Parameter<string>("Key");
+        transportDocumentsCancel.Parameter<string>("Justification");
+        transportDocumentsCancel.Returns<NfeServiceStatusDto>();
+
+        var transportDocumentsSendCorrection = modelBuilder.Action("TransportDocumentsSendCorrection");
+        transportDocumentsSendCorrection.Parameter<string>("Key");
+        transportDocumentsSendCorrection.CollectionParameter<string>("Groups");
+        transportDocumentsSendCorrection.CollectionParameter<string>("Fields");
+        transportDocumentsSendCorrection.CollectionParameter<string>("Values");
+        transportDocumentsSendCorrection.Returns<NfeServiceStatusDto>();
+
+        // Lista de números a inutilizar: só leitura; a inutilização é a ação.
+        modelBuilder.EntitySet<CteNumberToVoid>("CteNumbersToVoid");
+        var cteNumbersVoid = modelBuilder.Action("CteNumbersVoid");
+        cteNumbersVoid.Parameter<string>("BranchCode");
+        cteNumbersVoid.Parameter<int>("Series");
+        cteNumbersVoid.Parameter<int>("From");
+        cteNumbersVoid.Parameter<int>("To");
+        cteNumbersVoid.Parameter<string>("Justification");
+        cteNumbersVoid.Returns<NfeServiceStatusDto>();
+
         var transportDocumentsXml = modelBuilder.Function("TransportDocumentsXml");
         transportDocumentsXml.Parameter<Guid>("Key");
         transportDocumentsXml.Returns<IActionResult>();
