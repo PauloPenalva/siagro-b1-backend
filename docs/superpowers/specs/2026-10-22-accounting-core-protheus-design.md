@@ -430,25 +430,45 @@ faixas ficam **vazias**, porque cada plano de contas é diferente. O contador pr
 O Protheus credita estoque e debita CMV no 610, pelo custo do `SD2`. O SiagroB1 tem custo FIFO só no
 **estoque fiscal** (`FiscalStock`), e ele não existe para toda saída.
 
-**Decisão do usuário (22/10): o CMV é automático no 610, pelo custo FIFO do estoque fiscal.**
+**Decisão do usuário (22/10, revista no planejamento da fase 2): o CMV é contabilizado no fechamento mensal
+do estoque fiscal**, pelo custo FIFO congelado, e não na confirmação da saída.
 
-- O contexto 610 expõe `Line.FiscalStockCost`, que é o custo das camadas FIFO consumidas pela linha da
-  saída. Com ele, o contador configura a sequência "débito CMV / crédito estoque".
-- O estorno (630) usa o custo efetivamente devolvido às camadas, e não um recálculo.
-- **Ordem na confirmação.** O consumo do estoque fiscal precisa acontecer **antes** da contabilização,
-  dentro da mesma transação da confirmação do Documento de Saída. Se hoje ele roda depois, ou fora da
-  transação (`CommitMode.Deferred`), o construtor reordena o `SalesInvoicesConfirmService` e cobre isso
-  com teste.
-- **Sem camada não se inventa custo.** Saída que não movimenta estoque fiscal, ou não tem camada (saldo
-  insuficiente), tem custo zero e não gera linha. Em compensação, um aviso de "saída sem custo" aparece
-  na simulação off-line e num relatório de conferência simples na tela de Apuração. Assim o contador
-  vê o buraco antes de fechar o mês.
-- **Pré-requisito operacional, não de código:** o saldo inicial do estoque fiscal precisa estar lançado
-  antes de ativar o 610 com CMV num cliente. Isso fica registrado na tela de Lançamento Padrão como
-  ajuda do código 610.
-- A entrada (650) debita o estoque pelo mesmo valor que alimenta a camada FIFO, para que o estoque
-  contábil e o fiscal batam. O construtor confere qual campo do item de entrada forma o custo da camada
-  e expõe esse campo como fonte `Line.FiscalStockCost` no 650.
+Motivo (levantado no código): o custo FIFO não é gravado por linha — o estoque fiscal recalcula tudo a cada
+consulta (`FiscalStockLedgerLoader`); NF-e de saída confirmada mas não autorizada ainda não entra no FIFO
+(`BookableInvoiceLines`); e uma entrada retroativa muda o custo das saídas posteriores. O único ponto em que
+o custo de uma saída não muda mais é o fechamento do mês do estoque fiscal (`FiscalStockPeriodsService.CloseAsync`),
+que congela as camadas.
+
+- **LP 670 – CMV do período (fechamento do estoque fiscal)**, contexto por filial + produto: fonte de valor
+  `Item.CostOfSales` = soma do custo FIFO das saídas de venda do mês menos o custo devolvido pelas devoluções
+  de venda do mês; fontes de conta `Item.LedgerAccountCode`, `Item.CostOfSalesAccountCode` (se existir) e
+  `Fixed`. Data do lançamento = último dia do mês fechado; filial = filial do fechamento.
+- **LP 675 – Estorno do CMV (reabertura do estoque fiscal)**: reabrir o mês estorna o lançamento 670 daquele
+  mês/filial (estorno automático se o 675 não estiver ativo, como nos demais).
+- O 610 fica só com receita, impostos e clientes. A entrada (650) expõe `Line.FiscalStockCost` =
+  `GrandTotal − IcmsValue` (o mesmo valor que forma a camada FIFO, `FiscalStockLedgerLoader.cs:206`) quando a
+  linha movimenta o estoque fiscal, para o contador debitar Estoque pelo mesmo valor que o fiscal.
+- **Pré-requisito operacional:** saldo inicial do estoque fiscal lançado antes de ativar o 670. A ajuda do
+  código 670 na tela de Lançamento Padrão diz isso.
+- Números 670/675 são minha escolha (o Protheus não tem LP de CMV por fechamento).
+
+### 9. Fatos do código que ajustam a fase 2 (levantados em 22/10)
+
+- **Título de compra de contrato nasce na Conciliação Fiscal de Compras**, não na confirmação do Documento de
+  Entrada. A regra do 500/510 passa a ser por origem: **não** contabilizam títulos com `Nature` Provisional, nem
+  com `Origin` em PurchaseInvoice, PurchaseFiscalReconciliation, OtherPurchaseInvoice, SalesInvoice ou
+  SalesInvoiceNoContract (a obrigação já está no 650/660 ou no 610/620). Contabilizam Manual, washout
+  (PurchaseContractWashout/SalesContractWashout), adiantamento (`Nature` Advance) e desdobramento
+  (`Origin` FinancialDocument).
+- **Baixas** são linhas `FinancialSettlement` (ledger só de inclusão, `Amount` negativo no estorno, com
+  `ReversedSettlementKey`). Toda linha de baixa de título não provisório contabiliza: valor positivo → 520/530
+  conforme a direção do título; valor negativo (estorno) → 527/531. As origens sem conta financeira (aplicação
+  de adiantamento, encontro de contas, dação, composição) expõem `Settlement.FinancialAccountCode` vazio e
+  `Settlement.RelatedDocument*` para o contador montar a contrapartida.
+- **Lançamento na conta financeira não tem filial**: usa `FinancialAccount.BranchCode`; se vazia, a filial de
+  menor código cadastrada (minha decisão).
+- **Exclusão de lançamento na conta e de transferência vira cancelamento lógico** (`CanceledAt/CanceledBy`,
+  decisão 14). Listas, extrato e saldo da conta ignoram os cancelados.
 
 ## Menus (módulo Contabilidade, `StandaloneOnly`)
 
