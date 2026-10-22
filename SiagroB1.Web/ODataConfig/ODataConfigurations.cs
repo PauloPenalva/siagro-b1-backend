@@ -79,6 +79,14 @@ public static class ODataConfigurations
         accountingPeriodsSetStatus.Parameter<int>("Status");
         accountingPeriodsSetStatus.Parameter<string>("Reason");
         accountingPeriodsSetStatus.ReturnsFromEntitySet<AccountingPeriod>("AccountingPeriods");
+        // Configurações contábeis: linha única lida por função e gravada por action.
+        modelBuilder.ComplexType<AccountingSettings>();
+        modelBuilder.Function("AccountingSettingsGet").Returns<AccountingSettings>();
+        var accountingSettingsSave = modelBuilder.Action("AccountingSettingsSave");
+        accountingSettingsSave.Parameter<DateTime?>("CutoverDate");
+        accountingSettingsSave.Parameter<string>("DefaultResultClosingAccountCode");
+        accountingSettingsSave.Parameter<int>("ClosingFrequency");
+        accountingSettingsSave.Returns<AccountingSettings>();
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
         modelBuilder.EntitySet<RuralContributionRate>("RuralContributionRates");

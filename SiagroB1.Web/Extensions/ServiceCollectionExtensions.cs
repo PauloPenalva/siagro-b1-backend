@@ -120,6 +120,8 @@ public static class ServiceCollectionExtensions
         // Núcleo contábil (calendário, lançamentos): só exposto em STANDALONE pelos controllers.
         services.AddScoped<SiagroB1.Infra.Accounting.AccountingPeriodGuard>();
         services.AddScoped<Application.Services.Accounting.IAccountingPeriodsService, Application.Services.Accounting.AccountingPeriodsService>();
+        services.AddScoped<Application.Services.Accounting.IAccountingSettingsService, Application.Services.Accounting.AccountingSettingsService>();
+        services.AddScoped<Application.Services.Accounting.IJournalEntryPostingService, Application.Services.Accounting.JournalEntryPostingService>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
