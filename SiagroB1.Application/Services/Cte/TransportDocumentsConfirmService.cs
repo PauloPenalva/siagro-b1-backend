@@ -51,7 +51,12 @@ public class TransportDocumentsConfirmService(
         {
             var branch = await db.Context.Branchs.AsNoTracking().FirstOrDefaultAsync(x => x.Code == doc.BranchCode)
                          ?? throw new DefaultException($"Filial {doc.BranchCode} não encontrada.");
-            var ufCode = UfCodes.GetValueOrDefault(branch.StateCode?.Trim() ?? string.Empty)
+            // Como a NF-e: a UF do município da filial (que dá o cMun do XML) vale mais que o campo UF.
+            var municipalityState = string.IsNullOrWhiteSpace(branch.MunicipalityCode)
+                ? null
+                : await db.Context.Municipalities.AsNoTracking().Where(m => m.Code == branch.MunicipalityCode)
+                    .Select(m => m.StateAbbreviation).FirstOrDefaultAsync();
+            var ufCode = UfCodes.GetValueOrDefault((municipalityState ?? branch.StateCode)?.Trim() ?? string.Empty)
                          ?? throw new DefaultException($"A filial {doc.BranchCode} está sem UF válida no cadastro.");
             if (string.IsNullOrWhiteSpace(branch.TaxId))
                 throw new DefaultException($"A filial {doc.BranchCode} está sem CNPJ no cadastro.");

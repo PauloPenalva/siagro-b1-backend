@@ -20,7 +20,7 @@ public class TransportDocumentsConfirmServiceTests
 
     private TransportDocumentsReopenService Reopen() => new(_db, TaxTestServices.Config("STANDALONE"));
 
-    private TransportDocumentsDiscardNumberService Discard() => new(_db, TaxTestServices.Config("STANDALONE"));
+    private TransportDocumentsDiscardNumberService Discard() => new(_db, TaxTestServices.Config("STANDALONE"), _numbers);
 
     private async Task<Guid> SeedReadyAsync(
         bool enabled = true, string driverCpf = "52998224725", int? tare = 9000, int? capacity = 30000,
@@ -187,5 +187,32 @@ public class TransportDocumentsConfirmServiceTests
         doc.Status = CteStatus.Authorized;
         await _db.SaveChangesAsync();
         await Assert.ThrowsAsync<DefaultException>(() => Discard().DiscardNumberAsync(key, "motivo"));
+    }
+
+    [Fact]
+    public async Task Discard_refuses_while_emission_lock_is_held()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+        _numbers.EmissionBusy = true;
+
+        await Assert.ThrowsAsync<DefaultException>(() => Discard().DiscardNumberAsync(key, "motivo"));
+
+        Assert.Empty(await _db.Context.CteNumbersToVoid.ToListAsync());
+        Assert.Equal(100, (await LoadAsync(key)).Number);
+    }
+
+    [Fact]
+    public async Task Confirm_uses_municipality_state_for_uf_code_before_branch_state()
+    {
+        var key = await SeedReadyAsync();
+        var branch = await _db.Context.Branchs.SingleAsync();
+        branch.StateCode = "XX";
+        branch.MunicipalityCode = "4106902"; // Curitiba/PR
+        await _db.SaveChangesAsync();
+
+        await Confirm().ConfirmAsync(key, "tester");
+
+        Assert.StartsWith("41", (await LoadAsync(key)).AccessKey);
     }
 }

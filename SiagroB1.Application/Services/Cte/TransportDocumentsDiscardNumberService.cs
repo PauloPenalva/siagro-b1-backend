@@ -11,11 +11,14 @@ namespace SiagroB1.Application.Services.Cte;
 /// Descarta o número do CT-e (Confirmado/Rejeitado/Rascunho com número): o número vai para a lista de inutilização
 /// e o documento volta a Rascunho sem número, cCT e chave. Um documento já autorizado não passa por aqui.
 /// </summary>
-public class TransportDocumentsDiscardNumberService(IUnitOfWork db, IConfiguration configuration)
+public class TransportDocumentsDiscardNumberService(IUnitOfWork db, IConfiguration configuration, CteNumberReservationService numbers)
 {
     public async Task DiscardNumberAsync(Guid key, string? reason)
     {
         TransportDocumentsSaveService.EnsureStandalone(configuration);
+
+        // Mesma trava da confirmação e da transmissão: não inutiliza número que a SEFAZ possa estar autorizando.
+        await using var emissionLock = await numbers.AcquireEmissionLockAsync(key);
 
         var doc = await db.Context.TransportDocuments.FirstOrDefaultAsync(x => x.Key == key)
                   ?? throw new DefaultException("CT-e não encontrado.");
