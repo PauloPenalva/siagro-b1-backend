@@ -51,6 +51,78 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("ACCOUNTING_ITEMS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.AccountingPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReopenReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<DateTime?>("ReopenedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReopenedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Year", "Month")
+                        .IsUnique();
+
+                    b.ToTable("ACCOUNTING_PERIODS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.AccountingSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClosingFrequency")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CutoverDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("DefaultResultClosingAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("ACCOUNTING_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Address", b =>
                 {
                     b.Property<string>("CardCode")
@@ -2073,6 +2145,139 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("ITEM_COMPLEMENTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Property<int>("DocEntry")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("DocEntry"));
+
+                    b.Property<string>("Batch")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(6) NOT NULL");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(10) NOT NULL");
+
+                    b.Property<string>("Comments")
+                        .HasColumnType("VARCHAR(250)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(6) NOT NULL");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PostingDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<int?>("ReversalOfDocEntry")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReversedByDocEntry")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceDocumentKey")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("SourceDocumentType")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("SourceEvent")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("StandardPostingCode")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("SubBatch")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3) NOT NULL");
+
+                    b.HasKey("DocEntry");
+
+                    b.HasIndex("PostingDate", "Batch", "SubBatch", "DocumentNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StandardPostingCode", "SourceDocumentType", "SourceDocumentKey", "SourceEvent")
+                        .IsUnique()
+                        .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL");
+
+                    b.ToTable("JOURNAL_ENTRIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntryLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,2)");
+
+                    b.Property<string>("BusinessPartnerCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("CreditAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("CreditAccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("CreditCostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DebitAccountCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DebitAccountingItemCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("DebitCostCenterCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("DocEntry")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("History")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(40) NOT NULL");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StandardPostingSequence")
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditAccountCode");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CreditAccountCode"), new[] { "Amount" });
+
+                    b.HasIndex("DebitAccountCode");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("DebitAccountCode"), new[] { "Amount" });
+
+                    b.HasIndex("DocEntry");
+
+                    b.ToTable("JOURNAL_ENTRY_LINES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.LedgerAccount", b =>
                 {
                     b.Property<string>("Code")
@@ -2087,6 +2292,12 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("AllowsPosting")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("BlockedFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("BlockedTo")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
@@ -2094,11 +2305,23 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(100) NOT NULL");
 
+                    b.Property<int?>("Nature")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ParentCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("ReferentialCode")
+                        .HasColumnType("VARCHAR(30)");
+
                     b.Property<bool>("RequiresAccountingItem")
                         .HasColumnType("bit");
 
                     b.Property<bool>("RequiresCostCenter")
                         .HasColumnType("bit");
+
+                    b.Property<string>("ResultClosingAccountCode")
+                        .HasColumnType("VARCHAR(20)");
 
                     b.Property<int?>("Type")
                         .HasColumnType("int");
@@ -8465,6 +8688,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Period");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntryLine", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.LedgerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("CreditAccountCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.LedgerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("DebitAccountCode")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SiagroB1.Domain.Entities.JournalEntry", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("DocEntry")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.NotificationOutboxMessage", "OutboxMessage")
@@ -9983,6 +10225,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Events");
 
                     b.Navigation("Layers");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationGroup", b =>
