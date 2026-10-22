@@ -32,9 +32,9 @@
       <TextObject Name="txtFilters" Top="90" Width="733.4" Height="17" Text="[pFilters]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt"/>
     </PageHeaderBand>
     <ColumnHeaderBand Name="ColumnHeader1" Width="733.4" Height="19" Border.Lines="Bottom">
-      <TextObject Name="hdrDate" Left="0" Top="0" Width="55" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Data" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrDoc" Left="56" Top="0" Width="80" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Lote/Doc" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
-      <TextObject Name="hdrHistory" Left="137" Top="0" Width="215" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Histórico" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDate" Left="0" Top="0" Width="64" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Data" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrDoc" Left="65" Top="0" Width="76" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Lote/Doc" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrHistory" Left="142" Top="0" Width="210" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Histórico" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrCounterpart" Left="353" Top="0" Width="70" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Contrapartida" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrCc" Left="424" Top="0" Width="45" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="C.Custo" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
       <TextObject Name="hdrDebit" Left="470" Top="0" Width="85" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Débito" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
@@ -44,9 +44,9 @@
     <GroupHeaderBand Name="GroupAccount" Width="733.4" Height="21" Condition="[LedgerRows.AccountCode]" SortOrder="None" KeepWithData="true">
       <TextObject Name="txtAccount" Left="0" Top="2" Width="733.4" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="Conta: [LedgerRows.AccountCode] - [LedgerRows.AccountName]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold"/>
       <DataBand Name="Data1" Width="733.4" Height="17" CanGrow="true" DataSource="LedgerRows">
-        <TextObject Name="txtRowDate" Left="0" Top="0" Width="55" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.Date]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowDoc" Left="56" Top="0" Width="80" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.Document]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
-        <TextObject Name="txtRowHistory" Left="137" Top="0" Width="215" Height="17" CanGrow="true" Text="[LedgerRows.History]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDate" Left="0" Top="0" Width="64" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.Date]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowDoc" Left="65" Top="0" Width="76" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.Document]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
+        <TextObject Name="txtRowHistory" Left="142" Top="0" Width="210" Height="17" CanGrow="true" Text="[LedgerRows.History]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowCounterpart" Left="353" Top="0" Width="70" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.Counterpart]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowCc" Left="424" Top="0" Width="45" Height="17" WordWrap="false" Trimming="EllipsisCharacter" Text="[LedgerRows.CostCenterCode]" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt"/>
         <TextObject Name="txtRowDebit" Left="470" Width="85" Height="17" Text="[IIf([LedgerRows.Debit] == 0, &quot;&quot;, Format(&quot;{0:N2}&quot;, [LedgerRows.Debit]))]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
