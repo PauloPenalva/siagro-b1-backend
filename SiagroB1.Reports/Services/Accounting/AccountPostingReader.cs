@@ -18,7 +18,8 @@ public sealed record AccountPosting(
     string? Counterpart,
     string History,
     string? CostCenterCode,
-    string? AccountingItemCode);
+    string? AccountingItemCode,
+    bool ResultClosing = false);
 
 /// <summary>Filtros comuns de Razão e Balancete.</summary>
 public sealed record AccountPostingFilter(
@@ -34,13 +35,16 @@ public sealed record AccountPostingFilter(
 /// </summary>
 public class AccountPostingReader(IUnitOfWork db)
 {
+    /// <summary>Rastro da apuração de resultado (e dos estornos dela), como grava o ResultClosingService.</summary>
+    public const string ResultClosingType = "ResultClosing";
+
     public async Task<List<AccountPosting>> ReadAsync(DateTime? from, DateTime to, AccountPostingFilter filter)
     {
         var query =
             from l in db.Context.JournalEntryLines.AsNoTracking()
             join e in db.Context.JournalEntries.AsNoTracking() on l.DocEntry equals e.DocEntry
             where e.PostingDate <= to.Date
-            select new { Line = l, e.PostingDate, e.Batch, e.DocumentNumber, e.BranchCode };
+            select new { Line = l, e.PostingDate, e.Batch, e.DocumentNumber, e.BranchCode, e.SourceDocumentType };
         if (from is not null) query = query.Where(x => x.PostingDate >= from.Value.Date);
         if (!string.IsNullOrWhiteSpace(filter.BranchCode)) query = query.Where(x => x.BranchCode == filter.BranchCode);
 
@@ -64,11 +68,11 @@ public class AccountPostingReader(IUnitOfWork db)
                 if (l.DebitAccountCode is not null)
                     postings.Add(new AccountPosting(l.DebitAccountCode, x.PostingDate, l.DocEntry, l.LineNumber, x.Batch,
                         x.DocumentNumber, x.BranchCode, l.Amount, 0m, isDouble ? l.CreditAccountCode : null, history,
-                        l.DebitCostCenterCode, l.DebitAccountingItemCode));
+                        l.DebitCostCenterCode, l.DebitAccountingItemCode, x.SourceDocumentType == ResultClosingType));
                 if (l.CreditAccountCode is not null)
                     postings.Add(new AccountPosting(l.CreditAccountCode, x.PostingDate, l.DocEntry, l.LineNumber, x.Batch,
                         x.DocumentNumber, x.BranchCode, 0m, l.Amount, isDouble ? l.DebitAccountCode : null, history,
-                        l.CreditCostCenterCode, l.CreditAccountingItemCode));
+                        l.CreditCostCenterCode, l.CreditAccountingItemCode, x.SourceDocumentType == ResultClosingType));
             }
         }
 

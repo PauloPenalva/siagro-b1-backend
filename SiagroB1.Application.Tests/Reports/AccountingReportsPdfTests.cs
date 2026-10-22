@@ -77,6 +77,17 @@ public class AccountingReportsPdfTests : IDisposable
         Keep("trial-balance", pdf);
     }
 
+    [Fact]
+    public async Task IncomeStatement_renders_pdf()
+    {
+        var pdf = await new IncomeStatementReportService(await AccountingStatementsTests.SeedAsync(), FastReport())
+            .ExecuteAsync(new IncomeStatementReportRequest
+            {
+                DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31), ViewCode = "DRE",
+            });
+        Keep("income-statement", pdf);
+    }
+
     private FastReportService FastReport()
     {
         var env = new TestWebHostEnvironment(_contentRoot);

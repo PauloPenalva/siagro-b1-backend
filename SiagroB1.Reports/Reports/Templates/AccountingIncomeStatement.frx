@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="10/22/2026 10:00:00" ReportInfo.Modified="10/22/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="DreRows" ReferenceName="DreRows" DataType="System.Int32" Enabled="true">
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="Description" DataType="System.String"/>
+      <Column Name="Level" DataType="System.Int32"/>
+      <Column Name="Bold" DataType="System.Boolean"/>
+      <Column Name="Period" DataType="System.Decimal"/>
+      <Column Name="YearToDate" DataType="System.Decimal"/>
+      <Column Name="PercentOfRevenue" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pStandalone" DataType="System.Boolean" AsString="true"/>
+    <Parameter Name="pTitle" DataType="System.String" AsString=""/>
+    <Parameter Name="pPeriod" DataType="System.String" AsString=""/>
+    <Parameter Name="pFilters" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="8" TopMargin="8" RightMargin="8" BottomMargin="8" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="733.4" Height="115">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtCompany" Left="100" Top="2" Width="480" Height="37.8" Text="[pCompanyName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtDate" Left="586" Top="2" Width="147.4" Height="18.9" Text="[Date]" Format="Date" Format.Format="d" HorzAlign="Right" VertAlign="Center" Font="Tahoma, 6pt"/>
+      <TextObject Name="txtTitle" Top="45" Width="733.4" Height="26" Text="[pTitle]" HorzAlign="Center" VertAlign="Center" Font="Arial, 14pt, style=Bold, Italic"/>
+      <TextObject Name="txtPeriod" Top="73" Width="733.4" Height="17" Text="[pPeriod]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt, style=Italic"/>
+      <TextObject Name="txtFilters" Top="90" Width="733.4" Height="17" Text="[pFilters]" HorzAlign="Center" VertAlign="Center" Font="Consolas, 8pt"/>
+    </PageHeaderBand>
+    <ColumnHeaderBand Name="ColumnHeader1" Width="733.4" Height="19" Border.Lines="Bottom">
+      <TextObject Name="hdrDescription" Left="0" Top="0" Width="380" Height="17" WordWrap="false" Text="Descrição" HorzAlign="Left" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPeriod" Left="381" Top="0" Width="130" Height="17" WordWrap="false" Text="Período" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrPercent" Left="512" Top="0" Width="70" Height="17" WordWrap="false" Text="% Receita" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+      <TextObject Name="hdrYtd" Left="583" Top="0" Width="150.4" Height="17" WordWrap="false" Text="Acumulado no ano" HorzAlign="Right" VertAlign="Center" Font="Consolas, 7pt, style=Bold, Italic"/>
+    </ColumnHeaderBand>
+    <DataBand Name="Data1" Width="733.4" Height="17" DataSource="DreRows">
+      <TextObject Name="txtRowDescription" Width="380" Height="17" Text="[&quot;&quot;.PadLeft(([DreRows.Level] - 1) * 3)][DreRows.Description]" Trimming="EllipsisCharacter" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[DreRows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtRowPeriod" Left="381" Width="130" Height="17" Text="[Format(&quot;{0:N2}&quot;, [DreRows.Period])]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[DreRows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+      <TextObject Name="txtRowPercent" Left="512" Width="70" Height="17" Text="[Format(&quot;{0:N2}&quot;, [DreRows.PercentOfRevenue])]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+      <TextObject Name="txtRowYtd" Left="583" Width="150.4" Height="17" Text="[Format(&quot;{0:N2}&quot;, [DreRows.YearToDate])]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt">
+        <Highlight><Condition Expression="[DreRows.Bold]" Font="Consolas, 7pt, style=Bold" ApplyFont="true" ApplyTextFill="false"/></Highlight>
+      </TextObject>
+    </DataBand>
+    <PageFooterBand Name="PageFooter1" Width="733.4" Height="22">
+      <TextObject Name="txtPage" Left="586" Width="147.4" Height="17" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Consolas, 7pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

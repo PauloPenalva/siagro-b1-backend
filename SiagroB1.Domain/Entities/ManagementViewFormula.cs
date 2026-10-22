@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace SiagroB1.Application.Services.Accounting;
+namespace SiagroB1.Domain.Entities;
 
 /// <summary>Fórmula da visão gerencial: só códigos de linha somados ou subtraídos ("01 - 02 + 05").</summary>
 public static partial class ManagementViewFormula
