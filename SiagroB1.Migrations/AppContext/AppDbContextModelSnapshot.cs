@@ -344,6 +344,52 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("BRANCH_NFE_SETTINGS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchTransportSettings", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("AverbaCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<bool>("AverbaEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("AverbaEnvironment")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("AverbaPasswordCipher")
+                        .HasColumnType("VARBINARY(512)");
+
+                    b.Property<string>("AverbaUser")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("CompanyRntrc")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int?>("InsuranceResponsible")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InsurerName")
+                        .HasColumnType("VARCHAR(115)");
+
+                    b.Property<string>("InsurerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("PolicyNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("BranchCode");
+
+                    b.ToTable("BRANCH_TRANSPORT_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BusinessPartner", b =>
                 {
                     b.Property<string>("CardCode")
@@ -8796,6 +8842,17 @@ namespace SiagroB1.Migrations.AppContext
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSettings", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchTransportSettings", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
                         .WithMany()

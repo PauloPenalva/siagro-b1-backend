@@ -42,6 +42,34 @@ public static class ODataConfigurations
         truckCombinationsSave.Parameter<bool>("IsNew");
         truckCombinationsSave.CollectionParameter<string>("TrailerCodes");
         truckCombinationsSave.Returns<string>();
+
+        // Configuração de transporte da filial (seção "Transportadora", só STANDALONE). A senha da AT&M
+        // só entra; enums vão como int nos parâmetros (0 = sem responsável pelo seguro).
+        var branchTransportSettingsGet = modelBuilder.Function("BranchTransportSettingsGet");
+        branchTransportSettingsGet.Parameter<string>("BranchCode");
+        branchTransportSettingsGet.Returns<BranchTransportSettingsModel>();
+
+        var branchTransportSettingsSave = modelBuilder.Action("BranchTransportSettingsSave");
+        branchTransportSettingsSave.Parameter<string>("BranchCode");
+        branchTransportSettingsSave.Parameter<string>("CompanyRntrc").Optional();
+        branchTransportSettingsSave.Parameter<int>("InsuranceResponsible");
+        branchTransportSettingsSave.Parameter<string>("InsurerTaxId").Optional();
+        branchTransportSettingsSave.Parameter<string>("InsurerName").Optional();
+        branchTransportSettingsSave.Parameter<string>("PolicyNumber").Optional();
+        branchTransportSettingsSave.Parameter<bool>("AverbaEnabled");
+        branchTransportSettingsSave.Parameter<string>("AverbaUser").Optional();
+        branchTransportSettingsSave.Parameter<string>("AverbaPassword").Optional();
+        branchTransportSettingsSave.Parameter<string>("AverbaCode").Optional();
+        branchTransportSettingsSave.Parameter<int>("AverbaEnvironment");
+        branchTransportSettingsSave.Returns<BranchTransportSettingsModel>();
+
+        var branchTransportSettingsTestAverba = modelBuilder.Action("BranchTransportSettingsTestAverba");
+        branchTransportSettingsTestAverba.Parameter<string>("BranchCode");
+        branchTransportSettingsTestAverba.Parameter<string>("AverbaUser").Optional();
+        branchTransportSettingsTestAverba.Parameter<string>("AverbaPassword").Optional();
+        branchTransportSettingsTestAverba.Parameter<string>("AverbaCode").Optional();
+        branchTransportSettingsTestAverba.Parameter<int>("AverbaEnvironment");
+        branchTransportSettingsTestAverba.Returns<AverbaTestResult>();
         modelBuilder.EntitySet<PurchaseContractPriceFixation>("PurchaseContractsPriceFixations");
         modelBuilder.EntitySet<PurchaseContractTax>("PurchaseContractsTaxes");
         modelBuilder.EntitySet<PurchaseContractBroker>("PurchaseContractsBrokers");

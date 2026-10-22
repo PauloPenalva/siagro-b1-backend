@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Truck> Trucks { get; set; }
     public DbSet<TruckCombination> TruckCombinations { get; set; }
     public DbSet<TruckCombinationTrailer> TruckCombinationTrailers { get; set; }
+    public DbSet<BranchTransportSettings> BranchTransportSettings { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
     public DbSet<PurchaseContract> PurchaseContracts { get; set; }

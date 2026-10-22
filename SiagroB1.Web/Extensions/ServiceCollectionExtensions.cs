@@ -144,6 +144,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITruckDriverService, TruckDriverService>();
         services.AddScoped<ITruckService, TruckService>();
         services.AddScoped<SiagroB1.Application.Services.Transport.TruckCombinationService>();
+        services.AddScoped<SiagroB1.Application.Services.Transport.BranchTransportSettingsService>();
+        services.AddHttpClient<SiagroB1.Application.Services.Transport.IAverbaClient, SiagroB1.Application.Services.Transport.AverbaClient>(
+            client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddScoped<IWeighingTicketService, WeighingTicketService>();
         services.AddScoped<IQualityAttribService, QualityAttribService>();
         services.AddScoped<TruckScaleService>();

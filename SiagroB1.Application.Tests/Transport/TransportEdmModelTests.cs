@@ -32,6 +32,23 @@ public class TransportEdmModelTests
     }
 
     [Fact]
+    public void Branch_transport_settings_functions_exist_without_password_out()
+    {
+        var model = Model();
+        var get = model.SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "BranchTransportSettingsGet");
+        var save = model.SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "BranchTransportSettingsSave");
+        var test = model.SchemaElements.OfType<IEdmAction>().Single(a => a.Name == "BranchTransportSettingsTestAverba");
+
+        Assert.Equal("Edm.String", get.Parameters.Single(p => p.Name == "BranchCode").Type.FullName());
+        Assert.Equal("Edm.Int32", save.Parameters.Single(p => p.Name == "AverbaEnvironment").Type.FullName());
+        Assert.NotNull(test.Parameters.SingleOrDefault(p => p.Name == "AverbaPassword"));
+
+        var returned = (IEdmStructuredType)get.ReturnType.Definition;
+        Assert.NotNull(returned.FindProperty("HasAverbaPassword"));
+        Assert.Null(returned.FindProperty("AverbaPasswordCipher"));
+    }
+
+    [Fact]
     public void Truck_kind_is_exposed_as_enum()
     {
         var truck = Model().EntityContainer.FindEntitySet("Trucks").EntityType;
