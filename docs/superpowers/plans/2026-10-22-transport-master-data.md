@@ -16,7 +16,7 @@
 - **Configuração de transporte:** segue o molde de `BranchNfeSettings`/`EmailSettings` — função de
   leitura + ações por atributo, e senha cifrada com `CertificatePasswordCipher`.
 - **Frontend:** amplia as telas `veiculo`/`motorista`, filtra o `TrucksSelectDialog` compartilhado
-  para só tração ativa e cria as telas `truckCombinations` e `transportSettings`.
+  para só tração ativa cria a tela `truckCombinations` e a seção "Transportadora" na filial.
 
 **Tech Stack:** .NET 10, EF Core (SQL Server), OData v4, xUnit + EF InMemory; OpenUI5 1.141 + TypeScript.
 
@@ -220,9 +220,7 @@
   - **Rota/menu:** `MENU_ITEMS` com key `truckCombinations`, título `"Conjuntos"`,
     `StandaloneOnly = true`, mesmo `ParentKey` do item de menu da tela `veiculo` (consultar
     `MENU_ITEMS` local), ordem logo após ele, e `ROLE_MENUS` para ADMIN.
-  - **Rota/menu:** a mesma migration de menu insere também `transportSettings`, título
-    `"Configuração de Transporte"`, com o `ParentKey` e a ordem logo após `nfeSettings` (usado na
-    Tarefa 4/9).
+  - A seção "Transportadora" fica na tela da filial (Task 9): **sem** item de menu para ela.
   - **Ids de `ROLE_MENUS`:** GUIDs fixos no código da migration, como em `AddStockMenu`.
 
 **Regras do serviço** (create e update; lança `DefaultException`):
@@ -456,37 +454,37 @@
 - [ ] **Step 2:** `yarn ts-typecheck`, `yarn lint` e `yarn ui5lint` sem erro novo.
 - [ ] **Step 3:** commit `feat(master-data): tela de conjuntos de veículos`.
 
-### Task 9: Frontend — Configuração de Transporte
+### Task 9: Frontend — seção "Transportadora" na tela da filial
 
 **Files:**
-- Create: `webapp/view/transportSettings/Main.view.xml`, `webapp/controller/transportSettings/Main.controller.ts`
-- Modify: `webapp/manifest.json` (rota `transportSettings`, padrão `transport-settings`), `webapp/model/ServerRoutes.ts`
+- Modify: `webapp/view/branchs/fragments/Form.fragment.xml`, `webapp/controller/branchs/*.ts` (Add e Edit), `webapp/model/ServerRoutes.ts`
 
 **Interfaces:**
-- Consumes: as rotas da Task 4. A tela segue o molde de `webapp/controller/nfeSettings/Main.controller.ts`
-  (escolha da filial + função de leitura + ação de gravar).
+- Consumes: as rotas da Task 4.
+- O formulário da filial grava `Branch` por OData. A seção usa um `JSONModel` próprio
+  (`transport`): carregado por `BranchTransportSettingsGet` ao abrir a edição e gravado por
+  `BranchTransportSettingsSave` **depois** que a gravação da filial der certo.
 
-**Desvio do spec:** o spec previa uma seção na tela da filial, "onde já estão as configurações de
-NF-e". No código, a NF-e tem tela própria (`nfeSettings`). A configuração de transporte vira uma
-tela irmã, para seguir o mesmo lugar.
+**Decisão do usuário (22/10):** fica na tela da filial com o título **"Transportadora"**.
 
 **O que muda:**
-- **Seções:**
-  - **Transportadora:** RNTRC.
-  - **Seguro padrão:** responsável, CNPJ e nome da seguradora, apólice.
-  - **Averbação AT&M:**
-    - ligado;
-    - ambiente;
-    - usuário;
-    - senha (`type="Password"`, placeholder `"Senha gravada — deixe em branco para manter"` quando
-      `HasAverbaPassword`);
-    - código.
-- **Botões:** "Salvar" e "Testar conexão". O teste mostra a `Message` em `MessageToast` (sucesso)
-  ou `MessageBox.error` (falha).
+- **Visibilidade:** só com `{ui>/standalone}`. Na inclusão de filial, mostrar só o aviso
+  `"Grave a filial para configurar a transportadora."` (precisa do código já gravado).
+- **Campos:**
+  - RNTRC;
+  - seguro padrão: responsável, CNPJ e nome da seguradora, apólice;
+  - averbação AT&M: ligado, ambiente, usuário, senha e código.
+    - Senha com `type="Password"`.
+    - Placeholder `"Senha gravada — deixe em branco para manter"` quando `HasAverbaPassword`.
+- **Botão "Testar conexão AT&M":** sucesso → `MessageToast`; falha → `MessageBox.error`.
+- **Falha ao gravar o transporte:** a filial já foi gravada. Mostrar `MessageBox.error` com a
+  mensagem do backend e manter a tela.
+- **Cabeçalho:** truque do "Emitente da NF-e":
+  `core:Title text="{= ${ui>/standalone} ? 'Transportadora' : '' }"`.
 
 - [ ] **Step 1:** implementar.
 - [ ] **Step 2:** `yarn ts-typecheck` e `yarn lint`.
-- [ ] **Step 3:** commit `feat(master-data): tela de configuração de transporte da filial`.
+- [ ] **Step 3:** commit `feat(master-data): seção Transportadora na filial com seguro e AT&M`.
 
 ### Task 10: Verificação ponta a ponta
 
@@ -494,7 +492,7 @@ tela irmã, para seguir o mesmo lugar.
   passam, exceto as falhas conhecidas de relatório quando falta `wwwroot`.
 - [ ] **Step 2:** subir a stack STANDALONE (`ceagui`) a partir dos worktrees e testar pelo
   caminho do usuário, a partir da home (memória *Verificar pelo caminho do usuário*):
-  1. **Menu:** Conjuntos e Configuração de Transporte aparecem.
+  1. **Menu:** Conjuntos aparece.
   2. **Veículos:**
      - cadastrar um cavalo (Cavalo mecânico, sem carroceria) e duas carretas (Reboque, Baú,
        tara e capacidade);
@@ -507,14 +505,14 @@ tela irmã, para seguir o mesmo lugar.
      - montar cavalo + 2 carretas e gravar;
      - tentar uma 4ª carreta → botão desabilitado;
      - tentar tração inativa → mensagem.
-  5. **Configuração de Transporte:**
+  5. **Filial → seção Transportadora:**
      - gravar RNTRC, seguro e AT&M;
      - reabrir: a senha não volta e o placeholder aparece;
      - "Testar conexão" com credenciais inválidas → mensagem de erro da AT&M (não testar com as
        credenciais reais do cliente).
   6. **Balança (primeira pesagem) e Carga:** o value help de veículo não mostra as carretas.
 - [ ] **Step 3:** subir em modo SAPB1 (`yktb`). Veículos e Motoristas abrem sem a seção
-  Proprietário, Conjuntos e Configuração de Transporte não aparecem no menu, e a pesagem continua
+  Proprietário, Conjuntos não aparece no menu, a filial não mostra a Transportadora, e a pesagem continua
   escolhendo veículo.
 - [ ] **Step 4:** derrubar a stack, matando só pelos PIDs iniciados (memória).
 - [ ] **Step 5:** superpowers:verification-before-completion e a revisão final do branch.
