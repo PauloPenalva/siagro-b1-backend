@@ -66,6 +66,12 @@ public class FiscalKardexLineDto
 
     public string InternalNumber { get; set; } = string.Empty;
     public string DocumentNumber { get; set; } = string.Empty;
+
+    /// <summary>Série fiscal da nota (vazio em ajuste e saldo inicial); usada no livro modelo 3.</summary>
+    public string Series { get; set; } = string.Empty;
+
+    /// <summary>Número fiscal da nota sem a série (ou o nº interno); usado no livro modelo 3.</summary>
+    public string Number { get; set; } = string.Empty;
     public string Partner { get; set; } = string.Empty;
     public string Cfop { get; set; } = string.Empty;
     public string UsageName { get; set; } = string.Empty;

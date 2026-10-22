@@ -99,6 +99,8 @@ public class FiscalKardexService(FiscalStockLedgerLoader loader)
             Kind = KindText(m.Kind),
             InternalNumber = source.InternalNumber,
             DocumentNumber = source.DocumentNumber,
+            Series = source.Series,
+            Number = source.Number,
             Partner = source.Partner,
             Cfop = source.Cfop,
             UsageName = source.UsageName,
