@@ -27,7 +27,8 @@ public class SalesInvoicesCancelService(
     ShipmentLoadRefusalCompleteService? refusalComplete = null,
     FinancialDocumentsSalesFirmSyncService? salesFirmSync = null,
     FinancialDocumentsSalesNoContractService? salesNoContract = null,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
 
@@ -115,6 +116,17 @@ public class SalesInvoicesCancelService(
 
                     await db.SaveChangesAsync();
                 }
+            }
+
+            // Estorno da contabilização (630 itens / 635 total); sem lançamento da confirmação, não faz nada.
+            if (accounting is not null)
+            {
+                var postingLines = await db.Context.SalesInvoicesItems.AsNoTracking()
+                    .Where(l => l.SalesInvoiceKey == existingInvoice.Key).ToListAsync();
+                var (itemsCtx, documentCtx) = await Accounting.Postings.SalesInvoicePostingContext.BuildAsync(db, existingInvoice,
+                    postingLines, Accounting.Postings.SalesInvoicePostingContext.UndoEvent, DateTime.Today, afterNfe);
+                await accounting.PostReversalAsync("630", itemsCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
+                await accounting.PostReversalAsync("635", documentCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
             }
 
             existingInvoice.InvoiceStatus = InvoiceStatus.Cancelled;
