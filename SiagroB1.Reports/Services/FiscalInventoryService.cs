@@ -154,7 +154,7 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
 
     private static string Money(decimal value) => value.ToString("N2", Culture);
 
-    private static string FormatTaxId(string taxId)
+    internal static string FormatTaxId(string taxId)
     {
         var digits = new string(taxId.Where(char.IsDigit).ToArray());
         return digits.Length == 14
@@ -162,7 +162,7 @@ public class FiscalInventoryService(IUnitOfWork db, FiscalKardexService kardex, 
             : taxId.Trim();
     }
 
-    private static string Address(Branch branch, string city)
+    internal static string Address(Branch branch, string city)
     {
         var street = string.Join(", ", new[] { branch.Street, branch.StreetNumber, branch.Complement }
             .Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()));

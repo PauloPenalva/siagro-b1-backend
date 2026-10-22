@@ -13,7 +13,9 @@ public sealed record FiscalStockLineSource(
     string UsageName,
     decimal InvoiceValue,
     string? ItemName,
-    bool UnlinkedEntry = false);
+    bool UnlinkedEntry = false,
+    string Series = "",
+    string Number = "");
 
 /// <summary>Movimentos de um produto, já sem o que está até a data do saldo inicial.</summary>
 public sealed record FiscalStockItemLedger(
@@ -169,7 +171,8 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
             i.UnitOfMeasureCode,
             new FiscalStockLineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
                 Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
-                UnlinkedEntry: kind == InventoryMovementKind.Entry));
+                UnlinkedEntry: kind == InventoryMovementKind.Entry,
+                Series: invoice.TaxDocumentSeries?.Trim() ?? "", Number: Number(invoice.TaxDocumentNumber, invoice.InvoiceNumber)));
     }
 
     /// <summary>
@@ -209,7 +212,8 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
             origin, i.UnitOfMeasureCode,
             new FiscalStockLineSource(invoice.InvoiceNumber ?? "", DocumentNumber(invoice.TaxDocumentNumber, invoice.TaxDocumentSeries, invoice.InvoiceNumber),
                 Partner(invoice.CardCode, invoice.CardName), i.Cfop ?? "", i.UsageName ?? "", i.GrandTotal, i.ItemName,
-                UnlinkedEntry: kind == InventoryMovementKind.Entry && i.PurchaseInvoiceItemOriginKey == null && IsRemittanceCfop(i.Cfop)));
+                UnlinkedEntry: kind == InventoryMovementKind.Entry && i.PurchaseInvoiceItemOriginKey == null && IsRemittanceCfop(i.Cfop),
+                Series: invoice.TaxDocumentSeries?.Trim() ?? "", Number: Number(invoice.TaxDocumentNumber, invoice.InvoiceNumber)));
     }
 
     /// <summary>CFOP 1.9xx/2.9xx (remessas e retornos): sem origem, o preço da nota não é custo confiável.</summary>
@@ -229,6 +233,9 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
         var n = string.IsNullOrWhiteSpace(number) ? internalNumber ?? "" : number;
         return string.IsNullOrWhiteSpace(series) ? n : $"{n}/{series}";
     }
+
+    private static string Number(string? number, string? internalNumber) =>
+        (string.IsNullOrWhiteSpace(number) ? internalNumber ?? "" : number).Trim();
 
     private static string Partner(string code, string? name) => string.IsNullOrWhiteSpace(name) ? code : $"({code}) {name}";
 }

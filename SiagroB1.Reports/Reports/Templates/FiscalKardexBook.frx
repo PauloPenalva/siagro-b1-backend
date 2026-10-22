@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" DoublePass="true" ReportInfo.Created="10/22/2026 10:00:00" ReportInfo.Modified="10/22/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Rows" ReferenceName="Rows" DataType="System.Int32" Enabled="true">
+      <Column Name="SheetKey" DataType="System.String"/>
+      <Column Name="Period" DataType="System.String"/>
+      <Column Name="Product" DataType="System.String"/>
+      <Column Name="UnitOfMeasureCode" DataType="System.String"/>
+      <Column Name="Ncm" DataType="System.String"/>
+      <Column Name="Species" DataType="System.String"/>
+      <Column Name="Series" DataType="System.String"/>
+      <Column Name="Number" DataType="System.String"/>
+      <Column Name="DateText" DataType="System.String"/>
+      <Column Name="Day" DataType="System.String"/>
+      <Column Name="LedgerAccount" DataType="System.String"/>
+      <Column Name="Cfop" DataType="System.String"/>
+      <Column Name="Direction" DataType="System.String"/>
+      <Column Name="Code" DataType="System.String"/>
+      <Column Name="QuantityText" DataType="System.String"/>
+      <Column Name="ValueText" DataType="System.String"/>
+      <Column Name="IpiText" DataType="System.String"/>
+      <Column Name="BalanceText" DataType="System.String"/>
+      <Column Name="Notes" DataType="System.String"/>
+      <Column Name="TotalInQuantityText" DataType="System.String"/>
+      <Column Name="TotalInValueText" DataType="System.String"/>
+      <Column Name="TotalOutQuantityText" DataType="System.String"/>
+      <Column Name="TotalOutValueText" DataType="System.String"/>
+      <Column Name="ClosingBalanceText" DataType="System.String"/>
+      <Column Name="IsOpening" DataType="System.Boolean"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pLegalName" DataType="System.String" AsString=""/>
+    <Parameter Name="pBranchName" DataType="System.String" AsString=""/>
+    <Parameter Name="pTaxId" DataType="System.String" AsString=""/>
+    <Parameter Name="pStateRegistration" DataType="System.String" AsString=""/>
+    <Parameter Name="pAddress" DataType="System.String" AsString=""/>
+    <Parameter Name="pCityDate" DataType="System.String" AsString=""/>
+    <Parameter Name="pPeriod" DataType="System.String" AsString=""/>
+    <Parameter Name="pBookNumber" DataType="System.Int32" AsString="1"/>
+    <Parameter Name="pFirstSheet" DataType="System.Int32" AsString="1"/>
+  </Dictionary>
+
+  <!-- Termo de abertura: folha = pFirstSheet -->
+  <ReportPage Name="OpeningPage" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="OpeningTitle" Width="1047.6" Height="640">
+      <PictureObject Name="picLogo" Left="0" Top="0" Width="94.5" Height="37.8" SizeMode="Zoom"/>
+      <TextObject Name="txtSheetOpening" Left="847.6" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtOpeningTitleText" Top="70" Width="1047.6" Height="30" Text="TERMO DE ABERTURA" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtOpeningSubtitle" Top="105" Width="1047.6" Height="22" Text="REGISTRO DE CONTROLE DA PRODUÇÃO E DO ESTOQUE - MODELO 3 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtOpeningTerm" CanGrow="true" Left="120" Top="160" Width="807.6" Height="140" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e servirá para o lançamento do Registro de Controle da Produção e do Estoque do período de [pPeriod] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtOpeningCityDate" Left="120" Top="330" Width="807.6" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
+      <TextObject Name="txtOpeningSign1" Left="120" Top="460" Width="300" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="txtOpeningSign2" Left="627.6" Top="460" Width="300" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>
+    </ReportTitleBand>
+  </ReportPage>
+
+  <!-- Fichas: uma por produto x mês, cada uma em folha nova (base: MATR470 do Protheus).
+       SortOrder="None": as linhas já vêm na ordem certa (saldo inicial primeiro). -->
+  <ReportPage Name="SheetsPage" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="1047.6" Height="62">
+      <TextObject Name="txtTitle" Width="787.6" Height="18" Text="REGISTRO DE CONTROLE DA PRODUÇÃO E DO ESTOQUE - MODELO 3 - LIVRO Nº [pBookNumber]" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="txtFirm" Top="20" Width="787.6" Height="14" Text="FIRMA: [pLegalName]     [pBranchName]" Font="Arial, 8pt"/>
+      <TextObject Name="txtIds" Top="34" Width="787.6" Height="14" Text="INSCR. ESTADUAL: [pStateRegistration]     CNPJ: [pTaxId]" Font="Arial, 8pt"/>
+      <TextObject Name="txtSheet" Top="48" Width="200" Height="14" Text="Folha nº [[pFirstSheet] + [Page] - 1]" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtLegend" Left="792.6" Width="255" Height="58" Border.Lines="All" Text="(*) CÓDIGO DE ENTRADAS E SAÍDAS&#13;&#10;1 - NO PRÓPRIO ESTABELECIMENTO&#13;&#10;2 - EM OUTRO ESTABELECIMENTO&#13;&#10;3 - DIVERSAS" Padding="4, 2, 2, 2" Font="Arial, 7pt"/>
+    </PageHeaderBand>
+    <GroupHeaderBand Name="SheetHeader" Top="66" Width="1047.6" Height="78" Condition="[Rows.SheetKey]" SortOrder="None" StartNewPage="true" RepeatOnEveryPage="true">
+      <TextObject Name="txtPeriod" Width="787.6" Height="14" Text="MÊS OU PERÍODO/ANO: [Rows.Period]" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="txtProduct" Top="16" Width="1047.6" Height="14" Text="PRODUTO: [Rows.Product]     UM: [Rows.UnitOfMeasureCode]     CLASSIFICAÇÃO FISCAL: [Rows.Ncm]" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hdrDocument" Left="0.0" Top="34" Width="210.0" Height="14" Border.Lines="All" Text="DOCUMENTO" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrPosting" Left="210.0" Top="34" Width="160.0" Height="14" Border.Lines="All" Text="LANÇAMENTO" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrInOut" Left="370.0" Top="34" Width="295.0" Height="14" Border.Lines="All" Text="ENTRADAS E SAÍDAS" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrCoding" Left="235.0" Top="48" Width="135.0" Height="14" Border.Lines="All" Text="CODIFICAÇÃO" HorzAlign="Center" VertAlign="Center" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrSpecies" Left="0.0" Top="48" Width="40" Height="28" Border.Lines="All" Text="Esp." HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrSeries" Left="40.0" Top="48" Width="35" Height="28" Border.Lines="All" Text="Série" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrNumber" Left="75.0" Top="48" Width="75" Height="28" Border.Lines="All" Text="Número" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrDateText" Left="150.0" Top="48" Width="60" Height="28" Border.Lines="All" Text="Data" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrDay" Left="210.0" Top="48" Width="25" Height="28" Border.Lines="All" Text="Dia" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrLedgerAccount" Left="235.0" Top="62" Width="95" Height="14" Border.Lines="All" Text="Contábil" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrCfop" Left="330.0" Top="62" Width="40" Height="14" Border.Lines="All" Text="Fiscal" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrDirection" Left="370.0" Top="48" Width="25" Height="28" Border.Lines="All" Text="E/S" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrCode" Left="395.0" Top="48" Width="30" Height="28" Border.Lines="All" Text="Cód. (*)" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrQuantityText" Left="425.0" Top="48" Width="95" Height="28" Border.Lines="All" Text="Quantidade" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrValueText" Left="520.0" Top="48" Width="90" Height="28" Border.Lines="All" Text="Valor" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrIpiText" Left="610.0" Top="48" Width="55" Height="28" Border.Lines="All" Text="IPI" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrBalanceText" Left="665.0" Top="34" Width="95" Height="42" Border.Lines="All" Text="ESTOQUE" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <TextObject Name="hdrNotes" Left="760.0" Top="34" Width="287.6" Height="42" Border.Lines="All" Text="OBSERVAÇÕES" HorzAlign="Center" VertAlign="Center" WordWrap="true" Font="Arial, 7pt, style=Bold"/>
+      <DataBand Name="Data1" Top="148" Width="1047.6" Height="14" DataSource="Rows">
+        <TextObject Name="txtSpecies" Left="0.0" Width="40" Height="14" Border.Lines="Left, Right" Text="[Rows.Species]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtSeries" Left="40.0" Width="35" Height="14" Border.Lines="Left, Right" Text="[Rows.Series]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtNumber" Left="75.0" Width="75" Height="14" Border.Lines="Left, Right" Text="[Rows.Number]" HorzAlign="Left" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtDateText" Left="150.0" Width="60" Height="14" Border.Lines="Left, Right" Text="[Rows.DateText]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtDay" Left="210.0" Width="25" Height="14" Border.Lines="Left, Right" Text="[Rows.Day]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtLedgerAccount" Left="235.0" Width="95" Height="14" Border.Lines="Left, Right" Text="[Rows.LedgerAccount]" HorzAlign="Left" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtCfop" Left="330.0" Width="40" Height="14" Border.Lines="Left, Right" Text="[Rows.Cfop]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtDirection" Left="370.0" Width="25" Height="14" Border.Lines="Left, Right" Text="[Rows.Direction]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtCode" Left="395.0" Width="30" Height="14" Border.Lines="Left, Right" Text="[Rows.Code]" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtQuantityText" Left="425.0" Width="95" Height="14" Border.Lines="Left, Right" Text="[Rows.QuantityText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtValueText" Left="520.0" Width="90" Height="14" Border.Lines="Left, Right" Text="[Rows.ValueText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtIpiText" Left="610.0" Width="55" Height="14" Border.Lines="Left, Right" Text="[Rows.IpiText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtBalanceText" Left="665.0" Width="95" Height="14" Border.Lines="Left, Right" Text="[Rows.BalanceText]" HorzAlign="Right" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+        <TextObject Name="txtNotes" Left="760.0" Width="287.6" Height="14" Border.Lines="Left, Right" Text="[Rows.Notes]" HorzAlign="Left" VertAlign="Center" WordWrap="false" Font="Courier New, 7pt"/>
+      </DataBand>
+      <GroupFooterBand Name="SheetFooter" Top="166" Width="1047.6" Height="50" Border.Lines="Top">
+        <TextObject Name="txtTotalLabel" Left="235.0" Top="4" Width="135" Height="14" Text="TOTAL DO PERÍODO:" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalDirIn" Left="370.0" Top="4" Width="55" Height="14" Text="E" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalInQuantity" Left="425.0" Top="4" Width="95" Height="14" Text="[Rows.TotalInQuantityText]" HorzAlign="Right" VertAlign="Center" Font="Courier New, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalInValue" Left="520.0" Top="4" Width="90" Height="14" Text="[Rows.TotalInValueText]" HorzAlign="Right" VertAlign="Center" Font="Courier New, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalDirOut" Left="370.0" Top="18" Width="55" Height="14" Text="S" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalOutQuantity" Left="425.0" Top="18" Width="95" Height="14" Text="[Rows.TotalOutQuantityText]" HorzAlign="Right" VertAlign="Center" Font="Courier New, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalOutValue" Left="520.0" Top="18" Width="90" Height="14" Text="[Rows.TotalOutValueText]" HorzAlign="Right" VertAlign="Center" Font="Courier New, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalDirStock" Left="370.0" Top="32" Width="55" Height="14" Text="EST" HorzAlign="Center" VertAlign="Center" WordWrap="false" Font="Arial, 7pt, style=Bold"/>
+        <TextObject Name="txtTotalStockBalance" Left="665.0" Top="32" Width="95" Height="14" Text="[Rows.ClosingBalanceText]" HorzAlign="Right" VertAlign="Center" Font="Courier New, 7pt, style=Bold"/>
+      </GroupFooterBand>
+    </GroupHeaderBand>
+  </ReportPage>
+
+  <!-- Termo de encerramento: última folha -->
+  <ReportPage Name="ClosingPage" Landscape="true" PaperWidth="297" PaperHeight="210" LeftMargin="10" TopMargin="10" RightMargin="10" BottomMargin="10" RawPaperSize="9" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ClosingTitle" Width="1047.6" Height="640">
+      <TextObject Name="txtSheetClosing" Left="847.6" Width="200" Height="18.9" Text="Folha nº [[pFirstSheet] + [Page] - 1]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtClosingTitleText" Top="70" Width="1047.6" Height="30" Text="TERMO DE ENCERRAMENTO" HorzAlign="Center" Font="Arial, 16pt, style=Bold"/>
+      <TextObject Name="txtClosingSubtitle" Top="105" Width="1047.6" Height="22" Text="REGISTRO DE CONTROLE DA PRODUÇÃO E DO ESTOQUE - MODELO 3 - LIVRO Nº [pBookNumber]" HorzAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtClosingTerm" CanGrow="true" Left="120" Top="160" Width="807.6" Height="140" Text="Contém este livro [TotalPages] folhas numeradas tipograficamente, do nº [pFirstSheet] ao nº [[pFirstSheet] + [TotalPages] - 1], e serviu para o lançamento do Registro de Controle da Produção e do Estoque do período de [pPeriod] de [pLegalName], estabelecida em [pAddress], inscrita no CNPJ sob o nº [pTaxId] e com Inscrição Estadual nº [pStateRegistration]." HorzAlign="Justify" WordWrap="true" LineHeight="20" Font="Arial, 11pt"/>
+      <TextObject Name="txtClosingCityDate" Left="120" Top="330" Width="807.6" Height="20" Text="[pCityDate]" HorzAlign="Right" Font="Arial, 11pt"/>
+      <TextObject Name="txtClosingSign1" Left="120" Top="460" Width="300" Height="36" Border.Lines="Top" Text="Responsável" HorzAlign="Center" Font="Arial, 10pt"/>
+      <TextObject Name="txtClosingSign2" Left="627.6" Top="460" Width="300" Height="36" Border.Lines="Top" Text="Contabilista" HorzAlign="Center" Font="Arial, 10pt"/>
+    </ReportTitleBand>
+  </ReportPage>
+</Report>
