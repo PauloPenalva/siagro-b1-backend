@@ -7869,16 +7869,49 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Code")
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<int?>("BodyType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CapacityKg")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CapacityM3")
+                        .HasColumnType("int");
+
                     b.Property<string>("City")
                         .HasColumnType("VARCHAR(100)");
 
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
                     b.Property<string>("Model")
                         .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("OwnerCardCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<int?>("OwnerKind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OwnerRntrc")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int>("OwnerType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Renavam")
+                        .HasColumnType("VARCHAR(11)");
 
                     b.Property<string>("StateKey")
                         .HasColumnType("VARCHAR(2)");
 
                     b.Property<int?>("TareWeight")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WheelType")
                         .HasColumnType("int");
 
                     b.HasKey("Code");
@@ -7896,6 +7929,18 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("Document")
                         .IsRequired()
                         .HasColumnType("VARCHAR(100)");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LicenseCategory")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<DateTime?>("LicenseExpiresOn")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("LicenseNumber")
+                        .HasColumnType("VARCHAR(11)");
 
                     b.Property<string>("Name")
                         .IsRequired()
