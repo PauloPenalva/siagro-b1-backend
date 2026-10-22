@@ -46,6 +46,9 @@ public class TransportDocumentsController(
         if (parameters is null || !parameters.ContainsKey("BranchCode"))
             return BadRequest("Parâmetros obrigatórios do CT-e ausentes ou inválidos (BranchCode, Series, TakerRole, PartyRoles, PartyCardCodes, NfeKeys, ...).");
 
+        if (!TryParseKey(Text(parameters, "Key"), out var documentKey))
+            return BadRequest(InvalidKey);
+
         try
         {
             var roles = Ints(parameters, "PartyRoles");
@@ -62,7 +65,7 @@ public class TransportDocumentsController(
 
             var input = new TransportDocumentInput
             {
-                Key = GuidOrNull(Text(parameters, "Key")),
+                Key = documentKey,
                 BranchCode = Text(parameters, "BranchCode") ?? string.Empty,
                 Series = Int(parameters, "Series") ?? 0,
                 UsageCode = Int(parameters, "UsageCode"),
@@ -106,10 +109,13 @@ public class TransportDocumentsController(
         if (parameters is null || !parameters.ContainsKey("BranchCode") || !parameters.ContainsKey("Xmls"))
             return BadRequest("Parâmetros obrigatórios: BranchCode, Xmls (Key opcional).");
 
+        if (!TryParseKey(Text(parameters, "Key"), out var documentKey))
+            return BadRequest(InvalidKey);
+
         try
         {
             var key = await importService.ImportAsync(
-                GuidOrNull(Text(parameters, "Key")), Text(parameters, "BranchCode") ?? string.Empty,
+                documentKey, Text(parameters, "BranchCode") ?? string.Empty,
                 Texts(parameters, "Xmls"), User.Identity?.Name ?? "Unknown");
             return Ok(key);
         }
@@ -161,6 +167,21 @@ public class TransportDocumentsController(
 
     private static List<decimal> Decimals(ODataActionParameters p, string name) =>
         Items(p, name).Select(x => x is null ? 0m : Convert.ToDecimal(x, CultureInfo.InvariantCulture)).ToList();
+
+    public const string InvalidKey = "Chave do documento inválida.";
+
+    /// <summary>
+    /// Key ausente/vazia = documento novo (true, null); presente e inválida = false — nunca vira inclusão, senão uma
+    /// edição com chave malformada criaria um CT-e duplicado.
+    /// </summary>
+    public static bool TryParseKey(string? raw, out Guid? key)
+    {
+        key = null;
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        if (!Guid.TryParse(Uri.UnescapeDataString(raw.Trim()), out var parsed)) return false;
+        key = parsed;
+        return true;
+    }
 
     private static Guid? GuidOrNull(string? value) =>
         Guid.TryParse(Uri.UnescapeDataString(value ?? string.Empty), out var g) ? g : null;

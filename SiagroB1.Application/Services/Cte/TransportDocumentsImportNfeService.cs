@@ -20,6 +20,9 @@ public class TransportDocumentsImportNfeService(
     TransportDocumentsTaxApplyService taxes,
     IBusinessPartnerService partners)
 {
+    public const string MixedPartiesMessage =
+        "As NF-e importadas têm remetente ou destinatário diferentes; um CT-e tem um só remetente e um só destinatário.";
+
     public async Task<Guid> ImportAsync(Guid? key, string branchCode, IReadOnlyList<string> xmls, string user)
     {
         TransportDocumentsSaveService.EnsureStandalone(configuration);
@@ -49,6 +52,16 @@ public class TransportDocumentsImportNfeService(
             TransportDocumentDefaults.ApplyInsuranceDefaults(doc, await defaults.TransportSettingsAsync(branchCode));
             doc.Rntrc = (await defaults.TransportSettingsAsync(branchCode))?.CompanyRntrc;
         }
+
+        // Um CT-e tem um só remetente e um só destinatário: todas as NF-e (e o rascunho) precisam coincidir.
+        var senders = nfes.Select(n => Digits(n.Emitter.TaxId)).ToHashSet();
+        var recipients = nfes.Select(n => n.Recipient is null ? string.Empty : Digits(n.Recipient.TaxId)).ToHashSet();
+        if (doc.Parties.FirstOrDefault(p => p.Role == CtePartyRole.Sender) is { } currentSender)
+            senders.Add(Digits(currentSender.TaxId ?? string.Empty));
+        if (doc.Parties.FirstOrDefault(p => p.Role == CtePartyRole.Recipient) is { } currentRecipient)
+            recipients.Add(Digits(currentRecipient.TaxId ?? string.Empty));
+        if (senders.Count > 1 || recipients.Count > 1)
+            throw new DefaultException(MixedPartiesMessage);
 
         var added = new List<object>();
         T Track<T>(T child) where T : class { added.Add(child); return child; }

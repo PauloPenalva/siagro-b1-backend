@@ -121,6 +121,35 @@ public class TransportDocumentsImportNfeServiceTests
     }
 
     [Fact]
+    public async Task Import_two_nfes_with_different_sender_is_refused()
+    {
+        await CteTestKeys.SeedBranchAndMunicipalitiesAsync(_db, defaultUnit: "01");
+        _partners.Add("OUT", "OUTRO REMETENTE", "99888777000166", "3550308", "SP");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service().ImportAsync(null, "01", [Xml(1, 5000m), Xml(2, 3000m, emitter: "99888777000166")], "tester"));
+
+        Assert.Equal(TransportDocumentsImportNfeService.MixedPartiesMessage, ex.Message);
+        Assert.Empty(_db.Context.TransportDocuments);
+    }
+
+    [Fact]
+    public async Task Import_into_draft_with_other_recipient_is_refused_and_keeps_draft()
+    {
+        await CteTestKeys.SeedBranchAndMunicipalitiesAsync(_db, defaultUnit: "01");
+        _partners.Add("OUT", "OUTRO DESTINATARIO", "99888777000166", "3550308", "SP");
+        var key = await Service().ImportAsync(null, "01", [Xml(1, 5000m)], "tester");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service().ImportAsync(key, "01", [Xml(2, 3000m, recipient: "99888777000166")], "tester"));
+
+        Assert.Equal(TransportDocumentsImportNfeService.MixedPartiesMessage, ex.Message);
+        var doc = await LoadAsync(key);
+        Assert.Single(doc.NfeKeys);
+        Assert.Equal(5000m, doc.CargoValue);
+    }
+
+    [Fact]
     public void Reader_refuses_non_nfe_model()
     {
         var ex = Assert.Throws<DefaultException>(() => NfeXmlForCteReader.Read(Xml(1, 5000m, model: "65")));
