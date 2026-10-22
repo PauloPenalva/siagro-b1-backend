@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using SiagroB1.Application.Services.Nfe;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Cte;
@@ -10,8 +10,9 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Cte;
 
 /// <summary>
-/// Consulta o protocolo do CT-e pela chave. Recupera um CT-e em Processamento ou Rejeitado que a SEFAZ já autorizou
-/// (ex.: tempo esgotado na transmissão), sem reenviar. Sem autorização na SEFAZ, a situação local não muda.
+/// Consulta o protocolo do CT-e pela chave. Recupera um CT-e em Processamento ou Rejeitado que a SEFAZ já autorizou,
+/// sem reenviar, compondo o cteProc com o XML assinado gravado antes do envio — nunca um XML remontado.
+/// Sem autorização na SEFAZ, a situação local não muda.
 /// </summary>
 public class TransportDocumentsConsultService(
     IUnitOfWork db,
@@ -19,7 +20,7 @@ public class TransportDocumentsConsultService(
     CteNumberReservationService numbers,
     CteServiceContextFactory contexts,
     ICteSefazClient sefaz,
-    NfeOptions options)
+    ILogger<TransportDocumentsConsultService>? logger = null)
 {
     public async Task<NfeSefazResult> ConsultAsync(Guid key)
     {
@@ -39,8 +40,9 @@ public class TransportDocumentsConsultService(
         if (NfeStatusCodes.IsAuthorized(result.StatusCode)
             && doc.Status is CteStatus.Processing or CteStatus.Rejected or CteStatus.Confirmed)
         {
-            var signed = await CteEmission.SignAsync(db, doc, settings, context.Settings, options);
-            await CteEmission.ApplyAsync(db, doc, result, signed.Xml);
+            var stored = CteEmission.StoredSigned(doc)
+                         ?? throw new DefaultException("O CT-e não tem o XML enviado gravado: não é possível compor o XML autorizado.");
+            return await CteEmission.ApplyAsync(db, doc, result, stored.Xml, logger);
         }
 
         return result;

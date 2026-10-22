@@ -19,4 +19,6 @@ public enum CteXmlKind
     Authorized = 0,
     Cancellation = 1,
     Correction = 2,
+    /// <summary>CT-e assinado exatamente como enviado à SEFAZ (gravado antes do envio).</summary>
+    Signed = 3,
 }

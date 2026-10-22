@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -11,9 +12,10 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Cte;
 
 /// <summary>
-/// Transmite o CT-e (Confirmado ou Rejeitado) com o número e a chave fixados na confirmação. Sem resposta da SEFAZ
-/// (tempo esgotado) ou com duplicidade (204/539), consulta pela chave em vez de reenviar: se já foi autorizado, vale
-/// como autorizado.
+/// Transmite o CT-e com o número e a chave fixados na confirmação. O XML assinado é gravado (Kind Signed) junto com o
+/// Processamento, ANTES do envio; o cteProc só nasce dele. Sem resposta da SEFAZ o CT-e fica em Processamento; a próxima
+/// transmissão consulta primeiro e, se a SEFAZ não o conhece, reenvia o MESMO XML (mesma dhEmi). Só a primeira
+/// transmissão ou uma rejeição processada pela SEFAZ renovam a dhEmi e assinam de novo.
 /// </summary>
 public class TransportDocumentsTransmitService(
     IUnitOfWork db,
@@ -22,10 +24,11 @@ public class TransportDocumentsTransmitService(
     CteServiceContextFactory contexts,
     ICteSefazClient sefaz,
     NfeOptions options,
-    Func<DateTimeOffset>? clock = null)
+    Func<DateTimeOffset>? clock = null,
+    ILogger<TransportDocumentsTransmitService>? logger = null)
 {
-    public const string NotTransmittable = "Só é possível transmitir CT-e confirmado ou rejeitado.";
-    public const string NoResponse = "Sem resposta da SEFAZ: consulte depois.";
+    public const string NotTransmittable = "Só é possível transmitir CT-e confirmado, rejeitado ou em processamento.";
+    public const string NoResponse = CteEmission.NoResponse;
 
     public async Task<NfeSefazResult> TransmitAsync(Guid key, string user)
     {
@@ -34,12 +37,35 @@ public class TransportDocumentsTransmitService(
         await using var emissionLock = await numbers.AcquireEmissionLockAsync(key);
 
         var doc = await CteEmission.LoadAsync(db, key);
-        if (doc.Status is not (CteStatus.Confirmed or CteStatus.Rejected))
+        if (doc.Status is not (CteStatus.Confirmed or CteStatus.Rejected or CteStatus.Processing))
             throw new DefaultException(NotTransmittable);
         if (doc.AccessKey is null)
             throw new DefaultException("Confirme o CT-e antes de transmitir: ele ainda não tem número e chave.");
 
-        // A data de emissão é renovada, mas o AAMM da chave foi fixado na confirmação.
+        var settings = await db.Context.BranchCteSettings.AsNoTracking().FirstAsync(x => x.BranchCode == doc.BranchCode);
+        using var context = await contexts.OpenAsync(doc.BranchCode, doc.Environment ?? settings.Environment);
+
+        var stored = CteEmission.StoredSigned(doc);
+        if (doc.Status == CteStatus.Processing && stored is not null)
+        {
+            // Situação desconhecida: consulta antes de qualquer reenvio.
+            NfeSefazResult? consult;
+            try
+            {
+                consult = await sefaz.ConsultProtocolAsync(doc.AccessKey, context.Settings);
+            }
+            catch (NfeCommunicationException)
+            {
+                return await CteEmission.ApplyAsync(db, doc, null, stored.Xml, logger);
+            }
+
+            if (NfeStatusCodes.IsAuthorized(consult.StatusCode))
+                return await CteEmission.ApplyAsync(db, doc, consult, stored.Xml, logger);
+
+            return await SendAsync(doc, new SignedCte(stored.Xml, doc.AccessKey), context.Settings);
+        }
+
+        // Primeira transmissão ou rejeição processada pela SEFAZ: renova a dhEmi e assina de novo.
         var now = TimeZoneInfo.ConvertTime(clock?.Invoke() ?? DateTimeOffset.UtcNow, NfeIssueInputAssembler.BrasiliaZone);
         var keyMonth = doc.AccessKey.Substring(2, 4);
         if (now.ToString("yyMM") != keyMonth)
@@ -47,35 +73,42 @@ public class TransportDocumentsTransmitService(
                 $"A chave foi gerada em {keyMonth[2..]}/20{keyMonth[..2]} e a emissão cairia em outro mês. Descarte o número e confirme de novo.");
 
         doc.IssuedAt = now.DateTime;
-
-        var settings = await db.Context.BranchCteSettings.AsNoTracking().FirstAsync(x => x.BranchCode == doc.BranchCode);
-        var environment = doc.Environment ?? settings.Environment;
-        using var context = await contexts.OpenAsync(doc.BranchCode, environment);
         var signed = await CteEmission.SignAsync(db, doc, settings, context.Settings, options);
 
+        // O XML exato vai para o banco no mesmo SaveChanges do Processamento, antes do envio.
+        if (stored is not null)
+            db.Context.TransportDocumentXmls.Remove(stored);
+        db.Context.TransportDocumentXmls.Add(new TransportDocumentXml
+        {
+            TransportDocumentKey = doc.Key, Kind = CteXmlKind.Signed, Xml = signed.Xml,
+        });
         doc.Status = CteStatus.Processing;
         doc.UpdatedAt = DateTime.Now;
         doc.UpdatedBy = user;
         await db.SaveChangesAsync();
 
-        NfeSefazResult result;
+        return await SendAsync(doc, signed, context.Settings);
+    }
+
+    private async Task<NfeSefazResult> SendAsync(TransportDocument doc, SignedCte signed, CteServiceSettings settings)
+    {
+        NfeSefazResult? result;
         try
         {
-            result = await sefaz.AuthorizeAsync(signed, context.Settings);
+            result = await sefaz.AuthorizeAsync(signed, settings);
             if (NfeStatusCodes.IsDuplicate(result.StatusCode))
-                result = await RecoverAsync(signed.AccessKey, context.Settings);
+                result = await RecoverAsync(signed.AccessKey, settings);
         }
         catch (NfeCommunicationException)
         {
-            result = await RecoverAsync(signed.AccessKey, context.Settings);
+            result = await RecoverAsync(signed.AccessKey, settings);
         }
 
-        await CteEmission.ApplyAsync(db, doc, result, signed.Xml);
-        return result;
+        return await CteEmission.ApplyAsync(db, doc, result, signed.Xml, logger);
     }
 
-    /// <summary>A situação real é desconhecida: só a consulta pela chave diz se a SEFAZ autorizou.</summary>
-    private async Task<NfeSefazResult> RecoverAsync(string accessKey, CteServiceSettings settings)
+    /// <summary>Só a consulta pela chave diz se a SEFAZ autorizou. Nulo = sem resposta (fica em Processamento).</summary>
+    private async Task<NfeSefazResult?> RecoverAsync(string accessKey, CteServiceSettings settings)
     {
         try
         {
@@ -87,7 +120,7 @@ public class TransportDocumentsTransmitService(
         {
         }
 
-        return new NfeSefazResult(0, NoResponse);
+        return null;
     }
 }
 
@@ -96,6 +129,9 @@ internal static class CteEmission
 {
     private const string CteNamespace = "http://www.portalfiscal.inf.br/cte";
 
+    public const string NoResponse = "Sem resposta da SEFAZ: consulte depois.";
+    public const string DigestMismatch = "Protocolo da SEFAZ não confere com o XML enviado: verifique.";
+
     public static async Task<TransportDocument> LoadAsync(IUnitOfWork db, Guid key) =>
         await db.Context.TransportDocuments
             .Include(x => x.Parties).Include(x => x.NfeKeys).Include(x => x.Quantities).Include(x => x.Components)
@@ -103,10 +139,9 @@ internal static class CteEmission
             .FirstOrDefaultAsync(x => x.Key == key)
         ?? throw new DefaultException("CT-e não encontrado.");
 
-    /// <summary>
-    /// Monta e assina a partir do documento gravado. A assinatura RSA é determinística: o mesmo documento (mesma
-    /// data de emissão) gera o mesmo XML — é o que a consulta usa para compor o cteProc de um CT-e recuperado.
-    /// </summary>
+    public static TransportDocumentXml? StoredSigned(TransportDocument doc) =>
+        doc.Xmls.FirstOrDefault(x => x.Kind == CteXmlKind.Signed);
+
     public static async Task<SignedCte> SignAsync(
         IUnitOfWork db, TransportDocument doc, BranchCteSettings settings, CteServiceSettings serviceSettings, NfeOptions options)
     {
@@ -133,20 +168,47 @@ internal static class CteEmission
         return signed;
     }
 
-    public static async Task ApplyAsync(IUnitOfWork db, TransportDocument doc, NfeSefazResult result, string signedXml)
+    /// <summary>
+    /// Grava o resultado. <paramref name="result"/> nulo = sem resposta: fica em Processamento. O cteProc só nasce do
+    /// XML assinado gravado e só se o digVal do protCTe bater com o DigestValue dele.
+    /// </summary>
+    public static async Task<NfeSefazResult> ApplyAsync(
+        IUnitOfWork db, TransportDocument doc, NfeSefazResult? result, string signedXml, ILogger? logger)
     {
-        doc.StatusCode = result.StatusCode == 0 ? null : result.StatusCode.ToString();
-        doc.StatusReason = result.Reason.Length > 500 ? result.Reason[..500] : result.Reason;
+        doc.UpdatedAt = DateTime.Now;
+
+        if (result is null)
+        {
+            doc.Status = CteStatus.Processing;
+            doc.StatusCode = null;
+            doc.StatusReason = NoResponse;
+            await db.SaveChangesAsync();
+            return new NfeSefazResult(0, NoResponse);
+        }
 
         if (NfeStatusCodes.IsAuthorized(result.StatusCode))
         {
+            var signedDigest = NfeProcComposer.SignedDigest(signedXml);
+            var protocolDigest = result.ProtocolXml is null ? null : NfeProcComposer.ProtocolDigest(result.ProtocolXml);
+            if (signedDigest is null || signedDigest != protocolDigest)
+            {
+                logger?.LogError(
+                    "CT-e {AccessKey}: digVal do protocolo ({ProtocolDigest}) difere do XML enviado ({SignedDigest}).",
+                    doc.AccessKey, protocolDigest, signedDigest);
+                doc.Status = CteStatus.Processing;
+                doc.StatusCode = null;
+                doc.StatusReason = DigestMismatch;
+                await db.SaveChangesAsync();
+                return new NfeSefazResult(0, DigestMismatch);
+            }
+
             doc.Status = CteStatus.Authorized;
             doc.Protocol = result.Protocol;
             doc.AuthorizedAt = result.ReceivedAt?.DateTime;
-            if (result.ProtocolXml is not null && doc.Xmls.All(x => x.Kind != CteXmlKind.Authorized))
+            if (doc.Xmls.All(x => x.Kind != CteXmlKind.Authorized))
                 db.Context.TransportDocumentXmls.Add(new TransportDocumentXml
                 {
-                    TransportDocumentKey = doc.Key, Kind = CteXmlKind.Authorized, Xml = Proc(signedXml, result.ProtocolXml),
+                    TransportDocumentKey = doc.Key, Kind = CteXmlKind.Authorized, Xml = Proc(signedXml, result.ProtocolXml!),
                 });
         }
         else
@@ -154,8 +216,10 @@ internal static class CteEmission
             doc.Status = NfeStatusCodes.IsDenied(result.StatusCode) ? CteStatus.Denied : CteStatus.Rejected;
         }
 
-        doc.UpdatedAt = DateTime.Now;
+        doc.StatusCode = result.StatusCode.ToString();
+        doc.StatusReason = result.Reason.Length > 500 ? result.Reason[..500] : result.Reason;
         await db.SaveChangesAsync();
+        return result;
     }
 
     /// <summary><c>cteProc</c> = CT-e assinado + <c>protCTe</c>, por texto (a parte assinada fica byte a byte igual).</summary>

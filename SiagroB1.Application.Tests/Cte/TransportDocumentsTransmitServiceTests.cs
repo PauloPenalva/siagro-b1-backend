@@ -7,6 +7,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Certificates;
 using SiagroB1.Fiscal.Cte;
+using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Fiscal.Tests.Support;
 using SiagroB1.Infra;
 
@@ -33,7 +34,7 @@ public class TransportDocumentsTransmitServiceTests
     {
         var config = NfeTestSeed.Config();
         return new TransportDocumentsConsultService(
-            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config));
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz);
     }
 
     private async Task<Guid> SeedConfirmedAsync(NfeEnvironment environment = NfeEnvironment.Homologation)
@@ -94,11 +95,24 @@ public class TransportDocumentsTransmitServiceTests
     private Task<TransportDocument> LoadAsync(Guid key) =>
         _db.Context.TransportDocuments.AsNoTracking().Include(x => x.Xmls).SingleAsync(x => x.Key == key);
 
+    /// <summary>Protocolo de autorização cujo digVal é o do XML assinado (como a SEFAZ responde de verdade).</summary>
+    private static NfeSefazResult Ok(SignedCte sent)
+    {
+        var auth = FakeCteSefazClient.Authorized(sent.AccessKey);
+        return auth with { ProtocolXml = auth.ProtocolXml!.Replace("TESTE=", NfeProcComposer.SignedDigest(sent.Xml)) };
+    }
+
+    private Func<string, NfeSefazResult> OkForSent(int index) => _ => Ok(_sefaz.Sent[index]);
+
+    private static readonly Func<string, NfeSefazResult> NotFound = _ => new NfeSefazResult(217, "CT-e não consta na base");
+
+    private static void Timeout(FakeCteSefazClient s) => s.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
+
     [Fact]
     public async Task Authorized_stores_protocol_and_xml()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
 
         var result = await Transmit().TransmitAsync(key, "tester");
 
@@ -107,13 +121,30 @@ public class TransportDocumentsTransmitServiceTests
         Assert.Equal(CteStatus.Authorized, doc.Status);
         Assert.Equal(FakeCteSefazClient.AuthorizationProtocol, doc.Protocol);
         Assert.NotNull(doc.AuthorizedAt);
-        var xml = Assert.Single(doc.Xmls);
-        Assert.Equal(CteXmlKind.Authorized, xml.Kind);
+        Assert.Equal(_sefaz.Sent[0].Xml, doc.Xmls.Single(x => x.Kind == CteXmlKind.Signed).Xml);
+        var xml = doc.Xmls.Single(x => x.Kind == CteXmlKind.Authorized);
         Assert.StartsWith("<?xml", xml.Xml);
         Assert.Contains("<cteProc versao=\"4.00\"", xml.Xml);
         Assert.Contains("<protCTe", xml.Xml);
         Assert.Contains("<qrCodCTe>", xml.Xml);
         Assert.Equal(0, _numbers.LocksHeld);
+    }
+
+    [Fact]
+    public async Task Signed_xml_is_stored_with_processing_before_sefaz_call()
+    {
+        var key = await SeedConfirmedAsync();
+        (CteStatus Status, int Signed)? atSend = null;
+        _sefaz.BeforeAuthorize = async () =>
+        {
+            var d = await LoadAsync(key);
+            atSend = (d.Status, d.Xmls.Count(x => x.Kind == CteXmlKind.Signed));
+        };
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal((CteStatus.Processing, 1), atSend);
     }
 
     [Fact]
@@ -129,7 +160,7 @@ public class TransportDocumentsTransmitServiceTests
         Assert.Equal("209", rejected.StatusCode);
         Assert.Equal("Rejeição: IE do emitente inválida", rejected.StatusReason);
 
-        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
         await Transmit().TransmitAsync(key, "tester");
 
         var doc = await LoadAsync(key);
@@ -142,11 +173,31 @@ public class TransportDocumentsTransmitServiceTests
     }
 
     [Fact]
+    public async Task Rejected_by_sefaz_then_retransmit_renews_issued_at()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => FakeCteSefazClient.Rejected());
+        await Transmit().TransmitAsync(key, "tester");
+        var first = (await LoadAsync(key)).IssuedAt;
+
+        _now = October.AddMinutes(30);
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        Assert.NotEqual(first, doc.IssuedAt);
+        Assert.Equal(October.AddMinutes(30).DateTime, doc.IssuedAt);
+        Assert.NotEqual(_sefaz.Sent[0].Xml, _sefaz.Sent[1].Xml);
+        Assert.Equal(_sefaz.Sent[1].Xml, doc.Xmls.Single(x => x.Kind == CteXmlKind.Signed).Xml);
+    }
+
+    [Fact]
     public async Task Timeout_recovers_authorization_by_consult_without_resending()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
-        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
 
         var result = await Transmit().TransmitAsync(key, "tester");
 
@@ -155,29 +206,91 @@ public class TransportDocumentsTransmitServiceTests
         Assert.Equal(1, _sefaz.ConsultCalls);
         var doc = await LoadAsync(key);
         Assert.Equal(CteStatus.Authorized, doc.Status);
-        Assert.Equal(CteXmlKind.Authorized, Assert.Single(doc.Xmls).Kind);
+        Assert.Single(doc.Xmls, x => x.Kind == CteXmlKind.Authorized);
     }
 
     [Fact]
-    public async Task Timeout_without_authorization_is_rejected_with_consult_hint()
+    public async Task Timeout_then_consult_not_found_stays_processing()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
-        _sefaz.ConsultResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(217, "CT-e não consta na base"));
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
 
+        var result = await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(TransportDocumentsTransmitService.NoResponse, result.Reason);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Processing, doc.Status);
+        Assert.Null(doc.StatusCode);
+        Assert.Equal(TransportDocumentsTransmitService.NoResponse, doc.StatusReason);
+    }
+
+    [Fact]
+    public async Task Retransmit_processing_consults_first_and_resends_same_xml()
+    {
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        await Transmit().TransmitAsync(key, "tester");
+        var issuedAt = (await LoadAsync(key)).IssuedAt;
+
+        _now = October.AddMinutes(30);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
         await Transmit().TransmitAsync(key, "tester");
 
+        Assert.Equal(2, _sefaz.ConsultCalls);
+        Assert.Equal(2, _sefaz.AuthorizeCalls);
+        Assert.Equal(_sefaz.Sent[0].Xml, _sefaz.Sent[1].Xml);
         var doc = await LoadAsync(key);
-        Assert.Equal(CteStatus.Rejected, doc.Status);
-        Assert.Equal(TransportDocumentsTransmitService.NoResponse, doc.StatusReason);
+        Assert.Equal(issuedAt, doc.IssuedAt);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+    }
+
+    [Fact]
+    public async Task Timeout_retransmit_after_late_authorization_uses_original_xml()
+    {
+        // Envio 1 some no tempo esgotado, mas a SEFAZ autorizou; a consulta ainda não enxerga (217).
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        await Transmit().TransmitAsync(key, "tester");
+        var firstXml = _sefaz.Sent[0].Xml;
+
+        // Nova transmissão: a consulta agora acha a autorização do envio 1 — nada é reenviado.
+        _now = October.AddMinutes(30);
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
+        await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Authorized, doc.Status);
+        var proc = doc.Xmls.Single(x => x.Kind == CteXmlKind.Authorized).Xml;
+        Assert.Equal(NfeProcComposer.SignedDigest(firstXml), NfeProcComposer.SignedDigest(proc));
+        Assert.Equal(NfeProcComposer.SignedDigest(firstXml), NfeProcComposer.ProtocolDigest(proc));
+    }
+
+    [Fact]
+    public async Task Digest_mismatch_does_not_authorize()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey)); // digVal "TESTE="
+
+        var result = await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal("Protocolo da SEFAZ não confere com o XML enviado: verifique.", result.Reason);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Processing, doc.Status);
+        Assert.Equal("Protocolo da SEFAZ não confere com o XML enviado: verifique.", doc.StatusReason);
+        Assert.DoesNotContain(doc.Xmls, x => x.Kind == CteXmlKind.Authorized);
     }
 
     [Fact]
     public async Task Duplicate_539_recovers_by_consult()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(539, "Duplicidade de CT-e"));
-        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(539, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
 
         await Transmit().TransmitAsync(key, "tester");
 
@@ -214,7 +327,7 @@ public class TransportDocumentsTransmitServiceTests
     public async Task Xml_carries_obscont_plate_and_driver()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
 
         await Transmit().TransmitAsync(key, "tester");
 
@@ -232,7 +345,7 @@ public class TransportDocumentsTransmitServiceTests
     public async Task Homologation_replaces_recipient_name()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(c => FakeCteSefazClient.Authorized(c.AccessKey));
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
 
         await Transmit().TransmitAsync(key, "tester");
 
@@ -243,21 +356,21 @@ public class TransportDocumentsTransmitServiceTests
     }
 
     [Fact]
-    public async Task Consult_recovers_rejected_that_sefaz_authorized()
+    public async Task Consult_recovers_processing_with_stored_xml()
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(FakeCteSefazClient.NoResponse);
-        _sefaz.ConsultResponses.Enqueue(_ => new SiagroB1.Fiscal.Nfe.NfeSefazResult(217, "CT-e não consta na base"));
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
         await Transmit().TransmitAsync(key, "tester");
-        Assert.Equal(CteStatus.Rejected, (await LoadAsync(key)).Status);
+        Assert.Equal(CteStatus.Processing, (await LoadAsync(key)).Status);
 
-        _sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
         var result = await Consult().ConsultAsync(key);
 
         Assert.Equal(100, result.StatusCode);
         var doc = await LoadAsync(key);
         Assert.Equal(CteStatus.Authorized, doc.Status);
-        Assert.Contains("<cteProc", Assert.Single(doc.Xmls).Xml);
+        Assert.Equal(NfeProcComposer.SignedDigest(_sefaz.Sent[0].Xml), NfeProcComposer.ProtocolDigest(doc.Xmls.Single(x => x.Kind == CteXmlKind.Authorized).Xml));
         Assert.Equal(1, _sefaz.AuthorizeCalls);
     }
 }
