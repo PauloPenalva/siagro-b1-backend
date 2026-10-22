@@ -35,4 +35,14 @@ public class AccountingCoreEdmTests
         Assert.NotNull(model.EntityContainer.FindEntitySet("StandardPostings")!.EntityType.FindProperty("Lines"));
         Assert.Contains(model.EntityContainer.OperationImports(), x => x.Name == "StandardPostingCatalogGet");
     }
+
+    [Fact]
+    public void Model_exposes_offline_posting_runs_and_request()
+    {
+        var model = Model();
+        Assert.NotNull(model.EntityContainer.FindEntitySet("OfflinePostingRuns")!.EntityType.FindProperty("Items"));
+        var request = Assert.Single(model.EntityContainer.OperationImports(), x => x.Name == "OfflinePostingRequest");
+        Assert.Equal(["DateFrom", "DateTo", "BranchCode", "Modules", "Simulation"],
+            request.Operation.Parameters.Select(p => p.Name));
+    }
 }

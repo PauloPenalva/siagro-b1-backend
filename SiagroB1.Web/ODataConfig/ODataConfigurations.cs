@@ -96,6 +96,16 @@ public static class ODataConfigurations
         modelBuilder.ComplexType<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
         modelBuilder.Function("StandardPostingCatalogGet")
             .ReturnsCollection<SiagroB1.Application.Services.Accounting.Postings.StandardPostingDefinition>();
+        // Contabilização off-line: execuções (GET com $expand=Items) + pedido por action de topo.
+        modelBuilder.EntitySet<OfflinePostingRun>("OfflinePostingRuns");
+        modelBuilder.EntitySet<OfflinePostingRunItem>("OfflinePostingRunItems");
+        var offlinePostingRequest = modelBuilder.Action("OfflinePostingRequest");
+        offlinePostingRequest.Parameter<DateTime>("DateFrom");
+        offlinePostingRequest.Parameter<DateTime>("DateTo");
+        offlinePostingRequest.Parameter<string>("BranchCode");
+        offlinePostingRequest.CollectionParameter<int>("Modules");
+        offlinePostingRequest.Parameter<bool>("Simulation");
+        offlinePostingRequest.ReturnsFromEntitySet<OfflinePostingRun>("OfflinePostingRuns");
         var journalEntriesReverse = modelBuilder.Action("JournalEntriesReverse");
         journalEntriesReverse.Parameter<int>("DocEntry");
         journalEntriesReverse.Parameter<DateTime>("Date");
