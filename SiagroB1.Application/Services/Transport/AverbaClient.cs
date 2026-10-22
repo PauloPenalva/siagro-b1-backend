@@ -34,8 +34,12 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
             // Sem Accept a AT&M recusa: "Header Accept nao informado".
             using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/rest/Auth")
             {
-                Content = JsonContent.Create(new Dictionary<string, string> { ["usuario"] = user, ["senha"] = password, ["codigoatm"] = code }),
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new Dictionary<string, string> { ["usuario"] = user, ["senha"] = password, ["codigoatm"] = code }),
+                    System.Text.Encoding.UTF8),
             };
+            // A AT&M recusa "application/json; charset=utf-8": o Content-Type tem de ser exatamente application/json.
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             using var response = await http.SendAsync(request, ct);

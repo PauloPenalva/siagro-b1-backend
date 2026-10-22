@@ -45,6 +45,17 @@ public class AverbaClientTests
     }
 
     [Fact]
+    public async Task Login_sends_plain_json_content_type_without_charset()
+    {
+        // A AT&M recusa "application/json; charset=utf-8": "Header Content-Type invalido" (visto no teste real).
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "{\"Bearer\":\"t\"}");
+
+        await Client(handler).LoginAsync(NfeEnvironment.Production, "x", "y", "z", CancellationToken.None);
+
+        Assert.Equal("application/json", handler.LastRequest!.Content!.Headers.ContentType!.ToString());
+    }
+
+    [Fact]
     public async Task Login_error_reads_description()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK,
