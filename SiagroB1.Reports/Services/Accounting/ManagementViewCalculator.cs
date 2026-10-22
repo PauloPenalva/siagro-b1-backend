@@ -14,7 +14,8 @@ public sealed record AccountInfo(string Code, bool Analytic, LedgerAccountNature
 public static class ManagementViewCalculator
 {
     public static Dictionary<string, decimal> Compute(IReadOnlyList<ManagementViewLine> lines,
-        IReadOnlyDictionary<string, AccountInfo> accounts, Func<string, decimal> signedBalanceOfAnalytic)
+        IReadOnlyDictionary<string, AccountInfo> accounts, Func<string, decimal> signedBalanceOfAnalytic,
+        IReadOnlyDictionary<string, decimal>? fixedValues = null)
     {
         var byCode = lines.ToDictionary(l => l.Code, StringComparer.Ordinal);
         var values = new Dictionary<string, decimal>(StringComparer.Ordinal);
@@ -23,6 +24,7 @@ public static class ManagementViewCalculator
         decimal Value(string code)
         {
             if (values.TryGetValue(code, out var known)) return known;
+            if (fixedValues is not null && fixedValues.TryGetValue(code, out var fixedValue)) return values[code] = fixedValue;
             if (!byCode.TryGetValue(code, out var line)) return 0m;
             if (!visiting.Add(code)) return 0m; // ciclo legado: o cadastro já recusa, aqui só não estoura a pilha
 
@@ -45,9 +47,16 @@ public static class ManagementViewCalculator
             if (string.IsNullOrWhiteSpace(line.AccountFrom) || string.IsNullOrWhiteSpace(line.AccountTo)) return 0m;
             var from = line.AccountFrom.Trim();
             var to = line.AccountTo.Trim();
-            return accounts.Values
+            var inRange = accounts.Values
                 .Where(a => a.Analytic && string.CompareOrdinal(a.Code, from) >= 0 && string.CompareOrdinal(a.Code, to) <= 0)
-                .Sum(a => signedBalanceOfAnalytic(a.Code) * NaturalFactor(a));
+                .OrderBy(a => a.Code, StringComparer.Ordinal).ToList();
+            if (inRange.Count == 0) return 0m;
+
+            // O sentido é o da LINHA, não o de cada conta: a redutora da faixa (devoluções na receita, depreciação no
+            // ativo) tem natureza oposta e precisa subtrair. Vale a conta "de" da faixa (em geral a sintética do
+            // grupo); se ela não existir, a primeira analítica da faixa.
+            var head = accounts.GetValueOrDefault(from) ?? inRange[0];
+            return inRange.Sum(a => signedBalanceOfAnalytic(a.Code)) * NaturalFactor(head);
         }
 
         foreach (var line in lines) Value(line.Code);

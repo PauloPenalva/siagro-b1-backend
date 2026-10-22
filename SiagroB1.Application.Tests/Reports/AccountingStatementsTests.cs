@@ -313,4 +313,37 @@ public class AccountingStatementsTests
             {
                 DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31), StartPage = 0,
             }));
+
+    // ---------- correções da revisão ----------
+
+    [Fact]
+    public void Calculator_contra_account_inside_range_subtracts()
+    {
+        var accounts = new Dictionary<string, AccountInfo>
+        {
+            ["3.1.01"] = new("3.1.01", true, LedgerAccountNature.Credit, LedgerAccountType.Revenue),
+            ["3.1.02"] = new("3.1.02", true, LedgerAccountNature.Debit, LedgerAccountType.Revenue), // devoluções
+        };
+        var values = ManagementViewCalculator.Compute([L(1, "R", ManagementViewLineKind.Accounts, "3.1", "3.1.99")],
+            accounts, code => code == "3.1.01" ? -100m : 10m);
+
+        Assert.Equal(90m, values["R"]);
+    }
+
+    [Fact]
+    public async Task Balance_sheet_unclosed_result_reaches_formula_over_group()
+    {
+        var db = await SeedAsync();
+        var bp = db.Context.ManagementViews.Local.Single(v => v.Code == "BP");
+        db.Context.ManagementViewLines.Add(new ManagementViewLine
+        {
+            ViewCode = "BP", Order = 9, Code = "DIF", Description = "Diferença", Kind = ManagementViewLineKind.Formula,
+            Formula = "1 - 2", Sign = ManagementViewLineSign.Plus,
+        });
+        await db.SaveChangesAsync();
+
+        var rows = await new BalanceSheetReportService(db, null!).RowsAsync(At(new DateTime(2026, 10, 31)));
+
+        Assert.Equal(0m, rows.Single(r => r.Code == "DIF").Balance);
+    }
 }

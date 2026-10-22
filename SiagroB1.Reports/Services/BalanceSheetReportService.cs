@@ -86,13 +86,22 @@ public class BalanceSheetReportService(IUnitOfWork db, IFastReportService report
     {
         var postings = await new AccountPostingReader(db).ReadAsync(null, date, new AccountPostingFilter(branch));
         var balances = postings.GroupBy(p => p.AccountCode).ToDictionary(g => g.Key, g => g.Sum(p => p.Debit - p.Credit));
-        var values = ManagementViewCalculator.Compute(lines, accounts, code => balances.GetValueOrDefault(code));
 
         // Lucro positivo: o saldo das contas de resultado com sinal credor.
         var unclosed = -accounts.Values
             .Where(a => a.Analytic && a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense)
             .Sum(a => balances.GetValueOrDefault(a.Code));
-        if (group is not null) values[group.Code] = values.GetValueOrDefault(group.Code) + unclosed;
+
+        // Entra como filha calculada do grupo do passivo, para chegar também aos Totais e Fórmulas acima dele.
+        var withResult = group is null
+            ? lines
+            : lines.Append(new ManagementViewLine
+            {
+                Code = UnclosedResultCode, Description = UnclosedResultText, ParentCode = group.Code,
+                Kind = ManagementViewLineKind.Formula, Sign = ManagementViewLineSign.Plus,
+            }).ToList();
+        var values = ManagementViewCalculator.Compute(withResult, accounts, code => balances.GetValueOrDefault(code),
+            new Dictionary<string, decimal> { [UnclosedResultCode] = unclosed });
         return new Snapshot(values, unclosed);
     }
 
