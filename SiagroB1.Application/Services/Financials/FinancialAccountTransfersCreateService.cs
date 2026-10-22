@@ -9,7 +9,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// Transferência entre contas financeiras: grava a transferência e as duas linhas (saída na origem, entrada no destino)
 /// na mesma transação, ambas na data da transferência. Moeda igual é obrigatória; filiais podem diferir.
 /// </summary>
-public class FinancialAccountTransfersCreateService(IUnitOfWork db)
+public class FinancialAccountTransfersCreateService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task<FinancialAccountTransfer> ExecuteAsync(
         FinancialAccountTransfer transfer, string userName, CommitMode commitMode = CommitMode.Auto)
@@ -75,6 +75,7 @@ public class FinancialAccountTransfersCreateService(IUnitOfWork db)
             db.Context.FinancialAccountTransfers.Add(created);
             db.Context.FinancialAccountEntries.Add(Leg(fromCode, -amount, $"Transferência para {toCode}"));
             db.Context.FinancialAccountEntries.Add(Leg(toCode, amount, $"Transferência de {fromCode}"));
+            await SiagroB1.Application.Services.Accounting.Postings.AccountEntryPosting.CreateTransferAsync(accounting, db.Context, created, userName);
             await db.Context.SaveChangesAsync();
 
             if (commitMode == CommitMode.Auto) await db.CommitAsync();

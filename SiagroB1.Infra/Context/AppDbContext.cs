@@ -211,6 +211,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.ReversedBy).WithMany()
             .HasForeignKey(x => x.ReversedByDocEntry)
             .OnDelete(DeleteBehavior.NoAction);
+        // Lançamento na conta e transferência excluídos ficam CANCELADOS (CanceledAt), não apagados: somem de toda
+        // leitura (saldo, extrato, conciliação, telas). Quem precisa deles usa IgnoreQueryFilters().
+        modelBuilder.Entity<FinancialAccountEntry>().HasQueryFilter(x => x.CanceledAt == null);
+        modelBuilder.Entity<FinancialAccountTransfer>().HasQueryFilter(x => x.CanceledAt == null);
+
         // Lançamento padrão: sequência única por código; as sequências caem junto com o cabeçalho.
         modelBuilder.Entity<StandardPostingLine>()
             .HasIndex(x => new { x.Code, x.Sequence })
