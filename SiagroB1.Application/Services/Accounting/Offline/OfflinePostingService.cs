@@ -36,6 +36,9 @@ public class OfflinePostingService(
     IBackgroundJobClient jobs,
     ICompanyContext company) : IOfflinePostingService
 {
+    /// <summary>Depois disso, execução Queued/Running sem fim é considerada morta.</summary>
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromHours(6);
+
     public async Task<OfflinePostingRun> RequestAsync(DateTime from, DateTime to, string? branchCode,
         IReadOnlyList<OfflinePostingModule> modules, bool simulation, string user, CancellationToken ct)
     {
@@ -44,8 +47,18 @@ public class OfflinePostingService(
                       ?? throw new DefaultException("Defina a data de corte da contabilidade antes da contabilização off-line.");
         if (from.Date > to.Date) throw new DefaultException("A data inicial deve ser menor ou igual à data final.");
         if (modules.Count == 0) throw new DefaultException("Escolha ao menos um módulo.");
-        if (await db.Context.OfflinePostingRuns.AnyAsync(
-                r => r.Status == OfflinePostingRunStatus.Queued || r.Status == OfflinePostingRunStatus.Running, ct))
+        // Execução que ficou "em andamento" além do limite (processo caiu, deploy) é dada como falha, senão travaria a tela.
+        var staleBefore = DateTime.Now - StaleAfter;
+        var open = await db.Context.OfflinePostingRuns
+            .Where(r => r.Status == OfflinePostingRunStatus.Queued || r.Status == OfflinePostingRunStatus.Running)
+            .ToListAsync(ct);
+        foreach (var stale in open.Where(r => (r.StartedAt ?? r.RequestedAt) < staleBefore))
+        {
+            stale.Status = OfflinePostingRunStatus.Failed;
+            stale.FinishedAt = DateTime.Now;
+            stale.FailureMessage = "Execução interrompida (sem resposta do servidor).";
+        }
+        if (open.Any(r => (r.StartedAt ?? r.RequestedAt) >= staleBefore))
             throw new DefaultException("Já existe uma contabilização off-line em andamento.");
 
         var start = from.Date < cutover.Date ? cutover.Date : from.Date;
@@ -71,7 +84,7 @@ public class OfflinePostingService(
 
     public async Task ExecuteAsync(Guid runKey, CancellationToken ct)
     {
-        var run = await db.Context.OfflinePostingRuns.FirstAsync(r => r.Key == runKey, ct);
+        var run = await db.Context.OfflinePostingRuns.FirstAsync(r => r.Key == runKey, CancellationToken.None);
         run.Status = OfflinePostingRunStatus.Running;
         run.StartedAt = DateTime.Now;
         await db.SaveChangesAsync();
@@ -79,6 +92,7 @@ public class OfflinePostingService(
         int posted = 0, errors = 0, skipped = 0;
         try
         {
+            ct.ThrowIfCancellationRequested();
             var modules = run.Modules.Split(',', StringSplitOptions.RemoveEmptyEntries)
                 .Select(m => (OfflinePostingModule)int.Parse(m, CultureInfo.InvariantCulture)).ToHashSet();
             var events = new List<OfflinePostingEvent>();
@@ -118,7 +132,21 @@ public class OfflinePostingService(
             run = await db.Context.OfflinePostingRuns.FirstAsync(r => r.Key == runKey, ct);
             run.Status = OfflinePostingRunStatus.Completed;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException)
+        {
+            // Hangfire cancela no desligamento do servidor: fecha a execução antes de propagar, senão ela trava a tela.
+            db.Context.ChangeTracker.Clear();
+            run = await db.Context.OfflinePostingRuns.FirstAsync(r => r.Key == runKey, CancellationToken.None);
+            run.Status = OfflinePostingRunStatus.Failed;
+            run.FailureMessage = "Execução interrompida.";
+            run.PostedCount = posted;
+            run.ErrorCount = errors;
+            run.SkippedCount = skipped;
+            run.FinishedAt = DateTime.Now;
+            await db.SaveChangesAsync();
+            throw;
+        }
+        catch (Exception ex)
         {
             db.Context.ChangeTracker.Clear();
             run = await db.Context.OfflinePostingRuns.FirstAsync(r => r.Key == runKey, CancellationToken.None);

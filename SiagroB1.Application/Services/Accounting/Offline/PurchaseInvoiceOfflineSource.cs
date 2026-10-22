@@ -18,9 +18,13 @@ public class PurchaseInvoiceOfflineSource(IUnitOfWork db) : IOfflinePostingSourc
         [EnumeratorCancellation] CancellationToken ct)
     {
         var lookup = await OfflinePostingLookup.LoadAsync(db, [PurchaseInvoicePostingContext.DocumentType], ct);
+        var start = from.Date;
+        var end = to.Date.AddDays(1);
         var invoices = await db.Context.PurchaseInvoices.AsNoTracking()
             .Where(i => i.InvoiceStatus == InvoiceStatus.Confirmed || i.InvoiceStatus == InvoiceStatus.Returned ||
                         i.InvoiceStatus == InvoiceStatus.Cancelled)
+            // Mesma data do on-line (data de estoque), com a aprovação como último recurso — filtrada no SQL.
+            .Where(i => (i.PostingDate ?? i.IssueDate ?? i.ApprovedAt) >= start && (i.PostingDate ?? i.IssueDate ?? i.ApprovedAt) < end)
             .ToListAsync(ct);
 
         foreach (var invoice in invoices)

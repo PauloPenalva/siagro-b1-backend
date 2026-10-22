@@ -247,6 +247,42 @@ public class OfflinePostingServiceTests
         Assert.Equal(1, run.SkippedCount);
     }
 
+    [Fact]
+    public async Task Canceled_execution_marks_run_failed()
+    {
+        var db = await SeedAsync();
+        await AddPurchase(db, "NF1", new DateTime(2026, 7, 10));
+        var (service, _) = Build(db);
+        var run = await service.RequestAsync(From, To, null, Purchases, false, "admin", CancellationToken.None);
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ExecuteAsync(run.Key, cts.Token));
+
+        var stored = await db.Context.OfflinePostingRuns.AsNoTracking().SingleAsync();
+        Assert.Equal(OfflinePostingRunStatus.Failed, stored.Status);
+        Assert.Equal("Execução interrompida.", stored.FailureMessage);
+    }
+
+    [Fact]
+    public async Task Stale_running_run_does_not_block_new_request()
+    {
+        var db = await SeedAsync();
+        db.Context.OfflinePostingRuns.Add(new OfflinePostingRun
+        {
+            DateFrom = From, DateTo = To, Modules = "1", RequestedBy = "x", Status = OfflinePostingRunStatus.Running,
+            RequestedAt = DateTime.Now.AddHours(-7), StartedAt = DateTime.Now.AddHours(-7),
+        });
+        await db.SaveChangesAsync();
+        var (service, _) = Build(db);
+
+        var run = await service.RequestAsync(From, To, null, Purchases, false, "admin", CancellationToken.None);
+
+        Assert.Equal(OfflinePostingRunStatus.Queued, run.Status);
+        Assert.Equal(OfflinePostingRunStatus.Failed,
+            (await db.Context.OfflinePostingRuns.AsNoTracking().SingleAsync(r => r.RequestedBy == "x")).Status);
+    }
+
     private sealed class ThrowingSource : IOfflinePostingSource
     {
         public OfflinePostingModule Module => OfflinePostingModule.PurchaseInvoices;

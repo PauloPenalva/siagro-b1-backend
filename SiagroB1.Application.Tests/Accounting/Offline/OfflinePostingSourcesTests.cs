@@ -98,6 +98,20 @@ public class OfflinePostingSourcesTests
     }
 
     [Fact]
+    public async Task Invoices_outside_period_are_not_collected()
+    {
+        var db = await SeedAsync();
+        db.Context.PurchaseInvoices.Add(InvoiceReportSeed.Purchase("OLD", new DateTime(2025, 12, 20)));
+        db.Context.SalesInvoices.Add(InvoiceReportSeed.Sale("SOLD", new DateTime(2025, 12, 20)));
+        await AddPurchase(db);
+        db.Context.SalesInvoices.Add(InvoiceReportSeed.Sale("S1"));
+        await db.SaveChangesAsync();
+
+        Assert.Equal(["NF1"], (await Collect(new PurchaseInvoiceOfflineSource(db))).Select(e => e.DocumentNumber));
+        Assert.Equal(["S1"], (await Collect(new SalesInvoiceOfflineSource(db))).Select(e => e.DocumentNumber));
+    }
+
+    [Fact]
     public async Task Pending_invoice_is_not_collected()
     {
         var db = await SeedAsync();

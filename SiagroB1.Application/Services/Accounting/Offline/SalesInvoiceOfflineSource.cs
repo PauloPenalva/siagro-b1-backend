@@ -17,9 +17,12 @@ public class SalesInvoiceOfflineSource(IUnitOfWork db) : IOfflinePostingSource
         [EnumeratorCancellation] CancellationToken ct)
     {
         var lookup = await OfflinePostingLookup.LoadAsync(db, [SalesInvoicePostingContext.DocumentType], ct);
+        var start = from.Date;
+        var end = to.Date.AddDays(1);
         var invoices = await db.Context.SalesInvoices.AsNoTracking()
             .Where(i => i.InvoiceStatus == InvoiceStatus.Confirmed || i.InvoiceStatus == InvoiceStatus.Returned ||
                         i.InvoiceStatus == InvoiceStatus.Cancelled)
+            .Where(i => (i.InvoiceDate ?? i.ApprovedAt) >= start && (i.InvoiceDate ?? i.ApprovedAt) < end)
             .ToListAsync(ct);
 
         foreach (var invoice in invoices)
