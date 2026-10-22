@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -12,7 +13,91 @@ public class TruckServiceTests
 {
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
 
-    private TruckService Service() => new(_db.Context, new TestLogger<TruckService>());
+    private TruckService Service(string erp = "STANDALONE") => new(_db.Context, TestConfiguration.Erp(erp), new TestLogger<TruckService>());
+
+    [Fact]
+    public async Task Trailer_with_wheel_type_is_rejected()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateAsync(
+            new Truck { Code = "CAR1A11", Model = "Randon", Kind = TruckKind.Trailer, WheelType = TruckWheelType.TractorUnit }));
+
+        Assert.Equal("Reboque não tem tipo de rodado: o rodado é só do veículo de tração.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Negative_capacity_is_rejected()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateAsync(
+            new Truck { Code = "CAR1A11", Model = "Randon", CapacityKg = -1 }));
+
+        Assert.Equal("Tara e capacidade não podem ser negativas.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Invalid_renavam_is_rejected()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateAsync(
+            new Truck { Code = "CAR1A11", Model = "Randon", Renavam = "12AB" }));
+
+        Assert.Equal("O RENAVAM tem de 9 a 11 dígitos.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Third_party_without_owner_is_rejected_in_standalone()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateAsync(
+            new Truck { Code = "CAR1A11", Model = "Volvo", OwnerType = TruckOwnerType.ThirdParty }));
+
+        Assert.Equal("Informe o parceiro proprietário do veículo de terceiro.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Invalid_owner_rntrc_is_rejected()
+    {
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateAsync(
+            new Truck { Code = "CAR1A11", Model = "Volvo", OwnerType = TruckOwnerType.ThirdParty, OwnerCardCode = "F00001", OwnerRntrc = "123" }));
+
+        Assert.Equal("O RNTRC tem 8 dígitos.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Third_party_fields_are_cleared_in_sapb1()
+    {
+        await Service("SAPB1").CreateAsync(new Truck
+        {
+            Code = "CAR1A11", Model = "Volvo", OwnerType = TruckOwnerType.ThirdParty,
+            OwnerCardCode = "F00001", OwnerRntrc = "12345678", OwnerKind = TruckOwnerKind.TacAggregate,
+        });
+        _db.Context.ChangeTracker.Clear();
+
+        var saved = await _db.Context.Trucks.SingleAsync(x => x.Code == "CAR1A11");
+        Assert.Equal(TruckOwnerType.Own, saved.OwnerType);
+        Assert.Null(saved.OwnerCardCode);
+        Assert.Null(saved.OwnerRntrc);
+        Assert.Null(saved.OwnerKind);
+    }
+
+    [Fact]
+    public async Task Update_with_trailer_wheel_type_is_rejected()
+    {
+        await Service().CreateAsync(new Truck { Code = "CAR1A11", Model = "Randon", Kind = TruckKind.Trailer });
+        _db.Context.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<DefaultException>(() => Service().UpdateAsync("CAR1A11",
+            new Truck { Code = "CAR1A11", Model = "Randon", Kind = TruckKind.Trailer, WheelType = TruckWheelType.Truck }));
+    }
+
+    [Fact]
+    public async Task Legacy_truck_without_new_fields_updates()
+    {
+        _db.Context.Trucks.Add(new Truck { Code = "OLD1A11", Model = "Antigo" });
+        await _db.SaveChangesAsync();
+        _db.Context.ChangeTracker.Clear();
+
+        var updated = await Service().UpdateAsync("OLD1A11", new Truck { Code = "OLD1A11", Model = "Antigo 2" });
+
+        Assert.Equal("Antigo 2", updated!.Model);
+    }
 
     [Fact]
     public async Task CreateAsync_StoresThePlateNormalized()

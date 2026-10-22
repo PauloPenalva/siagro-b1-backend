@@ -1,14 +1,16 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Infra;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services;
 
-public class TruckService(AppDbContext context, ILogger<TruckService> logger) :
+public class TruckService(AppDbContext context, IConfiguration configuration, ILogger<TruckService> logger) :
     BaseService<Truck, string>(context, logger), ITruckService
 {
     /// <summary>
@@ -18,6 +20,7 @@ public class TruckService(AppDbContext context, ILogger<TruckService> logger) :
     public override async Task<Truck> CreateAsync(Truck entity)
     {
         entity.Code = TruckPlateRules.Normalize(entity.Code);
+        TruckRules.Validate(entity, ErpMode.IsStandalone(configuration));
 
         if (await _context.Set<Truck>().AnyAsync(x => x.Code == entity.Code))
             throw new DefaultException($"Veículo {entity.Code} já cadastrado.");
@@ -33,6 +36,8 @@ public class TruckService(AppDbContext context, ILogger<TruckService> logger) :
     {
         if (!string.Equals(entity.Code, key, StringComparison.OrdinalIgnoreCase))
             throw new DefaultException("A placa do veículo não pode ser alterada.");
+
+        TruckRules.Validate(entity, ErpMode.IsStandalone(configuration));
 
         return await base.UpdateAsync(key, entity);
     }
