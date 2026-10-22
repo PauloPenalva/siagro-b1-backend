@@ -19,4 +19,12 @@ public class AccountingPeriodsController(IAccountingPeriodsService service, ICon
 
         return Ok(service.QueryAll());
     }
+
+    [HttpGet("odata/AccountingPeriodsCloseWarnings(Id={id})")]
+    public async Task<IActionResult> CloseWarningsAsync([FromRoute] int id, CancellationToken ct)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
+        try { return Ok(await service.CloseWarningsAsync(id, ct)); }
+        catch (SiagroB1.Domain.Exceptions.DefaultException e) { return BadRequest(e.Message); }
+    }
 }

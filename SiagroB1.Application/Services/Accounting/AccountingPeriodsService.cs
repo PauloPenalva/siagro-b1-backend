@@ -14,13 +14,21 @@ public interface IAccountingPeriodsService
     Task<List<AccountingPeriod>> GenerateYearAsync(int year, string user);
 
     Task<AccountingPeriod> SetStatusAsync(int id, AccountingPeriodStatus status, string user, string? reason);
+
+    /// <summary>Avisos (não bloqueiam) antes de fechar: documentos que a contabilização off-line ainda contabilizaria.</summary>
+    Task<List<string>> CloseWarningsAsync(int id, CancellationToken ct);
 }
 
 /// <summary>
 /// Calendário contábil (CTG/CQD do Protheus). Fecha em ordem cronológica; reabrir um período fechado exige motivo,
 /// o papel ADMIN e que o mês seguinte não esteja fechado. Bloquear/desbloquear é trava temporária, sem exigências.
 /// </summary>
-public class AccountingPeriodsService(IUnitOfWork db, IUserPermissions permissions) : IAccountingPeriodsService
+public class AccountingPeriodsService(
+    IUnitOfWork db,
+    IUserPermissions permissions,
+    IResultClosingService? resultClosing = null,
+    IAccountingSettingsService? settings = null,
+    IEnumerable<Offline.IOfflinePostingSource>? offlineSources = null) : IAccountingPeriodsService
 {
     public IQueryable<AccountingPeriod> QueryAll() => db.Context.AccountingPeriods.AsNoTracking();
 
@@ -58,6 +66,7 @@ public class AccountingPeriodsService(IUnitOfWork db, IUserPermissions permissio
 
             case AccountingPeriodStatus.Closed:
                 await EnsurePreviousClosedAsync(period);
+                await EnsureResultClosedAsync(period);
                 period.ClosedAt = now;
                 period.ClosedBy = user;
                 break;
@@ -76,6 +85,35 @@ public class AccountingPeriodsService(IUnitOfWork db, IUserPermissions permissio
         period.Status = status;
         await db.SaveChangesAsync();
         return period;
+    }
+
+    /// <summary>
+    /// Apuração mensal: todo mês fecha com o resultado apurado. Anual: só dezembro exige (spec §6).
+    /// </summary>
+    private async Task EnsureResultClosedAsync(AccountingPeriod period)
+    {
+        if (resultClosing is null || settings is null) return;
+        var frequency = (await settings.GetAsync()).ClosingFrequency;
+        if (frequency == AccountingClosingFrequency.Yearly && period.Month != 12) return;
+
+        var pending = await resultClosing.UnclosedAsync(period.EndDate, null, CancellationToken.None);
+        if (pending.Count > 0)
+            throw new DefaultException(
+                $"Há resultado não apurado em {period.Month:00}/{period.Year} (filial {pending[0].BranchCode}). Faça a apuração antes de fechar.");
+    }
+
+    public async Task<List<string>> CloseWarningsAsync(int id, CancellationToken ct)
+    {
+        var period = await db.Context.AccountingPeriods.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct)
+                     ?? throw new DefaultException("Período contábil não encontrado.");
+        var count = 0;
+        foreach (var source in offlineSources ?? [])
+            await foreach (var e in source.CollectAsync(period.StartDate, period.EndDate, null, ct))
+                if (e.Codes.Count > 0) count++;
+
+        return count == 0
+            ? []
+            : [$"A contabilização off-line encontraria {count} documento(s) não contabilizado(s) em {period.Month:00}/{period.Year}."];
     }
 
     private async Task EnsurePreviousClosedAsync(AccountingPeriod period)

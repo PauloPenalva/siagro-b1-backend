@@ -53,5 +53,6 @@ public class AccountingCoreEdmTests
         Assert.Contains("AccountingResultClosingRun", names);
         Assert.Contains("AccountingResultClosingReverse", names);
         Assert.Contains("AccountingResultClosingPreview", names);
+        Assert.Contains("AccountingPeriodsCloseWarnings", names);
     }
 }
