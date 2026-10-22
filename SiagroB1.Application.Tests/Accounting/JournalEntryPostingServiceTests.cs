@@ -60,6 +60,15 @@ public class JournalEntryPostingServiceTests
     }
 
     [Fact]
+    public async Task Rejects_amount_with_more_than_two_decimals()
+    {
+        // 100,004 + 100,004 = 200,008 "fecha", mas o decimal(19,2) gravaria 100,00 + 100,00 x 200,01.
+        var db = await NewDbAsync();
+        Assert.Equal("Linha 1: o valor deve ter no máximo 2 casas decimais.",
+            await RejectAsync(db, Draft(Debit("1.1.01", 100.004m), Debit("1.1.01", 100.004m), Credit("3.1.01", 200.008m))));
+    }
+
+    [Fact]
     public async Task Rejects_empty_entry()
     {
         var db = await NewDbAsync();

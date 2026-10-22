@@ -72,12 +72,33 @@ public class AccountPostingReader(IUnitOfWork db)
             }
         }
 
-        return postings.Where(p => Matches(p, filter)).ToList();
+        var parents = await db.Context.LedgerAccounts.AsNoTracking()
+            .ToDictionaryAsync(a => a.Code, a => a.ParentCode);
+        return postings.Where(p => InRange(p.AccountCode, filter, parents) && Matches(p, filter)).ToList();
+    }
+
+    /// <summary>
+    /// A conta entra na faixa se ela ou alguma superior estiver entre "de" e "até": pedir uma sintética traz as
+    /// inferiores, mesmo que o código delas fique depois do "até" na ordem alfabética.
+    /// </summary>
+    private static bool InRange(string code, AccountPostingFilter f, IReadOnlyDictionary<string, string?> parents)
+    {
+        var from = f.AccountFrom?.Trim();
+        var to = f.AccountTo?.Trim();
+        if (string.IsNullOrEmpty(from) && string.IsNullOrEmpty(to)) return true;
+
+        var seen = new HashSet<string>();
+        for (var current = code; current is not null && seen.Add(current); current = parents.GetValueOrDefault(current))
+        {
+            if ((string.IsNullOrEmpty(from) || string.CompareOrdinal(current, from) >= 0) &&
+                (string.IsNullOrEmpty(to) || string.CompareOrdinal(current, to) <= 0))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool Matches(AccountPosting p, AccountPostingFilter f) =>
-        (string.IsNullOrWhiteSpace(f.AccountFrom) || string.CompareOrdinal(p.AccountCode, f.AccountFrom.Trim()) >= 0) &&
-        (string.IsNullOrWhiteSpace(f.AccountTo) || string.CompareOrdinal(p.AccountCode, f.AccountTo.Trim()) <= 0) &&
         (string.IsNullOrWhiteSpace(f.CostCenterCode) || p.CostCenterCode == f.CostCenterCode.Trim()) &&
         (string.IsNullOrWhiteSpace(f.AccountingItemCode) || p.AccountingItemCode == f.AccountingItemCode.Trim());
 

@@ -2205,7 +2205,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasKey("DocEntry");
 
-                    b.HasIndex("ReversalOfDocEntry");
+                    b.HasIndex("ReversalOfDocEntry")
+                        .IsUnique()
+                        .HasFilter("[ReversalOfDocEntry] IS NOT NULL");
 
                     b.HasIndex("ReversedByDocEntry");
 

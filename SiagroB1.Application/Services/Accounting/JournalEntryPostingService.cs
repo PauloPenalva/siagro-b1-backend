@@ -123,6 +123,9 @@ public class JournalEntryPostingService(IUnitOfWork db, AccountingPeriodGuard pe
         }
 
         if (line.Amount <= 0) throw new DefaultException($"Linha {n}: informe um valor maior que zero.");
+        // A coluna é decimal(19,2): casas a mais seriam arredondadas no banco e desbalanceariam o que aqui fechou.
+        if (line.Amount != Math.Round(line.Amount, 2))
+            throw new DefaultException($"Linha {n}: o valor deve ter no máximo 2 casas decimais.");
 
         if (hasDebit)
             await ValidateSideAsync(n, date, accounts, line.DebitAccountCode!.Trim(), Clean(line.DebitCostCenterCode), Clean(line.DebitAccountingItemCode));

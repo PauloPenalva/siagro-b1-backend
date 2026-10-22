@@ -25,10 +25,12 @@ public class AccountingSettingsController(IAccountingSettingsService service, IC
     public async Task<IActionResult> SaveAsync(ODataActionParameters? parameters)
     {
         if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
+        // Parâmetros nulos = corpo que o OData não conseguiu ler; gravar assim zeraria as configurações.
+        if (parameters is null) return BadRequest("Informe as configurações contábeis.");
 
         var settings = new AccountingSettings
         {
-            CutoverDate = DateTime.TryParse(Text(parameters, "CutoverDate"), out var cut) ? cut : null,
+            CutoverDate = CalendarDate(parameters.GetValueOrDefault("CutoverDate")),
             DefaultResultClosingAccountCode = Text(parameters, "DefaultResultClosingAccountCode"),
             ClosingFrequency = int.TryParse(Text(parameters, "ClosingFrequency"), out var f)
                 ? (AccountingClosingFrequency)f
@@ -38,6 +40,20 @@ public class AccountingSettingsController(IAccountingSettingsService service, IC
         try { return Ok(await service.SaveAsync(settings, User.Identity?.Name ?? "Unknown")); }
         catch (DefaultException e) { return BadRequest(e.Message); }
     }
+
+    /// <summary>
+    /// Dia do calendário como o usuário escolheu: de um DateTimeOffset pega a data no próprio offset (convertê-lo
+    /// para o fuso do servidor levaria 01/01 00:00Z para 31/12).
+    /// </summary>
+    private static DateTime? CalendarDate(object? value) => value switch
+    {
+        DateTimeOffset dto => dto.Date,
+        DateTime dt => dt.Date,
+        Microsoft.OData.Edm.Date d => new DateTime(d.Year, d.Month, d.Day),
+        string s when DateTimeOffset.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var parsed) => parsed.Date,
+        _ => null,
+    };
 
     private static string? Text(ODataActionParameters? parameters, string name) =>
         parameters is not null && parameters.TryGetValue(name, out var value) ? value?.ToString()?.Trim() : null;

@@ -183,7 +183,9 @@ namespace SiagroB1.Migrations.AppContext
             migrationBuilder.CreateIndex(
                 name: "IX_JOURNAL_ENTRIES_ReversalOfDocEntry",
                 table: "JOURNAL_ENTRIES",
-                column: "ReversalOfDocEntry");
+                column: "ReversalOfDocEntry",
+                unique: true,
+                filter: "[ReversalOfDocEntry] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_JOURNAL_ENTRIES_ReversedByDocEntry",

@@ -115,6 +115,20 @@ public class AccountingReportsTests
     }
 
     [Fact]
+    public async Task Synthetic_account_range_includes_its_descendants()
+    {
+        var db = await SeedAsync();
+        var ledger = await new LedgerReportService(db, new RecordingFastReportService()).RowsAsync(Ledger("1", "1"));
+        Assert.Equal(["1.1.01", "1.1.02"], ledger.Select(r => r.AccountCode).Distinct());
+
+        var request = Trial();
+        request.AccountFrom = "1.1";
+        request.AccountTo = "1.1";
+        var trial = await new TrialBalanceReportService(db, new RecordingFastReportService()).RowsAsync(request);
+        Assert.Equal(["1", "1.1", "1.1.01", "1.1.02"], trial.Select(r => r.AccountCode));
+    }
+
+    [Fact]
     public async Task Ledger_skips_accounts_without_balance_or_movement()
     {
         var rows = await new LedgerReportService(await SeedAsync(), new RecordingFastReportService()).RowsAsync(Ledger());

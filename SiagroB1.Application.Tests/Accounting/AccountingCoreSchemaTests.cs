@@ -26,6 +26,11 @@ public class AccountingCoreSchemaTests
         Assert.True(source.IsUnique);
         Assert.Equal("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL", source.GetFilter());
 
+        // Um lançamento só pode ter um estorno, mesmo com dois estornos simultâneos.
+        var reversal = entry.GetIndexes().Single(i => i.Properties.Select(p => p.Name).SequenceEqual([nameof(JournalEntry.ReversalOfDocEntry)]));
+        Assert.True(reversal.IsUnique);
+        Assert.Equal("[ReversalOfDocEntry] IS NOT NULL", reversal.GetFilter());
+
         var period = model.FindEntityType(typeof(AccountingPeriod))!;
         Assert.Contains(period.GetIndexes(), i => i.IsUnique &&
             i.Properties.Select(p => p.Name).SequenceEqual([nameof(AccountingPeriod.Year), nameof(AccountingPeriod.Month)]));

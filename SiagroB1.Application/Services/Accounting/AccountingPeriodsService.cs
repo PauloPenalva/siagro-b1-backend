@@ -52,6 +52,10 @@ public class AccountingPeriodsService(IUnitOfWork db, IUserPermissions permissio
         var now = DateTime.Now;
         switch (status)
         {
+            // Só se bloqueia um mês aberto: Fechado → Bloqueado → Aberto driblaria motivo e papel ADMIN da reabertura.
+            case AccountingPeriodStatus.Blocked when period.Status != AccountingPeriodStatus.Open:
+                throw new DefaultException("Só é possível bloquear um período aberto.");
+
             case AccountingPeriodStatus.Closed:
                 await EnsurePreviousClosedAsync(period);
                 period.ClosedAt = now;

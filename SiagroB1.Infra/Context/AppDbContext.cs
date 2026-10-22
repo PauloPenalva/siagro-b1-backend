@@ -198,6 +198,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .IsUnique()
             .HasFilter("[SourceDocumentKey] IS NOT NULL AND [ReversalOfDocEntry] IS NULL AND [ReversedByDocEntry] IS NULL");
         modelBuilder.Entity<JournalEntry>()
+            .HasIndex(x => x.ReversalOfDocEntry)
+            .IsUnique()
+            .HasFilter("[ReversalOfDocEntry] IS NOT NULL");
+        modelBuilder.Entity<JournalEntry>()
             .HasOne(x => x.ReversalOf).WithMany()
             .HasForeignKey(x => x.ReversalOfDocEntry)
             .OnDelete(DeleteBehavior.NoAction);

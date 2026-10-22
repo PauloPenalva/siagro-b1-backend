@@ -91,6 +91,17 @@ public class AccountingPeriodsServiceTests
     }
 
     [Fact]
+    public async Task Closed_period_cannot_be_blocked_to_bypass_reopen_rules()
+    {
+        var (db, p) = await YearAsync();
+        var jan = p.Single(x => x.Month == 1).Id;
+        await Service(db).SetStatusAsync(jan, AccountingPeriodStatus.Closed, "admin", null);
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(db, admin: false).SetStatusAsync(jan, AccountingPeriodStatus.Blocked, "joao", null));
+        Assert.Equal("Só é possível bloquear um período aberto.", ex.Message);
+    }
+
+    [Fact]
     public async Task Unblock_needs_no_reason_and_no_admin()
     {
         var (db, p) = await YearAsync();

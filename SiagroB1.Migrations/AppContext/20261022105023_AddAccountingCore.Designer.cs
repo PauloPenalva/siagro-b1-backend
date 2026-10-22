@@ -12,7 +12,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261022045647_AddAccountingCore")]
+    [Migration("20261022105023_AddAccountingCore")]
     partial class AddAccountingCore
     {
         /// <inheritdoc />
@@ -2208,7 +2208,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasKey("DocEntry");
 
-                    b.HasIndex("ReversalOfDocEntry");
+                    b.HasIndex("ReversalOfDocEntry")
+                        .IsUnique()
+                        .HasFilter("[ReversalOfDocEntry] IS NOT NULL");
 
                     b.HasIndex("ReversedByDocEntry");
 
