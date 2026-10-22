@@ -220,4 +220,54 @@ public class AccountingStatementsTests
             }));
         Assert.Equal("Visão gerencial XX não encontrada.", e.Message);
     }
+
+    // ---------- Balanço ----------
+
+    private static BalanceSheetReportRequest At(DateTime date, DateTime? compare = null) =>
+        new() { Date = date, CompareDate = compare, ViewCode = "BP" };
+
+    private static void AssertBalances(List<BalanceSheetRowDto> rows) =>
+        Assert.Equal(rows.Single(r => r.Code == "1").Balance, rows.Single(r => r.Code == "2").Balance);
+
+    [Fact] // [RF 3]
+    public async Task Balance_sheet_balances_before_and_after_result_closing()
+    {
+        var db = await SeedAsync();
+        var service = new BalanceSheetReportService(db, null!);
+
+        var before = await service.RowsAsync(At(new DateTime(2026, 10, 31)));
+        Assert.Equal(2200m, before.Single(r => r.Code == "1").Balance);
+        Assert.Equal(800m, before.Single(r => r.Code == BalanceSheetReportService.UnclosedResultCode).Balance);
+        AssertBalances(before);
+
+        db.Context.JournalEntries.Add(Entry(new DateTime(2026, 10, 31), JournalEntryOrigin.ResultClosing, "ResultClosing",
+            Dbl("3.1.01", "2.3.09", 1500m), Dbl("2.3.09", "3.2.01", 100m), Dbl("2.3.09", "4.1.01", 400m), Dbl("2.3.09", "4.2.01", 200m)));
+        await db.SaveChangesAsync();
+
+        var after = await service.RowsAsync(At(new DateTime(2026, 10, 31)));
+        Assert.DoesNotContain(after, r => r.Code == BalanceSheetReportService.UnclosedResultCode);
+        Assert.Equal(1800m, after.Single(r => r.Code == "2.3").Balance);
+        AssertBalances(after);
+    }
+
+    [Fact]
+    public async Task Balance_sheet_compare_column()
+    {
+        var rows = await new BalanceSheetReportService(await SeedAsync(), null!)
+            .RowsAsync(At(new DateTime(2026, 10, 31), new DateTime(2026, 9, 30)));
+
+        var assets = rows.Single(r => r.Code == "1");
+        Assert.Equal(2200m, assets.Balance);
+        Assert.Equal(1500m, assets.CompareBalance); // capital 1.000 + venda de janeiro 500
+    }
+
+    [Fact]
+    public async Task Unclosed_result_line_sits_under_second_total()
+    {
+        var rows = await new BalanceSheetReportService(await SeedAsync(), null!).RowsAsync(At(new DateTime(2026, 10, 31)));
+
+        var codes = rows.Select(r => r.Code).ToList();
+        Assert.Equal(codes.IndexOf("2.3") + 1, codes.IndexOf(BalanceSheetReportService.UnclosedResultCode));
+        Assert.Equal(2, rows.Single(r => r.Code == BalanceSheetReportService.UnclosedResultCode).Level);
+    }
 }

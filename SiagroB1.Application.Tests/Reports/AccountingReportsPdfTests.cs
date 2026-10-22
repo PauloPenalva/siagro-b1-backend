@@ -88,6 +88,17 @@ public class AccountingReportsPdfTests : IDisposable
         Keep("income-statement", pdf);
     }
 
+    [Fact]
+    public async Task BalanceSheet_renders_pdf()
+    {
+        var pdf = await new BalanceSheetReportService(await AccountingStatementsTests.SeedAsync(), FastReport())
+            .ExecuteAsync(new BalanceSheetReportRequest
+            {
+                Date = new DateTime(2026, 10, 31), CompareDate = new DateTime(2026, 9, 30), ViewCode = "BP",
+            });
+        Keep("balance-sheet", pdf);
+    }
+
     private FastReportService FastReport()
     {
         var env = new TestWebHostEnvironment(_contentRoot);
