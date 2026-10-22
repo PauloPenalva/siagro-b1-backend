@@ -31,10 +31,14 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
         try
         {
             // Nomes dos campos como a AT&M espera (os mesmos do EfisCloud).
-            using var response = await http.PostAsJsonAsync(
-                $"{baseUrl.TrimEnd('/')}/rest/Auth",
-                new Dictionary<string, string> { ["usuario"] = user, ["senha"] = password, ["codigoatm"] = code },
-                ct);
+            // Sem Accept a AT&M recusa: "Header Accept nao informado".
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/rest/Auth")
+            {
+                Content = JsonContent.Create(new Dictionary<string, string> { ["usuario"] = user, ["senha"] = password, ["codigoatm"] = code }),
+            };
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+            using var response = await http.SendAsync(request, ct);
 
             // A AT&M recusa credencial inválida com HTTP 400 e o motivo no corpo: lê o corpo antes do status.
             var body = await ReadBodyAsync(response, ct);

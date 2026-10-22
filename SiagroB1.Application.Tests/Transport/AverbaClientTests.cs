@@ -34,6 +34,17 @@ public class AverbaClientTests
     }
 
     [Fact]
+    public async Task Login_sends_accept_json_header()
+    {
+        // Sem Accept a AT&M recusa com "Header Accept nao informado" (visto no teste real).
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "{\"Bearer\":\"t\"}");
+
+        await Client(handler).LoginAsync(NfeEnvironment.Production, "x", "y", "z", CancellationToken.None);
+
+        Assert.Contains(handler.LastRequest!.Headers.Accept, h => h.MediaType == "application/json");
+    }
+
+    [Fact]
     public async Task Login_error_reads_description()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK,
