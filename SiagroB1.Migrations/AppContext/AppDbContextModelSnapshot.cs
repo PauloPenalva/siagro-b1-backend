@@ -2765,6 +2765,112 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("NOTIFICATION_OUTBOX_MESSAGES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.OfflinePostingRun", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime>("DateFrom")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime>("DateTo")
+                        .HasColumnType("DATE");
+
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FailureMessage")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Modules")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("PostedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<bool>("Simulation")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SkippedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("OFFLINE_POSTING_RUNS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.OfflinePostingRunItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("Codes")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("DocumentKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<DateTime>("EventDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("JournalEntryDocEntries")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<int>("Result")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RunKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunKey");
+
+                    b.ToTable("OFFLINE_POSTING_RUN_ITEMS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
                 {
                     b.Property<Guid>("Key")
@@ -8857,6 +8963,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("NotificationGroup");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.OfflinePostingRunItem", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.OfflinePostingRun", null)
+                        .WithMany("Items")
+                        .HasForeignKey("RunKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.OwnershipTransfer", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
@@ -10368,6 +10483,11 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationOutboxMessage", b =>
                 {
                     b.Navigation("Deliveries");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.OfflinePostingRun", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.ProcessingCost", b =>

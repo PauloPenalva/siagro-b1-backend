@@ -128,6 +128,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.PurchaseInvoiceOfflineSource>();
         services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.SalesInvoiceOfflineSource>();
         services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingSource, Application.Services.Accounting.Offline.FinancialOfflineSource>();
+        services.AddScoped<Application.Services.Accounting.Offline.IOfflinePostingService, Application.Services.Accounting.Offline.OfflinePostingService>();
+        services.AddScoped<Application.Jobs.OfflinePostingJob>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();

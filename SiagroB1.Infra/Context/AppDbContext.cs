@@ -66,6 +66,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<JournalEntryLine> JournalEntryLines { get; set; }
     public DbSet<StandardPosting> StandardPostings { get; set; }
     public DbSet<StandardPostingLine> StandardPostingLines { get; set; }
+    public DbSet<OfflinePostingRun> OfflinePostingRuns { get; set; }
+    public DbSet<OfflinePostingRunItem> OfflinePostingRunItems { get; set; }
     public DbSet<NfeEmailMessage> NfeEmailMessages { get; set; }
     public DbSet<SalesContract> SalesContracts { get; set; }
     public DbSet<SalesContractPriceFixation> SalesContractsPriceFixations { get; set; }
@@ -217,6 +219,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<FinancialAccountTransfer>().HasQueryFilter(x => x.CanceledAt == null);
 
         // Lançamento padrão: sequência única por código; as sequências caem junto com o cabeçalho.
+        modelBuilder.Entity<OfflinePostingRunItem>()
+            .HasOne<OfflinePostingRun>().WithMany(x => x.Items).HasForeignKey(x => x.RunKey).OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<StandardPostingLine>()
             .HasIndex(x => new { x.Code, x.Sequence })
             .IsUnique();
