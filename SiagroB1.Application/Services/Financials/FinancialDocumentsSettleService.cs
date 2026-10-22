@@ -15,7 +15,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// UnitOfWork comitaria a transação DO CHAMADOR — ele comita e zera _transaction
 /// incondicionalmente.
 /// </summary>
-public class FinancialDocumentsSettleService(IUnitOfWork db)
+public class FinancialDocumentsSettleService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     public async Task<FinancialSettlement> ExecuteAsync(
         Guid documentKey,
@@ -64,6 +64,7 @@ public class FinancialDocumentsSettleService(IUnitOfWork db)
             if (commitMode == CommitMode.Auto) await db.BeginTransactionAsync();
 
             db.Context.FinancialSettlements.Add(settlement);
+            await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
             await db.Context.SaveChangesAsync();
 
             await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, documentKey);

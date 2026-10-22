@@ -187,6 +187,7 @@ public class FinancialAdvancesRelinkContractService(
         db.Context.FinancialSettlements.AddRange(
             Transfer(original, split, credit, now, userName),
             Transfer(split, original, credit, now, userName));
+        await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
 
         changeLog.Register(original.Key, FinancialDocumentChangeLogFields.AdvanceTransfer, null,
             FinancialDocumentsComposeService.Describe(split.Code, credit), userName);

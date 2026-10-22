@@ -13,7 +13,7 @@ namespace SiagroB1.Application.Services.Financials;
 /// <c>RelatedDocumentKey</c> apontando a outra ponta. Estornar uma das duas estorna o par
 /// (FinancialDocumentsReverseSettlementService).
 /// </summary>
-public class FinancialDocumentsNettingService(IUnitOfWork db)
+public class FinancialDocumentsNettingService(IUnitOfWork db, SiagroB1.Application.Services.Accounting.Postings.IAccountingPostingService? accounting = null)
 {
     /// <summary>
     /// Regras 18–19, ENQUEUE-ONLY (a devolução acabou de nascer no mesmo SaveChanges): compensa os firmes nascidos de
@@ -154,6 +154,7 @@ public class FinancialDocumentsNettingService(IUnitOfWork db)
         db.Context.FinancialSettlements.AddRange(
             Line(refund, firm, amount, now, userName),
             Line(firm, refund, amount, now, userName));
+        await SiagroB1.Application.Services.Accounting.Postings.SettlementPosting.EnqueuePendingAsync(accounting, db.Context, userName);
 
         await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, refund.Key);
         await FinancialDocumentsRecalculateBalanceService.RecalculateAsync(db.Context, firm.Key);

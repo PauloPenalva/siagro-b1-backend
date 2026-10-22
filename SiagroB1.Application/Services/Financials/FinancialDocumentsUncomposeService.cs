@@ -65,7 +65,7 @@ public class FinancialDocumentsUncomposeService(IUnitOfWork db)
                        ?? throw new NotFoundException("Documento financeiro não encontrado.");
 
         var now = DateTime.Now;
-        context.FinancialSettlements.Add(new FinancialSettlement
+        context.FinancialSettlements.Add(new FinancialSettlement // [settlement-posting: not applicable] composição não é pagamento
         {
             Key = Guid.NewGuid(),
             FinancialDocumentKey = offset.FinancialDocumentKey,
