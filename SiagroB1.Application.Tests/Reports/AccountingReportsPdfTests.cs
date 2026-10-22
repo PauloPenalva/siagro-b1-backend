@@ -99,6 +99,40 @@ public class AccountingReportsPdfTests : IDisposable
         Keep("balance-sheet", pdf);
     }
 
+    [Fact]
+    public async Task Journal_renders_pdf_with_terms()
+    {
+        var pdf = await new JournalReportService(await AccountingStatementsTests.SeedAsync(), FastReport())
+            .ExecuteAsync(new JournalReportRequest
+            {
+                DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31), StartPage = 37, BookNumber = 2,
+            });
+        Keep("journal", pdf);
+    }
+
+    [Fact]
+    public async Task Journal_start_page_offsets_numbering()
+    {
+        using var report = await new JournalReportService(await AccountingStatementsTests.SeedAsync(), FastReport())
+            .PrepareJournalAsync(new JournalReportRequest
+            {
+                DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31), StartPage = 37, BookNumber = 2,
+            });
+
+        var count = report.PreparedPages.Count;
+        Assert.True(count >= 3, $"esperava termo + diário + termo, veio {count}");
+        for (var i = 0; i < count; i++)
+        {
+            var sheet = report.PreparedPages.GetPage(i).AllObjects.OfType<global::FastReport.TextObject>()
+                .Single(t => t.Name.StartsWith("txtSheet", StringComparison.Ordinal)).Text;
+            Assert.Equal($"Folha {37 + i}", sheet);
+        }
+
+        var opening = report.PreparedPages.GetPage(0).AllObjects.OfType<global::FastReport.TextObject>()
+            .Single(t => t.Name == "txtOpeningBody").Text;
+        Assert.Contains($"Diário nº 2 {count} folhas, numeradas de 37 a {36 + count}", opening);
+    }
+
     private FastReportService FastReport()
     {
         var env = new TestWebHostEnvironment(_contentRoot);

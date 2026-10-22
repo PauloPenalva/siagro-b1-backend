@@ -270,4 +270,47 @@ public class AccountingStatementsTests
         Assert.Equal(codes.IndexOf("2.3") + 1, codes.IndexOf(BalanceSheetReportService.UnclosedResultCode));
         Assert.Equal(2, rows.Single(r => r.Code == BalanceSheetReportService.UnclosedResultCode).Level);
     }
+
+    // ---------- Diário ----------
+
+    private static JournalReportRequest OctoberJournal() =>
+        new() { DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31) };
+
+    [Fact]
+    public async Task Journal_orders_by_date_batch_document_line()
+    {
+        var rows = await new JournalReportService(await SeedAsync(), null!).RowsAsync(OctoberJournal());
+
+        Assert.Equal(rows.OrderBy(r => r.Date).ThenBy(r => r.Batch).ThenBy(r => r.DocumentNumber).ThenBy(r => r.LineNumber)
+            .Select(r => (r.Date, r.DocumentNumber)), rows.Select(r => (r.Date, r.DocumentNumber)));
+        Assert.All(rows, r => Assert.InRange(r.Date, new DateTime(2026, 10, 1), new DateTime(2026, 10, 31)));
+        Assert.Equal("Vendas", rows.First(r => r.Account == "3.1.01").AccountName);
+    }
+
+    [Fact]
+    public async Task Journal_double_line_becomes_two_rows()
+    {
+        var rows = await new JournalReportService(await SeedAsync(), null!).RowsAsync(OctoberJournal());
+
+        var first = rows.Where(r => r.Date == new DateTime(2026, 10, 5)).ToList();
+        Assert.Equal(2, first.Count);
+        Assert.Equal(1000m, first.Single(r => r.Account == "1.1.01").Debit);
+        Assert.Equal(1000m, first.Single(r => r.Account == "3.1.01").Credit);
+    }
+
+    [Fact]
+    public async Task Journal_totals_balance()
+    {
+        var rows = await new JournalReportService(await SeedAsync(), null!).RowsAsync(OctoberJournal());
+        Assert.Equal(1700m, rows.Sum(r => r.Debit));
+        Assert.Equal(rows.Sum(r => r.Debit), rows.Sum(r => r.Credit));
+    }
+
+    [Fact]
+    public void Journal_start_page_must_be_positive() =>
+        Assert.Equal("A folha inicial deve ser maior que zero.",
+            JournalReportService.Validate(new JournalReportRequest
+            {
+                DateFrom = new DateTime(2026, 10, 1), DateTo = new DateTime(2026, 10, 31), StartPage = 0,
+            }));
 }
