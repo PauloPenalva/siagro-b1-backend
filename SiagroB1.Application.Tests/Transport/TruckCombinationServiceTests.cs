@@ -96,6 +96,21 @@ public class TruckCombinationServiceTests
     }
 
     [Fact]
+    public async Task Inactivating_combination_with_inactive_vehicle_is_allowed()
+    {
+        await SeedAsync();
+        await Service().SaveAsync(Input("CAV1A11", "CAR1C33"), isNew: true);
+        var traction = await _db.Context.Trucks.SingleAsync(x => x.Code == "CAV1A11");
+        traction.Inactive = true;
+        await _db.SaveChangesAsync();
+        _db.Context.ChangeTracker.Clear();
+
+        await Service().SaveAsync(Input("CAV1A11", "CAR1C33") with { Inactive = true }, isNew: false);
+
+        Assert.True((await _db.Context.TruckCombinations.SingleAsync()).Inactive);
+    }
+
+    [Fact]
     public async Task Same_trailer_in_two_combinations_is_allowed()
     {
         await SeedAsync();

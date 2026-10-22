@@ -33,7 +33,10 @@ public class TruckCombinationService(IUnitOfWork db, IConfiguration configuratio
         var traction = await db.Context.Trucks.AsNoTracking().FirstOrDefaultAsync(x => x.Code == input.TractionTruckCode);
         if (traction is null || traction.Kind != TruckKind.Traction)
             throw new DefaultException("Escolha um veículo de tração para o conjunto.");
-        if (traction.Inactive)
+        // Conjunto sendo inativado aceita veículo inativo: é justamente assim que se aposenta o conjunto.
+        var checkActive = !input.Inactive;
+
+        if (checkActive && traction.Inactive)
             throw new DefaultException($"O veículo {traction.Code} está inativo.");
 
         var trailerCodes = input.TrailerCodes.Select(x => x.Trim().ToUpperInvariant()).ToList();
@@ -50,7 +53,7 @@ public class TruckCombinationService(IUnitOfWork db, IConfiguration configuratio
             var trailer = trailers.FirstOrDefault(x => x.Code == trailerCode);
             if (trailer is null || trailer.Kind != TruckKind.Trailer)
                 throw new DefaultException($"O veículo {trailerCode} não é reboque.");
-            if (trailer.Inactive)
+            if (checkActive && trailer.Inactive)
                 throw new DefaultException($"O veículo {trailerCode} está inativo.");
         }
 
