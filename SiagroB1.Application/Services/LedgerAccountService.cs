@@ -24,6 +24,10 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
                 Type = x.Type,
                 AllowsPosting = x.AllowsPosting,
                 Inactive = x.Inactive,
+                AcceptsCostCenter = x.AcceptsCostCenter,
+                RequiresCostCenter = x.RequiresCostCenter,
+                AcceptsAccountingItem = x.AcceptsAccountingItem,
+                RequiresAccountingItem = x.RequiresAccountingItem,
             })
             .AsNoTracking();
     }
@@ -49,6 +53,7 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
     public async Task<LedgerAccountModel> CreateAsync(LedgerAccountModel entity)
     {
         EnsureTypeInformed(entity);
+        EnsureFlagsConsistent(entity);
 
         if (await db.Context.LedgerAccounts.AnyAsync(x => x.Code == entity.Code))
         {
@@ -62,6 +67,10 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
             Type = entity.Type,
             AllowsPosting = entity.AllowsPosting,
             Inactive = entity.Inactive,
+            AcceptsCostCenter = entity.AcceptsCostCenter,
+            RequiresCostCenter = entity.RequiresCostCenter,
+            AcceptsAccountingItem = entity.AcceptsAccountingItem,
+            RequiresAccountingItem = entity.RequiresAccountingItem,
         };
 
         await db.Context.LedgerAccounts.AddAsync(ledgerAccount);
@@ -73,6 +82,7 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
     public async Task<LedgerAccountModel?> UpdateAsync(string code, LedgerAccountModel entity)
     {
         EnsureTypeInformed(entity);
+        EnsureFlagsConsistent(entity);
 
         var ledgerAccount = await db.Context.LedgerAccounts.FirstOrDefaultAsync(x => x.Code == code);
 
@@ -85,6 +95,10 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
         ledgerAccount.Type = entity.Type;
         ledgerAccount.AllowsPosting = entity.AllowsPosting;
         ledgerAccount.Inactive = entity.Inactive;
+        ledgerAccount.AcceptsCostCenter = entity.AcceptsCostCenter;
+        ledgerAccount.RequiresCostCenter = entity.RequiresCostCenter;
+        ledgerAccount.AcceptsAccountingItem = entity.AcceptsAccountingItem;
+        ledgerAccount.RequiresAccountingItem = entity.RequiresAccountingItem;
 
         try
         {
@@ -107,6 +121,10 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
             Type = ledgerAccount.Type,
             AllowsPosting = ledgerAccount.AllowsPosting,
             Inactive = ledgerAccount.Inactive,
+            AcceptsCostCenter = ledgerAccount.AcceptsCostCenter,
+            RequiresCostCenter = ledgerAccount.RequiresCostCenter,
+            AcceptsAccountingItem = ledgerAccount.AcceptsAccountingItem,
+            RequiresAccountingItem = ledgerAccount.RequiresAccountingItem,
         };
     }
 
@@ -139,6 +157,20 @@ public class LedgerAccountService(IUnitOfWork db, ILogger<LedgerAccountService> 
         if (entity.Type == null)
         {
             throw new DefaultException("Informe o tipo da conta contábil.");
+        }
+    }
+
+    /// <summary>Uma conta não pode exigir o que não aceita.</summary>
+    private static void EnsureFlagsConsistent(LedgerAccountModel entity)
+    {
+        if (entity.RequiresCostCenter && !entity.AcceptsCostCenter)
+        {
+            throw new DefaultException("A conta não pode exigir e não aceitar centro de custo.");
+        }
+
+        if (entity.RequiresAccountingItem && !entity.AcceptsAccountingItem)
+        {
+            throw new DefaultException("A conta não pode exigir e não aceitar item contábil.");
         }
     }
 

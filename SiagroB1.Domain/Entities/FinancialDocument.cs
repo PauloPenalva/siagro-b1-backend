@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SiagroB1.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Shared.Base;
@@ -23,7 +24,7 @@ namespace SiagroB1.Domain.Entities;
 [Index(nameof(CardCode))]
 [Index(nameof(PurchaseContractKey))]
 [Index(nameof(SalesContractKey))]
-public class FinancialDocument : DocumentEntity
+public class FinancialDocument : DocumentEntity, IAccountingAssignment
 {
     [Column(TypeName = "VARCHAR(50) NOT NULL")]
     public string? Code { get; set; }
@@ -223,4 +224,20 @@ public class FinancialDocument : DocumentEntity
     public decimal AvailableAdvanceAmount => Nature == FinancialDocumentNature.Advance
         ? Math.Max(0m, decimal.Round(SettledAmount - AppliedAmount, 2, MidpointRounding.ToEven))
         : 0m;
+
+    /// <summary>Centro de custo (CTT). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil (CTD). Sem FK: validado por serviço.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
+
+    /// <summary>Rateio pré-configurado (CTJ). Exclusivo com centro de custo/item contábil.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DistributionRuleCode { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

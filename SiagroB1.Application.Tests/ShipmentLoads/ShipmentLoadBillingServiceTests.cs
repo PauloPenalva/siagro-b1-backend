@@ -34,7 +34,7 @@ public class ShipmentLoadBillingServiceTests
             states: new Dictionary<string, string> { [CardCode] = "RS" });
 
     private ShipmentBillingCreateSalesInvoiceService Service(string complementErp = "SAPB1",
-        FinancialDocumentsSalesFirmSyncService? salesFirmSync = null)
+        FinancialDocumentsSalesFirmSyncService? salesFirmSync = null, string? accountingErp = null)
     {
         var usages = new UsageService(_db, NullLogger<UsageService>.Instance);
         var partners = Partners();
@@ -49,7 +49,9 @@ public class ShipmentLoadBillingServiceTests
                 new SalesInvoicesUsageGuardService(usages),
                 new SalesInvoicesCfopResolveService(_db, usages, partners),
                 TaxTestServices.InactiveApply(_db),
-                TaxTestServices.FiscalComplement(_db, complementErp), NullLogger<SalesInvoicesCreateService>.Instance),
+                TaxTestServices.FiscalComplement(_db, complementErp), NullLogger<SalesInvoicesCreateService>.Instance,
+                accountingErp is null ? null : new Services.Accounting.AccountingAssignmentValidator(_db, Accounting.AccountingTestData.Config(accountingErp)),
+                accountingErp is null ? null : new Services.Accounting.AccountingAssignmentDefaultsResolver(_db, Accounting.AccountingTestData.Config(accountingErp))),
             new ShipmentBillingTransactionGuardService(_db.Context),
             new SalesShipmentReleaseMovementGuardService(_db.Context),
             new SalesShipmentReleasesRecalculateShippedService(_db.Context),
@@ -137,6 +139,30 @@ public class ShipmentLoadBillingServiceTests
         });
 
         return invoice;
+    }
+
+    private async Task SeedProductLedgerAsync(string? ledger)
+    {
+        _db.Context.LedgerAccounts.Add(new LedgerAccount { Code = "3.1.01", Name = "Receita de vendas", AllowsPosting = true });
+        _db.Context.Items.Add(new Item { ItemCode = "SOJA", ItemName = "SOJA EM GRAOS", LedgerAccountCode = ledger });
+        await _db.SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData("STANDALONE", "3.1.01", "3.1.01")]
+    [InlineData("STANDALONE", null, null)]
+    [InlineData("SAPB1", "3.1.01", null)]
+    public async Task Billing_the_load_brings_the_product_ledger_account_to_the_line(
+        string erp, string? productLedger, string? expected)
+    {
+        var (load, contract, release, _) = await SeedAsync();
+        await SeedProductLedgerAsync(productLedger);
+        var invoice = InvoiceFor(load, contract, release, 40_000m);
+
+        await Service(accountingErp: erp).ExecuteAsync(invoice, "tester");
+
+        var line = await _db.Context.SalesInvoicesItems.AsNoTracking().SingleAsync();
+        Assert.Equal(expected, line.LedgerAccountCode);
     }
 
     [Fact]

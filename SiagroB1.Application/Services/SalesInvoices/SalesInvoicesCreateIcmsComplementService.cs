@@ -33,7 +33,8 @@ public class SalesInvoicesCreateIcmsComplementService(
     DocNumberSequenceService numberSequenceService,
     ILogger<SalesInvoicesCreateIcmsComplementService> logger,
     Func<DateTimeOffset>? clock = null,
-    TimeZoneInfo? storageZone = null)
+    TimeZoneInfo? storageZone = null,
+    Accounting.AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     public const string OriginNotComplementable =
         "Só uma venda normal, confirmada, com NF-e autorizada pode ser complementada.";
@@ -71,6 +72,14 @@ public class SalesInvoicesCreateIcmsComplementService(
 
         var typed = ResolveTyped(origin, originItemKeys, icmsBases, icmsValues);
         var complement = Build(origin, typed, userName);
+
+        // Amarração contábil padrão (produto → parceiro) nas linhas geradas pelo sistema; sem o validador nem a trava de
+        // obrigatoriedade: fluxo do sistema não pode ser bloqueado. No-op fora do STANDALONE.
+        if (dimensionDefaults is not null)
+        {
+            foreach (var item in complement.Items)
+                await dimensionDefaults.ApplyAsync(item, complement, complement.CardCode, complement.InvoiceDate, item.ItemCode);
+        }
 
         // Tributos (Task 2 / S5): o motor roda com valor 0 e o aplicador repõe a base e o ICMS informados, com CST e CFOP
         // da linha original. Fora do try: a DefaultException tem de chegar à tela como 400.

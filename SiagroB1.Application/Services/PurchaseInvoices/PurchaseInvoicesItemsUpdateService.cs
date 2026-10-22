@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageCustody;
 using SiagroB1.Application.Services.StorageDeposits;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +21,9 @@ namespace SiagroB1.Application.Services.PurchaseInvoices;
 public class PurchaseInvoicesItemsUpdateService(
     IUnitOfWork db,
     IItemService itemService,
-    PurchaseInvoicesTaxApplyService taxApply)
+    PurchaseInvoicesTaxApplyService taxApply,
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     public async Task ExecuteAsync(Guid key, PurchaseInvoiceItem entity, string userName)
     {
@@ -60,6 +63,9 @@ public class PurchaseInvoicesItemsUpdateService(
                 db, entity.PurchaseContractKey, entity.ItemCode, cardCode);
         }
 
+        // O "antes" das dimensões, do rastreador (vale para a entidade solta e para a já rastreada).
+        var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(existing).OriginalValues[n]);
+
         existing.ItemCode = entity.ItemCode;
         var parent = await db.Context.PurchaseInvoices.AsNoTracking().FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
         existing.ItemName = await PurchaseInvoiceLineGuard.ResolveItemNameAsync(
@@ -87,6 +93,11 @@ public class PurchaseInvoicesItemsUpdateService(
 
         // Tributos pela natureza (no-op com a regra inativa, documento de terceiro ou confirmado).
         var invoice = await db.Context.PurchaseInvoices.FirstAsync(x => x.Key == existing.PurchaseInvoiceKey);
+
+        // Dimensões gerenciais: copiadas do corpo, completadas pelos padrões e validadas só no que mudou.
+        AccountingAssignmentSnapshot.Copy(entity, existing);
+        await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existing, invoice,
+            invoice.CardCode, previousDims, documentDate: invoice.PostingDate ?? invoice.IssueDate, itemCode: existing.ItemCode);
 
         // Retorno de depósito: a linha editada substitui a versão gravada na conta (spec 2026-10-10 §3.3).
         var others = await db.Context.PurchaseInvoicesItems.AsNoTracking()

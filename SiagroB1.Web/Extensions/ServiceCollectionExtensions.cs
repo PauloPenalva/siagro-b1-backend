@@ -112,6 +112,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IItemComplementService, ItemComplementService>();
         services.AddScoped<IWarehouseComplementService, WarehouseComplementService>();
         services.AddScoped<IBranchService, BranchService>();
+        // Dimensões gerenciais: as tabelas locais existem nos dois modos (no SAPB1 ficam sem uso);
+        // o que depende delas é registrado aqui para resolver em qualquer modo.
+        services.AddScoped<IAccountingItemService, Application.Services.Accounting.AccountingItemService>();
+        services.AddScoped<IDistributionRuleService, Application.Services.Accounting.DistributionRuleService>();
+        services.AddScoped<Application.Services.Accounting.DistributionRuleExpander>();
+        services.AddScoped<Application.Services.Accounting.AccountingAssignmentValidator>();
+        services.AddScoped<Application.Services.Accounting.AccountingAssignmentDefaultsResolver>();
+        services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();

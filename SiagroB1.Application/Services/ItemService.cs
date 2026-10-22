@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -12,12 +13,13 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services;
 
 public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfiguration configuration,
-    DocNumberSequenceService docNumbers) 
+    DocNumberSequenceService docNumbers, AccountingAssignmentValidator? dimensionValidator = null) 
     : IItemService
 {
     public async Task<ItemModel> CreateAsync(ItemModel entity)
     {
         ValidateFiscalFields(entity);
+        await ValidateAccountingDefaultsAsync(entity, null);
 
         var typed = entity.ItemCode?.Trim();
 
@@ -48,6 +50,9 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             GoodsOrigin = entity.GoodsOrigin,
             Ncm = NormalizeNcm(entity.Ncm),
             Cest = NormalizeCest(entity.Cest),
+            LedgerAccountCode = entity.LedgerAccountCode,
+            CostCenterCode = entity.CostCenterCode,
+            AccountingItemCode = entity.AccountingItemCode,
         };
             
         await db.Context.Items.AddAsync(item);
@@ -74,6 +79,9 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
                 GoodsOrigin = x.GoodsOrigin,
                 Ncm = x.Ncm,
                 Cest = x.Cest,
+                LedgerAccountCode = x.LedgerAccountCode,
+                CostCenterCode = x.CostCenterCode,
+                AccountingItemCode = x.AccountingItemCode,
             })
             .AsNoTracking()
             .Where(x => x.Enabled != null &&
@@ -130,6 +138,12 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             return null;
 
         ValidateFiscalFields(entity);
+        await ValidateAccountingDefaultsAsync(entity, new AccountingAssignmentSnapshot
+        {
+            LedgerAccountCode = item.LedgerAccountCode,
+            CostCenterCode = item.CostCenterCode,
+            AccountingItemCode = item.AccountingItemCode,
+        });
 
         item.ItemName = entity.ItemName;
         item.ItmsGrpCod = entity.ItmsGrpCod;
@@ -137,6 +151,12 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
         item.GoodsOrigin = entity.GoodsOrigin;
         item.Ncm = NormalizeNcm(entity.Ncm);
         item.Cest = NormalizeCest(entity.Cest);
+        if (ErpMode.IsStandalone(configuration))
+        {
+            item.LedgerAccountCode = entity.LedgerAccountCode;
+            item.CostCenterCode = entity.CostCenterCode;
+            item.AccountingItemCode = entity.AccountingItemCode;
+        }
         
         try
         {
@@ -164,7 +184,31 @@ public class ItemService(IUnitOfWork db, ILogger<ItemService> logger, IConfigura
             GoodsOrigin = item.GoodsOrigin,
             Ncm = item.Ncm,
             Cest = item.Cest,
+            LedgerAccountCode = item.LedgerAccountCode,
+            CostCenterCode = item.CostCenterCode,
+            AccountingItemCode = item.AccountingItemCode,
         };
+    }
+
+    /// <summary>
+    /// Conta contábil, centro de custo e item contábil padrão do produto. Só um código novo é validado: o gravado
+    /// que foi inativado depois continua aceito. Só STANDALONE (em SAPB1 o produto vem do OITM).
+    /// </summary>
+    private async Task ValidateAccountingDefaultsAsync(ItemModel model, AccountingAssignmentSnapshot? previous)
+    {
+        if (!ErpMode.IsStandalone(configuration) || dimensionValidator is null)
+            return;
+
+        var fields = new AccountingAssignmentSnapshot
+        {
+            LedgerAccountCode = model.LedgerAccountCode,
+            CostCenterCode = model.CostCenterCode,
+            AccountingItemCode = model.AccountingItemCode,
+        };
+        await dimensionValidator.NormalizeAndValidateAsync(fields, previous);
+        model.LedgerAccountCode = fields.LedgerAccountCode;
+        model.CostCenterCode = fields.CostCenterCode;
+        model.AccountingItemCode = fields.AccountingItemCode;
     }
     
     /// <summary>Opcionais no cadastro (a MH Agro não emite NF-e); quem exige é o documento.</summary>

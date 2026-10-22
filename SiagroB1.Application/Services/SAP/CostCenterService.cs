@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -23,6 +24,7 @@ public class CostCenterService(SapErpDbContext context, ILogger<CostCenterServic
                 Code = x.Code,
                 Name = x.Name,
                 Inactive = false,
+                Class = AccountingEntityClass.Analytic,
             })
             .AsNoTracking();
     }

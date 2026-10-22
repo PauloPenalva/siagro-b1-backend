@@ -1,6 +1,8 @@
+using SiagroB1.Domain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -66,7 +68,8 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
                     financialAccountCode: accountObj.ToString()!,
                     paymentDate: DateTime.Parse(paymentObj.ToString()!),
                     comments: commentsObj?.ToString(),
-                    userName: User.Identity?.Name ?? "Unknown");
+                    userName: User.Identity?.Name ?? "Unknown",
+                    dimensions: Dimensions(parameters));
 
                 return Ok(new { free.Key, free.Code });
             }
@@ -79,7 +82,8 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
                 financialAccountCode: accountObj.ToString()!,
                 paymentDate: DateTime.Parse(paymentObj.ToString()!),
                 comments: commentsObj?.ToString(),
-                userName: User.Identity?.Name ?? "Unknown");
+                userName: User.Identity?.Name ?? "Unknown",
+                dimensions: Dimensions(parameters));
 
             return Ok(new { advance.Key, advance.Code });
         }
@@ -88,5 +92,17 @@ public class FinancialAdvancesCreateController(FinancialAdvancesCreateService se
             if (e is KeyNotFoundException or NotFoundException) return NotFound(e.Message);
             return BadRequest(e.Message);
         }
+    }
+
+    private static AccountingAssignmentSnapshot Dimensions(ODataActionParameters p)
+    {
+        string? Text(string name) => p.TryGetValue(name, out var v) ? v?.ToString() : null;
+        return new AccountingAssignmentSnapshot
+        {
+            CostCenterCode = Text("CostCenterCode"),
+            AccountingItemCode = Text("AccountingItemCode"),
+            DistributionRuleCode = Text("DistributionRuleCode"),
+            LedgerAccountCode = Text("LedgerAccountCode"),
+        };
     }
 }

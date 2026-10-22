@@ -1,11 +1,16 @@
+using SiagroB1.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Financials;
 
 /// <summary>Lançamento manual na conta financeira (tarifa, depósito, rendimento, saldo inicial...).</summary>
-public class FinancialAccountEntriesCreateService(IUnitOfWork db)
+public class FinancialAccountEntriesCreateService(
+    IUnitOfWork db,
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentGuard? dimensionGuard = null)
 {
     public async Task<FinancialAccountEntry> ExecuteAsync(FinancialAccountEntry entry, string userName)
     {
@@ -24,6 +29,13 @@ public class FinancialAccountEntriesCreateService(IUnitOfWork db)
         if (string.IsNullOrWhiteSpace(entry.Description))
             throw new ApplicationException("Informe a descrição do lançamento.");
 
+        // Lançamento nasce pronto: só valida (sem parceiro nem natureza para herdar).
+        var dimensions = AccountingAssignmentSnapshot.From(entry);
+        if (dimensionValidator is not null)
+            await dimensionValidator.NormalizeAndValidateAsync(dimensions, null, entry.EntryDate.Date);
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync([dimensions], null, entry.EntryDate.Date);
+
         var created = new FinancialAccountEntry
         {
             FinancialAccountCode = code,
@@ -32,6 +44,10 @@ public class FinancialAccountEntriesCreateService(IUnitOfWork db)
             Description = entry.Description.Trim(),
             DocumentReference = string.IsNullOrWhiteSpace(entry.DocumentReference) ? null : entry.DocumentReference.Trim(),
             Notes = string.IsNullOrWhiteSpace(entry.Notes) ? null : entry.Notes.Trim(),
+            CostCenterCode = dimensions.CostCenterCode,
+            AccountingItemCode = dimensions.AccountingItemCode,
+            DistributionRuleCode = dimensions.DistributionRuleCode,
+            LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedBy = userName,
             UpdatedBy = userName
         };

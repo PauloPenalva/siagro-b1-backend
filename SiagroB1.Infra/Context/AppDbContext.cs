@@ -40,6 +40,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<StorageTransactionQualityInspection> StorageTransactionQualityInspections { get; set; }
     public DbSet<LogisticRegion> LogisticRegions { get; set; }
     public DbSet<CostCenter> CostCenters { get; set; }
+    public DbSet<AccountingItem> AccountingItems { get; set; }
+    public DbSet<DistributionRule> DistributionRules { get; set; }
+    public DbSet<DistributionRuleVersion> DistributionRuleVersions { get; set; }
+    public DbSet<DistributionRuleLine> DistributionRuleLines { get; set; }
     public DbSet<LedgerAccount> LedgerAccounts { get; set; }
     public DbSet<Usage> Usages { get; set; }
     public DbSet<UsageEffect> UsageEffects { get; set; }
@@ -163,6 +167,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
+
+        // Regra de distribuição: versão única por (regra, vigência); versões e linhas caem em cascata.
+        modelBuilder.Entity<DistributionRuleVersion>()
+            .HasIndex(x => new { x.RuleCode, x.ValidFrom })
+            .IsUnique();
+        modelBuilder.Entity<DistributionRuleVersion>()
+            .HasOne<DistributionRule>().WithMany(x => x.Versions)
+            .HasForeignKey(x => x.RuleCode)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<DistributionRuleLine>()
+            .HasOne<DistributionRuleVersion>().WithMany(x => x.Lines)
+            .HasForeignKey(x => x.VersionId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Um saldo inicial por filial + produto (Kardex Fiscal).
         modelBuilder.Entity<FiscalInventoryOpeningBalance>()

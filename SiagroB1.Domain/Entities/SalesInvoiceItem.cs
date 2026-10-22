@@ -6,7 +6,7 @@ using SiagroB1.Domain.Interfaces;
 namespace SiagroB1.Domain.Entities;
 
 [Table("SALES_INVOICES_ITEMS")]
-public class SalesInvoiceItem : INfeTaxedLine
+public class SalesInvoiceItem : INfeTaxedLine, IAccountingAssignment
 {
     [Key]
     public Guid? Key { get; set; }
@@ -286,9 +286,17 @@ public class SalesInvoiceItem : INfeTaxedLine
     /// </summary>
     public int? NfeItemNumber { get; set; }
 
-    /// <summary>Centro de custo da linha. Sem FK: o cadastro é dual-mode (OPRC/COST_CENTERS).</summary>
-    [Column(TypeName = "VARCHAR(10)")]
+    /// <summary>Centro de custo (CTT). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
     public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil (CTD). Sem FK: validado por serviço.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
+
+    /// <summary>Rateio pré-configurado (CTJ). Exclusivo com centro de custo/item contábil.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DistributionRuleCode { get; set; }
 
     /// <summary>Conta contábil da linha. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
     [Column(TypeName = "VARCHAR(20)")]

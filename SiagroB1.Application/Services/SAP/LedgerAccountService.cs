@@ -27,6 +27,10 @@ public class LedgerAccountService(SapErpDbContext context, ILogger<LedgerAccount
                 Type = null,
                 AllowsPosting = true,
                 Inactive = false,
+                AcceptsCostCenter = true,
+                RequiresCostCenter = false,
+                AcceptsAccountingItem = true,
+                RequiresAccountingItem = false,
             })
             .AsNoTracking();
     }

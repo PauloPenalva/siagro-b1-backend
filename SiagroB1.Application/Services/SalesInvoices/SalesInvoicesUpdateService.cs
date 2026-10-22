@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Application.Services.StorageInvoices;
 using SiagroB1.Application.Services.StorageCustody;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,9 @@ public class SalesInvoicesUpdateService(
     SalesInvoicesTaxApplyService taxApply,
     SalesInvoicesFiscalComplementApplier fiscalComplement,
     ILogger<SalesInvoicesUpdateService> logger,
-    FiscalStockPeriodGuard? periodGuard = null)
+    FiscalStockPeriodGuard? periodGuard = null,
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionDefaults = null)
 {
     private readonly FiscalStockPeriodGuard _periodGuard = periodGuard ?? new FiscalStockPeriodGuard(db);
     public async Task<SalesInvoice?> ExecuteAsync(Guid key, SalesInvoice entity, string userName)
@@ -58,8 +61,18 @@ public class SalesInvoicesUpdateService(
                 await _periodGuard.EnsureOpenIfDatedAsync(entity.BranchCode, entity.InvoiceDate);
             }
 
+            // O "antes" das dimensões, do rastreador (no PATCH a instância já chega mutada).
+            var previousDims = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(existingEntity).OriginalValues[n]);
+
             var entry = db.Context.Entry(existingEntity);
             entry.CurrentValues.SetValues(entity);
+
+            // Dimensões do cabeçalho: padrão do parceiro e validação do que mudou. As linhas existentes NÃO são reescritas.
+            // Fora de nota pendente só valida (nota confirmada não ganha dimensão por baixo).
+            await AccountingAssignmentWiring.ApplyAsync(dimensionDefaults, dimensionValidator, existingEntity, null,
+                existingEntity.CardCode, previousDims,
+                applyDefaults: existingEntity.InvoiceStatus is null or InvoiceStatus.Pending,
+                documentDate: existingEntity.InvoiceDate);
 
             SalesInvoiceNfeLock.EnsureHeaderEditable(entry, confirmedFrozen);
             SalesInvoiceNfeLock.RestoreIssuanceFields(entry);

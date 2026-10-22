@@ -49,7 +49,8 @@ public static class TaxTestServices
     /// <summary>Confirmação do documento de entrada com a SEFAZ simulada (consulta da NF-e do fornecedor).</summary>
     public static PurchaseInvoicesConfirmService PurchaseConfirm(
         UnitOfWork db, string? erp = "STANDALONE", IBusinessPartnerService? partners = null, FakeNfeSefazClient? sefaz = null,
-        FakeDocNumberSequenceService? firmNumbers = null)
+        FakeDocNumberSequenceService? firmNumbers = null,
+        Services.Accounting.AccountingAssignmentGuard? dimensionGuard = null)
     {
         sefaz ??= new FakeNfeSefazClient();
         firmNumbers ??= new FakeDocNumberSequenceService();
@@ -59,6 +60,7 @@ public static class TaxTestServices
             new SupplierNfeAuthorizationService(db, new BranchNfeSettingsService(db, new NfeOptions(config), sefaz), sefaz),
             FinancialDocumentTestServices.FirmSync(db, firmNumbers, erp ?? "STANDALONE"),
             FinancialDocumentTestServices.OtherPurchase(db, firmNumbers, erp ?? "STANDALONE", partners ?? new FakeBusinessPartnerService()),
-            PurchaseApply(db, partners ?? new FakeBusinessPartnerService(), erp ?? "STANDALONE"));
+            PurchaseApply(db, partners ?? new FakeBusinessPartnerService(), erp ?? "STANDALONE"),
+            dimensionGuard: dimensionGuard);
     }
 }

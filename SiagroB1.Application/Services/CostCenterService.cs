@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Models;
@@ -22,6 +24,10 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
                 Code = x.Code,
                 Name = x.Name,
                 Inactive = x.Inactive,
+                Class = x.Class,
+                ParentCode = x.ParentCode,
+                ValidFrom = x.ValidFrom,
+                ValidTo = x.ValidTo,
             })
             .AsNoTracking();
     }
@@ -46,20 +52,33 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
 
     public async Task<CostCenterModel> CreateAsync(CostCenterModel entity)
     {
-        if (await db.Context.CostCenters.AnyAsync(x => x.Code == entity.Code))
+        var code = AccountingEntityRules.NormalizeCode(entity.Code);
+        AccountingEntityRules.ValidateCode(code);
+        var parentCode = AccountingEntityRules.NormalizeOptionalCode(entity.ParentCode);
+
+        if (await db.Context.CostCenters.AnyAsync(x => x.Code.ToUpper() == code))
         {
-            throw new DefaultException($"Centro de custo {entity.Code} já cadastrado.");
+            throw new DefaultException($"Centro de custo {code} já cadastrado.");
         }
+
+        await ValidateAsync(code, entity.Class, parentCode, entity.ValidFrom, entity.ValidTo);
 
         var costCenter = new CostCenter()
         {
-            Code = entity.Code,
+            Code = code,
             Name = entity.Name,
             Inactive = entity.Inactive,
+            Class = entity.Class,
+            ParentCode = parentCode,
+            ValidFrom = entity.ValidFrom,
+            ValidTo = entity.ValidTo,
         };
 
         await db.Context.CostCenters.AddAsync(costCenter);
         await db.SaveChangesAsync();
+
+        entity.Code = code;
+        entity.ParentCode = parentCode;
 
         return entity;
     }
@@ -73,8 +92,15 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             return null;
         }
 
+        var parentCode = AccountingEntityRules.NormalizeOptionalCode(entity.ParentCode);
+        await ValidateAsync(costCenter.Code, entity.Class, parentCode, entity.ValidFrom, entity.ValidTo);
+
         costCenter.Name = entity.Name;
         costCenter.Inactive = entity.Inactive;
+        costCenter.Class = entity.Class;
+        costCenter.ParentCode = parentCode;
+        costCenter.ValidFrom = entity.ValidFrom;
+        costCenter.ValidTo = entity.ValidTo;
 
         try
         {
@@ -95,6 +121,10 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             Code = costCenter.Code,
             Name = costCenter.Name,
             Inactive = costCenter.Inactive,
+            Class = costCenter.Class,
+            ParentCode = costCenter.ParentCode,
+            ValidFrom = costCenter.ValidFrom,
+            ValidTo = costCenter.ValidTo,
         };
     }
 
@@ -107,10 +137,20 @@ public class CostCenterService(IUnitOfWork db, ILogger<CostCenterService> logger
             return false;
         }
 
+        await AccountingEntityRules.EnsureNoChildrenAsync(db.Context.CostCenters, costCenter.Code, x => x.ParentCode);
+
         db.Context.CostCenters.Remove(costCenter);
         await db.SaveChangesAsync();
 
         return true;
+    }
+
+    private async Task ValidateAsync(
+        string code, AccountingEntityClass cls, string? parentCode, DateTime? validFrom, DateTime? validTo)
+    {
+        AccountingEntityRules.ValidateValidity(validFrom, validTo);
+        await AccountingEntityRules.ValidateAsync(
+            db.Context.CostCenters, code, cls, parentCode, x => x.ParentCode, x => x.Class, x => x.Code);
     }
 
     public Task<bool> DeleteAsyncWithTransaction(string code, Func<CostCenterModel, Task>? preDeleteAction = null)

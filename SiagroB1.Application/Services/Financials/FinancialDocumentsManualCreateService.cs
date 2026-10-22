@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Interfaces;
@@ -14,7 +15,10 @@ namespace SiagroB1.Application.Services.Financials;
 public class FinancialDocumentsManualCreateService(
     IUnitOfWork db,
     DocNumberSequenceService docNumberSequence,
-    IBusinessPartnerService businessPartnerService)
+    IBusinessPartnerService businessPartnerService,
+    AccountingAssignmentValidator? dimensionValidator = null,
+    AccountingAssignmentDefaultsResolver? dimensionResolver = null,
+    AccountingAssignmentGuard? dimensionGuard = null)
 {
     public async Task<FinancialDocument> ExecuteAsync(FinancialDocument input, string userName)
     {
@@ -27,6 +31,14 @@ public class FinancialDocumentsManualCreateService(
         var cardCode = input.CardCode.Trim();
         var partner = await businessPartnerService.GetByIdAsync(cardCode)
                       ?? throw new ApplicationException($"Parceiro de negócio {cardCode} não encontrado.");
+
+        // Padrão do parceiro (dimensão de papel Parceiro) entra no que veio vazio; depois valida e normaliza.
+        // Antes do número: erro de dimensão não pode consumir numeração.
+        var dimensions = AccountingAssignmentSnapshot.From(input);
+        await AccountingAssignmentWiring.ApplyAsync(dimensionResolver, dimensionValidator, dimensions, null, cardCode, null,
+            documentDate: documentDate);
+        if (dimensionGuard is not null)
+            await dimensionGuard.EnsureAsync([dimensions], null, documentDate);
 
         // Número buscado ANTES da gravação: Dapper em conexão separada, segurando UPDLOCK.
         var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
@@ -53,6 +65,10 @@ public class FinancialDocumentsManualCreateService(
             TaxDocumentNumber = FinancialDocumentsManualRules.Clean(input.TaxDocumentNumber),
             PaymentTermsText = FinancialDocumentsManualRules.Clean(input.PaymentTermsText),
             Comments = FinancialDocumentsManualRules.Clean(input.Comments),
+            CostCenterCode = dimensions.CostCenterCode,
+            AccountingItemCode = dimensions.AccountingItemCode,
+            DistributionRuleCode = dimensions.DistributionRuleCode,
+            LedgerAccountCode = dimensions.LedgerAccountCode,
             CreatedAt = now,
             CreatedBy = userName,
             UpdatedAt = now,

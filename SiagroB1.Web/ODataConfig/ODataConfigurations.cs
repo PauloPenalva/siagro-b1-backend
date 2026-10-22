@@ -57,6 +57,17 @@ public static class ODataConfigurations
         // dual-mode (SAPB1 lê de OPRC/OACT, STANDALONE das tabelas locais):
         // registra o Model, nunca a entidade.
         modelBuilder.EntitySet<CostCenterModel>("CostCenters");
+        modelBuilder.EntitySet<AccountingItemModel>("AccountingItems");
+        modelBuilder.EntitySet<DistributionRule>("DistributionRules");
+        // Versões da regra: actions de topo (navegação dá 404 neste projeto); linhas em listas paralelas.
+        var distributionRulesSaveVersion = modelBuilder.Action("DistributionRulesSaveVersion");
+        distributionRulesSaveVersion.Parameter<string>("Code");
+        distributionRulesSaveVersion.Parameter<DateOnly>("ValidFrom");
+        distributionRulesSaveVersion.CollectionParameter<string>("LineCostCenterCodes");
+        distributionRulesSaveVersion.CollectionParameter<string>("LineAccountingItemCodes");
+        distributionRulesSaveVersion.CollectionParameter<double>("LinePercentages");
+        var distributionRulesDeleteVersion = modelBuilder.Action("DistributionRulesDeleteVersion");
+        distributionRulesDeleteVersion.Parameter<Guid>("VersionId");
         modelBuilder.EntitySet<LedgerAccountModel>("LedgerAccounts");
         modelBuilder.EntitySet<UsageModel>("Usages");
         modelBuilder.EntitySet<IbsCbsRate>("IbsCbsRates");
@@ -1760,6 +1771,10 @@ public static class ODataConfigurations
         accountEntryCreate.Parameter<string>("Description");
         accountEntryCreate.Parameter<string>("DocumentReference").Optional();
         accountEntryCreate.Parameter<string>("Notes").Optional();
+        accountEntryCreate.Parameter<string>("CostCenterCode").Optional();
+        accountEntryCreate.Parameter<string>("AccountingItemCode").Optional();
+        accountEntryCreate.Parameter<string>("DistributionRuleCode").Optional();
+        accountEntryCreate.Parameter<string>("LedgerAccountCode").Optional();
         accountEntryCreate.Returns<Guid>();
 
         var accountTransferCreate = modelBuilder.Action("FinancialAccountTransfersCreate");
@@ -1833,6 +1848,10 @@ public static class ODataConfigurations
         financialAdvance.Parameter<string>("FinancialAccountCode");
         financialAdvance.Parameter<string>("PaymentDate");
         financialAdvance.Parameter<string>("Comments").Optional();
+        financialAdvance.Parameter<string>("CostCenterCode").Optional();
+        financialAdvance.Parameter<string>("AccountingItemCode").Optional();
+        financialAdvance.Parameter<string>("DistributionRuleCode").Optional();
+        financialAdvance.Parameter<string>("LedgerAccountCode").Optional();
         financialAdvance.Returns<IActionResult>();
 
         // As três saídas de um adiantamento pago cujo contrato alguém quer cancelar: estornar a

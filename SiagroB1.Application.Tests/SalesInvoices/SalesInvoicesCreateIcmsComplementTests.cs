@@ -28,7 +28,7 @@ public class SalesInvoicesCreateIcmsComplementTests
     private const string V8 = "Complemento de ICMS só existe na filial que emite NF-e pelo Siagro.";
 
     private static SalesInvoicesCreateIcmsComplementService Service(
-        UnitOfWork db, string erp = "STANDALONE", FakeDocNumberSequenceService? numbers = null)
+        UnitOfWork db, string erp = "STANDALONE", FakeDocNumberSequenceService? numbers = null, bool accounting = false)
     {
         var partners = new FakeBusinessPartnerService(
             names: new() { [NfeTestSeed.CardCode] = "CLIENTE BA LTDA" },
@@ -36,7 +36,26 @@ public class SalesInvoicesCreateIcmsComplementTests
 
         return new SalesInvoicesCreateIcmsComplementService(
             db, TaxTestServices.Gate(db, erp), TaxTestServices.Apply(db, partners, erp), numbers ?? new FakeDocNumberSequenceService(),
-            NullLogger<SalesInvoicesCreateIcmsComplementService>.Instance, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone);
+            NullLogger<SalesInvoicesCreateIcmsComplementService>.Instance, NfeTestSeed.Clock, NfeIssueInputAssembler.BrasiliaZone,
+            accounting ? new Services.Accounting.AccountingAssignmentDefaultsResolver(db, Accounting.AccountingTestData.Config(erp)) : null);
+    }
+
+    [Theory]
+    [InlineData("3.1.01", "3.1.01")]
+    [InlineData(null, null)]
+    public async Task Complement_line_gets_the_product_ledger_account(string? productLedger, string? expected)
+    {
+        var (db, saleKey, _, milhoKey) = await SeedAsync();
+        db.Context.LedgerAccounts.Add(new LedgerAccount { Code = "3.1.01", Name = "Receita", AllowsPosting = true });
+        var milho = await db.Context.Items.SingleAsync(i => i.ItemCode == "MILHO");
+        milho.LedgerAccountCode = productLedger;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var created = await Service(db, accounting: true).ExecuteAsync(saleKey, [milhoKey], [500m], [35m], "tester");
+
+        var saved = await SavedAsync(db, created.Key);
+        Assert.Equal(expected, Assert.Single(saved.Items).LedgerAccountCode);
     }
 
     /// <summary>

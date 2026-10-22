@@ -17,7 +17,7 @@ namespace SiagroB1.Domain.Entities;
 /// value help e a coluna de divergência que as consomem.
 /// </summary>
 [Table("PURCHASE_INVOICES_ITEMS")]
-public class PurchaseInvoiceItem : INfeTaxedLine
+public class PurchaseInvoiceItem : INfeTaxedLine, IAccountingAssignment
 {
     [Key]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -312,4 +312,20 @@ public class PurchaseInvoiceItem : INfeTaxedLine
     [NotMapped]
     public decimal Difference =>
         decimal.Round(Quantity - AssessedShortage, 3, MidpointRounding.ToEven);
+
+    /// <summary>Centro de custo (CTT). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil (CTD). Sem FK: validado por serviço.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
+
+    /// <summary>Rateio pré-configurado (CTJ). Exclusivo com centro de custo/item contábil.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DistributionRuleCode { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

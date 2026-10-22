@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Accounting;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -25,6 +26,12 @@ public sealed class ManualFinancialDocumentChanges
     public string? PaymentTermsText { get; init; }
     public bool HasComments { get; init; }
     public string? Comments { get; init; }
+
+    // Amarração contábil: nulo = não mexer; vazio = limpar.
+    public string? CostCenterCode { get; init; }
+    public string? AccountingItemCode { get; init; }
+    public string? DistributionRuleCode { get; init; }
+    public string? LedgerAccountCode { get; init; }
 }
 
 /// <summary>
@@ -35,7 +42,8 @@ public sealed class ManualFinancialDocumentChanges
 public class FinancialDocumentsManualUpdateService(
     IUnitOfWork db,
     IBusinessPartnerService businessPartnerService,
-    FinancialDocumentChangeLogService changeLog)
+    FinancialDocumentChangeLogService changeLog,
+    AccountingAssignmentValidator? dimensionValidator = null)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -130,11 +138,47 @@ public class FinancialDocumentsManualUpdateService(
             document.Comments = Text(document, FinancialDocumentChangeLogFields.Comments,
                 document.Comments, changes.Comments, userName);
 
+        await ApplyDimensionsAsync(document, changes);
+
         document.UpdatedAt = DateTime.Now;
         document.UpdatedBy = userName;
 
         await db.Context.SaveChangesAsync();
         return document;
+    }
+
+    // Só os campos enviados mudam; o validador compara com o gravado, então centro inativado depois de usado
+    // continua aceito no título antigo e só um código novo é recusado.
+    private async Task ApplyDimensionsAsync(FinancialDocument document, ManualFinancialDocumentChanges changes)
+    {
+        var previous = AccountingAssignmentSnapshot.FromOriginal(n => db.Context.Entry(document).OriginalValues[n]);
+        var target = AccountingAssignmentSnapshot.From(document);
+
+        if (changes.CostCenterCode is not null) target.CostCenterCode = changes.CostCenterCode;
+        if (changes.AccountingItemCode is not null) target.AccountingItemCode = changes.AccountingItemCode;
+        if (changes.DistributionRuleCode is not null) target.DistributionRuleCode = changes.DistributionRuleCode;
+
+        // Troca de modo: quem informa só um lado limpa o outro (rateio x CC/Item nunca ficam juntos). Se os dois
+        // lados vierem preenchidos, o validador recusa.
+        var typedRule = !string.IsNullOrWhiteSpace(changes.DistributionRuleCode);
+        var typedCcItem = !string.IsNullOrWhiteSpace(changes.CostCenterCode)
+                          || !string.IsNullOrWhiteSpace(changes.AccountingItemCode);
+        if (typedRule && changes.CostCenterCode is null && changes.AccountingItemCode is null)
+        {
+            target.CostCenterCode = null;
+            target.AccountingItemCode = null;
+        }
+        else if (typedCcItem && changes.DistributionRuleCode is null)
+        {
+            target.DistributionRuleCode = null;
+        }
+
+        if (changes.LedgerAccountCode is not null) target.LedgerAccountCode = changes.LedgerAccountCode;
+
+        if (dimensionValidator is not null)
+            await dimensionValidator.NormalizeAndValidateAsync(target, previous, document.DocumentDate);
+
+        AccountingAssignmentSnapshot.Copy(target, document);
     }
 
     private string? Text(FinancialDocument document, string field, string? current, string? value, string userName)

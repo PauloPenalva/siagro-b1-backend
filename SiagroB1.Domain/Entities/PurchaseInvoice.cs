@@ -19,7 +19,7 @@ namespace SiagroB1.Domain.Entities;
 /// natureza de operação de cada linha.
 /// </summary>
 [Table("PURCHASE_INVOICES")]
-public class PurchaseInvoice : DocumentEntity, INfeDocument
+public class PurchaseInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
 {
     public PurchaseInvoiceType InvoiceType { get; set; } = PurchaseInvoiceType.Normal;
 
@@ -324,4 +324,20 @@ public class PurchaseInvoice : DocumentEntity, INfeDocument
         item.PurchaseInvoice = this;
         Items.Add(item);
     }
+
+    /// <summary>Centro de custo (CTT). Sem FK: o cadastro é dual-mode.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil (CTD). Sem FK: validado por serviço.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
+
+    /// <summary>Rateio pré-configurado (CTJ). Exclusivo com centro de custo/item contábil.</summary>
+    [Column(TypeName = "VARCHAR(10)")]
+    public string? DistributionRuleCode { get; set; }
+
+    /// <summary>Conta contábil. Sem FK: o cadastro é dual-mode (OACT/LEDGER_ACCOUNTS).</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
 }

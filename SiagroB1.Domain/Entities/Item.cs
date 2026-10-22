@@ -32,4 +32,16 @@ public class Item
     /// <summary>CEST, 7 dígitos (opcional). Vai no item da NF-e, com escala relevante.</summary>
     [Column(TypeName = "VARCHAR(7)")]
     public string? Cest { get; set; }
+
+    /// <summary>Conta contábil padrão das linhas de documento deste produto (como o B1_CONTA do Protheus). Só STANDALONE.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? LedgerAccountCode { get; set; }
+
+    /// <summary>Centro de custo padrão das linhas (B1_CC). Só STANDALONE.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? CostCenterCode { get; set; }
+
+    /// <summary>Item contábil padrão das linhas (B1_ITEMCC). Só STANDALONE.</summary>
+    [Column(TypeName = "VARCHAR(20)")]
+    public string? AccountingItemCode { get; set; }
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Domain.Models;
@@ -41,6 +41,11 @@ public class BusinessPartnerModel
     public string? RuralProducerCpf { get; set; }
 
     public bool RuralPayrollOption { get; set; }
+
+    /// <summary>Conta contábil e item contábil padrão. Só STANDALONE.</summary>
+    public string? DefaultLedgerAccountCode { get; set; }
+
+    public string? DefaultAccountingItemCode { get; set; }
     
     public ICollection<AddressModel> Addresses { get; set; } = new List<AddressModel>();
 }
