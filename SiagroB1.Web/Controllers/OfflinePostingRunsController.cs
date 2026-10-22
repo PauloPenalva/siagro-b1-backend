@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Formatter;
 using Microsoft.AspNetCore.OData.Query;
+using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using SiagroB1.Application.Services.Accounting.Offline;
 using SiagroB1.Domain.Enums;
@@ -20,6 +21,13 @@ public class OfflinePostingRunsController(IOfflinePostingService service, IUnitO
     {
         if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
         return Ok(db.Context.OfflinePostingRuns.AsQueryable());
+    }
+
+    [EnableQuery(MaxExpansionDepth = 1)]
+    public ActionResult Get([FromRoute] Guid key)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
+        return Ok(SingleResult.Create(db.Context.OfflinePostingRuns.Where(r => r.Key == key)));
     }
 
     [HttpPost("odata/OfflinePostingRequest")]
