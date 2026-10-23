@@ -319,6 +319,30 @@ public static class ODataConfigurations
         accountingSettingsSave.Parameter<string>("DefaultResultClosingAccountCode");
         accountingSettingsSave.Parameter<int>("ClosingFrequency");
         accountingSettingsSave.Returns<AccountingSettings>();
+        // Parâmetros do SPED Fiscal por filial: lidos por função (branchCode) e gravados por action.
+        modelBuilder.ComplexType<SpedFiscalSettings>();
+        var spedFiscalSettingsGet = modelBuilder.Function("SpedFiscalSettingsGet");
+        spedFiscalSettingsGet.Parameter<string>("branchCode");
+        spedFiscalSettingsGet.Returns<SpedFiscalSettings>();
+        var spedFiscalSettingsSave = modelBuilder.Action("SpedFiscalSettingsSave");
+        spedFiscalSettingsSave.Parameter<string>("BranchCode");
+        spedFiscalSettingsSave.Parameter<string>("Profile");
+        spedFiscalSettingsSave.Parameter<int>("ActivityType");
+        spedFiscalSettingsSave.Parameter<string>("AccountantName");
+        spedFiscalSettingsSave.Parameter<string>("AccountantCpf");
+        spedFiscalSettingsSave.Parameter<string>("AccountantCrc");
+        spedFiscalSettingsSave.Parameter<string>("AccountantCnpj");
+        spedFiscalSettingsSave.Parameter<string>("AccountantZipCode");
+        spedFiscalSettingsSave.Parameter<string>("AccountantStreet");
+        spedFiscalSettingsSave.Parameter<string>("AccountantNumber");
+        spedFiscalSettingsSave.Parameter<string>("AccountantComplement");
+        spedFiscalSettingsSave.Parameter<string>("AccountantDistrict");
+        spedFiscalSettingsSave.Parameter<string>("AccountantPhone");
+        spedFiscalSettingsSave.Parameter<string>("AccountantEmail");
+        spedFiscalSettingsSave.Parameter<string>("AccountantMunicipalityCode");
+        spedFiscalSettingsSave.Parameter<string>("IcmsRevenueCode");
+        spedFiscalSettingsSave.Parameter<int>("IcmsDueDay");
+        spedFiscalSettingsSave.Returns<SpedFiscalSettings>();
         // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
         modelBuilder.EntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");

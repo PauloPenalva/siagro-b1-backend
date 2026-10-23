@@ -26,6 +26,9 @@ public static class ServiceCollectionExtensions
             .WithScopedLifetime());
 
         services.AddScoped<StorageStatementReportGenerator>();
+
+        // Não termina em "Service": o scan acima não o registra.
+        services.AddScoped<SiagroB1.Reports.Services.SpedFiscal.SpedFiscalDataLoader>();
             
         return services;
     }
