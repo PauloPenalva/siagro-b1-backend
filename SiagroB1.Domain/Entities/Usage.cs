@@ -107,6 +107,12 @@ public class Usage
     /// <summary>Tese do STF (Tema 69): a base do PIS/COFINS é o valor menos o ICMS destacado.</summary>
     public bool ExcludeIcmsFromPisCofinsBase { get; set; }
 
+    /// <summary>Natureza da receita (3 dígitos, Tabela 4.3.10) — registros M410/M810 da EFD Contribuições.</summary>
+    [Column(TypeName = "VARCHAR(3)")] public string? PisCofinsRevenueNatureCode { get; set; }
+
+    /// <summary>Base de cálculo do crédito (01..18, Tabela 4.3.7) — registro M105 da EFD Contribuições.</summary>
+    [Column(TypeName = "VARCHAR(2)")] public string? PisCofinsCreditBaseCode { get; set; }
+
     // IBS/CBS (reforma tributária). As alíquotas vêm da tabela IBS_CBS_RATES por vigência.
     [Column(TypeName = "VARCHAR(3)")] public string? IbsCbsCst { get; set; }
     [Column(TypeName = "VARCHAR(6)")] public string? IbsCbsClassCode { get; set; }

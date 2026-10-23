@@ -60,6 +60,8 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     CofinsCst = x.usage.CofinsCst,
                     CofinsRate = x.usage.CofinsRate,
                     ExcludeIcmsFromPisCofinsBase = x.usage.ExcludeIcmsFromPisCofinsBase,
+                    PisCofinsRevenueNatureCode = x.usage.PisCofinsRevenueNatureCode,
+                    PisCofinsCreditBaseCode = x.usage.PisCofinsCreditBaseCode,
                     IbsCbsCst = x.usage.IbsCbsCst,
                     IbsCbsClassCode = x.usage.IbsCbsClassCode,
                     IbsRateReduction = x.usage.IbsRateReduction,

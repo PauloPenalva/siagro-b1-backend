@@ -9428,6 +9428,12 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(200) NOT NULL");
 
+                    b.Property<string>("PisCofinsCreditBaseCode")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("PisCofinsRevenueNatureCode")
+                        .HasColumnType("VARCHAR(3)");
+
                     b.Property<string>("PisCst")
                         .HasColumnType("VARCHAR(2)");
 
