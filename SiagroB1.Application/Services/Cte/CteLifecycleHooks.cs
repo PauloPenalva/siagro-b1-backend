@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Cte;
@@ -32,11 +33,36 @@ public class CteLifecycleHooks(
             if (!parties.IsLoaded)
                 await parties.LoadAsync();
             await financial.EnqueueAsync(doc, User(doc));
+            if (doc.FinancialError is not null && (await financial.ActiveTitleCodesAsync(doc.Key)).Count > 0)
+                doc.FinancialError = null;
             await db.SaveChangesAsync();
         }
         catch (Exception e)
         {
             logger.LogError(e, "CT-e {AccessKey} autorizado, mas o título a receber não foi gerado.", doc.AccessKey);
+            await RecordFinancialErrorAsync(doc, e);
+        }
+    }
+
+    /// <summary>
+    /// Deixa a falha visível no documento (o botão "Gerar título" e a próxima consulta tentam de novo). Os títulos que
+    /// ficaram pendurados no contexto são descartados antes, para não irem junto num SaveChanges posterior.
+    /// </summary>
+    private async Task RecordFinancialErrorAsync(TransportDocument doc, Exception error)
+    {
+        try
+        {
+            foreach (var entry in db.Context.ChangeTracker.Entries<FinancialDocument>()
+                         .Where(x => x.State == EntityState.Added).ToList())
+                entry.State = EntityState.Detached;
+
+            var reason = $"Título a receber não gerado: {(error is DefaultException ? error.Message : "erro inesperado; veja o log.")}";
+            doc.FinancialError = reason.Length > 500 ? reason[..500] : reason;
+            await db.SaveChangesAsync();
+        }
+        catch (Exception inner)
+        {
+            logger.LogError(inner, "Não foi possível gravar o motivo da falha do título do CT-e {AccessKey}.", doc.AccessKey);
         }
     }
 

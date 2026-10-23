@@ -271,14 +271,15 @@ public class TransportDocumentsTransmitServiceTests
         await Transmit().TransmitAsync(key, "tester");
         Assert.Empty(_authHook.Authorized);
 
-        // A consulta recupera a autorização; consultar de novo não dispara o gancho outra vez.
+        // A consulta recupera a autorização (transição); a segunda consulta chama o gancho de novo como nova tentativa
+        // idempotente do título (CteLifecycleHooksTests garante um título só).
         _sefaz.ConsultResponses.Enqueue(OkForSent(0));
         await Consult().ConsultAsync(key);
         _sefaz.ConsultResponses.Enqueue(OkForSent(0));
         await Consult().ConsultAsync(key);
 
         Assert.Equal(CteStatus.Authorized, (await LoadAsync(key)).Status);
-        Assert.Equal(new[] { key }, _authHook.Authorized);
+        Assert.Equal(new[] { key, key }, _authHook.Authorized);
     }
 
     [Fact]

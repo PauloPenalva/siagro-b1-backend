@@ -8083,6 +8083,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int?>("Environment")
                         .HasColumnType("int");
 
+                    b.Property<string>("FinancialError")
+                        .HasColumnType("VARCHAR(500)");
+
                     b.Property<decimal>("IbsCbsBase")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 

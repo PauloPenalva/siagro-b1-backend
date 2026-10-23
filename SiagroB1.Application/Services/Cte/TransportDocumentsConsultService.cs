@@ -62,6 +62,10 @@ public class TransportDocumentsConsultService(
             return await CteEmission.ApplyAsync(db, doc, result, stored.Xml, logger, authorizationHook);
         }
 
+        // Já autorizado: refaz o título a receber se ele não nasceu (gancho idempotente; a trava de emissão está tomada).
+        if (doc.Status == CteStatus.Authorized && authorizationHook is not null)
+            await authorizationHook.OnAuthorizedAsync(doc);
+
         if (!NfeStatusCodes.IsAuthorized(result.StatusCode))
             logger?.LogWarning("CT-e {AccessKey}: consulta retornou {StatusCode} ({Reason}).", doc.AccessKey, result.StatusCode, result.Reason);
         return result;

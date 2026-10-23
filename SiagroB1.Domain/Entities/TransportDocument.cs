@@ -33,6 +33,9 @@ public class TransportDocument
     /// <summary>Condição de pagamento do título a receber. Sugerida do cadastro do tomador; editável.</summary>
     public int? PaymentConditionCode { get; set; }
 
+    /// <summary>Motivo de o título a receber não ter sido gerado na autorização; limpo quando o título nasce.</summary>
+    [Column(TypeName = "VARCHAR(500)")] public string? FinancialError { get; set; }
+
     // --- Rota ---
     [Column(TypeName = "VARCHAR(7)")] public string? StartMunicipalityCode { get; set; }
     [Column(TypeName = "VARCHAR(2)")] public string? StartState { get; set; }

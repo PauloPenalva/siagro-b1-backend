@@ -46,9 +46,23 @@ public class CteLifecycleHooksTests : CteEventsTestBase
     private TransportDocumentsCancelService Cancel() =>
         new(Db, NfeTestSeed.Config(), Numbers, Contexts(), Sefaz, Hooks(), Financial(), () => Clock);
 
+    private TransportDocumentsGenerateTitleService Generate() =>
+        new(Db, NfeTestSeed.Config(), Numbers, Financial());
+
+    private TransportDocumentsConsultService Consult() =>
+        new(Db, NfeTestSeed.Config(), Numbers, Contexts(), Sefaz, authorizationHook: Hooks());
+
     private async Task<Guid> SeedWithTitleAsync()
     {
-        var key = await SeedAsync();
+        var key = await SeedDocAsync();
+        await Hooks().OnAuthorizedAsync(await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key));
+        return key;
+    }
+
+    /// <summary>CT-e autorizado, tomador = remetente (REM), natureza que gera financeiro, averbado; SEM título.</summary>
+    private async Task<Guid> SeedDocAsync(CteStatus status = CteStatus.Authorized)
+    {
+        var key = await SeedAsync(status);
         var usage = (await new UsageService(Db, NullLogger<UsageService>.Instance).CreateAsync(new UsageModel
         {
             Name = "Frete", Direction = UsageDirection.Outgoing, CfopOutgoingInState = "5352", CfopOutgoingOutState = "6352",
@@ -71,8 +85,6 @@ public class CteLifecycleHooksTests : CteEventsTestBase
             AverbaPasswordCipher = CertificatePasswordCipher.FromBase64(NfeTestSeed.CertificateKey).Encrypt("s"),
         });
         await Db.SaveChangesAsync();
-
-        await Hooks().OnAuthorizedAsync(doc);
         return key;
     }
 
@@ -136,5 +148,75 @@ public class CteLifecycleHooksTests : CteEventsTestBase
 
         Assert.Empty(await TitlesAsync(key));
         Assert.Equal(0, _averba.SendCalls);
+    }
+
+    [Fact]
+    public async Task Authorized_without_title_consult_creates_title()
+    {
+        var key = await SeedDocAsync();
+        Sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+
+        await Consult().ConsultAsync(key);
+        Sefaz.ConsultResponses.Enqueue(k => FakeCteSefazClient.Authorized(k));
+        await Consult().ConsultAsync(key);
+
+        var title = Assert.Single(await TitlesAsync(key));
+        Assert.Equal("REM", title.CardCode);
+    }
+
+    [Fact]
+    public async Task Generate_title_action_is_idempotent()
+    {
+        var key = await SeedDocAsync();
+
+        var first = await Generate().GenerateAsync(key, "ana");
+        var second = await Generate().GenerateAsync(key, "ana");
+
+        var title = Assert.Single(await TitlesAsync(key));
+        Assert.Contains(title.Code, first);
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public async Task Hook_failure_records_financial_error_and_generate_clears_it()
+    {
+        var key = await SeedDocAsync();
+        var doc = await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key);
+        doc.TakerRole = 3; // destinatário sem parte: o título não tem contra quem nascer
+        await Db.SaveChangesAsync();
+
+        await Hooks().OnAuthorizedAsync(doc);
+
+        Assert.Empty(await TitlesAsync(key));
+        Assert.Contains("tomador", (await LoadAsync(key)).FinancialError);
+
+        doc.TakerRole = 0;
+        await Db.SaveChangesAsync();
+        await Generate().GenerateAsync(key, "ana");
+
+        Assert.Single(await TitlesAsync(key));
+        Assert.Null((await LoadAsync(key)).FinancialError);
+    }
+
+    [Fact]
+    public async Task Generate_title_not_authorized_is_refused()
+    {
+        var key = await SeedDocAsync(CteStatus.Confirmed);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Generate().GenerateAsync(key, "ana"));
+
+        Assert.Equal("Só CT-e autorizado gera título.", e.Message);
+        Assert.Empty(await TitlesAsync(key));
+    }
+
+    [Fact]
+    public async Task Generate_title_without_financial_usage_says_so()
+    {
+        var key = await SeedDocAsync();
+        var doc = await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key);
+        doc.UsageCode = null;
+        await Db.SaveChangesAsync();
+
+        Assert.Equal("O CT-e não gera título: a natureza não cria financeiro.", await Generate().GenerateAsync(key, "ana"));
     }
 }

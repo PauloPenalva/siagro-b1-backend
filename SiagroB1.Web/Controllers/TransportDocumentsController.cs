@@ -30,6 +30,7 @@ public class TransportDocumentsController(
     TransportDocumentsCancelService cancelService,
     TransportDocumentsEndorseService endorseService,
     CteEndorsementCancellationService endorsementCancellationService,
+    TransportDocumentsGenerateTitleService generateTitleService,
     TransportDocumentsCorrectionService correctionService,
     CteVoidNumbersService voidService,
     IUnitOfWork db,
@@ -189,6 +190,23 @@ public class TransportDocumentsController(
         try
         {
             return Ok(await endorseService.EndorseAsync(documentKey.Value, User.Identity?.Name ?? "Unknown"));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    /// <summary>Gera (idempotente) o título a receber do CT-e autorizado cuja geração falhou na autorização.</summary>
+    [HttpPost("odata/TransportDocumentsGenerateTitle")]
+    public async Task<IActionResult> GenerateTitleAsync([FromBody] ODataActionParameters parameters)
+    {
+        if (parameters is null || !TryParseKey(Text(parameters, "Key"), out var documentKey) || documentKey is null)
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            return Ok(await generateTitleService.GenerateAsync(documentKey.Value, User.Identity?.Name ?? "Unknown"));
         }
         catch (DefaultException e)
         {

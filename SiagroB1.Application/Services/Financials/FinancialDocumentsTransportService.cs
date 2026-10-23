@@ -80,6 +80,13 @@ public class FinancialDocumentsTransportService(
         }
     }
 
+    /// <summary>A natureza do CT-e gera financeiro (em SAPB1 toda natureza conta como "gera").</summary>
+    public Task<bool> CreatesFinancialAsync(TransportDocument doc) => firmSync.CreatesFinancialDocumentAsync(doc.UsageCode);
+
+    /// <summary>Números dos títulos ativos do CT-e, na ordem das parcelas.</summary>
+    public Task<List<string>> ActiveTitleCodesAsync(Guid docKey) =>
+        ActiveTitlesOf(docKey).AsNoTracking().OrderBy(d => d.InstallmentNumber).Select(d => d.Code).ToListAsync();
+
     private IQueryable<FinancialDocument> ActiveTitlesOf(Guid docKey) =>
         db.Context.FinancialDocuments.Where(d =>
             d.OriginType == FinancialDocumentOrigin.TransportDocument && d.OriginKey == docKey &&
@@ -96,8 +103,7 @@ public class FinancialDocumentsTransportService(
     /// <summary>Cancela (nunca apaga) os títulos ativos do CT-e. ENQUEUE-ONLY; recusa antes de qualquer mudança.</summary>
     public void EnqueueUndo(Guid docKey, string userName)
     {
-        var titles = ActiveTitlesOf(docKey).ToList()
-            .Where(d => d.Status != FinancialDocumentStatus.Canceled).ToList();
+        var titles = ActiveTitlesOf(docKey).ToList();
         foreach (var title in titles)
             EnsureLoose(title);
         foreach (var title in titles)
