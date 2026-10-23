@@ -29,6 +29,7 @@ public class TransportManifestsController(
     TransportManifestsTransmitService transmitService,
     TransportManifestsConsultService consultService,
     TransportManifestsCloseService closeService,
+    TransportManifestsIncludeDriverService includeDriverService,
     TransportManifestsCancelService cancelService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
@@ -171,6 +172,18 @@ public class TransportManifestsController(
         return RunSefazAsync(parameters, async key =>
         {
             var r = await cancelService.CancelAsync(key, justification, UserName);
+            return new NfeSefazResult(r.StatusCode, r.Reason);
+        });
+    }
+
+    [HttpPost("odata/TransportManifestsIncludeDriver")]
+    public Task<IActionResult> IncludeDriverAsync([FromBody] ODataActionParameters parameters)
+    {
+        var cpf = parameters?.GetValueOrDefault("Cpf")?.ToString();
+        var name = parameters?.GetValueOrDefault("Name")?.ToString();
+        return RunSefazAsync(parameters, async key =>
+        {
+            var r = await includeDriverService.IncludeDriverAsync(key, cpf, name, UserName);
             return new NfeSefazResult(r.StatusCode, r.Reason);
         });
     }

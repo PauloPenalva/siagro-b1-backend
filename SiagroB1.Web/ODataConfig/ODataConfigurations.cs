@@ -128,6 +128,11 @@ public static class ODataConfigurations
         transportManifestsClose.Parameter<string>("UfCode").Optional();
         transportManifestsClose.Parameter<string>("CityIbge").Optional();
         transportManifestsClose.Returns<NfeServiceStatusDto>();
+        var transportManifestsIncludeDriver = modelBuilder.Action("TransportManifestsIncludeDriver");
+        transportManifestsIncludeDriver.Parameter<string>("Key");
+        transportManifestsIncludeDriver.Parameter<string>("Cpf");
+        transportManifestsIncludeDriver.Parameter<string>("Name");
+        transportManifestsIncludeDriver.Returns<NfeServiceStatusDto>();
         var transportManifestsCancel = modelBuilder.Action("TransportManifestsCancel");
         transportManifestsCancel.Parameter<string>("Key");
         transportManifestsCancel.Parameter<string>("Justification");

@@ -90,7 +90,7 @@ public static class MdfeIssueInputAssembler
         var list = new List<MdfeDriver>();
         if (!string.IsNullOrWhiteSpace(m.DriverCpf))
             list.Add(new MdfeDriver(m.DriverCpf, m.DriverName ?? string.Empty));
-        list.AddRange(m.Drivers.Where(d => !d.AddedByEvent).OrderBy(d => d.LineNum).Select(d => new MdfeDriver(d.Cpf, d.Name)));
+        list.AddRange(m.Drivers.Where(d => !d.IncludedByEvent).OrderBy(d => d.LineNum).Select(d => new MdfeDriver(d.Cpf, d.Name)));
         return list.DistinctBy(d => d.Cpf).ToList();
     }
 
