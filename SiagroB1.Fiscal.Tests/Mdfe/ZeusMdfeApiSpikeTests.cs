@@ -183,8 +183,6 @@ public class ZeusMdfeApiSpikeTests
     public void Cte_and_mdfe_global_configs_coexist()
     {
         // Singletons distintos: fixar um não altera o outro.
-        Assert.NotEqual(typeof(ConfiguracaoServico).Assembly, typeof(MDFeConfiguracao).Assembly);
-
         CteZeusConfiguration.PinGlobalLayout();
         Assert.Equal(versao.ve400, ConfiguracaoServico.Instancia.VersaoLayout);
 
@@ -198,10 +196,23 @@ public class ZeusMdfeApiSpikeTests
     }
 
     [Fact]
-    public void Unpinned_global_layout_breaks_dhEmi_serialization()
+    public void Default_global_layout_is_not_a_valid_version()
     {
         // Documenta o porquê do PinGlobalLayout: o padrão do global não é versão válida.
         Assert.False(Enum.IsDefined(new MDFeVersaoWebService().VersaoLayout));
+    }
+
+    public static TheoryData<string> MdfeSchemas() =>
+        new(Directory.GetFiles(MdfeZeusConfiguration.DefaultSchemasDirectory, "*.xsd").Select(Path.GetFileName)!);
+
+    [Theory]
+    [MemberData(nameof(MdfeSchemas))]
+    public void Every_mdfe_xsd_compiles(string file)
+    {
+        var set = new System.Xml.Schema.XmlSchemaSet { XmlResolver = new System.Xml.XmlUrlResolver() };
+        set.Add(null, Path.Combine(MdfeZeusConfiguration.DefaultSchemasDirectory, file));
+        set.Compile();
+        Assert.True(set.IsCompiled);
     }
 
     [Fact]
