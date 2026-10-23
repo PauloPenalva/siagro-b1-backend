@@ -91,6 +91,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<EmailSettings> EmailSettings { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
+    public DbSet<EcdSettings> EcdSettings { get; set; }
     public DbSet<AccountingPeriod> AccountingPeriods { get; set; }
     public DbSet<JournalEntry> JournalEntries { get; set; }
     public DbSet<JournalEntryLine> JournalEntryLines { get; set; }
