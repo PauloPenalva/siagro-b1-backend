@@ -128,7 +128,12 @@ public static class ODataConfigurations
         transportManifestsClose.Parameter<string>("UfCode").Optional();
         transportManifestsClose.Parameter<string>("CityIbge").Optional();
         transportManifestsClose.Returns<NfeServiceStatusDto>();
-        var transportManifestsIncludeDriver = modelBuilder.Action("TransportManifestsIncludeDriver");
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Mdfe.MdfeCloseBatchItem>();
+        var transportManifestsCloseBatch = modelBuilder.Action("TransportManifestsCloseBatch");
+        transportManifestsCloseBatch.CollectionParameter<string>("Keys");
+        transportManifestsCloseBatch.Parameter<string>("ClosedOn").Optional();
+        transportManifestsCloseBatch.ReturnsCollection<SiagroB1.Application.Services.Mdfe.MdfeCloseBatchItem>();
+        var transportManifestsIncludeDriver =modelBuilder.Action("TransportManifestsIncludeDriver");
         transportManifestsIncludeDriver.Parameter<string>("Key");
         transportManifestsIncludeDriver.Parameter<string>("Cpf");
         transportManifestsIncludeDriver.Parameter<string>("Name");

@@ -456,6 +456,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsTransmitService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsConsultService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCloseService>();
+        services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCloseBatchService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsIncludeDriverService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCancelService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.MdfeNotClosedQueryService>();

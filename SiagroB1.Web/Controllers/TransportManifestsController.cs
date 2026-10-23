@@ -29,6 +29,7 @@ public class TransportManifestsController(
     TransportManifestsTransmitService transmitService,
     TransportManifestsConsultService consultService,
     TransportManifestsCloseService closeService,
+    TransportManifestsCloseBatchService closeBatchService,
     TransportManifestsIncludeDriverService includeDriverService,
     TransportManifestsCancelService cancelService,
     MdfeNotClosedQueryService notClosedQuery,
@@ -177,6 +178,30 @@ public class TransportManifestsController(
             var r = await closeService.CloseAsync(key, closedOn, ufCode, cityIbge, UserName);
             return new NfeSefazResult(r.StatusCode, r.Reason);
         });
+    }
+
+    /// <summary>Encerra vários MDF-e; devolve {Key, Number, Success, Message} por item (falha de item não é 400).</summary>
+    [HttpPost("odata/TransportManifestsCloseBatch")]
+    public async Task<IActionResult> CloseBatchAsync([FromBody] ODataActionParameters parameters)
+    {
+        var keys = new List<Guid>();
+        if (parameters is not null && parameters.TryGetValue("Keys", out var value) && value is IEnumerable sequence)
+            foreach (var item in sequence.Cast<object?>())
+            {
+                if (!Guid.TryParse(item?.ToString(), out var k)) return BadRequest(InvalidKey);
+                keys.Add(k);
+            }
+        if (keys.Count == 0) return BadRequest("Informe ao menos um MDF-e.");
+
+        try
+        {
+            var closedOn = TransportManifestsCloseService.ParseClosedOn(parameters!.GetValueOrDefault("ClosedOn")?.ToString());
+            return Ok(await closeBatchService.CloseBatchAsync(keys, closedOn, UserName));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
     }
 
     [HttpPost("odata/TransportManifestsCancel")]
