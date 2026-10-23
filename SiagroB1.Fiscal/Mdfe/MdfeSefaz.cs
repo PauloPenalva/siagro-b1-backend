@@ -103,7 +103,7 @@ internal static class MdfeSefazResponseMapper
 
         var protocol = Child(root, "protMDFe");
         if (protocol is not null && Child(protocol, "infProt") is not null
-            && (NfeStatusCodes.IsAuthorized(code) || NfeStatusCodes.IsDenied(code)))
+            && NfeStatusCodes.IsAuthorized(code))
             return FromProtocol(protocol);
 
         var cancellation = NfeStatusCodes.IsCancelledConsult(code)

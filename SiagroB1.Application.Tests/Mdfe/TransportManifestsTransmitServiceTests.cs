@@ -320,17 +320,22 @@ public class TransportManifestsTransmitServiceTests
         Assert.Equal(MdfeStatus.Confirmed, (await LoadAsync(key)).Status);
     }
 
-    [Fact]
-    public async Task Denied_frees_ctes()
+    [Theory]
+    [InlineData(110)]
+    [InlineData(301)]
+    [InlineData(302)]
+    [InlineData(303)]
+    public async Task Mdfe_has_no_denial_any_processed_non_authorized_answer_is_rejection(int code)
     {
         var key = await SeedConfirmedAsync();
-        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(110, "Uso Denegado"));
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(code, "Rejeição"));
 
         await Transmit().TransmitAsync(key, "tester");
 
         var m = await LoadAsync(key);
-        Assert.Equal(MdfeStatus.Denied, m.Status);
-        Assert.All(m.Ctes, c => Assert.False(c.IsActive));
+        Assert.Equal(MdfeStatus.Rejected, m.Status);
+        Assert.Equal(code.ToString(), m.RejectionCode);
+        Assert.All(m.Ctes, c => Assert.True(c.IsActive));
     }
 
     [Fact]

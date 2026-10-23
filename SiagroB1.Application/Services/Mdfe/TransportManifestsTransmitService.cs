@@ -255,7 +255,8 @@ internal static class MdfeEmission
         }
         else
         {
-            m.ApplyStatus(NfeStatusCodes.IsDenied(result.StatusCode) ? MdfeStatus.Denied : MdfeStatus.Rejected);
+            // MDF-e não tem denegação (110/301/302/303 do NF-e são rejeições comuns aqui).
+            m.ApplyStatus(MdfeStatus.Rejected);
             m.RejectionCode = result.StatusCode.ToString();
             m.RejectionReason = result.Reason.Length > 500 ? result.Reason[..500] : result.Reason;
         }
