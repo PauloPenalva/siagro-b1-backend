@@ -46,6 +46,7 @@ public class EfdContributionsDataLoader(IUnitOfWork db, FiscalConferenceService 
                 Branch = branch,
                 Lines = lines,
                 MasterData = await masterData.LoadAsync(branch, lines, null, _ => true),
+                VoidDocuments = await SpedVoidDocumentLoader.LoadAsync(db, branch.Code ?? "", request.Year, request.Month),
             });
         }
 

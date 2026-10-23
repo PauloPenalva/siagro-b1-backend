@@ -38,4 +38,35 @@ public class EfdEstablishment
     public Branch Branch { get; set; } = null!;
     public List<FiscalDocumentLineDto> Lines { get; set; } = [];
     public SpedMasterData MasterData { get; set; } = new();
+
+    /// <summary>NF-e próprias canceladas (02), denegadas (04) ou inutilizadas (05) da filial no mês.</summary>
+    public List<SpedVoidDocument> VoidDocuments { get; set; } = [];
+}
+
+/// <summary>Inconsistência da verificação: bloqueante impede gerar o arquivo.</summary>
+public class EfdContributionsIssueDto
+{
+    public bool Blocking { get; set; }
+    public string Message { get; set; } = "";
+
+    /// <summary>Código/documento a que a mensagem se refere (filial, natureza, nota/item).</summary>
+    public string Reference { get; set; } = "";
+}
+
+/// <summary>Totais da apuração do mês (blocos M200/M600): devido, crédito descontado e a recolher.</summary>
+public class EfdContributionsTotalsDto
+{
+    public decimal PisDue { get; set; }
+    public decimal PisCredit { get; set; }
+    public decimal PisPayable { get; set; }
+    public decimal CofinsDue { get; set; }
+    public decimal CofinsCredit { get; set; }
+    public decimal CofinsPayable { get; set; }
+}
+
+/// <summary>Prévia antes de gerar: inconsistências (bloqueantes e avisos) e totais.</summary>
+public class EfdContributionsCheckDto
+{
+    public List<EfdContributionsIssueDto> Issues { get; set; } = [];
+    public EfdContributionsTotalsDto Totals { get; set; } = new();
 }
