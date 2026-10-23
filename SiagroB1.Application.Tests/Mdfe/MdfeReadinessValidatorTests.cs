@@ -12,6 +12,7 @@ public class MdfeReadinessValidatorTests
         {
             BranchCode = "01", UfStart = "SP", UfEnd = "SP", TractionPlate = "ABC1D23", DriverCpf = "52998224725", DriverName = "JOAO",
             WeightUnit = "01", GrossWeight = 1000, CargoType = "05", ProductDescription = "SOJA",
+            InsuranceResponsible = "1", InsurerTaxId = "11222333000181", InsurerName = "SEGURADORA", PolicyNumber = "APOL1",
         };
         for (var i = 0; i < ctes; i++)
             m.Ctes.Add(new TransportManifestCte { CteAccessKey = new string('5', 44), UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS" });
@@ -31,6 +32,36 @@ public class MdfeReadinessValidatorTests
         var (errors, warnings) = Run(Ready());
         Assert.Empty(errors);
         Assert.Empty(warnings);
+    }
+
+    [Theory]
+    [InlineData("responsible")]
+    [InlineData("taxid")]
+    [InlineData("name")]
+    [InlineData("policy")]
+    public void Validator_requires_insurance(string missing)
+    {
+        var m = Ready();
+        switch (missing)
+        {
+            case "responsible": m.InsuranceResponsible = null; break;
+            case "taxid": m.InsurerTaxId = "123"; break;
+            case "name": m.InsurerName = " "; break;
+            default: m.PolicyNumber = null; break;
+        }
+
+        Assert.Contains(MdfeReadinessValidator.InsuranceRequired, Run(m).Errors);
+    }
+
+    [Fact]
+    public void Validator_contractor_responsible_needs_contractor()
+    {
+        var m = Ready();
+        m.InsuranceResponsible = "2";
+        Assert.Contains(MdfeReadinessValidator.InsuranceResponsibleRequired, Run(m).Errors);
+
+        m.Contractors.Add(new TransportManifestContractor { TaxId = "52998224725", Name = "B" });
+        Assert.Empty(Run(m).Errors);
     }
 
     [Fact]

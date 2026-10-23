@@ -57,6 +57,29 @@ public class TransportManifestsConfirmServiceTests
     }
 
     [Fact]
+    public async Task Confirm_refuses_without_insurance_and_refreshes_from_branch_when_available()
+    {
+        var key = await SeedReadyAsync();
+        var manifest = await _db.Context.TransportManifests.SingleAsync();
+        manifest.InsurerTaxId = null; manifest.InsurerName = null; manifest.PolicyNumber = null; manifest.InsuranceResponsible = null;
+        var settings = await _db.Context.BranchTransportSettings.SingleAsync();
+        var backup = (settings.InsuranceResponsible, settings.InsurerTaxId, settings.InsurerName, settings.PolicyNumber);
+        settings.InsuranceResponsible = null; settings.InsurerTaxId = null; settings.InsurerName = null; settings.PolicyNumber = null;
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ConfirmAsync(key, "tester"));
+        Assert.Contains(MdfeReadinessValidator.InsuranceRequired, ex.Message);
+
+        (settings.InsuranceResponsible, settings.InsurerTaxId, settings.InsurerName, settings.PolicyNumber) = backup;
+        await _db.SaveChangesAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Confirmed, m.Status);
+        Assert.Equal("11222333000181", m.InsurerTaxId);
+    }
+
+    [Fact]
     public async Task Confirm_refuses_m3_without_weight()
     {
         var key = await SeedReadyAsync(weight: 0, unit: "03");

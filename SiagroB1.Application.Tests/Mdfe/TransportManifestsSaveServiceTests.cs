@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Mdfe;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 using SiagroB1.Infra;
@@ -86,6 +87,29 @@ public class TransportManifestsSaveServiceTests
         Assert.Equal(10m, Assert.Single(Assert.Single(m.Payments).Components).Value);
         Assert.Equal("OBS", m.AdditionalInfo);
         Assert.Equal(1, m.CteCount);
+    }
+
+    [Fact]
+    public async Task Save_refreshes_empty_insurance_from_branch_settings()
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        var settings = await _db.Context.BranchTransportSettings.SingleAsync();
+        settings.InsurerTaxId = null; settings.InsurerName = null; settings.PolicyNumber = null; settings.InsuranceResponsible = null;
+        await _db.SaveChangesAsync();
+        var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
+        var key = await new TransportManifestsCreateFromCtesService(_db, MdfeTestSupport.Config()).CreateFromCtesAsync("01", [cte.Key], "tester");
+        Assert.Null((await _db.Context.TransportManifests.AsNoTracking().SingleAsync()).InsurerTaxId);
+
+        settings.InsuranceResponsible = InsuranceResponsible.Issuer; settings.InsurerTaxId = "11222333000181";
+        settings.InsurerName = "SEGURADORA"; settings.PolicyNumber = "APOL1";
+        await _db.SaveChangesAsync();
+        await Save().SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 1 }, "tester");
+
+        var m = await _db.Context.TransportManifests.AsNoTracking().SingleAsync();
+        Assert.Equal("1", m.InsuranceResponsible);
+        Assert.Equal("11222333000181", m.InsurerTaxId);
+        Assert.Equal("SEGURADORA", m.InsurerName);
+        Assert.Equal("APOL1", m.PolicyNumber);
     }
 
     [Fact]

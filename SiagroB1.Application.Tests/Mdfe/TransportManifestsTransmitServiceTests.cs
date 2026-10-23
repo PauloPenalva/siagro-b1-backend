@@ -235,6 +235,34 @@ public class TransportManifestsTransmitServiceTests
     }
 
     [Fact]
+    public async Task Rejected_without_insurance_refreshes_it_from_branch_before_retransmit()
+    {
+        var key = await SeedConfirmedAsync();
+        var seeded = await _db.Context.TransportManifests.SingleAsync();
+        seeded.InsurerTaxId = null; seeded.InsurerName = null; seeded.PolicyNumber = null; seeded.InsuranceResponsible = null;
+        seeded.ApplyStatus(MdfeStatus.Rejected);
+        await _db.SaveChangesAsync();
+
+        // Filial ainda sem seguro: bloqueia antes de assinar/enviar.
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Transmit().TransmitAsync(key, "tester"));
+        Assert.Equal(MdfeReadinessValidator.InsuranceRequired, ex.Message);
+        Assert.Empty(_sefaz.Sent);
+
+        var settings = await _db.Context.BranchTransportSettings.SingleAsync();
+        settings.InsuranceResponsible = InsuranceResponsible.Issuer; settings.InsurerTaxId = "11222333000181";
+        settings.InsurerName = "SEGURADORA"; settings.PolicyNumber = "APOL9";
+        await _db.SaveChangesAsync();
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Authorized, m.Status);
+        Assert.Equal("APOL9", m.PolicyNumber);
+        Assert.Contains("<seg>", _sefaz.Sent[0].Xml);
+    }
+
+    [Fact]
     public async Task Rejected_then_retransmit_keeps_number_and_key()
     {
         var key = await SeedConfirmedAsync();

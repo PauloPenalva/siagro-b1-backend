@@ -64,12 +64,9 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
             ProductDescription = DfeText.CleanOrNull(first.PredominantProduct, 120),
             CteCount = ctes.Count,
             CargoValue = ctes.Sum(c => c.CargoValue),
-            InsuranceResponsible = transport?.InsuranceResponsible is { } r ? ((int)r).ToString() : null,
-            InsurerTaxId = transport?.InsurerTaxId,
-            InsurerName = DfeText.CleanOrNull(transport?.InsurerName, 30),
-            PolicyNumber = transport?.PolicyNumber,
             CreatedBy = user,
         };
+        MdfeInsuranceSnapshot.Apply(m, transport);
         (m.WeightUnit, m.GrossWeight) = Weight(ctes);
 
         if (first.StartMunicipalityCode is { } start)

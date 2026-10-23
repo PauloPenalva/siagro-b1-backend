@@ -31,10 +31,12 @@ public class TransportManifestsConfirmService(
         await using var emissionLock = await numbers.AcquireEmissionLockAsync(key);
 
         var m = await db.Context.TransportManifests.Include(x => x.Ctes).Include(x => x.Vehicles).Include(x => x.Drivers)
-                    .Include(x => x.Payments).AsSplitQuery().FirstOrDefaultAsync(x => x.Key == key)
+                    .Include(x => x.Payments).Include(x => x.Contractors).AsSplitQuery().FirstOrDefaultAsync(x => x.Key == key)
                 ?? throw new DefaultException(TransportManifestsSaveService.NotFound);
         if (m.Status != MdfeStatus.Draft) throw new DefaultException(NotDraft);
 
+        MdfeInsuranceSnapshot.RefreshIfIncomplete(m,
+            await db.Context.BranchTransportSettings.AsNoTracking().FirstOrDefaultAsync(x => x.BranchCode == m.BranchCode));
         var (errors, _) = await validator.ValidateAsync(m);
         if (errors.Count > 0) throw new DefaultException(string.Join(" ", errors));
 

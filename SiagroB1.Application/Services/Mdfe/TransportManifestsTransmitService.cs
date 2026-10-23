@@ -98,6 +98,9 @@ public class TransportManifestsTransmitService(
                      ?? throw new DefaultException($"Filial {m.BranchCode} não encontrada.");
         var transport = await db.Context.BranchTransportSettings.AsNoTracking().FirstOrDefaultAsync(x => x.BranchCode == m.BranchCode)
                         ?? throw new DefaultException(MdfeReadinessValidator.RntrcRequired);
+        // MDF-e criado/confirmado antes de a filial ter seguro: copia agora, antes de montar e assinar.
+        MdfeInsuranceSnapshot.RefreshIfIncomplete(m, transport);
+        if (!MdfeInsuranceSnapshot.IsComplete(m)) throw new DefaultException(MdfeReadinessValidator.InsuranceRequired);
         var input = MdfeIssueInputAssembler.Build(m, branch, transport, options.TechnicalResponsible);
 
         MdfeZeusConfiguration.PinGlobalLayout();

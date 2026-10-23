@@ -28,6 +28,8 @@ public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration config
         if (m.Status != MdfeStatus.Draft) throw new DefaultException(OnlyDraft);
 
         await ApplyAsync(m, model);
+        MdfeInsuranceSnapshot.RefreshIfIncomplete(m,
+            await db.Context.BranchTransportSettings.AsNoTracking().FirstOrDefaultAsync(x => x.BranchCode == m.BranchCode));
         m.UpdatedAt = DateTime.Now;
         m.UpdatedBy = user;
         await db.SaveChangesAsync();

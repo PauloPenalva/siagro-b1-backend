@@ -23,6 +23,10 @@ public class MdfeReadinessValidator(IUnitOfWork db)
     public const string CtesRequired = "O MDF-e precisa de ao menos um CT-e.";
     public const string RntrcRequired = "Informe o RNTRC da transportadora na Configuração de Transporte da filial.";
     public const string IssuerZipRequired = "Informe o CEP do endereço da filial emitente.";
+    public const string InsuranceRequired =
+        "Seguro da carga é obrigatório no MDF-e: informe seguradora, CNPJ e apólice na configuração de transporte da filial (Cadastros → Filiais → Transportadora).";
+    public const string InsuranceResponsibleRequired =
+        "Seguro da carga: com o contratante como responsável, informe o contratante (CPF/CNPJ) do MDF-e.";
     public const string CiotRequiredWarning = "A filial exige CIOT: informe o CIOT antes de transmitir o MDF-e.";
 
     /// <summary>Carrega configuração, RNTRC e CEP da filial e valida.</summary>
@@ -45,6 +49,11 @@ public class MdfeReadinessValidator(IUnitOfWork db)
             errors.Add($"A filial {m.BranchCode} não está habilitada a emitir MDF-e: ative na Configuração do MDF-e.");
         if (string.IsNullOrWhiteSpace(rntrc)) errors.Add(RntrcRequired);
         if (Digits(issuerZipCode).Length != 8) errors.Add(IssuerZipRequired);
+
+        if (!MdfeInsuranceSnapshot.IsComplete(m)) errors.Add(InsuranceRequired);
+        else if (m.InsuranceResponsible?.Trim() == "2"
+                 && Digits(m.Contractors.FirstOrDefault()?.TaxId ?? m.Payments.FirstOrDefault()?.ContractorTaxId).Length is not (11 or 14))
+            errors.Add(InsuranceResponsibleRequired);
 
         if (m.Ctes.Count == 0) errors.Add(CtesRequired);
         if (m.WeightUnit is not ("01" or "02")) errors.Add(WeightUnitInvalid);
