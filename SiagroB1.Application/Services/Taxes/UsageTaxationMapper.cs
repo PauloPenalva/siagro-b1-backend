@@ -55,6 +55,8 @@ internal static class UsageTaxationMapper
         usage.CofinsCst = Normalize(model.CofinsCst);
         usage.CofinsRate = model.CofinsRate;
         usage.ExcludeIcmsFromPisCofinsBase = model.ExcludeIcmsFromPisCofinsBase;
+        usage.PisCofinsRevenueNatureCode = Normalize(model.PisCofinsRevenueNatureCode);
+        usage.PisCofinsCreditBaseCode = Normalize(model.PisCofinsCreditBaseCode);
 
         usage.IbsCbsCst = Normalize(model.IbsCbsCst);
         usage.IbsCbsClassCode = Normalize(model.IbsCbsClassCode);
