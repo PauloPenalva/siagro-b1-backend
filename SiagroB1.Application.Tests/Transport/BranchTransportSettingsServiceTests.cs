@@ -175,5 +175,8 @@ public class BranchTransportSettingsServiceTests
             LastEnvironment = environment;
             return Task.FromResult(Error is null ? new AverbaLoginResult(true, "tok", null) : new AverbaLoginResult(false, null, Error));
         }
+
+        public Task<AverbaCteResult> SendCteAsync(NfeEnvironment environment, string bearer, string xml, CancellationToken ct) =>
+            throw new NotSupportedException();
     }
 }
