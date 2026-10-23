@@ -446,6 +446,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Mdfe.MdfeServiceContextFactory>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.MdfeReadinessValidator>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.MdfeEligibleCtesQuery>();
+        services.AddScoped<SiagroB1.Application.Services.Mdfe.CteManifestLinkQuery>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCreateFromCtesService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsSaveService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsConfirmService>();

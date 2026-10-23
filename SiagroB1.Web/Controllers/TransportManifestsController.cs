@@ -192,7 +192,7 @@ public class TransportManifestsController(
         }
         catch (NfeCommunicationException e)
         {
-            return BadRequest(e.Message);
+            return BadRequest($"Sem resposta da SEFAZ: {e.Message}");
         }
     }
 

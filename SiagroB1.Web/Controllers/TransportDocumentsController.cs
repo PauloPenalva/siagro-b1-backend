@@ -35,6 +35,7 @@ public class TransportDocumentsController(
     TransportDocumentsGenerateTitleService generateTitleService,
     TransportDocumentsCorrectionService correctionService,
     CteVoidNumbersService voidService,
+    SiagroB1.Application.Services.Mdfe.CteManifestLinkQuery manifestLinkQuery,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -318,6 +319,21 @@ public class TransportDocumentsController(
         }
 
         return true;
+    }
+
+    /// <summary>MDF-e que leva o CT-e (ativo ou o último); 204 quando o CT-e não está em nenhum MDF-e.</summary>
+    [HttpGet("odata/TransportDocumentsManifest(Key={key})")]
+    public async Task<IActionResult> ManifestAsync([FromRoute] Guid key)
+    {
+        try
+        {
+            var link = await manifestLinkQuery.GetAsync(key);
+            return link is null ? NoContent() : Ok(link);
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
     }
 
     /// <summary>cteProc autorizado (CT-e assinado + protCTe) para download.</summary>

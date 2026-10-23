@@ -132,6 +132,12 @@ public static class ODataConfigurations
         transportManifestsXml.Parameter<Guid>("Key");
         transportManifestsXml.Returns<IActionResult>();
 
+        // Vínculo CT-e -> MDF-e (MDF-e ativo ou o último); sem MDF-e a resposta é 204.
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Mdfe.CteManifestLink>();
+        var transportDocumentsManifest = modelBuilder.Function("TransportDocumentsManifest");
+        transportDocumentsManifest.Parameter<Guid>("Key");
+        transportDocumentsManifest.Returns<SiagroB1.Application.Services.Mdfe.CteManifestLink>();
+
         // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
         // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.
         modelBuilder.EntitySet<TransportDocument>("TransportDocuments");

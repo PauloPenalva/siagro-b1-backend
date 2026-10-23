@@ -39,7 +39,7 @@ public class CteNumbersVoidActionTests
     public async Task Void_without_series_or_with_null_series_is_bad_request()
     {
         var controller = new TransportDocumentsController(
-            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+            null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
         foreach (object? series in new object?[] { null, "absent" })
         {
