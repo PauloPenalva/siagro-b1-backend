@@ -21,6 +21,9 @@ public class TransportManifestsController(
     MdfeEligibleCtesQuery eligibleQuery,
     TransportManifestsCreateFromCtesService createService,
     TransportManifestsSaveService saveService,
+    TransportManifestsConfirmService confirmService,
+    TransportManifestsReopenService reopenService,
+    TransportManifestsDiscardNumberService discardService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -105,6 +108,34 @@ public class TransportManifestsController(
         try
         {
             await saveService.DeleteAsync(key);
+            return NoContent();
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    [HttpPost("odata/TransportManifestsConfirm")]
+    public Task<IActionResult> ConfirmAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, key => confirmService.ConfirmAsync(key, UserName));
+
+    [HttpPost("odata/TransportManifestsReopen")]
+    public Task<IActionResult> ReopenAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, reopenService.ReopenAsync);
+
+    [HttpPost("odata/TransportManifestsDiscardNumber")]
+    public Task<IActionResult> DiscardNumberAsync([FromBody] ODataActionParameters parameters) =>
+        RunAsync(parameters, discardService.DiscardNumberAsync);
+
+    private async Task<IActionResult> RunAsync(ODataActionParameters parameters, Func<Guid, Task> action)
+    {
+        if (parameters is null || !Guid.TryParse(parameters.GetValueOrDefault("Key")?.ToString(), out var key))
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            await action(key);
             return NoContent();
         }
         catch (DefaultException e)
