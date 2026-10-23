@@ -1216,6 +1216,125 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("ECD_SETTINGS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EcfAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(250)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LedgerAccountCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("PartBAccountCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("PartBAccountName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Period")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TableCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("Tax")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchCode", "Year");
+
+                    b.ToTable("ECF_ADJUSTMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EcfPartner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(3)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Qualification")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("TaxId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<decimal>("TotalCapitalPercent")
+                        .HasColumnType("DECIMAL(5,2)");
+
+                    b.Property<decimal>("VotingCapitalPercent")
+                        .HasColumnType("DECIMAL(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchCode");
+
+                    b.ToTable("ECF_PARTNERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.EcfSettings", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("AssessmentForm")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LegalEntityQualification")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("MainCnae")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("PreviousEcfHash")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("BranchCode");
+
+                    b.ToTable("ECF_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.EmailSettings", b =>
                 {
                     b.Property<int>("Key")

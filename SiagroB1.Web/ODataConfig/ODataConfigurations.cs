@@ -386,6 +386,20 @@ public static class ODataConfigurations
         ecdSettingsSave.Parameter<string>("AccountantCrcSequence");
         ecdSettingsSave.Parameter<DateTime?>("AccountantCrcValidUntil");
         ecdSettingsSave.Returns<EcdSettings>();
+        // Parâmetros da ECF (lucro real) por filial + quadro societário e ajustes do LALUR/LACS (CRUD).
+        modelBuilder.ComplexType<EcfSettings>();
+        var ecfSettingsGet = modelBuilder.Function("EcfSettingsGet");
+        ecfSettingsGet.Parameter<string>("branchCode");
+        ecfSettingsGet.Returns<EcfSettings>();
+        var ecfSettingsSave = modelBuilder.Action("EcfSettingsSave");
+        ecfSettingsSave.Parameter<string>("BranchCode");
+        ecfSettingsSave.Parameter<string>("AssessmentForm");
+        ecfSettingsSave.Parameter<string>("MainCnae");
+        ecfSettingsSave.Parameter<string>("LegalEntityQualification");
+        ecfSettingsSave.Parameter<string>("PreviousEcfHash");
+        ecfSettingsSave.Returns<EcfSettings>();
+        modelBuilder.EntitySet<EcfPartner>("EcfPartners");
+        modelBuilder.EntitySet<EcfAdjustment>("EcfAdjustments");
         // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
         modelBuilder.EntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");
