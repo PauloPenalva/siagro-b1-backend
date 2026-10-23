@@ -30,6 +30,7 @@ public class TransportManifestsController(
     TransportManifestsConsultService consultService,
     TransportManifestsCloseService closeService,
     TransportManifestsCloseBatchService closeBatchService,
+    MdfeXmlZipService xmlZipService,
     TransportManifestsIncludeDriverService includeDriverService,
     TransportManifestsCancelService cancelService,
     MdfeNotClosedQueryService notClosedQuery,
@@ -198,6 +199,29 @@ public class TransportManifestsController(
         {
             var closedOn = TransportManifestsCloseService.ParseClosedOn(parameters!.GetValueOrDefault("ClosedOn")?.ToString());
             return Ok(await closeBatchService.CloseBatchAsync(keys, closedOn, UserName));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    /// <summary>ZIP com o XML dos MDF-e autorizados (inclusive encerrados/cancelados) e seus eventos; máx. 50.</summary>
+    [HttpPost("odata/TransportManifestsXmlZip")]
+    public async Task<IActionResult> XmlZipAsync([FromBody] ODataActionParameters parameters)
+    {
+        var keys = new List<Guid>();
+        if (parameters is not null && parameters.TryGetValue("Keys", out var value) && value is IEnumerable sequence)
+            foreach (var item in sequence.Cast<object?>())
+            {
+                if (!Guid.TryParse(item?.ToString(), out var k)) return BadRequest(InvalidKey);
+                keys.Add(k);
+            }
+        if (keys.Count == 0) return BadRequest("Informe ao menos um MDF-e.");
+
+        try
+        {
+            return File(await xmlZipService.BuildAsync(keys), "application/zip", "xml-mdfe.zip");
         }
         catch (DefaultException e)
         {
