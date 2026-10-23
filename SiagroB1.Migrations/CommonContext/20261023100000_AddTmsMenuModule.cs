@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SiagroB1.Migrations.CommonContext
 {
     /// <summary>
-    /// Módulo "TMS" no menu (só STANDALONE): reúne Conhecimentos de Transporte (CT-e), Manifestos (MDF-e)
+    /// Módulo "TMS" no menu (o módulo aparece em qualquer modo; cada item mantém o seu StandaloneOnly, porque
+    /// Veículos e Motoristas também são usados no SAPB1 pela balança): reúne Conhecimentos de Transporte (CT-e), Manifestos (MDF-e)
     /// e os cadastros de transporte (Veículos, Motoristas, Conjuntos de Veículos). Os itens existentes
     /// só trocam de pai/ordem; ROLE_MENUS segue a chave do item, então as permissões não mudam. O módulo
     /// em si precisa de ROLE_MENUS (o MenuService descarta filho sem o pai), por isso todo perfil que já
@@ -22,7 +23,7 @@ namespace SiagroB1.Migrations.CommonContext
             migrationBuilder.InsertData(
                 table: "MENU_ITEMS",
                 columns: ["Key", "Title", "Icon", "Enabled", "Expanded", "Order", "ParentKey", "StandaloneOnly"],
-                values: new object[] { "tms", "TMS", "sap-icon://folder-blank", true, false, 10, null, true });
+                values: new object[] { "tms", "TMS", "sap-icon://folder-blank", true, false, 10, null, false });
 
             migrationBuilder.InsertData(
                 table: "MENU_ITEMS",

@@ -33,7 +33,20 @@ public class TmsMenuMigrationTests
         Assert.Equal("TMS", Value(tms, "Title"));
         Assert.Equal("sap-icon://folder-blank", Value(tms, "Icon"));
         Assert.Null(Value(tms, "ParentKey"));
-        Assert.Equal(true, Value(tms, "StandaloneOnly"));
+        // Veículos/Motoristas servem a balança no SAPB1: o módulo não pode sumir nesse modo.
+        Assert.Equal(false, Value(tms, "StandaloneOnly"));
+    }
+
+    [Fact]
+    public void Moved_items_keep_their_standalone_only_flag()
+    {
+        // A flag de cada item não é tocada: UpdateData só muda ParentKey e Order.
+        var moved = Operations("Up").OfType<UpdateDataOperation>().ToList();
+
+        Assert.NotEmpty(moved);
+        Assert.All(moved, o => Assert.Equal(["ParentKey", "Order"], o.Columns));
+        Assert.All(Operations("Down").OfType<UpdateDataOperation>(),
+            o => Assert.Equal(["ParentKey", "Order"], o.Columns));
     }
 
     [Fact]
