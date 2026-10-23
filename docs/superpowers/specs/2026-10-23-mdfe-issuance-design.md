@@ -98,7 +98,13 @@ Emitir, encerrar e cancelar MDF-e rodoviário a partir dos CT-e autorizados, com
 
 ### Telas e menu
 
-- Menu "Manifestos (MDF-e)" em Vendas, ao lado do CT-e (migration de menu na COMMON).
+- **Módulo novo "TMS" no menu superior** (pedido do usuário 23/10), ícone `sap-icon://folder-blank`
+  como os demais módulos, reunindo as funcionalidades de transporte: Conhecimentos de Transporte
+  (CT-e), Manifestos (MDF-e) e os cadastros de transporte (veículos, motoristas, conjuntos).
+  Migration na COMMON que cria o módulo, inclui o MDF-e e **move** para ele o item do CT-e (hoje em
+  Vendas) e os cadastros de transporte (hoje em Cadastros), preservando as permissões já dadas aos
+  perfis. **Decisão minha:** mover os cadastros de transporte também, para o módulo ficar completo;
+  a configuração da transportadora continua na tela da filial. Só STANDALONE, como as telas.
 - Lista com filtros (emissão, situação, placa, motorista, "não encerrados"), ações: Incluir,
   Encerrar selecionados, Baixar XML, Baixar DAMDFE, Consultar não encerrados.
 - Inclusão: escolher CT-e (diálogo com os CT-e livres da filial, filtráveis por placa e data);
