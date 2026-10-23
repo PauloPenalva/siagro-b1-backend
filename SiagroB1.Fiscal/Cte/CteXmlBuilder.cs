@@ -274,11 +274,17 @@ public static class CteXmlBuilder
         },
     };
 
-    private static imp BuildTaxes(CteIssueInput input) => new()
+    private static imp BuildTaxes(CteIssueInput input)
     {
-        ICMS = new ZeusIcms { TipoICMS = BuildIcms(input) },
-        IBSCBS = BuildIbsCbs(input),
-    };
+        var ibsCbs = BuildIbsCbs(input);
+        return new imp
+        {
+            ICMS = new ZeusIcms { TipoICMS = BuildIcms(input) },
+            IBSCBS = ibsCbs,
+            // Rejeição 360: com o grupo IBS/CBS o total do DFe é obrigatório (vTPrest + IBS + CBS; em 2026 o IBS/CBS é informativo, logo = vTPrest).
+            vTotDFe = ibsCbs is null ? null : input.ServiceValue,
+        };
+    }
 
     private static ICMSBasico BuildIcms(CteIssueInput input) => input.IcmsCst switch
     {

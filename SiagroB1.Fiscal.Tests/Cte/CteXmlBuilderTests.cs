@@ -122,4 +122,33 @@ public class CteXmlBuilderTests
         // URL da tabela da Zeus: em SP a homologação usa homologacao.nfe.fazenda.sp.gov.br.
         Assert.Contains("<qrCodCTe>https://homologacao.nfe.fazenda.sp.gov.br/CTeConsulta/qrCode?chCTe=", signed.Xml);
     }
+
+    [Fact]
+    public void Build_with_ibscbs_emits_vTotDFe_after_group_with_service_total()
+    {
+        var input = CteTestData.Input() with
+        {
+            IbsCbsCst = "000", IbsCbsClassCode = "000001", IbsCbsBase = 1000m,
+            IbsStateRate = 0.1m, IbsStateValue = 1m, IbsMunicipalRate = 0m, IbsMunicipalValue = 0m, CbsRate = 0.9m, CbsValue = 9m,
+        };
+
+        var signed = Sign(input);
+
+        Assert.Contains("<vTotDFe>1000.00</vTotDFe></imp>", signed.Xml);
+        Assert.True(signed.Xml.IndexOf("</IBSCBS>", StringComparison.Ordinal) < signed.Xml.IndexOf("<vTotDFe>", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Build_with_ibscbs_without_base_still_emits_vTotDFe()
+    {
+        var signed = Sign(CteTestData.Input() with { IbsCbsCst = "000", IbsCbsClassCode = "000001" });
+
+        Assert.Contains("<vTotDFe>1000.00</vTotDFe>", signed.Xml);
+    }
+
+    [Fact]
+    public void Build_without_ibscbs_omits_vTotDFe()
+    {
+        Assert.DoesNotContain("vTotDFe", Sign(CteTestData.Input()).Xml);
+    }
 }
