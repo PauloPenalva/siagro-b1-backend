@@ -306,7 +306,7 @@ public class SpedFiscalFileService(SpedFiscalDataLoader loader, FiscalConference
         // H010: REG, COD_ITEM, UNID, QTD, VL_UNIT, VL_ITEM, IND_PROP, COD_PART, TXT_COMPL, COD_CTA, VL_ITEM_IR
         foreach (var r in rows)
             w.Add("H010", r.ItemCode, r.UnitOfMeasureCode ?? units.GetValueOrDefault(r.ItemCode), new SpedDecimal(r.Quantity, 3),
-                new SpedDecimal(r.UnitCost ?? 0m, 6), r.Value, "0", "", "", "", "");
+                new SpedDecimal(r.UnitCost ?? (r.Quantity != 0 ? r.Value / r.Quantity : 0m), 6), r.Value, "0", "", "", "", "");
         w.Add("H990", w.CountOfBlock('H') + 1);
     }
 

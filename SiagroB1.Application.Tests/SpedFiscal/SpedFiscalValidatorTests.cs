@@ -29,6 +29,23 @@ public class SpedFiscalValidatorTests
     }
 
     [Fact]
+    public async Task Validate_NonNfeDocumentWarnsAboutModel01()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(OwnSale("V1", 1000m, 120m));
+        await Save(db);
+        var data = await Loader(db).LoadAsync(Request());
+        data.Lines[0].Model = "01";
+        data.Lines[0].Number = "77";
+        data.Lines[0].AccessKey = null;
+
+        var issue = Assert.Single(SpedFiscalValidator.Validate(data));
+
+        Assert.False(issue.Blocking);
+        Assert.Equal("Documento 77 sem NF-e declarado como modelo 01; confira o modelo.", issue.Message);
+    }
+
+    [Fact]
     public async Task Validate_ForeignParticipantNeedsNoTaxId()
     {
         var db = await Seeded();

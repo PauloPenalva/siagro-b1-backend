@@ -66,6 +66,15 @@ public static class SpedFiscalValidator
         foreach (var u in data.UnconvertibleUnits)
             Block($"Produto {u.ItemCode} sem fator de conversão para a unidade {u.UnitCode}.", u.ItemCode);
 
+        // Documento sem NF-e sai como modelo 01 (nota de produtor costuma ser 04): só avisa
+        foreach (var doc in data.Lines.Where(l => l.Model == "01").GroupBy(l => l.DocumentKey).Select(g => g.First()))
+            issues.Add(new SpedFiscalIssueDto
+            {
+                Blocking = false,
+                Message = $"Documento {doc.Number} sem NF-e declarado como modelo 01; confira o modelo.",
+                Reference = doc.Number,
+            });
+
         foreach (var row in data.Inventory?.Rows.Where(r => r.Quantity < 0) ?? [])
             Block($"Inventário com saldo negativo: {row.ItemCode}.", row.ItemCode);
 

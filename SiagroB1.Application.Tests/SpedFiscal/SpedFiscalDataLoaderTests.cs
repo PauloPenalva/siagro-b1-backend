@@ -79,7 +79,7 @@ public class SpedFiscalDataLoaderTests
         var db = await Seeded();
         db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "10001", CommercialUnitOfMeasureCode = "SC", CommercialFactor = 60m });
         db.Context.UnitsOfMeasure.AddRange(new UnitOfMeasure { Code = "KG", Description = "QUILO" }, new UnitOfMeasure { Code = "SC", Description = "SACA" });
-        db.Context.SalesInvoices.AddRange(OwnSale("V1", uom: "KG"), OwnSale("V2", uom: "KG"), OwnSale("V3", uom: "SC"));
+        db.Context.PurchaseInvoices.AddRange(Third("P1", "KG"), Third("P2", "KG"), Third("P3", "SC"));
         await Save(db);
 
         var data = await Loader(db).LoadAsync(Request());
@@ -128,7 +128,7 @@ public class SpedFiscalDataLoaderTests
     public async Task Load_LineUnitWithoutFactorIsReportedUnconvertible()
     {
         var db = await Seeded();
-        db.Context.SalesInvoices.AddRange(OwnSale("V1"), OwnSale("V2"), OwnSale("V3", uom: "SC"));
+        db.Context.PurchaseInvoices.AddRange(Third("P1", "TN"), Third("P2", "TN"), Third("P3", "SC"));
         await Save(db);
 
         var data = await Loader(db).LoadAsync(Request());
@@ -136,6 +136,92 @@ public class SpedFiscalDataLoaderTests
         Assert.Empty(data.Conversions);
         Assert.Equal(new[] { new SpedUnconvertibleUnit("10001", "SC") }, data.UnconvertibleUnits);
     }
+
+    [Fact]
+    public async Task Load_OwnNfeUnitWithoutFactorDoesNotBlock()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.AddRange(OwnSale("V1"), OwnSale("V2"), OwnSale("V3", uom: "SC"));
+        await Save(db);
+
+        var data = await Loader(db).LoadAsync(Request());
+
+        Assert.Equal("TN", data.Items.Single().UnitCode);
+        Assert.Empty(data.Conversions);
+        Assert.Empty(data.UnconvertibleUnits);
+    }
+
+    [Fact]
+    public async Task LoadItems_InventoryUnitDifferentFromItemUnitYieldsConversion()
+    {
+        var db = await Seeded();
+        db.Context.ItemComplements.Add(new ItemComplement { ItemCode = "10001", CommercialUnitOfMeasureCode = "SC", CommercialFactor = 60m });
+        db.Context.PurchaseInvoices.AddRange(Third("P1", "SC"), Third("P2", "SC"));
+        await Save(db);
+        var lines = (await Loader(db).LoadAsync(Request())).Lines;
+
+        var (items, conversions, unconvertible) = await Loader(db).LoadItemsAsync(new Branch { Code = "01", BranchName = "MATRIZ" }, lines, Inventory("KG"));
+
+        Assert.Equal("SC", items.Single().UnitCode);
+        var c = Assert.Single(conversions);
+        Assert.Equal(("10001", "KG"), (c.ItemCode, c.UnitCode));
+        Assert.Empty(unconvertible);
+    }
+
+    [Fact]
+    public async Task LoadItems_InventoryUnitWithoutFactorIsUnconvertible()
+    {
+        var db = await Seeded();
+        db.Context.PurchaseInvoices.AddRange(Third("P1", "TN"), Third("P2", "TN"));
+        await Save(db);
+        var lines = (await Loader(db).LoadAsync(Request())).Lines;
+
+        var (_, conversions, unconvertible) = await Loader(db).LoadItemsAsync(new Branch { Code = "01", BranchName = "MATRIZ" }, lines, Inventory("SC"));
+
+        Assert.Empty(conversions);
+        Assert.Equal(new[] { new SpedUnconvertibleUnit("10001", "SC") }, unconvertible);
+    }
+
+    [Theory]
+    [InlineData(SalesInvoiceType.Normal, "5101", "1")]
+    [InlineData(SalesInvoiceType.Return, "1202", "0")]
+    [InlineData(SalesInvoiceType.Return, "", "0")]
+    public async Task Load_VoidSaleDirectionFollowsOperation(SalesInvoiceType type, string cfop, string expected)
+    {
+        var db = await Seeded();
+        var sale = OwnSale("CANC", NfeStatus.Cancelled, InvoiceStatus.Cancelled);
+        sale.InvoiceType = type;
+        sale.Items.Single().Cfop = cfop;
+        db.Context.SalesInvoices.Add(sale);
+        await Save(db);
+
+        Assert.Equal(expected, Assert.Single((await Loader(db).LoadAsync(Request())).VoidDocuments).Direction);
+    }
+
+    [Theory]
+    [InlineData(PurchaseInvoiceType.Normal, "1101", "0")]
+    [InlineData(PurchaseInvoiceType.Return, "5202", "1")]
+    [InlineData(PurchaseInvoiceType.Return, "", "1")]
+    public async Task Load_VoidOwnPurchaseDirectionFollowsOperation(PurchaseInvoiceType type, string cfop, string expected)
+    {
+        var db = await Seeded();
+        var item = PurchaseItem();
+        item.Cfop = cfop;
+        var own = Purchase("O1", type: type, issuer: DocumentIssuerType.Own, items: [item]);
+        own.TaxDocumentKind = TaxDocumentKind.Nfe;
+        own.NfeStatus = NfeStatus.Cancelled;
+        db.Context.PurchaseInvoices.Add(own);
+        await Save(db);
+
+        Assert.Equal(expected, Assert.Single((await Loader(db).LoadAsync(Request())).VoidDocuments).Direction);
+    }
+
+    private static PurchaseInvoice Third(string number, string uom) => Purchase(number, items: [Line(PurchaseItem(uom: uom))]);
+
+    private static FiscalInventoryData Inventory(string uom) => new()
+    {
+        Rows = [new FiscalInventoryRowDto { ItemCode = "10001", UnitOfMeasureCode = uom, Quantity = 5m, Value = 10m }],
+    };
 
     private static PurchaseInvoiceItem Line(PurchaseInvoiceItem item)
     {

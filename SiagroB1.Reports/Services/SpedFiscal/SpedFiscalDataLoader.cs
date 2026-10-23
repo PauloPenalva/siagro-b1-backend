@@ -70,7 +70,12 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
             .Where(s => s.BranchCode == request.BranchCode && s.TaxDocumentKind == TaxDocumentKind.Nfe)
             .Where(s => statuses.Contains(s.NfeStatus))
             .Where(s => s.InvoiceDate >= from && s.InvoiceDate < toExclusive)
-            .Select(s => new { s.NfeStatus, s.TaxDocumentSeries, s.TaxDocumentNumber, s.InvoiceNumber, s.ChaveNFe })
+            .Select(s => new
+            {
+                s.NfeStatus, s.TaxDocumentSeries, s.TaxDocumentNumber, s.InvoiceNumber, s.ChaveNFe,
+                IsReturn = s.InvoiceType == SalesInvoiceType.Return,
+                Cfop = s.Items.OrderBy(i => i.NfeItemNumber).Select(i => i.Cfop).FirstOrDefault(),
+            })
             .ToListAsync();
 
         var purchases = await db.Context.PurchaseInvoices.AsNoTracking()
@@ -78,16 +83,31 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
             .Where(p => p.IssuerType == DocumentIssuerType.Own)
             .Where(p => statuses.Contains(p.NfeStatus))
             .Where(p => (p.PostingDate ?? p.IssueDate) >= from && (p.PostingDate ?? p.IssueDate) < toExclusive)
-            .Select(p => new { p.NfeStatus, p.TaxDocumentSeries, p.TaxDocumentNumber, p.InvoiceNumber, p.ChaveNFe })
+            .Select(p => new
+            {
+                p.NfeStatus, p.TaxDocumentSeries, p.TaxDocumentNumber, p.InvoiceNumber, p.ChaveNFe,
+                IsReturn = p.InvoiceType == PurchaseInvoiceType.Return,
+                Cfop = p.Items.OrderBy(i => i.NfeItemNumber).Select(i => i.Cfop).FirstOrDefault(),
+            })
             .ToListAsync();
 
-        return sales.Select(s => Void("1", s.NfeStatus, s.TaxDocumentSeries, s.TaxDocumentNumber ?? s.InvoiceNumber, s.ChaveNFe))
-            .Concat(purchases.Select(p => Void("0", p.NfeStatus, p.TaxDocumentSeries, p.TaxDocumentNumber ?? p.InvoiceNumber, p.ChaveNFe)))
+        // IND_OPER pelo sentido da operação, como no C100 regular: CFOP da 1ª linha; sem CFOP, o tipo
+        // (devolução de venda é entrada, devolução de compra própria é saída)
+        return sales.Select(s => Void(Direction(s.Cfop, s.IsReturn ? "0" : "1"), s.NfeStatus, s.TaxDocumentSeries, s.TaxDocumentNumber ?? s.InvoiceNumber, s.ChaveNFe))
+            .Concat(purchases.Select(p => Void(Direction(p.Cfop, p.IsReturn ? "1" : "0"), p.NfeStatus, p.TaxDocumentSeries, p.TaxDocumentNumber ?? p.InvoiceNumber, p.ChaveNFe)))
             .OrderBy(v => v.Direction, StringComparer.Ordinal)
             .ThenBy(v => v.Series, StringComparer.Ordinal)
             .ThenBy(v => v.Number, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>"0" entrada / "1" saída pelo 1º dígito do CFOP; sem CFOP válido, o padrão do tipo.</summary>
+    private static string Direction(string? cfop, string fallback) => cfop?.Trim() switch
+    {
+        [var first, ..] when first is '1' or '2' or '3' => "0",
+        [var first, ..] when first is '5' or '6' or '7' => "1",
+        _ => fallback,
+    };
 
     private static SpedVoidDocument Void(string direction, NfeStatus status, string? series, string? number, string? key) => new()
     {
@@ -161,16 +181,24 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
     /// unidade do 0200 é a mais usada nas linhas do produto (empate: ordem alfabética); sem linha,
     /// a do inventário. Linha em outra unidade gera 0220 quando o fator sai do complemento.
     /// </summary>
-    private async Task<(List<SpedItem>, List<SpedUnitConversion>, List<SpedUnconvertibleUnit>)> LoadItemsAsync(
+    public async Task<(List<SpedItem> Items, List<SpedUnitConversion> Conversions, List<SpedUnconvertibleUnit> Unconvertible)> LoadItemsAsync(
         Branch branch, List<FiscalDocumentLineDto> lines, FiscalInventoryData? inventoryData)
     {
+        // Unidades que de fato serão escritas: C170 (documento de terceiro) e H010 (inventário). A
+        // NF-e própria não tem C170, então a unidade dela não exige 0220 nem bloqueia o arquivo.
         var lineUnits = lines
             .Where(l => l.ItemCode != "")
             .GroupBy(l => l.ItemCode)
+            .ToDictionary(g => g.Key, g => g.Where(l => l.IssuerType == "1").Select(l => l.UnitOfMeasureCode).Where(u => u != "").ToList());
+        var ownUnits = lines
+            .Where(l => l.ItemCode != "" && l.IssuerType != "1")
+            .GroupBy(l => l.ItemCode)
             .ToDictionary(g => g.Key, g => g.Select(l => l.UnitOfMeasureCode).Where(u => u != "").ToList());
-        foreach (var row in inventoryData?.Rows ?? [])
-            if (!lineUnits.ContainsKey(row.ItemCode))
-                lineUnits[row.ItemCode] = string.IsNullOrWhiteSpace(row.UnitOfMeasureCode) ? [] : [row.UnitOfMeasureCode];
+        foreach (var row in inventoryData?.Rows.Where(r => r.Quantity > 0) ?? [])
+        {
+            if (!lineUnits.TryGetValue(row.ItemCode, out var list)) lineUnits[row.ItemCode] = list = [];
+            if (!string.IsNullOrWhiteSpace(row.UnitOfMeasureCode)) list.Add(row.UnitOfMeasureCode);
+        }
 
         var codes = lineUnits.Keys.ToArray();
         var catalog = await db.Context.Items.AsNoTracking().Where(i => codes.Contains(i.ItemCode)).ToDictionaryAsync(i => i.ItemCode);
@@ -183,7 +211,8 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
         foreach (var code in codes.Order(StringComparer.Ordinal))
         {
             var units = lineUnits[code];
-            var unit = units
+            // Sem unidade escrita (só NF-e própria), a do 0200 sai das linhas próprias
+            var unit = (units.Count > 0 ? units : ownUnits.GetValueOrDefault(code) ?? [])
                 .GroupBy(u => u)
                 .OrderByDescending(g => g.Count())
                 .ThenBy(g => g.Key, StringComparer.Ordinal)
