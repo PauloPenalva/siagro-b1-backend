@@ -163,6 +163,13 @@ builder.Services.AddHangfireServer(options =>
     options.WorkerCount = 1;
 });
 
+// CT-e em lote (transmissão/averbação): um worker, um CT-e por vez, para não abrir rajada na SEFAZ nem na AT&M.
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = [CteBatchJob.QueueName];
+    options.WorkerCount = 1;
+});
+
 // DANFE do e-mail: rota interna do Reports (Reports:InternalBaseUrl / Reports:InternalApiKey).
 builder.Services.AddHttpClient<IDanfeProvider, SiagroB1.Infra.Reports.HttpDanfeProvider>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));

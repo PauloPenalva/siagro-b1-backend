@@ -208,4 +208,41 @@ public class CteBatchServiceTests : CteEventsTestBase
 
         Assert.Equal("Nenhum CT-e autorizado entre os selecionados.", e.Message);
     }
+
+    [Fact]
+    public void CteBatchJob_methods_run_on_cte_queue()
+    {
+        Assert.Equal("cte", CteBatchJob.QueueName);
+        var queue = typeof(CteBatchJob).GetCustomAttributes(typeof(Hangfire.QueueAttribute), true).Cast<Hangfire.QueueAttribute>().Single();
+        Assert.Equal("cte", queue.Queue);
+    }
+
+    /// <summary>Simula o serviço gravar o desfecho da SEFAZ e lançar depois.</summary>
+    private sealed class OutcomeThenThrowNumbers(SiagroB1.Infra.UnitOfWork db, Guid key) : CteNumberReservationService(null!, null!)
+    {
+        public override async Task<IAsyncDisposable> AcquireEmissionLockAsync(Guid documentKey)
+        {
+            var doc = db.Context.TransportDocuments.Single(x => x.Key == key);
+            doc.StatusReason = "Rejeição: motivo da SEFAZ";
+            doc.StatusCode = "539";
+            await db.SaveChangesAsync();
+            throw new InvalidOperationException("falha depois do desfecho");
+        }
+    }
+
+    [Fact]
+    public async Task Transmit_job_does_not_overwrite_a_sefaz_outcome_recorded_in_this_run()
+    {
+        var key = await SeedAsync(CteStatus.Rejected, 101);
+        var config = NfeTestSeed.Config();
+        var transmit = new TransportDocumentsTransmitService(
+            Db, config, new OutcomeThenThrowNumbers(Db, key), Contexts(), Sefaz, new NfeOptions(config), () => Clock);
+        var job = new CteBatchJob(transmit, new TransportDocumentsEndorseService(Db, config, Numbers, _averba), Db, NullLogger<CteBatchJob>.Instance);
+
+        await job.TransmitAsync("0002", key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal("Rejeição: motivo da SEFAZ", doc.StatusReason);
+        Assert.Equal("539", doc.StatusCode);
+    }
 }
