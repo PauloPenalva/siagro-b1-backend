@@ -1,0 +1,98 @@
+using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Mdfe;
+using SiagroB1.Application.Tests.Support;
+using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Exceptions;
+using SiagroB1.Domain.Models;
+using SiagroB1.Infra;
+
+namespace SiagroB1.Application.Tests.Mdfe;
+
+/// <summary>Gravação do rascunho do MDF-e.</summary>
+public class TransportManifestsSaveServiceTests
+{
+    private readonly string _name = Guid.NewGuid().ToString();
+    private readonly UnitOfWork _db;
+
+    public TransportManifestsSaveServiceTests() => _db = TestDb.CreateUnitOfWork(_name);
+
+    private TransportManifestsSaveService Save(UnitOfWork? db = null) =>
+        new(db ?? _db, MdfeTestSupport.Config(), new MdfeReadinessValidator(db ?? _db));
+
+    private async Task<(Guid Manifest, TransportDocument Cte)> DraftAsync(bool requiresCiot = false)
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db, requiresCiot);
+        var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
+        var key = await new TransportManifestsCreateFromCtesService(_db, MdfeTestSupport.Config()).CreateFromCtesAsync("01", [cte.Key], "tester");
+        return (key, cte);
+    }
+
+    [Fact]
+    public async Task Save_rechecks_cte_eligibility_inside_transaction()
+    {
+        var (key, cte) = await DraftAsync();
+        // Outra aba gravou um MDF-e com o mesmo CT-e por fora da checagem de criação (corrida).
+        var other = TestDb.CreateUnitOfWork(_name);
+        var rival = new TransportManifest { BranchCode = "01", Number = 42 };
+        rival.Ctes.Add(new TransportManifestCte
+        {
+            TransportDocumentKey = cte.Key, CteAccessKey = cte.AccessKey!, UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS",
+        });
+        other.Context.TransportManifests.Add(rival);
+        await other.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Save(TestDb.CreateUnitOfWork(_name))
+            .SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 10 }, "tester"));
+
+        Assert.Equal("O CT-e 7 já está no MDF-e 42.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_updates_editable_fields_and_normalizes_digits()
+    {
+        var (key, _) = await DraftAsync();
+
+        await Save().SaveAsync(key, new TransportManifestSaveModel
+        {
+            RouteUfs = ["mg", "GO"], Seals = ["L1"], LoadingZip = "01001-000", UnloadingZip = "13010-000", GrossWeight = 2, WeightUnit = "02",
+            CiotNumber = "1234.5678.9012", CiotResponsibleTaxId = "12.345.678/0001-95",
+            Contractors = [new TransportManifestContractorModel { TaxId = "529.982.247-25", Name = "B" }],
+            Payments = [new TransportManifestPaymentModel
+            {
+                ContractorTaxId = "529.982.247-25", ContractorName = "B", Total = 10, Components = [new() { Type = "99", Value = 10, Description = "FRETE" }],
+            }],
+            AdditionalInfo = "  OBS  ",
+        }, "tester");
+
+        var m = await _db.Context.TransportManifests.AsNoTracking().Include(x => x.RouteUfs).Include(x => x.Contractors)
+            .Include(x => x.Payments).ThenInclude(p => p.Components).FirstAsync(x => x.Key == key);
+        Assert.Equal(["MG", "GO"], m.RouteUfs.OrderBy(r => r.LineNum).Select(r => r.Uf).ToList());
+        Assert.Equal("01001000", m.LoadingZip);
+        Assert.Equal("123456789012", m.CiotNumber);
+        Assert.Equal("12345678000195", m.CiotResponsibleTaxId);
+        Assert.Equal("52998224725", Assert.Single(m.Contractors).TaxId);
+        Assert.Equal(10m, Assert.Single(Assert.Single(m.Payments).Components).Value);
+        Assert.Equal("OBS", m.AdditionalInfo);
+        Assert.Equal(1, m.CteCount);
+    }
+
+    [Fact]
+    public async Task Save_warns_when_branch_requires_ciot()
+    {
+        var (key, _) = await DraftAsync(requiresCiot: true);
+
+        var warnings = await Save().SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 1 }, "tester");
+
+        Assert.Contains(MdfeReadinessValidator.CiotRequiredWarning, warnings);
+    }
+
+    [Fact]
+    public async Task Delete_draft_frees_the_cte()
+    {
+        var (key, cte) = await DraftAsync();
+
+        await Save().DeleteAsync(key);
+
+        Assert.False(await _db.Context.TransportManifestCtes.AnyAsync(x => x.TransportDocumentKey == cte.Key));
+    }
+}

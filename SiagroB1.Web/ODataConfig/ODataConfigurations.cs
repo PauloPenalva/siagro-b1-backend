@@ -96,6 +96,23 @@ public static class ODataConfigurations
         branchMdfeSettingsSave.CollectionParameter<int>("NextNumbers");
         branchMdfeSettingsSave.Returns<BranchMdfeSettingsModel>();
 
+        // MDF-e (só STANDALONE): entity set só leitura; inclusão a partir dos CT-e, gravação e exclusão por ações.
+        modelBuilder.EntitySet<TransportManifest>("TransportManifests");
+        modelBuilder.ComplexType<TransportManifestSaveModel>();
+        var mdfeEligibleCtes = modelBuilder.Function("MdfeEligibleCtes");
+        mdfeEligibleCtes.Parameter<string>("BranchCode");
+        mdfeEligibleCtes.ReturnsCollectionFromEntitySet<TransportDocument>("TransportDocuments");
+        var transportManifestsCreateFromCtes = modelBuilder.Action("TransportManifestsCreateFromCtes");
+        transportManifestsCreateFromCtes.Parameter<string>("BranchCode");
+        transportManifestsCreateFromCtes.CollectionParameter<string>("CteKeys");
+        transportManifestsCreateFromCtes.Returns<string>();
+        var transportManifestsSave = modelBuilder.Action("TransportManifestsSave");
+        transportManifestsSave.Parameter<string>("Key");
+        transportManifestsSave.Parameter<TransportManifestSaveModel>("Model");
+        transportManifestsSave.ReturnsCollection<string>();
+        var transportManifestsDelete = modelBuilder.Action("TransportManifestsDelete");
+        transportManifestsDelete.Parameter<string>("Key");
+
         // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
         // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.
         modelBuilder.EntitySet<TransportDocument>("TransportDocuments");

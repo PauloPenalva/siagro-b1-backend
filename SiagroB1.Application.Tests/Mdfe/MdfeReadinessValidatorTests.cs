@@ -1,0 +1,103 @@
+using SiagroB1.Application.Services.Mdfe;
+using SiagroB1.Domain.Entities;
+
+namespace SiagroB1.Application.Tests.Mdfe;
+
+/// <summary>O que falta para o MDF-e poder ser confirmado (erros) e o que só merece aviso.</summary>
+public class MdfeReadinessValidatorTests
+{
+    private static TransportManifest Ready(int ctes = 2)
+    {
+        var m = new TransportManifest
+        {
+            BranchCode = "01", UfStart = "SP", UfEnd = "SP", TractionPlate = "ABC1D23", DriverCpf = "52998224725", DriverName = "JOAO",
+            WeightUnit = "01", GrossWeight = 1000, CargoType = "05", ProductDescription = "SOJA",
+        };
+        for (var i = 0; i < ctes; i++)
+            m.Ctes.Add(new TransportManifestCte { CteAccessKey = new string('5', 44), UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS" });
+        m.CteCount = ctes;
+        m.Vehicles.Add(new TransportManifestVehicle { IsTraction = true, Plate = "ABC1D23", BodyType = "03", WheelType = "03", Uf = "SP" });
+        return m;
+    }
+
+    private static BranchMdfeSettings Settings(bool requiresCiot = false) => new() { BranchCode = "01", Enabled = true, RequiresCiot = requiresCiot };
+
+    private static (IReadOnlyList<string> Errors, IReadOnlyList<string> Warnings) Run(TransportManifest m, BranchMdfeSettings? s = null,
+        string? rntrc = "11382119", string? zip = "01001000") => MdfeReadinessValidator.Validate(m, s ?? Settings(), rntrc, zip);
+
+    [Fact]
+    public void Validator_accepts_ready_manifest()
+    {
+        var (errors, warnings) = Run(Ready());
+        Assert.Empty(errors);
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void Validator_requires_kg_or_ton_weight()
+    {
+        var noWeight = Ready();
+        noWeight.GrossWeight = 0;
+        var m3 = Ready();
+        m3.WeightUnit = "00";
+
+        Assert.Contains(MdfeReadinessValidator.WeightRequired, Run(noWeight).Errors);
+        Assert.Contains(MdfeReadinessValidator.WeightUnitInvalid, Run(m3).Errors);
+    }
+
+    [Fact]
+    public void Validator_ciot_requires_payment()
+    {
+        var m = Ready();
+        m.CiotNumber = "123456789012";
+        m.CiotResponsibleTaxId = "12345678000195";
+
+        Assert.Contains("Com CIOT informado, preencha as informações de pagamento do frete.", Run(m).Errors);
+    }
+
+    [Fact]
+    public void Validator_ciot_needs_12_digits_and_responsible()
+    {
+        var m = Ready();
+        m.CiotNumber = "123";
+        m.Payments.Add(new TransportManifestPayment { ContractorTaxId = "52998224725", ContractorName = "B", Total = 1 });
+
+        var errors = Run(m).Errors;
+        Assert.Contains(MdfeReadinessValidator.CiotLength, errors);
+        Assert.Contains(MdfeReadinessValidator.CiotResponsibleRequired, errors);
+    }
+
+    [Fact]
+    public void Validator_single_cte_requires_zips()
+    {
+        var m = Ready(ctes: 1);
+
+        Assert.Contains("Carga lotação: informe o CEP de carregamento e de descarregamento.", Run(m).Errors);
+        m.LoadingZip = "01001000";
+        m.UnloadingZip = "13010000";
+        Assert.Empty(Run(m).Errors);
+    }
+
+    [Fact]
+    public void Validator_requires_driver_rntrc_issuer_zip_and_enabled_branch()
+    {
+        var m = Ready();
+        m.DriverCpf = null;
+
+        var errors = Run(m, new BranchMdfeSettings { BranchCode = "01", Enabled = false }, rntrc: null, zip: null).Errors;
+
+        Assert.Contains(MdfeReadinessValidator.DriverRequired, errors);
+        Assert.Contains(MdfeReadinessValidator.RntrcRequired, errors);
+        Assert.Contains(MdfeReadinessValidator.IssuerZipRequired, errors);
+        Assert.Contains(errors, e => e.Contains("não está habilitada a emitir MDF-e"));
+    }
+
+    [Fact]
+    public void Validator_warns_when_branch_requires_ciot()
+    {
+        var (errors, warnings) = Run(Ready(), Settings(requiresCiot: true));
+
+        Assert.Empty(errors);
+        Assert.Equal([MdfeReadinessValidator.CiotRequiredWarning], warnings);
+    }
+}
