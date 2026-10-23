@@ -69,6 +69,14 @@ public static class FinancialDocumentTestServices
             NullLogger<FinancialDocumentsSalesNoContractService>.Instance);
     }
 
+    /// <summary>Título a receber do CT-e (entrega B), com numeração em memória e a natureza lida pelo UsageService local.</summary>
+    public static FinancialDocumentsTransportService Transport(
+        IUnitOfWork db, FakeDocNumberSequenceService? numbers = null, string erp = "STANDALONE")
+    {
+        var sequence = numbers ?? new FakeDocNumberSequenceService();
+        return new(db, sequence, FirmSync(db, sequence, erp));
+    }
+
     public static PurchaseInvoicesReverseConfirmService PurchaseReverse(IUnitOfWork db,
         Services.Accounting.Postings.IAccountingPostingService? accounting = null) =>
         new(db, OtherPurchase(db, null, "STANDALONE", new FakeBusinessPartnerService()), accounting: accounting);

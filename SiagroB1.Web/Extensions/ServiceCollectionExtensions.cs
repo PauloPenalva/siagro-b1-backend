@@ -428,7 +428,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Cte.CteServiceContextFactory>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsTransmitService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsConsultService>();
-        services.AddScoped<SiagroB1.Application.Services.Cte.ICteCancellationHook, SiagroB1.Application.Services.Cte.NoOpCteCancellationHook>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteLifecycleHooks>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.ICteCancellationHook>(sp => sp.GetRequiredService<SiagroB1.Application.Services.Cte.CteLifecycleHooks>());
+        services.AddScoped<SiagroB1.Application.Services.Cte.ICteAuthorizationHook>(sp => sp.GetRequiredService<SiagroB1.Application.Services.Cte.CteLifecycleHooks>());
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsCancelService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsEndorseService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteEndorsementCancellationService>();
@@ -768,6 +770,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<FinancialDocumentsOtherPurchaseService>();
         services.AddScoped<FinancialDocumentsSalesFirmSyncService>();
         services.AddScoped<FinancialDocumentsSalesNoContractService>();
+        services.AddScoped<FinancialDocumentsTransportService>();
         services.AddScoped<StorageInvoicesBillingGetService>();
         services.AddScoped<FinancialDocumentsComposeService>();
         services.AddScoped<FinancialDocumentsUncomposeService>();

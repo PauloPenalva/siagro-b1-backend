@@ -1577,7 +1577,7 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "SalesContractKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
                         .IsUnique()
-                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10");
+                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10 AND [OriginType] <> 11");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "InstallmentNumber", "WithholdingTaxType" }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
                         .IsUnique()
@@ -8145,6 +8145,9 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<bool>("OwnTransport")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("PaymentConditionCode")
+                        .HasColumnType("int");
 
                     b.Property<string>("PolicyNumber")
                         .HasColumnType("VARCHAR(20)");

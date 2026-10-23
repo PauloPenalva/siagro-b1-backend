@@ -18,7 +18,7 @@ public class TransportDocumentsSaveServiceTests
 
     private readonly CtePartnerCatalog _partners = new CtePartnerCatalog()
         .Add("REM", "REMETENTE LTDA", "11222333000181", "3509502", "SP")
-        .Add("DES", "DESTINATARIO LTDA", "44555666000172", "3550308", "SP")
+        .Add("DES", "DESTINATARIO LTDA", "44555666000172", "3550308", "SP", paymentConditionCode: 7)
         .Add("RCB", "RECEBEDOR LTDA", "77888999000163", "4106902", "PR")
         .Add("ISE", "ISENTO LTDA", "11111111000191", "3550308", "SP", "ISENTO")
         .Add("NCT", "PESSOA FISICA", "52998224725", "3550308", "SP", null)
@@ -63,6 +63,24 @@ public class TransportDocumentsSaveServiceTests
         Assert.Equal(650m, doc.ServiceTotal);
         Assert.Equal(CteStatus.Draft, doc.Status);
         Assert.Empty(result.Warnings);
+    }
+
+    [Fact]
+    public async Task Payment_condition_defaults_from_taker()
+    {
+        await CteTestKeys.SeedBranchAndMunicipalitiesAsync(_db);
+
+        // Tomador = destinatário (TakerRole 3): a condição dele é sugerida quando a tela não manda nenhuma.
+        var suggested = await Service().SaveAsync(Input() with { TakerRole = 3 }, "tester");
+        Assert.Equal(7, (await LoadAsync(suggested.Key)).PaymentConditionCode);
+
+        // Informada na tela: prevalece.
+        var edited = await Service().SaveAsync(Input() with { TakerRole = 3, PaymentConditionCode = 9 }, "tester");
+        Assert.Equal(9, (await LoadAsync(edited.Key)).PaymentConditionCode);
+
+        // Tomador sem condição no cadastro: fica vazia.
+        var none = await Service().SaveAsync(Input(), "tester");
+        Assert.Null((await LoadAsync(none.Key)).PaymentConditionCode);
     }
 
     [Theory]

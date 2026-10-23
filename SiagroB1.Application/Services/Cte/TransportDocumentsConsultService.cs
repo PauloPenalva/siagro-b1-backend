@@ -20,7 +20,8 @@ public class TransportDocumentsConsultService(
     CteNumberReservationService numbers,
     CteServiceContextFactory contexts,
     ICteSefazClient sefaz,
-    ILogger<TransportDocumentsConsultService>? logger = null)
+    ILogger<TransportDocumentsConsultService>? logger = null,
+    ICteAuthorizationHook? authorizationHook = null)
 {
     public async Task<NfeSefazResult> ConsultAsync(Guid key)
     {
@@ -50,7 +51,7 @@ public class TransportDocumentsConsultService(
         {
             var stored = CteEmission.StoredSigned(doc);
             return await CteEmission.ApplyAsync(
-                db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, result), stored?.Xml ?? "", logger);
+                db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, result), stored?.Xml ?? "", logger, authorizationHook);
         }
 
         if (NfeStatusCodes.IsAuthorized(result.StatusCode)
@@ -58,7 +59,7 @@ public class TransportDocumentsConsultService(
         {
             var stored = CteEmission.StoredSigned(doc)
                          ?? throw new DefaultException("O CT-e não tem o XML enviado gravado: não é possível compor o XML autorizado.");
-            return await CteEmission.ApplyAsync(db, doc, result, stored.Xml, logger);
+            return await CteEmission.ApplyAsync(db, doc, result, stored.Xml, logger, authorizationHook);
         }
 
         if (!NfeStatusCodes.IsAuthorized(result.StatusCode))

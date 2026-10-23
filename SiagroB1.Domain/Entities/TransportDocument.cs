@@ -30,6 +30,9 @@ public class TransportDocument
     /// <summary>Tomador: 0 remetente, 1 expedidor, 2 recebedor, 3 destinatário, 4 outro.</summary>
     public int TakerRole { get; set; }
 
+    /// <summary>Condição de pagamento do título a receber. Sugerida do cadastro do tomador; editável.</summary>
+    public int? PaymentConditionCode { get; set; }
+
     // --- Rota ---
     [Column(TypeName = "VARCHAR(7)")] public string? StartMunicipalityCode { get; set; }
     [Column(TypeName = "VARCHAR(2)")] public string? StartState { get; set; }

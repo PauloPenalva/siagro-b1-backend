@@ -29,14 +29,27 @@ public class TransportDocumentsTransmitServiceTests
     {
         var config = NfeTestSeed.Config();
         return new TransportDocumentsTransmitService(
-            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now, _log);
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now, _log, _authHook);
     }
+
+    private sealed class CountingHook : ICteAuthorizationHook
+    {
+        public List<Guid> Authorized { get; } = [];
+
+        public Task OnAuthorizedAsync(TransportDocument doc)
+        {
+            Authorized.Add(doc.Key);
+            return Task.CompletedTask;
+        }
+    }
+
+    private readonly CountingHook _authHook = new();
 
     private TransportDocumentsConsultService Consult()
     {
         var config = NfeTestSeed.Config();
         return new TransportDocumentsConsultService(
-            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz);
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, authorizationHook: _authHook);
     }
 
     private async Task<Guid> SeedConfirmedAsync(NfeEnvironment environment = NfeEnvironment.Homologation)
@@ -247,6 +260,36 @@ public class TransportDocumentsTransmitServiceTests
         var doc = await LoadAsync(key);
         Assert.Equal(issuedAt, doc.IssuedAt);
         Assert.Equal(CteStatus.Authorized, doc.Status);
+    }
+
+    [Fact]
+    public async Task Authorization_hook_runs_once_on_consult_recovery()
+    {
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        await Transmit().TransmitAsync(key, "tester");
+        Assert.Empty(_authHook.Authorized);
+
+        // A consulta recupera a autorização; consultar de novo não dispara o gancho outra vez.
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
+        await Consult().ConsultAsync(key);
+        _sefaz.ConsultResponses.Enqueue(OkForSent(0));
+        await Consult().ConsultAsync(key);
+
+        Assert.Equal(CteStatus.Authorized, (await LoadAsync(key)).Status);
+        Assert.Equal(new[] { key }, _authHook.Authorized);
+    }
+
+    [Fact]
+    public async Task Authorization_hook_runs_once_on_direct_authorization()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(new[] { key }, _authHook.Authorized);
     }
 
     [Fact]

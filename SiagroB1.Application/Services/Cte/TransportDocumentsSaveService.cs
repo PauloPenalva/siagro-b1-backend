@@ -65,6 +65,7 @@ public class TransportDocumentsSaveService(
         doc.CostCenterCode = Blank(input.CostCenterCode);
         doc.AccountingItemCode = Blank(input.AccountingItemCode);
         doc.DistributionRuleCode = Blank(input.DistributionRuleCode);
+        doc.PaymentConditionCode = input.PaymentConditionCode ?? await TakerPaymentConditionAsync(input);
         doc.InsuranceResponsible = Blank(input.InsuranceResponsible);
         doc.InsurerTaxId = Blank(input.InsurerTaxId);
         doc.InsurerName = Blank(input.InsurerName);
@@ -181,6 +182,13 @@ public class TransportDocumentsSaveService(
             db.Context.AddRange(doc.Quantities);
             db.Context.AddRange(doc.Components);
         }
+    }
+
+    /// <summary>Sugestão da condição de pagamento: a do cadastro do tomador (parte cujo papel é o TakerRole).</summary>
+    private async Task<int?> TakerPaymentConditionAsync(TransportDocumentInput input)
+    {
+        var taker = input.Parties.FirstOrDefault(p => (int)p.Role == input.TakerRole && !string.IsNullOrWhiteSpace(p.CardCode));
+        return taker is null ? null : (await defaults.LoadPartnerAsync(taker.CardCode)).PaymentConditionCode;
     }
 
     private async Task<string?> RouteStateAsync(string? municipalityCode, List<TransportDocumentParty> parties) =>

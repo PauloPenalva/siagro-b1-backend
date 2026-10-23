@@ -45,6 +45,8 @@ public sealed record TransportDocumentInput
     public string? CostCenterCode { get; init; }
     public string? AccountingItemCode { get; init; }
     public string? DistributionRuleCode { get; init; }
+    /// <summary>Condição de pagamento do título; vazia = a do cadastro do tomador.</summary>
+    public int? PaymentConditionCode { get; init; }
 }
 
 /// <summary>Resultado da gravação: a chave do CT-e e os avisos (não bloqueiam) que a tela mostra.</summary>

@@ -845,9 +845,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasFilter($"[Nature] IN ({(int)FinancialDocumentNature.Firm}, {(int)FinancialDocumentNature.PurchaseReturn}, {(int)FinancialDocumentNature.SalesReturn}) " +
                        $"AND [Status] <> {(int)FinancialDocumentStatus.Canceled} " +
                        "AND [OriginKey] IS NOT NULL " +
-                       // Outra compra e saída sem contrato: N parcelas com o mesmo OriginKey — a idempotência é do serviço.
+                       // Outra compra, saída sem contrato e CT-e: N parcelas com o mesmo OriginKey — a idempotência é do serviço.
                        // Índice filtrado não aceita NOT IN (erro 102 no SQL Server): use <> encadeado.
-                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} AND [OriginType] <> {(int)FinancialDocumentOrigin.SalesInvoiceNoContract}");
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} AND [OriginType] <> {(int)FinancialDocumentOrigin.SalesInvoiceNoContract} " +
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.TransportDocument}");
 
         // Outra compra: o índice acima a exclui (N parcelas e N retenções por documento), então a rede de segurança da
         // confirmação idempotente é esta chave: documento × parcela × tributo. Título cancelado libera a chave.

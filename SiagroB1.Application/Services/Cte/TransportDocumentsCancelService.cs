@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Services.Financials;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -21,6 +22,7 @@ public class TransportDocumentsCancelService(
     CteServiceContextFactory contexts,
     ICteSefazClient sefaz,
     ICteCancellationHook hook,
+    FinancialDocumentsTransportService financial,
     Func<DateTimeOffset>? clock = null)
 {
     public const int MinJustificationLength = 15;
@@ -49,6 +51,10 @@ public class TransportDocumentsCancelService(
         var now = TimeZoneInfo.ConvertTime(clock?.Invoke() ?? DateTimeOffset.UtcNow, NfeIssueInputAssembler.BrasiliaZone);
         if (doc.AuthorizedAt is { } authorizedAt && now.DateTime - authorizedAt > TimeSpan.FromHours(DeadlineHours))
             throw new DefaultException(DeadlineExpired);
+
+        // Título a receber já baixado: recusa ANTES da SEFAZ, sem mudar nada.
+        if (ErpMode.IsStandalone(configuration))
+            await financial.EnsureCanUndoAsync(doc.Key);
 
         var branch = await db.Context.Branchs.AsNoTracking().FirstOrDefaultAsync(b => b.Code == doc.BranchCode)
                      ?? throw new DefaultException($"Filial {doc.BranchCode} não encontrada.");

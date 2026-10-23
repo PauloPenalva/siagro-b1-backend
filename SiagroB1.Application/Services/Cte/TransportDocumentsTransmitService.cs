@@ -25,7 +25,8 @@ public class TransportDocumentsTransmitService(
     ICteSefazClient sefaz,
     NfeOptions options,
     Func<DateTimeOffset>? clock = null,
-    ILogger<TransportDocumentsTransmitService>? logger = null)
+    ILogger<TransportDocumentsTransmitService>? logger = null,
+    ICteAuthorizationHook? authorizationHook = null)
 {
     public const string NotTransmittable = "Só é possível transmitir CT-e confirmado, rejeitado ou em processamento.";
     public const string NoResponse = CteEmission.NoResponse;
@@ -57,13 +58,13 @@ public class TransportDocumentsTransmitService(
             catch (NfeCommunicationException e)
             {
                 CteEmission.LogCommunication(logger, doc.AccessKey, "consulta", e);
-                return await CteEmission.ApplyAsync(db, doc, null, stored.Xml, logger);
+                return await CteEmission.ApplyAsync(db, doc, null, stored.Xml, logger, authorizationHook);
             }
 
             if (NfeStatusCodes.IsAuthorized(consult.StatusCode))
-                return await CteEmission.ApplyAsync(db, doc, consult, stored.Xml, logger);
+                return await CteEmission.ApplyAsync(db, doc, consult, stored.Xml, logger, authorizationHook);
             if (consult.StatusCode == CteEmission.KeyDiffers)
-                return await CteEmission.ApplyAsync(db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, consult), stored.Xml, logger);
+                return await CteEmission.ApplyAsync(db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, consult), stored.Xml, logger, authorizationHook);
 
             return await SendAsync(doc, new SignedCte(stored.Xml, doc.AccessKey), context.Settings);
         }
@@ -112,7 +113,7 @@ public class TransportDocumentsTransmitService(
             result = await RecoverAsync(signed.AccessKey, settings, null);
         }
 
-        return await CteEmission.ApplyAsync(db, doc, result, signed.Xml, logger);
+        return await CteEmission.ApplyAsync(db, doc, result, signed.Xml, logger, authorizationHook);
     }
 
     /// <summary>
@@ -209,8 +210,10 @@ internal static class CteEmission
     /// XML assinado gravado e só se o digVal do protCTe bater com o DigestValue dele.
     /// </summary>
     public static async Task<NfeSefazResult> ApplyAsync(
-        IUnitOfWork db, TransportDocument doc, NfeSefazResult? result, string signedXml, ILogger? logger)
+        IUnitOfWork db, TransportDocument doc, NfeSefazResult? result, string signedXml, ILogger? logger,
+        ICteAuthorizationHook? authorizationHook = null)
     {
+        var wasAuthorized = doc.Status == CteStatus.Authorized;
         doc.UpdatedAt = DateTime.Now;
 
         if (result is null)
@@ -255,6 +258,10 @@ internal static class CteEmission
         doc.StatusCode = result.StatusCode.ToString();
         doc.StatusReason = result.Reason.Length > 500 ? result.Reason[..500] : result.Reason;
         await db.SaveChangesAsync();
+
+        // Único ponto em que o CT-e vira Autorizado (transmissão e consulta): o gancho roda uma vez, só na transição.
+        if (!wasAuthorized && doc.Status == CteStatus.Authorized && authorizationHook is not null)
+            await authorizationHook.OnAuthorizedAsync(doc);
         return result;
     }
 

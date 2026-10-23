@@ -83,7 +83,7 @@ public class FinancialSalesReceivableModelTests
         Assert.Equal(
             new[] { nameof(FinancialDocument.OriginType), nameof(FinancialDocument.OriginKey), nameof(FinancialDocument.SalesContractKey) },
             index.Properties.Select(p => p.Name).ToArray());
-        Assert.Equal("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10", index.GetFilter());
+        Assert.Equal("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10 AND [OriginType] <> 11", index.GetFilter());
     }
 
     [Fact]

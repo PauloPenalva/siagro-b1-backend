@@ -24,7 +24,7 @@ public class TransportDocumentsCancelServiceTests : CteEventsTestBase
     private readonly RecordingHook _hook = new();
 
     private TransportDocumentsCancelService Service() =>
-        new(Db, NfeTestSeed.Config(), Numbers, Contexts(), Sefaz, _hook, () => Clock);
+        new(Db, NfeTestSeed.Config(), Numbers, Contexts(), Sefaz, _hook, FinancialDocumentTestServices.Transport(Db), () => Clock);
 
     [Fact]
     public async Task Cancel_short_justification_is_rejected()

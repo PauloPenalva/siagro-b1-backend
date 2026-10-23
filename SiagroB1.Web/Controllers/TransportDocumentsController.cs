@@ -105,6 +105,7 @@ public class TransportDocumentsController(
                 CostCenterCode = Text(parameters, "CostCenterCode"),
                 AccountingItemCode = Text(parameters, "AccountingItemCode"),
                 DistributionRuleCode = Text(parameters, "DistributionRuleCode"),
+                PaymentConditionCode = Int(parameters, "PaymentConditionCode"),
             };
 
             return Ok(await saveService.SaveAsync(input, User.Identity?.Name ?? "Unknown"));

@@ -29,5 +29,11 @@ public enum FinancialDocumentOrigin
     /// venda de ativo, sacaria, serviço de armazenagem). OriginKey = chave do documento, repetida em N títulos; fora do índice
     /// FirmOrigin, como a outra compra.
     /// </summary>
-    SalesInvoiceNoContract = 10
+    SalesInvoiceNoContract = 10,
+
+    /// <summary>
+    /// Parcelas a receber do CT-e autorizado, contra o tomador (entrega B do CT-e). OriginKey = chave do CT-e, repetida em N
+    /// títulos; fora do índice FirmOrigin, como a saída sem contrato.
+    /// </summary>
+    TransportDocument = 11
 }

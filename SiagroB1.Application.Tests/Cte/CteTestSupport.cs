@@ -14,11 +14,12 @@ public sealed class CtePartnerCatalog : IBusinessPartnerService
     private readonly Dictionary<string, BusinessPartnerModel> _partners = new();
 
     public CtePartnerCatalog Add(string cardCode, string name, string taxId, string? municipalityCode, string state,
-        string? stateRegistration = "123456789")
+        string? stateRegistration = "123456789", int? paymentConditionCode = null)
     {
         _partners[cardCode] = new BusinessPartnerModel
         {
             CardCode = cardCode, CardName = name, TaxId = taxId, StateRegistration = stateRegistration,
+            PaymentConditionCode = paymentConditionCode,
             Addresses =
             [
                 new AddressModel
