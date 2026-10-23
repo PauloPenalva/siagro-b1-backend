@@ -3,6 +3,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
+using SiagroB1.Reports.Services.Sped;
 
 namespace SiagroB1.Reports.Services.SpedFiscal;
 
@@ -11,10 +12,11 @@ namespace SiagroB1.Reports.Services.SpedFiscal;
 /// Conferência Fiscal), NF-e próprias canceladas/denegadas/inutilizadas, participantes, produtos,
 /// unidades, fatores de conversão e, opcionalmente, o inventário.
 /// </summary>
-public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService conference, FiscalInventoryService inventory)
+public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService conference, FiscalInventoryService inventory,
+    SpedMasterDataLoader masterData)
 {
-    /// <summary>Unidade física em que os fatores do <see cref="ItemComplement"/> são expressos.</summary>
-    private const string PhysicalUnit = "KG";
+    /// <summary>Só o documento de terceiro tem C170; a unidade da NF-e própria não exige 0220 nem bloqueia o arquivo.</summary>
+    private static bool WritesItemLine(FiscalDocumentLineDto line) => line.IssuerType == "1";
 
     public async Task<SpedFiscalData> LoadAsync(SpedFiscalRequest request)
     {
@@ -36,8 +38,7 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
                 Date = request.InventoryDate ?? new DateTime(request.Year - 1, 12, 31),
             });
 
-        var (items, conversions, unconvertible) = await LoadItemsAsync(branch, lines, inventoryData);
-        var participants = await LoadParticipantsAsync(lines);
+        var master = await masterData.LoadAsync(branch, lines, inventoryData?.Rows, WritesItemLine);
 
         return new SpedFiscalData
         {
@@ -45,13 +46,12 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
             Settings = settings,
             Lines = lines,
             VoidDocuments = await LoadVoidDocumentsAsync(request),
-            Participants = participants,
-            MissingParticipantCodes = lines.Select(l => l.CardCode).Where(c => c != "").Distinct()
-                .Except(participants.Select(p => p.Code)).Order(StringComparer.Ordinal).ToList(),
-            UnconvertibleUnits = unconvertible,
-            Items = items,
-            Units = await LoadUnitsAsync(items, lines, conversions),
-            Conversions = conversions,
+            Participants = master.Participants,
+            MissingParticipantCodes = master.MissingParticipantCodes,
+            UnconvertibleUnits = master.UnconvertibleUnits,
+            Items = master.Items,
+            Units = master.Units,
+            Conversions = master.Conversions,
             Inventory = inventoryData,
         };
     }
@@ -124,161 +124,11 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
         AccessKey = key,
     };
 
-    /// <summary>Só os parceiros das linhas; o C100 de documento cancelado não leva participante.</summary>
-    private async Task<List<SpedParticipant>> LoadParticipantsAsync(List<FiscalDocumentLineDto> lines)
-    {
-        var codes = lines.Select(l => l.CardCode).Where(c => c != "").Distinct().ToArray();
-        var partners = await db.Context.BusinessPartners.AsNoTracking()
-            .Include(p => p.Addresses)
-            .Where(p => codes.Contains(p.CardCode))
-            .ToListAsync();
-
-        return partners
-            .Select(p =>
-            {
-                var address = p.Addresses
-                    .OrderBy(a => a.AddressName, StringComparer.Ordinal)
-                    .ThenBy(a => a.AdresType, StringComparer.Ordinal)
-                    .FirstOrDefault(a => !string.IsNullOrWhiteSpace(a.MunicipalityCode));
-                var (cnpj, cpf) = TaxIds(p);
-                return new SpedParticipant
-                {
-                    Code = p.CardCode,
-                    Name = p.CardName,
-                    Cnpj = cnpj,
-                    Cpf = cpf,
-                    StateRegistration = Digits(p.StateRegistration),
-                    MunicipalityCode = address?.MunicipalityCode ?? "",
-                    Street = address?.Street ?? "",
-                    Number = address?.StreetNumber ?? "",
-                    Complement = address?.Complement ?? "",
-                    District = address?.Block ?? "",
-                };
-            })
-            .OrderBy(p => p.Code, StringComparer.Ordinal)
-            .ToList();
-    }
-
-    /// <summary>Produtor rural pessoa física com CPF próprio sai pelo CPF, mesmo com CNPJ no cadastro.</summary>
-    private static (string Cnpj, string Cpf) TaxIds(BusinessPartner partner)
-    {
-        if (partner.RuralProducerType == RuralProducerType.Individual && !string.IsNullOrWhiteSpace(partner.RuralProducerCpf))
-            return ("", Digits(partner.RuralProducerCpf));
-
-        var taxId = Digits(partner.TaxId);
-        return taxId.Length switch
-        {
-            14 => (taxId, ""),
-            11 => ("", taxId),
-            _ => ("", ""),
-        };
-    }
-
-    private static string Digits(string? value) => new((value ?? "").Where(char.IsAsciiDigit).ToArray());
-
-    /// <summary>
-    /// Produtos das linhas (e do inventário). O cadastro não tem unidade de estoque, então a
-    /// unidade do 0200 é a mais usada nas linhas do produto (empate: ordem alfabética); sem linha,
-    /// a do inventário. Linha em outra unidade gera 0220 quando o fator sai do complemento.
-    /// </summary>
+    /// <summary>Produtos e conversões pela regra do SPED Fiscal (só a linha de terceiro é escrita).</summary>
     public async Task<(List<SpedItem> Items, List<SpedUnitConversion> Conversions, List<SpedUnconvertibleUnit> Unconvertible)> LoadItemsAsync(
         Branch branch, List<FiscalDocumentLineDto> lines, FiscalInventoryData? inventoryData)
     {
-        // Unidades que de fato serão escritas: C170 (documento de terceiro) e H010 (inventário). A
-        // NF-e própria não tem C170, então a unidade dela não exige 0220 nem bloqueia o arquivo.
-        var lineUnits = lines
-            .Where(l => l.ItemCode != "")
-            .GroupBy(l => l.ItemCode)
-            .ToDictionary(g => g.Key, g => g.Where(l => l.IssuerType == "1").Select(l => l.UnitOfMeasureCode).Where(u => u != "").ToList());
-        var ownUnits = lines
-            .Where(l => l.ItemCode != "" && l.IssuerType != "1")
-            .GroupBy(l => l.ItemCode)
-            .ToDictionary(g => g.Key, g => g.Select(l => l.UnitOfMeasureCode).Where(u => u != "").ToList());
-        foreach (var row in inventoryData?.Rows.Where(r => r.Quantity > 0) ?? [])
-        {
-            if (!lineUnits.TryGetValue(row.ItemCode, out var list)) lineUnits[row.ItemCode] = list = [];
-            if (!string.IsNullOrWhiteSpace(row.UnitOfMeasureCode)) list.Add(row.UnitOfMeasureCode);
-        }
-
-        var codes = lineUnits.Keys.ToArray();
-        var catalog = await db.Context.Items.AsNoTracking().Where(i => codes.Contains(i.ItemCode)).ToDictionaryAsync(i => i.ItemCode);
-        var complements = await db.Context.ItemComplements.AsNoTracking().Where(c => codes.Contains(c.ItemCode)).ToDictionaryAsync(c => c.ItemCode);
-        var nameFromLines = lines.GroupBy(l => l.ItemCode).ToDictionary(g => g.Key, g => g.First().ItemName);
-
-        var items = new List<SpedItem>();
-        var conversions = new List<SpedUnitConversion>();
-        var unconvertible = new List<SpedUnconvertibleUnit>();
-        foreach (var code in codes.Order(StringComparer.Ordinal))
-        {
-            var units = lineUnits[code];
-            // Sem unidade escrita (só NF-e própria), a do 0200 sai das linhas próprias
-            var unit = (units.Count > 0 ? units : ownUnits.GetValueOrDefault(code) ?? [])
-                .GroupBy(u => u)
-                .OrderByDescending(g => g.Count())
-                .ThenBy(g => g.Key, StringComparer.Ordinal)
-                .Select(g => g.Key)
-                .FirstOrDefault() ?? "";
-            catalog.TryGetValue(code, out var item);
-            complements.TryGetValue(code, out var complement);
-
-            items.Add(new SpedItem
-            {
-                Code = code,
-                Description = item?.ItemName ?? nameFromLines.GetValueOrDefault(code) ?? code,
-                UnitCode = unit,
-                ItemType = code == branch.FreightServiceItemCode ? "09" : "00",
-                Ncm = Digits(item?.Ncm),
-                Cest = Digits(item?.Cest),
-                GoodsOrigin = item?.GoodsOrigin,
-            });
-
-            foreach (var other in units.Distinct().Where(u => u != unit).Order(StringComparer.Ordinal))
-            {
-                var factor = Factor(other, unit, complement);
-                if (factor != null)
-                    conversions.Add(new SpedUnitConversion { ItemCode = code, UnitCode = other, Factor = factor.Value });
-                else
-                    unconvertible.Add(new SpedUnconvertibleUnit(code, other));
-            }
-        }
-
-        return (items, conversions, unconvertible);
-    }
-
-    /// <summary>Quantas unidades do produto cabem em 1 <paramref name="from"/>, pelos fatores (em KG) do complemento.</summary>
-    private static decimal? Factor(string from, string to, ItemComplement? complement)
-    {
-        var fromKg = KgPerUnit(from, complement);
-        var toKg = KgPerUnit(to, complement);
-        return fromKg is > 0 && toKg is > 0 ? Math.Round(fromKg.Value / toKg.Value, 6) : null;
-    }
-
-    private static decimal? KgPerUnit(string unit, ItemComplement? complement)
-    {
-        if (string.Equals(unit, PhysicalUnit, StringComparison.OrdinalIgnoreCase)) return 1m;
-        if (complement == null) return null;
-        if (string.Equals(unit, complement.CommercialUnitOfMeasureCode, StringComparison.OrdinalIgnoreCase)) return complement.CommercialFactor;
-        if (string.Equals(unit, complement.TaxableUnitOfMeasureCode, StringComparison.OrdinalIgnoreCase)) return complement.TaxableFactor;
-        return null;
-    }
-
-    /// <summary>Unidades dos produtos, das linhas e das conversões, com a descrição do cadastro.</summary>
-    private async Task<List<SpedUnit>> LoadUnitsAsync(
-        List<SpedItem> items, List<FiscalDocumentLineDto> lines, List<SpedUnitConversion> conversions)
-    {
-        var codes = items.Select(i => i.UnitCode)
-            .Concat(lines.Select(l => l.UnitOfMeasureCode))
-            .Concat(conversions.Select(c => c.UnitCode))
-            .Where(u => u != "")
-            .Distinct()
-            .ToArray();
-        var descriptions = await db.Context.UnitsOfMeasure.AsNoTracking()
-            .Where(u => codes.Contains(u.Code))
-            .ToDictionaryAsync(u => u.Code, u => u.Description);
-
-        return codes
-            .Order(StringComparer.Ordinal)
-            .Select(c => new SpedUnit { Code = c, Description = descriptions.GetValueOrDefault(c) ?? c })
-            .ToList();
+        var data = await masterData.LoadAsync(branch, lines, inventoryData?.Rows, WritesItemLine);
+        return (data.Items, data.Conversions, data.UnconvertibleUnits);
     }
 }
