@@ -8,6 +8,17 @@ using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.Ecf;
 
+internal static class EcfTestDb
+{
+    public static IUnitOfWork WithBranches(params string[] codes)
+    {
+        var db = TestDb.CreateUnitOfWork();
+        foreach (var c in codes.DefaultIfEmpty("1")) db.Context.Branchs.Add(new Branch { Code = c, BranchName = "Filial " + c });
+        db.SaveChangesAsync().GetAwaiter().GetResult();
+        return db;
+    }
+}
+
 public class EcfSettingsServiceTests
 {
     private static EcfSettings Valid() => new()
@@ -18,7 +29,7 @@ public class EcfSettingsServiceTests
     [Fact]
     public async Task Save_creates_then_updates_and_normalizes_cnae()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = EcfTestDb.WithBranches();
         var service = new EcfSettingsService(db);
         Assert.Null(await service.GetAsync("1"));
         var saved = await service.SaveAsync(Valid(), "admin");
@@ -39,7 +50,7 @@ public class EcfSettingsServiceTests
     public async Task Save_rejects_invalid(string cnae, string qualification, string message)
     {
         var s = Valid(); s.MainCnae = cnae; s.LegalEntityQualification = qualification;
-        var db = TestDb.CreateUnitOfWork();
+        var db = EcfTestDb.WithBranches();
         var ex = await Assert.ThrowsAsync<BusinessException>(() => new EcfSettingsService(db).SaveAsync(s, "a"));
         Assert.Equal(message, ex.Message);
         Assert.Empty(db.Context.EcfSettings);
@@ -56,7 +67,7 @@ public class EcfPartnerServiceTests
 
     private static EcfPartnerService Service(out IUnitOfWork db)
     {
-        db = TestDb.CreateUnitOfWork();
+        db = EcfTestDb.WithBranches();
         return new EcfPartnerService(db.Context, NullLogger<EcfPartnerService>.Instance);
     }
 
@@ -119,7 +130,7 @@ public class EcfAdjustmentServiceTests
     [Fact]
     public async Task Create_without_settings_accepts_any_valid_period()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = EcfTestDb.WithBranches();
         await Service(db).CreateAsync(Valid(3));
         Assert.Single(db.Context.EcfAdjustments);
     }
@@ -132,7 +143,7 @@ public class EcfAdjustmentServiceTests
     [InlineData(5, "Quarterly", false)]
     public async Task Period_follows_assessment_form(int period, string form, bool ok)
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = EcfTestDb.WithBranches();
         db.Context.EcfSettings.Add(new EcfSettings { BranchCode = "1", AssessmentForm = Enum.Parse<EcfAssessmentForm>(form), MainCnae = "0111301" });
         await db.SaveChangesAsync();
         var task = Service(db).CreateAsync(Valid(period));
@@ -143,12 +154,67 @@ public class EcfAdjustmentServiceTests
     [Fact]
     public async Task Rejects_non_positive_amount_and_missing_table_code()
     {
-        var db = TestDb.CreateUnitOfWork();
+        var db = EcfTestDb.WithBranches();
         var a = Valid(); a.Amount = 0;
         Assert.Equal("Valor do ajuste deve ser maior que zero.",
             (await Assert.ThrowsAsync<BusinessException>(() => Service(db).CreateAsync(a))).Message);
         var b = Valid(); b.TableCode = " ";
         Assert.Equal("Informe o código da tabela do ajuste.",
             (await Assert.ThrowsAsync<BusinessException>(() => Service(db).CreateAsync(b))).Message);
+    }
+}
+
+public class EcfBranchAndLimitsTests
+{
+    private static EcfPartner Partner(string branch = "1") => new()
+    {
+        BranchCode = branch, Name = "Sócio", TaxId = "52998224725", Qualification = "49", VotingCapitalPercent = 10, TotalCapitalPercent = 10,
+    };
+
+    private static EcfPartnerService PartnerService(IUnitOfWork db) => new(db.Context, NullLogger<EcfPartnerService>.Instance);
+    private static EcfAdjustmentService AdjService(IUnitOfWork db) => new(db.Context, NullLogger<EcfAdjustmentService>.Instance);
+
+    [Fact]
+    public async Task Unknown_branch_is_rejected_everywhere()
+    {
+        var db = EcfTestDb.WithBranches();
+        Assert.Equal("Filial 9 não encontrada.", (await Assert.ThrowsAsync<BusinessException>(() => PartnerService(db).CreateAsync(Partner("9")))).Message);
+        Assert.Equal("Filial 9 não encontrada.", (await Assert.ThrowsAsync<BusinessException>(() => AdjService(db).CreateAsync(
+            new EcfAdjustment { BranchCode = "9", Year = 2025, TableCode = "T", Amount = 1 }))).Message);
+        Assert.Equal("Filial 9 não encontrada.", (await Assert.ThrowsAsync<BusinessException>(() => new EcfSettingsService(db).SaveAsync(
+            new EcfSettings { BranchCode = "9", MainCnae = "0111301", LegalEntityQualification = "01" }, "a"))).Message);
+    }
+
+    [Fact]
+    public async Task Update_cannot_change_branch_and_missing_key_is_not_found()
+    {
+        var db = EcfTestDb.WithBranches("1", "2");
+        var created = await PartnerService(db).CreateAsync(Partner());
+        var moved = Partner("2"); moved.Id = created.Id;
+        Assert.Equal("A filial não pode ser alterada.", (await Assert.ThrowsAsync<BusinessException>(() => PartnerService(db).UpdateAsync(created.Id, moved))).Message);
+
+        var adj = await AdjService(db).CreateAsync(new EcfAdjustment { BranchCode = "1", Year = 2025, TableCode = "T", Amount = 1 });
+        var movedAdj = new EcfAdjustment { Id = adj.Id, BranchCode = "2", Year = 2025, TableCode = "T", Amount = 1 };
+        await Assert.ThrowsAsync<BusinessException>(() => AdjService(db).UpdateAsync(adj.Id, movedAdj));
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => PartnerService(db).UpdateAsync(Guid.NewGuid(), Partner()));
+    }
+
+    [Fact]
+    public async Task Max_lengths_and_country_code_are_validated()
+    {
+        var db = EcfTestDb.WithBranches();
+        var p = Partner(); p.Name = new string('a', 101);
+        await Assert.ThrowsAsync<BusinessException>(() => PartnerService(db).CreateAsync(p));
+        var c = Partner(); c.CountryCode = "BR";
+        Assert.Equal("Código do país deve ter 3 dígitos.", (await Assert.ThrowsAsync<BusinessException>(() => PartnerService(db).CreateAsync(c))).Message);
+
+        var a = new EcfAdjustment { BranchCode = "1", Year = 2025, TableCode = new string('T', 21), Amount = 1 };
+        await Assert.ThrowsAsync<BusinessException>(() => AdjService(db).CreateAsync(a));
+        var d = new EcfAdjustment { BranchCode = "1", Year = 2025, TableCode = "T", Amount = 1, Description = new string('d', 251) };
+        await Assert.ThrowsAsync<BusinessException>(() => AdjService(db).CreateAsync(d));
+
+        var s = new EcfSettings { BranchCode = "1", MainCnae = "0111301", LegalEntityQualification = "01", PreviousEcfHash = new string('h', 41) };
+        await Assert.ThrowsAsync<BusinessException>(() => new EcfSettingsService(db).SaveAsync(s, "a"));
     }
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Deltas;
 using Microsoft.AspNetCore.OData.Formatter;
+using Microsoft.AspNetCore.OData.Query;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base;
 using SiagroB1.Infra;
@@ -16,6 +17,20 @@ public abstract class EcfCrudController<T>(IBaseService<T, Guid> service, IConfi
     : ODataBaseController<T, Guid>(service) where T : class
 {
     private const string StandaloneOnly = "Disponível somente no modo STANDALONE.";
+
+    [EnableQuery]
+    public override ActionResult<IEnumerable<T>> Get() =>
+        !ErpMode.IsStandalone(configuration) ? BadRequest(StandaloneOnly) : base.Get();
+
+    [EnableQuery]
+    public override async Task<ActionResult<T>> Get([FromRoute] Guid key) =>
+        !ErpMode.IsStandalone(configuration) ? BadRequest(StandaloneOnly) : await base.Get(key);
+
+    public override async Task<IActionResult> Delete([FromRoute] Guid key)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
+        return await base.Delete(key);
+    }
 
     public override async Task<IActionResult> Post([FromBody] T entity)
     {
@@ -39,6 +54,7 @@ public abstract class EcfCrudController<T>(IBaseService<T, Guid> service, IConfi
             return NoContent();
         }
         catch (BusinessException e) { return BadRequest(e.Message); }
+        catch (DefaultException e) { return BadRequest(e.Message); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
@@ -57,6 +73,7 @@ public abstract class EcfCrudController<T>(IBaseService<T, Guid> service, IConfi
             return NoContent();
         }
         catch (BusinessException e) { return BadRequest(e.Message); }
+        catch (DefaultException e) { return BadRequest(e.Message); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 }

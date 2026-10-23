@@ -23,6 +23,7 @@ public class EcfSettingsService(IUnitOfWork db) : IEcfSettingsService
     {
         var branch = settings.BranchCode?.Trim();
         if (string.IsNullOrEmpty(branch)) throw new BusinessException("Informe a filial.");
+        await EcfRules.EnsureBranchAsync(db.Context, branch);
         if (!Enum.IsDefined(settings.AssessmentForm)) throw new BusinessException("Forma de apuração inválida.");
 
         var cnae = EcfRules.Digits(settings.MainCnae);
@@ -30,6 +31,8 @@ public class EcfSettingsService(IUnitOfWork db) : IEcfSettingsService
 
         var qualification = settings.LegalEntityQualification?.Trim() ?? string.Empty;
         if (!EcfRules.IsTwoDigits(qualification)) throw new BusinessException("Qualificação da pessoa jurídica deve ter 2 dígitos.");
+
+        EcfRules.MaxLength(settings.PreviousEcfHash?.Trim(), 40, "Hash da ECF anterior");
 
         var row = await db.Context.EcfSettings.FirstOrDefaultAsync(s => s.BranchCode == branch);
         if (row is null)
@@ -55,4 +58,17 @@ public static class EcfRules
         new((value ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
 
     public static bool IsTwoDigits(string value) => value.Length == 2 && value.All(char.IsAsciiDigit);
+
+    /// <summary>Filial precisa existir: os cadastros da ECF não ficam órfãos de filial.</summary>
+    internal static async Task EnsureBranchAsync(Microsoft.EntityFrameworkCore.DbContext context, string branchCode)
+    {
+        if (!await context.Set<SiagroB1.Domain.Entities.Branch>().AsNoTracking().AnyAsync(b => b.Code == branchCode))
+            throw new BusinessException($"Filial {branchCode} não encontrada.");
+    }
+
+    internal static void MaxLength(string? value, int max, string label)
+    {
+        if (value is not null && value.Length > max)
+            throw new BusinessException($"{label} deve ter no máximo {max} caracteres.");
+    }
 }
