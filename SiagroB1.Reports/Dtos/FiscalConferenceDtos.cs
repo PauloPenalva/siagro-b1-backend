@@ -40,6 +40,10 @@ public class FiscalDocumentLineDto
     public decimal IcmsBase { get; set; }
     public decimal IcmsRate { get; set; }
     public decimal IcmsValue { get; set; }
+    /// <summary>Natureza da linha; serve à EFD Contribuições, não vai ao JSON.</summary>
+    [JsonIgnore]
+    public int? UsageCode { get; set; }
+
     public string CstPis { get; set; } = "";
     public decimal PisValue { get; set; }
     public string CstCofins { get; set; } = "";
