@@ -458,6 +458,20 @@ public class TransportDocumentsTransmitServiceTests
     }
 
     [Fact]
+    public async Task Duplicate_204_then_consult_217_stays_processing()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(204, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Processing, doc.Status);
+        Assert.Equal("Sem resposta da SEFAZ: consulte depois.", doc.StatusReason);
+    }
+
+    [Fact]
     public async Task Timeout_then_consult_217_stays_processing()
     {
         var key = await SeedConfirmedAsync();

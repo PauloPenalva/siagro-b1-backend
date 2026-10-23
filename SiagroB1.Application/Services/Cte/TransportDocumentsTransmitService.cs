@@ -117,8 +117,9 @@ public class TransportDocumentsTransmitService(
 
     /// <summary>
     /// Só a consulta pela chave diz se a SEFAZ autorizou. Nulo = sem resposta (fica em Processamento).
-    /// 216 (chave difere da cadastrada), ou 217 depois de uma duplicidade, = o número foi queimado por outro CT-e na
+    /// 216 (chave difere da cadastrada), ou 217 depois de 539 (outra chave), = o número foi queimado por outro CT-e na
     /// SEFAZ: rejeita para o usuário descartar o número — reenviar daria duplicidade para sempre.
+    /// 204 (esta mesma chave) com 217 = atraso da SEFAZ: fica em Processamento para a consulta posterior.
     /// </summary>
     private async Task<NfeSefazResult?> RecoverAsync(string accessKey, CteServiceSettings settings, NfeSefazResult? duplicate)
     {
@@ -129,7 +130,7 @@ public class TransportDocumentsTransmitService(
                 return consult;
             if (consult.StatusCode == CteEmission.KeyDiffers)
                 return CteEmission.BurnedNumber(logger, accessKey, consult);
-            if (duplicate is not null && consult.StatusCode == CteEmission.NotFound)
+            if (duplicate?.StatusCode == NfeStatusCodes.NumberUsedByAnotherKey && consult.StatusCode == CteEmission.NotFound)
                 return CteEmission.BurnedNumber(logger, accessKey, duplicate);
             logger?.LogWarning("CT-e {AccessKey}: consulta de recuperação retornou {StatusCode} ({Reason}); fica em Processamento.",
                 accessKey, consult.StatusCode, consult.Reason);

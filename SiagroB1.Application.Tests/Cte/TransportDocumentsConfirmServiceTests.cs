@@ -24,7 +24,8 @@ public class TransportDocumentsConfirmServiceTests
 
     private async Task<Guid> SeedReadyAsync(
         bool enabled = true, string driverCpf = "52998224725", int? tare = 9000, int? capacity = 30000,
-        DateTime? certificateUntil = null, string? rntrc = "12345678", int? usage = 5, string? cfop = "6353")
+        DateTime? certificateUntil = null, string? rntrc = "12345678", int? usage = 5, string? cfop = "6353",
+        string? ibsCbsCst = "000", string? ibsCbsClassCode = "000001")
     {
         await CteTestKeys.SeedBranchAndMunicipalitiesAsync(_db);
         var settings = await _db.Context.BranchCteSettings.SingleAsync();
@@ -42,6 +43,7 @@ public class TransportDocumentsConfirmServiceTests
         var doc = new TransportDocument
         {
             BranchCode = "01", Series = 1, UsageCode = usage, Cfop = cfop, Rntrc = rntrc,
+            IbsCbsCst = ibsCbsCst, IbsCbsClassCode = ibsCbsClassCode,
             TractionPlate = "ABC1D23", TrailerPlates = "REB1A11", VehicleSnapshotJson = snapshot, DriverCpf = driverCpf,
         };
         _db.Context.TransportDocuments.Add(doc);
@@ -129,6 +131,19 @@ public class TransportDocumentsConfirmServiceTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ConfirmAsync(key, "tester"));
 
         Assert.Contains("natureza", e.Message);
+    }
+
+    [Theory]
+    [InlineData(null, "000001")]
+    [InlineData("000", " ")]
+    public async Task Confirm_without_ibs_cbs_classification_is_rejected(string? cst, string? classCode)
+    {
+        var key = await SeedReadyAsync(ibsCbsCst: cst, ibsCbsClassCode: classCode);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ConfirmAsync(key, "tester"));
+
+        Assert.Contains("A natureza de operação está sem IBS/CBS (CST e classificação tributária): a SEFAZ recusa o CT-e sem esse grupo.", e.Message);
+        Assert.Equal(0, _numbers.Calls);
     }
 
     [Fact]

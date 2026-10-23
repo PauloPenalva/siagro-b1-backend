@@ -40,6 +40,8 @@ public class CteReadinessValidator(IUnitOfWork db)
 
         if (doc.UsageCode is null || string.IsNullOrWhiteSpace(doc.Cfop))
             problems.Add("Informe a natureza da operação: sem ela o CT-e não tem CFOP nem tributos.");
+        else if (string.IsNullOrWhiteSpace(doc.IbsCbsCst) || string.IsNullOrWhiteSpace(doc.IbsCbsClassCode))
+            problems.Add("A natureza de operação está sem IBS/CBS (CST e classificação tributária): a SEFAZ recusa o CT-e sem esse grupo.");
 
         CheckVehicles(doc, problems);
 
