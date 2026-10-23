@@ -15,8 +15,9 @@ namespace SiagroB1.Application.Tests.EfdContributions;
 
 public class EfdContributionsFileServiceTests
 {
-    internal const string Key44 = "41260712345678000195550010000001231000001230";
-    private const string PurchaseKey = "41260798765432000110550020000004561000004560";
+    internal const string Cnpj01 = "12345678000195";
+    internal const string Cnpj02 = "12345678000276";
+    private const string SupplierCnpj = "98765432000110";
     private static readonly CultureInfo Pt = new("pt-BR");
 
     internal const int SaleUsage = 1;
@@ -55,9 +56,9 @@ public class EfdContributionsFileServiceTests
 
         Assert.DoesNotContain(lines, l => l.StartsWith("|M100|") || l.StartsWith("|M105|") || l.StartsWith("|M500|"));
         Assert.Contains("|M200|0,00|0,00|0,00|0,00|0,00|0,00|0,00|6,50|0,00|0,00|6,50|6,50|", lines);
-        Assert.Contains("|M205|12|8109|6,50|", lines);
+        Assert.Contains("|M205|12|810902|6,50|", lines);
         Assert.Contains("|M210|51|1000,00|1000,00|0,00|0,00|1000,00|0,6500|||6,50|0,00|0,00|0,00|0,00|6,50|", lines);
-        Assert.Contains("|M605|12|2172|30,00|", lines);
+        Assert.Contains("|M605|12|217201|30,00|", lines);
         Assert.Contains("|M610|51|1000,00|1000,00|0,00|0,00|1000,00|3,0000|||30,00|0,00|0,00|0,00|0,00|30,00|", lines);
         Assert.Equal(16, Fields(lines.Single(l => l.StartsWith("|M210|"))).Length);
         Assert.Contains("|1001|1|", lines);
@@ -103,10 +104,49 @@ public class EfdContributionsFileServiceTests
         Assert.Equal((16.50m, 6.60m, 9.90m), (check.Totals.PisDue, check.Totals.PisCredit, check.Totals.PisPayable));
         Assert.Equal((76.00m, 30.40m, 45.60m), (check.Totals.CofinsDue, check.Totals.CofinsCredit, check.Totals.CofinsPayable));
         Assert.Contains("|M100|101|0|400,00|1,6500|||6,60|0,00|0,00|0,00|6,60|0|6,60|0,00|", lines);
-        Assert.Contains("|M205|08|6912|9,90|", lines);
-        Assert.Contains("|M605|08|5856|45,60|", lines);
+        Assert.Contains("|M205|08|691201|9,90|", lines);
+        Assert.Contains("|M605|08|585601|45,60|", lines);
         Assert.DoesNotContain(lines, l => l.StartsWith("|1100|"));
         Assert.Contains("|1001|1|", lines);
+    }
+
+    [Fact]
+    public async Task Generate_CreditCodeByCstGroup()
+    {
+        var db = await Seeded(regime01: PisCofinsRegime.NonCumulative);
+        db.Context.SalesInvoices.Add(Sale("V1", "01", 10000m, "01", 1.65m, 7.6m));
+        var p2 = ThirdPartyPurchase("P2", "01", 300m, "51", 1.65m, 7.6m);
+        p2.TaxDocumentNumber = "457";
+        p2.ChaveNFe = NfeKey(SupplierCnpj, "2", "457");
+        db.Context.PurchaseInvoices.AddRange(ThirdPartyPurchase("P1", "01", 500m, "50", 1.65m, 7.6m), p2);
+        await Save(db);
+
+        var lines = await GenerateLines(db, Request());
+
+        var m100 = lines.Where(l => l.StartsWith("|M100|")).ToList();
+        Assert.Equal(new[]
+        {
+            "|M100|101|0|500,00|1,6500|||8,25|0,00|0,00|0,00|8,25|0|8,25|0,00|",
+            "|M100|201|0|300,00|1,6500|||4,95|0,00|0,00|0,00|4,95|0|4,95|0,00|",
+        }, m100);
+        Assert.Equal("|M105|01|50|500,00|0,00|500,00|500,00||||", lines[lines.IndexOf(m100[0]) + 1]);
+        Assert.Equal("|M105|01|51|300,00|0,00|300,00|300,00||||", lines[lines.IndexOf(m100[1]) + 1]);
+        Assert.Equal(2, lines.Count(l => l.StartsWith("|M500|")));
+    }
+
+    [Fact]
+    public async Task Generate_C100UsesEachDocumentsOwnKey()
+    {
+        var db = await Seeded(withBranch02: true);
+        db.Context.SalesInvoices.AddRange(Sale("V1", "01", 1000m, "01", 0.65m, 3m), Sale("V2", "02", 500m, "01", 0.65m, 3m, docNumber: "124"));
+        await Save(db);
+
+        var lines = await GenerateLines(db, Request());
+
+        var keys = lines.Where(l => l.StartsWith("|C100|")).Select(l => Fields(l)[8]).ToList();
+        Assert.Equal(new[] { NfeKey(Cnpj01, "1", "123"), NfeKey(Cnpj02, "1", "124") }, keys);
+        Assert.Equal("41260712345678000276550010000001241000001240", keys[1]);
+        Assert.All(lines.Where(l => l.StartsWith("|C100|")), l => Assert.Equal("9", Fields(l)[12]));
     }
 
     [Fact]
@@ -163,7 +203,7 @@ public class EfdContributionsFileServiceTests
         var lines = await GenerateLines(db, Request());
 
         var c100 = Assert.Single(lines, l => l.StartsWith("|C100|"));
-        Assert.Equal("|C100|1|0|C001|55|00|1|123|" + Key44 + "|15072026|15072026|1000,00|2|0,00|0,00|1000,00|0|0,00|0,00|0,00|0,00|0,00|0,00|0,00|0,00|6,50|30,00|0,00|0,00|", c100);
+        Assert.Equal("|C100|1|0|C001|55|00|1|123|" + NfeKey(Cnpj01, "1", "123") + "|15072026|15072026|1000,00|9|0,00|0,00|1000,00|0|0,00|0,00|0,00|0,00|0,00|0,00|0,00|0,00|6,50|30,00|0,00|0,00|", c100);
         var c170 = Assert.Single(lines, l => l.StartsWith("|C170|"));
         Assert.Equal("|C170|1|10001||10,00000|TN|1000,00|0,00|0|041|5101||0,00|0,00|0,00|0,00|0,00|0,00||||0,00|0,00|0,00|01|1000,00|0,6500|||6,50|01|1000,00|3,0000|||30,00||",
             c170);
@@ -186,14 +226,14 @@ public class EfdContributionsFileServiceTests
 
         Assert.Contains("|C001|0|", lines);
         Assert.Contains("|C010|12345678000195|2|", lines);
-        Assert.Contains("|C100|1|0||55|02|1|200|" + Key44 + "|" + new string('|', 20), lines);
+        Assert.Contains("|C100|1|0||55|02|1|200|" + NfeKey(Cnpj01, "1", "200") + "|" + new string('|', 20), lines);
         Assert.DoesNotContain(lines, l => l.StartsWith("|C170|"));
     }
 
     [Theory]
     [InlineData(PisCofinsRegime.NonCumulative, PisCofinsRegime.NonCumulative, "|0110|1|1|1||")]
     [InlineData(PisCofinsRegime.Cumulative, PisCofinsRegime.Cumulative, "|0110|2|||9|")]
-    [InlineData(PisCofinsRegime.NonCumulative, PisCofinsRegime.Cumulative, "|0110|3|1|1|9|")]
+    [InlineData(PisCofinsRegime.NonCumulative, PisCofinsRegime.Cumulative, "|0110|3|1|1||")]
     public async Task Generate_IncTribFromBranchRegimes(PisCofinsRegime regime01, PisCofinsRegime regime02, string expected)
     {
         var db = await Seeded(regime01: regime01, withBranch02: true, regime02: regime02);
@@ -221,8 +261,8 @@ public class EfdContributionsFileServiceTests
         // Entrada da filial cumulativa não gera crédito
         Assert.DoesNotContain(lines, l => l.StartsWith("|M100|"));
         Assert.Contains("|M200|16,50|0,00|0,00|16,50|0,00|0,00|16,50|5,20|0,00|0,00|5,20|21,70|", lines);
-        Assert.Contains("|M205|08|6912|16,50|", lines);
-        Assert.Contains("|M205|12|8109|5,20|", lines);
+        Assert.Contains("|M205|08|691201|16,50|", lines);
+        Assert.Contains("|M205|12|810902|5,20|", lines);
     }
 
     [Fact]
@@ -337,7 +377,7 @@ public class EfdContributionsFileServiceTests
         var sale = InvoiceReportSeed.Sale(number, branchCode: branch, items: line);
         sale.TaxDocumentKind = TaxDocumentKind.Nfe;
         sale.NfeStatus = NfeStatus.Authorized;
-        sale.ChaveNFe = Key44;
+        sale.ChaveNFe = NfeKey(branch == "02" ? Cnpj02 : Cnpj01, "1", docNumber);
         sale.TaxDocumentSeries = "1";
         sale.TaxDocumentNumber = docNumber;
         return sale;
@@ -362,8 +402,22 @@ public class EfdContributionsFileServiceTests
         purchase.TaxDocumentKind = TaxDocumentKind.Nfe;
         purchase.TaxDocumentSeries = "2";
         purchase.TaxDocumentNumber = "456";
-        purchase.ChaveNFe = PurchaseKey;
+        purchase.ChaveNFe = NfeKey(SupplierCnpj, "2", "456");
         return purchase;
+    }
+
+    /// <summary>Chave de acesso de 44 dígitos (PR, 07/2026, modelo 55) com o DV módulo 11 da SEFAZ.</summary>
+    internal static string NfeKey(string cnpj, string series, string number)
+    {
+        var body = $"412607{cnpj}55{int.Parse(series):000}{long.Parse(number):000000000}1{long.Parse(number):00000000}";
+        int sum = 0, weight = 2;
+        for (var i = body.Length - 1; i >= 0; i--)
+        {
+            sum += (body[i] - '0') * weight;
+            weight = weight == 9 ? 2 : weight + 1;
+        }
+        var dv = 11 - sum % 11;
+        return body + (dv >= 10 ? 0 : dv);
     }
 
     private static void SetPisCofins(SalesInvoiceItem line, decimal total, string cst, decimal pisRate, decimal cofinsRate)

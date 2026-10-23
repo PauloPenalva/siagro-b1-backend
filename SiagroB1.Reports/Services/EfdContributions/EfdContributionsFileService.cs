@@ -122,7 +122,6 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
         var s = data.Settings!;
         var incidence = IncidenceCode(data);
         var hasNonCumulative = incidence != "2";
-        var hasCumulative = incidence != "1";
 
         // 0000: REG, COD_VER, TIPO_ESCRIT, IND_SIT_ESP, NUM_REC_ANTERIOR, DT_INI, DT_FIN, NOME, CNPJ, UF, COD_MUN,
         //       SUFRAMA, IND_NAT_PJ, IND_ATIV
@@ -140,8 +139,8 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
 
         // 0110: REG, COD_INC_TRIB, IND_APRO_CRED, COD_TIPO_CONT, IND_REG_CUM
         // IND_APRO_CRED (1 = apropriação direta) e COD_TIPO_CONT (1 = alíquota básica) só com não cumulativo;
-        // IND_REG_CUM 9 (competência, detalhado) quando houver cumulativo (Global Constraints)
-        w.Add("0110", incidence, hasNonCumulative ? "1" : "", hasNonCumulative ? "1" : "", hasCumulative ? "9" : "");
+        // IND_REG_CUM 9 (competência, detalhado) só no regime exclusivamente cumulativo (COD_INC_TRIB 2)
+        w.Add("0110", incidence, hasNonCumulative ? "1" : "", hasNonCumulative ? "1" : "", incidence == "2" ? "9" : "");
 
         foreach (var e in data.Establishments)
         {
@@ -207,7 +206,9 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
                     h.IssueDate ?? h.Date,
                     h.Date,
                     doc.Sum(l => l.OperationValue),
-                    "2",
+                    // IND_PGTO (domínio da EFD Contribuições: 0 à vista, 1 a prazo, 9 sem pagamento): o
+                    // prazo não é controlado por documento aqui, então sai 9
+                    "9",
                     doc.Sum(l => l.DiscountValue),
                     0m,
                     doc.Sum(ProductValue),
@@ -290,7 +291,7 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
         {
             // M100/M500: REG, COD_CRED, IND_CRED_ORI, VL_BC, ALIQ, QUANT_BC, ALIQ_QUANT, VL_CRED, VL_AJUS_ACRES,
             //            VL_AJUS_REDUC, VL_CRED_DIF, VL_CRED_DISP, IND_DESC_CRED, VL_CRED_DESC, SLD_CRED
-            w.Add(credit, CreditCode, "0", c.Base, new SpedDecimal(c.Rate, 4), "", "", c.Value, 0m, 0m, 0m, c.Value,
+            w.Add(credit, c.Code, "0", c.Base, new SpedDecimal(c.Rate, 4), "", "", c.Value, 0m, 0m, 0m, c.Value,
                 // 0 = desconto total do crédito disponível; 1 = parcial (sobra vai para 1100/1500)
                 c.Used == c.Value ? "0" : "1", c.Used, c.Value - c.Used);
 
@@ -339,18 +340,31 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
     /// <summary>Crédito do próprio mês não descontado: controle do saldo (só o período corrente).</summary>
     private static void WriteCarryForward(SpedRecordWriter w, string register, Assessment a, DateTime start)
     {
-        if (a.CreditTotal <= a.CreditUsed) return;
+        // Um 1100/1500 por COD_CRED com sobra
+        foreach (var g in a.Credits.GroupBy(c => c.Code).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var total = g.Sum(c => c.Value);
+            var used = g.Sum(c => c.Used);
+            if (total > used) WriteCarryForward(w, register, g.Key, total, used, start);
+        }
+    }
+
+    private static void WriteCarryForward(SpedRecordWriter w, string register, string code, decimal total, decimal used, DateTime start)
+    {
         // 1100/1500: REG, PER_APU_CRED, ORIG_CRED, CNPJ_SUC, COD_CRED, VL_CRED_APU, VL_CRED_EXT_APU, VL_TOT_CRED_APU,
         //            VL_CRED_DESC_PA_ANT, VL_CRED_PER_PA_ANT, VL_CRED_DCOMP_PA_ANT, SD_CRED_DISP_EFD, VL_CRED_DESC_EFD,
         //            VL_CRED_PER_EFD, VL_CRED_DCOMP_EFD, VL_CRED_TRANS, VL_CRED_OUT, SLD_CRED_FIM
-        w.Add(register, start.ToString("MMyyyy", CultureInfo.InvariantCulture), "01", "", CreditCode, a.CreditTotal, 0m,
-            a.CreditTotal, 0m, 0m, 0m, a.CreditTotal, a.CreditUsed, 0m, 0m, 0m, 0m, a.CreditTotal - a.CreditUsed);
+        w.Add(register, start.ToString("MMyyyy", CultureInfo.InvariantCulture), "01", "", code, total, 0m,
+            total, 0m, 0m, 0m, total, used, 0m, 0m, 0m, 0m, total - used);
     }
 
     // ---- apuração ----
 
-    /// <summary>COD_CRED 101: crédito à alíquota básica vinculado a receita tributada no mercado interno.</summary>
-    private const string CreditCode = "101";
+    /// <summary>
+    /// COD_CRED (tabela 4.3.6) pelo CST da entrada, alíquota básica: 50→101, 51→201, 52→301, 53→401,
+    /// 54→501, 55→601, 56→701 (o 1º dígito é o tipo de vinculação à receita).
+    /// </summary>
+    internal static string CreditCode(string cst) => $"{cst[1] - '0' + 1}01";
 
     /// <summary>Acesso ao CST/base/alíquota/valor de um dos tributos na linha.</summary>
     internal sealed record Tax(
@@ -358,13 +372,13 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
         Func<FiscalDocumentLineDto, decimal> Rate, Func<FiscalDocumentLineDto, decimal> Value,
         string NonCumulativeRevenueCode, string CumulativeRevenueCode);
 
-    // Códigos de receita do M205/M605 (Global Constraints)
-    internal static readonly Tax Pis = new(l => l.CstPis, l => l.PisBase, l => l.PisRate, l => l.PisValue, "6912", "8109");
-    internal static readonly Tax Cofins = new(l => l.CstCofins, l => l.CofinsBase, l => l.CofinsRate, l => l.CofinsValue, "5856", "2172");
+    // Códigos de receita DCTF do M205/M605 (com variação, 6 caracteres): não cumulativo / cumulativo
+    internal static readonly Tax Pis = new(l => l.CstPis, l => l.PisBase, l => l.PisRate, l => l.PisValue, "691201", "810902");
+    internal static readonly Tax Cofins = new(l => l.CstCofins, l => l.CofinsBase, l => l.CofinsRate, l => l.CofinsValue, "585601", "217201");
 
     internal sealed record CreditDetail(string CreditBase, string Cst, decimal Base);
 
-    internal sealed record Credit(decimal Rate, decimal Base, decimal Value, decimal Used, List<CreditDetail> Details);
+    internal sealed record Credit(string Code, decimal Rate, decimal Base, decimal Value, decimal Used, List<CreditDetail> Details);
 
     internal sealed record Contribution(string Code, decimal Rate, decimal Revenue, decimal Base, decimal Value);
 
@@ -404,8 +418,8 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
         var creditGroups = lines
             .Where(x => x.NonCumulative && x.Line.Direction == "E" && CreditCsts.Contains(tax.Cst(x.Line)))
             .Select(x => x.Line)
-            .GroupBy(tax.Rate)
-            .OrderBy(g => g.Key)
+            .GroupBy(l => (Code: CreditCode(tax.Cst(l)), Rate: tax.Rate(l)))
+            .OrderBy(g => g.Key.Code, StringComparer.Ordinal).ThenBy(g => g.Key.Rate)
             .ToList();
         var creditTotal = creditGroups.Sum(g => g.Sum(tax.Value));
         var remaining = Math.Min(creditTotal, nonCumulativeDue);
@@ -420,7 +434,7 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
                 .OrderBy(d => d.Key.CreditBase, StringComparer.Ordinal).ThenBy(d => d.Key.Cst, StringComparer.Ordinal)
                 .Select(d => new CreditDetail(d.Key.CreditBase, d.Key.Cst, d.Sum(tax.Base)))
                 .ToList();
-            credits.Add(new Credit(g.Key, g.Sum(tax.Base), value, used, details));
+            credits.Add(new Credit(g.Key.Code, g.Key.Rate, g.Sum(tax.Base), value, used, details));
         }
 
         var untaxed = lines
