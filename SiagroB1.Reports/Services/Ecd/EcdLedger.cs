@@ -110,11 +110,72 @@ public static class EcdLedger
         return balances;
     }
 
+    /// <summary>Contas de resultado (receita e despesa), as do I355/K355 e da apuração.</summary>
+    public static HashSet<string> ResultAccounts(EcdData data) =>
+        data.Accounts.Where(a => a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense).Select(a => a.Code).ToHashSet();
+
+    /// <summary>
+    /// Plano de contas do arquivo (I050 da ECD, J050 da ECF): analíticas com saldo ou movimento e as superiores delas.
+    /// </summary>
+    public static SortedSet<string> Plan(EcdData data, List<EcdPosting> postings)
+    {
+        var accounts = data.Accounts.ToDictionary(a => a.Code);
+        var plan = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var code in UsedAccounts(data, postings))
+            for (var c = accounts.GetValueOrDefault(code); c != null && plan.Add(c.Code);
+                 c = c.ParentCode == null ? null : accounts.GetValueOrDefault(c.ParentCode)) { }
+        return plan;
+    }
+
+    /// <summary>Centros de custo com saldo ou movimento nos meses (I100 da ECD, J100 da ECF).</summary>
+    public static List<string> UsedCostCenters(List<List<EcdMonthBalance>> months) =>
+        months.SelectMany(m => m).Select(r => r.CostCenter).OfType<string>().Distinct().Order(StringComparer.Ordinal).ToList();
+
+    /// <summary>
+    /// Saldo das contas de resultado antes da apuração (I355 da ECD, K355 da ECF): abertura opcional + partidas dadas,
+    /// por conta e centro; só os não zerados, em ordem de conta e centro.
+    /// </summary>
+    public static List<KeyValuePair<(string Account, string? CostCenter), decimal>> ResultBalances(EcdData data,
+        IEnumerable<EcdPosting> postings, bool includeOpening = true)
+    {
+        var result = ResultAccounts(data);
+        var balances = includeOpening
+            ? Opening(data).Where(kv => result.Contains(kv.Key.Account)).ToDictionary(kv => kv.Key, kv => kv.Value)
+            : new Dictionary<(string Account, string? CostCenter), decimal>();
+        foreach (var p in postings.Where(p => result.Contains(p.Account)))
+            balances[(p.Account, p.CostCenter)] = balances.GetValueOrDefault((p.Account, p.CostCenter)) + p.Debit - p.Credit;
+        return balances.Where(kv => kv.Value != 0)
+            .OrderBy(kv => kv.Key.Account, StringComparer.Ordinal).ThenBy(kv => kv.Key.CostCenter ?? "", StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>D/C do saldo (débito − crédito); zerado sai pelo sentido natural da conta.</summary>
+    public static string Side(decimal signed, AccountInfo account) =>
+        signed > 0 ? "D" : signed < 0 ? "C" : ManagementViewCalculator.NaturalFactor(account) > 0 ? "D" : "C";
+
+    /// <summary>Natureza do grupo (COD_NAT do I050/J050).</summary>
+    public static string GroupNature(LedgerAccountType? type) => type switch
+    {
+        LedgerAccountType.Asset => "01",
+        LedgerAccountType.Liability => "02",
+        LedgerAccountType.Equity => "03",
+        _ => "04",
+    };
+
+    /// <summary>Nível da conta no plano (1 = sem superior).</summary>
+    public static int Depth(LedgerAccount account, Dictionary<string, LedgerAccount> accounts)
+    {
+        var depth = 1;
+        var seen = new HashSet<string> { account.Code };
+        for (var p = account.ParentCode; p != null && seen.Add(p) && accounts.TryGetValue(p, out var parent); p = parent.ParentCode)
+            depth++;
+        return depth;
+    }
+
     /// <summary>Resultado do ano pela DRE: contas de resultado sem a apuração (lucro positivo).</summary>
     public static decimal NetIncome(EcdData data, List<EcdPosting> postings)
     {
-        var result = data.Accounts.Where(a => a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense)
-            .Select(a => a.Code).ToHashSet();
+        var result = ResultAccounts(data);
         return -postings.Where(p => !p.ResultClosing && result.Contains(p.Account)).Sum(p => p.Debit - p.Credit);
     }
 }

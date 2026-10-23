@@ -127,11 +127,7 @@ public class EcdFileService(EcdDataLoader loader)
             Digits(d.TaxId), s.ConstitutiveActsDate, "", data.MunicipalityName, end);
 
         // Plano de contas: analíticas do arquivo e as superiores delas
-        var used = EcdLedger.UsedAccounts(data, postings);
-        var plan = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var code in used)
-            for (var c = accounts.GetValueOrDefault(code); c != null && plan.Add(c.Code);
-                 c = c.ParentCode == null ? null : accounts.GetValueOrDefault(c.ParentCode)) { }
+        var plan = EcdLedger.Plan(data, postings);
 
         foreach (var code in plan)
         {
@@ -151,7 +147,7 @@ public class EcdFileService(EcdDataLoader loader)
         // I100: REG, DT_ALT, COD_CCUS, CCUS — só os centros usados
         var months = EcdLedger.Months(data, postings);
         var centers = data.CostCenters.ToDictionary(c => c.Code);
-        foreach (var cc in months.SelectMany(m => m).Select(r => r.CostCenter).OfType<string>().Distinct().Order(StringComparer.Ordinal))
+        foreach (var cc in EcdLedger.UsedCostCenters(months))
             w.Add("I100", changed, cc, centers[cc].Name);
 
         for (var month = 1; month <= 12; month++)
@@ -180,20 +176,13 @@ public class EcdFileService(EcdDataLoader loader)
         }
 
         // I350/I355: em cada data de apuração (IND_LCTO "E"), saldo das contas de resultado antes dela
-        var result = data.Accounts.Where(a => a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense)
-            .Select(a => a.Code).ToHashSet();
-        var opening = EcdLedger.Opening(data);
         foreach (var date in postings.Where(p => p.ResultClosing).Select(p => p.Entry.PostingDate.Date).Distinct().Order())
         {
             // I350: REG, DT_RES
             w.Add("I350", date);
             var before = postings.Where(p => p.Entry.PostingDate.Date < date || (p.Entry.PostingDate.Date == date && !p.ResultClosing));
-            var balances = opening.Where(kv => result.Contains(kv.Key.Account)).ToDictionary(kv => kv.Key, kv => kv.Value);
-            foreach (var p in before.Where(p => result.Contains(p.Account)))
-                balances[(p.Account, p.CostCenter)] = balances.GetValueOrDefault((p.Account, p.CostCenter)) + p.Debit - p.Credit;
             // I355: REG, COD_CTA, COD_CCUS, VL_CTA, IND_DC
-            foreach (var (key, value) in balances.Where(kv => kv.Value != 0)
-                         .OrderBy(kv => kv.Key.Account, StringComparer.Ordinal).ThenBy(kv => kv.Key.CostCenter ?? "", StringComparer.Ordinal))
+            foreach (var (key, value) in EcdLedger.ResultBalances(data, before))
                 w.Add("I355", key.Account, key.CostCenter ?? "", Math.Abs(value), Side(value, infos[key.Account]));
         }
 
@@ -350,28 +339,12 @@ public class EcdFileService(EcdDataLoader loader)
         return head == null ? fallback : ManagementViewCalculator.NaturalFactor(head);
     }
 
-    /// <summary>D/C do saldo (débito − crédito); zerado sai pelo sentido natural da conta.</summary>
-    private static string Side(decimal signed, AccountInfo account) =>
-        signed > 0 ? "D" : signed < 0 ? "C" : ManagementViewCalculator.NaturalFactor(account) > 0 ? "D" : "C";
+    private static string Side(decimal signed, AccountInfo account) => EcdLedger.Side(signed, account);
 
     /// <summary>D/C de um valor no sentido natural da linha (fator +1 devedor, −1 credor).</summary>
     private static string Side(decimal natural, int factor) => (natural >= 0) == (factor > 0) ? "D" : "C";
 
-    /// <summary>Natureza do grupo (COD_NAT do I050).</summary>
-    private static string GroupNature(LedgerAccountType? type) => type switch
-    {
-        LedgerAccountType.Asset => "01",
-        LedgerAccountType.Liability => "02",
-        LedgerAccountType.Equity => "03",
-        _ => "04",
-    };
+    private static string GroupNature(LedgerAccountType? type) => EcdLedger.GroupNature(type);
 
-    private static int Depth(LedgerAccount account, Dictionary<string, LedgerAccount> accounts)
-    {
-        var depth = 1;
-        var seen = new HashSet<string> { account.Code };
-        for (var p = account.ParentCode; p != null && seen.Add(p) && accounts.TryGetValue(p, out var parent); p = parent.ParentCode)
-            depth++;
-        return depth;
-    }
+    private static int Depth(LedgerAccount account, Dictionary<string, LedgerAccount> accounts) => EcdLedger.Depth(account, accounts);
 }
