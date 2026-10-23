@@ -28,6 +28,7 @@ public class TransportManifestsController(
     TransportManifestsDiscardNumberService discardService,
     TransportManifestsTransmitService transmitService,
     TransportManifestsConsultService consultService,
+    TransportManifestsCloseService closeService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -139,6 +140,26 @@ public class TransportManifestsController(
     [HttpPost("odata/TransportManifestsConsult")]
     public Task<IActionResult> ConsultAsync([FromBody] ODataActionParameters parameters) =>
         RunSefazAsync(parameters, consultService.ConsultAsync);
+
+    [HttpPost("odata/TransportManifestsClose")]
+    public Task<IActionResult> CloseAsync([FromBody] ODataActionParameters parameters)
+    {
+        DateOnly? closedOn = parameters?.GetValueOrDefault("ClosedOn") switch
+        {
+            DateTimeOffset d => DateOnly.FromDateTime(d.DateTime),
+            DateTime d => DateOnly.FromDateTime(d),
+            DateOnly d => d,
+            string s when DateOnly.TryParse(s[..Math.Min(10, s.Length)], out var d) => d,
+            _ => null,
+        };
+        var ufCode = parameters?.GetValueOrDefault("UfCode")?.ToString();
+        var cityIbge = parameters?.GetValueOrDefault("CityIbge")?.ToString();
+        return RunSefazAsync(parameters, async key =>
+        {
+            var r = await closeService.CloseAsync(key, closedOn, ufCode, cityIbge, UserName);
+            return new NfeSefazResult(r.StatusCode, r.Reason);
+        });
+    }
 
     /// <summary>mdfeProc autorizado (MDF-e assinado + protMDFe) para download.</summary>
     [HttpGet("odata/TransportManifestsXml(Key={key})")]

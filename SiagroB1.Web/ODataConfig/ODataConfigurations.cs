@@ -121,6 +121,12 @@ public static class ODataConfigurations
         var transportManifestsConsult = modelBuilder.Action("TransportManifestsConsult");
         transportManifestsConsult.Parameter<string>("Key");
         transportManifestsConsult.Returns<NfeServiceStatusDto>();
+        var transportManifestsClose = modelBuilder.Action("TransportManifestsClose");
+        transportManifestsClose.Parameter<string>("Key");
+        transportManifestsClose.Parameter<DateOnly>("ClosedOn").Optional();
+        transportManifestsClose.Parameter<string>("UfCode").Optional();
+        transportManifestsClose.Parameter<string>("CityIbge").Optional();
+        transportManifestsClose.Returns<NfeServiceStatusDto>();
         var transportManifestsXml = modelBuilder.Function("TransportManifestsXml");
         transportManifestsXml.Parameter<Guid>("Key");
         transportManifestsXml.Returns<IActionResult>();
