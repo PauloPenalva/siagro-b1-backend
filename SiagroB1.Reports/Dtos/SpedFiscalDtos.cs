@@ -35,7 +35,16 @@ public class SpedFiscalData
     public List<SpedUnit> Units { get; set; } = [];
     public List<SpedUnitConversion> Conversions { get; set; } = [];
     public FiscalInventoryData? Inventory { get; set; }
+
+    /// <summary>CardCodes das linhas sem cadastro de parceiro (ordem ordinal); o validador bloqueia.</summary>
+    public List<string> MissingParticipantCodes { get; set; } = [];
+
+    /// <summary>Unidade de linha diferente da do 0200 e sem fator no complemento; o validador bloqueia.</summary>
+    public List<SpedUnconvertibleUnit> UnconvertibleUnits { get; set; } = [];
 }
+
+/// <summary>Par produto/unidade sem fator de conversão para a unidade do produto.</summary>
+public record SpedUnconvertibleUnit(string ItemCode, string UnitCode);
 
 /// <summary>NF-e própria cancelada/denegada/inutilizada: C100 só com a chave (sem participante nem itens).</summary>
 public class SpedVoidDocument

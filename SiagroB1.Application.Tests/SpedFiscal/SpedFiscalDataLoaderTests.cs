@@ -111,6 +111,32 @@ public class SpedFiscalDataLoaderTests
         Assert.Empty(data.Lines);
     }
 
+    [Fact]
+    public async Task Load_PartnerWithoutRecordIsReportedMissing()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(OwnSale("V1"));
+        await Save(db);
+
+        var data = await Loader(db).LoadAsync(Request());
+
+        Assert.Empty(data.Participants);
+        Assert.Equal(new[] { "C001" }, data.MissingParticipantCodes);
+    }
+
+    [Fact]
+    public async Task Load_LineUnitWithoutFactorIsReportedUnconvertible()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.AddRange(OwnSale("V1"), OwnSale("V2"), OwnSale("V3", uom: "SC"));
+        await Save(db);
+
+        var data = await Loader(db).LoadAsync(Request());
+
+        Assert.Empty(data.Conversions);
+        Assert.Equal(new[] { new SpedUnconvertibleUnit("10001", "SC") }, data.UnconvertibleUnits);
+    }
+
     private static PurchaseInvoiceItem Line(PurchaseInvoiceItem item)
     {
         item.Cfop = "1101";

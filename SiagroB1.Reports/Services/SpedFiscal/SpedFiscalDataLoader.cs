@@ -36,7 +36,8 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
                 Date = request.InventoryDate ?? new DateTime(request.Year - 1, 12, 31),
             });
 
-        var (items, conversions) = await LoadItemsAsync(branch, lines, inventoryData);
+        var (items, conversions, unconvertible) = await LoadItemsAsync(branch, lines, inventoryData);
+        var participants = await LoadParticipantsAsync(lines);
 
         return new SpedFiscalData
         {
@@ -44,7 +45,10 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
             Settings = settings,
             Lines = lines,
             VoidDocuments = await LoadVoidDocumentsAsync(request),
-            Participants = await LoadParticipantsAsync(lines),
+            Participants = participants,
+            MissingParticipantCodes = lines.Select(l => l.CardCode).Where(c => c != "").Distinct()
+                .Except(participants.Select(p => p.Code)).Order(StringComparer.Ordinal).ToList(),
+            UnconvertibleUnits = unconvertible,
             Items = items,
             Units = await LoadUnitsAsync(items, lines, conversions),
             Conversions = conversions,
@@ -157,7 +161,7 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
     /// unidade do 0200 é a mais usada nas linhas do produto (empate: ordem alfabética); sem linha,
     /// a do inventário. Linha em outra unidade gera 0220 quando o fator sai do complemento.
     /// </summary>
-    private async Task<(List<SpedItem>, List<SpedUnitConversion>)> LoadItemsAsync(
+    private async Task<(List<SpedItem>, List<SpedUnitConversion>, List<SpedUnconvertibleUnit>)> LoadItemsAsync(
         Branch branch, List<FiscalDocumentLineDto> lines, FiscalInventoryData? inventoryData)
     {
         var lineUnits = lines
@@ -175,6 +179,7 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
 
         var items = new List<SpedItem>();
         var conversions = new List<SpedUnitConversion>();
+        var unconvertible = new List<SpedUnconvertibleUnit>();
         foreach (var code in codes.Order(StringComparer.Ordinal))
         {
             var units = lineUnits[code];
@@ -202,10 +207,12 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
                 var factor = Factor(other, unit, complement);
                 if (factor != null)
                     conversions.Add(new SpedUnitConversion { ItemCode = code, UnitCode = other, Factor = factor.Value });
+                else
+                    unconvertible.Add(new SpedUnconvertibleUnit(code, other));
             }
         }
 
-        return (items, conversions);
+        return (items, conversions, unconvertible);
     }
 
     /// <summary>Quantas unidades do produto cabem em 1 <paramref name="from"/>, pelos fatores (em KG) do complemento.</summary>
