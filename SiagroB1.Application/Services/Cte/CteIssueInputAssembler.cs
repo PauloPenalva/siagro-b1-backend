@@ -15,8 +15,11 @@ namespace SiagroB1.Application.Services.Cte;
 /// </summary>
 public static class CteIssueInputAssembler
 {
-    /// <summary>A Zeus não troca o nome no ambiente de homologação: a SEFAZ exige este texto no destinatário.</summary>
-    public const string HomologationName = "CT-E EMITIDO EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
+    /// <summary>
+    /// Em homologação (tpAmb=2) a SEFAZ exige este texto (sem hífen em CTE) no xNome de TODAS as partes
+    /// (rejeição 646): remetente, expedidor, recebedor, destinatário e tomador "outros".
+    /// </summary>
+    public const string HomologationName = "CTE EMITIDO EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
     /// <param name="branch">Com <see cref="Branch.Municipality"/> carregado (cMun/UF do emitente).</param>
     /// <param name="municipalityNames">Nome por código IBGE dos municípios de início/fim da prestação.</param>
@@ -32,10 +35,12 @@ public static class CteIssueInputAssembler
         var names = municipalityNames ?? new Dictionary<string, string>();
         var plates = Plates(doc);
 
-        var recipient = Party(doc, CtePartyRole.Recipient)
+        var homologation = environment == NfeEnvironment.Homologation;
+        CteParty? Named(CtePartyRole role) =>
+            Party(doc, role) is { } party && homologation ? party with { Name = HomologationName } : Party(doc, role);
+
+        var recipient = Named(CtePartyRole.Recipient)
                         ?? throw new DefaultException("O CT-e não tem destinatário.");
-        if (environment == NfeEnvironment.Homologation)
-            recipient = recipient with { Name = HomologationName };
 
         var taker = (CteTaker)doc.TakerRole;
         var takerParty = doc.Parties.FirstOrDefault(p => (int)p.Role == doc.TakerRole);
@@ -70,12 +75,12 @@ public static class CteIssueInputAssembler
                     Phone = branch.Phone,
                 },
             },
-            Sender = Party(doc, CtePartyRole.Sender) ?? throw new DefaultException("O CT-e não tem remetente."),
-            Shipper = Party(doc, CtePartyRole.Shipper),
-            Receiver = Party(doc, CtePartyRole.Receiver),
+            Sender = Named(CtePartyRole.Sender) ?? throw new DefaultException("O CT-e não tem remetente."),
+            Shipper = Named(CtePartyRole.Shipper),
+            Receiver = Named(CtePartyRole.Receiver),
             Recipient = recipient,
             Taker = taker,
-            OtherTaker = taker == CteTaker.Other ? Party(doc, CtePartyRole.OtherTaker) : null,
+            OtherTaker = taker == CteTaker.Other ? Named(CtePartyRole.OtherTaker) : null,
             TakerIndicator = takerParty?.IndIE ?? 9,
             Route = new CteRoute(
                 doc.StartMunicipalityCode ?? string.Empty, names.GetValueOrDefault(doc.StartMunicipalityCode ?? string.Empty, string.Empty),

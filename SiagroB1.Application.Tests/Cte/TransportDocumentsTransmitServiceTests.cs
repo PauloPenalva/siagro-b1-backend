@@ -342,17 +342,61 @@ public class TransportDocumentsTransmitServiceTests
     }
 
     [Fact]
-    public async Task Homologation_replaces_recipient_name()
+    public async Task Homologation_replaces_every_party_name()
     {
         var key = await SeedConfirmedAsync();
+        await AddAllPartiesAsync(key);
         _sefaz.AuthorizeResponses.Enqueue(Ok);
 
         await Transmit().TransmitAsync(key, "tester");
 
         var xml = Assert.Single(_sefaz.Sent).Xml;
-        Assert.Contains($"<xNome>{CteIssueInputAssembler.HomologationName}</xNome>", xml);
+        const string literal = "CTE EMITIDO EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
+        Assert.Equal(literal, CteIssueInputAssembler.HomologationName);
+        foreach (var tag in new[] { "rem", "exped", "receb", "dest", "toma4" })
+        {
+            var start = xml.IndexOf($"<{tag}>", StringComparison.Ordinal);
+            Assert.True(start >= 0, $"<{tag}> ausente");
+            var end = xml.IndexOf($"</{tag}>", start, StringComparison.Ordinal);
+            Assert.Contains($"<xNome>{literal}</xNome>", xml[start..end]);
+        }
         Assert.Contains("<tpAmb>2</tpAmb>", xml);
         Assert.DoesNotContain("ARMAZEM DESTINO LTDA", xml);
+        Assert.DoesNotContain("COSTA PRODUTOR RURAL LTDA", xml);
+        Assert.DoesNotContain("EXPEDIDOR LTDA", xml);
+        Assert.DoesNotContain("RECEBEDOR LTDA", xml);
+        Assert.DoesNotContain("TOMADOR LTDA", xml);
+    }
+
+    [Fact]
+    public async Task Production_keeps_real_party_names()
+    {
+        var key = await SeedConfirmedAsync(NfeEnvironment.Production);
+        await AddAllPartiesAsync(key);
+        _sefaz.AuthorizeResponses.Enqueue(Ok);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var xml = Assert.Single(_sefaz.Sent).Xml;
+        Assert.DoesNotContain("AMBIENTE DE HOMOLOGACAO", xml);
+        foreach (var name in new[] { "COSTA PRODUTOR RURAL LTDA", "ARMAZEM DESTINO LTDA", "EXPEDIDOR LTDA", "RECEBEDOR LTDA", "TOMADOR LTDA" })
+            Assert.Contains($"<xNome>{name}</xNome>", xml);
+    }
+
+    private void AddParty(TransportDocument doc, TransportDocumentParty party)
+    {
+        party.TransportDocumentKey = doc.Key;
+        _db.Context.TransportDocumentParties.Add(party);
+    }
+
+    private async Task AddAllPartiesAsync(Guid key)
+    {
+        var doc = await _db.Context.TransportDocuments.SingleAsync(d => d.Key == key);
+        doc.TakerRole = (int)CtePartyRole.OtherTaker;
+        AddParty(doc, Party(CtePartyRole.Shipper, "44555666000133", "EXPEDIDOR LTDA", "3521705", "ITABERA"));
+        AddParty(doc, Party(CtePartyRole.Receiver, "55666777000144", "RECEBEDOR LTDA", "3550308", "SAO PAULO"));
+        AddParty(doc, Party(CtePartyRole.OtherTaker, "66777888000155", "TOMADOR LTDA", "3550308", "SAO PAULO"));
+        await _db.SaveChangesAsync();
     }
 
     [Fact]
