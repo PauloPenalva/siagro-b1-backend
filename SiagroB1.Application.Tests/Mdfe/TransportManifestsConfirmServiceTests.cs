@@ -30,7 +30,10 @@ public class TransportManifestsConfirmServiceTests
         var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
         var key = await new TransportManifestsCreateFromCtesService(_db, MdfeTestSupport.Config()).CreateFromCtesAsync("01", [cte.Key], "tester");
         await new TransportManifestsSaveService(_db, MdfeTestSupport.Config(), new MdfeReadinessValidator(_db), _numbers).SaveAsync(key,
-            new TransportManifestSaveModel { GrossWeight = weight, WeightUnit = unit, LoadingZip = "01001000", UnloadingZip = "13010000" }, "tester");
+            new TransportManifestSaveModel { GrossWeight = weight, WeightUnit = unit, LoadingZip = "01001000", UnloadingZip = "13010000",
+                Ncm = "12019000", CiotNumber = "123456789012", CiotResponsibleTaxId = "11222333000181",
+                Payments = [new TransportManifestPaymentModel { ContractorTaxId = "52998224725", ContractorName = "B", Total = 1, Components = [new() { Type = "99", Value = 1, Description = "FRETE" }] }],
+            }, "tester");
         return key;
     }
 

@@ -64,6 +64,7 @@ public class TransportManifestsSaveService(
         m.CteCount = m.Ctes.Count;
         m.LoadingZip = Blank(digits(model.LoadingZip));
         m.UnloadingZip = Blank(digits(model.UnloadingZip));
+        m.Ncm = Blank(digits(model.Ncm));
         m.WeightUnit = string.IsNullOrWhiteSpace(model.WeightUnit) ? "01" : model.WeightUnit.Trim();
         m.GrossWeight = model.GrossWeight;
         m.CiotNumber = Blank(digits(model.CiotNumber));

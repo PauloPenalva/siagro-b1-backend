@@ -13,6 +13,8 @@ public class TransportManifestSaveModel
     public List<string> Seals { get; set; } = [];
     public string? LoadingZip { get; set; }
     public string? UnloadingZip { get; set; }
+    /// <summary>NCM do produto predominante (8 dígitos); obrigatório na carga lotação (1 CT-e).</summary>
+    public string? Ncm { get; set; }
     /// <summary>Peso bruto; 0 = não informado.</summary>
     public decimal GrossWeight { get; set; }
     /// <summary>"01" KG, "02" TON.</summary>

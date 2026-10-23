@@ -8,7 +8,7 @@ namespace SiagroB1.Application.Services.Mdfe;
 
 /// <summary>
 /// Confere se o MDF-e tem tudo o que a SEFAZ exige. O montador do XML confia no que recebe, então as regras de
-/// conteúdo (peso, CIOT, pagamento, lotação, condutor, RNTRC, CEP do emitente) moram aqui. Erros bloqueiam o
+/// conteúdo (peso, CIOT obrigatório com RNTRC, pagamento, lotação, condutor, RNTRC, CEP do emitente) moram aqui. Erros bloqueiam o
 /// Confirmar; avisos só informam na gravação.
 /// </summary>
 public class MdfeReadinessValidator(IUnitOfWork db)
@@ -19,6 +19,7 @@ public class MdfeReadinessValidator(IUnitOfWork db)
     public const string CiotResponsibleRequired = "Informe o CPF ou CNPJ (válido) do responsável pelo CIOT.";
     public const string CiotRequiresPayment = "Com CIOT informado, preencha as informações de pagamento do frete.";
     public const string SingleCteRequiresZips = "Carga lotação: informe o CEP de carregamento e de descarregamento.";
+    public const string SingleCteRequiresNcm = "Carga lotação: informe o NCM do produto predominante (8 dígitos).";
     public const string DriverRequired = "Informe ao menos um condutor (CPF válido).";
     public const string MainDriverInvalid = "O CPF do condutor principal é inválido: corrija no CT-e ou informe um CPF válido.";
     public const string TractionRequired = "Informe o veículo de tração.";
@@ -29,6 +30,8 @@ public class MdfeReadinessValidator(IUnitOfWork db)
         "Seguro da carga é obrigatório no MDF-e: informe seguradora, CNPJ e apólice na configuração de transporte da filial (Cadastros → Filiais → Transportadora).";
     public const string InsuranceResponsibleRequired =
         "Seguro da carga: com o contratante como responsável, informe o contratante (CPF/CNPJ) do MDF-e.";
+    public const string CiotRequiredWithRntrc =
+        "CIOT obrigatório no MDF-e quando há RNTRC (rejeição 684 da SEFAZ): informe o CIOT e o responsável.";
     public const string CiotRequiredWarning = "A filial exige CIOT: informe o CIOT antes de transmitir o MDF-e.";
 
     /// <summary>"Averbe os CT-e antes de incluir no MDF-e: {n1}, {n2}." — a SEFAZ rejeita (699) MDF-e sem nAver.</summary>
@@ -87,6 +90,12 @@ public class MdfeReadinessValidator(IUnitOfWork db)
             if (responsible.Length is not (11 or 14) || !TaxIdValidator.IsValid(responsible)) errors.Add(CiotResponsibleRequired);
             if (m.Payments.Count == 0) errors.Add(CiotRequiresPayment);
         }
+        else if (!string.IsNullOrWhiteSpace(rntrc))
+        {
+            // Rejeição 684: o MDF-e do emitente de transporte sempre leva o RNTRC, então o CIOT é obrigatório.
+            errors.Add(CiotRequiredWithRntrc);
+            warnings.Add(CiotRequiredWithRntrc); // a gravação só devolve avisos: o usuário vê a pendência ao salvar
+        }
         else if (s is { RequiresCiot: true })
         {
             warnings.Add(CiotRequiredWarning);
@@ -94,6 +103,8 @@ public class MdfeReadinessValidator(IUnitOfWork db)
 
         if (m.Ctes.Count == 1 && (Digits(m.LoadingZip).Length != 8 || Digits(m.UnloadingZip).Length != 8))
             errors.Add(SingleCteRequiresZips);
+        // Rejeição 301: infLotacao exige o NCM do produto predominante.
+        if (m.Ctes.Count == 1 && Digits(m.Ncm).Length != 8) errors.Add(SingleCteRequiresNcm);
 
         var mainDriverOk = Digits(m.DriverCpf).Length == 11 && TaxIdValidator.IsValid(m.DriverCpf!);
         if (!mainDriverOk && !m.Drivers.Any(d => d.Cpf.Length == 11 && TaxIdValidator.IsValid(d.Cpf)))

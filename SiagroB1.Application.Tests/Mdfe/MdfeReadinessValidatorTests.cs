@@ -13,7 +13,9 @@ public class MdfeReadinessValidatorTests
             BranchCode = "01", UfStart = "SP", UfEnd = "SP", TractionPlate = "ABC1D23", DriverCpf = "52998224725", DriverName = "JOAO",
             WeightUnit = "01", GrossWeight = 1000, CargoType = "05", ProductDescription = "SOJA",
             InsuranceResponsible = "1", InsurerTaxId = "11222333000181", InsurerName = "SEGURADORA", PolicyNumber = "APOL1",
+            CiotNumber = "123456789012", CiotResponsibleTaxId = "11222333000181",
         };
+        m.Payments.Add(new TransportManifestPayment { ContractorTaxId = "52998224725", ContractorName = "B", Total = 1 });
         for (var i = 0; i < ctes; i++)
             m.Ctes.Add(new TransportManifestCte { CteAccessKey = new string('5', 44), UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS", Endorsements = "AV" + i });
         m.CteCount = ctes;
@@ -72,6 +74,7 @@ public class MdfeReadinessValidatorTests
     {
         var m = Ready();
         m.InsuranceResponsible = "2";
+        m.Payments.Single().ContractorTaxId = "";
         Assert.Contains(MdfeReadinessValidator.InsuranceResponsibleRequired, Run(m).Errors);
 
         m.Contractors.Add(new TransportManifestContractor { TaxId = "52998224725", Name = "B" });
@@ -94,8 +97,7 @@ public class MdfeReadinessValidatorTests
     public void Validator_ciot_requires_payment()
     {
         var m = Ready();
-        m.CiotNumber = "123456789012";
-        m.CiotResponsibleTaxId = "12345678000195";
+        m.Payments.Clear();
 
         Assert.Contains("Com CIOT informado, preencha as informações de pagamento do frete.", Run(m).Errors);
     }
@@ -105,7 +107,7 @@ public class MdfeReadinessValidatorTests
     {
         var m = Ready();
         m.CiotNumber = "123";
-        m.Payments.Add(new TransportManifestPayment { ContractorTaxId = "52998224725", ContractorName = "B", Total = 1 });
+        m.CiotResponsibleTaxId = null;
 
         var errors = Run(m).Errors;
         Assert.Contains(MdfeReadinessValidator.CiotLength, errors);
@@ -120,7 +122,22 @@ public class MdfeReadinessValidatorTests
         Assert.Contains("Carga lotação: informe o CEP de carregamento e de descarregamento.", Run(m).Errors);
         m.LoadingZip = "01001000";
         m.UnloadingZip = "13010000";
+        m.Ncm = "12019000";
         Assert.Empty(Run(m).Errors);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("1201")]
+    public void Validator_single_cte_requires_ncm(string? ncm)
+    {
+        var m = Ready(ctes: 1);
+        m.LoadingZip = "01001000";
+        m.UnloadingZip = "13010000";
+        m.Ncm = ncm;
+
+        Assert.Contains("Carga lotação: informe o NCM do produto predominante (8 dígitos).", Run(m).Errors);
+        Assert.DoesNotContain(MdfeReadinessValidator.SingleCteRequiresNcm, Run(Ready(2)).Errors);
     }
 
     [Fact]
@@ -137,13 +154,31 @@ public class MdfeReadinessValidatorTests
         Assert.Contains(errors, e => e.Contains("não está habilitada a emitir MDF-e"));
     }
 
-    [Fact]
-    public void Validator_warns_when_branch_requires_ciot()
+    [Theory]
+    [InlineData(null, "11222333000181")]
+    [InlineData(" ", "11222333000181")]
+    [InlineData(null, null)]
+    public void Validator_requires_ciot_when_rntrc_present(string? ciot, string? responsible)
     {
-        var (errors, warnings) = Run(Ready(), Settings(requiresCiot: true));
+        var m = Ready();
+        m.CiotNumber = ciot;
+        m.CiotResponsibleTaxId = responsible;
 
-        Assert.Empty(errors);
-        Assert.Equal([MdfeReadinessValidator.CiotRequiredWarning], warnings);
+        var (errors, _) = Run(m);
+
+        Assert.Contains("CIOT obrigatório no MDF-e quando há RNTRC (rejeição 684 da SEFAZ): informe o CIOT e o responsável.", errors);
+    }
+
+    [Fact]
+    public void Validator_does_not_demand_ciot_without_rntrc_beyond_rntrc_error()
+    {
+        var m = Ready();
+        m.CiotNumber = null;
+
+        var (errors, _) = Run(m, rntrc: null);
+
+        Assert.Contains(MdfeReadinessValidator.RntrcRequired, errors);
+        Assert.DoesNotContain(MdfeReadinessValidator.CiotRequiredWithRntrc, errors);
     }
 
     [Fact]

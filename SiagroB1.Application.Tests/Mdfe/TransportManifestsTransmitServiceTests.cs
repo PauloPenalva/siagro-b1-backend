@@ -69,7 +69,9 @@ public class TransportManifestsTransmitServiceTests
             DriverCpf = "52998224725", DriverName = "JOAO DA SILVA", CargoType = "01", ProductDescription = "SOJA EM GRAOS",
             LoadingZip = "18440000", UnloadingZip = "01001000", CteCount = 1, CargoValue = 60000m, WeightUnit = "01", GrossWeight = 30000m,
             InsuranceResponsible = "1", InsurerTaxId = "11222333000181", InsurerName = "SEGURADORA", PolicyNumber = "APOL1",
+            Ncm = "12019000", CiotNumber = "123456789012", CiotResponsibleTaxId = "11222333000181",
         };
+        m.Payments.Add(new TransportManifestPayment { ContractorTaxId = "52998224725", ContractorName = "TRANSPORTADOR", Total = 1, Pix = "frete@transp.com.br", Components = [new TransportManifestPaymentComponent { Type = "99", Value = 1, Description = "FRETE" }] });
         m.LoadingCities.Add(new TransportManifestLoadingCity { LineNum = 1, CityIbge = "3521705", CityName = "ITABERA" });
         m.Ctes.Add(new TransportManifestCte
         {

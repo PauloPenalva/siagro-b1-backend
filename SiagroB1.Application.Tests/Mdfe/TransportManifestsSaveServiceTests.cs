@@ -69,7 +69,7 @@ public class TransportManifestsSaveServiceTests
 
         await Save().SaveAsync(key, new TransportManifestSaveModel
         {
-            RouteUfs = ["mg", "GO"], Seals = ["L1"], LoadingZip = "01001-000", UnloadingZip = "13010-000", GrossWeight = 2, WeightUnit = "02",
+            RouteUfs = ["mg", "GO"], Seals = ["L1"], LoadingZip = "01001-000", UnloadingZip = "13010-000", Ncm = "1201.90.00", GrossWeight = 2, WeightUnit = "02",
             CiotNumber = "1234.5678.9012", CiotResponsibleTaxId = "12.345.678/0001-95",
             Contractors = [new TransportManifestContractorModel { TaxId = "529.982.247-25", Name = "B" }],
             Payments = [new TransportManifestPaymentModel
@@ -83,6 +83,7 @@ public class TransportManifestsSaveServiceTests
             .Include(x => x.Payments).ThenInclude(p => p.Components).FirstAsync(x => x.Key == key);
         Assert.Equal(["MG", "GO"], m.RouteUfs.OrderBy(r => r.LineNum).Select(r => r.Uf).ToList());
         Assert.Equal("01001000", m.LoadingZip);
+        Assert.Equal("12019000", m.Ncm);
         Assert.Equal("123456789012", m.CiotNumber);
         Assert.Equal("12345678000195", m.CiotResponsibleTaxId);
         Assert.Equal("52998224725", Assert.Single(m.Contractors).TaxId);
@@ -121,7 +122,7 @@ public class TransportManifestsSaveServiceTests
 
         var warnings = await Save().SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 1 }, "tester");
 
-        Assert.Contains(MdfeReadinessValidator.CiotRequiredWarning, warnings);
+        Assert.Contains(MdfeReadinessValidator.CiotRequiredWithRntrc, warnings);
     }
 
     [Fact]
