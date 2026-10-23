@@ -11,6 +11,12 @@ namespace SiagroB1.Web.Controllers;
 /// <summary>Parâmetros da ECD (SPED Contábil) por filial. Só STANDALONE.</summary>
 public class EcdSettingsController(IEcdSettingsService service, IConfiguration configuration) : ODataController
 {
+    private static readonly string[] RequiredKeys =
+    [
+        "BranchCode", "BookNumber", "HasNire", "Nire", "ConstitutiveActsDate", "LargeCompany",
+        "ReferentialPlanCode", "SignerName", "SignerCpf", "SignerQualificationCode", "SignerEmail", "SignerPhone",
+    ];
+
     private const string StandaloneOnly = "Disponível somente no modo STANDALONE.";
 
     [HttpGet("odata/EcdSettingsGet(branchCode={branchCode})")]
@@ -29,18 +35,27 @@ public class EcdSettingsController(IEcdSettingsService service, IConfiguration c
         // Parâmetros nulos = corpo que o OData não conseguiu ler; gravar assim zeraria os parâmetros.
         if (parameters is null) return BadRequest("Informe os parâmetros da ECD.");
 
+        // Payload parcial zeraria campos em silêncio (o upsert grava tudo): todas as chaves da action são
+        // obrigatórias; as anuláveis precisam estar presentes, mas podem vir nulas.
+        foreach (var key in RequiredKeys)
+            if (!parameters.ContainsKey(key)) return BadRequest($"Parâmetro {key} ausente.");
+
+        if (!int.TryParse(Text(parameters, "BookNumber"), out var book)) return BadRequest("Número do livro inválido.");
+        if (!bool.TryParse(Text(parameters, "HasNire"), out var hasNire)) return BadRequest("Parâmetro HasNire inválido.");
+        if (!bool.TryParse(Text(parameters, "LargeCompany"), out var large)) return BadRequest("Parâmetro LargeCompany inválido.");
+
         var settings = new EcdSettings
         {
             BranchCode = Text(parameters, "BranchCode") ?? string.Empty,
-            BookNumber = int.TryParse(Text(parameters, "BookNumber"), out var book) ? book : 1,
-            HasNire = bool.TryParse(Text(parameters, "HasNire"), out var hasNire) && hasNire,
+            BookNumber = book,
+            HasNire = hasNire,
             Nire = Text(parameters, "Nire"),
-            ConstitutiveActsDate = CalendarDate(parameters.GetValueOrDefault("ConstitutiveActsDate")),
-            LargeCompany = bool.TryParse(Text(parameters, "LargeCompany"), out var large) && large,
-            ReferentialPlanCode = Text(parameters, "ReferentialPlanCode") ?? "1",
+            ConstitutiveActsDate = CalendarDate(parameters["ConstitutiveActsDate"]),
+            LargeCompany = large,
+            ReferentialPlanCode = Text(parameters, "ReferentialPlanCode") ?? string.Empty,
             SignerName = Text(parameters, "SignerName") ?? string.Empty,
             SignerCpf = Text(parameters, "SignerCpf") ?? string.Empty,
-            SignerQualificationCode = Text(parameters, "SignerQualificationCode") ?? "203",
+            SignerQualificationCode = Text(parameters, "SignerQualificationCode") ?? string.Empty,
             SignerEmail = Text(parameters, "SignerEmail") ?? string.Empty,
             SignerPhone = Text(parameters, "SignerPhone"),
         };
