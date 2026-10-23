@@ -14,10 +14,16 @@ public static class EfdContributionsValidator
     internal static readonly HashSet<string> TaxedRevenueCsts = ["01", "02"];
 
     /// <summary>CST de receita sem contribuição que exige a natureza da receita (M400/M410, M800/M810).</summary>
-    internal static readonly HashSet<string> UntaxedRevenueCsts = ["04", "06", "07", "08", "09"];
+    internal static readonly HashSet<string> UntaxedRevenueCsts = ["04", "05", "06", "07", "08", "09"];
 
     /// <summary>CST de entrada com direito a crédito (M100/M105, M500/M505).</summary>
     internal static readonly HashSet<string> CreditCsts = ["50", "51", "52", "53", "54", "55", "56"];
+
+    /// <summary>CST de saída com alíquota por unidade de medida: fora do escopo (bloqueia).</summary>
+    internal static readonly HashSet<string> UnsupportedRevenueCsts = ["03"];
+
+    /// <summary>CST de entrada com crédito presumido: fora do escopo (bloqueia).</summary>
+    internal static readonly HashSet<string> UnsupportedCreditCsts = ["60", "61", "62", "63", "64", "65", "66", "67"];
 
     public static List<EfdContributionsIssueDto> Validate(EfdContributionsData data, EfdContributionsRequest request)
     {
@@ -88,6 +94,25 @@ public static class EfdContributionsValidator
                 {
                     Block($"Linha {reference} sem CST de PIS ou COFINS.", reference);
                     continue;
+                }
+
+                var lineCsts = new[] { line.CstPis, line.CstCofins }.Distinct().ToList();
+                if (line.Direction == "S")
+                    foreach (var cst in lineCsts.Where(UnsupportedRevenueCsts.Contains))
+                        Block($"Linha {reference} com CST {cst} de PIS/COFINS (alíquota por unidade) não suportado na EFD Contribuições.", reference);
+                if (line.Direction == "E")
+                {
+                    foreach (var cst in lineCsts.Where(UnsupportedCreditCsts.Contains))
+                        Block($"Linha {reference} com CST {cst} (crédito presumido) não suportado na EFD Contribuições.", reference);
+                    // Filial cumulativa não apura crédito: o CST 5x é descartado do bloco M
+                    if (!nonCumulative)
+                        foreach (var cst in lineCsts.Where(CreditCsts.Contains))
+                            issues.Add(new EfdContributionsIssueDto
+                            {
+                                Blocking = false,
+                                Message = $"Linha {reference} com CST {cst} de crédito em filial do regime cumulativo; o crédito não entra na apuração.",
+                                Reference = reference,
+                            });
                 }
 
                 var usage = line.UsageCode is int u ? data.Usages.GetValueOrDefault(u) : null;

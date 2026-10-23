@@ -109,6 +109,11 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
     }
 
     /// <summary>COD_INC_TRIB pelo regime das filiais: só não cumulativo 1, só cumulativo 2, ambos 3.</summary>
+    /// <remarks>
+    /// O regime é cadastrado por filial (Branch.PisCofinsRegime), mas a EFD é por CNPJ raiz. O "3"
+    /// (ambos) sai da agregação desses regimes: legalmente o regime é da empresa (lucro real x
+    /// presumido); o "3" cobre receitas não cumulativas e cumulativas convivendo na mesma empresa.
+    /// </remarks>
     internal static string IncidenceCode(EfdContributionsData data)
     {
         var regimes = data.Establishments.Select(e => e.Branch.PisCofinsRegime).Distinct().ToList();
@@ -351,6 +356,10 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
 
     private static void WriteCarryForward(SpedRecordWriter w, string register, string code, decimal total, decimal used, DateTime start)
     {
+        // Crédito do próprio período (PER_APU_CRED = mês da escrituração): VL_CRED_APU = VL_TOT_CRED_APU =
+        // SD_CRED_DISP_EFD = total apurado no M100; VL_CRED_DESC_EFD = parcela já descontada no M100 do
+        // mesmo mês; SLD_CRED_FIM = sobra (total - usado). Campos de períodos anteriores ficam 0.
+        // A conferir contra o Guia Prático (1100, campos 12-18) antes do primeiro arquivo real com sobra.
         // 1100/1500: REG, PER_APU_CRED, ORIG_CRED, CNPJ_SUC, COD_CRED, VL_CRED_APU, VL_CRED_EXT_APU, VL_TOT_CRED_APU,
         //            VL_CRED_DESC_PA_ANT, VL_CRED_PER_PA_ANT, VL_CRED_DCOMP_PA_ANT, SD_CRED_DISP_EFD, VL_CRED_DESC_EFD,
         //            VL_CRED_PER_EFD, VL_CRED_DCOMP_EFD, VL_CRED_TRANS, VL_CRED_OUT, SLD_CRED_FIM

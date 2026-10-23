@@ -150,6 +150,19 @@ public class EfdContributionsFileServiceTests
     }
 
     [Fact]
+    public async Task Generate_SubstitutionRevenueCst05GoesToM400()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(Sale("V1", "01", 400m, "05", 0m, 0m, usage: ExemptSaleUsage));
+        await Save(db);
+
+        var lines = await GenerateLines(db, Request());
+
+        Assert.Contains("|M400|05|400,00|||", lines);
+        Assert.Contains("|M800|05|400,00|||", lines);
+    }
+
+    [Fact]
     public async Task Generate_RevenueWithSuspensionGoesToM410ByNature()
     {
         var db = await Seeded();

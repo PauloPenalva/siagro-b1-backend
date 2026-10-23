@@ -43,6 +43,51 @@ public class EfdContributionsValidatorTests
     }
 
     [Fact]
+    public async Task Validate_Cst05RequiresRevenueNature()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(Sale("V1", "01", 1000m, "05", 0m, 0m, usage: SaleUsage));
+        await Save(db);
+
+        Assert.Contains(await Issues(db), i => i.Blocking && i.Message == $"Natureza {SaleUsage} sem Natureza da receita (EFD Contribuições) para CST 05.");
+    }
+
+    [Fact]
+    public async Task Validate_OutputCst03Blocks()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(Sale("V1", "01", 1000m, "03", 0m, 0m));
+        await Save(db);
+
+        Assert.Contains(await Issues(db), i => i.Blocking
+            && i.Message == "Linha 123/10001 com CST 03 de PIS/COFINS (alíquota por unidade) não suportado na EFD Contribuições.");
+    }
+
+    [Fact]
+    public async Task Validate_EntryPresumedCreditCstBlocks()
+    {
+        var db = await Seeded(regime01: PisCofinsRegime.NonCumulative);
+        db.Context.PurchaseInvoices.Add(ThirdPartyPurchase("P1", "01", 500m, "60", 1.65m, 7.6m));
+        await Save(db);
+
+        Assert.Contains(await Issues(db), i => i.Blocking
+            && i.Message.StartsWith("Linha ") && i.Message.EndsWith(" com CST 60 (crédito presumido) não suportado na EFD Contribuições."));
+    }
+
+    [Fact]
+    public async Task Validate_CreditCstInCumulativeBranchWarns()
+    {
+        var db = await Seeded();
+        db.Context.PurchaseInvoices.Add(ThirdPartyPurchase("P1", "01", 500m, "50", 1.65m, 7.6m, usage: SaleUsage));
+        await Save(db);
+
+        var issues = await Issues(db);
+
+        Assert.Contains(issues, i => !i.Blocking && i.Message.StartsWith("Linha ")
+            && i.Message.EndsWith(" com CST 50 de crédito em filial do regime cumulativo; o crédito não entra na apuração."));
+    }
+
+    [Fact]
     public async Task Validate_LineWithoutCstBlocks()
     {
         var db = await Seeded();
