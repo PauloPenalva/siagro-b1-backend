@@ -8801,15 +8801,15 @@ namespace SiagroB1.Migrations.AppContext
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("AddedByEvent")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Cpf")
                         .IsRequired()
                         .HasColumnType("VARCHAR(11)");
 
                     b.Property<int?>("EventSequence")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IncludedByEvent")
-                        .HasColumnType("bit");
 
                     b.Property<int>("LineNum")
                         .HasColumnType("int");

@@ -10,11 +10,6 @@ namespace SiagroB1.Migrations.AppContext
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "AddedByEvent",
-                table: "TRANSPORT_MANIFEST_DRIVERS",
-                newName: "IncludedByEvent");
-
             migrationBuilder.AddColumn<int>(
                 name: "EventSequence",
                 table: "TRANSPORT_MANIFEST_DRIVERS",
@@ -28,11 +23,6 @@ namespace SiagroB1.Migrations.AppContext
             migrationBuilder.DropColumn(
                 name: "EventSequence",
                 table: "TRANSPORT_MANIFEST_DRIVERS");
-
-            migrationBuilder.RenameColumn(
-                name: "IncludedByEvent",
-                table: "TRANSPORT_MANIFEST_DRIVERS",
-                newName: "AddedByEvent");
         }
     }
 }

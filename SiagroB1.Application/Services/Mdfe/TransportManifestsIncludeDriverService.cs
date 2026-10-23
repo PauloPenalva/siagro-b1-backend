@@ -13,7 +13,7 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Mdfe;
 
 /// <summary>
-/// Inclui um condutor no MDF-e autorizado (evento 110114). 135 grava o condutor (IncludedByEvent), o evento e o XML do
+/// Inclui um condutor no MDF-e autorizado (evento 110114). 135 grava o condutor (AddedByEvent), o evento e o XML do
 /// evento. A sequência do evento é por tipo: último evento de inclusão de condutor + 1. Sem resposta da SEFAZ nada muda.
 /// </summary>
 public class TransportManifestsIncludeDriverService(
@@ -83,7 +83,7 @@ public class TransportManifestsIncludeDriverService(
         db.Context.TransportManifestDrivers.Add(new TransportManifestDriver
         {
             ManifestKey = m.Key, LineNum = m.Drivers.Select(d => d.LineNum).DefaultIfEmpty(0).Max() + 1,
-            Cpf = digits, Name = driverName, IncludedByEvent = true, EventSequence = result.Sequence ?? sequence,
+            Cpf = digits, Name = driverName, AddedByEvent = true, EventSequence = result.Sequence ?? sequence,
         });
         db.Context.TransportManifestEvents.Add(new TransportManifestEvent
         {

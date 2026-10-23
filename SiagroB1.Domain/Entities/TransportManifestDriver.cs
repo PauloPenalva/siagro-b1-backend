@@ -17,7 +17,7 @@ public class TransportManifestDriver
     [Column(TypeName = "VARCHAR(11)")] public required string Cpf { get; set; }
     [Column(TypeName = "VARCHAR(60)")] public required string Name { get; set; }
     /// <summary>True quando entrou por evento de inclusão de condutor depois da autorização.</summary>
-    public bool IncludedByEvent { get; set; }
+    public bool AddedByEvent { get; set; }
     /// <summary>Sequência (nSeqEvento) do evento 110114 que incluiu o condutor; nulo para os condutores da emissão.</summary>
     public int? EventSequence { get; set; }
 }

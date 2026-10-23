@@ -111,7 +111,7 @@ public class TransportManifestsIncludeDriverServiceTests
         var m = await LoadAsync(key);
         Assert.Equal(MdfeStatus.Authorized, m.Status);
         var d = Assert.Single(m.Drivers, x => x.Cpf == ValidCpf);
-        Assert.True(d.IncludedByEvent);
+        Assert.True(d.AddedByEvent);
         Assert.Equal(1, d.EventSequence);
         Assert.Equal(2, m.Drivers.Single(x => x.Cpf == second).EventSequence);
         Assert.Equal(2, m.Events.Count(x => x.Type == MdfeEventType.DriverInclusion));
