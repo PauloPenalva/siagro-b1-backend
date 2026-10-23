@@ -75,16 +75,14 @@ public class EfdContributionsValidatorTests
     }
 
     [Fact]
-    public async Task Validate_CreditCstInCumulativeBranchWarns()
+    public async Task Validate_CreditCstInCumulativeBranchIsLeftOut()
     {
+        // Filial cumulativa não apura crédito: a entrada nem entra no arquivo, então não cobra nada.
         var db = await Seeded();
         db.Context.PurchaseInvoices.Add(ThirdPartyPurchase("P1", "01", 500m, "50", 1.65m, 7.6m, usage: SaleUsage));
         await Save(db);
 
-        var issues = await Issues(db);
-
-        Assert.Contains(issues, i => !i.Blocking && i.Message.StartsWith("Linha ")
-            && i.Message.EndsWith(" com CST 50 de crédito em filial do regime cumulativo; o crédito não entra na apuração."));
+        Assert.DoesNotContain(await Issues(db), i => i.Message.StartsWith("Linha "));
     }
 
     [Fact]

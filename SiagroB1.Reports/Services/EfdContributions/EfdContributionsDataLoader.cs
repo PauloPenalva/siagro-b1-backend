@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 using SiagroB1.Reports.Dtos;
@@ -37,16 +38,19 @@ public class EfdContributionsDataLoader(IUnitOfWork db, FiscalConferenceService 
         var establishments = new List<EfdEstablishment>();
         foreach (var (branch, _) in branches)
         {
-            var (lines, _) = await conference.LoadLinesAsync(new FiscalConferenceRequest
+            var (all, _) = await conference.LoadLinesAsync(new FiscalConferenceRequest
             {
                 BranchCode = branch.Code, Year = request.Year, Month = request.Month,
             });
+            var nonCumulative = branch.PisCofinsRegime == PisCofinsRegime.NonCumulative;
+            var lines = all.Where(l => EfdContributionsScope.IsDeclared(l, nonCumulative)).ToList();
             establishments.Add(new EfdEstablishment
             {
                 Branch = branch,
                 Lines = lines,
                 MasterData = await masterData.LoadAsync(branch, lines, null, _ => true),
-                VoidDocuments = await SpedVoidDocumentLoader.LoadAsync(db, branch.Code ?? "", request.Year, request.Month),
+                // Cancelada/denegada/inutilizada não é receita nem crédito: fica fora da EFD Contribuições.
+                VoidDocuments = [],
             });
         }
 
