@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DAMDFE retrato (MDF-e 3.00, modal rodoviário), leiaute próprio inspirado no Manual de Orientação do Contribuinte do DAMDFE. Dados vêm em parâmetros preenchidos por DamdfeReportService a partir do mdfeProc autorizado. -->
+<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Name="DAMDFE" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+    <Parameter Name="pAccessKey" DataType="System.String" AsString=""/>
+    <Parameter Name="pFormattedAccessKey" DataType="System.String" AsString=""/>
+    <Parameter Name="pProtocol" DataType="System.String" AsString=""/>
+    <Parameter Name="pQrCode" DataType="System.String" AsString=""/>
+    <Parameter Name="pIssuerName" DataType="System.String" AsString=""/>
+    <Parameter Name="pIssuerDetails" DataType="System.String" AsString=""/>
+    <Parameter Name="pModal" DataType="System.String" AsString=""/>
+    <Parameter Name="pModel" DataType="System.String" AsString=""/>
+    <Parameter Name="pSeries" DataType="System.String" AsString=""/>
+    <Parameter Name="pNumber" DataType="System.String" AsString=""/>
+    <Parameter Name="pIssuedAt" DataType="System.String" AsString=""/>
+    <Parameter Name="pUfStart" DataType="System.String" AsString=""/>
+    <Parameter Name="pUfEnd" DataType="System.String" AsString=""/>
+    <Parameter Name="pRoute" DataType="System.String" AsString=""/>
+    <Parameter Name="pLoadingCities" DataType="System.String" AsString=""/>
+    <Parameter Name="pCteCount" DataType="System.String" AsString=""/>
+    <Parameter Name="pNfeCount" DataType="System.String" AsString=""/>
+    <Parameter Name="pCargoValue" DataType="System.String" AsString=""/>
+    <Parameter Name="pWeightUnit" DataType="System.String" AsString=""/>
+    <Parameter Name="pGrossWeight" DataType="System.String" AsString=""/>
+    <Parameter Name="pProduct" DataType="System.String" AsString=""/>
+    <Parameter Name="pRntrc" DataType="System.String" AsString=""/>
+    <Parameter Name="pVehicles" DataType="System.String" AsString=""/>
+    <Parameter Name="pDrivers" DataType="System.String" AsString=""/>
+    <Parameter Name="pCiot" DataType="System.String" AsString=""/>
+    <Parameter Name="pTollVouchers" DataType="System.String" AsString=""/>
+    <Parameter Name="pDocuments" DataType="System.String" AsString=""/>
+    <Parameter Name="pRemarks" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" PaperWidth="210" PaperHeight="297" LeftMargin="5" RightMargin="5" TopMargin="5" BottomMargin="5" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitle1" Width="756" Height="910">
+      <TextObject Name="Text1" Left="0" Top="0" Width="300" Height="160" Border.Lines="All" Border.Width="0.5" Text="" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <PictureObject Name="picLogo" Left="4" Top="4" Width="90" Height="64" SizeMode="Zoom"/>
+      <TextObject Name="txtIssuerName" Left="98" Top="4" Width="198" Height="64" Text="[pIssuerName]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Center" WordWrap="true" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtIssuerDetails" Left="4" Top="72" Width="292" Height="86" Text="[pIssuerDetails]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text2" Left="300" Top="0" Width="156" Height="160" Border.Lines="All" Border.Width="0.5" Text="" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text3" Left="300" Top="2" Width="156" Height="16" Text="DAMDFE" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 12pt, style=Bold"/>
+      <TextObject Name="Text4" Left="300" Top="18" Width="156" Height="24" Text="Documento Auxiliar de Manifesto Eletrônico de Documentos Fiscais" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 6pt"/>
+      <TextObject Name="Text5" Left="300" Top="44" Width="156" Height="9" Text="MODAL" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtModal" Left="300" Top="52" Width="156" Height="14" Text="[pModal]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <BarcodeObject Name="bcQrCode" Left="335" Top="70" Width="86" Height="86" AutoSize="false" Text="[[pQrCode] ?? &quot;&quot;]" ShowText="false" AllowExpressions="true" Barcode="QR Code" Barcode.ErrorCorrection="M" Barcode.Encoding="UTF8" Barcode.QuietZone="false"/>
+      <TextObject Name="Text6" Left="456" Top="0" Width="300" Height="160" Border.Lines="All" Border.Width="0.5" Text="" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <BarcodeObject Name="bcAccessKey" Left="462" Top="6" Width="288" Height="44" AutoSize="false" Text="[[pAccessKey] ?? &quot;&quot;]" ShowText="false" AllowExpressions="true" Barcode="Code128" Barcode.CalcCheckSum="false" Barcode.AutoEncode="true"/>
+      <TextObject Name="Text7" Left="456" Top="54" Width="300" Height="9" Text="CHAVE DE ACESSO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtFormattedAccessKey" Left="456" Top="63" Width="300" Height="14" Text="[pFormattedAccessKey]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text8" Left="456" Top="80" Width="300" Height="30" Text="Consulta de autenticidade no portal nacional do MDF-e (https://dfe-portal.svrs.rs.gov.br/mdfe) ou pelo QR Code ao lado" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 6pt"/>
+      <TextObject Name="Text9" Left="456" Top="112" Width="300" Height="9" Text="PROTOCOLO DE AUTORIZAÇÃO DE USO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtProtocol" Left="456" Top="122" Width="300" Height="14" Text="[pProtocol]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text10" Left="0" Top="160" Width="70" Height="28" Border.Lines="All" Border.Width="0.5" Text="MODELO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtModel" Left="0" Top="169" Width="70" Height="19" Text="[pModel]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text11" Left="70" Top="160" Width="70" Height="28" Border.Lines="All" Border.Width="0.5" Text="SÉRIE" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtSeries" Left="70" Top="169" Width="70" Height="19" Text="[pSeries]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text12" Left="140" Top="160" Width="130" Height="28" Border.Lines="All" Border.Width="0.5" Text="NÚMERO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtNumber" Left="140" Top="169" Width="130" Height="19" Text="[pNumber]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text13" Left="270" Top="160" Width="60" Height="28" Border.Lines="All" Border.Width="0.5" Text="FL" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="Text14" Left="270" Top="169" Width="60" Height="19" Text="1/1" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text15" Left="330" Top="160" Width="170" Height="28" Border.Lines="All" Border.Width="0.5" Text="DATA E HORA DE EMISSÃO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtIssuedAt" Left="330" Top="169" Width="170" Height="19" Text="[pIssuedAt]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text16" Left="500" Top="160" Width="128" Height="28" Border.Lines="All" Border.Width="0.5" Text="UF CARREGAMENTO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtUfStart" Left="500" Top="169" Width="128" Height="19" Text="[pUfStart]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text17" Left="628" Top="160" Width="128" Height="28" Border.Lines="All" Border.Width="0.5" Text="UF DESCARREGAMENTO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtUfEnd" Left="628" Top="169" Width="128" Height="19" Text="[pUfEnd]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text18" Left="0" Top="188" Width="120" Height="28" Border.Lines="All" Border.Width="0.5" Text="QTD. CT-e" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtCteCount" Left="0" Top="197" Width="120" Height="19" Text="[pCteCount]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text19" Left="120" Top="188" Width="120" Height="28" Border.Lines="All" Border.Width="0.5" Text="QTD. NF-e" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtNfeCount" Left="120" Top="197" Width="120" Height="19" Text="[pNfeCount]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text20" Left="240" Top="188" Width="200" Height="28" Border.Lines="All" Border.Width="0.5" Text="VALOR TOTAL DA CARGA (R$)" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtCargoValue" Left="240" Top="197" Width="200" Height="19" Text="[pCargoValue]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text21" Left="440" Top="188" Width="100" Height="28" Border.Lines="All" Border.Width="0.5" Text="UNIDADE" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtWeightUnit" Left="440" Top="197" Width="100" Height="19" Text="[pWeightUnit]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text22" Left="540" Top="188" Width="216" Height="28" Border.Lines="All" Border.Width="0.5" Text="PESO BRUTO TOTAL" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtGrossWeight" Left="540" Top="197" Width="216" Height="19" Text="[pGrossWeight]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text23" Left="0" Top="216" Width="500" Height="28" Border.Lines="All" Border.Width="0.5" Text="MUNICÍPIOS DE CARREGAMENTO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtLoadingCities" Left="0" Top="225" Width="500" Height="19" Text="[pLoadingCities]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 8pt"/>
+      <TextObject Name="Text24" Left="500" Top="216" Width="256" Height="28" Border.Lines="All" Border.Width="0.5" Text="PERCURSO (UF)" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtRoute" Left="500" Top="225" Width="256" Height="19" Text="[pRoute]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 8pt"/>
+      <TextObject Name="Text25" Left="0" Top="244" Width="756" Height="28" Border.Lines="All" Border.Width="0.5" Text="PRODUTO PREDOMINANTE" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtProduct" Left="0" Top="253" Width="756" Height="19" Text="[pProduct]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 8pt"/>
+      <TextObject Name="Text26" Left="0" Top="280" Width="756" Height="11" Border.Lines="All" Border.Width="0.5" Text="MODAL RODOVIÁRIO DE CARGA" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 6pt, style=Bold"/>
+      <TextObject Name="Text27" Left="0" Top="291" Width="200" Height="28" Border.Lines="All" Border.Width="0.5" Text="RNTRC DO EMITENTE" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtRntrc" Left="0" Top="300" Width="200" Height="19" Text="[pRntrc]" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="Text28" Left="200" Top="291" Width="556" Height="28" Border.Lines="All" Border.Width="0.5" Text="CIOT" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtCiot" Left="200" Top="300" Width="556" Height="19" Text="[pCiot]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text29" Left="0" Top="319" Width="420" Height="72" Border.Lines="All" Border.Width="0.5" Text="VEÍCULOS (PLACA / UF / RENAVAM / RNTRC)" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtVehicles" Left="0" Top="328" Width="420" Height="63" Text="[pVehicles]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text30" Left="420" Top="319" Width="336" Height="72" Border.Lines="All" Border.Width="0.5" Text="CONDUTORES (CPF / NOME)" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtDrivers" Left="420" Top="328" Width="336" Height="63" Text="[pDrivers]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text31" Left="0" Top="391" Width="756" Height="46" Border.Lines="All" Border.Width="0.5" Text="VALE-PEDÁGIO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtTollVouchers" Left="0" Top="400" Width="756" Height="37" Text="[pTollVouchers]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text32" Left="0" Top="445" Width="756" Height="11" Border.Lines="All" Border.Width="0.5" Text="DOCUMENTOS VINCULADOS POR MUNICÍPIO DE DESCARREGAMENTO" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 6pt, style=Bold"/>
+      <TextObject Name="Text33" Left="0" Top="456" Width="756" Height="320" Border.Lines="All" Border.Width="0.5" Text="TIPO / CHAVE DE ACESSO" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtDocuments" Left="0" Top="465" Width="756" Height="311" Text="[pDocuments]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+      <TextObject Name="Text34" Left="0" Top="784" Width="756" Height="11" Border.Lines="All" Border.Width="0.5" Text="OBSERVAÇÕES" Padding="2, 1, 2, 0" HorzAlign="Center" VertAlign="Top" WordWrap="true" Font="Arial, 6pt, style=Bold"/>
+      <TextObject Name="Text35" Left="0" Top="795" Width="756" Height="113" Border.Lines="All" Border.Width="0.5" Text="" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 5.5pt, style=Bold"/>
+      <TextObject Name="txtRemarks" Left="0" Top="804" Width="756" Height="104" Text="[pRemarks]" Padding="2, 1, 2, 0" HorzAlign="Left" VertAlign="Top" WordWrap="true" Font="Arial, 7pt"/>
+    </ReportTitleBand>
+  </ReportPage>
+</Report>
