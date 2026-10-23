@@ -18,6 +18,9 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
     /// <summary>Regras da Conferência que aqui já são bloqueantes (não repetem como aviso).</summary>
     private static readonly HashSet<string> BlockingConferenceRules = ["Item sem CFOP"];
 
+    /// <summary>NF-e própria não autorizada não está nas linhas, mas o aviso continua: ela some do arquivo.</summary>
+    private const string NotAuthorizedRule = "NF-e própria confirmada e não autorizada";
+
     public async Task<EfdContributionsCheckDto> CheckAsync(EfdContributionsRequest request)
     {
         var data = await loader.LoadAsync(request);
@@ -29,8 +32,11 @@ public class EfdContributionsFileService(EfdContributionsDataLoader loader, Fisc
             {
                 BranchCode = e.Branch.Code ?? "", Year = request.Year, Month = request.Month,
             });
+            // Só os avisos das notas que entram no arquivo (remessa, retorno etc. ficam de fora).
+            var declared = e.Lines.Select(l => l.DocumentKey).ToHashSet();
             issues.AddRange(preview.Issues
                 .Where(i => !BlockingConferenceRules.Contains(i.Rule))
+                .Where(i => declared.Contains(i.DocumentKey) || i.Rule == NotAuthorizedRule)
                 .Select(i => new EfdContributionsIssueDto
                 {
                     Blocking = false,

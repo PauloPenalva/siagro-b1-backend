@@ -102,17 +102,9 @@ public static class EfdContributionsValidator
                         Block($"Linha {reference} com CST {cst} de PIS/COFINS (alíquota por unidade) não suportado na EFD Contribuições.", reference);
                 if (line.Direction == "E")
                 {
+                    // Entrada com crédito de filial cumulativa nem chega aqui (EfdContributionsScope).
                     foreach (var cst in lineCsts.Where(UnsupportedCreditCsts.Contains))
                         Block($"Linha {reference} com CST {cst} (crédito presumido) não suportado na EFD Contribuições.", reference);
-                    // Filial cumulativa não apura crédito: o CST 5x é descartado do bloco M
-                    if (!nonCumulative)
-                        foreach (var cst in lineCsts.Where(CreditCsts.Contains))
-                            issues.Add(new EfdContributionsIssueDto
-                            {
-                                Blocking = false,
-                                Message = $"Linha {reference} com CST {cst} de crédito em filial do regime cumulativo; o crédito não entra na apuração.",
-                                Reference = reference,
-                            });
                 }
 
                 var usage = line.UsageCode is int u ? data.Usages.GetValueOrDefault(u) : null;

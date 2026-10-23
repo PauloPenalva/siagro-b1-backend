@@ -185,9 +185,10 @@ public class EfdContributionsFileServiceTests
     [Fact]
     public async Task Generate_TwoEstablishmentsTwoC010()
     {
-        var db = await Seeded(withBranch02: true);
+        // Entrada só entra com crédito: filial 02 não cumulativa, CST 50
+        var db = await Seeded(withBranch02: true, regime02: PisCofinsRegime.NonCumulative);
         db.Context.SalesInvoices.Add(Sale("V1", "01", 1000m, "01", 0.65m, 3m));
-        db.Context.PurchaseInvoices.Add(ThirdPartyPurchase("P1", "02", 500m, "70", 0m, 0m));
+        db.Context.PurchaseInvoices.Add(ThirdPartyPurchase("P1", "02", 500m, "50", 1.65m, 7.6m));
         await Save(db);
 
         var lines = await GenerateLines(db, Request("02"));
@@ -226,8 +227,9 @@ public class EfdContributionsFileServiceTests
     }
 
     [Fact]
-    public async Task Generate_VoidOwnNfeUnderItsC010()
+    public async Task Generate_VoidOwnNfeIsLeftOut()
     {
+        // Cancelada não é receita nem crédito: não entra na EFD Contribuições.
         var db = await Seeded();
         var cancelled = Sale("V9", "01", 100m, "01", 0.65m, 3m, docNumber: "200");
         cancelled.NfeStatus = NfeStatus.Cancelled;
@@ -237,10 +239,8 @@ public class EfdContributionsFileServiceTests
 
         var lines = await GenerateLines(db, Request());
 
-        Assert.Contains("|C001|0|", lines);
-        Assert.Contains("|C010|12345678000195|2|", lines);
-        Assert.Contains("|C100|1|0||55|02|1|200|" + NfeKey(Cnpj01, "1", "200") + "|" + new string('|', 20), lines);
-        Assert.DoesNotContain(lines, l => l.StartsWith("|C170|"));
+        Assert.Contains("|C001|1|", lines);
+        Assert.DoesNotContain(lines, l => l.StartsWith("|C100|"));
     }
 
     [Theory]
