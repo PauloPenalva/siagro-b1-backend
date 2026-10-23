@@ -79,6 +79,23 @@ public static class ODataConfigurations
         branchCteSettingsSave.CollectionParameter<int>("NextNumbers");
         branchCteSettingsSave.Returns<BranchCteSettingsModel>();
 
+        // Configuração do MDF-e por filial (só STANDALONE).
+        var branchMdfeSettingsGet = modelBuilder.Function("BranchMdfeSettingsGet");
+        branchMdfeSettingsGet.Parameter<string>("BranchCode");
+        branchMdfeSettingsGet.Returns<BranchMdfeSettingsModel>();
+
+        var branchMdfeSettingsSave = modelBuilder.Action("BranchMdfeSettingsSave");
+        branchMdfeSettingsSave.Parameter<string>("BranchCode");
+        branchMdfeSettingsSave.Parameter<bool>("Enabled");
+        branchMdfeSettingsSave.Parameter<int>("Environment");
+        branchMdfeSettingsSave.Parameter<int>("DefaultSeries");
+        branchMdfeSettingsSave.Parameter<string>("DefaultCargoType");
+        branchMdfeSettingsSave.Parameter<bool>("RequiresCiot");
+        branchMdfeSettingsSave.CollectionParameter<int>("Series");
+        branchMdfeSettingsSave.CollectionParameter<string>("Descriptions");
+        branchMdfeSettingsSave.CollectionParameter<int>("NextNumbers");
+        branchMdfeSettingsSave.Returns<BranchMdfeSettingsModel>();
+
         // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
         // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.
         modelBuilder.EntitySet<TransportDocument>("TransportDocuments");

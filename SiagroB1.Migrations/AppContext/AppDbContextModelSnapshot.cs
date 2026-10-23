@@ -336,6 +336,58 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("BRANCH_DFE_SYNC_STATES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchMdfeSeries", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("Series")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int>("NextNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("BranchCode", "Series");
+
+                    b.ToTable("BRANCH_MDFE_SERIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchMdfeSettings", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("DefaultCargoType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<int>("DefaultSeries")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Environment")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiresCiot")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("BranchCode");
+
+                    b.ToTable("BRANCH_MDFE_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSeries", b =>
                 {
                     b.Property<string>("BranchCode")
@@ -9393,6 +9445,28 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchMdfeSeries", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.BranchMdfeSettings", "Settings")
+                        .WithMany("SeriesList")
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Settings");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchMdfeSettings", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchNfeSeries", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.BranchNfeSettings", "Settings")
@@ -11343,6 +11417,11 @@ namespace SiagroB1.Migrations.AppContext
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.BranchCteSettings", b =>
+                {
+                    b.Navigation("SeriesList");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.BranchMdfeSettings", b =>
                 {
                     b.Navigation("SeriesList");
                 });

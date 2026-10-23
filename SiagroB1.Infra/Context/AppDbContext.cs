@@ -25,6 +25,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchTransportSettings> BranchTransportSettings { get; set; }
     public DbSet<BranchCteSettings> BranchCteSettings { get; set; }
     public DbSet<BranchCteSeries> BranchCteSeries { get; set; }
+    public DbSet<BranchMdfeSettings> BranchMdfeSettings { get; set; }
+    public DbSet<BranchMdfeSeries> BranchMdfeSeries { get; set; }
     public DbSet<TransportDocument> TransportDocuments { get; set; }
     public DbSet<TransportDocumentParty> TransportDocumentParties { get; set; }
     public DbSet<TransportDocumentNfeKey> TransportDocumentNfeKeys { get; set; }
@@ -487,6 +489,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
 
         modelBuilder.Entity<BranchCteSeries>(e =>
+        {
+            e.HasKey(x => new { x.BranchCode, x.Series });
+            e.HasOne(x => x.Settings)
+                .WithMany(x => x.SeriesList)
+                .HasForeignKey(x => x.BranchCode)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BranchMdfeSeries>(e =>
         {
             e.HasKey(x => new { x.BranchCode, x.Series });
             e.HasOne(x => x.Settings)
