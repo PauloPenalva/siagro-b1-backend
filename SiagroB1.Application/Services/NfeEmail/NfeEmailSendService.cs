@@ -24,21 +24,34 @@ public class NfeEmailSendService(
     public async Task<NfeEmailMessage> SendAsync(
         NfeEmailDocumentType type, Guid key, IReadOnlyList<string> recipients, string userName)
     {
-        var (_, status) = await LoadAsync(type, key);
-
-        var evt = status switch
+        NfeEmailEventType evt;
+        if (type == NfeEmailDocumentType.Transport)
         {
-            NfeStatus.Authorized => NfeEmailEventType.Authorized,
-            NfeStatus.Cancelled => NfeEmailEventType.Cancelled,
-            _ => throw new DefaultException("Só é possível enviar NF-e autorizada ou cancelada."),
-        };
+            var (_, cteStatus) = await LoadTransportAsync(key);
+            evt = cteStatus switch
+            {
+                CteStatus.Authorized => NfeEmailEventType.Authorized,
+                CteStatus.Cancelled => NfeEmailEventType.Cancelled,
+                _ => throw new DefaultException("Só é possível enviar CT-e autorizado ou cancelado."),
+            };
+        }
+        else
+        {
+            var (_, status) = await LoadAsync(type, key);
+            evt = status switch
+            {
+                NfeStatus.Authorized => NfeEmailEventType.Authorized,
+                NfeStatus.Cancelled => NfeEmailEventType.Cancelled,
+                _ => throw new DefaultException("Só é possível enviar NF-e autorizada ou cancelada."),
+            };
+        }
 
         var emails = NfeEmailAddresses.Normalize(recipients);
         if (emails.Count == 0)
             throw new DefaultException("Informe ao menos um e-mail de destino.");
 
         if (await emailSettings.GetSmtpAsync() is null)
-            throw new DefaultException("Configure o envio de e-mail da empresa antes de enviar a NF-e.");
+            throw new DefaultException("Configure o envio de e-mail da empresa antes de enviar o e-mail.");
 
         var row = await outbox.AddManualAsync(type, key, evt, emails, userName);
 
@@ -54,8 +67,21 @@ public class NfeEmailSendService(
     /// <summary>E-mails de NF-e do parceiro da nota, para pré-preencher o diálogo de envio.</summary>
     public async Task<IReadOnlyList<string>> DefaultRecipientsAsync(NfeEmailDocumentType type, Guid key)
     {
+        if (type == NfeEmailDocumentType.Transport)
+            return await recipientResolver.ResolveManyAsync((await LoadTransportAsync(key)).CardCodes);
+
         var (cardCode, _) = await LoadAsync(type, key);
         return await recipientResolver.ResolveAsync(cardCode);
+    }
+
+    /// <summary>Tomador, remetente e destinatário do CT-e (mesma regra do envio automático).</summary>
+    private async Task<(IReadOnlyList<string> CardCodes, CteStatus Status)> LoadTransportAsync(Guid key)
+    {
+        var doc = await db.Context.TransportDocuments.AsNoTracking().Include(x => x.Parties)
+                      .FirstOrDefaultAsync(x => x.Key == key)
+                  ?? throw new NotFoundException("CT-e não encontrado.");
+
+        return (NfeEmailDispatchJob.TransportCardCodes(doc), doc.Status);
     }
 
     private async Task<(string CardCode, NfeStatus Status)> LoadAsync(NfeEmailDocumentType type, Guid key)

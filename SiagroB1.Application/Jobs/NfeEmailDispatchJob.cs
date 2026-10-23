@@ -35,6 +35,8 @@ public class NfeEmailDispatchJob(
 
     private const int MaxErrorLength = 1000;
 
+    private const string NoRecipientMessage = "Parceiro sem e-mail de NF-e";
+
     public async Task ExecuteAsync(string companyCode, Guid messageKey, CancellationToken ct = default)
     {
         var message = await db.Context.NfeEmailMessages.FirstOrDefaultAsync(m => m.Key == messageKey, ct);
@@ -65,27 +67,13 @@ public class NfeEmailDispatchJob(
 
         if (recipients.Count == 0)
         {
-            await ResolveAsync(message, NfeEmailStatus.Skipped, "Parceiro sem e-mail de NF-e", ct);
+            await ResolveAsync(message, NfeEmailStatus.Skipped, NoRecipientMessage, ct);
             return;
         }
 
-        SmtpSettings? smtp;
-        try
-        {
-            smtp = await emailSettings.GetSmtpAsync();
-        }
-        catch (DefaultException e)
-        {
-            // Ex.: Nfe:CertificateKey ausente — não se resolve retentando.
-            await ResolveAsync(message, NfeEmailStatus.Failed, Truncate(e.Message), ct);
-            return;
-        }
-
+        var smtp = await ResolveSmtpAsync(message, ct);
         if (smtp is null)
-        {
-            await ResolveAsync(message, NfeEmailStatus.Failed, "Configure o envio de e-mail da empresa", ct);
             return;
-        }
 
         string procXml;
         string? eventXml = null;
@@ -123,13 +111,7 @@ public class NfeEmailDispatchJob(
             return;
         }
 
-        message.AttemptCount++;
-        message.Status = NfeEmailStatus.Sent;
-        message.SentAt = DateTime.Now;
-        message.LastAttemptAt = message.SentAt;
-        message.LastError = null;
-        message.Recipients = string.Join(";", recipients);
-        await db.SaveChangesAsync();
+        await MarkSentAsync(message, recipients);
     }
 
     /// <summary>
@@ -147,40 +129,19 @@ public class NfeEmailDispatchJob(
             return;
         }
 
-        IReadOnlyList<string> recipients;
-        if (message.Trigger == NfeEmailTrigger.Manual)
-            recipients = Split(message.Recipients);
-        else
-        {
-            var taker = doc.Parties.FirstOrDefault(p => (int)p.Role == doc.TakerRole)?.CardCode;
-            var codes = new List<string?> { taker };
-            codes.AddRange(new[] { CtePartyRole.Sender, CtePartyRole.Recipient }
-                .Select(role => doc.Parties.FirstOrDefault(p => p.Role == role)?.CardCode));
-            recipients = await recipientResolver.ResolveManyAsync(codes.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!).ToList());
-        }
+        var recipients = message.Trigger == NfeEmailTrigger.Manual
+            ? Split(message.Recipients)
+            : await recipientResolver.ResolveManyAsync(TransportCardCodes(doc));
 
         if (recipients.Count == 0)
         {
-            await ResolveAsync(message, NfeEmailStatus.Skipped, "Parceiro sem e-mail de NF-e", ct);
+            await ResolveAsync(message, NfeEmailStatus.Skipped, NoRecipientMessage, ct);
             return;
         }
 
-        SmtpSettings? smtp;
-        try
-        {
-            smtp = await emailSettings.GetSmtpAsync();
-        }
-        catch (DefaultException e)
-        {
-            await ResolveAsync(message, NfeEmailStatus.Failed, Truncate(e.Message), ct);
-            return;
-        }
-
+        var smtp = await ResolveSmtpAsync(message, ct);
         if (smtp is null)
-        {
-            await ResolveAsync(message, NfeEmailStatus.Failed, "Configure o envio de e-mail da empresa", ct);
             return;
-        }
 
         var procXml = await db.Context.TransportDocumentXmls.AsNoTracking()
             .Where(x => x.TransportDocumentKey == doc.Key && x.Kind == CteXmlKind.Authorized)
@@ -219,6 +180,45 @@ public class NfeEmailDispatchJob(
             return;
         }
 
+        await MarkSentAsync(message, recipients);
+    }
+
+    /// <summary>Tomador, remetente e destinatário do CT-e, nessa ordem (códigos vazios descartados).</summary>
+    public static IReadOnlyList<string> TransportCardCodes(TransportDocument doc)
+    {
+        var taker = doc.Parties.FirstOrDefault(p => (int)p.Role == doc.TakerRole)?.CardCode;
+        return new[]
+            {
+                taker,
+                doc.Parties.FirstOrDefault(p => p.Role == CtePartyRole.Sender)?.CardCode,
+                doc.Parties.FirstOrDefault(p => p.Role == CtePartyRole.Recipient)?.CardCode,
+            }
+            .Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!).ToList();
+    }
+
+    /// <summary>SMTP da empresa; sem configuração (ou chave ausente) a linha vira Failed e devolve null.</summary>
+    private async Task<SmtpSettings?> ResolveSmtpAsync(NfeEmailMessage message, CancellationToken ct)
+    {
+        SmtpSettings? smtp;
+        try
+        {
+            smtp = await emailSettings.GetSmtpAsync();
+        }
+        catch (DefaultException e)
+        {
+            // Ex.: Nfe:CertificateKey ausente — não se resolve retentando.
+            await ResolveAsync(message, NfeEmailStatus.Failed, Truncate(e.Message), ct);
+            return null;
+        }
+
+        if (smtp is null)
+            await ResolveAsync(message, NfeEmailStatus.Failed, "Configure o envio de e-mail da empresa", ct);
+
+        return smtp;
+    }
+
+    private async Task MarkSentAsync(NfeEmailMessage message, IReadOnlyList<string> recipients)
+    {
         message.AttemptCount++;
         message.Status = NfeEmailStatus.Sent;
         message.SentAt = DateTime.Now;

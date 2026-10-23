@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Services.Cte;
 using SiagroB1.Application.Services.NfeEmail;
@@ -204,5 +206,106 @@ public class CteEmailTests : CteEventsTestBase
         await Hooks().OnAuthorizedAsync(await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key));
 
         Assert.Empty(await Db.Context.NfeEmailMessages.ToListAsync());
+    }
+
+    private sealed class ThrowingOutbox : INfeEmailOutboxService
+    {
+        public Task AddAutomaticAsync(NfeEmailDocumentType type, Guid documentKey, NfeEmailEventType evt, string userName) =>
+            throw new InvalidOperationException("fila indisponivel");
+
+        public Task<NfeEmailMessage> AddManualAsync(NfeEmailDocumentType type, Guid documentKey, NfeEmailEventType evt,
+            IReadOnlyList<string> recipients, string userName) => throw new NotSupportedException();
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, Exception? Error)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Entries.Add((logLevel, exception));
+    }
+
+    [Fact]
+    public async Task Hook_swallows_outbox_exception_and_logs()
+    {
+        var key = await SeedCteAsync(true, (CtePartyRole.Sender, "REM"));
+        var logger = new RecordingLogger<CteLifecycleHooks>();
+        var hooks = new CteLifecycleHooks(
+            Db, NfeTestSeed.Config(), FinancialDocumentTestServices.Transport(Db, new FakeDocNumberSequenceService()),
+            new CteEndorsementCancellationService(Db, NfeTestSeed.Config(), Numbers, new NoAverba(),
+                NullLogger<CteEndorsementCancellationService>.Instance),
+            logger, new ThrowingOutbox());
+        var doc = await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key);
+
+        await hooks.OnAuthorizedAsync(doc);
+        await hooks.OnCancelledAsync(doc);
+
+        Assert.Contains(logger.Entries, x => x.Level == LogLevel.Error && x.Error is InvalidOperationException);
+        Assert.Empty(await Db.Context.NfeEmailMessages.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Dedupe_holds_across_contexts()
+    {
+        var name = Guid.NewGuid().ToString();
+        var key = Guid.NewGuid();
+        var a = TestDb.CreateUnitOfWork(name);
+        a.Context.EmailSettings.Add(new EmailSettings
+            { Key = 1, Host = "h", FromAddress = "n@x.com.br", AutoSendEnabled = true, UpdatedBy = "t" });
+        await a.SaveChangesAsync();
+        await new NfeEmailOutboxService(a, NfeTestSeed.Config(), NullLogger<NfeEmailOutboxService>.Instance)
+            .AddAutomaticAsync(NfeEmailDocumentType.Transport, key, NfeEmailEventType.Authorized, "t");
+        await a.SaveChangesAsync();
+
+        var b = TestDb.CreateUnitOfWork(name);
+        await new NfeEmailOutboxService(b, NfeTestSeed.Config(), NullLogger<NfeEmailOutboxService>.Instance)
+            .AddAutomaticAsync(NfeEmailDocumentType.Transport, key, NfeEmailEventType.Authorized, "t");
+        await b.SaveChangesAsync();
+
+        Assert.Single(await b.Context.NfeEmailMessages.AsNoTracking().ToListAsync());
+    }
+
+    private NfeEmailSendService SendService(FakeBackgroundJobClient jobs) => new(
+        Db, Outbox(), new NfeEmailRecipientResolver(Db), new Smtp(), jobs, new FakeCompanyContext("0002"));
+
+    [Fact]
+    public async Task Manual_send_enqueues_manual_message_for_cte()
+    {
+        var key = await SeedCteAsync(false, (CtePartyRole.Sender, "REM"));
+        var jobs = new FakeBackgroundJobClient();
+
+        var row = await SendService(jobs).SendAsync(NfeEmailDocumentType.Transport, key, ["a@x.com.br"], "tester");
+
+        var saved = await Db.Context.NfeEmailMessages.AsNoTracking().SingleAsync();
+        Assert.Equal(NfeEmailDocumentType.Transport, saved.DocumentType);
+        Assert.Equal(NfeEmailTrigger.Manual, saved.Trigger);
+        Assert.Equal(NfeEmailEventType.Authorized, saved.EventType);
+        Assert.Equal("a@x.com.br", saved.Recipients);
+        Assert.Equal(row.Key, Assert.Single(jobs.EnqueuedOutboxKeys));
+    }
+
+    [Fact]
+    public async Task Manual_send_refuses_cte_not_authorized_or_cancelled()
+    {
+        var key = await SeedCteAsync(false, (CtePartyRole.Sender, "REM"));
+        (await Db.Context.TransportDocuments.SingleAsync()).Status = CteStatus.Draft;
+        await Db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            SendService(new FakeBackgroundJobClient()).SendAsync(NfeEmailDocumentType.Transport, key, ["a@x.com.br"], "t"));
+    }
+
+    [Fact]
+    public async Task Default_recipients_for_cte()
+    {
+        var key = await SeedCteAsync(false, (CtePartyRole.Sender, "REM"), (CtePartyRole.Recipient, "DEST"));
+        Email("REM", "rem@x.com.br");
+        Email("DEST", "REM@x.com.br", "dest@x.com.br");
+        await Db.SaveChangesAsync();
+
+        var emails = await SendService(new FakeBackgroundJobClient()).DefaultRecipientsAsync(NfeEmailDocumentType.Transport, key);
+
+        Assert.Equal(["rem@x.com.br", "dest@x.com.br"], emails);
     }
 }

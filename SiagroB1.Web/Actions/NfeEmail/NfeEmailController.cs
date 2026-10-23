@@ -24,7 +24,12 @@ public class NfeEmailController(NfeEmailSendService service, IConfiguration conf
     public Task<IActionResult> SendPurchaseAsync([FromBody] ODataActionParameters parameters) =>
         SendAsync(NfeEmailDocumentType.Purchase, parameters);
 
-    /// <summary>DocumentType: 1 = Sales, 2 = Purchase.</summary>
+    /// <summary>Reenvio manual do e-mail do CT-e (autorizado ou cancelado) pela tela do documento.</summary>
+    [HttpPost("odata/TransportDocumentsSendEmail")]
+    public Task<IActionResult> SendTransportAsync([FromBody] ODataActionParameters parameters) =>
+        SendAsync(NfeEmailDocumentType.Transport, parameters);
+
+    /// <summary>DocumentType: 1 = Sales, 2 = Purchase, 3 = Transport (CT-e).</summary>
     [HttpGet("odata/NfeEmailDefaultRecipients(DocumentType={documentType},Key={key})")]
     public async Task<IActionResult> DefaultRecipientsAsync([FromRoute] int documentType, [FromRoute] Guid key)
     {

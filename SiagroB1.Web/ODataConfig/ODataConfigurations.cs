@@ -405,7 +405,11 @@ public static class ODataConfigurations
             sendNfeEmail.CollectionParameter<string>("Recipients");
         }
 
-        // DocumentType: 1 = Sales, 2 = Purchase.
+        var transportDocumentsSendEmail = modelBuilder.Action("TransportDocumentsSendEmail");
+        transportDocumentsSendEmail.Parameter<Guid>("Key");
+        transportDocumentsSendEmail.CollectionParameter<string>("Recipients");
+
+        // DocumentType: 1 = Sales, 2 = Purchase, 3 = Transport (CT-e).
         var nfeEmailDefaultRecipients = modelBuilder.Function("NfeEmailDefaultRecipients");
         nfeEmailDefaultRecipients.Parameter<int>("DocumentType");
         nfeEmailDefaultRecipients.Parameter<Guid>("Key");
