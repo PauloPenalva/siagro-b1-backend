@@ -121,6 +121,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Infra.Accounting.AccountingPeriodGuard>();
         services.AddScoped<Application.Services.Accounting.IAccountingPeriodsService, Application.Services.Accounting.AccountingPeriodsService>();
         services.AddScoped<Application.Services.Accounting.IAccountingSettingsService, Application.Services.Accounting.AccountingSettingsService>();
+        services.AddScoped<Application.Services.SpedFiscal.ISpedFiscalSettingsService, Application.Services.SpedFiscal.SpedFiscalSettingsService>();
         services.AddScoped<Application.Services.Accounting.IJournalEntryPostingService, Application.Services.Accounting.JournalEntryPostingService>();
         services.AddScoped<Application.Services.Accounting.IJournalEntriesService, Application.Services.Accounting.JournalEntriesService>();
         services.AddScoped<Application.Services.Accounting.Postings.IStandardPostingsService, Application.Services.Accounting.Postings.StandardPostingsService>();
