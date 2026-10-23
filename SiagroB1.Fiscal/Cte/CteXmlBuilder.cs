@@ -65,7 +65,7 @@ public static class CteXmlBuilder
                 {
                     vTPrest = input.ServiceValue,
                     vRec = input.ReceivableValue,
-                    Comp = input.Components.Select(c => new CTe.Classes.Informacoes.Valores.Comp { xNome = c.Name, vComp = c.Value }).ToList(),
+                    Comp = input.Components.Select(c => new CTe.Classes.Informacoes.Valores.Comp { xNome = CteText.Clean(c.Name, 15), vComp = c.Value }).ToList(),
                 },
                 imp = BuildTaxes(input),
                 infCTeNorm = BuildNormal(input),
@@ -77,9 +77,9 @@ public static class CteXmlBuilder
                     : new ZeusInfRespTec
                     {
                         CNPJ = input.TechnicalResponsible.Cnpj,
-                        xContato = input.TechnicalResponsible.Contact,
-                        email = input.TechnicalResponsible.Email,
-                        fone = input.TechnicalResponsible.Phone,
+                        xContato = CteText.Clean(input.TechnicalResponsible.Contact, 60),
+                        email = CteText.CleanOrNull(input.TechnicalResponsible.Email, 60),
+                        fone = Phone(input.TechnicalResponsible.Phone),
                     },
             },
         };
@@ -112,7 +112,7 @@ public static class CteXmlBuilder
             cUF = issuerState,
             cCT = int.Parse(input.RandomCode, CultureInfo.InvariantCulture),
             CFOP = int.Parse(input.Cfop, CultureInfo.InvariantCulture),
-            natOp = input.OperationNature,
+            natOp = CteText.Clean(input.OperationNature, 60),
             mod = ModeloDocumento.CTe,
             serie = (short)input.Series,
             nCT = input.Number,
@@ -125,15 +125,15 @@ public static class CteXmlBuilder
             procEmi = procEmi.AplicativoContribuinte,
             verProc = ProcessVersion,
             cMunEnv = long.Parse(input.Issuer.Address.MunicipalityCode, CultureInfo.InvariantCulture),
-            xMunEnv = input.Issuer.Address.MunicipalityName,
+            xMunEnv = CteText.Clean(input.Issuer.Address.MunicipalityName, 60),
             UFEnv = issuerState,
             modal = modal.rodoviario,
             tpServ = tpServ.normal,
             cMunIni = long.Parse(input.Route.StartMunicipalityCode, CultureInfo.InvariantCulture),
-            xMunIni = input.Route.StartMunicipalityName,
+            xMunIni = CteText.Clean(input.Route.StartMunicipalityName, 60),
             UFIni = State(input.Route.StartState),
             cMunFim = long.Parse(input.Route.EndMunicipalityCode, CultureInfo.InvariantCulture),
-            xMunFim = input.Route.EndMunicipalityName,
+            xMunFim = CteText.Clean(input.Route.EndMunicipalityName, 60),
             UFFim = State(input.Route.EndState),
             retira = retira.Nao,
             indIEToma = input.TakerIndicator switch
@@ -154,22 +154,22 @@ public static class CteXmlBuilder
                 toma = toma.Outros,
                 CNPJ = other.TaxId.Length == 11 ? null : other.TaxId,
                 CPF = other.TaxId.Length == 11 ? other.TaxId : null,
-                IE = Blank(other.StateRegistration),
-                xNome = other.Name,
-                xFant = Blank(other.TradeName),
-                fone = Blank(other.Address.Phone),
+                IE = CteText.CleanOrNull(other.StateRegistration),
+                xNome = CteText.Clean(other.Name, 60),
+                xFant = CteText.CleanOrNull(other.TradeName, 60),
+                fone = Phone(other.Address.Phone),
                 enderToma = new enderToma
                 {
-                    xLgr = other.Address.Street,
-                    nro = other.Address.Number,
-                    xCpl = Blank(other.Address.Complement),
-                    xBairro = other.Address.District,
+                    xLgr = CteText.Clean(other.Address.Street, 255),
+                    nro = CteText.Clean(other.Address.Number, 60),
+                    xCpl = CteText.CleanOrNull(other.Address.Complement, 60),
+                    xBairro = CteText.Clean(other.Address.District, 60),
                     cMun = long.Parse(other.Address.MunicipalityCode, CultureInfo.InvariantCulture),
-                    xMun = other.Address.MunicipalityName,
+                    xMun = CteText.Clean(other.Address.MunicipalityName, 60),
                     CEP = ZipCode(other.Address) is { } cep ? cep : null,
                     UF = State(other.Address.State),
                 },
-                email = Blank(other.Email),
+                email = CteText.CleanOrNull(other.Email, 60),
             };
         }
         else
@@ -191,15 +191,15 @@ public static class CteXmlBuilder
 
     private static compl? BuildComplement(CteIssueInput input)
     {
-        if (Blank(input.Remarks) is null && input.Observations.Count == 0)
+        if (CteText.CleanOrNull(input.Remarks) is null && input.Observations.Count == 0)
             return null;
 
         return new compl
         {
-            xObs = Blank(input.Remarks),
+            xObs = CteText.CleanOrNull(input.Remarks, 2000),
             ObsCont = input.Observations.Count == 0
                 ? null
-                : input.Observations.Select(o => new ObsCont { xCampo = o.Field, xTexto = o.Text }).ToList(),
+                : input.Observations.Select(o => new ObsCont { xCampo = CteText.Clean(o.Field, 20), xTexto = CteText.Clean(o.Text, 160) }).ToList(),
         };
     }
 
@@ -207,19 +207,19 @@ public static class CteXmlBuilder
     {
         CNPJ = issuer.TaxId,
         IE = issuer.StateRegistration,
-        xNome = issuer.LegalName,
-        xFant = Blank(issuer.TradeName),
+        xNome = CteText.Clean(issuer.LegalName, 60),
+        xFant = CteText.CleanOrNull(issuer.TradeName, 60),
         enderEmit = new enderEmit
         {
-            xLgr = issuer.Address.Street,
-            nro = issuer.Address.Number,
-            xCpl = Blank(issuer.Address.Complement),
-            xBairro = issuer.Address.District,
+            xLgr = CteText.Clean(issuer.Address.Street, 255),
+            nro = CteText.Clean(issuer.Address.Number, 60),
+            xCpl = CteText.CleanOrNull(issuer.Address.Complement, 60),
+            xBairro = CteText.Clean(issuer.Address.District, 60),
             cMun = long.Parse(issuer.Address.MunicipalityCode, CultureInfo.InvariantCulture),
-            xMun = issuer.Address.MunicipalityName,
+            xMun = CteText.Clean(issuer.Address.MunicipalityName, 60),
             CEP = ZipCode(issuer.Address) ?? 0,
             UF = State(issuer.Address.State),
-            fone = Blank(issuer.Address.Phone),
+            fone = Phone(issuer.Address.Phone),
         },
         CRT = issuer.TaxRegime switch
         {
@@ -232,45 +232,45 @@ public static class CteXmlBuilder
 
     private static rem BuildSender(CteParty p) => new()
     {
-        CNPJ = Cnpj(p), CPF = Cpf(p), IE = Blank(p.StateRegistration), xNome = p.Name, xFant = Blank(p.TradeName),
-        fone = Blank(p.Address.Phone), email = Blank(p.Email),
+        CNPJ = Cnpj(p), CPF = Cpf(p), IE = CteText.CleanOrNull(p.StateRegistration), xNome = CteText.Clean(p.Name, 60), xFant = CteText.CleanOrNull(p.TradeName, 60),
+        fone = Phone(p.Address.Phone), email = CteText.CleanOrNull(p.Email, 60),
         enderReme = new enderReme
         {
-            xLgr = p.Address.Street, nro = p.Address.Number, xCpl = Blank(p.Address.Complement), xBairro = p.Address.District,
-            cMun = Municipality(p.Address), xMun = p.Address.MunicipalityName, CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
+            xLgr = CteText.Clean(p.Address.Street, 255), nro = CteText.Clean(p.Address.Number, 60), xCpl = CteText.CleanOrNull(p.Address.Complement, 60), xBairro = CteText.Clean(p.Address.District, 60),
+            cMun = Municipality(p.Address), xMun = CteText.Clean(p.Address.MunicipalityName, 60), CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
         },
     };
 
     private static exped BuildShipper(CteParty p) => new()
     {
-        CNPJ = Cnpj(p), CPF = Cpf(p), IE = Blank(p.StateRegistration), xNome = p.Name,
-        fone = Blank(p.Address.Phone), email = Blank(p.Email),
+        CNPJ = Cnpj(p), CPF = Cpf(p), IE = CteText.CleanOrNull(p.StateRegistration), xNome = CteText.Clean(p.Name, 60),
+        fone = Phone(p.Address.Phone), email = CteText.CleanOrNull(p.Email, 60),
         enderExped = new enderExped
         {
-            xLgr = p.Address.Street, nro = p.Address.Number, xCpl = Blank(p.Address.Complement), xBairro = p.Address.District,
-            cMun = Municipality(p.Address), xMun = p.Address.MunicipalityName, CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
+            xLgr = CteText.Clean(p.Address.Street, 255), nro = CteText.Clean(p.Address.Number, 60), xCpl = CteText.CleanOrNull(p.Address.Complement, 60), xBairro = CteText.Clean(p.Address.District, 60),
+            cMun = Municipality(p.Address), xMun = CteText.Clean(p.Address.MunicipalityName, 60), CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
         },
     };
 
     private static receb BuildReceiver(CteParty p) => new()
     {
-        CNPJ = Cnpj(p), CPF = Cpf(p), IE = Blank(p.StateRegistration), xNome = p.Name,
-        fone = Blank(p.Address.Phone), email = Blank(p.Email),
+        CNPJ = Cnpj(p), CPF = Cpf(p), IE = CteText.CleanOrNull(p.StateRegistration), xNome = CteText.Clean(p.Name, 60),
+        fone = Phone(p.Address.Phone), email = CteText.CleanOrNull(p.Email, 60),
         enderReceb = new enderReceb
         {
-            xLgr = p.Address.Street, nro = p.Address.Number, xCpl = Blank(p.Address.Complement), xBairro = p.Address.District,
-            cMun = Municipality(p.Address), xMun = p.Address.MunicipalityName, CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
+            xLgr = CteText.Clean(p.Address.Street, 255), nro = CteText.Clean(p.Address.Number, 60), xCpl = CteText.CleanOrNull(p.Address.Complement, 60), xBairro = CteText.Clean(p.Address.District, 60),
+            cMun = Municipality(p.Address), xMun = CteText.Clean(p.Address.MunicipalityName, 60), CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
         },
     };
 
     private static dest BuildRecipient(CteParty p) => new()
     {
-        CNPJ = Cnpj(p), CPF = Cpf(p), IE = Blank(p.StateRegistration), xNome = p.Name,
-        fone = Blank(p.Address.Phone), email = Blank(p.Email),
+        CNPJ = Cnpj(p), CPF = Cpf(p), IE = CteText.CleanOrNull(p.StateRegistration), xNome = CteText.Clean(p.Name, 60),
+        fone = Phone(p.Address.Phone), email = CteText.CleanOrNull(p.Email, 60),
         enderDest = new enderDest
         {
-            xLgr = p.Address.Street, nro = p.Address.Number, xCpl = Blank(p.Address.Complement), xBairro = p.Address.District,
-            cMun = Municipality(p.Address), xMun = p.Address.MunicipalityName, CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
+            xLgr = CteText.Clean(p.Address.Street, 255), nro = CteText.Clean(p.Address.Number, 60), xCpl = CteText.CleanOrNull(p.Address.Complement, 60), xBairro = CteText.Clean(p.Address.District, 60),
+            cMun = Municipality(p.Address), xMun = CteText.Clean(p.Address.MunicipalityName, 60), CEP = ZipCode(p.Address) ?? 0, UF = State(p.Address.State),
         },
     };
 
@@ -330,11 +330,11 @@ public static class CteXmlBuilder
         infCarga = new infCarga
         {
             vCarga = input.CargoValue,
-            proPred = input.PredominantProduct,
+            proPred = CteText.Clean(input.PredominantProduct, 60),
             infQ = input.CargoQuantities.Select(q => new infQ
             {
                 cUnid = (cUnid)int.Parse(q.UnitCode, CultureInfo.InvariantCulture),
-                tpMed = q.MeasureType,
+                tpMed = CteText.Clean(q.MeasureType, 20),
                 qCarga = q.Quantity,
             }).ToList(),
         },
@@ -360,5 +360,10 @@ public static class CteXmlBuilder
 
     private static string? Cpf(CteParty p) => p.TaxId.Length == 11 ? p.TaxId : null;
 
-    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+    /// <summary>Telefone só com dígitos (o XSD aceita 6 a 14); sem dígitos suficientes, omite.</summary>
+    private static string? Phone(string? value)
+    {
+        var digits = new string((value ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+        return digits.Length < 6 ? null : digits[..Math.Min(digits.Length, 14)];
+    }
 }

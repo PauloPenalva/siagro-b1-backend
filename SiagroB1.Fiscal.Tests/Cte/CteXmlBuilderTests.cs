@@ -41,6 +41,36 @@ public class CteXmlBuilderTests
     }
 
     [Fact]
+    public void Build_cleans_free_text_with_edge_and_double_spaces_and_newlines()
+    {
+        var dirty = CteTestData.Input();
+        var input = dirty with
+        {
+            Sender = dirty.Sender with
+            {
+                Name = "  COSTA   PRODUTOR RURAL LTDA ",
+                Address = dirty.Sender.Address with { Street = "AVENIDA DOS ESTADOS ", District = " CENTRO  VELHO", Complement = "   " },
+            },
+            Recipient = dirty.Recipient with { Name = "ARMAZEM\tDESTINO LTDA  ", Email = "  " },
+            Remarks = "FRETE  CONFORME\r\nCONTRATO ",
+            Observations = [new CteObservation(" CONTRATO ", " 123\n456 ")],
+            PredominantProduct = " SOJA  EM GRAOS ",
+        };
+
+        var signed = Sign(input);
+
+        Assert.Contains("<xNome>COSTA PRODUTOR RURAL LTDA</xNome>", signed.Xml);
+        Assert.Contains("<xLgr>AVENIDA DOS ESTADOS</xLgr>", signed.Xml);
+        Assert.Contains("<xBairro>CENTRO VELHO</xBairro>", signed.Xml);
+        Assert.Contains("<xNome>ARMAZEM DESTINO LTDA</xNome>", signed.Xml);
+        Assert.Contains("<xObs>FRETE CONFORME CONTRATO</xObs>", signed.Xml);
+        Assert.Contains("<xTexto>123 456</xTexto>", signed.Xml);
+        Assert.Contains("<proPred>SOJA EM GRAOS</proPred>", signed.Xml);
+        Assert.DoesNotContain("<xCpl></xCpl>", signed.Xml);
+        Assert.DoesNotContain("<xCpl/>", signed.Xml);
+    }
+
+    [Fact]
     public void Build_taker_other_uses_toma4()
     {
         var signed = Sign(CteTestData.Input() with { Taker = CteTaker.Other, OtherTaker = CteTestData.OtherTaker() });
