@@ -15,10 +15,10 @@ public class TransportManifestsConfirmServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
     private readonly FakeMdfeNumberReservationService _numbers = new(50);
 
-    private TransportManifestsConfirmService Confirm(string erp = "STANDALONE") =>
-        new(_db, MdfeTestSupport.Config(erp), _numbers, new MdfeReadinessValidator(_db));
+    private TransportManifestsConfirmService Confirm(string erp = "STANDALONE", Func<DateTimeOffset>? clock = null) =>
+        new(_db, MdfeTestSupport.Config(erp), _numbers, new MdfeReadinessValidator(_db), clock);
 
-    private TransportManifestsReopenService Reopen() => new(_db, MdfeTestSupport.Config());
+    private TransportManifestsReopenService Reopen() => new(_db, MdfeTestSupport.Config(), _numbers);
 
     private TransportManifestsDiscardNumberService Discard() => new(_db, MdfeTestSupport.Config(), _numbers);
 
@@ -29,7 +29,7 @@ public class TransportManifestsConfirmServiceTests
         await _db.SaveChangesAsync();
         var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
         var key = await new TransportManifestsCreateFromCtesService(_db, MdfeTestSupport.Config()).CreateFromCtesAsync("01", [cte.Key], "tester");
-        await new TransportManifestsSaveService(_db, MdfeTestSupport.Config(), new MdfeReadinessValidator(_db)).SaveAsync(key,
+        await new TransportManifestsSaveService(_db, MdfeTestSupport.Config(), new MdfeReadinessValidator(_db), _numbers).SaveAsync(key,
             new TransportManifestSaveModel { GrossWeight = weight, WeightUnit = unit, LoadingZip = "01001000", UnloadingZip = "13010000" }, "tester");
         return key;
     }
@@ -213,7 +213,7 @@ public class TransportManifestsConfirmServiceTests
         var key = await SeedReadyAsync();
         await Confirm().ConfirmAsync(key, "tester");
 
-        await Assert.ThrowsAsync<DefaultException>(() => new TransportManifestsReopenService(_db, MdfeTestSupport.Config("SAPB1")).ReopenAsync(key));
+        await Assert.ThrowsAsync<DefaultException>(() => new TransportManifestsReopenService(_db, MdfeTestSupport.Config("SAPB1"), _numbers).ReopenAsync(key));
         await Assert.ThrowsAsync<DefaultException>(() =>
             new TransportManifestsDiscardNumberService(_db, MdfeTestSupport.Config("SAPB1"), _numbers).DiscardNumberAsync(key));
         Assert.Equal(MdfeStatus.Confirmed, (await LoadAsync(key)).Status);
@@ -224,5 +224,46 @@ public class TransportManifestsConfirmServiceTests
     {
         var key = await SeedReadyAsync();
         await Assert.ThrowsAsync<DefaultException>(() => Discard().DiscardNumberAsync(key));
+    }
+
+    [Fact]
+    public async Task Confirm_late_on_last_day_of_month_uses_brasilia_month_for_key_and_issue_date()
+    {
+        var key = await SeedReadyAsync();
+        // 31/10 23:30 em Brasília = 01/11 02:30 UTC (o relógio do servidor Linux).
+        var utc = new DateTimeOffset(2026, 11, 1, 2, 30, 0, TimeSpan.Zero);
+
+        await Confirm(clock: () => utc).ConfirmAsync(key, "tester");
+
+        var m = await LoadAsync(key);
+        Assert.Equal("2610", m.AccessKey!.Substring(2, 4));
+        Assert.Equal(new DateTime(2026, 10, 31, 23, 30, 0), m.IssuedAt);
+    }
+
+    [Fact]
+    public async Task Reopen_refuses_while_emission_lock_is_held()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+        _numbers.EmissionBusy = true;
+
+        await Assert.ThrowsAsync<DefaultException>(() => Reopen().ReopenAsync(key));
+        _numbers.EmissionBusy = false;
+        Assert.Equal(MdfeStatus.Confirmed, (await LoadAsync(key)).Status);
+    }
+
+    [Fact]
+    public async Task Reopen_takes_emission_lock_and_releases_it()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+        var locksDuring = -1;
+        _db.Context.SavingChanges += (_, _) => locksDuring = _numbers.LocksHeld;
+
+        await Reopen().ReopenAsync(key);
+
+        Assert.Equal(1, locksDuring);
+        Assert.Equal(0, _numbers.LocksHeld);
+        Assert.Equal(MdfeStatus.Draft, (await LoadAsync(key)).Status);
     }
 }

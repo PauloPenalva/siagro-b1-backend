@@ -15,8 +15,8 @@ public class TransportDocumentsConfirmServiceTests
     private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
     private readonly FakeCteNumberReservationService _numbers = new(100);
 
-    private TransportDocumentsConfirmService Confirm(string erp = "STANDALONE") =>
-        new(_db, TaxTestServices.Config(erp), _numbers, new CteReadinessValidator(_db));
+    private TransportDocumentsConfirmService Confirm(string erp = "STANDALONE", Func<DateTimeOffset>? clock = null) =>
+        new(_db, TaxTestServices.Config(erp), _numbers, new CteReadinessValidator(_db), clock);
 
     private TransportDocumentsReopenService Reopen() => new(_db, TaxTestServices.Config("STANDALONE"));
 
@@ -229,5 +229,19 @@ public class TransportDocumentsConfirmServiceTests
         await Confirm().ConfirmAsync(key, "tester");
 
         Assert.StartsWith("41", (await LoadAsync(key)).AccessKey);
+    }
+
+    [Fact]
+    public async Task Confirm_late_on_last_day_of_month_uses_brasilia_month_for_key_and_issue_date()
+    {
+        var key = await SeedReadyAsync();
+        // 31/10 23:30 em Brasília = 01/11 02:30 UTC (o relógio do servidor Linux).
+        var utc = new DateTimeOffset(2026, 11, 1, 2, 30, 0, TimeSpan.Zero);
+
+        await Confirm(clock: () => utc).ConfirmAsync(key, "tester");
+
+        var doc = await _db.Context.TransportDocuments.AsNoTracking().SingleAsync(x => x.Key == key);
+        Assert.Equal("2610", doc.AccessKey!.Substring(2, 4));
+        Assert.Equal(new DateTime(2026, 10, 31, 23, 30, 0), doc.IssuedAt);
     }
 }

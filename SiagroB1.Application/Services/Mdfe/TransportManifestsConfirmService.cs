@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.Cte;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Mdfe;
@@ -19,7 +20,8 @@ public class TransportManifestsConfirmService(
     IUnitOfWork db,
     IConfiguration configuration,
     MdfeNumberReservationService numbers,
-    MdfeReadinessValidator validator)
+    MdfeReadinessValidator validator,
+    Func<DateTimeOffset>? clock = null)
 {
     public const string NotDraft = "Só é possível confirmar MDF-e em rascunho.";
 
@@ -57,7 +59,8 @@ public class TransportManifestsConfirmService(
 
             // Conexão própria, fora da transação do EF: o número reservado não volta se o save falhar.
             var number = await numbers.ReserveAsync(m.BranchCode, m.Series);
-            var now = DateTime.Now;
+            // Relógio de Brasília (o servidor Linux roda em UTC): o mesmo que a transmissão usa para conferir o mês da chave.
+            var now = TimeZoneInfo.ConvertTime(clock?.Invoke() ?? DateTimeOffset.UtcNow, NfeIssueInputAssembler.BrasiliaZone).DateTime;
             m.Number = number;
             m.RandomCode = GenerateRandomCode(number);
             m.IssuedAt = now;

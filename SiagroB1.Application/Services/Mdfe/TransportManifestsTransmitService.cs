@@ -24,6 +24,7 @@ public class TransportManifestsTransmitService(
     MdfeServiceContextFactory contexts,
     IMdfeSefazClient sefaz,
     NfeOptions options,
+    MdfeReadinessValidator validator,
     Func<DateTimeOffset>? clock = null,
     ILogger<TransportManifestsTransmitService>? logger = null)
 {
@@ -101,6 +102,9 @@ public class TransportManifestsTransmitService(
         // MDF-e criado/confirmado antes de a filial ter seguro: copia agora, antes de montar e assinar.
         MdfeInsuranceSnapshot.RefreshIfIncomplete(m, transport);
         if (!MdfeInsuranceSnapshot.IsComplete(m)) throw new DefaultException(MdfeReadinessValidator.InsuranceRequired);
+        // Revalida antes de assinar de novo (ex.: Rejeitado cuja averbação de CT-e foi cancelada depois da confirmação).
+        var (errors, _) = await validator.ValidateAsync(m);
+        if (errors.Count > 0) throw new DefaultException(string.Join(" ", errors));
         var input = MdfeIssueInputAssembler.Build(m, branch, transport, options.TechnicalResponsible);
 
         MdfeZeusConfiguration.PinGlobalLayout();

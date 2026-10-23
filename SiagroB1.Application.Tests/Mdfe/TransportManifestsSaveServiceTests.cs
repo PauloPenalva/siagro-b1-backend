@@ -17,8 +17,10 @@ public class TransportManifestsSaveServiceTests
 
     public TransportManifestsSaveServiceTests() => _db = TestDb.CreateUnitOfWork(_name);
 
+    private readonly FakeMdfeNumberReservationService _numbers = new(50);
+
     private TransportManifestsSaveService Save(UnitOfWork? db = null) =>
-        new(db ?? _db, MdfeTestSupport.Config(), new MdfeReadinessValidator(db ?? _db));
+        new(db ?? _db, MdfeTestSupport.Config(), new MdfeReadinessValidator(db ?? _db), _numbers);
 
     private async Task<(Guid Manifest, TransportDocument Cte)> DraftAsync(bool requiresCiot = false)
     {
@@ -130,5 +132,30 @@ public class TransportManifestsSaveServiceTests
         await Save().DeleteAsync(key);
 
         Assert.False(await _db.Context.TransportManifestCtes.AnyAsync(x => x.TransportDocumentKey == cte.Key));
+    }
+
+    [Fact]
+    public async Task Save_refuses_while_emission_lock_is_held()
+    {
+        var (key, _) = await DraftAsync();
+        _numbers.EmissionBusy = true;
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            Save().SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 99 }, "tester"));
+        _numbers.EmissionBusy = false;
+        Assert.NotEqual(99, (await _db.Context.TransportManifests.AsNoTracking().SingleAsync(x => x.Key == key)).GrossWeight);
+    }
+
+    [Fact]
+    public async Task Save_takes_emission_lock_and_releases_it()
+    {
+        var (key, _) = await DraftAsync();
+        var locksDuring = -1;
+        _db.Context.SavingChanges += (_, _) => locksDuring = _numbers.LocksHeld;
+
+        await Save().SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 99 }, "tester");
+
+        Assert.Equal(1, locksDuring);
+        Assert.Equal(0, _numbers.LocksHeld);
     }
 }

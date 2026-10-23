@@ -13,7 +13,8 @@ namespace SiagroB1.Application.Services.Mdfe;
 /// Gravação do MDF-e em rascunho (só Draft) e exclusão do rascunho. Documentos (CPF/CNPJ/CIOT/CEP) ficam só com
 /// dígitos; o CteCount sai das linhas de CT-e. Os vínculos de CT-e não mudam aqui.
 /// </summary>
-public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration configuration, MdfeReadinessValidator validator)
+public class TransportManifestsSaveService(
+    IUnitOfWork db, IConfiguration configuration, MdfeReadinessValidator validator, MdfeNumberReservationService numbers)
 {
     public const string OnlyDraft = "Só é possível alterar MDF-e em rascunho.";
     public const string OnlyDraftDeletes = "Só é possível excluir MDF-e em rascunho e sem número.";
@@ -23,7 +24,10 @@ public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration config
     {
         TransportManifestsCreateFromCtesService.EnsureStandalone(configuration);
 
-        // A gravação não mexe nos vínculos de CT-e (só a inclusão os cria), então não há corrida a guardar aqui.
+        // Mesma trava da confirmação/transmissão: uma aba velha não grava por cima de um MDF-e que outra aba acabou de
+        // confirmar ou transmitir. A situação (só Rascunho) é conferida já dentro da trava.
+        await using var emissionLock = await numbers.AcquireEmissionLockAsync(key);
+
         var m = await LoadTrackedAsync(key) ?? throw new DefaultException(NotFound);
         if (m.Status != MdfeStatus.Draft) throw new DefaultException(OnlyDraft);
 

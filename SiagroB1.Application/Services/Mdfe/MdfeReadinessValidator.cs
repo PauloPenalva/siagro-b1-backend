@@ -20,6 +20,7 @@ public class MdfeReadinessValidator(IUnitOfWork db)
     public const string CiotRequiresPayment = "Com CIOT informado, preencha as informações de pagamento do frete.";
     public const string SingleCteRequiresZips = "Carga lotação: informe o CEP de carregamento e de descarregamento.";
     public const string DriverRequired = "Informe ao menos um condutor (CPF válido).";
+    public const string MainDriverInvalid = "O CPF do condutor principal é inválido: corrija no CT-e ou informe um CPF válido.";
     public const string TractionRequired = "Informe o veículo de tração.";
     public const string CtesRequired = "O MDF-e precisa de ao menos um CT-e.";
     public const string RntrcRequired = "Informe o RNTRC da transportadora na Configuração de Transporte da filial.";
@@ -97,6 +98,8 @@ public class MdfeReadinessValidator(IUnitOfWork db)
         var mainDriverOk = Digits(m.DriverCpf).Length == 11 && TaxIdValidator.IsValid(m.DriverCpf!);
         if (!mainDriverOk && !m.Drivers.Any(d => d.Cpf.Length == 11 && TaxIdValidator.IsValid(d.Cpf)))
             errors.Add(DriverRequired);
+        // O condutor principal sai no XML sempre que informado: um adicional válido não mascara o CPF inválido dele.
+        if (!mainDriverOk && !string.IsNullOrWhiteSpace(m.DriverCpf)) errors.Add(MainDriverInvalid);
 
         if (string.IsNullOrWhiteSpace(m.TractionPlate) || !m.Vehicles.Any(v => v.IsTraction)) errors.Add(TractionRequired);
 

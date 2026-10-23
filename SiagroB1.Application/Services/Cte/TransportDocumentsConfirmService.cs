@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Cte;
@@ -18,7 +19,8 @@ public class TransportDocumentsConfirmService(
     IUnitOfWork db,
     IConfiguration configuration,
     CteNumberReservationService numbers,
-    CteReadinessValidator validator)
+    CteReadinessValidator validator,
+    Func<DateTimeOffset>? clock = null)
 {
     public const string NotDraft = "Só é possível confirmar CT-e em rascunho.";
 
@@ -63,7 +65,8 @@ public class TransportDocumentsConfirmService(
 
             // Conexão própria, fora da transação do EF: o número reservado não volta se o save falhar.
             var number = await numbers.ReserveAsync(doc.BranchCode, doc.Series);
-            var now = DateTime.Now;
+            // Relógio de Brasília (o servidor Linux roda em UTC): o mesmo que a transmissão usa para conferir o mês da chave.
+            var now = TimeZoneInfo.ConvertTime(clock?.Invoke() ?? DateTimeOffset.UtcNow, NfeIssueInputAssembler.BrasiliaZone).DateTime;
             doc.Number = number;
             doc.RandomCode = GenerateRandomCode(number);
             doc.IssuedAt = now;

@@ -28,7 +28,8 @@ public class TransportManifestsTransmitServiceTests
     {
         var config = NfeTestSeed.Config();
         return new TransportManifestsTransmitService(
-            _db, config, _numbers, new MdfeServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now);
+            _db, config, _numbers, new MdfeServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config),
+            new MdfeReadinessValidator(_db), () => _now);
     }
 
     private TransportManifestsConsultService Consult()
@@ -386,5 +387,23 @@ public class TransportManifestsTransmitServiceTests
         var m = await LoadAsync(key);
         Assert.Equal(MdfeStatus.Cancelled, m.Status);
         Assert.NotNull(m.CancelledAt);
+    }
+
+    [Fact]
+    public async Task Rejected_is_revalidated_before_resigning_when_endorsement_was_cancelled()
+    {
+        var key = await SeedConfirmedAsync();
+        var tracked = await _db.Context.TransportManifests.Include(x => x.Ctes).SingleAsync(x => x.Key == key);
+        tracked.ApplyStatus(MdfeStatus.Rejected);
+        var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
+        cte.EndorsementStatus = CteEndorsementStatus.Cancelled;
+        tracked.Ctes.Single().TransportDocumentKey = cte.Key;
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Transmit().TransmitAsync(key, "tester"));
+
+        Assert.Contains("Averbe os CT-e", ex.Message);
+        Assert.Empty(_sefaz.Sent);
+        Assert.Equal(MdfeStatus.Rejected, (await LoadAsync(key)).Status);
     }
 }

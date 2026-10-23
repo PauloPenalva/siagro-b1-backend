@@ -145,4 +145,14 @@ public class MdfeReadinessValidatorTests
         Assert.Empty(errors);
         Assert.Equal([MdfeReadinessValidator.CiotRequiredWarning], warnings);
     }
+
+    [Fact]
+    public void Validator_refuses_invalid_main_driver_even_with_valid_additional_driver()
+    {
+        var m = Ready();
+        m.DriverCpf = "11111111112";
+        m.Drivers.Add(new TransportManifestDriver { LineNum = 1, Cpf = "52998224725", Name = "OUTRO" });
+
+        Assert.Contains(MdfeReadinessValidator.MainDriverInvalid, Run(m).Errors);
+    }
 }
