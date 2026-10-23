@@ -99,4 +99,28 @@ public class BranchMdfeSettingsServiceTests
 
         Assert.Equal("O MDF-e só existe no modo STANDALONE.", ex.Message);
     }
+
+    [Fact]
+    public async Task Series_is_used_only_when_a_numbered_manifest_exists()
+    {
+        await SeedBranchAsync();
+        var two = Model();
+        two.SeriesList.Add(new BranchMdfeSeriesModel { Series = 2, Description = "Dois", NextNumber = 5 });
+        two.SeriesList.Add(new BranchMdfeSeriesModel { Series = 3, Description = "Três", NextNumber = 1 });
+        await Service().SaveAsync("01", two, "tester");
+        _db.Context.TransportManifests.Add(new TransportManifest { BranchCode = "01", Series = 3, Number = 1 });
+        _db.Context.TransportManifests.Add(new TransportManifest { BranchCode = "01", Series = 1 });
+        await _db.SaveChangesAsync();
+
+        var model = await Service().GetAsync("01");
+        Assert.Equal([false, false, true], model.SeriesList.Select(x => x.IsUsed));
+
+        // Série 2: contador andou mas nenhum MDF-e numerado → pode sair. Série 3 tem MDF-e nº 1 → bloqueada.
+        var withoutTwo = Model();
+        withoutTwo.SeriesList.Add(new BranchMdfeSeriesModel { Series = 3, Description = "Três", NextNumber = 1 });
+        await Service().SaveAsync("01", withoutTwo, "tester");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().SaveAsync("01", Model(), "tester"));
+        Assert.Equal("A série 3 já foi usada em MDF-e e não pode ser excluída.", ex.Message);
+    }
 }

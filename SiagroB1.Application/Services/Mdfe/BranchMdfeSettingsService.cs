@@ -163,12 +163,11 @@ public class BranchMdfeSettingsService(IUnitOfWork db, IConfiguration configurat
     private static BranchMdfeSeries DefaultSeriesRow(string branchCode) =>
         new() { BranchCode = branchCode, Series = 1, Description = "Padrão", NextNumber = 1 };
 
-    // Série usada = o contador já andou (próximo número acima de 1). Ainda não há tabela de MDF-e emitidos;
-    // quando houver, troque por "existe MDF-e dela com número" como no CT-e.
+    // Série usada = existe MDF-e dela com número (o número nasce no Confirmar; rascunho não conta).
     private async Task<HashSet<int>> UsedSeriesAsync(string branchCode) =>
-        (await db.Context.BranchMdfeSeries.AsNoTracking()
-            .Where(x => x.BranchCode == branchCode && x.NextNumber > 1)
-            .Select(x => x.Series).ToListAsync()).ToHashSet();
+        (await db.Context.TransportManifests.AsNoTracking()
+            .Where(d => d.BranchCode == branchCode && d.Number != null)
+            .Select(d => d.Series).Distinct().ToListAsync()).ToHashSet();
 
     private static BranchMdfeSettingsModel ToModel(BranchMdfeSettings settings, HashSet<int> usedSeries) => new()
     {

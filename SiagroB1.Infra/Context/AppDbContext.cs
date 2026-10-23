@@ -28,6 +28,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchMdfeSettings> BranchMdfeSettings { get; set; }
     public DbSet<BranchMdfeSeries> BranchMdfeSeries { get; set; }
     public DbSet<TransportDocument> TransportDocuments { get; set; }
+    public DbSet<TransportManifest> TransportManifests { get; set; }
+    public DbSet<TransportManifestCte> TransportManifestCtes { get; set; }
+    public DbSet<TransportManifestLoadingCity> TransportManifestLoadingCities { get; set; }
+    public DbSet<TransportManifestRouteUf> TransportManifestRouteUfs { get; set; }
+    public DbSet<TransportManifestVehicle> TransportManifestVehicles { get; set; }
+    public DbSet<TransportManifestDriver> TransportManifestDrivers { get; set; }
+    public DbSet<TransportManifestContractor> TransportManifestContractors { get; set; }
+    public DbSet<TransportManifestPayment> TransportManifestPayments { get; set; }
+    public DbSet<TransportManifestPaymentComponent> TransportManifestPaymentComponents { get; set; }
+    public DbSet<TransportManifestPaymentInstallment> TransportManifestPaymentInstallments { get; set; }
+    public DbSet<TransportManifestSeal> TransportManifestSeals { get; set; }
+    public DbSet<TransportManifestXml> TransportManifestXmls { get; set; }
+    public DbSet<TransportManifestEvent> TransportManifestEvents { get; set; }
     public DbSet<TransportDocumentParty> TransportDocumentParties { get; set; }
     public DbSet<TransportDocumentNfeKey> TransportDocumentNfeKeys { get; set; }
     public DbSet<TransportDocumentQuantity> TransportDocumentQuantities { get; set; }
@@ -520,6 +533,42 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasMany(x => x.Xmls).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Corrections).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Endorsements).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TransportManifest>(e =>
+        {
+            // Número só existe depois do Confirmar; a unicidade vale só para quem já tem número.
+            e.HasIndex(x => new { x.BranchCode, x.Series, x.Number })
+                .IsUnique()
+                .HasFilter("[Number] IS NOT NULL");
+            e.HasIndex(x => x.AccessKey);
+            e.HasMany(x => x.Ctes).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.LoadingCities).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.RouteUfs).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Vehicles).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Drivers).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Contractors).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Payments).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Seals).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Xmls).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Events).WithOne(x => x.Manifest).HasForeignKey(x => x.ManifestKey).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TransportManifestPayment>(e =>
+        {
+            e.HasMany(x => x.Components).WithOne(x => x.Payment).HasForeignKey(x => x.PaymentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Installments).WithOne(x => x.Payment).HasForeignKey(x => x.PaymentKey).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TransportManifestCte>(e =>
+        {
+            // CT-e vinculado a MDF-e não se exclui (o delete do CT-e só vale para rascunho sem número, que
+            // não entra em MDF-e).
+            e.HasOne(x => x.TransportDocument).WithMany().HasForeignKey(x => x.TransportDocumentKey)
+                .OnDelete(DeleteBehavior.Restrict);
+            // Um CT-e em no máximo um MDF-e ativo. IsActive é mantido pelos serviços; o filtro é igualdade
+            // simples porque índice filtrado não aceita NOT IN (e exige QUOTED_IDENTIFIER ON no sqlcmd: -I).
+            e.HasIndex(x => x.TransportDocumentKey).IsUnique().HasFilter("[IsActive] = 1");
         });
 
         modelBuilder.Entity<CteNumberToVoid>(e =>

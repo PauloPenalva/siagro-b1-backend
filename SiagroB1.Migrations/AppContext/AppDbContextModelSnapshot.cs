@@ -8503,6 +8503,537 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("TRANSPORT_DOCUMENT_XMLS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifest", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccessKey")
+                        .HasColumnType("VARCHAR(44)");
+
+                    b.Property<string>("AdditionalInfo")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<DateTime?>("AuthorizedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CargoType")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<decimal>("CargoValue")
+                        .HasColumnType("DECIMAL(15,2) DEFAULT 0");
+
+                    b.Property<string>("CiotNumber")
+                        .HasColumnType("VARCHAR(12)");
+
+                    b.Property<string>("CiotResponsibleTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("ClosedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ClosingCityIbge")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("ClosingUf")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("CteCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DriverCpf")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("DriverName")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int?>("Environment")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("GrossWeight")
+                        .HasColumnType("DECIMAL(15,4) DEFAULT 0");
+
+                    b.Property<string>("InsuranceResponsible")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("InsurerName")
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<string>("InsurerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LoadingZip")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("Ncm")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int?>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PolicyNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("ProductDescription")
+                        .HasColumnType("VARCHAR(120)");
+
+                    b.Property<string>("ProtocolNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("RandomCode")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("RejectionCode")
+                        .HasColumnType("VARCHAR(5)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("Series")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TollSupplierCnpj")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<decimal?>("TollValue")
+                        .HasColumnType("DECIMAL(15,2)");
+
+                    b.Property<string>("TollVoucherNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("TractionPlate")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("UfEnd")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("UfStart")
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("UnloadingZip")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("WeightUnit")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("AccessKey");
+
+                    b.HasIndex("BranchCode", "Series", "Number")
+                        .IsUnique()
+                        .HasFilter("[Number] IS NOT NULL");
+
+                    b.ToTable("TRANSPORT_MANIFESTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestContractor", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("TaxId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_CONTRACTORS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestCte", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CteAccessKey")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(44)");
+
+                    b.Property<string>("Endorsements")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnloadingCityIbge")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("UnloadingCityName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.HasIndex("TransportDocumentKey")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("TRANSPORT_MANIFEST_CTES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestDriver", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AddedByEvent")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Cpf")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_DRIVERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestEvent", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Justification")
+                        .HasColumnType("VARCHAR(255)");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProtocolNumber")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<DateTime?>("RegisteredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StatusCode")
+                        .HasColumnType("VARCHAR(5)");
+
+                    b.Property<string>("StatusReason")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_EVENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestLoadingCity", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CityIbge")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("CityName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_LOADING_CITIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPayment", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Agency")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("BankCode")
+                        .HasColumnType("VARCHAR(5)");
+
+                    b.Property<string>("ContractorName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("ContractorTaxId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<int>("IndPag")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Pix")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("DECIMAL(15,2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_PAYMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPaymentComponent", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<Guid>("PaymentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("DECIMAL(15,2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PaymentKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_PAYMENT_COMPONENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPaymentInstallment", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PaymentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("DECIMAL(15,2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("PaymentKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_PAYMENT_INSTALLMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestRouteUf", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Uf")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_ROUTE_UFS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestSeal", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_SEALS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestVehicle", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BodyType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<int>("CapacityKg")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CapacityM3")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTraction")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Plate")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<string>("Renavam")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<int>("TareKg")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Uf")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("WheelType")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_VEHICLES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestXml", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ManifestKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR(MAX)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ManifestKey");
+
+                    b.ToTable("TRANSPORT_MANIFEST_XMLS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
                     b.Property<string>("Code")
@@ -11255,6 +11786,146 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("TransportDocument");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestContractor", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Contractors")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestCte", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Ctes")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany()
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+
+                    b.Navigation("TransportDocument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestDriver", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Drivers")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestEvent", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Events")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestLoadingCity", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("LoadingCities")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPayment", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Payments")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPaymentComponent", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifestPayment", "Payment")
+                        .WithMany("Components")
+                        .HasForeignKey("PaymentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPaymentInstallment", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifestPayment", "Payment")
+                        .WithMany("Installments")
+                        .HasForeignKey("PaymentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Payment");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestRouteUf", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("RouteUfs")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestSeal", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Seals")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestVehicle", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Vehicles")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestXml", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportManifest", "Manifest")
+                        .WithMany("Xmls")
+                        .HasForeignKey("ManifestKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Manifest");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Truck", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.State", "State")
@@ -11662,6 +12333,36 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Quantities");
 
                     b.Navigation("Xmls");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifest", b =>
+                {
+                    b.Navigation("Contractors");
+
+                    b.Navigation("Ctes");
+
+                    b.Navigation("Drivers");
+
+                    b.Navigation("Events");
+
+                    b.Navigation("LoadingCities");
+
+                    b.Navigation("Payments");
+
+                    b.Navigation("RouteUfs");
+
+                    b.Navigation("Seals");
+
+                    b.Navigation("Vehicles");
+
+                    b.Navigation("Xmls");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportManifestPayment", b =>
+                {
+                    b.Navigation("Components");
+
+                    b.Navigation("Installments");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TruckCombination", b =>
