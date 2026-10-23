@@ -15,6 +15,7 @@ public class EcdSettingsController(IEcdSettingsService service, IConfiguration c
     [
         "BranchCode", "BookNumber", "HasNire", "Nire", "ConstitutiveActsDate", "LargeCompany",
         "ReferentialPlanCode", "SignerName", "SignerCpf", "SignerQualificationCode", "SignerEmail", "SignerPhone",
+        "AccountantCrcSequence", "AccountantCrcValidUntil",
     ];
 
     private const string StandaloneOnly = "Disponível somente no modo STANDALONE.";
@@ -58,6 +59,8 @@ public class EcdSettingsController(IEcdSettingsService service, IConfiguration c
             SignerQualificationCode = Text(parameters, "SignerQualificationCode") ?? string.Empty,
             SignerEmail = Text(parameters, "SignerEmail") ?? string.Empty,
             SignerPhone = Text(parameters, "SignerPhone"),
+            AccountantCrcSequence = Text(parameters, "AccountantCrcSequence"),
+            AccountantCrcValidUntil = CalendarDate(parameters["AccountantCrcValidUntil"]),
         };
 
         try { return Ok(await service.SaveAsync(settings, User.Identity?.Name ?? "Unknown")); }

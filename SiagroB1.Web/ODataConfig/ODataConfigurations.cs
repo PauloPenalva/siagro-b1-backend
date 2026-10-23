@@ -383,6 +383,8 @@ public static class ODataConfigurations
         ecdSettingsSave.Parameter<string>("SignerQualificationCode");
         ecdSettingsSave.Parameter<string>("SignerEmail");
         ecdSettingsSave.Parameter<string>("SignerPhone");
+        ecdSettingsSave.Parameter<string>("AccountantCrcSequence");
+        ecdSettingsSave.Parameter<DateTime?>("AccountantCrcValidUntil");
         ecdSettingsSave.Returns<EcdSettings>();
         // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
         modelBuilder.EntitySet<JournalEntry>("JournalEntries");

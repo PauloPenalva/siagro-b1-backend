@@ -12,7 +12,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261023203843_AddEcdSettings")]
+    [Migration("20261023211831_AddEcdSettings")]
     partial class AddEcdSettings
     {
         /// <inheritdoc />
@@ -1162,6 +1162,12 @@ namespace SiagroB1.Migrations.AppContext
                 {
                     b.Property<string>("BranchCode")
                         .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("AccountantCrcSequence")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<DateTime?>("AccountantCrcValidUntil")
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("BookNumber")
                         .HasColumnType("int");

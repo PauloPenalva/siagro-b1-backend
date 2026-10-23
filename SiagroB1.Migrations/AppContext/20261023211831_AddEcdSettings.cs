@@ -27,6 +27,8 @@ namespace SiagroB1.Migrations.AppContext
                     SignerQualificationCode = table.Column<string>(type: "VARCHAR(3)", nullable: false),
                     SignerEmail = table.Column<string>(type: "VARCHAR(100)", nullable: false),
                     SignerPhone = table.Column<string>(type: "VARCHAR(11)", nullable: true),
+                    AccountantCrcSequence = table.Column<string>(type: "VARCHAR(50)", nullable: true),
+                    AccountantCrcValidUntil = table.Column<DateTime>(type: "datetime2", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedBy = table.Column<string>(type: "VARCHAR(100)", nullable: false)
                 },

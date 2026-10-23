@@ -249,7 +249,7 @@ public class EcdFileService(EcdDataLoader loader)
         var crc = a.AccountantCrc.Trim();
         var crcState = crc.Length >= 2 && char.IsAsciiLetter(crc[0]) && char.IsAsciiLetter(crc[1]) ? crc[..2].ToUpperInvariant() : d.StateCode;
         w.Add("J930", a.AccountantName, Digits(a.AccountantCpf), EcdValidator.SignerQualifications["900"], "900", crc,
-            a.AccountantEmail, Digits(a.AccountantPhone), crcState, "", "", "N");
+            a.AccountantEmail, Digits(a.AccountantPhone), crcState, s.AccountantCrcSequence, s.AccountantCrcValidUntil, "N");
 
         w.Add("J990", w.CountOfBlock('J') + 1);
     }
@@ -258,7 +258,7 @@ public class EcdFileService(EcdDataLoader loader)
 
     /// <summary>
     /// Linhas do J100 com os valores do Balanço do Siagro em 31/12 do ano anterior e em 31/12 do ano. Resultado não
-    /// apurado vira a mesma linha calculada do relatório, sob o grupo do passivo, para o J100 fechar.
+    /// apurado em 31/12 é bloqueante (<see cref="EcdValidator"/>), então não há a linha calculada do relatório.
     /// </summary>
     internal static List<BalanceSheetRow> BalanceSheetRows(EcdData data, List<EcdPosting> postings)
     {
@@ -266,8 +266,8 @@ public class EcdFileService(EcdDataLoader loader)
         var infos = EcdLedger.AccountInfos(data);
         var lines = Ordered(view);
         var group = BalanceSheetReportService.LiabilityGroup(lines);
-        var (initial, initialUnclosed) = BalanceSheetReportService.Compute(view.Lines, infos, EcdLedger.Balances(data, []), group);
-        var (final, finalUnclosed) = BalanceSheetReportService.Compute(view.Lines, infos, EcdLedger.Balances(data, postings), group);
+        var (initial, _) = BalanceSheetReportService.Compute(view.Lines, infos, EcdLedger.Balances(data, []), group);
+        var (final, _) = BalanceSheetReportService.Compute(view.Lines, infos, EcdLedger.Balances(data, postings), group);
         var byCode = lines.ToDictionary(l => l.Code, StringComparer.Ordinal);
         var assets = lines.FirstOrDefault(l => l.ParentCode is null);
 
@@ -284,18 +284,6 @@ public class EcdFileService(EcdDataLoader loader)
             var groupCode = Top(line) == assets ? "A" : "P";
             rows.Add(new BalanceSheetRow(line, ManagementViewCalculator.Level(line, byCode), groupCode,
                 LineFactor(line, infos, groupCode == "A" ? 1 : -1), initial.GetValueOrDefault(line.Code), final.GetValueOrDefault(line.Code)));
-        }
-
-        if (group != null && (initialUnclosed != 0 || finalUnclosed != 0))
-        {
-            var last = rows.FindLastIndex(r => Top(r.Line) == group);
-            rows.Insert(last + 1, new BalanceSheetRow(
-                new ManagementViewLine
-                {
-                    Code = BalanceSheetReportService.UnclosedResultCode, Description = BalanceSheetReportService.UnclosedResultText,
-                    ParentCode = group.Code, Kind = ManagementViewLineKind.Accounts,
-                },
-                ManagementViewCalculator.Level(group, byCode) + 1, "P", -1, initialUnclosed, finalUnclosed));
         }
 
         return rows;

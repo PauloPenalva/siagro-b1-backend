@@ -75,6 +75,7 @@ public class EcdFileServiceTests
             BranchCode = "01", BookNumber = 7, HasNire = true, Nire = "35212345678", ConstitutiveActsDate = new DateTime(2010, 5, 3),
             ReferentialPlanCode = "1", SignerName = "JOÃO DIRETOR", SignerCpf = "52998224725", SignerQualificationCode = "205",
             SignerEmail = "joao@agro.com", SignerPhone = "11999990000",
+            AccountantCrcSequence = "SP/2026/000123", AccountantCrcValidUntil = new DateTime(2026, 12, 31),
         });
         db.Context.SpedFiscalSettings.Add(new SpedFiscalSettings
         {
@@ -177,7 +178,7 @@ public class EcdFileServiceTests
 
         var signers = Of(lines, "J930");
         Assert.Equal(["J930", "JOÃO DIRETOR", "52998224725", "Administrador", "205", "", "joao@agro.com", "11999990000", "", "", "", "S"], signers[0]);
-        Assert.Equal(["J930", "MARIA CONTADORA", "11144477735", "Contador", "900", "SP123456O8", "maria@contab.com", "1133334444", "SP", "", "", "N"],
+        Assert.Equal(["J930", "MARIA CONTADORA", "11144477735", "Contador", "900", "SP123456O8", "maria@contab.com", "1133334444", "SP", "SP/2026/000123", "31122026", "N"],
             signers[1]);
 
         // 9900 confere com a contagem real; X990 = linhas do bloco
@@ -317,21 +318,6 @@ public class EcdFileServiceTests
         foreach (var r in dre) Assert.Equal(r.Period, Dec(j150.Single(x => x[2] == r.Code)[9]));
         Assert.Equal(["J150", "1", "LL", "T", "1", "", "Linha LL", "0,00", "C", "300,00", "C", "R", ""], j150[0]);
         Assert.Equal(["J150", "3", "D", "D", "2", "LL", "Linha D", "0,00", "D", "200,00", "D", "D", ""], j150[2]);
-    }
-
-    [Fact]
-    public async Task Generate_UnclosedResultBecomesLiabilityLineAndWarns()
-    {
-        var db = await SeedAsync(closing: false);
-        var lines = Of(await GenerateAsync(db), "J100");
-
-        Assert.Equal(["A", "A1", "P", "P1", BalanceSheetReportService.UnclosedResultCode], lines.Select(l => l[1]));
-        Assert.Equal("300,00", lines[^1][9]);
-        Assert.Equal("C", lines[^1][10]);
-        Assert.Equal("1300,00", lines[2][9]);
-
-        var check = await Service(db).CheckAsync(Request());
-        Assert.DoesNotContain(check.Issues, i => i.Message.StartsWith("Balanço"));
     }
 
     [Fact]

@@ -50,6 +50,13 @@ public class EcdSettings
     [Column(TypeName = "VARCHAR(11)")]
     public string? SignerPhone { get; set; }
 
+    /// <summary>Número sequencial da certidão de regularidade do CRC do contabilista (J930 NUM_SEQ_CRC).</summary>
+    [Column(TypeName = "VARCHAR(50)")]
+    public string? AccountantCrcSequence { get; set; }
+
+    /// <summary>Validade da certidão de regularidade do CRC (J930 DT_CRC).</summary>
+    public DateTime? AccountantCrcValidUntil { get; set; }
+
     public DateTime UpdatedAt { get; set; }
 
     [Column(TypeName = "VARCHAR(100)")]

@@ -1,3 +1,4 @@
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Reports.Dtos;
 using SiagroB1.Reports.Services.Sped;
@@ -73,6 +74,8 @@ public static class EcdValidator
                     Block("Parâmetros da ECD: informe a data do arquivamento dos atos constitutivos.", code);
                 foreach (var (value, field) in new[] { (s.SignerName, "nome"), (s.SignerCpf, "CPF"), (s.SignerEmail, "e-mail") })
                     if (string.IsNullOrWhiteSpace(value)) Block($"Parâmetros da ECD: informe {field} do responsável.", code);
+                if (string.IsNullOrWhiteSpace(s.AccountantCrcSequence) || s.AccountantCrcValidUntil == null)
+                    Block("Parâmetros da ECD: informe o número sequencial e a validade do CRC do contabilista.", code);
                 if (!SignerQualifications.ContainsKey(s.SignerQualificationCode ?? ""))
                     Block($"Parâmetros da ECD: qualificação do assinante {s.SignerQualificationCode} fora da tabela da ECD.", code);
             }
@@ -105,12 +108,25 @@ public static class EcdValidator
         if (data.BalanceSheet == null) Block("Visão gerencial do Balanço Patrimonial não cadastrada.");
         if (data.IncomeStatement == null) Block("Visão gerencial da DRE não cadastrada.");
 
+        // Total/Fórmula vira linha "T" no J100/J150, e o PVA confere a soma das filhas: sem filhas não fecha
+        foreach (var view in new[] { data.BalanceSheet, data.IncomeStatement }.OfType<ManagementView>())
+            foreach (var line in view.Lines.Where(l => l.Kind != ManagementViewLineKind.Accounts)
+                         .Where(l => view.Lines.All(c => c.ParentCode != l.Code))
+                         .OrderBy(l => l.Order).ThenBy(l => l.Code, StringComparer.Ordinal))
+                Block($"Linha {line.Code} da visão {view.Name} sem linhas filhas; ajuste a visão para a ECD.", line.Code);
+
         var postings = EcdLedger.Postings(data);
         var accounts = data.Accounts.ToDictionary(a => a.Code);
         var centers = data.CostCenters.Select(c => c.Code).ToHashSet();
         foreach (var cc in postings.Select(p => p.CostCenter).Concat(EcdLedger.Opening(data).Keys.Select(k => k.CostCenter))
                      .OfType<string>().Distinct().Where(c => !centers.Contains(c)).Order(StringComparer.Ordinal))
             Block($"Centro de custo {cc} não cadastrado.", cc);
+
+        // Resultado não apurado em 31/12: o J100 não fecharia (o Balanço do Siagro mostraria uma linha calculada)
+        var resultAccounts = data.Accounts.Where(a => a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense)
+            .Select(a => a.Code).ToHashSet();
+        if (EcdLedger.Balances(data, postings).Any(kv => resultAccounts.Contains(kv.Key) && kv.Value != 0))
+            Block($"Resultado de {year} não apurado em 31/12; faça a apuração de dezembro.");
 
         var moved = postings.Select(p => p.Account).ToHashSet();
         foreach (var code in EcdLedger.UsedAccounts(data, postings))

@@ -32,6 +32,8 @@ public class EcdSettingsControllerTests
         ["SignerQualificationCode"] = "203",
         ["SignerEmail"] = "diretor@empresa.com.br",
         ["SignerPhone"] = null,
+        ["AccountantCrcSequence"] = null,
+        ["AccountantCrcValidUntil"] = null,
     };
 
     private static (int? Status, string? Body) Read(IActionResult r) =>
@@ -50,6 +52,23 @@ public class EcdSettingsControllerTests
         var (status, _) = Read(await Controller(db).SaveAsync(Full()));
         Assert.Equal(200, status);
         Assert.Single(db.Context.EcdSettings);
+    }
+
+    [Fact]
+    public async Task Save_stores_accountant_crc_certificate()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var p = Full();
+        p["AccountantCrcSequence"] = " SP/2026/000123 ";
+        p["AccountantCrcValidUntil"] = new DateTimeOffset(2026, 12, 31, 0, 0, 0, TimeSpan.FromHours(-3));
+        Assert.Equal(200, Read(await Controller(db).SaveAsync(p)).Status);
+
+        var row = db.Context.EcdSettings.AsEnumerable().Single();
+        Assert.Equal("SP/2026/000123", row.AccountantCrcSequence);
+        Assert.Equal(new DateTime(2026, 12, 31), row.AccountantCrcValidUntil);
+
+        var missing = Full(); missing.Remove("AccountantCrcValidUntil");
+        Assert.Equal("Parâmetro AccountantCrcValidUntil ausente.", Read(await Controller(db).SaveAsync(missing)).Body);
     }
 
     [Fact]

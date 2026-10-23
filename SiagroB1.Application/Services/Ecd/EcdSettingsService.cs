@@ -65,6 +65,9 @@ public class EcdSettingsService(IUnitOfWork db) : IEcdSettingsService
         row.SignerQualificationCode = qualification;
         row.SignerEmail = settings.SignerEmail.Trim();
         row.SignerPhone = Digits(settings.SignerPhone);
+        // Certidão do CRC do contabilista (J930): opcional aqui, a ECD bloqueia sem ela
+        row.AccountantCrcSequence = string.IsNullOrWhiteSpace(settings.AccountantCrcSequence) ? null : settings.AccountantCrcSequence.Trim();
+        row.AccountantCrcValidUntil = settings.AccountantCrcValidUntil?.Date;
         row.UpdatedAt = DateTime.Now;
         row.UpdatedBy = user;
         await db.SaveChangesAsync();

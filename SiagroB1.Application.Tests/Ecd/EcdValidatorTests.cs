@@ -109,6 +109,37 @@ public class EcdValidatorTests
     }
 
     [Fact]
+    public async Task Validate_UnclosedResultBlocks()
+    {
+        var data = await DataAsync(closing: false);
+        Assert.Equal(["Resultado de 2026 não apurado em 31/12; faça a apuração de dezembro."], Blocking(data));
+    }
+
+    [Fact]
+    public async Task Validate_ViewTotalOrFormulaWithoutChildrenBlocks()
+    {
+        var data = await DataAsync();
+        data.IncomeStatement!.Lines.Add(new ManagementViewLine
+            { Order = 9, Code = "EBITDA", Kind = ManagementViewLineKind.Formula, Formula = "LL" });
+        data.BalanceSheet!.Lines.Add(new ManagementViewLine { Order = 9, Code = "VAZIO", Kind = ManagementViewLineKind.Total });
+        Assert.Equal([
+            "Linha VAZIO da visão Balanço sem linhas filhas; ajuste a visão para a ECD.",
+            "Linha EBITDA da visão DRE sem linhas filhas; ajuste a visão para a ECD.",
+        ], Blocking(data));
+    }
+
+    [Fact]
+    public async Task Validate_MissingCrcCertificateBlocks()
+    {
+        var data = await DataAsync();
+        data.Settings!.AccountantCrcValidUntil = null;
+        Assert.Equal(["Parâmetros da ECD: informe o número sequencial e a validade do CRC do contabilista."], Blocking(data));
+        data.Settings.AccountantCrcValidUntil = new DateTime(2026, 12, 31);
+        data.Settings.AccountantCrcSequence = " ";
+        Assert.Equal(["Parâmetros da ECD: informe o número sequencial e a validade do CRC do contabilista."], Blocking(data));
+    }
+
+    [Fact]
     public async Task Validate_SubstituteWithoutHashAndOldYearBlock()
     {
         var data = await DataAsync();

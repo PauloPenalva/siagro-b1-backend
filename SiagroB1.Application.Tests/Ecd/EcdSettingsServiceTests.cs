@@ -19,6 +19,17 @@ public class EcdSettingsServiceTests
     };
 
     [Fact]
+    public async Task Save_TrimsAccountantCrcCertificate()
+    {
+        var s = Valid();
+        s.AccountantCrcSequence = "  ";
+        s.AccountantCrcValidUntil = new DateTime(2026, 12, 31, 15, 0, 0);
+        var saved = await new EcdSettingsService(TestDb.CreateUnitOfWork()).SaveAsync(s, "a");
+        Assert.Null(saved.AccountantCrcSequence);
+        Assert.Equal(new DateTime(2026, 12, 31), saved.AccountantCrcValidUntil);
+    }
+
+    [Fact]
     public async Task Save_CreatesThenUpdates()
     {
         var db = TestDb.CreateUnitOfWork();
