@@ -115,6 +115,15 @@ public static class ODataConfigurations
         modelBuilder.Action("TransportManifestsConfirm").Parameter<string>("Key");
         modelBuilder.Action("TransportManifestsReopen").Parameter<string>("Key");
         modelBuilder.Action("TransportManifestsDiscardNumber").Parameter<string>("Key");
+        var transportManifestsTransmit = modelBuilder.Action("TransportManifestsTransmit");
+        transportManifestsTransmit.Parameter<string>("Key");
+        transportManifestsTransmit.Returns<NfeServiceStatusDto>();
+        var transportManifestsConsult = modelBuilder.Action("TransportManifestsConsult");
+        transportManifestsConsult.Parameter<string>("Key");
+        transportManifestsConsult.Returns<NfeServiceStatusDto>();
+        var transportManifestsXml = modelBuilder.Function("TransportManifestsXml");
+        transportManifestsXml.Parameter<Guid>("Key");
+        transportManifestsXml.Returns<IActionResult>();
 
         // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
         // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.

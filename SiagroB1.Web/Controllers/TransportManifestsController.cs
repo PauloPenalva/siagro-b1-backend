@@ -6,9 +6,11 @@ using Microsoft.AspNetCore.OData.Results;
 using Microsoft.AspNetCore.OData.Routing.Controllers;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Mdfe;
+using SiagroB1.Domain.Dtos.Nfe;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
+using SiagroB1.Fiscal.Nfe;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Web.Controllers;
@@ -24,6 +26,8 @@ public class TransportManifestsController(
     TransportManifestsConfirmService confirmService,
     TransportManifestsReopenService reopenService,
     TransportManifestsDiscardNumberService discardService,
+    TransportManifestsTransmitService transmitService,
+    TransportManifestsConsultService consultService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -127,6 +131,47 @@ public class TransportManifestsController(
     [HttpPost("odata/TransportManifestsDiscardNumber")]
     public Task<IActionResult> DiscardNumberAsync([FromBody] ODataActionParameters parameters) =>
         RunAsync(parameters, discardService.DiscardNumberAsync);
+
+    [HttpPost("odata/TransportManifestsTransmit")]
+    public Task<IActionResult> TransmitAsync([FromBody] ODataActionParameters parameters) =>
+        RunSefazAsync(parameters, key => transmitService.TransmitAsync(key, UserName));
+
+    [HttpPost("odata/TransportManifestsConsult")]
+    public Task<IActionResult> ConsultAsync([FromBody] ODataActionParameters parameters) =>
+        RunSefazAsync(parameters, consultService.ConsultAsync);
+
+    /// <summary>mdfeProc autorizado (MDF-e assinado + protMDFe) para download.</summary>
+    [HttpGet("odata/TransportManifestsXml(Key={key})")]
+    public async Task<IActionResult> XmlAsync([FromRoute] Guid key)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(BranchMdfeSettingsService.StandaloneOnly);
+        var m = await db.Context.TransportManifests.AsNoTracking().Where(x => x.Key == key)
+            .Select(x => new { x.AccessKey, Xml = x.Xmls.Where(v => v.Kind == MdfeXmlKind.Authorized).Select(v => v.Xml).FirstOrDefault() })
+            .FirstOrDefaultAsync();
+        if (m?.Xml is null) return NotFound("O MDF-e não tem XML autorizado.");
+
+        return File(System.Text.Encoding.UTF8.GetBytes(m.Xml), "application/xml", $"{m.AccessKey}-mdfe.xml");
+    }
+
+    private async Task<IActionResult> RunSefazAsync(ODataActionParameters parameters, Func<Guid, Task<NfeSefazResult>> action)
+    {
+        if (parameters is null || !Guid.TryParse(parameters.GetValueOrDefault("Key")?.ToString(), out var key))
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            var result = await action(key);
+            return Ok(new NfeServiceStatusDto { StatusCode = result.StatusCode, Reason = result.Reason });
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+        catch (NfeCommunicationException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
 
     private async Task<IActionResult> RunAsync(ODataActionParameters parameters, Func<Guid, Task> action)
     {
