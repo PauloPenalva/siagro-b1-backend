@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -40,7 +40,7 @@ public class TransportManifestsConfirmService(
         MdfeInsuranceSnapshot.RefreshIfIncomplete(m,
             await db.Context.BranchTransportSettings.AsNoTracking().FirstOrDefaultAsync(x => x.BranchCode == m.BranchCode));
         var (errors, _) = await validator.ValidateAsync(m);
-        if (errors.Count > 0) throw new DefaultException(string.Join(" ", errors));
+        if (errors.Count > 0) throw new DefaultException(string.Join(" ", errors.Distinct()));
 
         var settings = await db.Context.BranchMdfeSettings.AsNoTracking().FirstAsync(x => x.BranchCode == m.BranchCode);
 

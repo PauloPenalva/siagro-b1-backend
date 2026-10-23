@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Mdfe;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -94,6 +94,20 @@ public class TransportManifestsConfirmServiceTests
 
         Assert.Contains("Averbe os CT-e antes de incluir no MDF-e: 7.", ex.Message);
         Assert.Equal(0, _numbers.Calls);
+    }
+
+    [Fact]
+    public async Task Confirm_without_ciot_reports_the_message_once()
+    {
+        var key = await SeedReadyAsync();
+        var manifest = await _db.Context.TransportManifests.SingleAsync();
+        manifest.CiotNumber = null;
+        await _db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ConfirmAsync(key, "tester"));
+
+        Assert.Contains(MdfeReadinessValidator.CiotRequiredWithRntrc, e.Message);
+        Assert.Equal(1, e.Message.Split(MdfeReadinessValidator.CiotRequiredWithRntrc).Length - 1);
     }
 
     [Fact]

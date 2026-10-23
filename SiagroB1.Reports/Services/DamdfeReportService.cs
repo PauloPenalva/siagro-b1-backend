@@ -1,6 +1,7 @@
-using System.Drawing;
+﻿using System.Drawing;
 using FastReport;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -41,7 +42,22 @@ public class DamdfeReportService(IUnitOfWork db, IWebHostEnvironment env, Report
                       .FirstOrDefaultAsync()
                   ?? throw new DefaultException(NotAuthorizedMessage);
 
-        return DamdfeXmlReader.Read(xml, status == MdfeStatus.Cancelled, status == MdfeStatus.Closed);
+        var dto = DamdfeXmlReader.Read(xml, status == MdfeStatus.Cancelled, status == MdfeStatus.Closed);
+
+        // O XML autorizado não traz os condutores incluídos por evento (110114): saem das linhas gravadas.
+        var included = await db.Context.Set<TransportManifestDriver>().AsNoTracking()
+            .Where(d => d.ManifestKey == key && d.AddedByEvent)
+            .OrderBy(d => d.EventSequence).ThenBy(d => d.LineNum)
+            .Select(d => new { d.Cpf, d.Name })
+            .ToListAsync();
+        var lines = dto.Drivers.Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+        foreach (var d in included)
+        {
+            var line = $"{DamdfeXmlReader.TaxId(d.Cpf)}  {d.Name}";
+            if (!lines.Contains(line)) lines.Add(line);
+        }
+        dto.Drivers = string.Join("\n", lines);
+        return dto;
     }
 
     /// <summary>

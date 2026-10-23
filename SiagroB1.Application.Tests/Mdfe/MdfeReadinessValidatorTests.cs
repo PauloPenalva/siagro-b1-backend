@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.Mdfe;
+﻿using SiagroB1.Application.Services.Mdfe;
 using SiagroB1.Domain.Entities;
 
 namespace SiagroB1.Application.Tests.Mdfe;
@@ -137,7 +137,9 @@ public class MdfeReadinessValidatorTests
         m.Ncm = ncm;
 
         Assert.Contains("Carga lotação: informe o NCM do produto predominante (8 dígitos).", Run(m).Errors);
+        Assert.Contains(MdfeReadinessValidator.SingleCteRequiresNcm, Run(m).Warnings);
         Assert.DoesNotContain(MdfeReadinessValidator.SingleCteRequiresNcm, Run(Ready(2)).Errors);
+        Assert.DoesNotContain(MdfeReadinessValidator.SingleCteRequiresNcm, Run(Ready(2)).Warnings);
     }
 
     [Fact]

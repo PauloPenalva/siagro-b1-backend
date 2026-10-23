@@ -1,4 +1,4 @@
-using FastReport;
+﻿using FastReport;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Tests.Support;
@@ -51,6 +51,26 @@ public class DamdfeReportTests
         Assert.StartsWith("https://", dto.QrCode);
 
         await WriteSampleAsync(report, pdf, "DAMDFE_SAMPLE_PDF");
+    }
+
+    [Fact]
+    public async Task Damdfe_lists_drivers_included_by_event()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var (key, _) = await SeedAsync(db, MdfeStatus.Authorized);
+        db.Context.Set<TransportManifestDriver>().Add(new TransportManifestDriver
+        {
+            ManifestKey = key, LineNum = 2, Cpf = "52998224725", Name = "MARIA INCLUIDA", AddedByEvent = true, EventSequence = 1,
+        });
+        await db.SaveChangesAsync();
+        var service = Service(db);
+
+        var dto = await service.LoadAsync(key);
+
+        Assert.Contains("JOAO MOTORISTA", dto.Drivers);
+        Assert.Contains("529.982.247-25  MARIA INCLUIDA", dto.Drivers);
+        using var report = service.Prepare(dto);
+        Assert.Contains("MARIA INCLUIDA", Texts(report));
     }
 
     [Fact]

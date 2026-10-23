@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Xml.Linq;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Reports.Dtos;
@@ -117,7 +117,7 @@ public static class DamdfeXmlReader
 
     private static string? Cep(string? cep) => cep is { Length: 8 } ? $"{cep[..5]}-{cep[5..]}" : cep;
 
-    private static string? TaxId(string? id) => id switch
+    internal static string? TaxId(string? id) => id switch
     {
         { Length: 14 } => $"{id[..2]}.{id[2..5]}.{id[5..8]}/{id[8..12]}-{id[12..]}",
         { Length: 11 } => $"{id[..3]}.{id[3..6]}.{id[6..9]}-{id[9..]}",

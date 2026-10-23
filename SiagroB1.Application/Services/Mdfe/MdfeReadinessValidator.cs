@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Commons.Validation;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -104,7 +104,11 @@ public class MdfeReadinessValidator(IUnitOfWork db)
         if (m.Ctes.Count == 1 && (Digits(m.LoadingZip).Length != 8 || Digits(m.UnloadingZip).Length != 8))
             errors.Add(SingleCteRequiresZips);
         // Rejeição 301: infLotacao exige o NCM do produto predominante.
-        if (m.Ctes.Count == 1 && Digits(m.Ncm).Length != 8) errors.Add(SingleCteRequiresNcm);
+        if (m.Ctes.Count == 1 && Digits(m.Ncm).Length != 8)
+        {
+            errors.Add(SingleCteRequiresNcm);
+            warnings.Add(SingleCteRequiresNcm); // a gravação só devolve avisos
+        }
 
         var mainDriverOk = Digits(m.DriverCpf).Length == 11 && TaxIdValidator.IsValid(m.DriverCpf!);
         if (!mainDriverOk && !m.Drivers.Any(d => d.Cpf.Length == 11 && TaxIdValidator.IsValid(d.Cpf)))
