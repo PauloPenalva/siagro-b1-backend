@@ -16,15 +16,19 @@ public class CteEndorsementCancellationServiceTests : CteEventsTestBase
     {
         public AverbaLoginResult Login { get; set; } = new(true, "tok", null);
         public AverbaCteResult Send { get; set; } = new(true, "CANC-1", null, [], null);
+        public Exception? LoginThrows { get; set; }
+        public Exception? SendThrows { get; set; }
         public int SendCalls { get; private set; }
         public string? SentXml { get; private set; }
 
         public Task<AverbaLoginResult> LoginAsync(NfeEnvironment environment, string user, string password, string code, CancellationToken ct) =>
-            Task.FromResult(Login);
+            LoginThrows is { } e ? throw e : Task.FromResult(Login);
 
         public Task<AverbaCteResult> SendCteAsync(NfeEnvironment environment, string bearer, string xml, CancellationToken ct)
         {
             SendCalls++;
+            if (SendThrows is { } e)
+                throw e;
             SentXml = xml;
             return Task.FromResult(Send);
         }
@@ -92,6 +96,33 @@ public class CteEndorsementCancellationServiceTests : CteEventsTestBase
         var doc = await LoadAsync(key);
         Assert.Equal(CteEndorsementStatus.CancellationPending, doc.EndorsementStatus);
         Assert.Equal("Senha inválida", doc.EndorsementError);
+        Assert.Equal(0, _averba.SendCalls);
+    }
+
+    [Fact]
+    public async Task Send_exception_is_swallowed_and_leaves_cancellation_pending()
+    {
+        var key = await SeedWithEndorsementAsync(CteEndorsementStatus.Endorsed);
+        _averba.SendThrows = new HttpRequestException("conexão recusada");
+
+        await Service().CancelAsync(await TrackedAsync(key));
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteEndorsementStatus.CancellationPending, doc.EndorsementStatus);
+        Assert.Contains("conexão recusada", doc.EndorsementError);
+    }
+
+    [Fact]
+    public async Task Login_exception_is_swallowed_and_leaves_cancellation_pending()
+    {
+        var key = await SeedWithEndorsementAsync(CteEndorsementStatus.Endorsed);
+        _averba.LoginThrows = new HttpRequestException("tempo esgotado");
+
+        await Service().CancelAsync(await TrackedAsync(key));
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteEndorsementStatus.CancellationPending, doc.EndorsementStatus);
+        Assert.Contains("tempo esgotado", doc.EndorsementError);
         Assert.Equal(0, _averba.SendCalls);
     }
 
