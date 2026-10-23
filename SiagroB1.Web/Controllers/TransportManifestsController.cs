@@ -192,6 +192,7 @@ public class TransportManifestsController(
                 keys.Add(k);
             }
         if (keys.Count == 0) return BadRequest("Informe ao menos um MDF-e.");
+        if (keys.Count > TransportManifestsCloseBatchService.MaxKeys) return BadRequest("Selecione no máximo 50 MDF-e por vez.");
 
         try
         {

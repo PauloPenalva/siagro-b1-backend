@@ -175,4 +175,24 @@ public class TransportManifestsCloseBatchServiceTests
 
         await Assert.ThrowsAsync<DefaultException>(() => Batch("SAPB1").CloseBatchAsync([a], null, "tester"));
     }
+
+    [Fact]
+    public async Task Batch_unexpected_exception_fails_only_that_item()
+    {
+        await SeedBranchAsync();
+        var a = await SeedManifestAsync();
+        var b = await SeedManifestAsync();
+        _sefaz.CloseResponses.Enqueue(_ => throw new InvalidOperationException("boom interno"));
+        _sefaz.CloseResponses.Enqueue(r => FakeMdfeSefazClient.ClosingRegistered(r));
+
+        var result = await Batch().CloseBatchAsync([a, b], null, "tester");
+
+        Assert.False(result[0].Success);
+        Assert.Equal(TransportManifestsCloseBatchService.UnexpectedError, result[0].Message);
+        Assert.DoesNotContain("boom", result[0].Message);
+        Assert.Equal(50, result[0].Number);
+        Assert.True(result[1].Success);
+        Assert.Equal(MdfeStatus.Closed, await StatusAsync(b));
+        Assert.Equal(0, _numbers.LocksHeld);
+    }
 }

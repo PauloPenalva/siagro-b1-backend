@@ -133,7 +133,7 @@ public static class ODataConfigurations
         transportManifestsCloseBatch.CollectionParameter<string>("Keys");
         transportManifestsCloseBatch.Parameter<string>("ClosedOn").Optional();
         transportManifestsCloseBatch.ReturnsCollection<SiagroB1.Application.Services.Mdfe.MdfeCloseBatchItem>();
-        var transportManifestsIncludeDriver =modelBuilder.Action("TransportManifestsIncludeDriver");
+        var transportManifestsIncludeDriver = modelBuilder.Action("TransportManifestsIncludeDriver");
         transportManifestsIncludeDriver.Parameter<string>("Key");
         transportManifestsIncludeDriver.Parameter<string>("Cpf");
         transportManifestsIncludeDriver.Parameter<string>("Name");

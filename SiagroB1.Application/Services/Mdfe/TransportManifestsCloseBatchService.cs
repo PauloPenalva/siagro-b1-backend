@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Mdfe;
@@ -22,9 +23,12 @@ public class TransportManifestsCloseBatchService(
     IConfiguration configuration,
     MdfeNumberReservationService numbers,
     MdfeServiceContextFactory contexts,
-    TransportManifestsCloseService closeService)
+    TransportManifestsCloseService closeService,
+    ILogger<TransportManifestsCloseBatchService>? logger = null)
 {
     public const string Closed = "MDF-e encerrado.";
+    public const string UnexpectedError = "Erro inesperado ao encerrar; consulte o MDF-e antes de tentar de novo.";
+    public const int MaxKeys = 50;
 
     public async Task<IReadOnlyList<MdfeCloseBatchItem>> CloseBatchAsync(IReadOnlyList<Guid> keys, DateOnly? closedOn, string user)
     {
@@ -54,6 +58,7 @@ public class TransportManifestsCloseBatchService(
         {
             await using var emissionLock = await numbers.AcquireEmissionLockAsync(key);
 
+            // Atenção: o Clear descarta tudo que o UnitOfWork do request já rastreava; a action não pode ler entidades rastreadas depois do lote.
             // Entidade rastreada de lote anterior não pode mascarar o estado atual do banco.
             db.Context.ChangeTracker.Clear();
             var m = await MdfeEmission.LoadAsync(db, key);
@@ -78,6 +83,12 @@ public class TransportManifestsCloseBatchService(
         catch (NfeCommunicationException)
         {
             return new MdfeCloseBatchItem(key, number, false, TransportManifestsCloseService.NoResponse);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Ex.: falha ao gravar depois de a SEFAZ registrar o encerramento, certificado inválido, configuração ausente.
+            logger?.LogError(e, "Erro inesperado ao encerrar o MDF-e {Key} em lote.", key);
+            return new MdfeCloseBatchItem(key, number, false, UnexpectedError);
         }
     }
 }
