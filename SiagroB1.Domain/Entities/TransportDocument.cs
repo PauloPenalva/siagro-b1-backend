@@ -101,6 +101,13 @@ public class TransportDocument
     public DateTime? CancelledAt { get; set; }
     [Column(TypeName = "VARCHAR(255)")] public string? CancellationReason { get; set; }
 
+    // --- Averbação (AT&M) ---
+    public CteEndorsementStatus EndorsementStatus { get; set; } = CteEndorsementStatus.None;
+    [Column(TypeName = "VARCHAR(40)")] public string? EndorsementProtocol { get; set; }
+    public DateTime? EndorsedAt { get; set; }
+    [Column(TypeName = "VARCHAR(500)")] public string? EndorsementError { get; set; }
+    [Column(TypeName = "VARCHAR(40)")] public string? EndorsementCancellationProtocol { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     [Column(TypeName = "VARCHAR(100)")] public string? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -112,4 +119,5 @@ public class TransportDocument
     public virtual ICollection<TransportDocumentComponent> Components { get; set; } = new List<TransportDocumentComponent>();
     public virtual ICollection<TransportDocumentXml> Xmls { get; set; } = new List<TransportDocumentXml>();
     public virtual ICollection<TransportDocumentCorrection> Corrections { get; set; } = new List<TransportDocumentCorrection>();
+    public virtual ICollection<TransportDocumentEndorsement> Endorsements { get; set; } = new List<TransportDocumentEndorsement>();
 }

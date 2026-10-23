@@ -150,6 +150,10 @@ public static class ODataConfigurations
         transportDocumentsCancel.Parameter<string>("Justification");
         transportDocumentsCancel.Returns<NfeServiceStatusDto>();
 
+        var transportDocumentsEndorse = modelBuilder.Action("TransportDocumentsEndorse");
+        transportDocumentsEndorse.Parameter<string>("Key");
+        transportDocumentsEndorse.Returns<AverbaTestResult>();
+
         var transportDocumentsSendCorrection = modelBuilder.Action("TransportDocumentsSendCorrection");
         transportDocumentsSendCorrection.Parameter<string>("Key");
         transportDocumentsSendCorrection.CollectionParameter<string>("Groups");

@@ -28,6 +28,7 @@ public class TransportDocumentsController(
     TransportDocumentsTransmitService transmitService,
     TransportDocumentsConsultService consultService,
     TransportDocumentsCancelService cancelService,
+    TransportDocumentsEndorseService endorseService,
     TransportDocumentsCorrectionService correctionService,
     CteVoidNumbersService voidService,
     IUnitOfWork db,
@@ -175,6 +176,23 @@ public class TransportDocumentsController(
     [HttpPost("odata/TransportDocumentsCancel")]
     public Task<IActionResult> CancelAsync([FromBody] ODataActionParameters parameters) =>
         RunSefazAsync(parameters, key => cancelService.CancelAsync(key, Text(parameters, "Justification"), User.Identity?.Name ?? "Unknown"));
+
+    /// <summary>Averbação manual do CT-e autorizado na AT&M. Falha da AT&M volta como Success=false, não como erro HTTP.</summary>
+    [HttpPost("odata/TransportDocumentsEndorse")]
+    public async Task<IActionResult> EndorseAsync([FromBody] ODataActionParameters parameters)
+    {
+        if (parameters is null || !TryParseKey(Text(parameters, "Key"), out var documentKey) || documentKey is null)
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            return Ok(await endorseService.EndorseAsync(documentKey.Value, User.Identity?.Name ?? "Unknown"));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
 
     /// <summary>CC-e estruturada: coleções paralelas Groups/Fields/Values (um item por posição).</summary>
     [HttpPost("odata/TransportDocumentsSendCorrection")]

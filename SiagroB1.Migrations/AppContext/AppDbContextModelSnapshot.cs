@@ -8065,6 +8065,21 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("EndState")
                         .HasColumnType("VARCHAR(2)");
 
+                    b.Property<DateTime?>("EndorsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EndorsementCancellationProtocol")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("EndorsementError")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<string>("EndorsementProtocol")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<int>("EndorsementStatus")
+                        .HasColumnType("int");
+
                     b.Property<int?>("Environment")
                         .HasColumnType("int");
 
@@ -8254,6 +8269,43 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("TransportDocumentKey");
 
                     b.ToTable("TRANSPORT_DOCUMENT_CORRECTIONS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentEndorsement", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2) DEFAULT 0");
+
+                    b.Property<string>("Branch")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("EndorsementNumber")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("InsurerName")
+                        .HasColumnType("VARCHAR(115)");
+
+                    b.Property<string>("InsurerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("MovementType")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("PolicyNumber")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TransportDocumentKey");
+
+                    b.ToTable("TRANSPORT_DOCUMENT_ENDORSEMENTS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentNfeKey", b =>
@@ -11068,6 +11120,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("TransportDocument");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentEndorsement", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany("Endorsements")
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TransportDocument");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentNfeKey", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
@@ -11504,6 +11567,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Components");
 
                     b.Navigation("Corrections");
+
+                    b.Navigation("Endorsements");
 
                     b.Navigation("NfeKeys");
 

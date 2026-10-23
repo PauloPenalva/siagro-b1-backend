@@ -32,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TransportDocumentComponent> TransportDocumentComponents { get; set; }
     public DbSet<TransportDocumentXml> TransportDocumentXmls { get; set; }
     public DbSet<TransportDocumentCorrection> TransportDocumentCorrections { get; set; }
+    public DbSet<TransportDocumentEndorsement> TransportDocumentEndorsements { get; set; }
     public DbSet<CteNumberToVoid> CteNumbersToVoid { get; set; }
     public DbSet<WeighingTicket> WeighingTickets { get; set; }
     public DbSet<QualityInspection> QualityInspections { get; set; }
@@ -507,6 +508,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasMany(x => x.Components).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Xmls).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Corrections).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Endorsements).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<CteNumberToVoid>(e =>
