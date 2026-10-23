@@ -141,7 +141,49 @@ public class TransportManifestsConfirmServiceTests
     }
 
     [Fact]
-    public async Task Discard_refuses_draft()
+    public async Task Discard_voids_numbered_draft_and_frees_ctes()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+        await Reopen().ReopenAsync(key);
+
+        await Discard().DiscardNumberAsync(key);
+
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Voided, m.Status);
+        Assert.All(m.Ctes, c => Assert.False(c.IsActive));
+    }
+
+    [Fact]
+    public async Task Discard_voids_rejected_and_frees_ctes()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+        var tracked = await _db.Context.TransportManifests.Include(x => x.Ctes).SingleAsync(x => x.Key == key);
+        tracked.ApplyStatus(MdfeStatus.Rejected);
+        await _db.SaveChangesAsync();
+
+        await Discard().DiscardNumberAsync(key);
+
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Voided, m.Status);
+        Assert.All(m.Ctes, c => Assert.False(c.IsActive));
+    }
+
+    [Fact]
+    public async Task Reopen_and_discard_refuse_other_erp()
+    {
+        var key = await SeedReadyAsync();
+        await Confirm().ConfirmAsync(key, "tester");
+
+        await Assert.ThrowsAsync<DefaultException>(() => new TransportManifestsReopenService(_db, MdfeTestSupport.Config("SAPB1")).ReopenAsync(key));
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            new TransportManifestsDiscardNumberService(_db, MdfeTestSupport.Config("SAPB1"), _numbers).DiscardNumberAsync(key));
+        Assert.Equal(MdfeStatus.Confirmed, (await LoadAsync(key)).Status);
+    }
+
+    [Fact]
+    public async Task Discard_refuses_draft_without_number()
     {
         var key = await SeedReadyAsync();
         await Assert.ThrowsAsync<DefaultException>(() => Discard().DiscardNumberAsync(key));
