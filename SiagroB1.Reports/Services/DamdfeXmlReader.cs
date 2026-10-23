@@ -77,14 +77,14 @@ public static class DamdfeXmlReader
             .Select(d => JoinNonEmpty("  ", $"FORN.: {TaxId(d.V("CNPJForn"))}", Prefix("RESP.: ", TaxId(d.V("CNPJPg") ?? d.V("CPFPg"))),
                 $"Nº COMPROVANTE: {d.V("nCompra")}", Prefix("VALOR: ", Number(d.V("vValePed"), "N2")))) ?? []);
 
-        var docs = new List<string>();
+        var docs = new List<DamdfeDocumentLine>();
         foreach (var city in inf.Element(Ns + "infDoc")?.Elements(Ns + "infMunDescarga") ?? [])
         {
-            docs.Add($"DESCARGA: {city.V("xMunDescarga")} ({city.V("cMunDescarga")})");
-            docs.AddRange(city.Elements(Ns + "infCTe").Select(c => $"     CT-e  {DacteXmlReader.FormatKey(c.V("chCTe") ?? "")}"));
-            docs.AddRange(city.Elements(Ns + "infNFe").Select(c => $"     NF-e  {DacteXmlReader.FormatKey(c.V("chNFe") ?? "")}"));
+            docs.Add(new DamdfeDocumentLine { Text = $"DESCARGA: {city.V("xMunDescarga")} ({city.V("cMunDescarga")})", IsCity = true });
+            docs.AddRange(city.Elements(Ns + "infCTe").Select(c => new DamdfeDocumentLine { Text = $"     CT-e  {DacteXmlReader.FormatKey(c.V("chCTe") ?? "")}" }));
+            docs.AddRange(city.Elements(Ns + "infNFe").Select(c => new DamdfeDocumentLine { Text = $"     NF-e  {DacteXmlReader.FormatKey(c.V("chNFe") ?? "")}" }));
         }
-        dto.Documents = string.Join("\n", docs);
+        dto.DocumentLines = docs;
 
         var adic = inf.Element(Ns + "infAdic");
         dto.Remarks = JoinNonEmpty("\n", adic?.V("infCpl"), adic?.V("infAdFisco"));

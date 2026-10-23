@@ -50,12 +50,7 @@ public class DamdfeReportTests
         Assert.Equal("SEM VALOR FISCAL", report.Pages.OfType<ReportPage>().First().Watermark.Text);
         Assert.StartsWith("https://", dto.QrCode);
 
-        if (Environment.GetEnvironmentVariable("DAMDFE_SAMPLE_PDF") is { Length: > 0 } sample)
-        {
-            await File.WriteAllBytesAsync(sample, pdf);
-            using var png = new FastReport.Export.Image.ImageExport { ImageFormat = FastReport.Export.Image.ImageExportFormat.Png, Resolution = 110 };
-            report.Export(png, Path.ChangeExtension(sample, ".png"));
-        }
+        await WriteSampleAsync(report, pdf, "DAMDFE_SAMPLE_PDF");
     }
 
     [Fact]
@@ -70,7 +65,7 @@ public class DamdfeReportTests
 
         var watermark = report.Pages.OfType<ReportPage>().First().Watermark;
         Assert.True(watermark.Enabled);
-        Assert.Contains("ENCERRADO", watermark.Text);
+        Assert.Equal("ENCERRADO - SEM VALOR FISCAL", watermark.Text);
         Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(await service.RenderAsync(key), 0, 4));
     }
 
@@ -83,7 +78,68 @@ public class DamdfeReportTests
 
         using var report = service.Prepare(await service.LoadAsync(key));
 
-        Assert.Contains("CANCELADO", report.Pages.OfType<ReportPage>().First().Watermark.Text);
+        Assert.Equal("CANCELADO - SEM VALOR FISCAL", report.Pages.OfType<ReportPage>().First().Watermark.Text);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, null)]
+    [InlineData(true, false, false, "SEM VALOR FISCAL")]
+    [InlineData(false, true, false, "CANCELADO")]
+    [InlineData(false, false, true, "ENCERRADO")]
+    [InlineData(true, true, false, "CANCELADO - SEM VALOR FISCAL")]
+    [InlineData(true, false, true, "ENCERRADO - SEM VALOR FISCAL")]
+    public void Stamp_keeps_homologation_warning(bool homologation, bool cancelled, bool closed, string? expected)
+    {
+        var dto = new SiagroB1.Reports.Dtos.DamdfeDto { Homologation = homologation, Cancelled = cancelled, Closed = closed };
+        Assert.Equal(expected, DamdfeReportService.Stamp(dto));
+    }
+
+    [Fact]
+    public async Task Damdfe_with_many_ctes_overflows_to_extra_pages_without_dropping_keys()
+    {
+        var keys = Enumerable.Range(1, 60)
+            .Select(i => SiagroB1.Fiscal.Cte.CteAccessKey.Build("35", new DateTime(2026, 10, 22), "12345678000195", 231, i, 1, (10000000 + i).ToString()))
+            .ToList();
+        var input = MdfeTestData.Input() with
+        {
+            UnloadingCities =
+            [
+                new MdfeUnloadingCity("3550308", "São Paulo", keys.Take(30).ToList()),
+                new MdfeUnloadingCity("3509502", "Campinas", keys.Skip(30).ToList()),
+            ],
+            Totals = new MdfeTotals(60, 3600000m, "01", 1800000m),
+            Ciot = new MdfeCiot("123456789012", "12345678000195"),
+            AdditionalInfo = string.Join(" ", Enumerable.Repeat("OBSERVACAO LONGA DO MDF-E PARA TESTAR O CRESCIMENTO DO QUADRO.", 30)) + " FIM-DAS-OBS",
+        };
+        var db = TestDb.CreateUnitOfWork();
+        var (key, _) = await SeedAsync(db, MdfeStatus.Authorized, input);
+        var service = Service(db);
+
+        var dto = await service.LoadAsync(key);
+        using var report = service.Prepare(dto);
+
+        Assert.True(report.PreparedPages.Count > 1, $"páginas: {report.PreparedPages.Count}");
+        var text = Texts(report);
+        foreach (var cte in keys)
+            Assert.Contains(DacteXmlReader.FormatKey(cte), text);
+        Assert.Contains("FIM-DAS-OBS", text);
+        Assert.Contains($"1/{report.PreparedPages.Count}", text);
+        Assert.Contains($"{report.PreparedPages.Count}/{report.PreparedPages.Count}", text);
+
+        await WriteSampleAsync(report, await service.RenderAsync(key), "DAMDFE_SAMPLE_MANY_PDF");
+    }
+
+    /// <summary>Com a variável de ambiente apontando um .pdf, grava o PDF e um PNG por página para conferência visual.</summary>
+    private static async Task WriteSampleAsync(Report report, byte[] pdf, string variable)
+    {
+        if (Environment.GetEnvironmentVariable(variable) is not { Length: > 0 } sample)
+            return;
+        await File.WriteAllBytesAsync(sample, pdf);
+        using var png = new FastReport.Export.Image.ImageExport
+        {
+            ImageFormat = FastReport.Export.Image.ImageExportFormat.Png, Resolution = 110, SeparateFiles = true,
+        };
+        report.Export(png, Path.ChangeExtension(sample, ".png"));
     }
 
     [Fact]
@@ -116,7 +172,7 @@ public class DamdfeReportTests
     }
 
     /// <summary>mdfeProc = MDF-e montado e assinado pelo Fiscal (com CIOT e vale-pedágio) + protMDFe simulado.</summary>
-    public static string AuthorizedProc()
+    public static string AuthorizedProc(MdfeIssueInput? custom = null)
     {
         using var certificate = CertificateLoader.Load(TestCertificates.CreatePfx("12345678000195"), TestCertificates.Password);
         var settings = new MdfeServiceSettings(NfeEnvironment.Homologation, "SP", certificate, MdfeZeusConfiguration.DefaultSchemasDirectory);
@@ -126,13 +182,14 @@ public class DamdfeReportTests
             TollVoucher = new MdfeTollVoucher("11222333000181", "20261023", 85.50m),
             AdditionalInfo = "CARGA A GRANEL",
         };
+        input = custom ?? input;
         var signed = MdfeSigner.SignAndValidate(MdfeXmlBuilder.Build(input), settings);
         return MdfeProc.Compose(signed.Xml, FakeMdfeSefazClient.Authorized(signed.AccessKey).ProtocolXml!);
     }
 
-    private static async Task<(Guid Key, string AccessKey)> SeedAsync(UnitOfWork db, MdfeStatus status)
+    private static async Task<(Guid Key, string AccessKey)> SeedAsync(UnitOfWork db, MdfeStatus status, MdfeIssueInput? input = null)
     {
-        var proc = AuthorizedProc();
+        var proc = AuthorizedProc(input);
         var accessKey = System.Text.RegularExpressions.Regex.Match(proc, @"<chMDFe>(\d{44})</chMDFe>").Groups[1].Value;
         var manifest = new TransportManifest { BranchCode = "01", Status = status, AccessKey = accessKey };
         db.Context.TransportManifests.Add(manifest);

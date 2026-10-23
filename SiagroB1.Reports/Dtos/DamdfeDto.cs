@@ -41,6 +41,14 @@ public class DamdfeDto
     public string Ciot { get; set; } = "";
     public string TollVouchers { get; set; } = "";
 
-    public string Documents { get; set; } = "";
+    /// <summary>Uma linha por município de descarga e por chave — vira DataBand, que quebra página sem cortar nada.</summary>
+    public List<DamdfeDocumentLine> DocumentLines { get; set; } = [];
     public string Remarks { get; set; } = "";
+}
+
+/// <summary>Linha da lista de documentos do DAMDFE: cabeçalho do município ou chave do CT-e/NF-e.</summary>
+public class DamdfeDocumentLine
+{
+    public string Text { get; set; } = "";
+    public bool IsCity { get; set; }
 }

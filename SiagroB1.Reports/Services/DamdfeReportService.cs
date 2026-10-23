@@ -44,6 +44,22 @@ public class DamdfeReportService(IUnitOfWork db, IWebHostEnvironment env, Report
         return DamdfeXmlReader.Read(xml, status == MdfeStatus.Cancelled, status == MdfeStatus.Closed);
     }
 
+    /// <summary>
+    /// Tarja da página: situação (CANCELADO/ENCERRADO) e, em homologação, sempre "SEM VALOR FISCAL" junto.
+    /// Nulo quando autorizado em produção.
+    /// </summary>
+    public static string? Stamp(DamdfeDto dto)
+    {
+        var situation = dto.Cancelled ? "CANCELADO" : dto.Closed ? "ENCERRADO" : null;
+        return (situation, dto.Homologation) switch
+        {
+            (null, false) => null,
+            (null, true) => "SEM VALOR FISCAL",
+            (_, false) => situation,
+            _ => $"{situation} - SEM VALOR FISCAL",
+        };
+    }
+
     /// <summary>Carrega o modelo, preenche e prepara. Quem chama descarta o relatório.</summary>
     public Report Prepare(DamdfeDto dto)
     {
@@ -56,8 +72,10 @@ public class DamdfeReportService(IUnitOfWork db, IWebHostEnvironment env, Report
 
             foreach (var property in typeof(DamdfeDto).GetProperties().Where(p => p.PropertyType == typeof(string)))
                 report.SetParameterValue("p" + property.Name, property.GetValue(dto) as string ?? "");
+            report.RegisterData(dto.DocumentLines, "DocumentLines");
+            report.GetDataSource("DocumentLines").Enabled = true;
 
-            var stamp = dto.Cancelled ? "CANCELADO" : dto.Closed ? "ENCERRADO" : dto.Homologation ? "SEM VALOR FISCAL" : null;
+            var stamp = Stamp(dto);
             if (stamp is not null && report.Pages[0] is ReportPage page)
             {
                 page.Watermark.Enabled = true;
