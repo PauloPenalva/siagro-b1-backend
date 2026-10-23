@@ -13,6 +13,10 @@ public class TransportManifest
 
     // --- Identificação (número, chave e cMDF nascem no Confirmar e nunca mudam) ---
     [Column(TypeName = "VARCHAR(14)")] public required string BranchCode { get; set; }
+    /// <summary>
+    /// Situação. Fora da criação, NÃO atribua direto: use <see cref="ApplyStatus"/>, que mantém o
+    /// IsActive dos vínculos de CT-e (o setter público existe só para o EF e a criação).
+    /// </summary>
     public MdfeStatus Status { get; set; } = MdfeStatus.Draft;
     public int Series { get; set; }
     public int? Number { get; set; }
@@ -93,10 +97,13 @@ public class TransportManifest
     /// ÚNICO jeito de mudar <see cref="Status"/> depois da criação: grava a situação e sincroniza o
     /// <see cref="TransportManifestCte.IsActive"/> de todos os vínculos (<see cref="MdfeStatuses.Active"/>).
     /// Atribuir Status direto deixa o índice único filtrado desatualizado e prende ou solta CT-e errado.
-    /// Os vínculos precisam estar carregados (Include(Ctes)).
+    /// Os vínculos precisam estar carregados (Include(Ctes)): todo MDF-e nasce de CT-e, então coleção
+    /// vazia significa não carregada e lança <see cref="InvalidOperationException"/>.
     /// </summary>
     public void ApplyStatus(MdfeStatus status)
     {
+        if (Ctes.Count == 0)
+            throw new InvalidOperationException("Carregue os CT-e do MDF-e antes de mudar a situação.");
         Status = status;
         var active = MdfeStatuses.Active.Contains(status);
         foreach (var cte in Ctes) cte.IsActive = active;

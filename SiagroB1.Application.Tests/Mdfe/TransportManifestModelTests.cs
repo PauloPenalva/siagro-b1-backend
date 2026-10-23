@@ -64,4 +64,15 @@ public class TransportManifestModelTests
     [Fact]
     public void Theory_covers_every_status() =>
         Assert.Equal(9, Enum.GetValues<MdfeStatus>().Length);
+
+    [Fact]
+    public void ApplyStatus_throws_when_ctes_were_not_loaded()
+    {
+        var manifest = new TransportManifest { BranchCode = "01", CteCount = 1 };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => manifest.ApplyStatus(MdfeStatus.Cancelled));
+
+        Assert.Equal("Carregue os CT-e do MDF-e antes de mudar a situação.", ex.Message);
+        Assert.Equal(MdfeStatus.Draft, manifest.Status);
+    }
 }
