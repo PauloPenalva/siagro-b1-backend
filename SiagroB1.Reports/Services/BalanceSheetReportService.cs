@@ -29,7 +29,7 @@ public class BalanceSheetReportService(IUnitOfWork db, IFastReportService report
         var accounts = await StatementData.AccountsAsync(db);
         var ordered = view.Lines.OrderBy(l => l.Order).ThenBy(l => l.Code, StringComparer.Ordinal).ToList();
         var byCode = ordered.ToDictionary(l => l.Code, StringComparer.Ordinal);
-        var group = ordered.Where(l => l.ParentCode is null && l.Kind == ManagementViewLineKind.Total).Skip(1).FirstOrDefault();
+        var group = LiabilityGroup(ordered);
 
         var main = await SnapshotAsync(view.Lines, accounts, request.Date, request.BranchCode, group);
         var compare = request.CompareDate is { } c
@@ -86,7 +86,22 @@ public class BalanceSheetReportService(IUnitOfWork db, IFastReportService report
     {
         var postings = await new AccountPostingReader(db).ReadAsync(null, date, new AccountPostingFilter(branch));
         var balances = postings.GroupBy(p => p.AccountCode).ToDictionary(g => g.Key, g => g.Sum(p => p.Debit - p.Credit));
+        var (values, unclosed) = Compute(lines, accounts, balances, group);
+        return new Snapshot(values, unclosed);
+    }
 
+    /// <summary>Segundo grupo de nível 1 (Passivo e PL), que recebe o resultado não apurado.</summary>
+    public static ManagementViewLine? LiabilityGroup(IEnumerable<ManagementViewLine> lines) =>
+        lines.OrderBy(l => l.Order).ThenBy(l => l.Code, StringComparer.Ordinal)
+            .Where(l => l.ParentCode is null && l.Kind == ManagementViewLineKind.Total).Skip(1).FirstOrDefault();
+
+    /// <summary>
+    /// Valores das linhas a partir do saldo (débito − crédito) de cada analítica na data. Também usado pela ECD (J100),
+    /// para o arquivo bater com este relatório.
+    /// </summary>
+    public static (Dictionary<string, decimal> Values, decimal Unclosed) Compute(IReadOnlyList<ManagementViewLine> lines,
+        IReadOnlyDictionary<string, AccountInfo> accounts, IReadOnlyDictionary<string, decimal> balances, ManagementViewLine? group)
+    {
         // Lucro positivo: o saldo das contas de resultado com sinal credor.
         var unclosed = -accounts.Values
             .Where(a => a.Analytic && a.Type is LedgerAccountType.Revenue or LedgerAccountType.Expense)
@@ -102,7 +117,7 @@ public class BalanceSheetReportService(IUnitOfWork db, IFastReportService report
             }).ToList();
         var values = ManagementViewCalculator.Compute(withResult, accounts, code => balances.GetValueOrDefault(code),
             new Dictionary<string, decimal> { [UnclosedResultCode] = unclosed });
-        return new Snapshot(values, unclosed);
+        return (values, unclosed);
     }
 
     public async Task<byte[]> ExecuteAsync(BalanceSheetReportRequest request)

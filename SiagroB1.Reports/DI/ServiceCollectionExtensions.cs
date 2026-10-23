@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Reports.Services.Sped.SpedMasterDataLoader>();
         services.AddScoped<SiagroB1.Reports.Services.EfdContributions.EfdContributionsDataLoader>();
         services.AddScoped<SiagroB1.Reports.Services.Ecd.EcdDataLoader>();
+        // EcdFileService entra pelo scan; EcdLedger e EcdValidator são estáticos.
             
         return services;
     }

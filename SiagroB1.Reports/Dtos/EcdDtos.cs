@@ -10,6 +10,9 @@ public class EcdRequest
 
     /// <summary>0 = original, 1 = substituta.</summary>
     public int Purpose { get; set; }
+
+    /// <summary>Hash do livro substituído (COD_HASH_SUB do 0000), obrigatório na substituta.</summary>
+    public string? ReplacedBookHash { get; set; }
 }
 
 /// <summary>Tudo o que a ECD do ano precisa: escrituração centralizada de todas as filiais da raiz.</summary>
@@ -19,6 +22,9 @@ public class EcdData
     public Branch? Declarant { get; set; }
 
     public List<Branch> Branches { get; set; } = [];
+
+    /// <summary>Nome do município da declarante (DESC_MUN do I030).</summary>
+    public string? MunicipalityName { get; set; }
 
     /// <summary>Parâmetros da ECD da declarante.</summary>
     public EcdSettings? Settings { get; set; }
@@ -40,4 +46,29 @@ public class EcdData
     public List<AccountingPeriod> Periods { get; set; } = [];
     public ManagementView? BalanceSheet { get; set; }
     public ManagementView? IncomeStatement { get; set; }
+}
+
+/// <summary>Inconsistência da ECD: bloqueante (recusa o arquivo) ou aviso.</summary>
+public class EcdIssueDto
+{
+    public bool Blocking { get; set; }
+    public string Message { get; set; } = "";
+    public string Reference { get; set; } = "";
+}
+
+/// <summary>Totais de conferência do ano: débitos = créditos e resultado do exercício pela DRE.</summary>
+public class EcdTotalsDto
+{
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+
+    /// <summary>Lucro positivo, prejuízo negativo (sem a apuração de resultado).</summary>
+    public decimal NetIncome { get; set; }
+}
+
+/// <summary>Prévia antes de gerar: inconsistências e totais.</summary>
+public class EcdCheckDto
+{
+    public List<EcdIssueDto> Issues { get; set; } = [];
+    public EcdTotalsDto Totals { get; set; } = new();
 }

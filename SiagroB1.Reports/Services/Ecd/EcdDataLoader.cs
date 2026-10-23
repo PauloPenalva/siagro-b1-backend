@@ -44,6 +44,9 @@ public class EcdDataLoader(IUnitOfWork db)
         {
             Declarant = declarant,
             Branches = branches,
+            MunicipalityName = declarant?.MunicipalityCode == null ? null
+                : await db.Context.Municipalities.AsNoTracking().Where(m => m.Code == declarant.MunicipalityCode)
+                    .Select(m => m.Name).FirstOrDefaultAsync(),
             Settings = declarant == null ? null
                 : await db.Context.EcdSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == declarant.Code),
             Accountant = declarant == null ? null
