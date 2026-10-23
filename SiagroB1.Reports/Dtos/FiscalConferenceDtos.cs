@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Reports.Dtos;
 
@@ -55,6 +56,29 @@ public class FiscalDocumentLineDto
     /// <summary>ICMS diferido da linha; entra na conta da regra de ICMS, não vai ao JSON.</summary>
     [JsonIgnore]
     public decimal IcmsDeferredValue { get; set; }
+
+    // Campos usados pelo SPED Fiscal (C100/C170); na Conferência só somam ao JSON.
+
+    /// <summary>"0" emissão própria, "1" terceiro (IND_EMIT do C100).</summary>
+    public string IssuerType { get; set; } = "";
+    public string CardCode { get; set; } = "";
+    public DateTime? IssueDate { get; set; }
+    public decimal Quantity { get; set; }
+    public string UnitOfMeasureCode { get; set; } = "";
+    public decimal UnitPrice { get; set; }
+    public decimal DiscountValue { get; set; }
+    public decimal FreightValue { get; set; }
+    public decimal InsuranceValue { get; set; }
+    public decimal OtherExpensesValue { get; set; }
+    public decimal PisBase { get; set; }
+    public decimal PisRate { get; set; }
+    public decimal CofinsBase { get; set; }
+    public decimal CofinsRate { get; set; }
+    public int? NfeItemNumber { get; set; }
+    public FreightTerms FreightTerms { get; set; }
+
+    /// <summary>Linha de documento complementar (valor/ICMS) ou que complementa outra linha.</summary>
+    public bool IsComplement { get; set; }
 }
 
 /// <summary>Resumo por Direção + CST + CFOP + alíquota (equivale ao C190 do SPED Fiscal).</summary>

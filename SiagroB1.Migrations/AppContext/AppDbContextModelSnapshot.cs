@@ -6940,6 +6940,76 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("SHIPPING_TRANSACTIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.SpedFiscalSettings", b =>
+                {
+                    b.Property<string>("BranchCode")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("AccountantCnpj")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("AccountantComplement")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("AccountantCpf")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("AccountantCrc")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("AccountantDistrict")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("AccountantEmail")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("AccountantMunicipalityCode")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("AccountantName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("AccountantNumber")
+                        .HasColumnType("VARCHAR(10)");
+
+                    b.Property<string>("AccountantPhone")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("AccountantStreet")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("AccountantZipCode")
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int>("ActivityType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IcmsDueDay")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IcmsRevenueCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30)");
+
+                    b.Property<string>("Profile")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(1)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("BranchCode");
+
+                    b.ToTable("SPED_FISCAL_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.StandardPosting", b =>
                 {
                     b.Property<string>("Code")

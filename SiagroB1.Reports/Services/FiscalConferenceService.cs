@@ -306,6 +306,23 @@ public class FiscalConferenceService(IUnitOfWork db)
         DocumentKey = invoice.Key,
         IsReturn = invoice.InvoiceType == SalesInvoiceType.Return,
         IcmsDeferredValue = item.IcmsDeferredValue,
+        IssuerType = "0",
+        CardCode = invoice.CardCode,
+        IssueDate = invoice.InvoiceDate,
+        Quantity = item.Quantity,
+        UnitOfMeasureCode = item.UnitOfMeasureCode ?? "",
+        UnitPrice = item.UnitPrice,
+        DiscountValue = item.DiscountValue,
+        FreightValue = item.FreightValue,
+        InsuranceValue = item.InsuranceValue,
+        OtherExpensesValue = item.OtherExpensesValue,
+        PisBase = item.PisBase,
+        PisRate = item.PisRate,
+        CofinsBase = item.CofinsBase,
+        CofinsRate = item.CofinsRate,
+        NfeItemNumber = item.NfeItemNumber,
+        FreightTerms = invoice.FreightTerms,
+        IsComplement = item.ComplementedItemKey != null || invoice.InvoiceType == SalesInvoiceType.IcmsComplement,
     };
 
     private static FiscalDocumentLineDto PurchaseLine(PurchaseInvoiceItem item, PurchaseInvoice invoice) => new()
@@ -334,6 +351,24 @@ public class FiscalConferenceService(IUnitOfWork db)
         DocumentKey = invoice.Key,
         IsReturn = invoice.InvoiceType == PurchaseInvoiceType.Return,
         IcmsDeferredValue = item.IcmsDeferredValue,
+        IssuerType = invoice.IssuerType == DocumentIssuerType.Own ? "0" : "1",
+        CardCode = invoice.CardCode,
+        IssueDate = invoice.IssueDate,
+        Quantity = item.Quantity,
+        UnitOfMeasureCode = item.UnitOfMeasureCode ?? "",
+        UnitPrice = item.UnitPrice,
+        DiscountValue = item.DiscountValue,
+        FreightValue = item.FreightValue,
+        InsuranceValue = item.InsuranceValue,
+        OtherExpensesValue = item.OtherExpensesValue,
+        PisBase = item.PisBase,
+        PisRate = item.PisRate,
+        CofinsBase = item.CofinsBase,
+        CofinsRate = item.CofinsRate,
+        NfeItemNumber = item.NfeItemNumber,
+        FreightTerms = invoice.FreightTerms,
+        IsComplement = item.ComplementedItemKey != null
+            || invoice.InvoiceType is PurchaseInvoiceType.ValueComplement or PurchaseInvoiceType.IcmsComplement,
     };
 
     /// <summary>1/2/3 = entrada, 5/6/7 = saída; sem CFOP vale a direção do documento.</summary>
