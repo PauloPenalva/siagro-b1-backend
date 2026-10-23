@@ -16,17 +16,17 @@ public class CteManifestLinkQuery(IUnitOfWork db, IConfiguration configuration)
             .OrderByDescending(l => l.IsActive).ThenByDescending(l => l.Manifest!.CreatedAt)
             .Select(l => new CteManifestLink
             {
-                ManifestKey = l.ManifestKey, Number = l.Manifest!.Number, Series = l.Manifest.Series, Status = (int)l.Manifest.Status,
+                ManifestKey = l.ManifestKey, Number = l.Manifest!.Number, Series = l.Manifest.Series, Status = l.Manifest.Status,
             })
             .FirstOrDefaultAsync();
     }
 }
 
-/// <summary>Vínculo CT-e → MDF-e. Status é o valor numérico de <see cref="MdfeStatus"/> (0 Rascunho .. 8 Encerrado).</summary>
+/// <summary>Vínculo CT-e → MDF-e. Status é o mesmo enum MdfeStatus do TransportManifest (serializa como nome).</summary>
 public class CteManifestLink
 {
     public Guid ManifestKey { get; set; }
     public int? Number { get; set; }
     public int Series { get; set; }
-    public int Status { get; set; }
+    public MdfeStatus Status { get; set; }
 }

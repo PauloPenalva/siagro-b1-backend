@@ -19,10 +19,30 @@ public class MdfeEdmModelTests
     {
         var type = Build().EntityContainer.FindEntitySet("TransportManifests")!.EntityType;
         Assert.Contains(type.DeclaredKey!, k => k.Name == "Key");
-        foreach (var nav in new[] { "Ctes", "LoadingCities", "RouteUfs", "Vehicles", "Drivers", "Contractors", "Payments", "Seals", "Events" })
+        foreach (var nav in new[] { "Ctes", "LoadingCities", "RouteUfs", "Vehicles", "Drivers", "Contractors", "Payments", "Seals", "Xmls", "Events" })
             Assert.NotNull(type.FindProperty(nav));
         foreach (var prop in new[] { "Status", "Number", "AccessKey", "ClosedOn", "ClosedAt", "RejectionReason", "CteCount", "GrossWeight" })
             Assert.NotNull(type.FindProperty(prop));
+    }
+
+    [Fact]
+    public void Manifest_status_and_dates_have_expected_edm_types()
+    {
+        var type = Build().EntityContainer.FindEntitySet("TransportManifests")!.EntityType;
+        Assert.Equal(EdmTypeKind.Enum, type.FindProperty("Status")!.Type.TypeKind());
+        Assert.Equal(EdmPrimitiveTypeKind.Date, type.FindProperty("ClosedOn")!.Type.AsPrimitive().PrimitiveKind());
+        Assert.Equal(EdmPrimitiveTypeKind.DateTimeOffset, type.FindProperty("ClosedAt")!.Type.AsPrimitive().PrimitiveKind());
+    }
+
+    [Fact]
+    public void Cte_link_status_is_the_same_enum_as_manifest_status()
+    {
+        var model = Build();
+        var manifestStatus = model.EntityContainer.FindEntitySet("TransportManifests")!.EntityType.FindProperty("Status")!.Type.Definition;
+        var function = model.SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "TransportDocumentsManifest");
+        var linkStatus = ((IEdmStructuredType)function.ReturnType.Definition).FindProperty("Status")!.Type.Definition;
+        Assert.Equal(EdmTypeKind.Enum, linkStatus.TypeKind);
+        Assert.Same(manifestStatus, linkStatus);
     }
 
     [Fact]

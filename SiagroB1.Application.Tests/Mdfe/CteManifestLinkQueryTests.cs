@@ -45,7 +45,7 @@ public class CteManifestLinkQueryTests
         var link = await Query().GetAsync(cte.Key);
 
         Assert.Equal(10, link!.Number);
-        Assert.Equal((int)MdfeStatus.Authorized, link.Status);
+        Assert.Equal(MdfeStatus.Authorized, link.Status);
     }
 
     [Fact]
