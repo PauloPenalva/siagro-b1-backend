@@ -15,7 +15,7 @@ public class MdfeReadinessValidatorTests
             InsuranceResponsible = "1", InsurerTaxId = "11222333000181", InsurerName = "SEGURADORA", PolicyNumber = "APOL1",
         };
         for (var i = 0; i < ctes; i++)
-            m.Ctes.Add(new TransportManifestCte { CteAccessKey = new string('5', 44), UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS" });
+            m.Ctes.Add(new TransportManifestCte { CteAccessKey = new string('5', 44), UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS", Endorsements = "AV" + i });
         m.CteCount = ctes;
         m.Vehicles.Add(new TransportManifestVehicle { IsTraction = true, Plate = "ABC1D23", BodyType = "03", WheelType = "03", Uf = "SP" });
         return m;
@@ -32,6 +32,20 @@ public class MdfeReadinessValidatorTests
         var (errors, warnings) = Run(Ready());
         Assert.Empty(errors);
         Assert.Empty(warnings);
+    }
+
+    [Fact]
+    public void Validator_requires_endorsement_number_on_every_cte()
+    {
+        var m = Ready(3);
+        var ctes = m.Ctes.ToList();
+        ctes[0].TransportDocument = new TransportDocument { BranchCode = "01", Number = 11 };
+        ctes[1].Endorsements = null;
+        ctes[1].TransportDocument = new TransportDocument { BranchCode = "01", Number = 12 };
+        ctes[2].Endorsements = " ";
+        ctes[2].TransportDocument = new TransportDocument { BranchCode = "01", Number = 13 };
+
+        Assert.Contains("Averbe os CT-e antes de incluir no MDF-e: 12, 13.", Run(m).Errors);
     }
 
     [Theory]

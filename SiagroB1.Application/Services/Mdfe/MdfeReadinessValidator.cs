@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Commons.Validation;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Mdfe;
@@ -29,6 +30,10 @@ public class MdfeReadinessValidator(IUnitOfWork db)
         "Seguro da carga: com o contratante como responsável, informe o contratante (CPF/CNPJ) do MDF-e.";
     public const string CiotRequiredWarning = "A filial exige CIOT: informe o CIOT antes de transmitir o MDF-e.";
 
+    /// <summary>"Averbe os CT-e antes de incluir no MDF-e: {n1}, {n2}." — a SEFAZ rejeita (699) MDF-e sem nAver.</summary>
+    public static string NotEndorsed(IEnumerable<int?> cteNumbers) =>
+        $"Averbe os CT-e antes de incluir no MDF-e: {string.Join(", ", cteNumbers.Select(n => n?.ToString() ?? "?"))}.";
+
     /// <summary>Carrega configuração, RNTRC e CEP da filial e valida.</summary>
     public async Task<(IReadOnlyList<string> Errors, IReadOnlyList<string> Warnings)> ValidateAsync(TransportManifest m)
     {
@@ -36,11 +41,17 @@ public class MdfeReadinessValidator(IUnitOfWork db)
         var rntrc = await db.Context.BranchTransportSettings.AsNoTracking().Where(x => x.BranchCode == m.BranchCode)
             .Select(x => x.CompanyRntrc).FirstOrDefaultAsync();
         var zip = await db.Context.Branchs.AsNoTracking().Where(x => x.Code == m.BranchCode).Select(x => x.ZipCode).FirstOrDefaultAsync();
-        return Validate(m, settings, rntrc, zip);
+        // Situação atual da averbação: ela pode ter sido cancelada depois da inclusão do CT-e.
+        var cteKeys = m.Ctes.Select(c => c.TransportDocumentKey).ToList();
+        var live = await db.Context.TransportDocuments.AsNoTracking().Where(d => cteKeys.Contains(d.Key))
+            .Select(d => new { d.Key, d.Number, d.EndorsementStatus })
+            .ToDictionaryAsync(d => d.Key, d => (d.Number, Endorsed: d.EndorsementStatus == CteEndorsementStatus.Endorsed));
+        return Validate(m, settings, rntrc, zip, live);
     }
 
     public static (IReadOnlyList<string> Errors, IReadOnlyList<string> Warnings) Validate(
-        TransportManifest m, BranchMdfeSettings? s, string? rntrc, string? issuerZipCode)
+        TransportManifest m, BranchMdfeSettings? s, string? rntrc, string? issuerZipCode,
+        IReadOnlyDictionary<Guid, (int? Number, bool Endorsed)>? liveCtes = null)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -56,6 +67,15 @@ public class MdfeReadinessValidator(IUnitOfWork db)
             errors.Add(InsuranceResponsibleRequired);
 
         if (m.Ctes.Count == 0) errors.Add(CtesRequired);
+        var notEndorsed = m.Ctes.OrderBy(c => c.LineNum).Select(c =>
+            {
+                (int? Number, bool Endorsed) current = default;
+                var hasLive = liveCtes?.TryGetValue(c.TransportDocumentKey, out current) == true;
+                var ok = !string.IsNullOrWhiteSpace(c.Endorsements) && (!hasLive || current.Endorsed);
+                return (Ok: ok, Number: hasLive ? current.Number : c.TransportDocument?.Number);
+            })
+            .Where(x => !x.Ok).Select(x => x.Number).ToList();
+        if (notEndorsed.Count > 0) errors.Add(NotEndorsed(notEndorsed));
         if (m.WeightUnit is not ("01" or "02")) errors.Add(WeightUnitInvalid);
         if (m.GrossWeight <= 0) errors.Add(WeightRequired);
 

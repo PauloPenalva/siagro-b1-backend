@@ -37,6 +37,9 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
         foreach (var cte in ctes)
             if (cte.BranchCode != branchCode || cte.Status != CteStatus.Authorized)
                 throw new DefaultException($"O CT-e {cte.Number} não pode entrar no MDF-e: só CT-e autorizado da filial {branchCode}.");
+        // Sem averbação (nAver) a SEFAZ rejeita o MDF-e (699): só entra CT-e averbado.
+        var notEndorsed = ctes.Where(c => !IsEndorsed(c)).Select(c => (int?)c.Number).ToList();
+        if (notEndorsed.Count > 0) throw new DefaultException(MdfeReadinessValidator.NotEndorsed(notEndorsed));
         if (ctes.Select(c => c.StartState).Distinct().Count() > 1) throw new DefaultException(DifferentStartUfs);
         if (ctes.Select(c => c.EndState).Distinct().Count() > 1) throw new DefaultException(DifferentEndUfs);
         if (ctes.Select(c => c.TractionPlate?.ToUpperInvariant()).Distinct().Count() > 1) throw new DefaultException(DifferentVehicles);
@@ -167,6 +170,10 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
         WheelType = traction && wheelType is { } w ? w.ToString("00") : string.Empty,
         Uf = uf ?? string.Empty,
     };
+
+    /// <summary>Averbado na AT&amp;M e com ao menos um número de averbação.</summary>
+    internal static bool IsEndorsed(TransportDocument cte) =>
+        cte.EndorsementStatus == CteEndorsementStatus.Endorsed && cte.Endorsements.Any(e => !string.IsNullOrWhiteSpace(e.EndorsementNumber));
 
     internal static void EnsureStandalone(IConfiguration configuration)
     {

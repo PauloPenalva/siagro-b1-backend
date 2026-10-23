@@ -34,7 +34,7 @@ public static class MdfeTestSupport
     public static async Task<TransportDocument> AddCteAsync(UnitOfWork db, int number, string endCity = "3509502",
         string startCity = "3550308", string startUf = "SP", string endUf = "SP", string plate = "ABC1D23", string unit = "01", decimal quantity = 1000m,
         string takerTaxId = "99888777000166", string takerName = "TOMADOR", decimal cargoValue = 100m,
-        CteStatus status = CteStatus.Authorized, string branch = "01")
+        CteStatus status = CteStatus.Authorized, string branch = "01", bool endorsed = true)
     {
         var doc = new TransportDocument
         {
@@ -42,6 +42,7 @@ public static class MdfeTestSupport
             StartMunicipalityCode = startCity, StartState = startUf, EndMunicipalityCode = endCity, EndState = endUf,
             TractionPlate = plate, TrailerPlates = "TRL1A11", DriverCpf = "52998224725", DriverName = "JOAO",
             PredominantProduct = "SOJA", CargoValue = cargoValue, TakerRole = (int)CtePartyRole.Sender,
+            EndorsementStatus = endorsed ? CteEndorsementStatus.Endorsed : CteEndorsementStatus.None,
             VehicleSnapshotJson = JsonSerializer.Serialize(new object[]
             {
                 new { Plate = plate, Kind = 0, Renavam = "12345678901", TareWeight = 9000, CapacityKg = 30000, CapacityM3 = 0, WheelType = 3, BodyType = 3, State = "SP" },
@@ -50,7 +51,7 @@ public static class MdfeTestSupport
         };
         doc.Parties.Add(new TransportDocumentParty { Role = CtePartyRole.Sender, TaxId = takerTaxId, Name = takerName });
         doc.Quantities.Add(new TransportDocumentQuantity { UnitCode = unit, MeasureType = "PESO", Quantity = quantity });
-        doc.Endorsements.Add(new TransportDocumentEndorsement { EndorsementNumber = $"AV{number}" });
+        if (endorsed) doc.Endorsements.Add(new TransportDocumentEndorsement { EndorsementNumber = $"AV{number}" });
         db.Context.TransportDocuments.Add(doc);
         await db.SaveChangesAsync();
         return doc;

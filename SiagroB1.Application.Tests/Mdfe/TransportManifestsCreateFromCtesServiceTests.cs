@@ -159,6 +159,32 @@ public class TransportManifestsCreateFromCtesServiceTests
     }
 
     [Fact]
+    public async Task Create_refuses_non_endorsed_ctes_listing_them()
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        var ok = await MdfeTestSupport.AddCteAsync(_db, 1);
+        var n2 = await MdfeTestSupport.AddCteAsync(_db, 2, endorsed: false);
+        var n3 = await MdfeTestSupport.AddCteAsync(_db, 3, endorsed: false);
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateFromCtesAsync("01", [ok.Key, n2.Key, n3.Key], "tester"));
+
+        Assert.Equal("Averbe os CT-e antes de incluir no MDF-e: 2, 3.", ex.Message);
+        Assert.Empty(_db.Context.TransportManifests);
+    }
+
+    [Fact]
+    public async Task Eligible_query_lists_non_endorsed_with_their_status()
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        await MdfeTestSupport.AddCteAsync(_db, 1);
+        await MdfeTestSupport.AddCteAsync(_db, 2, endorsed: false);
+
+        var list = await new MdfeEligibleCtesQuery(_db, MdfeTestSupport.Config()).ListAsync("01");
+
+        Assert.Equal([CteEndorsementStatus.Endorsed, CteEndorsementStatus.None], list.Select(x => x.EndorsementStatus).ToList());
+    }
+
+    [Fact]
     public async Task Eligible_query_skips_ctes_with_active_link()
     {
         await MdfeTestSupport.SeedBranchAsync(_db);

@@ -80,6 +80,20 @@ public class TransportManifestsConfirmServiceTests
     }
 
     [Fact]
+    public async Task Confirm_refuses_when_linked_cte_endorsement_was_cancelled()
+    {
+        var key = await SeedReadyAsync();
+        var cte = await _db.Context.TransportDocuments.SingleAsync();
+        cte.EndorsementStatus = CteEndorsementStatus.Cancelled;
+        await _db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Confirm().ConfirmAsync(key, "tester"));
+
+        Assert.Contains("Averbe os CT-e antes de incluir no MDF-e: 7.", ex.Message);
+        Assert.Equal(0, _numbers.Calls);
+    }
+
+    [Fact]
     public async Task Confirm_refuses_m3_without_weight()
     {
         var key = await SeedReadyAsync(weight: 0, unit: "03");
