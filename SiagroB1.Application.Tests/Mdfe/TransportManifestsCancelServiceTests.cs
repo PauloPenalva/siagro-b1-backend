@@ -161,10 +161,47 @@ public class TransportManifestsCancelServiceTests
 
         var result = await Cancel().CancelAsync(key, Justification, "tester");
 
-        Assert.Equal(641, result.StatusCode);
+        Assert.Equal(132, result.StatusCode);
+        Assert.Equal(TransportManifestsCancelService.AlreadyClosed, result.Reason);
         var m = await LoadAsync(key);
         Assert.Equal(MdfeStatus.Closed, m.Status);
         Assert.All(m.Ctes, c => Assert.False(c.IsActive));
+    }
+
+    [Theory]
+    [InlineData(101)]
+    [InlineData(151)]
+    public async Task Cancel_refused_and_consult_says_cancelled_marks_cancelled(int consultStatus)
+    {
+        var key = await SeedAsync();
+        _sefaz.CancelResponses.Enqueue(_ => FakeMdfeSefazClient.EventRejected(631));
+        _sefaz.ConsultResponses.Enqueue(_ => new NfeSefazResult(consultStatus, "MDF-e cancelado"));
+
+        var result = await Cancel().CancelAsync(key, Justification, "tester");
+
+        Assert.Equal(consultStatus, result.StatusCode);
+        Assert.Equal(TransportManifestsCancelService.AlreadyCancelled, result.Reason);
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Cancelled, m.Status);
+        Assert.All(m.Ctes, c => Assert.False(c.IsActive));
+        Assert.NotNull(m.CancelledAt);
+    }
+
+    [Fact]
+    public async Task Cancel_refused_and_consult_timeout_returns_refusal_and_changes_nothing()
+    {
+        var key = await SeedAsync();
+        _sefaz.CancelResponses.Enqueue(_ => FakeMdfeSefazClient.EventRejected(494, "Rejeição: Chave inexistente"));
+        _sefaz.ConsultResponses.Enqueue(FakeMdfeSefazClient.NoResponse);
+
+        var result = await Cancel().CancelAsync(key, Justification, "tester");
+
+        Assert.Equal(494, result.StatusCode);
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Authorized, m.Status);
+        Assert.All(m.Ctes, c => Assert.True(c.IsActive));
+        Assert.Empty(m.Events);
+        Assert.Equal(0, _numbers.LocksHeld);
     }
 
     [Fact]

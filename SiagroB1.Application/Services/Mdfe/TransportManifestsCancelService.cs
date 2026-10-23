@@ -28,6 +28,8 @@ public class TransportManifestsCancelService(
     public const string NotAuthorized = "Só é possível cancelar MDF-e autorizado e não encerrado.";
     public const string InvalidJustification = "A justificativa do cancelamento tem de 15 a 255 caracteres.";
     public const string DeadlinePassed = "O prazo de cancelamento do MDF-e (24 horas) acabou.";
+    public const string AlreadyClosed = "O MDF-e já está encerrado na SEFAZ; a situação foi atualizada.";
+    public const string AlreadyCancelled = "O MDF-e já está cancelado na SEFAZ; a situação foi atualizada.";
     public const string NoResponse = "Sem resposta da SEFAZ: tente cancelar de novo.";
 
     public async Task<NfeEventResult> CancelAsync(Guid key, string justification, string user)
@@ -101,6 +103,7 @@ public class TransportManifestsCancelService(
                 m.UpdatedAt = DateTime.Now;
                 m.UpdatedBy = user;
                 await db.SaveChangesAsync();
+                return new NfeEventResult(consult.StatusCode, AlreadyClosed);
             }
             else if (NfeStatusCodes.IsCancelledConsult(consult.StatusCode))
             {
@@ -109,6 +112,7 @@ public class TransportManifestsCancelService(
                 m.UpdatedAt = DateTime.Now;
                 m.UpdatedBy = user;
                 await db.SaveChangesAsync();
+                return new NfeEventResult(consult.StatusCode, AlreadyCancelled);
             }
         }
         catch (NfeCommunicationException e)
