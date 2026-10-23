@@ -456,6 +456,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsTransmitService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsConsultService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCloseService>();
+        services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCancelService>();
         services.AddSingleton<SiagroB1.Fiscal.Mdfe.IMdfeSefazClient, SiagroB1.Fiscal.Mdfe.ZeusMdfeSefazClient>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();

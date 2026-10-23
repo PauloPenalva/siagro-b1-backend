@@ -29,6 +29,7 @@ public class TransportManifestsController(
     TransportManifestsTransmitService transmitService,
     TransportManifestsConsultService consultService,
     TransportManifestsCloseService closeService,
+    TransportManifestsCancelService cancelService,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -159,6 +160,17 @@ public class TransportManifestsController(
         return RunSefazAsync(parameters, async key =>
         {
             var r = await closeService.CloseAsync(key, closedOn, ufCode, cityIbge, UserName);
+            return new NfeSefazResult(r.StatusCode, r.Reason);
+        });
+    }
+
+    [HttpPost("odata/TransportManifestsCancel")]
+    public Task<IActionResult> CancelAsync([FromBody] ODataActionParameters parameters)
+    {
+        var justification = parameters?.GetValueOrDefault("Justification")?.ToString() ?? string.Empty;
+        return RunSefazAsync(parameters, async key =>
+        {
+            var r = await cancelService.CancelAsync(key, justification, UserName);
             return new NfeSefazResult(r.StatusCode, r.Reason);
         });
     }
