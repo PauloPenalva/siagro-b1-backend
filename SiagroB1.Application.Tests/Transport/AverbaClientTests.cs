@@ -168,6 +168,55 @@ public class AverbaClientTests
     }
 
     [Fact]
+    public async Task SendCte_numeric_fields_are_read_as_text()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK,
+            "{\"Averbado\":{\"Protocolo\":12345,\"DadosSeguro\":[{\"NumeroAverbacao\":\"A1\",\"ValorAverbado\":33750.00,\"RamoAverbado\":55,\"TpMov\":1}]}}");
+
+        var result = await Client(handler).SendCteAsync(NfeEnvironment.Production, "tok", "<x/>", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("12345", result.Protocol);
+        Assert.Equal("33750.00", result.Insurances[0].Amount);
+        Assert.Equal("55", result.Insurances[0].Branch);
+        Assert.Equal("1", result.Insurances[0].MovementType);
+    }
+
+    [Fact]
+    public async Task SendCte_missing_url_is_reported()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "{}");
+
+        var result = await Client(handler, Config(production: null)).SendCteAsync(NfeEnvironment.Production, "tok", "<x/>", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("Configure Averba:ProductionUrl/HomologationUrl no servidor.", result.Error);
+        Assert.Equal(0, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task SendCte_non_json_error_body_reports_http_status()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.InternalServerError, "<html>falhou</html>");
+
+        var result = await Client(handler).SendCteAsync(NfeEnvironment.Production, "tok", "<x/>", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("A AT&M respondeu HTTP 500.", result.Error);
+    }
+
+    [Fact]
+    public async Task SendCte_2xx_without_protocol_is_failure()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "{\"Averbado\":{}}");
+
+        var result = await Client(handler).SendCteAsync(NfeEnvironment.Production, "tok", "<x/>", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("A AT&M não devolveu o protocolo de averbação.", result.Error);
+    }
+
+    [Fact]
     public async Task SendCte_errors_list_is_joined()
     {
         var handler = new StubHttpMessageHandler(HttpStatusCode.OK,

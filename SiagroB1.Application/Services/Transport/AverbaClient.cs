@@ -129,6 +129,22 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
 
     private static AverbaCteResult CteFailure(string error) => new(false, null, null, [], error);
 
+    /// <summary>Lê número/booleano JSON como texto (o Jackson do EfisCloud aceita; sem isso um sucesso viraria falha e a averbação seria duplicada).</summary>
+    private sealed class LenientStringConverter : JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
+        {
+            JsonTokenType.String => reader.GetString(),
+            JsonTokenType.Number => System.Text.Encoding.UTF8.GetString(reader.HasValueSequence ? System.Buffers.BuffersExtensions.ToArray(reader.ValueSequence) : reader.ValueSpan),
+            JsonTokenType.True => "true",
+            JsonTokenType.False => "false",
+            JsonTokenType.Null => null,
+            _ => throw new JsonException("Valor inesperado no lugar de um texto."),
+        };
+
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options) => writer.WriteStringValue(value);
+    }
+
     private sealed class CteResponse
     {
         [JsonPropertyName("Averbado")] public CteAverbado? Averbado { get; set; }
@@ -138,25 +154,25 @@ public class AverbaClient(HttpClient http, IConfiguration configuration) : IAver
     private sealed class CteAverbado
     {
         // Sem JsonProperty no DTO Java da AT&M: este campo é lower-camel, os demais PascalCase.
-        [JsonPropertyName("dhAverbacao")] public string? AverbadoAt { get; set; }
-        [JsonPropertyName("Protocolo")] public string? Protocol { get; set; }
+        [JsonPropertyName("dhAverbacao")] [JsonConverter(typeof(LenientStringConverter))] public string? AverbadoAt { get; set; }
+        [JsonPropertyName("Protocolo")] [JsonConverter(typeof(LenientStringConverter))] public string? Protocol { get; set; }
         [JsonPropertyName("DadosSeguro")] public List<CteInsurance>? Insurances { get; set; }
     }
 
     private sealed class CteInsurance
     {
-        [JsonPropertyName("NumeroAverbacao")] public string? EndorsementNumber { get; set; }
-        [JsonPropertyName("CNPJSeguradora")] public string? InsurerTaxId { get; set; }
-        [JsonPropertyName("NomeSeguradora")] public string? InsurerName { get; set; }
-        [JsonPropertyName("NumApolice")] public string? PolicyNumber { get; set; }
-        [JsonPropertyName("ValorAverbado")] public string? Amount { get; set; }
-        [JsonPropertyName("RamoAverbado")] public string? Branch { get; set; }
-        [JsonPropertyName("TpMov")] public string? MovementType { get; set; }
+        [JsonPropertyName("NumeroAverbacao")] [JsonConverter(typeof(LenientStringConverter))] public string? EndorsementNumber { get; set; }
+        [JsonPropertyName("CNPJSeguradora")] [JsonConverter(typeof(LenientStringConverter))] public string? InsurerTaxId { get; set; }
+        [JsonPropertyName("NomeSeguradora")] [JsonConverter(typeof(LenientStringConverter))] public string? InsurerName { get; set; }
+        [JsonPropertyName("NumApolice")] [JsonConverter(typeof(LenientStringConverter))] public string? PolicyNumber { get; set; }
+        [JsonPropertyName("ValorAverbado")] [JsonConverter(typeof(LenientStringConverter))] public string? Amount { get; set; }
+        [JsonPropertyName("RamoAverbado")] [JsonConverter(typeof(LenientStringConverter))] public string? Branch { get; set; }
+        [JsonPropertyName("TpMov")] [JsonConverter(typeof(LenientStringConverter))] public string? MovementType { get; set; }
     }
 
     private sealed class CteError
     {
-        [JsonPropertyName("Descricao")] public string? Description { get; set; }
+        [JsonPropertyName("Descricao")] [JsonConverter(typeof(LenientStringConverter))] public string? Description { get; set; }
     }
 
     /// <summary>Corpo como JSON da AT&amp;M, ou null quando não é JSON (ex.: página de erro do servidor).</summary>
