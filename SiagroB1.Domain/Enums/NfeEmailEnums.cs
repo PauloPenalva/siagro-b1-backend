@@ -5,6 +5,8 @@ public enum NfeEmailDocumentType
 {
     Sales = 1,
     Purchase = 2,
+    /// <summary>CT-e (TransportDocument): e-mail com cteProc + DACTE.</summary>
+    Transport = 3,
 }
 
 /// <summary>Evento da NF-e que o e-mail comunica.</summary>

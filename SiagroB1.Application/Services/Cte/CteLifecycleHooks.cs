@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
 
@@ -18,7 +20,8 @@ public class CteLifecycleHooks(
     IConfiguration configuration,
     FinancialDocumentsTransportService financial,
     CteEndorsementCancellationService endorsementCancellation,
-    ILogger<CteLifecycleHooks> logger) : ICteAuthorizationHook, ICteCancellationHook
+    ILogger<CteLifecycleHooks> logger,
+    INfeEmailOutboxService? emailOutbox = null) : ICteAuthorizationHook, ICteCancellationHook
 {
     /// <summary>
     /// Não lança: o CT-e já está autorizado na SEFAZ. Uma falha fica no log (o serviço é idempotente: um título já
@@ -41,6 +44,29 @@ public class CteLifecycleHooks(
         {
             logger.LogError(e, "CT-e {AccessKey} autorizado, mas o título a receber não foi gerado.", doc.AccessKey);
             await RecordFinancialErrorAsync(doc, e);
+        }
+
+        await EnqueueEmailAsync(doc, NfeEmailEventType.Authorized);
+    }
+
+    /// <summary>
+    /// E-mail automático (XML + DACTE). Nunca lança: o CT-e já está na SEFAZ. O outbox deduplica por documento e evento,
+    /// então a consulta repetida não enfileira de novo.
+    /// </summary>
+    private async Task EnqueueEmailAsync(TransportDocument doc, NfeEmailEventType evt)
+    {
+        if (emailOutbox is null || !ErpMode.IsStandalone(configuration)) return;
+        try
+        {
+            await emailOutbox.AddAutomaticAsync(NfeEmailDocumentType.Transport, doc.Key, evt, User(doc));
+            await db.SaveChangesAsync();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "CT-e {AccessKey}: falha ao enfileirar o e-mail ({EventType}).", doc.AccessKey, evt);
+            foreach (var entry in db.Context.ChangeTracker.Entries<NfeEmailMessage>()
+                         .Where(x => x.State == EntityState.Added).ToList())
+                entry.State = EntityState.Detached;
         }
     }
 
@@ -80,6 +106,7 @@ public class CteLifecycleHooks(
             logger.LogError(e, "CT-e {AccessKey} cancelado, mas o título a receber não foi cancelado.", doc.AccessKey);
         }
 
+        await EnqueueEmailAsync(doc, NfeEmailEventType.Cancelled);
         await endorsementCancellation.CancelAsync(doc);
     }
 

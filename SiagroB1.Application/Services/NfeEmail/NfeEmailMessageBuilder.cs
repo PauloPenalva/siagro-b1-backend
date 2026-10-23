@@ -72,4 +72,40 @@ public static class NfeEmailMessageBuilder
 
         return (subject, body.ToString(), attachments);
     }
+
+    private static readonly XNamespace CteNs = "http://www.portalfiscal.inf.br/cte";
+
+    /// <summary>
+    /// E-mail do CT-e. Autorizado: <c>CTe{chave}.xml</c> (cteProc) + <c>DACTE{chave}.pdf</c>. Cancelado: o cteProc, o
+    /// procEventoCTe (quando existir) como <c>CTeCancelamento{chave}.xml</c> e o DACTE (já com a tarja de cancelado).
+    /// </summary>
+    public static (string Subject, string HtmlBody, IReadOnlyList<EmailAttachment> Attachments) BuildCte(
+        NfeEmailEventType evt, int? number, int series, string accessKey, string procXml, string? eventXml, byte[] dacte)
+    {
+        var emitterName = XDocument.Parse(procXml).Descendants(CteNs + "emit").FirstOrDefault()?.Element(CteNs + "xNome")?.Value
+                          ?? string.Empty;
+        var cancelled = evt == NfeEmailEventType.Cancelled;
+        var subject = $"{(cancelled ? "Cancelamento do CT-e" : "CT-e")} {number}/{series} - {emitterName}";
+
+        var attachments = new List<EmailAttachment>
+        {
+            new($"CTe{accessKey}.xml", Encoding.UTF8.GetBytes(procXml), "application/xml"),
+        };
+        if (cancelled && eventXml is not null)
+            attachments.Add(new EmailAttachment($"CTeCancelamento{accessKey}.xml", Encoding.UTF8.GetBytes(eventXml), "application/xml"));
+        attachments.Add(new EmailAttachment($"DACTE{accessKey}.pdf", dacte, "application/pdf"));
+
+        static string E(string s) => WebUtility.HtmlEncode(s);
+
+        var body = new StringBuilder();
+        body.Append("<p>Prezado(a),</p>");
+        body.Append(cancelled
+            ? $"<p>Informamos que o CT-e nº {E(number?.ToString() ?? "")} série {series} emitido por {E(emitterName)} foi <b>cancelado</b>.</p>"
+            : $"<p>Segue o CT-e nº {E(number?.ToString() ?? "")} série {series} emitido por {E(emitterName)}, autorizado pela SEFAZ.</p>");
+        body.Append($"<p>Chave de acesso: {E(accessKey)}</p>");
+        body.Append("<p>Este é um e-mail automático; não responda.</p>");
+
+        return (subject, body.ToString(), attachments);
+    }
+
 }

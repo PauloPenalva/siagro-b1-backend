@@ -19,15 +19,18 @@ public class HttpDanfeProvider(HttpClient http, IConfiguration configuration) : 
         if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Reports:InternalBaseUrl/Reports:InternalApiKey não configurados.");
 
-        var segment = type == NfeEmailDocumentType.Purchase ? "purchase" : "sales";
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl.TrimEnd('/')}/internal/danfe/{segment}/{key}");
+        // O CT-e usa a rota interna do DACTE; a NF-e, a do DANFE.
+        var path = type == NfeEmailDocumentType.Transport
+            ? $"internal/dacte/{key}"
+            : $"internal/danfe/{(type == NfeEmailDocumentType.Purchase ? "purchase" : "sales")}/{key}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl.TrimEnd('/')}/{path}");
         request.Headers.Add("X-Internal-Key", apiKey);
         request.Headers.Add("X-Company", companyCode);
 
         using var response = await http.SendAsync(request, ct);
 
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Reports respondeu {(int)response.StatusCode} ao gerar o DANFE.");
+            throw new HttpRequestException($"Reports respondeu {(int)response.StatusCode} ao gerar o {(type == NfeEmailDocumentType.Transport ? "DACTE" : "DANFE")}.");
 
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
