@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
@@ -29,6 +30,28 @@ public class MdfeEligibleCtesQuery(IUnitOfWork db, IConfiguration configuration)
             .FirstOrDefaultAsync();
         if (clash is not null)
             throw new DefaultException(AlreadyInManifest(clash.CteNumber, clash.ManifestNumber));
+    }
+
+    /// <summary>Número do erro do SQL Server por trás da falha de gravação, se houver.</summary>
+    public static int? SqlErrorNumber(DbUpdateException ex) => ex.InnerException is SqlException sql ? sql.Number : null;
+
+    /// <summary>
+    /// Chave duplicada (2601/2627) no índice filtrado do vínculo ativo vira "O CT-e {n} já está no MDF-e {n}.",
+    /// procurando quem colidiu. Outro erro, ou colisão não encontrada, devolve null (o chamador relança o original).
+    /// </summary>
+    public static async Task<DefaultException?> MapUniqueViolationAsync(IUnitOfWork db, int? sqlNumber,
+        IReadOnlyCollection<Guid> cteKeys, Guid ownManifest)
+    {
+        if (sqlNumber is not (2601 or 2627)) return null;
+        try
+        {
+            await EnsureNotInOtherActiveManifestAsync(db, cteKeys, ownManifest);
+            return null;
+        }
+        catch (DefaultException e)
+        {
+            return e;
+        }
     }
 
     internal static string AlreadyInManifest(int? cteNumber, int? manifestNumber) =>

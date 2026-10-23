@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Fiscal.Dfe;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Services.Mdfe;
@@ -17,6 +18,7 @@ namespace SiagroB1.Application.Services.Mdfe;
 public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfiguration configuration)
 {
     public const string DifferentStartUfs = "Os CT-e escolhidos começam em UFs diferentes.";
+    public const string DifferentEndUfs = "Os CT-e escolhidos terminam em UFs diferentes.";
     public const string DifferentVehicles = "Os CT-e escolhidos são de veículos diferentes.";
 
     public async Task<Guid> CreateFromCtesAsync(string branchCode, IReadOnlyList<Guid> cteKeys, string user)
@@ -35,9 +37,8 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
         foreach (var cte in ctes)
             if (cte.BranchCode != branchCode || cte.Status != CteStatus.Authorized)
                 throw new DefaultException($"O CT-e {cte.Number} não pode entrar no MDF-e: só CT-e autorizado da filial {branchCode}.");
-        await MdfeEligibleCtesQuery.EnsureNotInOtherActiveManifestAsync(db, keys, null);
-
         if (ctes.Select(c => c.StartState).Distinct().Count() > 1) throw new DefaultException(DifferentStartUfs);
+        if (ctes.Select(c => c.EndState).Distinct().Count() > 1) throw new DefaultException(DifferentEndUfs);
         if (ctes.Select(c => c.TractionPlate?.ToUpperInvariant()).Distinct().Count() > 1) throw new DefaultException(DifferentVehicles);
 
         var first = ctes[0];
@@ -46,7 +47,7 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
         var cityCodes = ctes.SelectMany(c => new[] { c.StartMunicipalityCode, c.EndMunicipalityCode }).OfType<string>().Distinct().ToList();
         var cities = await db.Context.Municipalities.AsNoTracking().Where(x => cityCodes.Contains(x.Code))
             .ToDictionaryAsync(x => x.Code, x => x.Name);
-        string CityName(string? code) => Cut(code is not null && cities.TryGetValue(code, out var n) ? n : code, 60) ?? string.Empty;
+        string CityName(string? code) => DfeText.Clean(code is not null && cities.TryGetValue(code, out var n) ? n : code, 60);
 
         var m = new TransportManifest
         {
@@ -58,14 +59,14 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
             UfEnd = first.EndState,
             TractionPlate = first.TractionPlate?.ToUpperInvariant(),
             DriverCpf = first.DriverCpf,
-            DriverName = first.DriverName,
+            DriverName = DfeText.CleanOrNull(first.DriverName, 60),
             CargoType = settings?.DefaultCargoType ?? "02",
-            ProductDescription = Cut(first.PredominantProduct, 120),
+            ProductDescription = DfeText.CleanOrNull(first.PredominantProduct, 120),
             CteCount = ctes.Count,
             CargoValue = ctes.Sum(c => c.CargoValue),
             InsuranceResponsible = transport?.InsuranceResponsible is { } r ? ((int)r).ToString() : null,
             InsurerTaxId = transport?.InsurerTaxId,
-            InsurerName = Cut(transport?.InsurerName, 30),
+            InsurerName = DfeText.CleanOrNull(transport?.InsurerName, 30),
             PolicyNumber = transport?.PolicyNumber,
             CreatedBy = user,
         };
@@ -93,13 +94,31 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
         AddVehicles(m, first);
 
         foreach (var taker in ctes.Select(Taker).OfType<TransportDocumentParty>()
-                     .Select(p => (TaxId: Digits(p.TaxId), Name: Cut(p.Name, 60) ?? string.Empty))
+                     .Select(p => (TaxId: Digits(p.TaxId), Name: DfeText.Clean(p.Name, 60)))
                      .Where(p => p.TaxId.Length > 0).DistinctBy(p => p.TaxId))
             m.Contractors.Add(new TransportManifestContractor { TaxId = taker.TaxId, Name = taker.Name });
 
-        db.Context.TransportManifests.Add(m);
-        await db.SaveChangesAsync();
-        return m.Key;
+        // Checagem e inserção do vínculo na mesma transação; o índice filtrado (IsActive) decide a corrida.
+        await db.BeginTransactionAsync();
+        try
+        {
+            await MdfeEligibleCtesQuery.EnsureNotInOtherActiveManifestAsync(db, keys, null);
+            db.Context.TransportManifests.Add(m);
+            await db.SaveChangesAsync();
+            await db.CommitAsync();
+            return m.Key;
+        }
+        catch (DbUpdateException ex)
+        {
+            await db.RollbackAsync();
+            db.Context.ChangeTracker.Clear();
+            throw await MdfeEligibleCtesQuery.MapUniqueViolationAsync(db, MdfeEligibleCtesQuery.SqlErrorNumber(ex), keys, m.Key) ?? (Exception)ex;
+        }
+        catch
+        {
+            await db.RollbackAsync();
+            throw;
+        }
     }
 
     /// <summary>Peso só se todos os CT-e têm quantidade em KG ou TON; misturados, soma em KG. M3 deixa vazio (0).</summary>

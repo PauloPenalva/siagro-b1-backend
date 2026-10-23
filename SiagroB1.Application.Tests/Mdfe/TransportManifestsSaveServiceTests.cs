@@ -28,10 +28,11 @@ public class TransportManifestsSaveServiceTests
     }
 
     [Fact]
-    public async Task Save_rechecks_cte_eligibility_inside_transaction()
+    public async Task Create_rechecks_cte_eligibility_inside_transaction()
     {
-        var (key, cte) = await DraftAsync();
-        // Outra aba gravou um MDF-e com o mesmo CT-e por fora da checagem de criação (corrida).
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        var cte = await MdfeTestSupport.AddCteAsync(_db, 7);
+        // Outra aba gravou um MDF-e com o mesmo CT-e (outro contexto, mesmo banco).
         var other = TestDb.CreateUnitOfWork(_name);
         var rival = new TransportManifest { BranchCode = "01", Number = 42 };
         rival.Ctes.Add(new TransportManifestCte
@@ -41,10 +42,21 @@ public class TransportManifestsSaveServiceTests
         other.Context.TransportManifests.Add(rival);
         await other.SaveChangesAsync();
 
-        var ex = await Assert.ThrowsAsync<DefaultException>(() => Save(TestDb.CreateUnitOfWork(_name))
-            .SaveAsync(key, new TransportManifestSaveModel { GrossWeight = 10 }, "tester"));
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            new TransportManifestsCreateFromCtesService(TestDb.CreateUnitOfWork(_name), MdfeTestSupport.Config())
+                .CreateFromCtesAsync("01", [cte.Key], "tester"));
 
         Assert.Equal("O CT-e 7 já está no MDF-e 42.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Save_ignores_null_driver_cpf()
+    {
+        var (key, _) = await DraftAsync();
+
+        await Save().SaveAsync(key, new TransportManifestSaveModel { AdditionalDrivers = [new() { Cpf = null!, Name = "X" }] }, "tester");
+
+        Assert.False(await _db.Context.TransportManifestDrivers.AnyAsync());
     }
 
     [Fact]

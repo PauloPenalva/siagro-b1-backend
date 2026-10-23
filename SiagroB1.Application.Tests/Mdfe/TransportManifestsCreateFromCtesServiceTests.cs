@@ -88,7 +88,40 @@ public class TransportManifestsCreateFromCtesServiceTests
     }
 
     [Fact]
-    public async Task Create_prefills_weight_only_for_kg_or_ton()
+    public async Task Create_refuses_different_end_ufs()
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        var a = await MdfeTestSupport.AddCteAsync(_db, 1);
+        var b = await MdfeTestSupport.AddCteAsync(_db, 2, endCity: "4106902", endUf: "PR");
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => Service().CreateFromCtesAsync("01", [a.Key, b.Key], "tester"));
+
+        Assert.Equal("Os CT-e escolhidos terminam em UFs diferentes.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Unique_violation_maps_to_cte_and_manifest_numbers()
+    {
+        await MdfeTestSupport.SeedBranchAsync(_db);
+        var cte = await MdfeTestSupport.AddCteAsync(_db, 9);
+        var rival = new TransportManifest { BranchCode = "01", Number = 55 };
+        rival.Ctes.Add(new TransportManifestCte
+        {
+            TransportDocumentKey = cte.Key, CteAccessKey = cte.AccessKey!, UnloadingCityIbge = "3509502", UnloadingCityName = "CAMPINAS",
+        });
+        _db.Context.TransportManifests.Add(rival);
+        await _db.SaveChangesAsync();
+
+        var mapped = await MdfeEligibleCtesQuery.MapUniqueViolationAsync(_db, 2601, [cte.Key], Guid.NewGuid());
+        var other = await MdfeEligibleCtesQuery.MapUniqueViolationAsync(_db, 547, [cte.Key], Guid.NewGuid());
+
+        Assert.Equal("O CT-e 9 já está no MDF-e 55.", mapped?.Message);
+        Assert.Null(other);
+        Assert.Null(MdfeEligibleCtesQuery.SqlErrorNumber(new Microsoft.EntityFrameworkCore.DbUpdateException("x", new InvalidOperationException())));
+    }
+
+    [Fact]
+    public async Task Create_prefills_weight_only_for_kg_or_ton_m3_leaves_zero()
     {
         await MdfeTestSupport.SeedBranchAsync(_db);
         var kg = await MdfeTestSupport.AddCteAsync(_db, 1, unit: "01", quantity: 1500m);
@@ -100,7 +133,7 @@ public class TransportManifestsCreateFromCtesServiceTests
 
         Assert.Equal("01", mixed.WeightUnit);
         Assert.Equal(3500m, mixed.GrossWeight);
-        Assert.Equal(0m, volume.GrossWeight); // vazio: o usuário digita em KG/TON
+        Assert.Equal(0m, volume.GrossWeight); // 0 = vazio: o usuário digita em KG/TON
     }
 
     [Fact]

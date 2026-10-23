@@ -1,4 +1,3 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Domain.Entities;
@@ -12,8 +11,7 @@ namespace SiagroB1.Application.Services.Mdfe;
 
 /// <summary>
 /// Gravação do MDF-e em rascunho (só Draft) e exclusão do rascunho. Documentos (CPF/CNPJ/CIOT/CEP) ficam só com
-/// dígitos; o CteCount sai das linhas de CT-e. A elegibilidade dos CT-e é reconferida dentro da transação e o
-/// índice único filtrado (IsActive) dá a última palavra numa corrida entre duas abas.
+/// dígitos; o CteCount sai das linhas de CT-e. Os vínculos de CT-e não mudam aqui.
 /// </summary>
 public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration configuration, MdfeReadinessValidator validator)
 {
@@ -25,38 +23,15 @@ public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration config
     {
         TransportManifestsCreateFromCtesService.EnsureStandalone(configuration);
 
-        await db.BeginTransactionAsync();
-        try
-        {
-            var m = await LoadTrackedAsync(key) ?? throw new DefaultException(NotFound);
-            if (m.Status != MdfeStatus.Draft) throw new DefaultException(OnlyDraft);
+        // A gravação não mexe nos vínculos de CT-e (só a inclusão os cria), então não há corrida a guardar aqui.
+        var m = await LoadTrackedAsync(key) ?? throw new DefaultException(NotFound);
+        if (m.Status != MdfeStatus.Draft) throw new DefaultException(OnlyDraft);
 
-            var cteKeys = m.Ctes.Select(c => c.TransportDocumentKey).ToList();
-            await MdfeEligibleCtesQuery.EnsureNotInOtherActiveManifestAsync(db, cteKeys, m.Key);
-
-            await ApplyAsync(m, model);
-            m.UpdatedAt = DateTime.Now;
-            m.UpdatedBy = user;
-
-            try
-            {
-                await db.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
-            {
-                await db.RollbackAsync();
-                await MdfeEligibleCtesQuery.EnsureNotInOtherActiveManifestAsync(db, cteKeys, m.Key);
-                throw new DefaultException("Um dos CT-e já está em outro MDF-e.");
-            }
-
-            await db.CommitAsync();
-            return (await validator.ValidateAsync(m)).Warnings;
-        }
-        catch
-        {
-            await db.RollbackAsync();
-            throw;
-        }
+        await ApplyAsync(m, model);
+        m.UpdatedAt = DateTime.Now;
+        m.UpdatedBy = user;
+        await db.SaveChangesAsync();
+        return (await validator.ValidateAsync(m)).Warnings;
     }
 
     public async Task DeleteAsync(Guid key)
@@ -96,8 +71,8 @@ public class TransportManifestsSaveService(IUnitOfWork db, IConfiguration config
             .Select((u, i) => new TransportManifestRouteUf { LineNum = i + 1, Uf = u }));
         Replace(m.Seals, model.Seals.Select(s => DfeText.CleanOrNull(s, 20)).OfType<string>()
             .Select(s => new TransportManifestSeal { Number = s }));
-        Replace(m.Drivers, model.AdditionalDrivers.Where(d => !d.Cpf.All(c => !char.IsAsciiDigit(c)))
-            .Select((d, i) => new TransportManifestDriver { LineNum = i + 1, Cpf = digits(d.Cpf), Name = DfeText.Clean(d.Name, 60) }));
+        Replace(m.Drivers, model.AdditionalDrivers.Where(d => digits(d.Cpf).Length > 0)
+            .Select((d, i) => new TransportManifestDriver { LineNum = i + 1, Cpf = digits(d.Cpf), Name = DfeText.Clean(d.Name ?? string.Empty, 60) }));
         Replace(m.Contractors, model.Contractors.Select(c => (TaxId: digits(c.TaxId), c.Name)).Where(c => c.TaxId.Length > 0)
             .DistinctBy(c => c.TaxId).Select(c => new TransportManifestContractor { TaxId = c.TaxId, Name = DfeText.Clean(c.Name, 60) }));
         Replace(m.Payments, model.Payments.Select(ToPayment));
