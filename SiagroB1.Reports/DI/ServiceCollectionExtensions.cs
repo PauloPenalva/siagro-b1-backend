@@ -29,6 +29,8 @@ public static class ServiceCollectionExtensions
 
         // Não termina em "Service": o scan acima não o registra.
         services.AddScoped<SiagroB1.Reports.Services.SpedFiscal.SpedFiscalDataLoader>();
+        services.AddScoped<SiagroB1.Reports.Services.Sped.SpedMasterDataLoader>();
+        services.AddScoped<SiagroB1.Reports.Services.EfdContributions.EfdContributionsDataLoader>();
             
         return services;
     }

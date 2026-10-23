@@ -1,3 +1,4 @@
+using SiagroB1.Reports.Services.Sped;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -252,7 +253,7 @@ public class SpedFiscalDataLoaderTests
     }
 
     private static SpedFiscalDataLoader Loader(IUnitOfWork db) => new(db, new FiscalConferenceService(db),
-        new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!));
+        new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!), new SpedMasterDataLoader(db));
 
     private static SpedFiscalRequest Request() => new() { BranchCode = "01", Year = 2026, Month = 7 };
 

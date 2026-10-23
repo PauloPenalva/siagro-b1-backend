@@ -40,6 +40,8 @@ public static class UsageTaxationValidator
         ValidateRateForTaxedCst(model.PisCst, model.PisRate, "PIS");
         ValidateRateForTaxedCst(model.CofinsCst, model.CofinsRate, "COFINS");
 
+        ValidateEfdContributionsCodes(model);
+
         ValidateIbsCbs(model);
 
         if (!Enum.IsDefined(model.RuralContributionMode))
@@ -133,6 +135,19 @@ public static class UsageTaxationValidator
     {
         if (value is < 0 or > 100)
             throw new DefaultException($"{label} deve estar entre 0 e 100.");
+    }
+
+    private static void ValidateEfdContributionsCodes(UsageModel model)
+    {
+        var revenue = FiscalCodes.Normalize(model.PisCofinsRevenueNatureCode);
+        if (revenue is not null && (revenue.Length != 3 || !revenue.All(char.IsAsciiDigit)))
+            throw new DefaultException("Natureza da receita deve ter 3 dígitos.");
+
+        var creditBase = FiscalCodes.Normalize(model.PisCofinsCreditBaseCode);
+        if (creditBase is not null &&
+            (creditBase.Length != 2 || !creditBase.All(char.IsAsciiDigit) ||
+             int.Parse(creditBase) is < 1 or > 18))
+            throw new DefaultException("Base de cálculo do crédito deve estar entre 01 e 18.");
     }
 
     private static void ValidateIbsCbs(UsageModel model)

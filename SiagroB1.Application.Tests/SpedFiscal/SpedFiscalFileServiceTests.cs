@@ -303,7 +303,7 @@ public class SpedFiscalFileServiceTests
     }
 
     internal static SpedFiscalDataLoader Loader(IUnitOfWork db) => new(db, new FiscalConferenceService(db),
-        new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!));
+        new FiscalInventoryService(db, new FiscalKardexService(new FiscalStockLedgerLoader(db)), null!), new SiagroB1.Reports.Services.Sped.SpedMasterDataLoader(db));
 
     internal static SpedFiscalFileService Service(IUnitOfWork db) => new(Loader(db), new FiscalConferenceService(db));
 

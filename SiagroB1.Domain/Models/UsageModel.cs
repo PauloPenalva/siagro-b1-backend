@@ -57,6 +57,8 @@ public class UsageModel
     public string? CofinsCst { get; set; }
     public decimal? CofinsRate { get; set; }
     public bool ExcludeIcmsFromPisCofinsBase { get; set; }
+    public string? PisCofinsRevenueNatureCode { get; set; }
+    public string? PisCofinsCreditBaseCode { get; set; }
 
     public string? IbsCbsCst { get; set; }
     public string? IbsCbsClassCode { get; set; }
