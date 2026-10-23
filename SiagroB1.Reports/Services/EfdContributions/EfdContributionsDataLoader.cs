@@ -15,28 +15,14 @@ namespace SiagroB1.Reports.Services.EfdContributions;
 /// </summary>
 public class EfdContributionsDataLoader(IUnitOfWork db, FiscalConferenceService conference, SpedMasterDataLoader masterData)
 {
-    private const string HeadOfficeOrder = "0001";
-
     public async Task<EfdContributionsData> LoadAsync(EfdContributionsRequest request)
     {
-        var requested = await db.Context.Branchs.AsNoTracking().FirstOrDefaultAsync(b => b.Code == request.BranchCode);
-        var root = Digits(requested?.TaxId);
-        if (root.Length < 8) throw new BusinessException("Filial sem CNPJ.");
-        root = root[..8];
-
-        // TaxId é formatado no banco; a raiz é comparada só pelos dígitos, em memória.
-        var branches = (await db.Context.Branchs.AsNoTracking().Where(b => b.TaxId != null).ToListAsync())
-            .Select(b => (Branch: b, Cnpj: Digits(b.TaxId)))
-            .Where(x => x.Cnpj.Length >= 8 && x.Cnpj[..8] == root)
-            .OrderBy(x => x.Cnpj, StringComparer.Ordinal)
-            .ToList();
-
-        var declarant = branches.FirstOrDefault(x => x.Cnpj.Length >= 12 && x.Cnpj[8..12] == HeadOfficeOrder).Branch;
+        var (branches, declarant) = await CompanyBranches.LoadAsync(db, request.BranchCode);
         var settings = declarant == null ? null : await db.Context.SpedFiscalSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.BranchCode == declarant.Code);
 
         var establishments = new List<EfdEstablishment>();
-        foreach (var (branch, _) in branches)
+        foreach (var branch in branches)
         {
             var (all, _) = await conference.LoadLinesAsync(new FiscalConferenceRequest
             {
@@ -64,6 +50,4 @@ public class EfdContributionsDataLoader(IUnitOfWork db, FiscalConferenceService 
             Declarant = declarant, Settings = settings, Establishments = establishments, Usages = usages,
         };
     }
-
-    private static string Digits(string? value) => new((value ?? "").Where(char.IsAsciiDigit).ToArray());
 }

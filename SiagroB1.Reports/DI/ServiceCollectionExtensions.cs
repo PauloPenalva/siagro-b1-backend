@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Reports.Services.SpedFiscal.SpedFiscalDataLoader>();
         services.AddScoped<SiagroB1.Reports.Services.Sped.SpedMasterDataLoader>();
         services.AddScoped<SiagroB1.Reports.Services.EfdContributions.EfdContributionsDataLoader>();
+        services.AddScoped<SiagroB1.Reports.Services.Ecd.EcdDataLoader>();
             
         return services;
     }
