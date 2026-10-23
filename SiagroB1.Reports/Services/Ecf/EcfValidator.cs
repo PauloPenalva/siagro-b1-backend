@@ -8,7 +8,8 @@ namespace SiagroB1.Reports.Services.Ecf;
 
 /// <summary>
 /// Inconsistências que impedem a geração da ECF: as da ECD do mesmo ano (contabilidade, meses fechados, plano
-/// referencial, visões, resultado apurado…, pelo <see cref="EcdValidator"/>, porque os blocos J/K são os da ECD) e as
+/// referencial, visões, resultado apurado…, por <see cref="EcdValidator.ValidateLedger"/>, porque os blocos J/K são
+/// os da ECD; sem as regras dos dados do livro da ECD) e as
 /// próprias da ECF. Estático de propósito: o Scrutor só registra classes terminadas em "Service".
 /// </summary>
 public static class EcfValidator
@@ -17,8 +18,9 @@ public static class EcfValidator
 
     public static List<EcdIssueDto> Validate(EcfData data, EcfRequest request)
     {
-        // Regras da ECD; a substituição da ECD não se aplica (a retificadora da ECF é conferida abaixo)
-        var issues = EcdValidator.Validate(data.Ledger, new EcdRequest { BranchCode = request.BranchCode, Year = request.Year });
+        // Regras da escrituração contábil (as da ECD), sem os dados do livro da ECD (NIRE, atos, CRC…)
+        var issues = new List<EcdIssueDto>();
+        EcdValidator.ValidateLedger(data.Ledger, request.Year, "ECF", issues, bookSettings: false);
         void Block(string message, string reference = "") =>
             issues.Add(new EcdIssueDto { Blocking = true, Message = message, Reference = reference });
 
@@ -26,14 +28,21 @@ public static class EcfValidator
             Block($"ECF disponível a partir do ano-calendário {EcfFileService.FirstSupportedYear}.");
 
         var code = data.Ledger.Declarant?.Code ?? "";
-        if (data.Ledger.Declarant != null)
+        if (data.Ledger.Declarant is { } declarant)
         {
+            // 0030: endereço obrigatório
+            if (new[] { declarant.Street, declarant.StreetNumber, declarant.District, declarant.ZipCode }.Any(string.IsNullOrWhiteSpace))
+                Block("Endereço da filial matriz incompleto para a ECF (logradouro, número, bairro e CEP).", code);
+
             if (data.Settings is not { } s) Block("Parâmetros da ECF não cadastrados para a filial.", code);
             else
             {
                 var cnae = s.MainCnae?.Trim() ?? "";
                 if (cnae.Length != 7 || !cnae.All(char.IsAsciiDigit))
                     Block($"Parâmetros da ECF: CNAE principal {cnae} inválido (7 dígitos).", code);
+                var nature = s.NatureCode?.Trim() ?? "";
+                if (nature.Length != 4 || !nature.All(char.IsAsciiDigit))
+                    Block("Natureza jurídica deve ter 4 dígitos.", code);
                 if (request.Purpose == 1 && string.IsNullOrWhiteSpace(s.PreviousEcfHash))
                     Block("ECF retificadora: informe o hash da ECF anterior nos parâmetros da ECF.", code);
 

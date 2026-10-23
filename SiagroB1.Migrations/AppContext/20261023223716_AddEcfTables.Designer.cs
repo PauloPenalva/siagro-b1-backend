@@ -12,7 +12,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261023220353_AddEcfTables")]
+    [Migration("20261023223716_AddEcfTables")]
     partial class AddEcfTables
     {
         /// <inheritdoc />
@@ -1322,6 +1322,10 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("MainCnae")
                         .IsRequired()
                         .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("NatureCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(4)");
 
                     b.Property<string>("PreviousEcfHash")
                         .HasColumnType("VARCHAR(40)");

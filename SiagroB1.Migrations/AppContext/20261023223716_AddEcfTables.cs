@@ -59,6 +59,7 @@ namespace SiagroB1.Migrations.AppContext
                     AssessmentForm = table.Column<int>(type: "int", nullable: false),
                     MainCnae = table.Column<string>(type: "VARCHAR(7)", nullable: false),
                     LegalEntityQualification = table.Column<string>(type: "VARCHAR(2)", nullable: false),
+                    NatureCode = table.Column<string>(type: "VARCHAR(4)", nullable: false),
                     PreviousEcfHash = table.Column<string>(type: "VARCHAR(40)", nullable: true),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedBy = table.Column<string>(type: "VARCHAR(100)", nullable: false)

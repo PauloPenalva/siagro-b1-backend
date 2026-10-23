@@ -13,7 +13,7 @@ namespace SiagroB1.Web.Controllers;
 public class EcfSettingsController(IEcfSettingsService service, IConfiguration configuration) : ODataController
 {
     private static readonly string[] RequiredKeys =
-        ["BranchCode", "AssessmentForm", "MainCnae", "LegalEntityQualification", "PreviousEcfHash"];
+        ["BranchCode", "AssessmentForm", "MainCnae", "LegalEntityQualification", "NatureCode", "PreviousEcfHash"];
 
     private const string StandaloneOnly = "Disponível somente no modo STANDALONE.";
 
@@ -45,6 +45,7 @@ public class EcfSettingsController(IEcfSettingsService service, IConfiguration c
             AssessmentForm = form.Value,
             MainCnae = Text(parameters, "MainCnae") ?? string.Empty,
             LegalEntityQualification = Text(parameters, "LegalEntityQualification") ?? string.Empty,
+            NatureCode = Text(parameters, "NatureCode") ?? string.Empty,
             PreviousEcfHash = Text(parameters, "PreviousEcfHash"),
         };
 

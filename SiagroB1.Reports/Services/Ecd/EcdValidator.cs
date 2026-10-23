@@ -38,20 +38,34 @@ public static class EcdValidator
         var issues = new List<EcdIssueDto>();
         void Block(string message, string reference = "") =>
             issues.Add(new EcdIssueDto { Blocking = true, Message = message, Reference = reference });
-        void Warn(string message, string reference = "") =>
-            issues.Add(new EcdIssueDto { Blocking = false, Message = message, Reference = reference });
 
-        var year = request.Year;
-        if (year < EcdFileService.FirstSupportedYear)
+        if (request.Year < EcdFileService.FirstSupportedYear)
             Block($"ECD disponível a partir do ano-calendário {EcdFileService.FirstSupportedYear} (leiaute 9).");
         if (request.Purpose == 1 && string.IsNullOrWhiteSpace(request.ReplacedBookHash))
             Block("Escrituração substituta: informe o hash do livro substituído.");
+
+        ValidateLedger(data, request.Year, "ECD", issues, bookSettings: true);
+        return issues.DistinctBy(i => (i.Blocking, i.Message)).ToList();
+    }
+
+    /// <summary>
+    /// Regras da escrituração contábil do ano, comuns à ECD e à ECF (blocos I/J da ECD = J/K da ECF): contabilidade,
+    /// declarante, signatários, meses fechados, lançamentos, plano referencial, visões e resultado apurado.
+    /// <paramref name="book"/> nomeia a escrituração nas mensagens; <paramref name="bookSettings"/> liga as regras
+    /// dos dados do livro (NIRE, atos constitutivos, CRC, qualificação), que só a ECD usa.
+    /// </summary>
+    public static void ValidateLedger(EcdData data, int year, string book, List<EcdIssueDto> issues, bool bookSettings)
+    {
+        void Block(string message, string reference = "") =>
+            issues.Add(new EcdIssueDto { Blocking = true, Message = message, Reference = reference });
+        void Warn(string message, string reference = "") =>
+            issues.Add(new EcdIssueDto { Blocking = false, Message = message, Reference = reference });
 
         var start = new DateTime(year, 1, 1);
         if (data.Accounting.CutoverDate is not { } cutover)
             Block("Contabilidade desligada: informe a data de corte nos parâmetros da contabilidade.");
         else if (cutover.Date > start)
-            Block($"Data de corte da contabilidade ({cutover:dd/MM/yyyy}) depois do início de {year}: a ECD precisa do ano inteiro.");
+            Block($"Data de corte da contabilidade ({cutover:dd/MM/yyyy}) depois do início de {year}: a {book} precisa do ano inteiro.");
 
         var declarant = data.Declarant;
         if (declarant == null)
@@ -66,7 +80,14 @@ public static class EcdValidator
             if (string.IsNullOrWhiteSpace(declarant.MunicipalityCode) || string.IsNullOrWhiteSpace(data.MunicipalityName))
                 Block($"Filial {code} sem município.", code);
 
-            if (data.Settings is not { } s) Block("Parâmetros da ECD não cadastrados para a filial.", code);
+            if (data.Settings is not { } s)
+                Block(bookSettings ? "Parâmetros da ECD não cadastrados para a filial."
+                    : $"Parâmetros da ECD (responsável pela {book}) não cadastrados para a filial.", code);
+            else if (!bookSettings)
+            {
+                foreach (var (value, field) in new[] { (s.SignerName, "nome"), (s.SignerCpf, "CPF"), (s.SignerEmail, "e-mail") })
+                    if (string.IsNullOrWhiteSpace(value)) Block($"Responsável pela {book}: informe {field} nos Parâmetros da ECD.", code);
+            }
             else
             {
                 if (s.HasNire && string.IsNullOrWhiteSpace(s.Nire)) Block("Parâmetros da ECD: informe o NIRE.", code);
@@ -117,7 +138,7 @@ public static class EcdValidator
             foreach (var line in view.Lines.Where(l => l.Kind != ManagementViewLineKind.Accounts)
                          .Where(l => view.Lines.All(c => c.ParentCode != l.Code))
                          .OrderBy(l => l.Order).ThenBy(l => l.Code, StringComparer.Ordinal))
-                Block($"Linha {line.Code} da visão {view.Name} sem linhas filhas; ajuste a visão para a ECD.", line.Code);
+                Block($"Linha {line.Code} da visão {view.Name} sem linhas filhas; ajuste a visão para a {book}.", line.Code);
 
         var postings = EcdLedger.Postings(data);
         var accounts = data.Accounts.ToDictionary(a => a.Code);
@@ -144,7 +165,7 @@ public static class EcdValidator
             if (!account.AllowsPosting) Block($"Conta sintética {code} com lançamento.", code);
             // I050: o nível 1 é sintético e toda analítica tem COD_CTA_SUP
             else if (account.ParentCode == null || !accounts.ContainsKey(account.ParentCode))
-                Block($"Conta {code} analítica sem conta sintética superior; o plano de contas da ECD exige grupo sintético no nível 1.", code);
+                Block($"Conta {code} analítica sem conta sintética superior; o plano de contas da {book} exige grupo sintético no nível 1.", code);
             if (string.IsNullOrWhiteSpace(account.ReferentialCode)) Block($"Conta {code} sem código do plano referencial.", code);
             if (data.BalanceSheet != null && data.IncomeStatement != null
                 && EcdLedger.LineOf(data.BalanceSheet, code) == null && EcdLedger.LineOf(data.IncomeStatement, code) == null)
@@ -171,7 +192,5 @@ public static class EcdValidator
             foreach (var (view, line, total, children, _) in EcdFileService.TotalMismatches(data, postings))
                 Block($"Linha {line} da visão {view}: total {Money(total)} difere da soma das linhas filhas {Money(children)}.", line);
         }
-
-        return issues.DistinctBy(i => (i.Blocking, i.Message)).ToList();
     }
 }

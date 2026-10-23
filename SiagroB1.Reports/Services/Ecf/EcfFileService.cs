@@ -27,12 +27,6 @@ public class EcfFileService(EcfDataLoader loader)
 
     public static string LayoutVersion(int year) => Layouts.Last(l => l.FromYear <= year).Version;
 
-    /// <summary>
-    /// Natureza jurídica do 0030 (tabela da RFB): 2062 = sociedade empresária limitada. Não há o campo no cadastro;
-    /// fixo até existir (a CEAGUI é Ltda).
-    /// </summary>
-    public const string LegalNatureCode = "2062";
-
     public async Task<EcfCheckDto> CheckAsync(EcfRequest request)
     {
         var data = await loader.LoadAsync(request);
@@ -81,8 +75,8 @@ public class EcfFileService(EcfDataLoader loader)
         w.Add("E990", w.CountOfBlock('E') + 1);
 
         WriteBlockJ(w, data.Ledger, postings, request.Year);
-        var k = WriteBlockK(w, data.Ledger, postings, periods);
-        WriteBlockL(w, data.Ledger, periods, k);
+        var k = WriteBlockK(w, data.Ledger, postings, EcfAssessment.BalancePeriods(request.Year, data.Settings.AssessmentForm));
+        WriteBlockL(w, data.Ledger, k);
         WriteBlockM(w, data, request, periods);
         WriteBlockN(w, data, request, periods);
 
@@ -122,10 +116,12 @@ public class EcfFileService(EcfDataLoader loader)
 
         // 0010: REG, HASH_ECF_ANTERIOR, OPT_REFIS, FORMA_TRIB, FORMA_APUR, COD_QUALIF_PJ, FORMA_TRIB_PER, MES_BAL_RED,
         //       TIP_ESC_PRE, TIP_ENT, FORMA_APUR_I, APUR_CSLL, IND_REC_RECEITA
-        // FORMA_TRIB 1 = Lucro Real; MES_BAL_RED só no anual: "B" = balancete de suspensão/redução nos 12 meses.
-        // FORMA_TRIB_PER, TIP_ESC_PRE, TIP_ENT, FORMA_APUR_I, APUR_CSLL e IND_REC_RECEITA são de outras formas.
-        w.Add("0010", "", "N", "1", annual ? "A" : "T", s.LegalEntityQualification, "",
-            annual ? new string('B', 12) : "", "", "", "", "", "");
+        // FORMA_TRIB 1 = Lucro Real. FORMA_TRIB_PER (um por trimestre): "E" = real por estimativa (anual), "R" = real
+        // (trimestral). MES_BAL_RED só no anual: "B" = balancete de suspensão/redução nos 12 meses. APUR_CSLL: "D" =
+        // estimativa por balancete (anual), "T" = trimestral. TIP_ESC_PRE, TIP_ENT, FORMA_APUR_I e IND_REC_RECEITA
+        // são de outras formas de tributação.
+        w.Add("0010", "", "N", "1", annual ? "A" : "T", s.LegalEntityQualification, annual ? "EEEE" : "RRRR",
+            annual ? new string('B', 12) : "", "", "", "", annual ? "D" : "T", "");
 
         // 0020: REG, IND_ALIQ_CSLL, IND_QTE_SCP, IND_ADM_FUN_CLU, IND_PART_CONS, IND_OP_EXT, IND_OP_VINC, IND_PJ_ENQUAD,
         //       IND_PART_EXT, IND_ATIV_RURAL, IND_LUC_EXP, IND_RED_ISEN, IND_FIN, IND_PART_COLIG, IND_VEND_EXP,
@@ -140,7 +136,7 @@ public class EcfFileService(EcfDataLoader loader)
         w.Add("0020", flags);
 
         // 0030: REG, COD_NAT, CNAE_FISCAL, ENDERECO, NUM, COMPL, BAIRRO, UF, COD_MUN, CEP, NUM_TEL, EMAIL
-        w.Add("0030", LegalNatureCode, Digits(s.MainCnae), d.Street, d.StreetNumber, d.Complement, d.District, d.StateCode,
+        w.Add("0030", s.NatureCode.Trim(), Digits(s.MainCnae), d.Street, d.StreetNumber, d.Complement, d.District, d.StateCode,
             d.MunicipalityCode, Digits(d.ZipCode), Digits(d.Phone), ecd.SignerEmail);
 
         // 0930: REG, IDENT_NOM, IDENT_CPF_CNPJ, IDENT_QUALIF, IND_CRC, EMAIL, FONE — responsável e contabilista (os da ECD)
@@ -200,14 +196,14 @@ public class EcfFileService(EcfDataLoader loader)
     }
 
     private static List<PeriodK> WriteBlockK(SpedRecordWriter w, EcdData data, List<EcdPosting> postings,
-        List<EcfPeriodAssessment> periods)
+        List<EcfPeriod> periods)
     {
         var infos = EcdLedger.AccountInfos(data);
         var accounts = data.Accounts.ToDictionary(a => a.Code);
         var months = EcdLedger.Months(data, postings);
         var result = new List<PeriodK>();
         w.Add("K001", "0");
-        foreach (var p in periods.Select(x => x.Period))
+        foreach (var p in periods)
         {
             // K030: REG, DT_INI, DT_FIN, PER_APUR
             w.Add("K030", p.Start, p.End, p.Code);
@@ -245,7 +241,7 @@ public class EcfFileService(EcfDataLoader loader)
     /// sintéticas do plano referencial). Nível e superior saem do próprio código ("1.01.01" → nível 3, superior
     /// "1.01"); descrição = código (o PVA usa a da tabela do plano referencial).
     /// </summary>
-    private static void WriteBlockL(SpedRecordWriter w, EcdData data, List<EcfPeriodAssessment> periods, List<PeriodK> k)
+    private static void WriteBlockL(SpedRecordWriter w, EcdData data, List<PeriodK> k)
     {
         var accounts = data.Accounts.ToDictionary(a => a.Code);
         string Nature(string account) => EcdLedger.GroupNature(accounts[account].Type);
@@ -305,15 +301,16 @@ public class EcfFileService(EcfDataLoader loader)
 
             // M500: REG, COD_CTA_B, COD_TRIBUTO, SD_INI_LAL, IND_SD_INI_LAL, VL_LCTO_PARTE_A, IND_VL_LCTO_PARTE_A,
             //       VL_LCTO_PARTE_B, IND_VL_LCTO_PARTE_B, SD_FIM_LAL, IND_SD_FIM_LAL
-            // Adição credita a conta da Parte B (valor a excluir no futuro); exclusão e compensação debitam.
-            // Sem lançamentos só da Parte B (M410): os ajustes do Siagro sempre passam pela Parte A.
+            // Convenção do e-Lalur: adição temporária debita a conta da Parte B (valor a excluir no futuro); exclusão e
+            // compensação creditam (o saldo de prejuízo/base negativa é devedor e a compensação o reduz).
+            // Saldo inicial zero (controle entre anos fora do escopo). Sem lançamentos só da Parte B (M410).
             foreach (var (code, irpj, _) in partB)
             {
                 var list = irpj ? p.IrpjAdjustments : p.CsllAdjustments;
                 var movement = list.Where(a => a.PartBAccountCode?.Trim() == code)
-                    .Sum(a => a.Kind == EcfAdjustmentKind.Addition ? -a.Amount : a.Amount);
-                w.Add("M500", code, TaxCode(irpj), 0m, "D", Math.Abs(movement), movement > 0 ? "D" : "C", 0m, "D",
-                    Math.Abs(movement), movement > 0 ? "D" : "C");
+                    .Sum(a => a.Kind == EcfAdjustmentKind.Addition ? a.Amount : -a.Amount);
+                var side = movement >= 0 ? "D" : "C";
+                w.Add("M500", code, TaxCode(irpj), 0m, "D", Math.Abs(movement), side, 0m, "D", Math.Abs(movement), side);
             }
         }
 
@@ -345,7 +342,8 @@ public class EcfFileService(EcfDataLoader loader)
             w.Add(reg, a.TableCode.Trim(), a.Description, kind, hasB && hasAccount ? "3" : hasB ? "1" : hasAccount ? "2" : "4",
                 a.Amount, a.Description);
             // M305/M355: REG, COD_CTA_B, VL_CTA, IND_VL_CTA
-            if (hasB) w.Add(partBReg, a.PartBAccountCode!.Trim(), a.Amount, a.Kind == EcfAdjustmentKind.Addition ? "C" : "D");
+            // Parte B: adição D, exclusão e compensação C (convenção do e-Lalur)
+            if (hasB) w.Add(partBReg, a.PartBAccountCode!.Trim(), a.Amount, a.Kind == EcfAdjustmentKind.Addition ? "D" : "C");
             // M310/M360: REG, COD_CTA, COD_CCUS, VL_CTA, IND_VL_CTA
             if (hasAccount) w.Add(accountReg, a.LedgerAccountCode!.Trim(), "", a.Amount, a.Kind == EcfAdjustmentKind.Addition ? "D" : "C");
         }
@@ -363,16 +361,27 @@ public class EcfFileService(EcfDataLoader loader)
         var estimates = annual ? EcfAssessment.MonthlyEstimates(data, request.Year) : [];
         w.Add("N001", "0");
 
-        // Anual: um período A01..A12 por balancete acumulado (estimativas), depois o A00 do ano
+        // Anual: um período A01..A12 por balancete acumulado (estimativas), depois o A00 do ano. A01..A11 levam também a
+        // base acumulada (N500/N650, sem ajustes), coerente com os K/L desses meses; dezembro é o próprio A00.
         foreach (var e in estimates)
         {
             var first = new DateTime(request.Year, e.Month, 1);
             // N030: REG, DT_INI, DT_FIN, PER_APUR
             w.Add("N030", first, first.AddMonths(1).AddDays(-1), $"A{e.Month:00}");
+            if (e.Month < 12)
+                Lines(w, "N500",
+                    (EcfTableCodes.N500BookProfit, e.CumulativeProfit), (EcfTableCodes.N500Additions, 0m),
+                    (EcfTableCodes.N500Exclusions, 0m), (EcfTableCodes.N500AdjustedProfit, e.IrpjCumulative.AdjustedProfit),
+                    (EcfTableCodes.N500LossOffset, 0m), (EcfTableCodes.N500TaxableIncome, e.IrpjCumulative.TaxableBase));
             Lines(w, "N620",
                 (EcfTableCodes.N620Base, e.IrpjCumulative.TaxableBase), (EcfTableCodes.N620Tax, e.IrpjCumulative.Tax),
                 (EcfTableCodes.N620Surtax, e.IrpjCumulative.Surtax), (EcfTableCodes.N620Due, e.IrpjCumulative.Total),
                 (EcfTableCodes.N620PreviouslyDue, e.IrpjPreviouslyDue), (EcfTableCodes.N620Payable, e.Irpj));
+            if (e.Month < 12)
+                Lines(w, "N650",
+                    (EcfTableCodes.N650BookProfit, e.CumulativeProfit), (EcfTableCodes.N650Additions, 0m),
+                    (EcfTableCodes.N650Exclusions, 0m), (EcfTableCodes.N650AdjustedProfit, e.CsllCumulative.AdjustedProfit),
+                    (EcfTableCodes.N650LossOffset, 0m), (EcfTableCodes.N650Base, e.CsllCumulative.TaxableBase));
             Lines(w, "N660",
                 (EcfTableCodes.N660Base, e.CsllCumulative.TaxableBase), (EcfTableCodes.N660Tax, e.CsllCumulative.Tax),
                 (EcfTableCodes.N660PreviouslyDue, e.CsllPreviouslyDue), (EcfTableCodes.N660Payable, e.Csll));

@@ -47,9 +47,10 @@ public class EcfSettingsServiceTests
     [Theory]
     [InlineData("123456", "01", "CNAE deve ter 7 dígitos.")]
     [InlineData("0111301", "1", "Qualificação da pessoa jurídica deve ter 2 dígitos.")]
-    public async Task Save_rejects_invalid(string cnae, string qualification, string message)
+    [InlineData("0111301", "01", "Natureza jurídica deve ter 4 dígitos.", "206")]
+    public async Task Save_rejects_invalid(string cnae, string qualification, string message, string nature = "2062")
     {
-        var s = Valid(); s.MainCnae = cnae; s.LegalEntityQualification = qualification;
+        var s = Valid(); s.MainCnae = cnae; s.LegalEntityQualification = qualification; s.NatureCode = nature;
         var db = EcfTestDb.WithBranches();
         var ex = await Assert.ThrowsAsync<BusinessException>(() => new EcfSettingsService(db).SaveAsync(s, "a"));
         Assert.Equal(message, ex.Message);

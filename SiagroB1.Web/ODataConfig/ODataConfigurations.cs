@@ -396,6 +396,7 @@ public static class ODataConfigurations
         ecfSettingsSave.Parameter<string>("AssessmentForm");
         ecfSettingsSave.Parameter<string>("MainCnae");
         ecfSettingsSave.Parameter<string>("LegalEntityQualification");
+        ecfSettingsSave.Parameter<string>("NatureCode");
         ecfSettingsSave.Parameter<string>("PreviousEcfHash");
         ecfSettingsSave.Returns<EcfSettings>();
         modelBuilder.EntitySet<EcfPartner>("EcfPartners");

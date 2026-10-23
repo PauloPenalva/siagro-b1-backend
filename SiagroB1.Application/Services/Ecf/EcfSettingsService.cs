@@ -32,6 +32,9 @@ public class EcfSettingsService(IUnitOfWork db) : IEcfSettingsService
         var qualification = settings.LegalEntityQualification?.Trim() ?? string.Empty;
         if (!EcfRules.IsTwoDigits(qualification)) throw new BusinessException("Qualificação da pessoa jurídica deve ter 2 dígitos.");
 
+        var nature = settings.NatureCode?.Trim() ?? string.Empty;
+        if (nature.Length != 4 || !nature.All(char.IsAsciiDigit)) throw new BusinessException("Natureza jurídica deve ter 4 dígitos.");
+
         EcfRules.MaxLength(settings.PreviousEcfHash?.Trim(), 40, "Hash da ECF anterior");
 
         var row = await db.Context.EcfSettings.FirstOrDefaultAsync(s => s.BranchCode == branch);
@@ -44,6 +47,7 @@ public class EcfSettingsService(IUnitOfWork db) : IEcfSettingsService
         row.AssessmentForm = settings.AssessmentForm;
         row.MainCnae = cnae;
         row.LegalEntityQualification = qualification;
+        row.NatureCode = nature;
         row.PreviousEcfHash = string.IsNullOrWhiteSpace(settings.PreviousEcfHash) ? null : settings.PreviousEcfHash.Trim();
         row.UpdatedAt = DateTime.Now;
         row.UpdatedBy = user;

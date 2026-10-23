@@ -26,6 +26,10 @@ public class EcfSettings
     [Column(TypeName = "VARCHAR(2)")]
     public string LegalEntityQualification { get; set; } = "01";
 
+    /// <summary>Natureza jurídica (0030 COD_NAT, tabela da RFB), 4 dígitos; "2062" = sociedade empresária limitada.</summary>
+    [Column(TypeName = "VARCHAR(4)")]
+    public string NatureCode { get; set; } = "2062";
+
     /// <summary>Hash da ECF anterior (0000 HASH_ECF_ANTERIOR), quando há retificação/ECF anterior.</summary>
     [Column(TypeName = "VARCHAR(40)")]
     public string? PreviousEcfHash { get; set; }

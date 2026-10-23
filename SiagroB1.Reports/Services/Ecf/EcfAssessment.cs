@@ -53,6 +53,16 @@ public static class EcfAssessment
             new DateTime(year, q * 3, 1).AddMonths(1).AddDays(-1), 3)).ToList()
         : [new EcfPeriod("A00", 0, new DateTime(year, 1, 1), new DateTime(year, 12, 31), 12)];
 
+    /// <summary>
+    /// Períodos dos blocos K e L: no anual com balancete de suspensão/redução (MES_BAL_RED "B" nos 12 meses), um
+    /// período A01..A11 com o acumulado de janeiro até o mês e o A00 do ano (dezembro = A00); no trimestral, T01..T04.
+    /// </summary>
+    public static List<EcfPeriod> BalancePeriods(int year, EcfAssessmentForm form) => form == EcfAssessmentForm.Quarterly
+        ? Periods(year, form)
+        : Enumerable.Range(1, 11).Select(m => new EcfPeriod($"A{m:00}", 0, new DateTime(year, 1, 1),
+                new DateTime(year, m, 1).AddMonths(1).AddDays(-1), m))
+            .Concat(Periods(year, form)).ToList();
+
     /// <summary>Saldo das contas de resultado antes da apuração no período (linhas do K355).</summary>
     internal static List<KeyValuePair<(string Account, string? CostCenter), decimal>> ResultBalances(EcdData data,
         List<EcdPosting> postings, DateTime start, DateTime end) =>

@@ -30,6 +30,7 @@ public class EcfControllersTests
         ["AssessmentForm"] = "Annual",
         ["MainCnae"] = "0111301",
         ["LegalEntityQualification"] = "01",
+        ["NatureCode"] = "2062",
         ["PreviousEcfHash"] = null,
     };
 
@@ -55,6 +56,7 @@ public class EcfControllersTests
     [InlineData("AssessmentForm")]
     [InlineData("MainCnae")]
     [InlineData("LegalEntityQualification")]
+    [InlineData("NatureCode")]
     [InlineData("PreviousEcfHash")]
     public async Task Save_missing_key_is_rejected_and_nothing_stored(string key)
     {

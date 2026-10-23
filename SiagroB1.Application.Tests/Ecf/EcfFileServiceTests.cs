@@ -23,6 +23,8 @@ public class EcfFileServiceTests
     internal static Task<IUnitOfWork> SeedAsync(EcfAssessmentForm form = EcfAssessmentForm.Annual, Action<IUnitOfWork>? customize = null) =>
         EcdTests.SeedAsync(customize: db =>
         {
+            var matriz = db.Context.Branchs.Local.Single(b => b.Code == "01");
+            (matriz.Street, matriz.StreetNumber, matriz.District, matriz.ZipCode) = ("RUA DA SAFRA", "100", "CENTRO", "01001-000");
             db.Context.EcfSettings.Add(new EcfSettings
                 { BranchCode = "01", AssessmentForm = form, MainCnae = "0115600", LegalEntityQualification = "01" });
             db.Context.EcfPartners.AddRange(
@@ -87,9 +89,10 @@ public class EcfFileServiceTests
         Assert.Equal("ECF_12345678000195_2026.txt", fileName);
         Assert.Equal(["0000", "LECF", "0012", "12345678000195", "AGRO TESTE LTDA", "0", "0", "", "", "01012026", "31122026", "N", "", "0", ""],
             lines[0]);
-        Assert.Equal(["0010", "", "N", "1", "A", "01", "", "BBBBBBBBBBBB", "", "", "", "", ""], Of(lines, "0010").Single());
+        Assert.Equal(["0010", "", "N", "1", "A", "01", "EEEE", "BBBBBBBBBBBB", "", "", "", "D", ""], Of(lines, "0010").Single());
         Assert.Equal(33, Of(lines, "0020").Single().Length);
-        Assert.Equal("0115600", Of(lines, "0030").Single()[2]);
+        Assert.Equal(["0030", "2062", "0115600", "RUA DA SAFRA", "100", "", "CENTRO", "SP", "3550308", "01001000", "", "joao@agro.com"],
+            Of(lines, "0030").Single());
         Assert.Equal(["0930", "JOÃO DIRETOR", "52998224725", "205", "", "joao@agro.com", "11999990000"], Of(lines, "0930")[0]);
         Assert.Equal(["0930", "MARIA CONTADORA", "11144477735", "900", "SP123456O8", "maria@contab.com", "1133334444"], Of(lines, "0930")[1]);
 
@@ -116,11 +119,11 @@ public class EcfFileServiceTests
         Assert.Equal(Of(ecd, "I051").Select(l => l[1..]), Of(ecf, "J051").Select(l => l[1..]));
         Assert.Equal(Of(ecd, "I100").Select(l => l[1..]), Of(ecf, "J100").Select(l => l[1..]));
         // K355 (A00) = I355 da apuração de 31/12
-        Assert.Equal(Of(ecd, "I355").Select(l => l[1..]), Of(ecf, "K355").Select(l => l[1..]));
+        Assert.Equal(Of(ecd, "I355").Select(l => l[1..]), PeriodRows(ecf, "K030", "A00", "K355").Select(l => l[1..]));
 
         // K155 do ano = I155 de janeiro (inicial) + soma dos meses + dezembro (final), só patrimoniais
         var i155 = Of(ecd, "I155").Where(l => l[1][0] is '1' or '2').ToList();
-        var k155 = Of(ecf, "K155");
+        var k155 = PeriodRows(ecf, "K030", "A00", "K155");
         Assert.Equal(i155.Select(l => (l[1], l[2])).Distinct().Order(), k155.Select(l => (l[1], l[2])).Order());
         foreach (var k in k155)
         {
@@ -132,8 +135,35 @@ public class EcfFileServiceTests
         }
 
         Assert.Equal(["K155", "1.1.01", "", "1000,00", "D", "500,00", "200,00", "1300,00", "D"], k155.Single(l => l[1] == "1.1.01"));
-        Assert.Equal(["K156", "REF", "1000,00", "D", "500,00", "200,00", "1300,00", "D"], ecf[ecf.FindIndex(l => l[0] == "K155" && l[1] == "1.1.01") + 1]);
-        Assert.Equal(["K030", "01012026", "31122026", "A00"], Of(ecf, "K030").Single());
+        Assert.Equal(["K156", "REF", "1000,00", "D", "500,00", "200,00", "1300,00", "D"], ecf[ecf.FindLastIndex(l => l[0] == "K155" && l[1] == "1.1.01") + 1]);
+        Assert.Equal(["K030", "01012026", "31122026", "A00"], Of(ecf, "K030")[^1]);
+    }
+
+    [Fact]
+    public async Task Generate_AnnualBalancetesA01ToA11AreCumulative()
+    {
+        var lines = await GenerateAsync(await SeedAsync());
+
+        var codes = Enumerable.Range(1, 11).Select(m => $"A{m:00}").Append("A00").ToList();
+        foreach (var reg in new[] { "K030", "L030" }) Assert.Equal(codes, Of(lines, reg).Select(l => l[3]));
+        Assert.Equal(["K030", "01012026", "31052026", "A05"], Of(lines, "K030")[4]);
+        Assert.Equal(Enumerable.Range(1, 12).Select(m => $"A{m:00}").Append("A00"), Of(lines, "N030").Select(l => l[3]));
+
+        // Fevereiro: nada no resultado; março: só a receita; maio em diante: acumulado receita + despesa
+        Assert.Empty(PeriodRows(lines, "K030", "A02", "K355"));
+        Assert.Equal([["K355", "3.1.01", "CC01", "500,00", "C"]], PeriodRows(lines, "K030", "A03", "K355"));
+        Assert.Equal([["K355", "3.1.01", "CC01", "500,00", "C"], ["K355", "4.1.01", "CC01", "200,00", "D"]],
+            PeriodRows(lines, "K030", "A05", "K355"));
+        Assert.Equal(["K155", "1.1.01", "", "1000,00", "D", "500,00", "200,00", "1300,00", "D"],
+            PeriodRows(lines, "K030", "A05", "K155").Single(l => l[1] == "1.1.01"));
+        Assert.Equal(["L300", "REF", "REF", "A", "1", "04", "", "300,00", "C"], PeriodRows(lines, "L030", "A05", "L300").Single());
+        Assert.Equal(2, PeriodRows(lines, "K030", "A05", "K155").Count);
+
+        // N500/N650 nos balancetes A01..A11 (acumulado, sem ajustes); dezembro só estimativa
+        Assert.Equal(500m, Value(PeriodRows(lines, "N030", "A04", "N500"), EcfTableCodes.N500TaxableIncome));
+        Assert.Equal(300m, Value(PeriodRows(lines, "N030", "A11", "N650"), EcfTableCodes.N650Base));
+        Assert.Empty(PeriodRows(lines, "N030", "A12", "N500"));
+        Assert.Equal(12, PeriodRows(lines, "N030", "A00", "N500").Count + PeriodRows(lines, "N030", "A00", "N650").Count);
     }
 
     [Fact]
@@ -142,9 +172,10 @@ public class EcfFileServiceTests
         var lines = await GenerateAsync(await SeedAsync());
 
         // Todas as contas mapeiam para "REF": patrimoniais 1000 D − 1000 C no início; no fim 1300 D − 1300 C
-        Assert.Equal(["L100", "REF", "REF", "A", "1", "01", "", "0,00", "D", "700,00", "700,00", "0,00", "D"], Of(lines, "L100").Single());
+        Assert.Equal(["L100", "REF", "REF", "A", "1", "01", "", "0,00", "D", "700,00", "700,00", "0,00", "D"],
+            PeriodRows(lines, "L030", "A00", "L100").Single());
         // Resultado antes da apuração: receita 500 C + despesa 200 D = 300 C
-        Assert.Equal(["L300", "REF", "REF", "A", "1", "04", "", "300,00", "C"], Of(lines, "L300").Single());
+        Assert.Equal(["L300", "REF", "REF", "A", "1", "04", "", "300,00", "C"], PeriodRows(lines, "L030", "A00", "L300").Single());
     }
 
     [Fact]
@@ -167,10 +198,10 @@ public class EcfFileServiceTests
         var m350 = PeriodRows(lines, "M030", "A00", "M350");
         Assert.Equal(["93", "P1"], m350.Skip(1).Select(r => r[1]));
         Assert.Equal("P", m350[2][3]);
-        Assert.Equal(["M305", "B01", "100,00", "C"], Of(lines, "M305").Single());
+        Assert.Equal(["M305", "B01", "100,00", "D"], Of(lines, "M305").Single());
         Assert.Equal(["M310", "4.1.01", "", "100,00", "D"], Of(lines, "M310").Single());
         Assert.Equal(2, Of(lines, "M010").Count);
-        Assert.Equal(["M500", "B01", "I", "0,00", "D", "100,00", "C", "0,00", "D", "100,00", "C"], Of(lines, "M500")[0]);
+        Assert.Equal(["M500", "B01", "I", "0,00", "D", "100,00", "D", "0,00", "D", "100,00", "D"], Of(lines, "M500")[0]);
 
         var n500 = PeriodRows(lines, "N030", "A00", "N500");
         Assert.Equal(irpj.TaxableBase, Value(n500, EcfTableCodes.N500TaxableIncome));
@@ -231,8 +262,7 @@ public class EcfFileServiceTests
             Adjustment(1, EcfAdjustmentTax.Both, EcfAdjustmentKind.Addition, "93", 100_000m)));
         var lines = await GenerateAsync(db);
 
-        Assert.Equal("T", Of(lines, "0010").Single()[4]);
-        Assert.Equal("", Of(lines, "0010").Single()[7]);
+        Assert.Equal(["0010", "", "N", "1", "T", "01", "RRRR", "", "", "", "", "T", ""], Of(lines, "0010").Single());
         foreach (var reg in new[] { "K030", "L030", "M030", "N030" })
             Assert.Equal(["T01", "T02", "T03", "T04"], Of(lines, reg).Select(l => l[3]));
         Assert.Empty(Of(lines, "N620"));
@@ -319,6 +349,47 @@ public class EcfFileServiceTests
         Assert.Equal(["Parâmetros da ECF não cadastrados para a filial.", "Quadro societário não informado nos parâmetros da ECF."],
             await BlockingAsync(db));
         Assert.Contains("Parâmetros da ECF não cadastrados", (await Assert.ThrowsAsync<BusinessException>(() => Service(db).GenerateAsync(Request()))).Message);
+    }
+
+    [Fact]
+    public async Task Generate_PartBExclusionAndOffsetAreCredits()
+    {
+        var db = await SeedAsync(customize: d => d.Context.EcfAdjustments.AddRange(
+            Adjustment(0, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.Exclusion, "173", 40m, partB: "B02"),
+            Adjustment(0, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.LossOffset, "P", 50m, partB: "B03")));
+        var lines = await GenerateAsync(db);
+
+        Assert.Equal([["M305", "B02", "40,00", "C"], ["M305", "B03", "50,00", "C"]], Of(lines, "M305"));
+        Assert.Equal(["M500", "B02", "I", "0,00", "D", "40,00", "C", "0,00", "D", "40,00", "C"], Of(lines, "M500")[0]);
+        Assert.Equal("C", Of(lines, "M500")[1][10]);
+    }
+
+    [Fact]
+    public async Task Validate_IncompleteAddressAndNatureBlock()
+    {
+        var db = await SeedAsync(customize: d =>
+        {
+            d.Context.Branchs.Local.Single(b => b.Code == "01").District = " ";
+            d.Context.EcfSettings.Local.Single().NatureCode = "206";
+        });
+        Assert.Equal(["Endereço da filial matriz incompleto para a ECF (logradouro, número, bairro e CEP).",
+            "Natureza jurídica deve ter 4 dígitos."], await BlockingAsync(db));
+    }
+
+    [Fact]
+    public async Task Validate_EcdBookDataIsNotRequired_SignerIs()
+    {
+        var db = await SeedAsync(customize: d =>
+        {
+            var s = d.Context.EcdSettings.Local.Single();
+            (s.Nire, s.ConstitutiveActsDate, s.AccountantCrcSequence, s.SignerQualificationCode, s.SignerCpf) = (null, null, null, "1", "");
+        });
+        Assert.Equal(["Responsável pela ECF: informe CPF nos Parâmetros da ECD."], await BlockingAsync(db));
+
+        var cutover = await SeedAsync(customize: d => d.Context.AccountingSettings.Local.Single().CutoverDate = new DateTime(2026, 2, 1));
+        var messages = await BlockingAsync(cutover);
+        Assert.NotEmpty(messages);
+        Assert.All(messages, m => Assert.DoesNotContain("ECD", m));
     }
 
     [Fact]

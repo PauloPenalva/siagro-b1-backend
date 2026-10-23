@@ -1320,6 +1320,10 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(7)");
 
+                    b.Property<string>("NatureCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(4)");
+
                     b.Property<string>("PreviousEcfHash")
                         .HasColumnType("VARCHAR(40)");
 
