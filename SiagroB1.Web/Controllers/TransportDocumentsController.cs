@@ -29,6 +29,8 @@ public class TransportDocumentsController(
     TransportDocumentsConsultService consultService,
     TransportDocumentsCancelService cancelService,
     TransportDocumentsEndorseService endorseService,
+    CteBatchService batchService,
+    CteXmlZipService xmlZipService,
     CteEndorsementCancellationService endorsementCancellationService,
     TransportDocumentsGenerateTitleService generateTitleService,
     TransportDocumentsCorrectionService correctionService,
@@ -262,6 +264,60 @@ public class TransportDocumentsController(
         {
             return BadRequest(e.Message);
         }
+    }
+
+    /// <summary>Enfileira a transmissão (um job por CT-e). Devolve quantos entraram na fila; os fora de situação são ignorados.</summary>
+    [HttpPost("odata/TransportDocumentsTransmitBatch")]
+    public Task<IActionResult> TransmitBatchAsync([FromBody] ODataActionParameters parameters) =>
+        RunBatchAsync(parameters, keys => batchService.EnqueueTransmitAsync(keys, User.Identity?.Name ?? "Unknown"));
+
+    /// <summary>Enfileira a averbação manual (um job por CT-e). Devolve quantos entraram na fila.</summary>
+    [HttpPost("odata/TransportDocumentsEndorseBatch")]
+    public Task<IActionResult> EndorseBatchAsync([FromBody] ODataActionParameters parameters) =>
+        RunBatchAsync(parameters, keys => batchService.EnqueueEndorseAsync(keys, User.Identity?.Name ?? "Unknown"));
+
+    /// <summary>ZIP com o XML dos CT-e autorizados (e o evento de cancelamento dos cancelados).</summary>
+    [HttpPost("odata/TransportDocumentsXmlBatch")]
+    public async Task<IActionResult> XmlBatchAsync([FromBody] ODataActionParameters parameters)
+    {
+        if (parameters is null || !TryParseKeys(parameters, out var keys))
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            return File(await xmlZipService.BuildAsync(keys), "application/zip", "xml-cte.zip");
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    private static async Task<IActionResult> RunBatchAsync(ODataActionParameters parameters, Func<List<Guid>, Task<int>> action)
+    {
+        if (parameters is null || !TryParseKeys(parameters, out var keys))
+            return new BadRequestObjectResult(InvalidKey);
+
+        try
+        {
+            return new OkObjectResult(await action(keys));
+        }
+        catch (DefaultException e)
+        {
+            return new BadRequestObjectResult(e.Message);
+        }
+    }
+
+    private static bool TryParseKeys(ODataActionParameters parameters, out List<Guid> keys)
+    {
+        keys = [];
+        foreach (var raw in Texts(parameters, "Keys"))
+        {
+            if (GuidOrNull(raw) is not { } key) return false;
+            keys.Add(key);
+        }
+
+        return true;
     }
 
     /// <summary>cteProc autorizado (CT-e assinado + protCTe) para download.</summary>

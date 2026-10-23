@@ -434,6 +434,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsCancelService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsEndorseService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteEndorsementCancellationService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteBatchService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteXmlZipService>();
+        services.AddScoped<SiagroB1.Application.Jobs.CteBatchJob>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsGenerateTitleService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsCorrectionService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteVoidNumbersService>();

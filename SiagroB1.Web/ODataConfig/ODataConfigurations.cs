@@ -155,6 +155,17 @@ public static class ODataConfigurations
         transportDocumentsEndorse.Parameter<string>("Key");
         transportDocumentsEndorse.Returns<AverbaTestResult>();
 
+        var transportDocumentsTransmitBatch = modelBuilder.Action("TransportDocumentsTransmitBatch");
+        transportDocumentsTransmitBatch.CollectionParameter<string>("Keys");
+        transportDocumentsTransmitBatch.Returns<int>();
+
+        var transportDocumentsEndorseBatch = modelBuilder.Action("TransportDocumentsEndorseBatch");
+        transportDocumentsEndorseBatch.CollectionParameter<string>("Keys");
+        transportDocumentsEndorseBatch.Returns<int>();
+
+        var transportDocumentsXmlBatch = modelBuilder.Action("TransportDocumentsXmlBatch");
+        transportDocumentsXmlBatch.CollectionParameter<string>("Keys");
+
         var transportDocumentsGenerateTitle = modelBuilder.Action("TransportDocumentsGenerateTitle");
         transportDocumentsGenerateTitle.Parameter<string>("Key");
         transportDocumentsGenerateTitle.Returns<string>();
