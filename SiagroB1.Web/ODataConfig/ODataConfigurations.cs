@@ -154,6 +154,10 @@ public static class ODataConfigurations
         transportDocumentsEndorse.Parameter<string>("Key");
         transportDocumentsEndorse.Returns<AverbaTestResult>();
 
+        var transportDocumentsResendEndorsementCancellation = modelBuilder.Action("TransportDocumentsResendEndorsementCancellation");
+        transportDocumentsResendEndorsementCancellation.Parameter<string>("Key");
+        transportDocumentsResendEndorsementCancellation.Returns<AverbaTestResult>();
+
         var transportDocumentsSendCorrection = modelBuilder.Action("TransportDocumentsSendCorrection");
         transportDocumentsSendCorrection.Parameter<string>("Key");
         transportDocumentsSendCorrection.CollectionParameter<string>("Groups");

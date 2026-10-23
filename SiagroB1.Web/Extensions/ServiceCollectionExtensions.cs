@@ -431,6 +431,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Cte.ICteCancellationHook, SiagroB1.Application.Services.Cte.NoOpCteCancellationHook>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsCancelService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsEndorseService>();
+        services.AddScoped<SiagroB1.Application.Services.Cte.CteEndorsementCancellationService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsCorrectionService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteVoidNumbersService>();
         services.AddSingleton<SiagroB1.Fiscal.Cte.ICteSefazClient, SiagroB1.Fiscal.Cte.ZeusCteSefazClient>();

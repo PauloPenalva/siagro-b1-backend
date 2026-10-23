@@ -39,20 +39,18 @@ public class TransportDocumentsEndorseService(
             return Refuse(AlreadyEndorsed);
 
         var settings = await db.Context.BranchTransportSettings.AsNoTracking().FirstOrDefaultAsync(x => x.BranchCode == doc.BranchCode, ct);
-        if (settings is not { AverbaEnabled: true, AverbaPasswordCipher.Length: > 0 }
-            || string.IsNullOrWhiteSpace(settings.AverbaUser) || string.IsNullOrWhiteSpace(settings.AverbaCode))
+        if (!AverbaLogin.IsConfigured(settings))
             return Refuse(NotConfigured);
 
         var xml = doc.Xmls.FirstOrDefault(x => x.Kind == CteXmlKind.Authorized)?.Xml;
         if (xml is null)
             return await FailAsync(doc, user, "O XML autorizado do CT-e não foi encontrado.");
 
-        var password = CertificatePasswordCipher.FromBase64(configuration[CertificatePasswordCipher.ConfigurationKey]).Decrypt(settings.AverbaPasswordCipher);
-        var login = await averba.LoginAsync(settings.AverbaEnvironment, settings.AverbaUser!.Trim(), password, settings.AverbaCode!.Trim(), ct);
+        var login = await AverbaLogin.LoginAsync(averba, configuration, settings!, ct);
         if (!login.Success || string.IsNullOrWhiteSpace(login.Bearer))
             return await FailAsync(doc, user, login.Error ?? "Falha no login da AT&M.");
 
-        var sent = await averba.SendCteAsync(settings.AverbaEnvironment, login.Bearer, xml, ct);
+        var sent = await averba.SendCteAsync(settings!.AverbaEnvironment, login.Bearer, xml, ct);
         if (!sent.Success)
             return await FailAsync(doc, user, sent.Error ?? "A AT&M recusou a averbação.");
 

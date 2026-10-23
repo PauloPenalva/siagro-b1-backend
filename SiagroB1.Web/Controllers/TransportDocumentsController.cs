@@ -29,6 +29,7 @@ public class TransportDocumentsController(
     TransportDocumentsConsultService consultService,
     TransportDocumentsCancelService cancelService,
     TransportDocumentsEndorseService endorseService,
+    CteEndorsementCancellationService endorsementCancellationService,
     TransportDocumentsCorrectionService correctionService,
     CteVoidNumbersService voidService,
     IUnitOfWork db,
@@ -187,6 +188,23 @@ public class TransportDocumentsController(
         try
         {
             return Ok(await endorseService.EndorseAsync(documentKey.Value, User.Identity?.Name ?? "Unknown"));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
+    }
+
+    /// <summary>Reenvia à AT&M o cancelamento da averbação que ficou pendente. Falha volta como Success=false.</summary>
+    [HttpPost("odata/TransportDocumentsResendEndorsementCancellation")]
+    public async Task<IActionResult> ResendEndorsementCancellationAsync([FromBody] ODataActionParameters parameters)
+    {
+        if (parameters is null || !TryParseKey(Text(parameters, "Key"), out var documentKey) || documentKey is null)
+            return BadRequest(InvalidKey);
+
+        try
+        {
+            return Ok(await endorsementCancellationService.ResendAsync(documentKey.Value, User.Identity?.Name ?? "Unknown"));
         }
         catch (DefaultException e)
         {
