@@ -121,7 +121,7 @@ public class EcdValidatorTests
         var data = await DataAsync();
         data.IncomeStatement!.Lines.Add(new ManagementViewLine
             { Order = 9, Code = "EBITDA", Kind = ManagementViewLineKind.Formula, Formula = "LL" });
-        data.BalanceSheet!.Lines.Add(new ManagementViewLine { Order = 9, Code = "VAZIO", Kind = ManagementViewLineKind.Total });
+        data.BalanceSheet!.Lines.Add(new ManagementViewLine { Order = 9, Code = "VAZIO", ParentCode = "A", Kind = ManagementViewLineKind.Total });
         Assert.Equal([
             "Linha VAZIO da visão Balanço sem linhas filhas; ajuste a visão para a ECD.",
             "Linha EBITDA da visão DRE sem linhas filhas; ajuste a visão para a ECD.",
@@ -161,16 +161,65 @@ public class EcdValidatorTests
     }
 
     [Fact]
-    public async Task Validate_InactiveAccountAndUnbalancedSheetWarn()
+    public async Task Validate_InactiveAccountWarns()
     {
         var data = await DataAsync();
         data.Accounts.Single(a => a.Code == "1.1.01").Inactive = true;
-        data.BalanceSheet!.Lines.Add(new ManagementViewLine
-            { Order = 5, Code = "X", ParentCode = "A", Kind = ManagementViewLineKind.Accounts, AccountFrom = "2.3.01", AccountTo = "2.3.01" });
 
         var warnings = EcdValidator.Validate(data, Request()).Where(i => !i.Blocking).Select(i => i.Message).ToList();
 
-        Assert.Equal(["Conta 1.1.01 inativa com movimento em 2026.", "Balanço: ativo difere do passivo + PL em 1.000,00."], warnings);
+        Assert.Equal(["Conta 1.1.01 inativa com movimento em 2026."], warnings);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("9")]
+    public async Task Validate_AnalyticWithoutSyntheticParentBlocks(string? parent)
+    {
+        var data = await DataAsync();
+        data.Accounts.Single(a => a.Code == "1.1.01").ParentCode = parent;
+        Assert.Equal(["Conta 1.1.01 analítica sem conta sintética superior; o plano de contas da ECD exige grupo sintético no nível 1."],
+            Blocking(data));
+    }
+
+    [Fact]
+    public async Task Validate_UnbalancedSheetBlocksAtStartAndEnd()
+    {
+        var data = await DataAsync();
+        // Capital também numa linha do ativo: o ativo do J100 passa a somar o capital
+        data.BalanceSheet!.Lines.Add(new ManagementViewLine
+            { Order = 5, Code = "X", ParentCode = "A", Kind = ManagementViewLineKind.Accounts, AccountFrom = "2.3.01", AccountTo = "2.3.01" });
+
+        var blocking = Blocking(data);
+
+        Assert.Contains("Balanço não fecha em 31/12/2025: Ativo 2.000,00 ≠ Passivo + PL 1.000,00.", blocking);
+        Assert.Contains("Balanço não fecha em 31/12/2026: Ativo 2.300,00 ≠ Passivo + PL 1.300,00.", blocking);
+    }
+
+    [Fact]
+    public async Task Validate_BalanceSheetViewNeedsExactlyTwoRoots()
+    {
+        var data = await DataAsync();
+        data.BalanceSheet!.Lines.Single(l => l.Code == "P1").ParentCode = null;
+        Assert.Contains("A visão do Balanço deve ter exatamente 2 linhas de primeiro nível (Ativo e Passivo + PL).", Blocking(data));
+    }
+
+    [Fact]
+    public async Task Validate_FormulaDifferentFromChildrenBlocks()
+    {
+        var data = await DataAsync();
+        var ll = data.IncomeStatement!.Lines.Single(l => l.Code == "LL");
+        ll.Kind = ManagementViewLineKind.Formula;
+        ll.Formula = "R";
+        Assert.Equal(["Linha LL da visão DRE: total -500,00 difere da soma das linhas filhas -300,00."], Blocking(data));
+    }
+
+    [Fact]
+    public async Task Validate_AccountantPhoneRequired()
+    {
+        var data = await DataAsync();
+        data.Accountant!.AccountantPhone = " ";
+        Assert.Equal(["Parâmetros do SPED Fiscal: informe telefone do contabilista."], Blocking(data));
     }
 
     // ---- controller ----

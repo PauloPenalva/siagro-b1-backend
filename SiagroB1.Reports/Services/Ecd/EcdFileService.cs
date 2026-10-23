@@ -223,21 +223,10 @@ public class EcdFileService(EcdDataLoader loader)
         // J150: REG, NU_ORDEM, COD_AGL, IND_COD_AGL, NIVEL_AGL, COD_AGL_SUP, DESCR_COD_AGL, VL_CTA_INI, IND_DC_CTA_INI,
         //       VL_CTA_FIN, IND_DC_CTA_FIN, IND_GRP_DRE, NOTA_EXP_REF
         // Valor do ano pela DRE do Siagro (sem a apuração); sem comparativo do período anterior (VL_CTA_INI zero).
-        var dre = data.IncomeStatement!;
-        var dreLines = Ordered(dre);
-        var byCode = dreLines.ToDictionary(l => l.Code, StringComparer.Ordinal);
-        var year = postings.Where(p => !p.ResultClosing).GroupBy(p => p.Account).ToDictionary(g => g.Key, g => g.Sum(p => p.Debit - p.Credit));
-        var values = ManagementViewCalculator.Compute(dre.Lines, infos, code => year.GetValueOrDefault(code));
-        var order = 0;
-        foreach (var line in dreLines)
-        {
-            // Totais e fórmulas da DRE: positivo = lucro (credor)
-            var factor = LineFactor(line, infos, -1);
-            var value = values.GetValueOrDefault(line.Code);
-            w.Add("J150", ++order, line.Code, line.Kind == ManagementViewLineKind.Accounts ? "D" : "T",
-                ManagementViewCalculator.Level(line, byCode), line.ParentCode ?? "", line.Description, 0m, Side(0m, factor),
-                Math.Abs(value), Side(value, factor), factor < 0 ? "R" : "D", "");
-        }
+        foreach (var row in IncomeStatementRows(data, postings))
+            w.Add("J150", row.Order, row.Line.Code, row.Line.Kind == ManagementViewLineKind.Accounts ? "D" : "T", row.Level,
+                row.Line.ParentCode ?? "", row.Line.Description, 0m, Side(0m, row.Factor),
+                Math.Abs(row.Final), Side(row.Final, row.Factor), row.Factor < 0 ? "R" : "D", "");
 
         // J900: REG, DNRC_ENCER, NUM_ORD, NAT_LIVRO, NOME, QTD_LIN, DT_INI_ESCR, DT_FIN_ESCR
         w.Add("J900", "TERMO DE ENCERRAMENTO", s.BookNumber, BookNature, Name(d), lineCount, start, end);
@@ -289,11 +278,60 @@ public class EcdFileService(EcdDataLoader loader)
         return rows;
     }
 
-    /// <summary>Ativo − (passivo + PL) em 31/12, pelos dois grupos de nível 1 da visão do Balanço.</summary>
-    internal static decimal BalanceSheetDifference(EcdData data, List<EcdPosting> postings)
+    internal sealed record IncomeStatementRow(int Order, ManagementViewLine Line, int Level, int Factor, decimal Final);
+
+    /// <summary>Linhas do J150: valor do ano pela DRE do Siagro (sem a apuração); sem comparativo (VL_CTA_INI zero).</summary>
+    internal static List<IncomeStatementRow> IncomeStatementRows(EcdData data, List<EcdPosting> postings)
+    {
+        var dre = data.IncomeStatement!;
+        var infos = EcdLedger.AccountInfos(data);
+        var dreLines = Ordered(dre);
+        var byCode = dreLines.ToDictionary(l => l.Code, StringComparer.Ordinal);
+        var year = postings.Where(p => !p.ResultClosing).GroupBy(p => p.Account).ToDictionary(g => g.Key, g => g.Sum(p => p.Debit - p.Credit));
+        var values = ManagementViewCalculator.Compute(dre.Lines, infos, code => year.GetValueOrDefault(code));
+        // Totais e fórmulas da DRE: positivo = lucro (credor)
+        return dreLines.Select((line, i) => new IncomeStatementRow(i + 1, line, ManagementViewCalculator.Level(line, byCode),
+            LineFactor(line, infos, -1), values.GetValueOrDefault(line.Code))).ToList();
+    }
+
+    /// <summary>
+    /// Linhas "T" do J100/J150 cujo valor (com D/C) difere da soma das filhas (com D/C) — o PVA confere essa soma.
+    /// Pega fórmula com termos diferentes das filhas e linha com Sinal contrário à natureza da conta.
+    /// </summary>
+    internal static List<(string View, string Code, decimal Total, decimal Children, bool Final)> TotalMismatches(
+        EcdData data, List<EcdPosting> postings)
+    {
+        var result = new List<(string, string, decimal, decimal, bool)>();
+        void Check(string view, IEnumerable<(ManagementViewLine Line, decimal Signed)> rows, bool final)
+        {
+            var list = rows.ToList();
+            foreach (var (line, signed) in list.Where(r => r.Line.Kind != ManagementViewLineKind.Accounts))
+            {
+                var children = list.Where(r => r.Line.ParentCode == line.Code).Sum(r => r.Signed);
+                if (signed != children) result.Add((view, line.Code, signed, children, final));
+            }
+        }
+
+        if (data.BalanceSheet != null)
+        {
+            var bp = BalanceSheetRows(data, postings);
+            Check(data.BalanceSheet.Name, bp.Select(r => (r.Line, r.Initial * r.Factor)), false);
+            Check(data.BalanceSheet.Name, bp.Select(r => (r.Line, r.Final * r.Factor)), true);
+        }
+        if (data.IncomeStatement != null)
+            Check(data.IncomeStatement.Name, IncomeStatementRows(data, postings).Select(r => (r.Line, r.Final * r.Factor)), true);
+        return result;
+    }
+
+    /// <summary>Ativo e passivo + PL (raízes da visão do Balanço) em 31/12 do ano anterior e do ano.</summary>
+    internal static (decimal Assets, decimal Liabilities)[] BalanceSheetTotals(EcdData data, List<EcdPosting> postings)
     {
         var tops = BalanceSheetRows(data, postings).Where(r => r.Line.ParentCode is null).ToList();
-        return tops.Count < 2 ? 0m : tops[0].Final - tops[1].Final;
+        return
+        [
+            (tops.Where(r => r.Group == "A").Sum(r => r.Initial), tops.Where(r => r.Group == "P").Sum(r => r.Initial)),
+            (tops.Where(r => r.Group == "A").Sum(r => r.Final), tops.Where(r => r.Group == "P").Sum(r => r.Final)),
+        ];
     }
 
     private static List<ManagementViewLine> Ordered(ManagementView view) =>

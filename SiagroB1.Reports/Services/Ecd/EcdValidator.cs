@@ -85,6 +85,7 @@ public static class EcdValidator
                 foreach (var (value, field) in new[]
                          {
                              (a.AccountantName, "nome"), (a.AccountantCpf, "CPF"), (a.AccountantCrc, "CRC"), (a.AccountantEmail, "e-mail"),
+                             (a.AccountantPhone, "telefone"),
                          })
                     if (string.IsNullOrWhiteSpace(value)) Block($"Parâmetros do SPED Fiscal: informe {field} do contabilista.", code);
         }
@@ -107,6 +108,9 @@ public static class EcdValidator
 
         if (data.BalanceSheet == null) Block("Visão gerencial do Balanço Patrimonial não cadastrada.");
         if (data.IncomeStatement == null) Block("Visão gerencial da DRE não cadastrada.");
+        // J100: o PVA confere o nível 1 do Ativo contra o do Passivo + PL — uma raiz de cada
+        if (data.BalanceSheet != null && data.BalanceSheet.Lines.Count(l => l.ParentCode is null) != 2)
+            Block("A visão do Balanço deve ter exatamente 2 linhas de primeiro nível (Ativo e Passivo + PL).");
 
         // Total/Fórmula vira linha "T" no J100/J150, e o PVA confere a soma das filhas: sem filhas não fecha
         foreach (var view in new[] { data.BalanceSheet, data.IncomeStatement }.OfType<ManagementView>())
@@ -138,6 +142,9 @@ public static class EcdValidator
             }
 
             if (!account.AllowsPosting) Block($"Conta sintética {code} com lançamento.", code);
+            // I050: o nível 1 é sintético e toda analítica tem COD_CTA_SUP
+            else if (account.ParentCode == null || !accounts.ContainsKey(account.ParentCode))
+                Block($"Conta {code} analítica sem conta sintética superior; o plano de contas da ECD exige grupo sintético no nível 1.", code);
             if (string.IsNullOrWhiteSpace(account.ReferentialCode)) Block($"Conta {code} sem código do plano referencial.", code);
             if (data.BalanceSheet != null && data.IncomeStatement != null
                 && EcdLedger.LineOf(data.BalanceSheet, code) == null && EcdLedger.LineOf(data.IncomeStatement, code) == null)
@@ -150,11 +157,19 @@ public static class EcdValidator
                 if (c.Type == null) Block($"Conta {c.Code} sem tipo (natureza do grupo).", c.Code);
         }
 
-        if (data.BalanceSheet != null && issues.All(i => !i.Blocking))
+        // Conferências sobre os valores do J100/J150: só com o resto em ordem (precisam de visões e plano válidos)
+        if (data.BalanceSheet != null && data.IncomeStatement != null && issues.All(i => !i.Blocking))
         {
-            var difference = EcdFileService.BalanceSheetDifference(data, postings);
-            if (difference != 0)
-                Warn($"Balanço: ativo difere do passivo + PL em {difference.ToString("N2", new System.Globalization.CultureInfo("pt-BR"))}.");
+            var br = new System.Globalization.CultureInfo("pt-BR");
+            string Money(decimal v) => v.ToString("N2", br);
+            var totals = EcdFileService.BalanceSheetTotals(data, postings);
+            var dates = new[] { start.AddDays(-1), new DateTime(year, 12, 31) };
+            for (var i = 0; i < 2; i++)
+                if (totals[i].Assets != totals[i].Liabilities)
+                    Block($"Balanço não fecha em {dates[i]:dd/MM/yyyy}: Ativo {Money(totals[i].Assets)} ≠ Passivo + PL {Money(totals[i].Liabilities)}.");
+
+            foreach (var (view, line, total, children, _) in EcdFileService.TotalMismatches(data, postings))
+                Block($"Linha {line} da visão {view}: total {Money(total)} difere da soma das linhas filhas {Money(children)}.", line);
         }
 
         return issues.DistinctBy(i => (i.Blocking, i.Message)).ToList();
