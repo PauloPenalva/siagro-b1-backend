@@ -22,12 +22,25 @@ public static class SpedFiscalValidator
         if (string.IsNullOrWhiteSpace(branch.StateCode)) Block("Filial sem UF.", branchCode);
         if (string.IsNullOrWhiteSpace(branch.MunicipalityCode)) Block("Filial sem município.", branchCode);
         if (data.Settings == null) Block("Parâmetros do SPED Fiscal não cadastrados para a filial.", branchCode);
+        else
+        {
+            // Campos obrigatórios do 0100
+            var s = data.Settings;
+            foreach (var (value, field) in new[]
+                     {
+                         (s.AccountantName, "nome"), (s.AccountantCpf, "CPF"), (s.AccountantCrc, "CRC"),
+                         (s.AccountantEmail, "e-mail"), (s.AccountantMunicipalityCode, "município"),
+                     })
+                if (string.IsNullOrWhiteSpace(value))
+                    Block($"Parâmetros do SPED Fiscal: informe {field} do contabilista.", branchCode);
+        }
 
         foreach (var code in data.MissingParticipantCodes)
             Block($"Parceiro {code} sem cadastro.", code);
         foreach (var p in data.Participants)
         {
-            if (p.Cnpj == "" && p.Cpf == "") Block($"Participante {p.Code} sem CNPJ/CPF.", p.Code);
+            // Participante do exterior não tem CNPJ/CPF
+            if (p.CountryCode == "01058" && string.IsNullOrWhiteSpace(p.Cnpj) && string.IsNullOrWhiteSpace(p.Cpf)) Block($"Participante {p.Code} sem CNPJ/CPF.", p.Code);
             if (string.IsNullOrWhiteSpace(p.MunicipalityCode)) Block($"Participante {p.Code} sem município.", p.Code);
         }
 
@@ -37,6 +50,11 @@ public static class SpedFiscalValidator
             if (string.IsNullOrWhiteSpace(line.Cfop)) Block($"Item {reference} sem CFOP.", reference);
             if (string.IsNullOrWhiteSpace(line.CstIcms)) Block($"Item {reference} sem CST de ICMS.", reference);
         }
+
+        // NF-e (modelo 55) regular exige a chave de 44 dígitos no C100
+        foreach (var doc in data.Lines.Where(l => l.Model == "55").GroupBy(l => l.DocumentKey).Select(g => g.First()))
+            if (doc.AccessKey is not { Length: 44 } key || !key.All(char.IsAsciiDigit))
+                Block($"Documento {doc.Number} (modelo 55) sem chave de acesso.", doc.Number);
 
         // NCM só é exigido onde o item é detalhado: C170 (documento de terceiro) e H010
         var detailed = data.Lines.Where(l => l.IssuerType == "1").Select(l => l.ItemCode)

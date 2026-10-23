@@ -169,7 +169,8 @@ public class SpedFiscalFileService(SpedFiscalDataLoader loader, FiscalConference
             //       IND_PGTO, VL_DESC, VL_ABAT_NT, VL_MERC, IND_FRT, VL_FRT, VL_SEG, VL_OUT_DA, VL_BC_ICMS, VL_ICMS,
             //       VL_BC_ICMS_ST, VL_ICMS_ST, VL_IPI, VL_PIS, VL_COFINS, VL_PIS_ST, VL_COFINS_ST
             w.Add("C100",
-                h.DocumentType == "Entrada" ? "0" : "1",
+                // Sentido da operação (CFOP, mesma fonte do E110): devolução de compra própria é saída
+                h.Direction == "E" ? "0" : "1",
                 h.IssuerType,
                 h.CardCode,
                 h.Model,
@@ -252,9 +253,10 @@ public class SpedFiscalFileService(SpedFiscalDataLoader loader, FiscalConference
                     g.Sum(l => l.IcmsValue), 0m, 0m, 0m, 0m, "");
         }
 
-        // NF-e própria cancelada/denegada/inutilizada: C100 só com os campos 02 a 09 (sem participante)
+        // NF-e própria cancelada/denegada/inutilizada: C100 só com os campos 02 a 09 (sem participante);
+        // a numeração inutilizada (COD_SIT 05) não tem chave de acesso
         foreach (var v in data.VoidDocuments)
-            w.Add("C100", [v.Direction, "0", "", v.Model, v.Situation, v.Series, v.Number, v.AccessKey,
+            w.Add("C100", [v.Direction, "0", "", v.Model, v.Situation, v.Series, v.Number, v.Situation == "05" ? "" : v.AccessKey,
                 .. Enumerable.Repeat<object?>(null, 20)]);
 
         w.Add("C990", w.CountOfBlock('C') + 1);

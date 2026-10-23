@@ -29,6 +29,19 @@ public class SpedFiscalValidatorTests
     }
 
     [Fact]
+    public async Task Validate_ForeignParticipantNeedsNoTaxId()
+    {
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(OwnSale("V1", 1000m, 120m));
+        await Save(db);
+        var data = await Loader(db).LoadAsync(Request());
+        data.Participants[0].Cnpj = "";
+        data.Participants[0].CountryCode = "02496";
+
+        Assert.Empty(SpedFiscalValidator.Validate(data));
+    }
+
+    [Fact]
     public async Task Validate_BlocksMasterDataGaps()
     {
         var db = await Seeded();
@@ -41,6 +54,9 @@ public class SpedFiscalValidatorTests
         data.Lines[0].Cfop = "";
         data.Lines[0].CstIcms = "";
         data.MissingParticipantCodes.Add("X9");
+        data.Settings!.AccountantEmail = " ";
+        data.Settings.AccountantCrc = "";
+        data.Lines[0].AccessKey = "123";
         data.UnconvertibleUnits.Add(new SpedUnconvertibleUnit("10001", "SC"));
         data.Inventory = new FiscalInventoryData { Rows = [new FiscalInventoryRowDto { ItemCode = "10001", Quantity = -1m }] };
 
@@ -49,11 +65,14 @@ public class SpedFiscalValidatorTests
         Assert.Equal(new[]
         {
             "Filial sem CNPJ.",
+            "Parâmetros do SPED Fiscal: informe CRC do contabilista.",
+            "Parâmetros do SPED Fiscal: informe e-mail do contabilista.",
             "Parceiro X9 sem cadastro.",
             "Participante C001 sem CNPJ/CPF.",
             "Participante C001 sem município.",
             "Item 123/10001 sem CFOP.",
             "Item 123/10001 sem CST de ICMS.",
+            "Documento 123 (modelo 55) sem chave de acesso.",
             "Produto 10001 sem fator de conversão para a unidade SC.",
             "Inventário com saldo negativo: 10001.",
         }, messages);

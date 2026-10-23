@@ -72,7 +72,7 @@ public class SpedFiscalFileServiceTests
         Assert.Equal(2, c100.Count);
         // Entrada de terceiro em 16/07 (data de entrada), venda em 15/07: ordem por data
         Assert.Equal("|C100|1|0|C001|55|00|1|123|" + Key44 + "|15072026|15072026|1000,00|2|0,00|0,00|1000,00|0|0,00|0,00|0,00|1000,00|120,00|0,00|0,00|0,00|0,00|0,00|0,00|0,00|", c100[0]);
-        Assert.StartsWith("|C100|0|1|F001|55|00|2|456||15072026|16072026|500,00|", c100[1]);
+        Assert.StartsWith("|C100|0|1|F001|55|00|2|456|41260798765432000110550020000004561000004560|15072026|16072026|500,00|", c100[1]);
         var c170 = Assert.Single(lines, l => l.StartsWith("|C170|"));
         Assert.StartsWith("|C170|1|10001||10,00000|TN|500,00|0,00|0|000|1102||500,00|12,00|60,00|", c170);
         Assert.Equal(lines.IndexOf(c100[1]) + 1, lines.IndexOf(c170));
@@ -118,6 +118,39 @@ public class SpedFiscalFileServiceTests
         var lines = await GenerateLines(db, Request(2025, 12));
 
         Assert.StartsWith("|0000|019|0|01122025|31122025|", lines[0]);
+    }
+
+    [Fact]
+    public async Task Generate_OwnPurchaseReturnHasIndOper1()
+    {
+        var db = await Seeded();
+        var ret = ThirdPartyPurchase("R1", 500m, 60m);
+        ret.IssuerType = DocumentIssuerType.Own;
+        ret.InvoiceType = PurchaseInvoiceType.Return;
+        ret.NfeStatus = NfeStatus.Authorized;
+        ret.Items.Single().Cfop = "5202";
+        db.Context.PurchaseInvoices.Add(ret);
+        await Save(db);
+
+        var lines = await GenerateLines(db, Request());
+
+        Assert.StartsWith("|C100|1|0|F001|55|00|", Assert.Single(lines, l => l.StartsWith("|C100|")));
+        Assert.Contains("|E110|60,00|", lines.Single(l => l.StartsWith("|E110|")));
+    }
+
+    [Fact]
+    public async Task Generate_VoidedNumberHasNoAccessKey()
+    {
+        var db = await Seeded();
+        var request = Request();
+        var data = await Loader(db).LoadAsync(request);
+        data.VoidDocuments.Add(new SpedVoidDocument { Direction = "1", Situation = "05", Series = "1", Number = "9", AccessKey = Key44 });
+        data.VoidDocuments.Add(new SpedVoidDocument { Direction = "1", Situation = "02", Series = "1", Number = "8", AccessKey = Key44 });
+
+        var lines = Parse(SpedFiscalFileService.Build(data, request));
+
+        Assert.Contains("|C100|1|0||55|05|1|9||" + new string('|', 20), lines);
+        Assert.Contains("|C100|1|0||55|02|1|8|" + Key44 + "|" + new string('|', 20), lines);
     }
 
     [Fact]
@@ -220,7 +253,7 @@ public class SpedFiscalFileServiceTests
             {
                 BranchCode = "01", Profile = "A", ActivityType = 1, AccountantName = "JOÃO CONTADOR",
                 AccountantCpf = "12345678909", AccountantCrc = "PR012345", AccountantMunicipalityCode = "4106902",
-                IcmsRevenueCode = "060501", IcmsDueDay = dueDay,
+                AccountantEmail = "contador@exemplo.com.br", IcmsRevenueCode = "060501", IcmsDueDay = dueDay,
             });
         db.Context.Items.Add(new Item { ItemCode = "10001", ItemName = "SOJA EM GRÃOS", Ncm = "1201.90.00" });
         db.Context.UnitsOfMeasure.Add(new UnitOfMeasure { Code = "TN", Description = "TONELADA" });
@@ -263,6 +296,7 @@ public class SpedFiscalFileServiceTests
         purchase.TaxDocumentKind = TaxDocumentKind.Nfe;
         purchase.TaxDocumentSeries = "2";
         purchase.TaxDocumentNumber = "456";
+        purchase.ChaveNFe = "41260798765432000110550020000004561000004560";
         purchase.PostingDate = new DateTime(2026, 7, 16);
         purchase.IssueDate = new DateTime(2026, 7, 15);
         return purchase;
