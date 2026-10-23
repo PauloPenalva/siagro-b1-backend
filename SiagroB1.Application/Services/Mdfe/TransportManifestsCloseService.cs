@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using SiagroB1.Application.Services.Cte;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -40,6 +41,21 @@ public class TransportManifestsCloseService(
             System.Globalization.DateTimeStyles.None, out var date)
             ? date
             : throw new DefaultException(InvalidDate);
+    }
+
+    public const string InvalidUf = "UF do encerramento inválida.";
+
+    /// <summary>
+    /// Normaliza a UF do encerramento: aceita a sigla ("SP", sem diferenciar maiúsculas) ou o código IBGE ("35") e
+    /// devolve as duas formas (sigla para gravar, código para a SEFAZ). Valor desconhecido é recusado.
+    /// </summary>
+    public static (string Abbreviation, string IbgeCode) ResolveUf(string text)
+    {
+        var value = text.Trim();
+        if (TransportDocumentsConfirmService.UfCodes.TryGetValue(value, out var code))
+            return (value.ToUpperInvariant(), code);
+        var match = TransportDocumentsConfirmService.UfCodes.FirstOrDefault(x => x.Value == value);
+        return match.Key is null ? throw new DefaultException(InvalidUf) : (match.Key.ToUpperInvariant(), match.Value);
     }
 
     /// <summary>cStat de evento já registrado (duplicidade de evento).</summary>
@@ -86,15 +102,15 @@ public class TransportManifestsCloseService(
             ? cityIbge.Trim()
             : m.Ctes.OrderBy(c => c.LineNum).LastOrDefault()?.UnloadingCityIbge
               ?? throw new DefaultException("O MDF-e não tem município de descarga para o encerramento.");
-        var uf = !string.IsNullOrWhiteSpace(ufCode)
-            ? ufCode.Trim().ToUpperInvariant()
-            : m.UfEnd ?? throw new DefaultException("Informe a UF do encerramento.");
+        var (uf, ufIbge) = ResolveUf(!string.IsNullOrWhiteSpace(ufCode)
+            ? ufCode
+            : m.UfEnd ?? throw new DefaultException("Informe a UF do encerramento."));
 
         NfeEventResult result;
         try
         {
             result = await sefaz.CloseAsync(
-                new MdfeCloseRequest(m.AccessKey, m.ProtocolNumber, m.AccessKey.Substring(6, 14), date, uf, city, now), settings);
+                new MdfeCloseRequest(m.AccessKey, m.ProtocolNumber, m.AccessKey.Substring(6, 14), date, ufIbge, city, now), settings);
         }
         catch (NfeCommunicationException e)
         {

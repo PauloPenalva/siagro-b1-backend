@@ -86,11 +86,55 @@ public class TransportManifestsCloseServiceTests
 
         var sent = Assert.Single(_sefaz.CloseRequests);
         Assert.Equal("3304557", sent.CityIbge);
-        Assert.Equal("RJ", sent.UfCode);
+        Assert.Equal("33", sent.UfCode);
         Assert.Equal(new DateOnly(2026, 10, 23), sent.ClosedOn);
         Assert.Equal(FakeMdfeSefazClient.AuthorizationProtocol, sent.Protocol);
         Assert.Equal("12345678000195", sent.IssuerCnpj);
         Assert.Equal(Now, sent.EventAt);
+    }
+
+    [Theory]
+    [InlineData("SP")]
+    [InlineData("sp")]
+    [InlineData(" 35 ")]
+    public async Task Close_accepts_uf_abbreviation_or_ibge_code_and_sends_the_ibge_code(string uf)
+    {
+        var key = await SeedAsync();
+        _sefaz.CloseResponses.Enqueue(r => FakeMdfeSefazClient.ClosingRegistered(r));
+
+        await Close().CloseAsync(key, null, uf, null, "tester");
+
+        Assert.Equal("35", Assert.Single(_sefaz.CloseRequests).UfCode);
+        Assert.Equal("SP", (await LoadAsync(key)).ClosingUf);
+    }
+
+    [Theory]
+    [InlineData("XX")]
+    [InlineData("99")]
+    [InlineData("SPP")]
+    public async Task Close_with_invalid_uf_is_refused_before_the_sefaz(string uf)
+    {
+        var key = await SeedAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Close().CloseAsync(key, null, uf, null, "tester"));
+
+        Assert.Equal("UF do encerramento inválida.", e.Message);
+        Assert.Equal(0, _sefaz.CloseCalls);
+        Assert.Equal(0, _numbers.LocksHeld);
+    }
+
+    [Fact]
+    public async Task Close_with_invalid_stored_uf_end_is_refused()
+    {
+        var key = await SeedAsync();
+        var m = await _db.Context.TransportManifests.SingleAsync(x => x.Key == key);
+        m.UfEnd = "ZZ";
+        await _db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Close().CloseAsync(key, null, null, null, "tester"));
+
+        Assert.Equal("UF do encerramento inválida.", e.Message);
+        Assert.Equal(0, _sefaz.CloseCalls);
     }
 
     [Fact]
