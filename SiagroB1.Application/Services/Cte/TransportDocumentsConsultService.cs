@@ -35,7 +35,23 @@ public class TransportDocumentsConsultService(
         var settings = await db.Context.BranchCteSettings.AsNoTracking().FirstAsync(x => x.BranchCode == doc.BranchCode);
         using var context = await contexts.OpenAsync(doc.BranchCode, doc.Environment ?? settings.Environment);
 
-        var result = await sefaz.ConsultProtocolAsync(doc.AccessKey, context.Settings);
+        NfeSefazResult result;
+        try
+        {
+            result = await sefaz.ConsultProtocolAsync(doc.AccessKey, context.Settings);
+        }
+        catch (NfeCommunicationException e)
+        {
+            CteEmission.LogCommunication(logger, doc.AccessKey, "consulta", e);
+            throw;
+        }
+
+        if (result.StatusCode == CteEmission.KeyDiffers && doc.Status is CteStatus.Processing or CteStatus.Confirmed)
+        {
+            var stored = CteEmission.StoredSigned(doc);
+            return await CteEmission.ApplyAsync(
+                db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, result), stored?.Xml ?? "", logger);
+        }
 
         if (NfeStatusCodes.IsAuthorized(result.StatusCode)
             && doc.Status is CteStatus.Processing or CteStatus.Rejected or CteStatus.Confirmed)
@@ -45,6 +61,8 @@ public class TransportDocumentsConsultService(
             return await CteEmission.ApplyAsync(db, doc, result, stored.Xml, logger);
         }
 
+        if (!NfeStatusCodes.IsAuthorized(result.StatusCode))
+            logger?.LogWarning("CT-e {AccessKey}: consulta retornou {StatusCode} ({Reason}).", doc.AccessKey, result.StatusCode, result.Reason);
         return result;
     }
 }

@@ -23,11 +23,13 @@ public class TransportDocumentsTransmitServiceTests
     private readonly FakeCteSefazClient _sefaz = new();
     private DateTimeOffset _now = October;
 
+    private readonly TestLogger<TransportDocumentsTransmitService> _log = new();
+
     private TransportDocumentsTransmitService Transmit()
     {
         var config = NfeTestSeed.Config();
         return new TransportDocumentsTransmitService(
-            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now);
+            _db, config, _numbers, new CteServiceContextFactory(_db, new NfeOptions(config)), _sefaz, new NfeOptions(config), () => _now, _log);
     }
 
     private TransportDocumentsConsultService Consult()
@@ -416,5 +418,107 @@ public class TransportDocumentsTransmitServiceTests
         Assert.Equal(CteStatus.Authorized, doc.Status);
         Assert.Equal(NfeProcComposer.SignedDigest(_sefaz.Sent[0].Xml), NfeProcComposer.ProtocolDigest(doc.Xmls.Single(x => x.Kind == CteXmlKind.Authorized).Xml));
         Assert.Equal(1, _sefaz.AuthorizeCalls);
+    }
+
+    private const string Burned = "Número já usado na SEFAZ por outro CT-e (chave diferente). Descarte o número e confirme de novo.";
+    private static readonly Func<string, NfeSefazResult> KeyDiffers = _ => new NfeSefazResult(216, "Rejeição: Chave de acesso difere da cadastrada");
+
+    [Fact]
+    public async Task Duplicate_then_consult_216_rejects_with_discard_hint()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(539, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(KeyDiffers);
+
+        var result = await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(Burned, result.Reason);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Rejected, doc.Status);
+        Assert.Equal("216", doc.StatusCode);
+        Assert.Equal(Burned, doc.StatusReason);
+        Assert.DoesNotContain(doc.Xmls, x => x.Kind == CteXmlKind.Authorized);
+        Assert.Contains(_log.Entries, e => e.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+                                           && e.Message.Contains(doc.AccessKey!) && e.Message.Contains("216"));
+    }
+
+    [Fact]
+    public async Task Duplicate_then_consult_217_rejects_with_discard_hint()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(539, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Rejected, doc.Status);
+        Assert.Equal("539", doc.StatusCode);
+        Assert.Equal(Burned, doc.StatusReason);
+    }
+
+    [Fact]
+    public async Task Timeout_then_consult_217_stays_processing()
+    {
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+
+        await Transmit().TransmitAsync(key, "tester");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Processing, doc.Status);
+        Assert.Contains(_log.Entries, e => e.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+                                           && e.Message.Contains(doc.AccessKey!) && e.Message.Contains("Tempo esgotado."));
+    }
+
+    [Fact]
+    public async Task Consult_216_on_processing_rejects()
+    {
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        await Transmit().TransmitAsync(key, "tester");
+
+        _sefaz.ConsultResponses.Enqueue(KeyDiffers);
+        var result = await Consult().ConsultAsync(key);
+
+        Assert.Equal(Burned, result.Reason);
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Rejected, doc.Status);
+        Assert.Equal("216", doc.StatusCode);
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+    }
+
+    [Fact]
+    public async Task Retransmit_processing_consult_216_rejects_without_resending()
+    {
+        var key = await SeedConfirmedAsync();
+        Timeout(_sefaz);
+        _sefaz.ConsultResponses.Enqueue(NotFound);
+        await Transmit().TransmitAsync(key, "tester");
+
+        _sefaz.ConsultResponses.Enqueue(KeyDiffers);
+        await Transmit().TransmitAsync(key, "tester");
+
+        Assert.Equal(1, _sefaz.AuthorizeCalls);
+        Assert.Equal(CteStatus.Rejected, (await LoadAsync(key)).Status);
+    }
+
+    [Fact]
+    public async Task Burned_number_can_be_discarded_from_rejected()
+    {
+        var key = await SeedConfirmedAsync();
+        _sefaz.AuthorizeResponses.Enqueue(_ => new NfeSefazResult(539, "Duplicidade de CT-e"));
+        _sefaz.ConsultResponses.Enqueue(KeyDiffers);
+        await Transmit().TransmitAsync(key, "tester");
+
+        await new TransportDocumentsDiscardNumberService(_db, NfeTestSeed.Config(), _numbers)
+            .DiscardNumberAsync(key, "Número usado por outro CT-e na SEFAZ");
+
+        var doc = await LoadAsync(key);
+        Assert.Equal(CteStatus.Draft, doc.Status);
+        Assert.Null(doc.Number);
+        Assert.Equal(100, (await _db.Context.CteNumbersToVoid.SingleAsync()).Number);
     }
 }

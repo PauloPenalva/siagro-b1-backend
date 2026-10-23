@@ -54,13 +54,16 @@ public class TransportDocumentsTransmitService(
             {
                 consult = await sefaz.ConsultProtocolAsync(doc.AccessKey, context.Settings);
             }
-            catch (NfeCommunicationException)
+            catch (NfeCommunicationException e)
             {
+                CteEmission.LogCommunication(logger, doc.AccessKey, "consulta", e);
                 return await CteEmission.ApplyAsync(db, doc, null, stored.Xml, logger);
             }
 
             if (NfeStatusCodes.IsAuthorized(consult.StatusCode))
                 return await CteEmission.ApplyAsync(db, doc, consult, stored.Xml, logger);
+            if (consult.StatusCode == CteEmission.KeyDiffers)
+                return await CteEmission.ApplyAsync(db, doc, CteEmission.BurnedNumber(logger, doc.AccessKey, consult), stored.Xml, logger);
 
             return await SendAsync(doc, new SignedCte(stored.Xml, doc.AccessKey), context.Settings);
         }
@@ -97,27 +100,43 @@ public class TransportDocumentsTransmitService(
         {
             result = await sefaz.AuthorizeAsync(signed, settings);
             if (NfeStatusCodes.IsDuplicate(result.StatusCode))
-                result = await RecoverAsync(signed.AccessKey, settings);
+            {
+                logger?.LogWarning("CT-e {AccessKey}: SEFAZ respondeu duplicidade {StatusCode} ({Reason}); consultando a chave.",
+                    signed.AccessKey, result.StatusCode, result.Reason);
+                result = await RecoverAsync(signed.AccessKey, settings, result);
+            }
         }
-        catch (NfeCommunicationException)
+        catch (NfeCommunicationException e)
         {
-            result = await RecoverAsync(signed.AccessKey, settings);
+            CteEmission.LogCommunication(logger, signed.AccessKey, "autorização", e);
+            result = await RecoverAsync(signed.AccessKey, settings, null);
         }
 
         return await CteEmission.ApplyAsync(db, doc, result, signed.Xml, logger);
     }
 
-    /// <summary>Só a consulta pela chave diz se a SEFAZ autorizou. Nulo = sem resposta (fica em Processamento).</summary>
-    private async Task<NfeSefazResult?> RecoverAsync(string accessKey, CteServiceSettings settings)
+    /// <summary>
+    /// Só a consulta pela chave diz se a SEFAZ autorizou. Nulo = sem resposta (fica em Processamento).
+    /// 216 (chave difere da cadastrada), ou 217 depois de uma duplicidade, = o número foi queimado por outro CT-e na
+    /// SEFAZ: rejeita para o usuário descartar o número — reenviar daria duplicidade para sempre.
+    /// </summary>
+    private async Task<NfeSefazResult?> RecoverAsync(string accessKey, CteServiceSettings settings, NfeSefazResult? duplicate)
     {
         try
         {
             var consult = await sefaz.ConsultProtocolAsync(accessKey, settings);
             if (NfeStatusCodes.IsAuthorized(consult.StatusCode))
                 return consult;
+            if (consult.StatusCode == CteEmission.KeyDiffers)
+                return CteEmission.BurnedNumber(logger, accessKey, consult);
+            if (duplicate is not null && consult.StatusCode == CteEmission.NotFound)
+                return CteEmission.BurnedNumber(logger, accessKey, duplicate);
+            logger?.LogWarning("CT-e {AccessKey}: consulta de recuperação retornou {StatusCode} ({Reason}); fica em Processamento.",
+                accessKey, consult.StatusCode, consult.Reason);
         }
-        catch (NfeCommunicationException)
+        catch (NfeCommunicationException e)
         {
+            CteEmission.LogCommunication(logger, accessKey, "consulta", e);
         }
 
         return null;
@@ -130,6 +149,22 @@ internal static class CteEmission
     private const string CteNamespace = "http://www.portalfiscal.inf.br/cte";
 
     public const string NoResponse = "Sem resposta da SEFAZ: consulte depois.";
+    public const string BurnedNumberReason =
+        "Número já usado na SEFAZ por outro CT-e (chave diferente). Descarte o número e confirme de novo.";
+    public const int KeyDiffers = 216;
+    public const int NotFound = 217;
+
+    public static NfeSefazResult BurnedNumber(ILogger? logger, string accessKey, NfeSefazResult sefazAnswer)
+    {
+        logger?.LogWarning("CT-e {AccessKey}: número queimado na SEFAZ por outro CT-e — {StatusCode} ({Reason}).",
+            accessKey, sefazAnswer.StatusCode, sefazAnswer.Reason);
+        return new NfeSefazResult(sefazAnswer.StatusCode, BurnedNumberReason);
+    }
+
+    public static void LogCommunication(ILogger? logger, string accessKey, string operation, NfeCommunicationException e) =>
+        logger?.LogWarning(e, "CT-e {AccessKey}: falha de comunicação com a SEFAZ na {Operation}, sem código de status: {Message}",
+            accessKey, operation, e.Message);
+
     public const string DigestMismatch = "Protocolo da SEFAZ não confere com o XML enviado: verifique.";
 
     public static async Task<TransportDocument> LoadAsync(IUnitOfWork db, Guid key) =>
