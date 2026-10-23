@@ -19,16 +19,16 @@ public class SpedRecordWriterTests
 
         var lines = Lines(writer.Finish());
 
-        Assert.Equal(3 + 7, lines.Length);
+        Assert.Equal(3 + 10, lines.Length);
         Assert.Equal("|9001|0|", lines[3]);
         Assert.Equal("|9900|0000|1|", lines[4]);
         Assert.Equal("|9900|0001|1|", lines[5]);
         Assert.Equal("|9900|0990|1|", lines[6]);
         Assert.Equal("|9900|9001|1|", lines[7]);
-        Assert.Equal("|9900|9900|5|", lines[8]);
+        Assert.Equal("|9900|9900|7|", lines[8]);
         Assert.Equal("|9900|9990|1|", lines[9]);
         Assert.Equal("|9900|9999|1|", lines[10]);
-        Assert.Equal("|9990|9|", lines[11]);
+        Assert.Equal("|9990|10|", lines[11]);
         Assert.Equal("|9999|13|", lines[12]);
     }
 
@@ -54,5 +54,33 @@ public class SpedRecordWriterTests
         var text = Encoding.Latin1.GetString(bytes);
         Assert.StartsWith("|0150|Ç|\r\n|9001|", text);
         Assert.EndsWith("\r\n", text);
+    }
+
+    [Fact]
+    public void Add_StripsLineBreaksFromText()
+    {
+        var writer = new SpedRecordWriter();
+        writer.Add("0150", "a\r\nb\nc");
+
+        Assert.Equal("|0150|abc|", Lines(writer.Finish())[0]);
+    }
+
+    [Theory]
+    [InlineData("9001")]
+    [InlineData("9900")]
+    [InlineData("9990")]
+    [InlineData("9999")]
+    public void Add_RejectsBlock9Registers(string register)
+    {
+        Assert.Throws<ArgumentException>(() => new SpedRecordWriter().Add(register, 1));
+    }
+
+    [Fact]
+    public void Add_FormatsDateOnly()
+    {
+        var writer = new SpedRecordWriter();
+        writer.Add("E100", new DateOnly(2026, 1, 31));
+
+        Assert.Equal("|E100|31012026|", Lines(writer.Finish())[0]);
     }
 }

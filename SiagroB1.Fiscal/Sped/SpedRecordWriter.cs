@@ -20,6 +20,9 @@ public sealed class SpedRecordWriter
 
     public void Add(string register, params object?[] fields)
     {
+        // O bloco 9 é gerado exclusivamente por Finish
+        if (register.StartsWith('9'))
+            throw new ArgumentException($"Registro {register} do bloco 9 é reservado ao Finish.", nameof(register));
         var sb = new StringBuilder("|").Append(register).Append('|');
         foreach (var f in fields)
             sb.Append(Format(f)).Append('|');
@@ -63,11 +66,16 @@ public sealed class SpedRecordWriter
     private static string Format(object? value) => value switch
     {
         null => "",
-        string s => s.Replace("|", "").Trim(),
+        string s => Clean(s),
         decimal d => d.ToString("F2", Pt),
         SpedDecimal sd => sd.Value.ToString("F" + sd.Places, Pt),
+        DateOnly d => d.ToString("ddMMyyyy", CultureInfo.InvariantCulture),
         DateTime dt => dt.ToString("ddMMyyyy", CultureInfo.InvariantCulture),
         IFormattable f => f.ToString(null, Pt),
-        _ => value.ToString()!.Replace("|", "").Trim(),
+        _ => Clean(value.ToString()!),
     };
+
+    // Remove o separador e quebras de linha, que corromperiam o arquivo
+    private static string Clean(string s) =>
+        s.Replace("|", "").Replace("\r", "").Replace("\n", "").Trim();
 }
