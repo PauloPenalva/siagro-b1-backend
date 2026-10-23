@@ -79,6 +79,8 @@ public class MdfeNotClosedQueryServiceTests
         Assert.Equal(1, a.Series);
         Assert.Equal(MdfeStatus.Authorized, a.Status);
         Assert.Equal("ABC1D23", a.TractionPlate);
+        Assert.False(a.OutsideSystem);
+        Assert.False(a.StatusDiverges);
         Assert.Equal(MdfeStatus.Processing, list.Single(x => x.AccessKey == KeyOf(51)).Status);
     }
 
@@ -96,6 +98,49 @@ public class MdfeNotClosedQueryServiceTests
         Assert.Null(item.Series);
         Assert.Null(item.Status);
         Assert.Null(item.TractionPlate);
+        Assert.True(item.OutsideSystem);
+        Assert.False(item.StatusDiverges);
+    }
+
+    [Theory]
+    [InlineData(MdfeStatus.Closed)]
+    [InlineData(MdfeStatus.Cancelled)]
+    [InlineData(MdfeStatus.Draft)]
+    public async Task NotClosed_local_status_not_open_is_flagged_as_diverging(MdfeStatus local)
+    {
+        await SeedAsync((50, local));
+        _sefaz.NotClosedResponses.Enqueue(_ => [new MdfeNotClosed(KeyOf(50), "111")]);
+
+        var item = Assert.Single(await Service().ListAsync("01"));
+
+        Assert.False(item.OutsideSystem);
+        Assert.Equal(local, item.Status);
+        Assert.True(item.StatusDiverges);
+    }
+
+    [Fact]
+    public async Task NotClosed_matches_manifest_stored_under_another_branch_row()
+    {
+        await SeedAsync((50, MdfeStatus.Authorized));
+        _db.Context.Branchs.Add(new Branch
+        {
+            Code = "02", BranchName = "OUTRA", LegalName = "CEAGUI CEREAIS LTDA", TaxId = Cnpj,
+            StateCode = "SP", StateRegistration = "387000000110", TaxRegime = TaxRegime.Normal,
+            Street = "R", StreetNumber = "1", District = "Z", MunicipalityCode = "3521705", ZipCode = "18440000",
+        });
+        _db.Context.TransportManifests.Add(new TransportManifest
+        {
+            BranchCode = "02", Status = MdfeStatus.Authorized, Series = 1, Number = 77, RandomCode = "12345678",
+            IssuedAt = new DateTime(2026, 10, 23), AccessKey = KeyOf(77), Environment = NfeEnvironment.Homologation,
+            UfStart = "SP", UfEnd = "RJ",
+        });
+        await _db.SaveChangesAsync();
+        _sefaz.NotClosedResponses.Enqueue(_ => [new MdfeNotClosed(KeyOf(77), "777")]);
+
+        var item = Assert.Single(await Service().ListAsync("01"));
+
+        Assert.False(item.OutsideSystem);
+        Assert.Equal(77, item.Number);
     }
 
     [Fact]

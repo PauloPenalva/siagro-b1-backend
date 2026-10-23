@@ -104,4 +104,16 @@ public class MdfeEdmModelTests
         foreach (var prop in new[] { "ManifestKey", "Number", "Series", "Status" })
             Assert.NotNull(type.FindProperty(prop));
     }
+
+    [Fact]
+    public void Mdfe_not_closed_function_returns_collection_with_flags_and_shared_status_enum()
+    {
+        var model = Build();
+        var function = model.SchemaElements.OfType<IEdmFunction>().Single(f => f.Name == "MdfeNotClosed");
+        var type = Assert.IsAssignableFrom<IEdmStructuredType>(((IEdmCollectionType)function.ReturnType.Definition).ElementType.Definition);
+        foreach (var prop in new[] { "AccessKey", "Protocol", "ManifestKey", "Number", "Series", "Status", "TractionPlate", "StatusDiverges", "OutsideSystem" })
+            Assert.NotNull(type.FindProperty(prop));
+        var manifestStatus = model.EntityContainer.FindEntitySet("TransportManifests")!.EntityType.FindProperty("Status")!.Type.Definition;
+        Assert.Same(manifestStatus, type.FindProperty("Status")!.Type.Definition);
+    }
 }

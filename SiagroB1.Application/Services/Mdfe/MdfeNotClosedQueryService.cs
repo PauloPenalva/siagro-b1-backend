@@ -9,7 +9,7 @@ using SiagroB1.Infra;
 namespace SiagroB1.Application.Services.Mdfe;
 
 /// <summary>
-/// MDF-e autorizados e NÃO encerrados do CNPJ da filial na SEFAZ, cruzados com os MDF-e do sistema pela chave.
+/// MDF-e autorizados e NÃO encerrados do CNPJ da filial na SEFAZ, cruzados com os MDF-e do sistema pela chave (única; não depende da filial gravada).
 /// Chave que o sistema não conhece vem sem <see cref="MdfeNotClosedItem.ManifestKey"/> ("MDF-e fora do sistema").
 /// Somente leitura: não usa trava de emissão.
 /// </summary>
@@ -54,7 +54,7 @@ public class MdfeNotClosedQueryService(
 
         var keys = open.Select(x => x.AccessKey).ToList();
         var known = (await db.Context.TransportManifests.AsNoTracking()
-                .Where(m => m.BranchCode == branchCode && m.AccessKey != null && keys.Contains(m.AccessKey))
+                .Where(m => m.AccessKey != null && keys.Contains(m.AccessKey))
                 .Select(m => new { m.Key, m.AccessKey, m.Number, m.Series, m.Status, m.TractionPlate })
                 .ToListAsync())
             .GroupBy(m => m.AccessKey!)
@@ -65,8 +65,9 @@ public class MdfeNotClosedQueryService(
                 {
                     AccessKey = o.AccessKey, Protocol = o.Protocol, ManifestKey = m.Key, Number = m.Number, Series = m.Series,
                     Status = m.Status, TractionPlate = m.TractionPlate,
+                    StatusDiverges = m.Status is not (MdfeStatus.Authorized or MdfeStatus.Processing),
                 }
-                : new MdfeNotClosedItem { AccessKey = o.AccessKey, Protocol = o.Protocol })
+                : new MdfeNotClosedItem { AccessKey = o.AccessKey, Protocol = o.Protocol, OutsideSystem = true })
             .ToList();
     }
 }
@@ -84,4 +85,9 @@ public class MdfeNotClosedItem
     public int? Series { get; set; }
     public MdfeStatus? Status { get; set; }
     public string? TractionPlate { get; set; }
+    /// <summary>Existe aqui, mas a situação local não é Autorizado/Processamento (a SEFAZ ainda o tem aberto).</summary>
+    public bool StatusDiverges { get; set; }
+
+    /// <summary>A chave não existe no sistema ("MDF-e fora do sistema"): ManifestKey nulo.</summary>
+    public bool OutsideSystem { get; set; }
 }
