@@ -23,9 +23,9 @@ public class TransportManifestsCloseServiceTests
     private readonly FakeMdfeNumberReservationService _numbers = new(50);
     private readonly FakeMdfeSefazClient _sefaz = new();
 
-    private TransportManifestsCloseService Close()
+    private TransportManifestsCloseService Close(string? erp = null)
     {
-        var config = NfeTestSeed.Config();
+        var config = erp is null ? NfeTestSeed.Config() : MdfeTestSupport.Config(erp);
         return new TransportManifestsCloseService(
             _db, config, _numbers, new MdfeServiceContextFactory(_db, new NfeOptions(config)), _sefaz, () => Now);
     }
@@ -180,5 +180,82 @@ public class TransportManifestsCloseServiceTests
 
         Assert.Equal(494, result.StatusCode);
         Assert.Equal(MdfeStatus.Authorized, (await LoadAsync(key)).Status);
+    }
+
+    [Fact]
+    public async Task Close_duplicate_event_with_consult_not_closed_keeps_authorized()
+    {
+        var key = await SeedAsync();
+        _sefaz.CloseResponses.Enqueue(_ => FakeMdfeSefazClient.EventRejected(631));
+        _sefaz.ConsultResponses.Enqueue(_ => new NfeSefazResult(100, "Autorizado o uso do MDF-e"));
+
+        var result = await Close().CloseAsync(key, null, null, null, "tester");
+
+        Assert.Equal(631, result.StatusCode);
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Authorized, m.Status);
+        Assert.All(m.Ctes, c => Assert.True(c.IsActive));
+        Assert.Empty(m.Events);
+        Assert.Empty(m.Xmls);
+        Assert.Null(m.ClosedAt);
+    }
+
+    [Fact]
+    public async Task Close_duplicate_event_with_consult_timeout_throws_and_changes_nothing()
+    {
+        var key = await SeedAsync();
+        _sefaz.CloseResponses.Enqueue(_ => FakeMdfeSefazClient.EventRejected(631));
+        _sefaz.ConsultResponses.Enqueue(FakeMdfeSefazClient.NoResponse);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Close().CloseAsync(key, null, null, null, "tester"));
+
+        Assert.Equal(TransportManifestsCloseService.NoResponseAfterDuplicate, e.Message);
+        var m = await LoadAsync(key);
+        Assert.Equal(MdfeStatus.Authorized, m.Status);
+        Assert.Empty(m.Events);
+        Assert.Equal(0, _numbers.LocksHeld);
+    }
+
+    [Fact]
+    public async Task Close_without_uf_end_and_without_uf_is_refused()
+    {
+        var key = await SeedAsync();
+        var m = await _db.Context.TransportManifests.SingleAsync(x => x.Key == key);
+        m.UfEnd = null;
+        await _db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Close().CloseAsync(key, null, null, null, "tester"));
+
+        Assert.Equal("Informe a UF do encerramento.", e.Message);
+        Assert.Equal(0, _sefaz.CloseCalls);
+    }
+
+    [Fact]
+    public async Task Close_outside_standalone_is_refused()
+    {
+        var key = await SeedAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() => Close("SAPB1").CloseAsync(key, null, null, null, "tester"));
+
+        Assert.Equal(0, _sefaz.CloseCalls);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("  ", null)]
+    [InlineData("2026-10-22", "2026-10-22")]
+    public void ParseClosedOn_accepts_iso_date_or_blank(string? text, string? expected) =>
+        Assert.Equal(expected is null ? null : DateOnly.Parse(expected), TransportManifestsCloseService.ParseClosedOn(text));
+
+    [Theory]
+    [InlineData("22/10/2026")]
+    [InlineData("2026-13-01")]
+    [InlineData("amanha")]
+    [InlineData("2026-10-22T00:00:00Z")]
+    public void ParseClosedOn_refuses_invalid_text(string text)
+    {
+        var e = Assert.Throws<DefaultException>(() => TransportManifestsCloseService.ParseClosedOn(text));
+        Assert.Equal(TransportManifestsCloseService.InvalidDate, e.Message);
     }
 }

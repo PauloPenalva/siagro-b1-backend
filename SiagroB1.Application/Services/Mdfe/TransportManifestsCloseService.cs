@@ -28,6 +28,19 @@ public class TransportManifestsCloseService(
     public const string NotAuthorized = "Só é possível encerrar MDF-e autorizado.";
     public const string FutureDate = "A data de encerramento não pode ser futura.";
     public const string NoResponse = "Sem resposta da SEFAZ: tente encerrar de novo.";
+    public const string NoResponseAfterDuplicate =
+        "A SEFAZ já tem um encerramento registrado, mas não respondeu à consulta de confirmação: consulte o MDF-e antes de tentar de novo.";
+    public const string InvalidDate = "Data de encerramento inválida: use o formato AAAA-MM-DD.";
+
+    /// <summary>Lê a data enviada como texto "yyyy-MM-dd" (vazio = padrão de hoje); texto inválido é recusado, nunca vira hoje.</summary>
+    public static DateOnly? ParseClosedOn(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        return DateOnly.TryParseExact(text.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date)
+            ? date
+            : throw new DefaultException(InvalidDate);
+    }
 
     /// <summary>cStat de evento já registrado (duplicidade de evento).</summary>
     public const int DuplicateEvent = 631;
@@ -54,7 +67,9 @@ public class TransportManifestsCloseService(
     /// emissão já tomado por quem chama). <paramref name="m"/> precisa vir de <c>MdfeEmission.LoadAsync</c> (CT-e e XMLs
     /// carregados). Padrões: hoje (Brasília), UF fim do MDF-e e último município de descarga. Lança
     /// <see cref="DefaultException"/> se não estiver Autorizado, se a data for futura ou se a SEFAZ não responder
-    /// (nada muda). Retorna o resultado do evento; 631 + consulta 132 vira 135.
+    /// (nada muda). Retorna o resultado do evento. ATENÇÃO: 631 + consulta 132 devolve um resultado SINTÉTICO
+    /// (135, "MDF-e já encerrado na SEFAZ.", sem protocolo, sem evento nem XML de encerramento gravados). 631 + consulta diferente
+    /// de 132 devolve o próprio 631 e o MDF-e segue Autorizado. 631 + consulta sem resposta lança <see cref="NoResponseAfterDuplicate"/>.
     /// </summary>
     public async Task<NfeEventResult> CloseCoreAsync(
         TransportManifest m, MdfeServiceSettings settings, DateOnly? closedOn, string? ufCode, string? cityIbge, string user)
@@ -109,7 +124,7 @@ public class TransportManifestsCloseService(
             catch (NfeCommunicationException e)
             {
                 MdfeEmission.LogCommunication(logger, m.AccessKey, "consulta após duplicidade de evento", e);
-                throw new DefaultException(NoResponse);
+                throw new DefaultException(NoResponseAfterDuplicate);
             }
         }
 

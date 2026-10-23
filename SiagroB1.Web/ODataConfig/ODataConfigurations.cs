@@ -123,7 +123,8 @@ public static class ODataConfigurations
         transportManifestsConsult.Returns<NfeServiceStatusDto>();
         var transportManifestsClose = modelBuilder.Action("TransportManifestsClose");
         transportManifestsClose.Parameter<string>("Key");
-        transportManifestsClose.Parameter<DateOnly>("ClosedOn").Optional();
+        // ClosedOn como string "yyyy-MM-dd" de propósito: Edm.Date em parâmetro de action já devolveu 400 (ver DischargeDate).
+        transportManifestsClose.Parameter<string>("ClosedOn").Optional();
         transportManifestsClose.Parameter<string>("UfCode").Optional();
         transportManifestsClose.Parameter<string>("CityIbge").Optional();
         transportManifestsClose.Returns<NfeServiceStatusDto>();

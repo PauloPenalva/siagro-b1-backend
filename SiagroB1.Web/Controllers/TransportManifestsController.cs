@@ -144,14 +144,16 @@ public class TransportManifestsController(
     [HttpPost("odata/TransportManifestsClose")]
     public Task<IActionResult> CloseAsync([FromBody] ODataActionParameters parameters)
     {
-        DateOnly? closedOn = parameters?.GetValueOrDefault("ClosedOn") switch
+        DateOnly? closedOn;
+        try
         {
-            DateTimeOffset d => DateOnly.FromDateTime(d.DateTime),
-            DateTime d => DateOnly.FromDateTime(d),
-            DateOnly d => d,
-            string s when DateOnly.TryParse(s[..Math.Min(10, s.Length)], out var d) => d,
-            _ => null,
-        };
+            closedOn = TransportManifestsCloseService.ParseClosedOn(parameters?.GetValueOrDefault("ClosedOn")?.ToString());
+        }
+        catch (DefaultException e)
+        {
+            return Task.FromResult<IActionResult>(BadRequest(e.Message));
+        }
+
         var ufCode = parameters?.GetValueOrDefault("UfCode")?.ToString();
         var cityIbge = parameters?.GetValueOrDefault("CityIbge")?.ToString();
         return RunSefazAsync(parameters, async key =>
