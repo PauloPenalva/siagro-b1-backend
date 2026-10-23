@@ -31,6 +31,7 @@ public class TransportManifestsController(
     TransportManifestsCloseService closeService,
     TransportManifestsIncludeDriverService includeDriverService,
     TransportManifestsCancelService cancelService,
+    MdfeNotClosedQueryService notClosedQuery,
     IUnitOfWork db,
     IConfiguration configuration) : ODataController
 {
@@ -48,6 +49,19 @@ public class TransportManifestsController(
     {
         if (!ErpMode.IsStandalone(configuration)) return BadRequest(BranchMdfeSettingsService.StandaloneOnly);
         return Ok(SingleResult.Create(db.Context.TransportManifests.AsNoTracking().Where(x => x.Key == key)));
+    }
+
+    [HttpGet("odata/MdfeNotClosed(BranchCode={branchCode})")]
+    public async Task<IActionResult> NotClosedAsync([FromRoute] string branchCode)
+    {
+        try
+        {
+            return Ok(await notClosedQuery.ListAsync(branchCode.Trim('\'')));
+        }
+        catch (DefaultException e)
+        {
+            return BadRequest(e.Message);
+        }
     }
 
     [HttpGet("odata/MdfeEligibleCtes(BranchCode={branchCode})")]

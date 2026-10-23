@@ -86,6 +86,7 @@ public class MdfeEdmModelTests
     [Theory]
     [InlineData("BranchMdfeSettingsGet", "BranchCode")]
     [InlineData("MdfeEligibleCtes", "BranchCode")]
+    [InlineData("MdfeNotClosed", "BranchCode")]
     [InlineData("TransportManifestsXml", "Key")]
     [InlineData("TransportDocumentsManifest", "Key")]
     public void Model_exposes_mdfe_functions(string name, string parameter)

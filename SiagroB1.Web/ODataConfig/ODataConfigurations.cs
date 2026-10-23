@@ -147,6 +147,12 @@ public static class ODataConfigurations
         transportDocumentsManifest.Parameter<Guid>("Key");
         transportDocumentsManifest.Returns<SiagroB1.Application.Services.Mdfe.CteManifestLink>();
 
+        // MDF-e não encerrados na SEFAZ da filial, cruzados com os do sistema (Status = mesmo enum do TransportManifest).
+        modelBuilder.ComplexType<SiagroB1.Application.Services.Mdfe.MdfeNotClosedItem>();
+        var mdfeNotClosed = modelBuilder.Function("MdfeNotClosed");
+        mdfeNotClosed.Parameter<string>("BranchCode");
+        mdfeNotClosed.ReturnsCollection<SiagroB1.Application.Services.Mdfe.MdfeNotClosedItem>();
+
         // CT-e (só STANDALONE): leitura pelo entity set (com $expand dos filhos); gravação, importação do XML da
         // NF-e e exclusão por ações. Listas de filhos vão em coleções paralelas; valores decimais como Double.
         modelBuilder.EntitySet<TransportDocument>("TransportDocuments");
