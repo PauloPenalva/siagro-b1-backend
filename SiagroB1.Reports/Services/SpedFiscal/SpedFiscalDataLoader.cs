@@ -200,6 +200,7 @@ public class SpedFiscalDataLoader(IUnitOfWork db, FiscalConferenceService confer
                 ItemType = code == branch.FreightServiceItemCode ? "09" : "00",
                 Ncm = Digits(item?.Ncm),
                 Cest = Digits(item?.Cest),
+                GoodsOrigin = item?.GoodsOrigin,
             });
 
             foreach (var other in units.Distinct().Where(u => u != unit).Order(StringComparer.Ordinal))

@@ -87,6 +87,9 @@ public class SpedItem
     public string ItemType { get; set; } = "00";
     public string Ncm { get; set; } = "";
     public string Cest { get; set; } = "";
+
+    /// <summary>Origem da mercadoria do cadastro (1º dígito do CST_ICMS de 3 dígitos); nula = 0 (nacional).</summary>
+    public byte? GoodsOrigin { get; set; }
 }
 
 /// <summary>Unidade de medida (registro 0190).</summary>
@@ -102,4 +105,31 @@ public class SpedUnitConversion
     public string ItemCode { get; set; } = "";
     public string UnitCode { get; set; } = "";
     public decimal Factor { get; set; }
+}
+
+/// <summary>Inconsistência do SPED Fiscal: bloqueante impede a geração; aviso só informa.</summary>
+public class SpedFiscalIssueDto
+{
+    public bool Blocking { get; set; }
+    public string Message { get; set; } = "";
+
+    /// <summary>Código/documento a que a mensagem se refere (filial, parceiro, produto, nota/item).</summary>
+    public string Reference { get; set; } = "";
+}
+
+/// <summary>Totais da apuração do ICMS que irão ao E110.</summary>
+public class SpedFiscalTotalsDto
+{
+    public decimal Debits { get; set; }
+    public decimal Credits { get; set; }
+
+    /// <summary>Débitos − créditos − saldo credor anterior; positivo = a recolher.</summary>
+    public decimal Balance { get; set; }
+}
+
+/// <summary>Prévia antes de gerar: inconsistências (bloqueantes e avisos) e totais.</summary>
+public class SpedFiscalCheckDto
+{
+    public List<SpedFiscalIssueDto> Issues { get; set; } = [];
+    public SpedFiscalTotalsDto Totals { get; set; } = new();
 }
