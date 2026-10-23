@@ -2,7 +2,8 @@ namespace SiagroB1.Domain.Enums;
 
 /// <summary>
 /// Situação do MDF-e. Só Rascunho é editável; o número nasce no Confirmar. O vínculo do CT-e fica ativo
-/// em Draft, Confirmed, Processing, Rejected e Authorized; inativo em Voided, Cancelled e Closed.
+/// em Draft, Confirmed, Processing, Rejected e Authorized; inativo em Denied, Voided, Cancelled e Closed
+/// (ver <see cref="MdfeStatuses.Active"/>).
 /// </summary>
 public enum MdfeStatus
 {
@@ -34,4 +35,17 @@ public enum MdfeEventType
     Closing = 0,
     Cancellation = 1,
     DriverInclusion = 2,
+}
+
+/// <summary>Conjuntos de situações do MDF-e.</summary>
+public static class MdfeStatuses
+{
+    /// <summary>
+    /// Situações em que o MDF-e prende os CT-e vinculados (índice único filtrado em IsActive).
+    /// Denied libera o CT-e: denegado não circula.
+    /// </summary>
+    public static readonly IReadOnlySet<MdfeStatus> Active = new HashSet<MdfeStatus>
+    {
+        MdfeStatus.Draft, MdfeStatus.Confirmed, MdfeStatus.Processing, MdfeStatus.Rejected, MdfeStatus.Authorized,
+    };
 }

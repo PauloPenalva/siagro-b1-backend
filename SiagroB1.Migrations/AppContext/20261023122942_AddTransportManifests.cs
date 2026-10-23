@@ -98,7 +98,7 @@ namespace SiagroB1.Migrations.AppContext
                     CteAccessKey = table.Column<string>(type: "VARCHAR(44)", nullable: false),
                     UnloadingCityIbge = table.Column<string>(type: "VARCHAR(7)", nullable: false),
                     UnloadingCityName = table.Column<string>(type: "VARCHAR(60)", nullable: false),
-                    Endorsements = table.Column<string>(type: "VARCHAR(500)", nullable: true),
+                    Endorsements = table.Column<string>(type: "VARCHAR(2000)", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>

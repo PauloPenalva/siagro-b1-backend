@@ -22,10 +22,10 @@ public class TransportManifestCte
     [Column(TypeName = "VARCHAR(7)")] public required string UnloadingCityIbge { get; set; }
     [Column(TypeName = "VARCHAR(60)")] public required string UnloadingCityName { get; set; }
     /// <summary>Averbações do seguro separadas por vírgula.</summary>
-    [Column(TypeName = "VARCHAR(500)")] public string? Endorsements { get; set; }
+    [Column(TypeName = "VARCHAR(2000)")] public string? Endorsements { get; set; }
 
     /// <summary>
-    /// Mantido pelos serviços: false quando o MDF-e vira Voided/Cancelled/Closed (o rascunho excluído
+    /// Mantido só por TransportManifest.ApplyStatus: false quando o MDF-e vira Denied/Voided/Cancelled/Closed (o rascunho excluído
     /// leva a linha junto). O índice único filtrado em TransportDocumentKey usa só este campo, porque
     /// filtro de índice não aceita NOT IN.
     /// </summary>

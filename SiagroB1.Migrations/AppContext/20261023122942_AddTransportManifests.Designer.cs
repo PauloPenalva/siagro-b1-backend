@@ -12,7 +12,7 @@ using SiagroB1.Infra.Context;
 namespace SiagroB1.Migrations.AppContext
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261023121254_AddTransportManifests")]
+    [Migration("20261023122942_AddTransportManifests")]
     partial class AddTransportManifests
     {
         /// <inheritdoc />
@@ -8695,7 +8695,7 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(44)");
 
                     b.Property<string>("Endorsements")
-                        .HasColumnType("VARCHAR(500)");
+                        .HasColumnType("VARCHAR(2000)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");

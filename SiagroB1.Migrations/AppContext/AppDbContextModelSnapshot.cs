@@ -8692,7 +8692,7 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(44)");
 
                     b.Property<string>("Endorsements")
-                        .HasColumnType("VARCHAR(500)");
+                        .HasColumnType("VARCHAR(2000)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");

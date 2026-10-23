@@ -88,4 +88,17 @@ public class TransportManifest
     public virtual ICollection<TransportManifestSeal> Seals { get; set; } = new List<TransportManifestSeal>();
     public virtual ICollection<TransportManifestXml> Xmls { get; set; } = new List<TransportManifestXml>();
     public virtual ICollection<TransportManifestEvent> Events { get; set; } = new List<TransportManifestEvent>();
+
+    /// <summary>
+    /// ÚNICO jeito de mudar <see cref="Status"/> depois da criação: grava a situação e sincroniza o
+    /// <see cref="TransportManifestCte.IsActive"/> de todos os vínculos (<see cref="MdfeStatuses.Active"/>).
+    /// Atribuir Status direto deixa o índice único filtrado desatualizado e prende ou solta CT-e errado.
+    /// Os vínculos precisam estar carregados (Include(Ctes)).
+    /// </summary>
+    public void ApplyStatus(MdfeStatus status)
+    {
+        Status = status;
+        var active = MdfeStatuses.Active.Contains(status);
+        foreach (var cte in Ctes) cte.IsActive = active;
+    }
 }

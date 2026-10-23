@@ -34,4 +34,34 @@ public class TransportManifestModelTests
         Assert.Equal(new[] { "Closing", "Cancellation", "DriverInclusion" }, Enum.GetNames<MdfeEventType>());
         Assert.Equal(2, (int)MdfeEventType.DriverInclusion);
     }
+
+    [Theory]
+    [InlineData(MdfeStatus.Draft, true)]
+    [InlineData(MdfeStatus.Confirmed, true)]
+    [InlineData(MdfeStatus.Processing, true)]
+    [InlineData(MdfeStatus.Rejected, true)]
+    [InlineData(MdfeStatus.Authorized, true)]
+    [InlineData(MdfeStatus.Denied, false)]
+    [InlineData(MdfeStatus.Cancelled, false)]
+    [InlineData(MdfeStatus.Voided, false)]
+    [InlineData(MdfeStatus.Closed, false)]
+    public void ApplyStatus_syncs_every_cte_link(MdfeStatus status, bool active)
+    {
+        var manifest = new TransportManifest { BranchCode = "01", Status = MdfeStatus.Closed };
+        for (var i = 0; i < 2; i++)
+            manifest.Ctes.Add(new TransportManifestCte
+            {
+                CteAccessKey = new string('1', 44), UnloadingCityIbge = "3550308", UnloadingCityName = "São Paulo", IsActive = !active,
+            });
+
+        manifest.ApplyStatus(status);
+
+        Assert.Equal(status, manifest.Status);
+        Assert.All(manifest.Ctes, c => Assert.Equal(active, c.IsActive));
+        Assert.Equal(active, MdfeStatuses.Active.Contains(status));
+    }
+
+    [Fact]
+    public void Theory_covers_every_status() =>
+        Assert.Equal(9, Enum.GetValues<MdfeStatus>().Length);
 }
