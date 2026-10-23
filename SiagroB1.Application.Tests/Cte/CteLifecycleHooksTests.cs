@@ -178,6 +178,30 @@ public class CteLifecycleHooksTests : CteEventsTestBase
     }
 
     [Fact]
+    public async Task Cancel_hook_with_title_settled_meanwhile_records_financial_error_and_still_cancels_endorsement()
+    {
+        // Baixa feita no Financeiro durante a ida à SEFAZ: a trava do serviço já passou, o CT-e está cancelado.
+        var key = await SeedWithTitleAsync();
+        var title = await Db.Context.FinancialDocuments.SingleAsync(d => d.OriginKey == key);
+        title.SettledAmount = 100m;
+        var doc = await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key);
+        doc.Status = CteStatus.Cancelled;
+        Db.Context.TransportDocumentXmls.Add(new TransportDocumentXml
+        {
+            TransportDocumentKey = key, Kind = CteXmlKind.Cancellation, Xml = "<procEventoCTe/>",
+        });
+        await Db.SaveChangesAsync();
+
+        await Hooks().OnCancelledAsync(doc);
+
+        var saved = await LoadAsync(key);
+        Assert.Contains("não cancelado", saved.FinancialError);
+        Assert.Contains(title.Code, saved.FinancialError);
+        Assert.Equal(FinancialDocumentStatus.Open, (await TitlesAsync(key)).Single().Status);
+        Assert.Equal(CteEndorsementStatus.Cancelled, saved.EndorsementStatus);
+    }
+
+    [Fact]
     public async Task Hook_failure_records_financial_error_and_generate_clears_it()
     {
         var key = await SeedDocAsync();

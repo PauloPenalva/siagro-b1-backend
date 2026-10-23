@@ -74,15 +74,20 @@ public class CteLifecycleHooks(
     /// Deixa a falha visível no documento (o botão "Gerar título" e a próxima consulta tentam de novo). Os títulos que
     /// ficaram pendurados no contexto são descartados antes, para não irem junto num SaveChanges posterior.
     /// </summary>
-    private async Task RecordFinancialErrorAsync(TransportDocument doc, Exception error)
+    private async Task RecordFinancialErrorAsync(TransportDocument doc, Exception error, string prefix = "Título a receber não gerado")
     {
         try
         {
             foreach (var entry in db.Context.ChangeTracker.Entries<FinancialDocument>()
-                         .Where(x => x.State == EntityState.Added).ToList())
-                entry.State = EntityState.Detached;
+                         .Where(x => x.State is EntityState.Added or EntityState.Modified).ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+                else
+                    await entry.ReloadAsync();
+            }
 
-            var reason = $"Título a receber não gerado: {(error is DefaultException ? error.Message : "erro inesperado; veja o log.")}";
+            var reason = $"{prefix}: {(error is DefaultException ? error.Message : "erro inesperado; veja o log.")}";
             doc.FinancialError = reason.Length > 500 ? reason[..500] : reason;
             await db.SaveChangesAsync();
         }
@@ -104,6 +109,8 @@ public class CteLifecycleHooks(
         catch (Exception e)
         {
             logger.LogError(e, "CT-e {AccessKey} cancelado, mas o título a receber não foi cancelado.", doc.AccessKey);
+            // Ex.: título baixado no Financeiro durante a ida à SEFAZ. O aviso fica no documento para o usuário resolver.
+            await RecordFinancialErrorAsync(doc, e, "Título a receber não cancelado");
         }
 
         await EnqueueEmailAsync(doc, NfeEmailEventType.Cancelled);
