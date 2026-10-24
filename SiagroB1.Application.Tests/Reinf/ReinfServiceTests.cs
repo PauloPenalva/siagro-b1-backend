@@ -26,14 +26,20 @@ public class ReinfServiceTests
         var c = _db.Context;
         c.Branchs.Add(new Branch { Code = "01", BranchName = "Matriz", TaxId = "12345678000195" });
         c.Usages.Add(new Usage { Code = 1, Name = "Compra", RuralContributionMode = RuralContributionMode.Full });
-        c.ReinfSettings.Add(new ReinfSettings { TaxIdRoot = Root, BranchCode = "01", RegistrationStatus = ReinfRegistrationStatus.Accepted });
+        c.ReinfSettings.Add(new ReinfSettings { TaxIdRoot = Root, BranchCode = "01", RegistrationStatus = ReinfRegistrationStatus.Accepted, TaxClassification = "99", ContactName = "Fulano", ContactCpf = "12345678909", ValidFrom = "2026-01" });
         c.SaveChanges();
     }
 
     private ReinfService Service(string erp = "STANDALONE") => Service(_db.Context, erp);
 
+    private bool _softHouse = true;
+    private Microsoft.Extensions.Configuration.IConfiguration Config(string erp) => _softHouse
+        ? TestConfiguration.With(("Erp", erp), ("Reinf:SoftwareHouse:Cnpj", "11222333000181"), ("Reinf:SoftwareHouse:Name", "IDX Tecnologia"),
+            ("Reinf:SoftwareHouse:Contact", "Suporte"), ("Reinf:SoftwareHouse:Phone", "1133334444"), ("Reinf:SoftwareHouse:Email", "s@idx.com.br"))
+        : TestConfiguration.Erp(erp);
+
     private ReinfService Service(SiagroB1.Infra.Context.AppDbContext ctx, string erp = "STANDALONE") => new(
-        ctx, TestConfiguration.Erp(erp), new ReinfAcquisitionCalculator(ctx), _client,
+        ctx, Config(erp), new ReinfAcquisitionCalculator(ctx), _client,
         new FakeReinfCertificateProvider(), new ReinfEventIdGenerator(), new ReinfSchemaValidator(), new ReinfAppInfo("1.0"),
         new FixedTime());
 
@@ -327,6 +333,141 @@ public class ReinfServiceTests
     }
 
     private void SeedProducer() => Invoice("P1", 1000m);
+
+
+    // ---- R-1000, fechamento (R-2099) e reabertura (R-2098) ----
+
+    private void SetRegistration(ReinfRegistrationStatus status, string? receipt = null)
+    {
+        var s = _db.Context.ReinfSettings.Single();
+        s.RegistrationStatus = status;
+        s.RegistrationReceipt = receipt;
+        _db.Context.SaveChanges();
+    }
+
+    private async Task AcceptBatch(Guid batch)
+    {
+        AcceptAllOnQuery(batch);
+        await Service().QueryBatchAsync(batch, default);
+    }
+
+    [Fact]
+    public async Task Registration_include_is_signed_valid_and_accepted()
+    {
+        SetRegistration(ReinfRegistrationStatus.NotSent);
+
+        var batch = await Service().SendRegistrationAsync(Root, "u", default);
+
+        var sent = Doc(Assert.Single(_client.SentXml));
+        Assert.Single(ByName(sent, "evtInfoContri"));
+        Assert.Single(ByName(sent, "inclusao"));
+        Assert.Equal("11222333000181", ByName(sent, "cnpjSoftHouse").Single().InnerText);
+        Assert.Equal(ReinfRegistrationStatus.Sent, _db.Context.ReinfSettings.Single().RegistrationStatus);
+
+        await AcceptBatch(batch);
+        var s = _db.Context.ReinfSettings.Single();
+        Assert.Equal(ReinfRegistrationStatus.Accepted, s.RegistrationStatus);
+        Assert.NotNull(s.RegistrationReceipt);
+    }
+
+    [Fact]
+    public async Task Registration_after_acceptance_is_an_update()
+    {
+        SetRegistration(ReinfRegistrationStatus.Accepted, "1-00-1");
+        await Service().SendRegistrationAsync(Root, "u", default);
+        Assert.Single(ByName(Doc(_client.SentXml[^1]), "alteracao"));
+    }
+
+    [Fact]
+    public async Task Registration_without_software_house_is_refused()
+    {
+        _softHouse = false;
+        SetRegistration(ReinfRegistrationStatus.NotSent);
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => Service().SendRegistrationAsync(Root, "u", default));
+        Assert.Equal("Configure Reinf:SoftwareHouse no appsettings.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Refused_registration_batch_marks_rejected()
+    {
+        SetRegistration(ReinfRegistrationStatus.NotSent);
+        _client.SendResults.Enqueue(() => new ReinfBatchResult(99, "Lote inválido", null, ["MS1"], [], "<r/>"));
+        await Service().SendRegistrationAsync(Root, "u", default);
+        Assert.Equal(ReinfRegistrationStatus.Rejected, _db.Context.ReinfSettings.Single().RegistrationStatus);
+    }
+
+    [Fact]
+    public async Task Close_with_pending_producer_is_refused()
+    {
+        Invoice("P1", 1000m);
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => Service().CloseAsync(Root, Period, "u", default));
+        Assert.Equal("Há eventos pendentes no período; transmita e aguarde o aceite antes de fechar.", ex.Message);
+    }
+
+    [Fact]
+    public async Task Close_with_event_in_flight_is_refused()
+    {
+        Invoice("P1", 1000m);
+        await Service().TransmitAsync(Root, Period, "u", default);
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => Service().CloseAsync(Root, Period, "u", default));
+        Assert.Equal(ReinfService.PendingEventsMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Close_then_reopen_round_trip()
+    {
+        Invoice("P1", 1000m);
+        await TransmitAndAccept();
+
+        var close = await Service().CloseAsync(Root, Period, "u", default);
+        var sent = Doc(_client.SentXml[^1]);
+        Assert.Single(ByName(sent, "evtFechaEvPer"));
+        Assert.Equal("S", ByName(sent, "evtAquis").Single().InnerText);
+        Assert.Equal("12345678909", ByName(sent, "cpfResp").Single().InnerText);
+        Assert.Equal(ReinfPeriodStatus.Closing, _db.Context.ReinfPeriods.Single().Status);
+
+        await AcceptBatch(close);
+        Assert.Equal(ReinfPeriodStatus.Closed, _db.Context.ReinfPeriods.Single().Status);
+        await Assert.ThrowsAsync<BusinessException>(() => Service().TransmitAsync(Root, Period, "u", default));
+
+        var reopen = await Service().ReopenAsync(Root, Period, "u", default);
+        Assert.Single(ByName(Doc(_client.SentXml[^1]), "evtReabreEvPer"));
+        Assert.Equal(ReinfPeriodStatus.Reopening, _db.Context.ReinfPeriods.Single().Status);
+        await AcceptBatch(reopen);
+        Assert.Equal(ReinfPeriodStatus.Open, _db.Context.ReinfPeriods.Single().Status);
+    }
+
+    [Fact]
+    public async Task Close_without_acquisitions_and_with_closing_responsible()
+    {
+        var s = _db.Context.ReinfSettings.Single();
+        s.ClosingResponsibleName = "Beltrano";
+        s.ClosingResponsibleCpf = "98765432100";
+        _db.Context.SaveChanges();
+
+        await Service().CloseAsync(Root, Period, "u", default);
+        var sent = Doc(_client.SentXml[^1]);
+        Assert.Equal("N", ByName(sent, "evtAquis").Single().InnerText);
+        Assert.Equal("98765432100", ByName(sent, "cpfResp").Single().InnerText);
+    }
+
+    [Fact]
+    public async Task Refused_closing_batch_returns_period_to_open()
+    {
+        _client.SendResults.Enqueue(() => new ReinfBatchResult(99, "Lote inválido", null, ["MS1"], [], "<r/>"));
+        await Service().CloseAsync(Root, Period, "u", default);
+        Assert.Equal(ReinfPeriodStatus.Open, _db.Context.ReinfPeriods.Single().Status);
+        // e pode fechar de novo
+        await Service().CloseAsync(Root, Period, "u", default);
+        Assert.Equal(ReinfPeriodStatus.Closing, _db.Context.ReinfPeriods.Single().Status);
+    }
+
+    [Fact]
+    public async Task Reopen_only_when_closed()
+    {
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => Service().ReopenAsync(Root, Period, "u", default));
+        Assert.Equal("Só é possível reabrir um período fechado.", ex.Message);
+    }
 
     private sealed class FixedTime : TimeProvider
     {

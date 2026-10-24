@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.FiscalInventory;
@@ -466,6 +467,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Mdfe.TransportManifestsCancelService>();
         services.AddScoped<SiagroB1.Application.Services.Mdfe.MdfeNotClosedQueryService>();
         services.AddSingleton<SiagroB1.Fiscal.Mdfe.IMdfeSefazClient, SiagroB1.Fiscal.Mdfe.ZeusMdfeSefazClient>();
+
+        // EFD-Reinf (R-1000/R-2055/R-2099/R-2098): só STANDALONE, conferido nos serviços.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<SiagroB1.Fiscal.Reinf.IReinfClient>(_ => new SiagroB1.Fiscal.Reinf.ReinfHttpClient());
+        services.AddSingleton<SiagroB1.Fiscal.Reinf.ReinfEventIdGenerator>();
+        services.AddSingleton<SiagroB1.Fiscal.Reinf.ReinfSchemaValidator>();
+        services.AddSingleton(new SiagroB1.Application.Services.Reinf.ReinfAppInfo(
+            typeof(ServiceCollectionExtensions).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0]
+            ?? typeof(ServiceCollectionExtensions).Assembly.GetName().Version?.ToString() ?? "1.0"));
+        services.AddScoped<SiagroB1.Application.Services.Reinf.IReinfCertificateProvider, SiagroB1.Application.Services.Reinf.ReinfCertificateProvider>();
+        services.AddScoped<SiagroB1.Application.Services.Reinf.ReinfAcquisitionCalculator>();
+        services.AddScoped<SiagroB1.Application.Services.Reinf.ReinfSettingsService>();
+        services.AddScoped<SiagroB1.Application.Services.Reinf.IReinfService, SiagroB1.Application.Services.Reinf.ReinfService>();
+        services.AddScoped<SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob>();
         services.AddScoped<NfeReadinessValidator>();
         services.AddScoped<SalesInvoiceNfeResultHandler>();
         services.AddScoped<SalesInvoicesNfeIssueService>();

@@ -24,6 +24,7 @@ public sealed class CompanyScopedJobRunner(
     public const string ContractDraftsReconcile = "contract-drafts-reconcile";
     public const string NfeEmailSweep = "nfe-email-sweep";
     public const string ReceivedDfeSync = "received-dfe-sync";
+    public const string ReinfBatchQuery = "reinf-batch-query";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -33,6 +34,7 @@ public sealed class CompanyScopedJobRunner(
             [ContractDraftsReconcile] = (sp, ct) => sp.GetRequiredService<ContractDraftsReconcileJob>().ExecuteAsync(ct),
             [NfeEmailSweep] = (sp, ct) => sp.GetRequiredService<NfeEmailSweepJob>().ExecuteAsync(ct),
             [ReceivedDfeSync] = (sp, ct) => sp.GetRequiredService<ReceivedDfeSyncJob>().ExecuteAsync(ct),
+            [ReinfBatchQuery] = (sp, ct) => sp.GetRequiredService<SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob>().ExecuteAsync(ct),
         };
 
     /// <summary>

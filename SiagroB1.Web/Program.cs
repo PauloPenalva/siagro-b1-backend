@@ -170,6 +170,13 @@ builder.Services.AddHangfireServer(options =>
     options.WorkerCount = 1;
 });
 
+// EFD-Reinf: um worker, consultas de lote em série (a Receita limita rajada por certificado).
+builder.Services.AddHangfireServer(options =>
+{
+    options.Queues = [SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob.QueueName];
+    options.WorkerCount = 1;
+});
+
 // DANFE do e-mail: rota interna do Reports (Reports:InternalBaseUrl / Reports:InternalApiKey).
 builder.Services.AddHttpClient<IDanfeProvider, SiagroB1.Infra.Reports.HttpDanfeProvider>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));
@@ -317,6 +324,20 @@ if (ErpMode.IsStandalone(app.Configuration))
 else
 {
     RecurringJob.RemoveIfExists(CompanyScopedJobRunner.ReceivedDfeSync);
+}
+
+// EFD-Reinf: consulta dos lotes enviados ainda sem retorno, só STANDALONE, na fila própria.
+if (ErpMode.IsStandalone(app.Configuration))
+{
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        CompanyScopedJobRunner.ReinfBatchQuery,
+        SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob.QueueName,
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ReinfBatchQuery, CancellationToken.None),
+        SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob.CronExpression);
+}
+else
+{
+    RecurringJob.RemoveIfExists(CompanyScopedJobRunner.ReinfBatchQuery);
 }
 
 // Em modo SAPB1 o cadastro de usuários é mantido no SAP. A varredura é o único caminho que

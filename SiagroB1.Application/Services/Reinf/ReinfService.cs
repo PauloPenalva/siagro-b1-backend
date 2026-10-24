@@ -61,16 +61,21 @@ public class ReinfService(
     /// Serializa a transmissão por contribuinte + período: trava do processo e, no SQL Server,
     /// sp_getapplock com dono sessão, sem transação (vale entre servidores). Quem espera enxerga os eventos em voo.
     /// </summary>
-    public async Task<IReadOnlyList<Guid>> TransmitAsync(string taxIdRoot, string period, string user, CancellationToken ct)
+    public Task<IReadOnlyList<Guid>> TransmitAsync(string taxIdRoot, string period, string user, CancellationToken ct)
     {
         EnsureStandalone();
-        var key = $"reinf:{ReinfFormat.Root(taxIdRoot)}:{period}";
+        return LockedAsync(ReinfFormat.Root(taxIdRoot), period, () => TransmitCoreAsync(taxIdRoot, period, user, ct), ct);
+    }
+
+    private async Task<T> LockedAsync<T>(string root, string periodKey, Func<Task<T>> body, CancellationToken ct)
+    {
+        var key = $"reinf:{root}:{periodKey}";
         var gate = Gates.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct);
         try
         {
             if (!context.Database.IsRelational())
-                return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+                return await body();
 
             // Sem transação: cada SaveChanges confirma sozinho (o lote gravado antes do envio é durável).
             await context.Database.OpenConnectionAsync(ct);
@@ -81,7 +86,7 @@ public class ReinfService(
                     throw new BusinessException("Outra transmissão da EFD-Reinf deste período está em andamento; tente novamente.");
                 try
                 {
-                    return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+                    return await body();
                 }
                 finally
                 {
@@ -131,7 +136,6 @@ public class ReinfService(
 
         var state = await LoadStateAsync(root, period, ct, tracked: true);
         var header = new ReinfHeader(settings.Environment, root, app.Version);
-        var now = BrasiliaNow();
 
         var plan = new List<(ReinfEvent Event, Func<string, XmlDocument> Build)>();
         void Plan(ReinfEvent? reuse, Action<ReinfEvent> fill, Func<string, XmlDocument> build)
@@ -181,6 +185,13 @@ public class ReinfService(
 
         if (plan.Count == 0) return [];
 
+        return await SignAndSendAsync(root, settings, plan, ct);
+    }
+
+    private async Task<IReadOnlyList<Guid>> SignAndSendAsync(
+        string root, ReinfSettings settings, List<(ReinfEvent Event, Func<string, XmlDocument> Build)> plan, CancellationToken ct)
+    {
+        var now = BrasiliaNow();
         using var cert = await certificates.GetAsync(root, ct);
         var signed = new List<(ReinfEvent Event, XmlDocument Doc)>();
         var errors = new List<string>();
@@ -231,19 +242,24 @@ public class ReinfService(
                     await context.SaveChangesAsync(ct);
                     if (result.ResponseCode is 2 or 3) await ApplyProcessedAsync(batch, events, result, ct);
                 }
-                else Refuse(batch, events, result);
+                else await RefuseAsync(batch, events, result, ct);
             }
             catch (ReinfTransportException ex)
             {
                 batch.Status = ReinfBatchStatus.Failed;
                 batch.Error = $"HTTP {ex.StatusCode}: {ex.Body}";
+                await RevertControlEventsAsync(chunk.Select(c => c.Event), batch.Error, ct);
             }
             catch (Exception ex)
             {
                 // Sem protocolo, nada chegou de fato: Failed (eventos Pending, retentável). Com protocolo, segue Sent
                 // e a consulta do lote resolve.
                 batch.Error = ex.Message;
-                if (string.IsNullOrWhiteSpace(batch.Protocol)) batch.Status = ReinfBatchStatus.Failed;
+                if (string.IsNullOrWhiteSpace(batch.Protocol))
+                {
+                    batch.Status = ReinfBatchStatus.Failed;
+                    await RevertControlEventsAsync(chunk.Select(c => c.Event), ex.Message, CancellationToken.None);
+                }
                 await context.SaveChangesAsync(CancellationToken.None);
                 throw;
             }
@@ -271,16 +287,120 @@ public class ReinfService(
         else if (result.ResponseCode is 2 or 3)
             await ApplyProcessedAsync(batch, events, result, ct);
         else
-            Refuse(batch, events, result);
+            await RefuseAsync(batch, events, result, ct);
 
         await context.SaveChangesAsync(ct);
     }
 
-    public Task<Guid> SendRegistrationAsync(string taxIdRoot, string user, CancellationToken ct) => throw new NotImplementedException();
-    public Task<Guid> CloseAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
-    public Task<Guid> ReopenAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
+    public const string RegistrationPeriodKey = "R1000";
+    public const string SoftwareHouseMissingMessage = "Configure Reinf:SoftwareHouse no appsettings.";
+    public const string PendingEventsMessage = "Há eventos pendentes no período; transmita e aguarde o aceite antes de fechar.";
+    public const string ReopenOnlyClosedMessage = "Só é possível reabrir um período fechado.";
 
-    private void Refuse(ReinfBatch batch, IEnumerable<ReinfEvent> events, ReinfBatchResult result)
+    private static readonly string[] BlockingSituations = ["Novo", "Desatualizado", "Excluir", "Rejeitado", "Enviado"];
+
+    /// <summary>Inclusão enquanto o R-1000 nunca foi aceito; alteração depois (já há recibo).</summary>
+    public static R1000Operation RegistrationOperation(ReinfSettings s) =>
+        s.RegistrationReceipt is null ? R1000Operation.Include : R1000Operation.Update;
+
+    public Task<Guid> SendRegistrationAsync(string taxIdRoot, string user, CancellationToken ct)
+    {
+        EnsureStandalone();
+        var root = ReinfFormat.Root(taxIdRoot);
+        return LockedAsync(root, RegistrationPeriodKey, async () =>
+        {
+            var softHouse = configuration.GetSection("Reinf:SoftwareHouse").Get<ReinfSoftwareHouseOptions>();
+            if (softHouse is null || string.IsNullOrWhiteSpace(softHouse.Cnpj) || string.IsNullOrWhiteSpace(softHouse.Name))
+                throw new BusinessException(SoftwareHouseMissingMessage);
+
+            var settings = await context.ReinfSettings.FirstOrDefaultAsync(s => s.TaxIdRoot == root, ct)
+                           ?? throw new BusinessException("Cadastre os parâmetros da EFD-Reinf antes.");
+            if (settings.RegistrationStatus == ReinfRegistrationStatus.Sent)
+                throw new BusinessException("R-1000 já enviado; aguarde o retorno da Receita.");
+
+            var header = new ReinfHeader(settings.Environment, root, app.Version);
+            var input = new R1000Input(header, RegistrationOperation(settings), settings.ValidFrom, settings.TaxClassification,
+                settings.KeepsBookkeeping, settings.PayrollRelief, settings.FineExemptionAgreement, settings.CompanySituation,
+                settings.ContactName, settings.ContactCpf, settings.ContactPhone, settings.ContactEmail,
+                new SoftwareHouse(softHouse.Cnpj, softHouse.Name,
+                    string.IsNullOrWhiteSpace(softHouse.Contact) ? softHouse.Name : softHouse.Contact, softHouse.Phone, softHouse.Email));
+            var e = NewControlEvent(ReinfEventType.R1000, root, null, user);
+            settings.RegistrationStatus = ReinfRegistrationStatus.Sent;
+            var batches = await SignAndSendAsync(root, settings, [(e, id => R1000Builder.Build(input, id))], ct);
+            return batches[0];
+        }, ct);
+    }
+
+    public async Task<Guid> CloseAsync(string taxIdRoot, string period, string user, CancellationToken ct)
+    {
+        EnsureStandalone();
+        var root = ReinfFormat.Root(taxIdRoot);
+        var overview = await GetOverviewAsync(root, period, ct);
+        if (overview.Rows.Any(r => BlockingSituations.Contains(r.Situation)))
+            throw new BusinessException(PendingEventsMessage);
+
+        return await LockedAsync(root, period, async () =>
+        {
+            var settings = await RequireRegistrationAsync(root, ct);
+            if (await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == root && e.Period == period
+                    && (e.Status == ReinfEventStatus.Pending || e.Status == ReinfEventStatus.Sent), ct))
+                throw new BusinessException(PendingEventsMessage);
+
+            var p = await context.ReinfPeriods.FirstOrDefaultAsync(x => x.TaxIdRoot == root && x.Period == period, ct);
+            if (p is null) { p = new ReinfPeriod { TaxIdRoot = root, Period = period }; context.ReinfPeriods.Add(p); }
+            if (p.Status != ReinfPeriodStatus.Open)
+                throw new BusinessException("Período já fechado ou com fechamento/reabertura em andamento.");
+
+            var hasAcquisitions = await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == root && e.Period == period
+                && e.Type == ReinfEventType.R2055 && e.Status == ReinfEventStatus.Accepted, ct);
+            var useResponsible = !string.IsNullOrWhiteSpace(settings.ClosingResponsibleName)
+                                 && !string.IsNullOrWhiteSpace(settings.ClosingResponsibleCpf);
+            var input = new R2099Input(new ReinfHeader(settings.Environment, root, app.Version), period,
+                useResponsible ? settings.ClosingResponsibleName! : settings.ContactName,
+                useResponsible ? settings.ClosingResponsibleCpf! : settings.ContactCpf,
+                useResponsible ? settings.ClosingResponsiblePhone : settings.ContactPhone,
+                useResponsible ? settings.ClosingResponsibleEmail : settings.ContactEmail,
+                hasAcquisitions);
+
+            p.Status = ReinfPeriodStatus.Closing;
+            var e = NewControlEvent(ReinfEventType.R2099, root, period, user);
+            var batches = await SignAndSendAsync(root, settings, [(e, id => R2099Builder.Build(input, id))], ct);
+            return batches[0];
+        }, ct);
+    }
+
+    public Task<Guid> ReopenAsync(string taxIdRoot, string period, string user, CancellationToken ct)
+    {
+        EnsureStandalone();
+        var root = ReinfFormat.Root(taxIdRoot);
+        return LockedAsync(root, period, async () =>
+        {
+            var p = await context.ReinfPeriods.FirstOrDefaultAsync(x => x.TaxIdRoot == root && x.Period == period, ct);
+            if (p is not { Status: ReinfPeriodStatus.Closed })
+                throw new BusinessException(ReopenOnlyClosedMessage);
+            var settings = await RequireRegistrationAsync(root, ct);
+            var input = new R2098Input(new ReinfHeader(settings.Environment, root, app.Version), period);
+            p.Status = ReinfPeriodStatus.Reopening;
+            var e = NewControlEvent(ReinfEventType.R2098, root, period, user);
+            var batches = await SignAndSendAsync(root, settings, [(e, id => R2098Builder.Build(input, id))], ct);
+            return batches[0];
+        }, ct);
+    }
+
+    private async Task<ReinfSettings> RequireRegistrationAsync(string root, CancellationToken ct)
+    {
+        var settings = await context.ReinfSettings.FirstOrDefaultAsync(s => s.TaxIdRoot == root, ct);
+        if (settings is null || settings.RegistrationStatus != ReinfRegistrationStatus.Accepted)
+            throw new BusinessException(RegistrationRequiredMessage);
+        return settings;
+    }
+
+    private ReinfEvent NewControlEvent(ReinfEventType type, string root, string? period, string user) => new()
+    {
+        Type = type, TaxIdRoot = root, Period = period, CreatedBy = user, CreatedAt = time.GetUtcNow().UtcDateTime,
+    };
+
+    private async Task RefuseAsync(ReinfBatch batch, IReadOnlyList<ReinfEvent> events, ReinfBatchResult result, CancellationToken ct)
     {
         batch.Status = ReinfBatchStatus.Refused;
         batch.ProcessedAt = time.GetUtcNow().UtcDateTime;
@@ -291,6 +411,22 @@ public class ReinfService(
             e.Status = ReinfEventStatus.Pending;
             e.Occurrences = text;
             e.UpdatedAt = time.GetUtcNow().UtcDateTime;
+        }
+        await RevertControlEventsAsync(events, text, ct);
+    }
+
+    /// <summary>
+    /// R-1000/R-2099/R-2098 que não chegaram à Receita (lote recusado ou falha de envio) viram Rejeitados e
+    /// devolvem o período/cadastro à situação anterior; são regerados no próximo envio.
+    /// </summary>
+    private async Task RevertControlEventsAsync(IEnumerable<ReinfEvent> events, string text, CancellationToken ct)
+    {
+        foreach (var e in events.Where(x => !ProducerTypes.Contains(x.Type)).ToList())
+        {
+            e.Status = ReinfEventStatus.Rejected;
+            e.Occurrences = text;
+            e.UpdatedAt = time.GetUtcNow().UtcDateTime;
+            await OnRejectedAsync(e, ct);
         }
     }
 
