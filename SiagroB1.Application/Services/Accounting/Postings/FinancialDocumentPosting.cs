@@ -33,6 +33,8 @@ public static class FinancialDocumentPosting
         FinancialDocumentOrigin.PurchaseInvoice, FinancialDocumentOrigin.PurchaseFiscalReconciliation,
         FinancialDocumentOrigin.OtherPurchaseInvoice, FinancialDocumentOrigin.SalesInvoice,
         FinancialDocumentOrigin.SalesInvoiceNoContract,
+        // Título da fatura de frete substitui os dos CT-e (baixados por aglutinação): a receita já está neles.
+        FinancialDocumentOrigin.FreightInvoice,
     ];
 
     public static bool IsPostable(FinancialDocument document) =>

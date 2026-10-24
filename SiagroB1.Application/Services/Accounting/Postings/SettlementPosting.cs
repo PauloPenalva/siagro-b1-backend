@@ -19,7 +19,9 @@ public static class SettlementPosting
     // Composição (e o desfazer dela) só liga o provisório ao título da nota: não é pagamento.
     // Devolução de adiantamento é dinheiro voltando: com as fontes da fase 2 sairia como pagamento; fica manual.
     private static bool IsPostableOrigin(FinancialSettlement settlement) =>
-        settlement.Origin is not (FinancialSettlementOrigin.InvoiceOffset or FinancialSettlementOrigin.AdvanceRefund);
+        settlement.Origin is not (FinancialSettlementOrigin.InvoiceOffset or FinancialSettlementOrigin.AdvanceRefund
+            // Aglutinação (fatura de frete): troca de título por título do mesmo cliente, sem dinheiro.
+            or FinancialSettlementOrigin.Aggregation);
 
     /// <summary>Baixa (ou estorno) que contabiliza: origem de pagamento e título não provisório.</summary>
     public static bool IsPostable(FinancialSettlement settlement, FinancialDocument document) =>

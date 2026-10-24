@@ -44,6 +44,10 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db, SiagroB1
         if (settlement.Origin == FinancialSettlementOrigin.InvoiceOffset)
             throw new ApplicationException("Abatimento de composição se desfaz pela composição.");
 
+        // A aglutinação nasce e morre com a fatura de frete: estornar uma baixa deixaria o CT-e em aberto e na fatura.
+        if (settlement.Origin == FinancialSettlementOrigin.Aggregation)
+            throw new ApplicationException("Baixa por fatura de frete: cancele a fatura para desfazer.");
+
         // A devolução é o registro de que o dinheiro voltou por fora — não é uma baixa errada,
         // então não há o que "desfazer" nela.
         if (settlement.Origin == FinancialSettlementOrigin.AdvanceRefund)
