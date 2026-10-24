@@ -33,7 +33,10 @@ public partial class ReinfController(
         {
             var root = ReinfFormat.Root(taxIdRoot ?? string.Empty);
             var s = await settingsService.GetAsync(root, HttpContext.RequestAborted);
-            return Ok(ToDto(s, exists: s.Key != Guid.Empty && s.UpdatedAt != default));
+            var dto = ToDto(s, exists: s.Key != Guid.Empty && s.UpdatedAt != default);
+            dto.RegistrationUnconfirmed = await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == root
+                && e.Type == ReinfEventType.R1000 && e.Status == ReinfEventStatus.Unconfirmed, HttpContext.RequestAborted);
+            return Ok(dto);
         }
         catch (BusinessException e) { return BadRequest(e.Message); }
     }
@@ -126,6 +129,9 @@ public partial class ReinfController(
                     EventKey = r.EventKey,
                 }).ToList(),
                 Issues = overview.Issues.Select(i => new ReinfIssueDto { Message = i.Message, Reference = i.Reference }).ToList(),
+                HasUnconfirmed = await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == overview.TaxIdRoot
+                    && e.Status == ReinfEventStatus.Unconfirmed
+                    && (e.Period == overview.Period || (e.Period == null && e.Type == ReinfEventType.R1000)), ct),
             });
         }
         catch (BusinessException e) { return BadRequest(e.Message); }
@@ -183,8 +189,17 @@ public partial class ReinfController(
         PeriodAction(parameters, async (root, period, ct) => Ok(await service.ReopenAsync(root, period, User_, ct)));
 
     [HttpPost("odata/ReinfReleaseUnconfirmed")]
-    public Task<IActionResult> ReinfReleaseUnconfirmed(ODataActionParameters? parameters) =>
-        PeriodAction(parameters, async (root, period, ct) => Ok(await service.ReleaseUnconfirmedAsync(root, period, ct)));
+    public async Task<IActionResult> ReinfReleaseUnconfirmed(ODataActionParameters? parameters)
+    {
+        if (!ErpMode.IsStandalone(configuration)) return BadRequest(StandaloneOnly);
+        if (parameters is null) return BadRequest("Informe a raiz do CNPJ.");
+        // Sem período: libera só o R-1000.
+        var period = Text(parameters, "Period");
+        if (string.IsNullOrWhiteSpace(period)) period = null;
+        else if (!ValidPeriod(period)) return BadRequest(InvalidPeriod);
+        try { return Ok(await service.ReleaseUnconfirmedAsync(Text(parameters, "TaxIdRoot") ?? string.Empty, period, HttpContext.RequestAborted)); }
+        catch (BusinessException e) { return BadRequest(e.Message); }
+    }
 
     [HttpPost("odata/ReinfRegistrationSend")]
     public async Task<IActionResult> ReinfRegistrationSend(ODataActionParameters? parameters)
@@ -206,6 +221,11 @@ public partial class ReinfController(
             return NoContent();
         }
         catch (BusinessException e) { return BadRequest(e.Message); }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Falha de comunicação/retorno ilegível: mensagem ao usuário em vez de 500.
+            return BadRequest($"Falha ao consultar o lote da EFD-Reinf: {e.Message}");
+        }
     }
 
     private async Task<IActionResult> PeriodAction(

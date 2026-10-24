@@ -25,11 +25,12 @@ public class ReinfControllerTests
     {
         public Task<ReinfPeriodOverview> GetOverviewAsync(string taxIdRoot, string period, CancellationToken ct) => Task.FromResult(overview);
         public Task<IReadOnlyList<Guid>> TransmitAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
-        public Task QueryBatchAsync(Guid batchKey, CancellationToken ct) => Task.CompletedTask;
+        public Task QueryBatchAsync(Guid batchKey, CancellationToken ct) =>
+            batchKey == Guid.Empty ? throw new InvalidOperationException("retorno ilegível") : Task.CompletedTask;
         public Task<Guid> SendRegistrationAsync(string taxIdRoot, string user, CancellationToken ct) => throw new NotImplementedException();
         public Task<Guid> CloseAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
         public Task<Guid> ReopenAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
-        public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string period, CancellationToken ct) => throw new NotImplementedException();
+        public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string? period, CancellationToken ct) => throw new NotImplementedException();
     }
 
     private static ReinfController Controller(AppDbContext ctx, IReinfService service, string erp = "STANDALONE") =>
@@ -199,5 +200,67 @@ public class ReinfControllerTests
             ["TaxClassification"] = "99", ["ValidFrom"] = "2026-01",
         }));
         Assert.Equal("CPF do contato deve ter 11 dígitos.", bad);
+    }
+
+    private static readonly ReinfPeriodOverview Empty = new(Root, "2026-09", ReinfPeriodStatus.Open, [], []);
+
+    private static void Unconfirmed(AppDbContext ctx, ReinfEventType type, string? period)
+    {
+        ctx.ReinfEvents.Add(new ReinfEvent { TaxIdRoot = Root, Type = type, Period = period, Status = ReinfEventStatus.Unconfirmed });
+        ctx.SaveChanges();
+    }
+
+    [Fact]
+    public async Task Overview_flags_unconfirmed_closing_event()
+    {
+        var ctx = SeededContext();
+        Unconfirmed(ctx, ReinfEventType.R2099, "2026-09");
+        var ok = Assert.IsType<OkObjectResult>(await Controller(ctx, new StubService(Empty)).ReinfOverview(Root, "2026-09"));
+        Assert.True(Assert.IsType<ReinfOverviewDto>(ok.Value).HasUnconfirmed);
+    }
+
+    [Fact]
+    public async Task Overview_flags_unconfirmed_registration_and_ignores_other_period()
+    {
+        var ctx = SeededContext();
+        Unconfirmed(ctx, ReinfEventType.R2099, "2026-08");
+        var ok = Assert.IsType<OkObjectResult>(await Controller(ctx, new StubService(Empty)).ReinfOverview(Root, "2026-09"));
+        Assert.False(Assert.IsType<ReinfOverviewDto>(ok.Value).HasUnconfirmed);
+
+        Unconfirmed(ctx, ReinfEventType.R1000, null);
+        ok = Assert.IsType<OkObjectResult>(await Controller(ctx, new StubService(Empty)).ReinfOverview(Root, "2026-09"));
+        Assert.True(Assert.IsType<ReinfOverviewDto>(ok.Value).HasUnconfirmed);
+    }
+
+    [Fact]
+    public async Task Settings_get_flags_unconfirmed_registration()
+    {
+        var ctx = SeededContext();
+        Unconfirmed(ctx, ReinfEventType.R1000, null);
+        var ok = Assert.IsType<OkObjectResult>(await Controller(ctx, new StubService(Empty)).ReinfSettingsGet(Root));
+        Assert.True(Assert.IsType<ReinfSettingsDto>(ok.Value).RegistrationUnconfirmed);
+    }
+
+    [Fact]
+    public async Task Release_without_period_releases_only_registration()
+    {
+        var ctx = SeededContext();
+        ctx.ReinfSettings.Single().RegistrationStatus = ReinfRegistrationStatus.Sent;
+        Unconfirmed(ctx, ReinfEventType.R1000, null);
+        Unconfirmed(ctx, ReinfEventType.R2099, "2026-09");
+
+        var ok = Assert.IsType<OkObjectResult>(await Controller(ctx, RealService(ctx)).ReinfReleaseUnconfirmed(new ODataActionParameters { ["TaxIdRoot"] = Root, ["Period"] = null }));
+        Assert.Equal(1, ok.Value);
+        Assert.Equal(ReinfEventStatus.Rejected, ctx.ReinfEvents.Single(e => e.Type == ReinfEventType.R1000).Status);
+        Assert.Equal(ReinfEventStatus.Unconfirmed, ctx.ReinfEvents.Single(e => e.Type == ReinfEventType.R2099).Status);
+        Assert.Equal(ReinfRegistrationStatus.Rejected, ctx.ReinfSettings.Single().RegistrationStatus);
+    }
+
+    [Fact]
+    public async Task Batch_query_unexpected_error_is_bad_request()
+    {
+        var ctx = SeededContext();
+        var bad = Bad(await Controller(ctx, new StubService(Empty)).ReinfBatchQuery(new ODataActionParameters { ["BatchKey"] = Guid.Empty.ToString() }));
+        Assert.Contains("retorno ilegível", bad);
     }
 }

@@ -312,14 +312,14 @@ public class ReinfService(
     /// Libera os eventos Unconfirmed do período (e do R-1000): R-2055/R-9000 voltam a Pendente e são regerados no
     /// próximo envio; R-2099/R-2098/R-1000 viram Rejeitados e devolvem período/cadastro à situação anterior.
     /// </summary>
-    public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string period, CancellationToken ct)
+    public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string? period, CancellationToken ct)
     {
         EnsureStandalone();
         var root = ReinfFormat.Root(taxIdRoot);
-        return LockedAsync(root, period, async () =>
+        return LockedAsync(root, period ?? RegistrationPeriodKey, async () =>
         {
             var events = await context.ReinfEvents.Where(e => e.TaxIdRoot == root && e.Status == ReinfEventStatus.Unconfirmed
-                && (e.Period == period || (e.Period == null && e.Type == ReinfEventType.R1000))).ToListAsync(ct);
+                && ((period != null && e.Period == period) || (e.Period == null && e.Type == ReinfEventType.R1000))).ToListAsync(ct);
             foreach (var e in events)
             {
                 e.UpdatedAt = time.GetUtcNow().UtcDateTime;

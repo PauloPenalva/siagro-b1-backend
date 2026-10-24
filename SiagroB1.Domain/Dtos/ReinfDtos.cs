@@ -23,6 +23,8 @@ public class ReinfSettingsDto
     public int RegistrationStatus { get; set; }
     public string? RegistrationReceipt { get; set; }
     public bool RegistrationUpdatePending { get; set; }
+    /// <summary>R-1000 sem confirmação da Receita (tempo esgotado/retorno ilegível).</summary>
+    public bool RegistrationUnconfirmed { get; set; }
     public bool Exists { get; set; }
 }
 
@@ -60,6 +62,8 @@ public class ReinfOverviewDto
     public string? ClosingReceipt { get; set; }
     public List<ReinfOverviewRowDto> Rows { get; set; } = [];
     public List<ReinfIssueDto> Issues { get; set; } = [];
+    /// <summary>Algum evento do período (qualquer tipo) ou R-1000 do contribuinte sem confirmação da Receita.</summary>
+    public bool HasUnconfirmed { get; set; }
 }
 
 public class ReinfEventDto
