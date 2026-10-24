@@ -1,6 +1,6 @@
 using SiagroB1.Domain.Entities;
 
-namespace SiagroB1.Application.Services.FreightOrders;
+namespace SiagroB1.Domain.Shared;
 
 /// <summary>Peso bruto do CT-e: a linha de quantidade em KG (01) ou TON (02).</summary>
 public static class TransportDocumentWeight

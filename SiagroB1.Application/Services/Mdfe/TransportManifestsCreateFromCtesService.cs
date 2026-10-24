@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Dfe;

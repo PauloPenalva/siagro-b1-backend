@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -49,7 +50,7 @@ public class FreightInvoicePrintDataService(IUnitOfWork db) : IFreightInvoicePri
                 AccessKey = cte?.AccessKey ?? "",
                 IssuedAt = cte?.IssuedAt?.ToString("dd/MM/yyyy", PtBr) ?? "",
                 Route = cte is null ? "" : $"{Place(cte.StartMunicipalityCode, cte.StartState, cities)} → {Place(cte.EndMunicipalityCode, cte.EndState, cities)}",
-                WeightKg = cte is null ? 0m : GrossKg(cte),
+                WeightKg = cte is null ? 0m : TransportDocumentWeight.GrossKg(cte),
                 Amount = i.Amount
             };
         }).ToList();
@@ -91,10 +92,10 @@ public class FreightInvoicePrintDataService(IUnitOfWork db) : IFreightInvoicePri
                 _ => ""
             },
             EmitterName = branch?.LegalName ?? branch?.BranchName ?? "",
-            EmitterTaxId = branch?.TaxId is { } bt ? "CNPJ " + FormatTaxId(bt) : "",
+            EmitterTaxId = branch?.TaxId is { } bt ? FormatTaxId(bt, withLabel: true) : "",
             EmitterAddress = branch is null ? "" : JoinAddress(branch.Street, branch.StreetNumber, branch.Complement,
                 branch.District, branch.Municipality?.Name, branch.Municipality?.StateAbbreviation ?? branch.StateCode, branch.ZipCode),
-            EmitterPhone = branch?.Phone ?? "",
+            EmitterPhone = string.IsNullOrWhiteSpace(branch?.Phone) ? "" : "Tel. " + branch.Phone,
             TakerCode = invoice.TakerCardCode,
             TakerName = partner?.CardName ?? invoice.TakerName ?? "",
             TakerTaxId = partner?.TaxId is { } tt ? FormatTaxId(tt, withLabel: true) : "",
@@ -131,12 +132,6 @@ public class FreightInvoicePrintDataService(IUnitOfWork db) : IFreightInvoicePri
         var a = accounts[0];
         return $"Banco {a.BankCode} {a.BankName} · Agência {a.BankBranch} · Conta {a.BankAccountNumber}".Replace("  ", " ");
     }
-
-    // Peso bruto: linha em KG (01) ou TON (02). Mesma regra de TransportDocumentWeight (Application, que o Reports não referencia).
-    private static decimal GrossKg(TransportDocument cte) =>
-        cte.Quantities.FirstOrDefault(q => q.UnitCode is "01" or "02") is { } l
-            ? (l.UnitCode == "02" ? l.Quantity * 1000m : l.Quantity)
-            : 0m;
 
     private static string Place(string? code, string? state, Dictionary<string, string> cities)
     {

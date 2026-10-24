@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
 

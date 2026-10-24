@@ -40,7 +40,8 @@
     <PageHeaderBand Name="PageHeader1" Width="718.2" Height="64.8">
       <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="56.7" SizeMode="Zoom"/>
       <TextObject Name="txtEmitterName" Left="102" Top="0" Width="400" Height="18.9" Text="[Invoice.EmitterName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
-      <TextObject Name="txtEmitterTaxId" Left="102" Top="19" Width="400" Height="14" Text="[Invoice.EmitterTaxId]   [Invoice.EmitterPhone]" Font="Arial, 8pt"/>
+      <TextObject Name="txtEmitterTaxId" Left="102" Top="19" Width="200" Height="14" Text="[Invoice.EmitterTaxId]" Font="Arial, 8pt"/>
+      <TextObject Name="txtEmitterPhone" Left="302" Top="19" Width="200" Height="14" Text="[Invoice.EmitterPhone]" Font="Arial, 8pt"/>
       <TextObject Name="txtEmitterAddress" Left="102" Top="33" Width="400" Height="28" Text="[Invoice.EmitterAddress]" Font="Arial, 8pt"/>
       <TextObject Name="txtTitle" Left="510" Top="0" Width="208.2" Height="22" Text="FATURA DE FRETE" HorzAlign="Right" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
       <TextObject Name="txtNumber" Left="510" Top="22" Width="208.2" Height="16" Text="Nº [Invoice.InvoiceNumber]" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>

@@ -133,6 +133,7 @@ public class FreightInvoiceReportTests : IDisposable
 
         Assert.Equal("TRANSPORTES ACME LTDA", dto.EmitterName);
         Assert.Equal("CNPJ 12.345.678/0001-99", dto.EmitterTaxId);
+        Assert.Equal("Tel. 6533334444", dto.EmitterPhone);
         Assert.Contains("Av. das Torres, 1000", dto.EmitterAddress);
         Assert.Contains("Cuiabá/MT", dto.EmitterAddress);
         Assert.Equal("AGRO TOMADORA S/A", dto.TakerName);
@@ -163,7 +164,7 @@ public class FreightInvoiceReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Pdf_IsNonEmpty_AndShowsInstallmentsAndItems()
+    public async Task Pdf_IsNonEmpty_AndPrintedTextCarriesInstallmentsAndItems()
     {
         var (db, key) = await SeedAsync();
         var env = new TestWebHostEnvironment(_contentRoot);
@@ -182,6 +183,27 @@ public class FreightInvoiceReportTests : IDisposable
             var folder = Path.Combine(Path.GetTempPath(), "siagro-freight-invoice-reports");
             Directory.CreateDirectory(folder);
             File.WriteAllBytes(Path.Combine(folder, "FreightInvoice.pdf"), pdf);
+
+            // O PDF é imagem: o texto impresso se confere nas páginas preparadas do mesmo template.
+            var dto = await new FreightInvoicePrintDataService(db).GetAsync(key);
+            using var report = new global::FastReport.Report();
+            report.Load(Path.Combine(_contentRoot, "Reports", "Templates", "FreightInvoice.frx"));
+            report.RegisterData(new List<global::SiagroB1.Reports.Dtos.FreightInvoicePrintDto> { dto }, "Invoice");
+            report.RegisterData(dto.Items, "InvoiceItems");
+            report.RegisterData(dto.Installments, "InvoiceInstallments");
+            foreach (var n in new[] { "Invoice", "InvoiceItems", "InvoiceInstallments" }) report.GetDataSource(n).Enabled = true;
+            Assert.True(report.Prepare());
+
+            var texts = Enumerable.Range(0, report.PreparedPages.Count)
+                .SelectMany(i => report.PreparedPages.GetPage(i).AllObjects.OfType<global::FastReport.TextObject>())
+                .ToList();
+            string[] Named(string name) => texts.Where(t => t.Name == name).Select(t => t.Text).ToArray();
+            Assert.Equal(new[] { "21/11/2026", "21/12/2026" }, Named("dInstDue"));
+            Assert.Equal(new[] { "R$ 625,25", "R$ 625,25" }, Named("dInstAmount"));
+            Assert.Equal(new[] { "1/1", "2/1" }, Named("dNumber"));
+            Assert.Equal(new[] { "R$ 1.000,00", "R$ 250,50" }, Named("dAmount"));
+            Assert.Equal(new[] { "R$ 1.250,50" }, Named("txtTotalAmount"));
+            Assert.Equal(new[] { "Tel. 6533334444" }, Named("txtEmitterPhone"));
         }
         finally
         {
