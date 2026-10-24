@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Jobs.Reinf;
 using SiagroB1.Application.Services.Reinf;
 using SiagroB1.Application.Tests.Support;
@@ -58,5 +59,6 @@ public class ReinfBatchQueryJobTests
 
         Assert.Equal([sent.Key, processing.Key], service.Queried);
         Assert.Single(logger.Entries);
+        Assert.Equal(1, db.Context.ReinfBatches.AsNoTracking().Single(b => b.Key == sent.Key).Attempts);
     }
 }

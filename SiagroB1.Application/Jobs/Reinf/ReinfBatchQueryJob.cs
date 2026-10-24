@@ -41,6 +41,14 @@ public class ReinfBatchQueryJob(AppDbContext context, IReinfService service, Tim
             {
                 logger.LogWarning(ex, "Falha ao consultar o lote {BatchKey} da EFD-Reinf.", key);
                 context.ChangeTracker.Clear();
+                // Conta a tentativa falha para o lote parar nas 30.
+                var batch = await context.ReinfBatches.FirstOrDefaultAsync(b => b.Key == key, ct);
+                if (batch is not null)
+                {
+                    batch.Attempts++;
+                    batch.Error = ex.Message;
+                    await context.SaveChangesAsync(ct);
+                }
             }
         }
     }

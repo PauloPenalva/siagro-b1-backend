@@ -469,6 +469,50 @@ public class ReinfServiceTests
         Assert.Equal("Só é possível reabrir um período fechado.", ex.Message);
     }
 
+
+    [Fact]
+    public async Task Refused_registration_update_keeps_accepted_and_transmit_still_allowed()
+    {
+        SetRegistration(ReinfRegistrationStatus.Accepted, "1-00-1");
+        _client.SendResults.Enqueue(() => new ReinfBatchResult(99, "Lote inválido", null, ["MS1"], [], "<r/>"));
+        await Service().SendRegistrationAsync(Root, "u", default);
+
+        var s = _db.Context.ReinfSettings.Single();
+        Assert.Equal(ReinfRegistrationStatus.Accepted, s.RegistrationStatus);
+        Assert.Equal("1-00-1", s.RegistrationReceipt);
+        Assert.Contains("MS1", _db.Context.ReinfEvents.Single(e => e.Type == ReinfEventType.R1000).Occurrences);
+
+        Invoice("P1", 1000m);
+        Assert.Single(await Service().TransmitAsync(Root, Period, "u", default));
+    }
+
+    [Fact]
+    public async Task Receita_rejected_registration_update_keeps_accepted_with_occurrences()
+    {
+        SetRegistration(ReinfRegistrationStatus.Accepted, "1-00-1");
+        var batch = await Service().SendRegistrationAsync(Root, "u", default);
+        _client.QueryResults.Enqueue(() => new ReinfBatchResult(2, "Processado", null, [],
+            _db.Context.ReinfEvents.Where(e => e.BatchKey == batch).ToList()
+                .Select(e => new ReinfEventResult(e.EventId, false, null, ["MS0123 erro"], "")).ToList(), "<r/>"));
+        await Service().QueryBatchAsync(batch, default);
+
+        var s = _db.Context.ReinfSettings.Single();
+        Assert.Equal(ReinfRegistrationStatus.Accepted, s.RegistrationStatus);
+        Assert.Equal("1-00-1", s.RegistrationReceipt);
+        var e = _db.Context.ReinfEvents.Single(x => x.Type == ReinfEventType.R1000);
+        Assert.Equal(ReinfEventStatus.Rejected, e.Status);
+        Assert.Contains("MS0123", e.Occurrences);
+    }
+
+    [Fact]
+    public async Task Transport_failure_on_closing_returns_period_to_open()
+    {
+        _client.SendResults.Enqueue(() => throw new ReinfTransportException(503, "indisponível"));
+        await Service().CloseAsync(Root, Period, "u", default);
+        Assert.Equal(ReinfPeriodStatus.Open, _db.Context.ReinfPeriods.Single().Status);
+        Assert.Equal(ReinfEventStatus.Rejected, _db.Context.ReinfEvents.Single().Status);
+    }
+
     private sealed class FixedTime : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => new(2026, 10, 24, 13, 0, 0, TimeSpan.Zero);

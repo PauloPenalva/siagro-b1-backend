@@ -248,7 +248,7 @@ public class ReinfService(
             {
                 batch.Status = ReinfBatchStatus.Failed;
                 batch.Error = $"HTTP {ex.StatusCode}: {ex.Body}";
-                await RevertControlEventsAsync(chunk.Select(c => c.Event), batch.Error, ct);
+                await RevertControlEventsAsync(chunk.Select(c => c.Event), batch.Error, CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -511,7 +511,8 @@ public class ReinfService(
                 break;
             case ReinfEventType.R1000:
                 var s = await context.ReinfSettings.FirstOrDefaultAsync(x => x.TaxIdRoot == e.TaxIdRoot, ct);
-                if (s is not null) s.RegistrationStatus = ReinfRegistrationStatus.Rejected;
+                // Alteração recusada não invalida o cadastro já aceito (recibo anterior segue válido); as ocorrências ficam no evento.
+                if (s is not null) s.RegistrationStatus = s.RegistrationReceipt is null ? ReinfRegistrationStatus.Rejected : ReinfRegistrationStatus.Accepted;
                 break;
         }
     }
