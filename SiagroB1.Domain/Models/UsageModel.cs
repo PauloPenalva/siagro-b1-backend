@@ -68,6 +68,12 @@ public class UsageModel
     /// <summary>Contribuição social do produtor rural: nenhuma, completa ou só SENAR. Saída grava sempre None.</summary>
     public RuralContributionMode RuralContributionMode { get; set; }
 
+    /// <summary>EFD-Reinf R-2055: processo judicial que suspende a contribuição (só dígitos, até 21). Vazio = sem processo.</summary>
+    public string? RuralJudicialProcessNumber { get; set; }
+
+    /// <summary>EFD-Reinf R-2055: código do indicativo de suspensão (só dígitos, até 14).</summary>
+    public string? RuralJudicialSuspensionCode { get; set; }
+
     /// <summary>Retenções de serviço: alíquotas padrão (%) da natureza. Vazio = não retém. SAPB1 devolve nulo.</summary>
     public decimal? WithholdingIssRate { get; set; }
     public decimal? WithholdingIrrfRate { get; set; }
