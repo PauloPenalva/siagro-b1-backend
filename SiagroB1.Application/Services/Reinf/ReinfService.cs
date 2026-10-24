@@ -3,7 +3,6 @@ using System.Data;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
@@ -60,7 +59,7 @@ public class ReinfService(
 
     /// <summary>
     /// Serializa a transmissão por contribuinte + período: trava do processo e, no SQL Server,
-    /// sp_getapplock com dono transação (vale entre servidores). Quem espera enxerga os eventos em voo.
+    /// sp_getapplock com dono sessão, sem transação (vale entre servidores). Quem espera enxerga os eventos em voo.
     /// </summary>
     public async Task<IReadOnlyList<Guid>> TransmitAsync(string taxIdRoot, string period, string user, CancellationToken ct)
     {
@@ -70,19 +69,28 @@ public class ReinfService(
         await gate.WaitAsync(ct);
         try
         {
-            if (!context.Database.IsRelational() || context.Database.CurrentTransaction is not null)
+            if (!context.Database.IsRelational())
                 return await TransmitCoreAsync(taxIdRoot, period, user, ct);
 
-            await using var tx = await context.Database.BeginTransactionAsync(ct);
-            await AppLockAsync(key, ct);
+            // Sem transação: cada SaveChanges confirma sozinho (o lote gravado antes do envio é durável).
+            await context.Database.OpenConnectionAsync(ct);
             try
             {
-                return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+                var code = await AppLockAsync("sp_getapplock @Resource = @res, @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 60000", key, ct);
+                if (code < 0)
+                    throw new BusinessException("Outra transmissão da EFD-Reinf deste período está em andamento; tente novamente.");
+                try
+                {
+                    return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+                }
+                finally
+                {
+                    await AppLockAsync("sp_releaseapplock @Resource = @res, @LockOwner = 'Session'", key, CancellationToken.None);
+                }
             }
             finally
             {
-                // Confirma mesmo com erro: o lote já gravado (e seu protocolo) não pode se perder.
-                await tx.CommitAsync(CancellationToken.None);
+                await context.Database.CloseConnectionAsync();
             }
         }
         finally
@@ -91,13 +99,10 @@ public class ReinfService(
         }
     }
 
-    private async Task AppLockAsync(string resource, CancellationToken ct)
+    private async Task<int> AppLockAsync(string exec, string resource, CancellationToken ct)
     {
-        var database = context.Database;
-        await using var command = database.GetDbConnection().CreateCommand();
-        command.CommandText =
-            "DECLARE @r int; EXEC @r = sp_getapplock @Resource = @res, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 60000; SELECT @r;";
-        command.Transaction = database.CurrentTransaction!.GetDbTransaction();
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.CommandText = $"DECLARE @r int; EXEC @r = {exec}; SELECT @r;";
         command.CommandTimeout = 75;
         var parameter = command.CreateParameter();
         parameter.ParameterName = "@res";
@@ -106,8 +111,7 @@ public class ReinfService(
         parameter.Value = resource;
         command.Parameters.Add(parameter);
         var value = await command.ExecuteScalarAsync(ct);
-        if (value is null or DBNull || Convert.ToInt32(value) < 0)
-            throw new BusinessException("Outra transmissão da EFD-Reinf deste período está em andamento. Tente novamente.");
+        return value is null or DBNull ? -999 : Convert.ToInt32(value);
     }
 
     private async Task<IReadOnlyList<Guid>> TransmitCoreAsync(string taxIdRoot, string period, string user, CancellationToken ct)

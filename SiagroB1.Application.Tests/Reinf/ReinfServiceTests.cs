@@ -275,7 +275,7 @@ public class ReinfServiceTests
     [Fact]
     public async Task Unexpected_send_error_keeps_batch_record_and_retry_does_not_duplicate()
     {
-        Invoke();
+        SeedProducer();
         _client.SendResults.Enqueue(() => throw new InvalidOperationException("resposta ilegível"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => Service().TransmitAsync(Root, Period, "u", default));
@@ -299,7 +299,7 @@ public class ReinfServiceTests
     [Fact]
     public async Task Concurrent_transmissions_send_each_producer_once()
     {
-        Invoke();
+        SeedProducer();
         _client.SendDelay = TimeSpan.FromMilliseconds(300);
         var a = TestDb.CreateUnitOfWork(_dbName);
         var b = TestDb.CreateUnitOfWork(_dbName);
@@ -315,7 +315,7 @@ public class ReinfServiceTests
     [Fact]
     public async Task Event_missing_from_processed_response_is_rejected()
     {
-        Invoke();
+        SeedProducer();
         var key = Assert.Single(await Service().TransmitAsync(Root, Period, "u", default));
         _client.QueryResults.Enqueue(() => new ReinfBatchResult(2, "Processado", null, [], [], "<r/>"));
 
@@ -326,7 +326,7 @@ public class ReinfServiceTests
         Assert.Equal("Evento ausente no retorno do lote.", e.Occurrences);
     }
 
-    private void Invoke() => Invoice("P1", 1000m);
+    private void SeedProducer() => Invoice("P1", 1000m);
 
     private sealed class FixedTime : TimeProvider
     {
