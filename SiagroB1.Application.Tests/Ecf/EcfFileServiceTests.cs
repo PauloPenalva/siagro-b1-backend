@@ -148,6 +148,7 @@ public class EcfFileServiceTests
         foreach (var reg in new[] { "K030", "L030" }) Assert.Equal(codes, Of(lines, reg).Select(l => l[3]));
         Assert.Equal(["K030", "01012026", "31052026", "A05"], Of(lines, "K030")[4]);
         Assert.Equal(Enumerable.Range(1, 12).Select(m => $"A{m:00}").Append("A00"), Of(lines, "N030").Select(l => l[3]));
+        Assert.Equal(["N030", "01012026", "31032026", "A03"], Of(lines, "N030")[2]);
 
         // Fevereiro: nada no resultado; março: só a receita; maio em diante: acumulado receita + despesa
         Assert.Empty(PeriodRows(lines, "K030", "A02", "K355"));
@@ -357,11 +358,39 @@ public class EcfFileServiceTests
         var db = await SeedAsync(customize: d => d.Context.EcfAdjustments.AddRange(
             Adjustment(0, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.Exclusion, "173", 40m, partB: "B02"),
             Adjustment(0, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.LossOffset, "P", 50m, partB: "B03")));
-        var lines = await GenerateAsync(db);
+        var (lines, _) = await BuildAsync(db);
 
         Assert.Equal([["M305", "B02", "40,00", "C"], ["M305", "B03", "50,00", "C"]], Of(lines, "M305"));
         Assert.Equal(["M500", "B02", "I", "0,00", "D", "40,00", "C", "0,00", "D", "40,00", "C"], Of(lines, "M500")[0]);
         Assert.Equal("C", Of(lines, "M500")[1][10]);
+    }
+
+    [Fact]
+    public async Task Generate_QuarterlyPartBBalanceCarriesToNextPeriod()
+    {
+        var db = await SeedAsync(EcfAssessmentForm.Quarterly, d => d.Context.EcfAdjustments.Add(
+            Adjustment(1, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.Addition, "93", 100m, partB: "B01")));
+        var lines = await GenerateAsync(db);
+
+        var m500 = Of(lines, "M500");
+        Assert.Equal(["M500", "B01", "I", "0,00", "D", "100,00", "D", "0,00", "D", "100,00", "D"], m500[0]);
+        Assert.Equal(["M500", "B01", "I", "100,00", "D", "0,00", "D", "0,00", "D", "100,00", "D"], m500[1]);
+        Assert.Equal("100,00", m500[3][3]);
+    }
+
+    [Fact]
+    public async Task Validate_PartBLossOffsetWithoutBalanceBlocks()
+    {
+        var bad = await SeedAsync(customize: d => d.Context.EcfAdjustments.Add(
+            Adjustment(0, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.LossOffset, "P", 50m, partB: "B03")));
+        Assert.Equal(["Compensação de prejuízo/base negativa na conta da parte B B03 exige saldo de anos anteriores, ainda não suportado."],
+            await BlockingAsync(bad));
+
+        // Trimestral: saldo formado no T01 cobre a compensação do T02
+        var ok = await SeedAsync(EcfAssessmentForm.Quarterly, d => d.Context.EcfAdjustments.AddRange(
+            Adjustment(1, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.Addition, "93", 100m, partB: "B03"),
+            Adjustment(2, EcfAdjustmentTax.Irpj, EcfAdjustmentKind.LossOffset, "P", 0m, partB: "B03")));
+        Assert.Empty(await BlockingAsync(ok));
     }
 
     [Fact]
@@ -384,7 +413,8 @@ public class EcfFileServiceTests
             var s = d.Context.EcdSettings.Local.Single();
             (s.Nire, s.ConstitutiveActsDate, s.AccountantCrcSequence, s.SignerQualificationCode, s.SignerCpf) = (null, null, null, "1", "");
         });
-        Assert.Equal(["Responsável pela ECF: informe CPF nos Parâmetros da ECD."], await BlockingAsync(db));
+        Assert.Equal(["Responsável pela ECF: informe CPF nos Parâmetros da ECD.",
+            "Responsável pela ECF: informe a qualificação do assinante nos Parâmetros da ECD."], await BlockingAsync(db));
 
         var cutover = await SeedAsync(customize: d => d.Context.AccountingSettings.Local.Single().CutoverDate = new DateTime(2026, 2, 1));
         var messages = await BlockingAsync(cutover);
@@ -440,7 +470,7 @@ public class EcfFileServiceTests
         var request = Request();
         request.Purpose = 1;
 
-        Assert.Equal(["Mês 07/2026 não fechado.", "ECF retificadora: informe o hash da ECF anterior nos parâmetros da ECF."],
+        Assert.Equal(["Mês 07/2026 não fechado.", "ECF retificadora: informe o número do recibo da ECF anterior nos parâmetros da ECF."],
             await BlockingAsync(db, request));
     }
 

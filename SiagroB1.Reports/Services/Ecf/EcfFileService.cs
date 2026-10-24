@@ -292,6 +292,7 @@ public class EcfFileService(EcfDataLoader loader)
             w.Add("M010", code, adjustment.PartBAccountName ?? adjustment.Description, new DateTime(request.Year, 1, 1), "",
                 adjustment.TableCode, adjustment.Description, "", TaxCode(irpj), 0m, "D", "");
 
+        var balances = new Dictionary<(string Code, bool Irpj), decimal>();
         foreach (var p in periods)
         {
             // M030: REG, DT_INI, DT_FIN, PER_APUR
@@ -303,21 +304,28 @@ public class EcfFileService(EcfDataLoader loader)
             //       VL_LCTO_PARTE_B, IND_VL_LCTO_PARTE_B, SD_FIM_LAL, IND_SD_FIM_LAL
             // Convenção do e-Lalur: adição temporária debita a conta da Parte B (valor a excluir no futuro); exclusão e
             // compensação creditam (o saldo de prejuízo/base negativa é devedor e a compensação o reduz).
-            // Saldo inicial zero (controle entre anos fora do escopo). Sem lançamentos só da Parte B (M410).
+            // Saldo inicial do ano zero (controle entre anos fora do escopo); dentro do ano o SD_FIM de um trimestre é o
+            // SD_INI do seguinte. Sem lançamentos só da Parte B (M410).
             foreach (var (code, irpj, _) in partB)
             {
-                var list = irpj ? p.IrpjAdjustments : p.CsllAdjustments;
-                var movement = list.Where(a => a.PartBAccountCode?.Trim() == code)
-                    .Sum(a => a.Kind == EcfAdjustmentKind.Addition ? a.Amount : -a.Amount);
-                var side = movement >= 0 ? "D" : "C";
-                w.Add("M500", code, TaxCode(irpj), 0m, "D", Math.Abs(movement), side, 0m, "D", Math.Abs(movement), side);
+                var opening = balances.GetValueOrDefault((code, irpj));
+                var movement = PartBMovement(p, code, irpj);
+                var closing = opening + movement;
+                balances[(code, irpj)] = closing;
+                w.Add("M500", code, TaxCode(irpj), Math.Abs(opening), opening >= 0 ? "D" : "C", Math.Abs(movement),
+                    movement >= 0 ? "D" : "C", 0m, "D", Math.Abs(closing), closing >= 0 ? "D" : "C");
             }
         }
 
         w.Add("M990", w.CountOfBlock('M') + 1);
     }
 
-    private static List<(string Code, bool Irpj, EcfAdjustment First)> PartBAccounts(List<EcfPeriodAssessment> periods) =>
+    /// <summary>Movimento do período na conta da Parte B (devedor positivo): adição debita, exclusão e compensação creditam.</summary>
+    internal static decimal PartBMovement(EcfPeriodAssessment p, string code, bool irpj) =>
+        (irpj ? p.IrpjAdjustments : p.CsllAdjustments).Where(a => a.PartBAccountCode?.Trim() == code)
+            .Sum(a => a.Kind == EcfAdjustmentKind.Addition ? a.Amount : -a.Amount);
+
+    internal static List<(string Code, bool Irpj, EcfAdjustment First)> PartBAccounts(List<EcfPeriodAssessment> periods) =>
         periods.SelectMany(p => p.IrpjAdjustments.Select(a => (Irpj: true, a)).Concat(p.CsllAdjustments.Select(a => (Irpj: false, a))))
             .Where(x => !string.IsNullOrWhiteSpace(x.a.PartBAccountCode))
             .GroupBy(x => (Code: x.a.PartBAccountCode!.Trim(), x.Irpj))
@@ -365,9 +373,9 @@ public class EcfFileService(EcfDataLoader loader)
         // base acumulada (N500/N650, sem ajustes), coerente com os K/L desses meses; dezembro é o próprio A00.
         foreach (var e in estimates)
         {
-            var first = new DateTime(request.Year, e.Month, 1);
-            // N030: REG, DT_INI, DT_FIN, PER_APUR
-            w.Add("N030", first, first.AddMonths(1).AddDays(-1), $"A{e.Month:00}");
+            // N030: REG, DT_INI, DT_FIN, PER_APUR — balancete acumulado: de 01/01 ao fim do mês (como K030/L030)
+            w.Add("N030", new DateTime(request.Year, 1, 1), new DateTime(request.Year, e.Month, 1).AddMonths(1).AddDays(-1),
+                $"A{e.Month:00}");
             if (e.Month < 12)
                 Lines(w, "N500",
                     (EcfTableCodes.N500BookProfit, e.CumulativeProfit), (EcfTableCodes.N500Additions, 0m),

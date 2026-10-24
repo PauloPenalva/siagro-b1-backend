@@ -24,6 +24,11 @@ public static class EcfValidator
         void Block(string message, string reference = "") =>
             issues.Add(new EcdIssueDto { Blocking = true, Message = message, Reference = reference });
 
+        // 0930 IDENT_QUALIF vem da qualificação do assinante da ECD (no caminho da ECF o ValidateLedger não a confere)
+        if (data.Ledger.Declarant != null && data.Ledger.Settings is { } ecd
+            && !EcdValidator.SignerQualifications.ContainsKey(ecd.SignerQualificationCode ?? ""))
+            Block("Responsável pela ECF: informe a qualificação do assinante nos Parâmetros da ECD.", data.Ledger.Declarant.Code ?? "");
+
         if (request.Year < EcfFileService.FirstSupportedYear)
             Block($"ECF disponível a partir do ano-calendário {EcfFileService.FirstSupportedYear}.");
 
@@ -44,7 +49,7 @@ public static class EcfValidator
                 if (nature.Length != 4 || !nature.All(char.IsAsciiDigit))
                     Block("Natureza jurídica deve ter 4 dígitos.", code);
                 if (request.Purpose == 1 && string.IsNullOrWhiteSpace(s.PreviousEcfHash))
-                    Block("ECF retificadora: informe o hash da ECF anterior nos parâmetros da ECF.", code);
+                    Block("ECF retificadora: informe o número do recibo da ECF anterior nos parâmetros da ECF.", code);
 
                 var annual = s.AssessmentForm == EcfAssessmentForm.Annual;
                 foreach (var a in data.Adjustments)
@@ -57,9 +62,26 @@ public static class EcfValidator
                 }
 
                 if (data.Adjustments.All(a => a.Amount >= 0))
-                    foreach (var p in EcfAssessment.Assess(data, s.AssessmentForm, request.Year))
+                {
+                    var periods = EcfAssessment.Assess(data, s.AssessmentForm, request.Year);
+                    foreach (var p in periods)
                         if (p.Irpj.OffsetExceedsLimit || p.Csll.OffsetExceedsLimit)
                             Block($"Compensação de prejuízo do período {p.Period.Code} acima de 30% do lucro ajustado.", p.Period.Code);
+
+                    // Compensação na Parte B só consome saldo formado no próprio ano (saldo inicial do ano é zero, M010)
+                    foreach (var (partB, irpj, _) in EcfFileService.PartBAccounts(periods))
+                    {
+                        var balance = 0m;
+                        foreach (var p in periods)
+                        {
+                            var offset = (irpj ? p.IrpjAdjustments : p.CsllAdjustments)
+                                .Where(a => a.Kind == EcfAdjustmentKind.LossOffset && a.PartBAccountCode?.Trim() == partB).Sum(a => a.Amount);
+                            if (offset > balance)
+                                Block($"Compensação de prejuízo/base negativa na conta da parte B {partB} exige saldo de anos anteriores, ainda não suportado.", partB);
+                            balance += EcfFileService.PartBMovement(p, partB, irpj);
+                        }
+                    }
+                }
             }
 
             if (data.Partners.Count == 0) Block("Quadro societário não informado nos parâmetros da ECF.", code);
