@@ -165,4 +165,27 @@ public class ReinfAcquisitionCalculatorTests
         Invoice("P1", new DateTime(2026, 9, 6), 10m);
         Assert.NotEqual(before, Assert.Single((await Run()).Rows).ContentHash);
     }
+
+    [Fact]
+    public async Task Cnpj_producer_without_rural_cpf_raises_blocking_issue_and_never_type_1()
+    {
+        _db.Context.BusinessPartners.Add(Partner("P5", "11222333000144"));
+        _db.Context.SaveChanges();
+        Invoice("P5", new DateTime(2026, 9, 5), 1000m);
+
+        var (rows, issues) = await Run();
+        Assert.Contains(issues, i => i.Message == "Produtor P5 é pessoa jurídica sem CPF do produtor rural; informe o CPF no cadastro.");
+        Assert.DoesNotContain(rows, r => r.ProducerInscriptionType == 1);
+    }
+
+    [Fact]
+    public async Task Senar_only_without_rate_raises_issue()
+    {
+        _db.Context.RuralContributionRates.RemoveRange(_db.Context.RuralContributionRates.Where(r => r.Scheme == RuralContributionScheme.Standard));
+        _db.Context.SaveChanges();
+        Invoice("P1", new DateTime(2026, 9, 5), 1000m, usage: 2, senarOnly: true);
+
+        var (_, issues) = await Run();
+        Assert.Contains(issues, i => i.Message == "Sem alíquota de Funrural vigente em 05/09/2026.");
+    }
 }

@@ -35,6 +35,10 @@ public partial class ReinfSettingsService(AppDbContext context, TimeProvider tim
 
         var s = await context.ReinfSettings.FirstOrDefaultAsync(x => x.TaxIdRoot == root, ct);
         if (s is null) { s = new ReinfSettings { TaxIdRoot = root }; context.ReinfSettings.Add(s); }
+        else if (s.Environment != input.Environment && await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == root, ct))
+            throw new BusinessException(EnvironmentLockedMessage);
+
+        var r1000Before = R1000Fingerprint(s);
 
         s.BranchCode = input.BranchCode;
         s.Environment = input.Environment;
@@ -52,11 +56,19 @@ public partial class ReinfSettingsService(AppDbContext context, TimeProvider tim
         s.ClosingResponsibleCpf = Blank(responsibleCpf);
         s.ClosingResponsiblePhone = Blank(input.ClosingResponsiblePhone);
         s.ClosingResponsibleEmail = Blank(input.ClosingResponsibleEmail);
+        if (s.RegistrationStatus == ReinfRegistrationStatus.Accepted && R1000Fingerprint(s) != r1000Before)
+            s.RegistrationUpdatePending = true;
         s.UpdatedAt = time.GetUtcNow().UtcDateTime;
         s.UpdatedBy = user;
         await context.SaveChangesAsync(ct);
         return s;
     }
+
+    public const string EnvironmentLockedMessage = "Não é possível trocar o ambiente da EFD-Reinf depois de enviar eventos neste ambiente.";
+
+    /// <summary>Campos que vão no R-1000: mudou depois do aceite, falta o R-1000 de alteração.</summary>
+    private static string R1000Fingerprint(ReinfSettings s) => string.Join('|', s.TaxClassification, s.KeepsBookkeeping,
+        s.PayrollRelief, s.FineExemptionAgreement, s.CompanySituation, s.ContactName, s.ContactCpf, s.ContactPhone, s.ContactEmail, s.ValidFrom);
 
     private static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
 

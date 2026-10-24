@@ -31,6 +31,7 @@ public class ReinfBatchQueryJobTests
         public Task<Guid> SendRegistrationAsync(string r, string u, CancellationToken ct) => throw new NotSupportedException();
         public Task<Guid> CloseAsync(string r, string p, string u, CancellationToken ct) => throw new NotSupportedException();
         public Task<Guid> ReopenAsync(string r, string p, string u, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> ReleaseUnconfirmedAsync(string r, string p, CancellationToken ct) => throw new NotSupportedException();
     }
 
     [Fact]

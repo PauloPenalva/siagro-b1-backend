@@ -15,7 +15,7 @@ public interface IReinfCertificateProvider
 }
 
 /// <summary>
-/// Abre o certificado da filial matriz (CNPJ raiz + "0001") da Configuração da NF-e, como
+/// Abre o certificado da filial escolhida nos parâmetros da EFD-Reinf (sem filial: a matriz, CNPJ raiz + "0001") da Configuração da NF-e, como
 /// <c>MdfeServiceContextFactory</c>, e confere que a raiz do CNPJ do certificado é a do contribuinte.
 /// </summary>
 public class ReinfCertificateProvider(AppDbContext context, NfeOptions options) : IReinfCertificateProvider
@@ -24,8 +24,13 @@ public class ReinfCertificateProvider(AppDbContext context, NfeOptions options) 
     {
         var root = ReinfFormat.Root(taxIdRoot);
         var branches = await context.Branchs.AsNoTracking().ToListAsync(ct);
-        var head = branches.FirstOrDefault(b => ReinfFormat.Digits(b.TaxId).StartsWith(root + "0001", StringComparison.Ordinal))
-                   ?? throw new BusinessException($"Nenhuma filial matriz (CNPJ {root}/0001) cadastrada.");
+        var chosen = await context.ReinfSettings.AsNoTracking().Where(s => s.TaxIdRoot == root)
+            .Select(s => s.BranchCode).FirstOrDefaultAsync(ct);
+        var head = string.IsNullOrWhiteSpace(chosen)
+            ? branches.FirstOrDefault(b => ReinfFormat.Digits(b.TaxId).StartsWith(root + "0001", StringComparison.Ordinal))
+              ?? throw new BusinessException($"Nenhuma filial matriz (CNPJ {root}/0001) cadastrada.")
+            : branches.FirstOrDefault(b => b.Code == chosen)
+              ?? throw new BusinessException($"Filial {chosen} dos parâmetros da EFD-Reinf não encontrada.");
 
         var settings = await context.BranchNfeSettings.AsNoTracking().FirstOrDefaultAsync(s => s.BranchCode == head.Code, ct);
         if (settings?.CertificatePfx is null || settings.CertificatePasswordCipher is null)

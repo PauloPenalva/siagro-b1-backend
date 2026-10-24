@@ -36,6 +36,8 @@ public class ReinfSettings
 
     public ReinfRegistrationStatus RegistrationStatus { get; set; } = ReinfRegistrationStatus.NotSent;
     [Column(TypeName = "VARCHAR(60)")] public string? RegistrationReceipt { get; set; }
+    /// <summary>Dados do R-1000 alterados depois do aceite: falta enviar o R-1000 de alteração.</summary>
+    public bool RegistrationUpdatePending { get; set; }
 
     public DateTime UpdatedAt { get; set; }
     [Column(TypeName = "VARCHAR(100)")] public string? UpdatedBy { get; set; }

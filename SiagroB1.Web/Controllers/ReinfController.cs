@@ -182,6 +182,10 @@ public partial class ReinfController(
     public Task<IActionResult> ReinfReopen(ODataActionParameters? parameters) =>
         PeriodAction(parameters, async (root, period, ct) => Ok(await service.ReopenAsync(root, period, User_, ct)));
 
+    [HttpPost("odata/ReinfReleaseUnconfirmed")]
+    public Task<IActionResult> ReinfReleaseUnconfirmed(ODataActionParameters? parameters) =>
+        PeriodAction(parameters, async (root, period, ct) => Ok(await service.ReleaseUnconfirmedAsync(root, period, ct)));
+
     [HttpPost("odata/ReinfRegistrationSend")]
     public async Task<IActionResult> ReinfRegistrationSend(ODataActionParameters? parameters)
     {
@@ -225,7 +229,7 @@ public partial class ReinfController(
         ContactEmail = s.ContactEmail, ValidFrom = s.ValidFrom, ClosingResponsibleName = s.ClosingResponsibleName,
         ClosingResponsibleCpf = s.ClosingResponsibleCpf, ClosingResponsiblePhone = s.ClosingResponsiblePhone,
         ClosingResponsibleEmail = s.ClosingResponsibleEmail, RegistrationStatus = (int)s.RegistrationStatus,
-        RegistrationReceipt = s.RegistrationReceipt, Exists = exists,
+        RegistrationReceipt = s.RegistrationReceipt, RegistrationUpdatePending = s.RegistrationUpdatePending, Exists = exists,
     };
 
     private static string? Text(ODataActionParameters p, string name) =>

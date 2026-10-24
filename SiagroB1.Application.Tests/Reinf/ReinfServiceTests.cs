@@ -513,6 +513,118 @@ public class ReinfServiceTests
         Assert.Equal(ReinfEventStatus.Rejected, _db.Context.ReinfEvents.Single().Status);
     }
 
+    [Fact]
+    public async Task Zero_gross_without_accepted_is_no_movement_and_does_not_block_close()
+    {
+        var origin = Invoice("P1", 1000m);
+        Return(origin, 1000m);
+
+        var row = Assert.Single((await Service().GetOverviewAsync(Root, Period, default)).Rows);
+        Assert.Equal("Sem movimento", row.Situation);
+        Assert.Empty(await Service().TransmitAsync(Root, Period, "u", default));
+        await Service().CloseAsync(Root, Period, "u", default);
+        Assert.Equal(ReinfPeriodStatus.Closing, _db.Context.ReinfPeriods.Single().Status);
+    }
+
+    [Fact]
+    public async Task Rejected_row_that_later_zeroes_is_no_movement_not_rejected()
+    {
+        var origin = Invoice("P1", 1000m);
+        var key = Assert.Single(await Service().TransmitAsync(Root, Period, "u", default));
+        _client.QueryResults.Enqueue(() => new ReinfBatchResult(2, "Processado", null, [],
+            [new ReinfEventResult(_db.Context.ReinfEvents.Single().EventId, false, null, ["MS0030 - erro"], "")], "<r/>"));
+        await Service().QueryBatchAsync(key, default);
+        Return(origin, 1000m);
+
+        var row = Assert.Single((await Service().GetOverviewAsync(Root, Period, default)).Rows);
+        Assert.Equal("Sem movimento", row.Situation);
+        await Service().CloseAsync(Root, Period, "u", default);
+    }
+
+    [Fact]
+    public async Task Unknown_outcome_marks_unconfirmed_verify_and_is_not_retried()
+    {
+        Invoice("P1", 1000m);
+        _client.SendResults.Enqueue(() => throw new ReinfUnknownOutcomeException("Tempo esgotado"));
+
+        await Service().TransmitAsync(Root, Period, "u", default);
+
+        var b = _db.Context.ReinfBatches.Single();
+        Assert.Equal(ReinfBatchStatus.Failed, b.Status);
+        Assert.StartsWith(ReinfService.UnknownOutcomeMessage, b.Error);
+        Assert.Equal(ReinfEventStatus.Unconfirmed, _db.Context.ReinfEvents.Single().Status);
+        Assert.Equal("Verificar", Assert.Single((await Service().GetOverviewAsync(Root, Period, default)).Rows).Situation);
+        Assert.Empty(await Service().TransmitAsync(Root, Period, "u", default));
+        Assert.Single(_client.SentXml);
+        var ex = await Assert.ThrowsAsync<BusinessException>(() => Service().CloseAsync(Root, Period, "u", default));
+        Assert.Equal(ReinfService.PendingEventsMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Release_unconfirmed_returns_to_pending_and_next_transmit_resends()
+    {
+        Invoice("P1", 1000m);
+        _client.SendResults.Enqueue(() => throw new ReinfUnknownOutcomeException("Tempo esgotado"));
+        await Service().TransmitAsync(Root, Period, "u", default);
+
+        Assert.Equal(1, await Service().ReleaseUnconfirmedAsync(Root, Period, default));
+        Assert.Equal(ReinfEventStatus.Pending, _db.Context.ReinfEvents.Single().Status);
+        Assert.Equal("Novo", Assert.Single((await Service().GetOverviewAsync(Root, Period, default)).Rows).Situation);
+
+        Assert.Single(await Service().TransmitAsync(Root, Period, "u", default));
+        Assert.Equal(2, _client.SentXml.Count);
+        Assert.Equal(ReinfEventStatus.Sent, _db.Context.ReinfEvents.Single().Status);
+    }
+
+    [Fact]
+    public async Task Unknown_outcome_on_closing_keeps_closing_and_release_reopens()
+    {
+        _client.SendResults.Enqueue(() => throw new ReinfUnknownOutcomeException("Tempo esgotado"));
+        await Service().CloseAsync(Root, Period, "u", default);
+
+        Assert.Equal(ReinfPeriodStatus.Closing, _db.Context.ReinfPeriods.Single().Status);
+        Assert.Equal(ReinfEventStatus.Unconfirmed, _db.Context.ReinfEvents.Single().Status);
+
+        await Service().ReleaseUnconfirmedAsync(Root, Period, default);
+        Assert.Equal(ReinfPeriodStatus.Open, _db.Context.ReinfPeriods.Single().Status);
+        Assert.Equal(ReinfEventStatus.Rejected, _db.Context.ReinfEvents.Single().Status);
+    }
+
+    [Fact]
+    public async Task Unknown_outcome_on_registration_keeps_sent()
+    {
+        _client.SendResults.Enqueue(() => throw new ReinfUnknownOutcomeException("Tempo esgotado"));
+        await Service().SendRegistrationAsync(Root, "u", default);
+
+        Assert.Equal(ReinfRegistrationStatus.Sent, _db.Context.ReinfSettings.Single().RegistrationStatus);
+        Assert.Equal(ReinfEventStatus.Unconfirmed, _db.Context.ReinfEvents.Single().Status);
+    }
+
+    [Fact]
+    public async Task Batch_past_thirty_queries_shows_sent_with_hint()
+    {
+        Invoice("P1", 1000m);
+        await Service().TransmitAsync(Root, Period, "u", default);
+        _db.Context.ReinfBatches.Single().Attempts = 30;
+        _db.Context.SaveChanges();
+
+        var row = Assert.Single((await Service().GetOverviewAsync(Root, Period, default)).Rows);
+        Assert.Equal("Enviado", row.Situation);
+        Assert.Equal(ReinfService.StaleBatchMessage, row.Occurrences);
+    }
+
+    [Fact]
+    public async Task Accepted_registration_update_clears_update_pending()
+    {
+        SetRegistration(ReinfRegistrationStatus.Accepted, "1-00-1");
+        _db.Context.ReinfSettings.Single().RegistrationUpdatePending = true;
+        _db.Context.SaveChanges();
+
+        await AcceptBatch(await Service().SendRegistrationAsync(Root, "u", default));
+
+        Assert.False(_db.Context.ReinfSettings.Single().RegistrationUpdatePending);
+    }
+
     private sealed class FixedTime : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => new(2026, 10, 24, 13, 0, 0, TimeSpan.Zero);

@@ -29,6 +29,7 @@ public class ReinfControllerTests
         public Task<Guid> SendRegistrationAsync(string taxIdRoot, string user, CancellationToken ct) => throw new NotImplementedException();
         public Task<Guid> CloseAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
         public Task<Guid> ReopenAsync(string taxIdRoot, string period, string user, CancellationToken ct) => throw new NotImplementedException();
+        public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string period, CancellationToken ct) => throw new NotImplementedException();
     }
 
     private static ReinfController Controller(AppDbContext ctx, IReinfService service, string erp = "STANDALONE") =>

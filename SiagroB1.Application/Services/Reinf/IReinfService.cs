@@ -17,4 +17,7 @@ public interface IReinfService
     Task<Guid> CloseAsync(string taxIdRoot, string period, string user, CancellationToken ct);
 
     Task<Guid> ReopenAsync(string taxIdRoot, string period, string user, CancellationToken ct);
+
+    /// <summary>Devolve ao envio os eventos sem confirmação da Receita (Unconfirmed) do período e do R-1000. Retorna quantos.</summary>
+    Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string period, CancellationToken ct);
 }

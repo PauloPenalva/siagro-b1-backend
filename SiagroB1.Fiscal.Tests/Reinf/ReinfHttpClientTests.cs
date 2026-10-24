@@ -69,4 +69,22 @@ public class ReinfHttpClientTests
             client.QueryAsync("1", Cert(), ReinfEnvironment.ProductionRestricted, CancellationToken.None));
         Assert.Equal(0, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task Unparseable_2xx_body_is_unknown_outcome()
+    {
+        var stub = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html>oops") });
+        var client = new ReinfHttpClient(stub);
+        await Assert.ThrowsAsync<ReinfUnknownOutcomeException>(() =>
+            client.SendAsync("<Reinf/>", Cert(), ReinfEnvironment.ProductionRestricted, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Timeout_is_unknown_outcome()
+    {
+        var stub = new StubHandler(_ => throw new TaskCanceledException("timeout"));
+        var client = new ReinfHttpClient(stub);
+        await Assert.ThrowsAsync<ReinfUnknownOutcomeException>(() =>
+            client.SendAsync("<Reinf/>", Cert(), ReinfEnvironment.ProductionRestricted, CancellationToken.None));
+    }
 }

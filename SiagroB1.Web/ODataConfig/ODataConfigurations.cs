@@ -453,6 +453,10 @@ public static class ODataConfigurations
         reinfReopen.Parameter<string>("TaxIdRoot");
         reinfReopen.Parameter<string>("Period");
         reinfReopen.Returns<Guid>();
+        var reinfReleaseUnconfirmed = modelBuilder.Action("ReinfReleaseUnconfirmed");
+        reinfReleaseUnconfirmed.Parameter<string>("TaxIdRoot");
+        reinfReleaseUnconfirmed.Parameter<string>("Period");
+        reinfReleaseUnconfirmed.Returns<int>();
         var reinfRegistrationSend = modelBuilder.Action("ReinfRegistrationSend");
         reinfRegistrationSend.Parameter<string>("TaxIdRoot");
         reinfRegistrationSend.Returns<Guid>();

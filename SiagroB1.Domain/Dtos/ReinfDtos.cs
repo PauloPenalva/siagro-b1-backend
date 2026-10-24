@@ -22,6 +22,7 @@ public class ReinfSettingsDto
     public string? ClosingResponsibleEmail { get; set; }
     public int RegistrationStatus { get; set; }
     public string? RegistrationReceipt { get; set; }
+    public bool RegistrationUpdatePending { get; set; }
     public bool Exists { get; set; }
 }
 

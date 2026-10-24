@@ -72,6 +72,7 @@ public class ReinfAcquisitionCalculator(AppDbContext context)
 
         var issues = new List<ReinfIssue>();
         var reportedUsages = new HashSet<int>();
+        var reportedDates = new HashSet<DateOnly>();
         var lines = new List<Line>();
 
         foreach (var item in items)
@@ -108,7 +109,13 @@ public class ReinfAcquisitionCalculator(AppDbContext context)
 
                 var date = DateOnly.FromDateTime(invoice.IssueDate!.Value);
                 var rate = rates.FirstOrDefault(r => r.StartDate <= date);
-                if (rate is not null)
+                if (rate is null)
+                {
+                    var text = date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+                    if (reportedDates.Add(date))
+                        issues.Add(new ReinfIssue($"Sem alíquota de Funrural vigente em {text}.", text));
+                }
+                else
                 {
                     inssNot = Math.Round(gross * rate.InssRate / 100m, 2, MidpointRounding.AwayFromZero);
                     ratNot = Math.Round(gross * rate.RatRate / 100m, 2, MidpointRounding.AwayFromZero);
@@ -126,7 +133,9 @@ public class ReinfAcquisitionCalculator(AppDbContext context)
             var first = g.First();
             var (type, producerTaxId) = Producer(first.Partner);
             if (type == 0 && reportedPartners.Add(first.CardCode))
-                issues.Add(new ReinfIssue($"Produtor {first.CardCode} sem CPF/CNPJ válido.", first.CardCode));
+                issues.Add(new ReinfIssue(producerTaxId.Length == 14
+                    ? $"Produtor {first.CardCode} é pessoa jurídica sem CPF do produtor rural; informe o CPF no cadastro."
+                    : $"Produtor {first.CardCode} sem CPF/CNPJ válido.", first.CardCode));
 
             var details = g.GroupBy(l => (l.Indicator, l.Process))
                 .OrderBy(d => d.Key.Indicator).ThenBy(d => d.Key.Process ?? "", StringComparer.Ordinal)
@@ -146,14 +155,16 @@ public class ReinfAcquisitionCalculator(AppDbContext context)
             .ThenBy(r => r.CardCode, StringComparer.Ordinal).ToList(), issues);
     }
 
-    /// <summary>tpInscProd: 2 = CPF (11 dígitos), 1 = CNPJ (14). CNPJ com CPF do produtor informa o CPF. 0 = inválido.</summary>
+    /// <summary>
+    /// tpInscProd: 2 = CPF. CNPJ com CPF do produtor informa o CPF; CNPJ sem CPF do produtor é pendência (0),
+    /// nunca tpInscProd 1. 0 = inválido.
+    /// </summary>
     private static (int Type, string TaxId) Producer(BusinessPartner? partner)
     {
         var taxId = ReinfFormat.Digits(partner?.TaxId);
         var cpf = ReinfFormat.Digits(partner?.RuralProducerCpf);
         if (taxId.Length == 14 && cpf.Length == 11) return (2, cpf);
         if (taxId.Length == 11) return (2, taxId);
-        if (taxId.Length == 14) return (1, taxId);
         return (0, taxId);
     }
 

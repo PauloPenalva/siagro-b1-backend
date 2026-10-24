@@ -148,7 +148,7 @@ public class ReinfService(
         foreach (var row in rows)
         {
             var s = state.For(row.EstablishmentTaxId, row.CardCode);
-            if (s.InFlight) continue;
+            if (s.InFlight || s.Unconfirmed is not null) continue;
             var accepted = s.Accepted;
             if (row.Gross > 0)
             {
@@ -167,7 +167,7 @@ public class ReinfService(
         foreach (var orphan in state.OrphanKeys(rows))
         {
             var s = state.For(orphan.Establishment, orphan.CardCode);
-            if (!s.InFlight && s.Accepted is not null) PlanExclusion(s.Accepted, s.Retryable);
+            if (!s.InFlight && s.Unconfirmed is null && s.Accepted is not null) PlanExclusion(s.Accepted, s.Retryable);
         }
 
         void PlanExclusion(ReinfEvent target, ReinfEvent? reuse) =>
@@ -244,6 +244,18 @@ public class ReinfService(
                 }
                 else await RefuseAsync(batch, events, result, ct);
             }
+            catch (ReinfUnknownOutcomeException ex)
+            {
+                // A Receita pode ter recebido o lote: não reenviar sozinho nem reverter controle (R-1000/R-2099/R-2098).
+                batch.Status = ReinfBatchStatus.Failed;
+                batch.Error = UnknownOutcomeMessage + " (" + ex.Message + ")";
+                foreach (var (e, _) in chunk)
+                {
+                    e.Status = ReinfEventStatus.Unconfirmed;
+                    e.Occurrences = UnknownOutcomeMessage;
+                    e.UpdatedAt = time.GetUtcNow().UtcDateTime;
+                }
+            }
             catch (ReinfTransportException ex)
             {
                 batch.Status = ReinfBatchStatus.Failed;
@@ -292,12 +304,44 @@ public class ReinfService(
         await context.SaveChangesAsync(ct);
     }
 
+    public const string UnknownOutcomeMessage = "Sem confirmação da Receita: o lote pode ter sido recebido. Confira no portal antes de reenviar.";
+    public const string StaleBatchMessage = "Lote sem retorno após 30 consultas automáticas; use Consultar lotes.";
+    public const int MaxAutomaticQueries = 30;
+
+    /// <summary>
+    /// Libera os eventos Unconfirmed do período (e do R-1000): R-2055/R-9000 voltam a Pendente e são regerados no
+    /// próximo envio; R-2099/R-2098/R-1000 viram Rejeitados e devolvem período/cadastro à situação anterior.
+    /// </summary>
+    public Task<int> ReleaseUnconfirmedAsync(string taxIdRoot, string period, CancellationToken ct)
+    {
+        EnsureStandalone();
+        var root = ReinfFormat.Root(taxIdRoot);
+        return LockedAsync(root, period, async () =>
+        {
+            var events = await context.ReinfEvents.Where(e => e.TaxIdRoot == root && e.Status == ReinfEventStatus.Unconfirmed
+                && (e.Period == period || (e.Period == null && e.Type == ReinfEventType.R1000))).ToListAsync(ct);
+            foreach (var e in events)
+            {
+                e.UpdatedAt = time.GetUtcNow().UtcDateTime;
+                if (ProducerTypes.Contains(e.Type))
+                {
+                    e.Status = ReinfEventStatus.Pending;
+                    continue;
+                }
+                e.Status = ReinfEventStatus.Rejected;
+                await OnRejectedAsync(e, ct);
+            }
+            await context.SaveChangesAsync(ct);
+            return events.Count;
+        }, ct);
+    }
+
     public const string RegistrationPeriodKey = "R1000";
     public const string SoftwareHouseMissingMessage = "Configure Reinf:SoftwareHouse no appsettings.";
     public const string PendingEventsMessage = "Há eventos pendentes no período; transmita e aguarde o aceite antes de fechar.";
     public const string ReopenOnlyClosedMessage = "Só é possível reabrir um período fechado.";
 
-    private static readonly string[] BlockingSituations = ["Novo", "Desatualizado", "Excluir", "Rejeitado", "Enviado"];
+    private static readonly string[] BlockingSituations = ["Novo", "Desatualizado", "Excluir", "Rejeitado", "Enviado", "Verificar"];
 
     /// <summary>Inclusão enquanto o R-1000 nunca foi aceito; alteração depois (já há recibo).</summary>
     public static R1000Operation RegistrationOperation(ReinfSettings s) =>
@@ -343,7 +387,7 @@ public class ReinfService(
         {
             var settings = await RequireRegistrationAsync(root, ct);
             if (await context.ReinfEvents.AnyAsync(e => e.TaxIdRoot == root && e.Period == period
-                    && (e.Status == ReinfEventStatus.Pending || e.Status == ReinfEventStatus.Sent), ct))
+                    && (e.Status == ReinfEventStatus.Pending || e.Status == ReinfEventStatus.Sent || e.Status == ReinfEventStatus.Unconfirmed), ct))
                 throw new BusinessException(PendingEventsMessage);
 
             var p = await context.ReinfPeriods.FirstOrDefaultAsync(x => x.TaxIdRoot == root && x.Period == period, ct);
@@ -493,7 +537,12 @@ public class ReinfService(
             case ReinfEventType.R1000:
             {
                 var s = await context.ReinfSettings.FirstOrDefaultAsync(x => x.TaxIdRoot == e.TaxIdRoot, ct);
-                if (s is not null) { s.RegistrationStatus = ReinfRegistrationStatus.Accepted; s.RegistrationReceipt = e.Receipt; }
+                if (s is not null)
+                {
+                    s.RegistrationStatus = ReinfRegistrationStatus.Accepted;
+                    s.RegistrationReceipt = e.Receipt;
+                    s.RegistrationUpdatePending = false;
+                }
                 break;
             }
         }
@@ -548,19 +597,42 @@ public class ReinfService(
         e.ContentHash = row.ContentHash;
     }
 
+    /// <summary>
+    /// Espelha o plano de <see cref="TransmitCoreAsync"/>: "Rejeitado" só quando a rejeição é mais nova que o aceite e
+    /// o envio ainda agiria na linha; senão a situação é calculada como se a rejeição não existisse.
+    /// </summary>
     private static ReinfOverviewRow Situation(ReinfAcquisitionRow? row, ProducerState s)
     {
         var gross = row?.Gross ?? 0m;
-        if (s.InFlight) return new(row, s.Latest?.Key, "Enviado", s.Accepted?.Receipt, null);
-        if (s.Latest is { Status: ReinfEventStatus.Rejected } rejected)
-            return new(row, rejected.Key, "Rejeitado", s.Accepted?.Receipt, rejected.Occurrences);
+        if (s.Unconfirmed is { } u) return new(row, u.Key, "Verificar", s.Accepted?.Receipt, UnknownOutcomeMessage);
+        if (s.InFlight)
+            return new(row, s.Latest?.Key, "Enviado", s.Accepted?.Receipt, s.Stale ? StaleBatchMessage : null);
+
+        ReinfOverviewRow basis;
+        bool acts;
         if (s.Accepted is { } a)
         {
             var situation = gross <= 0 ? "Excluir" : a.ContentHash == row!.ContentHash ? "Aceito" : "Desatualizado";
-            return new(row, a.Key, situation, a.Receipt, a.Occurrences);
+            acts = situation != "Aceito";
+            basis = new(row, a.Key, situation, a.Receipt, a.Occurrences);
         }
-        if (s.Excluded is { } x && gross <= 0) return new(row, x.Key, "Excluído", x.Receipt, null);
-        return new(row, s.Latest?.Key, "Novo", null, s.Latest?.Occurrences);
+        else if (gross <= 0)
+        {
+            acts = false;
+            basis = s.Excluded is { } x
+                ? new(row, x.Key, "Excluído", x.Receipt, null)
+                : new(row, null, "Sem movimento", null, null);
+        }
+        else
+        {
+            acts = true;
+            basis = new(row, s.Latest?.Key, "Novo", null, s.Latest?.Status == ReinfEventStatus.Rejected ? null : s.Latest?.Occurrences);
+        }
+
+        if (acts && s.Latest is { Status: ReinfEventStatus.Rejected } rejected
+            && (s.Accepted is null || rejected.CreatedAt >= s.Accepted.CreatedAt))
+            return new(row, rejected.Key, "Rejeitado", s.Accepted?.Receipt, rejected.Occurrences);
+        return basis;
     }
 
     private void EnsureStandalone()
@@ -577,11 +649,12 @@ public class ReinfService(
         var batchKeys = events.Where(e => e.BatchKey != null).Select(e => e.BatchKey!.Value).Distinct().ToArray();
         var batches = await context.ReinfBatches.AsNoTracking().Where(b => batchKeys.Contains(b.Key))
             .ToDictionaryAsync(b => b.Key,
-                b => b.Status == ReinfBatchStatus.Sent && string.IsNullOrWhiteSpace(b.Protocol) ? ReinfBatchStatus.Failed : b.Status, ct);
+                b => (Status: b.Status == ReinfBatchStatus.Sent && string.IsNullOrWhiteSpace(b.Protocol) ? ReinfBatchStatus.Failed : b.Status,
+                    b.Attempts), ct);
         return new PeriodState(events, batches);
     }
 
-    private sealed class PeriodState(List<ReinfEvent> events, Dictionary<Guid, ReinfBatchStatus> batches)
+    private sealed class PeriodState(List<ReinfEvent> events, Dictionary<Guid, (ReinfBatchStatus Status, int Attempts)> batches)
     {
         public ProducerState For(string? establishment, string? cardCode)
         {
@@ -590,13 +663,17 @@ public class ReinfService(
             bool InFlight(ReinfEvent e) =>
                 e.Status == ReinfEventStatus.Sent
                 || (e.Status == ReinfEventStatus.Pending && e.BatchKey is { } k && batches.TryGetValue(k, out var st)
-                    && st is ReinfBatchStatus.Sent or ReinfBatchStatus.Processing);
+                    && st.Status is ReinfBatchStatus.Sent or ReinfBatchStatus.Processing);
+            bool Stale(ReinfEvent e) => InFlight(e) && e.BatchKey is { } k && batches.TryGetValue(k, out var st)
+                && st.Status is ReinfBatchStatus.Sent or ReinfBatchStatus.Processing && st.Attempts >= MaxAutomaticQueries;
             return new ProducerState(
                 mine.FirstOrDefault(e => e.Status != ReinfEventStatus.Outdated),
                 mine.FirstOrDefault(e => e.Type == ReinfEventType.R2055 && e.Status == ReinfEventStatus.Accepted),
                 mine.FirstOrDefault(e => e.Status == ReinfEventStatus.Excluded),
                 mine.FirstOrDefault(e => e.Status == ReinfEventStatus.Pending && !InFlight(e)),
-                mine.Any(InFlight));
+                mine.Any(InFlight),
+                mine.FirstOrDefault(e => e.Status == ReinfEventStatus.Unconfirmed),
+                mine.Any(Stale));
         }
 
         /// <summary>Produtores com R-2055 aceito que não aparecem mais na apuração.</summary>
@@ -611,5 +688,6 @@ public class ReinfService(
         }
     }
 
-    private sealed record ProducerState(ReinfEvent? Latest, ReinfEvent? Accepted, ReinfEvent? Excluded, ReinfEvent? Retryable, bool InFlight);
+    private sealed record ProducerState(ReinfEvent? Latest, ReinfEvent? Accepted, ReinfEvent? Excluded, ReinfEvent? Retryable, bool InFlight,
+        ReinfEvent? Unconfirmed, bool Stale);
 }

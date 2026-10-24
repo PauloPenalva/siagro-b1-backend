@@ -5302,6 +5302,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<int>("RegistrationStatus")
                         .HasColumnType("int");
 
+                    b.Property<bool>("RegistrationUpdatePending")
+                        .HasColumnType("bit");
+
                     b.Property<string>("TaxClassification")
                         .IsRequired()
                         .HasColumnType("VARCHAR(2)");

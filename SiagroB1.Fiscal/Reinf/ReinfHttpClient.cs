@@ -36,7 +36,14 @@ public sealed class ReinfHttpClient(HttpMessageHandler? handlerOverride = null) 
                 using var res = await http.SendAsync(req, ct);
                 var body = await res.Content.ReadAsStringAsync(ct);
                 if ((int)res.StatusCode >= 400) throw new ReinfTransportException((int)res.StatusCode, body);
-                return ReinfResponseParser.Parse(body);
+                try
+                {
+                    return ReinfResponseParser.Parse(body);
+                }
+                catch (Exception ex) when (ex is System.Xml.XmlException or FormatException)
+                {
+                    throw new ReinfUnknownOutcomeException("Retorno ilegível da EFD-Reinf: " + ex.Message, ex);
+                }
             }
             catch (HttpRequestException ex)
             {
@@ -44,7 +51,8 @@ public sealed class ReinfHttpClient(HttpMessageHandler? handlerOverride = null) 
             }
             catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
             {
-                throw new ReinfTransportException(0, "Tempo esgotado: " + ex.Message);
+                // O pedido pode ter chegado: desfecho desconhecido, não é falha de conexão.
+                throw new ReinfUnknownOutcomeException("Tempo esgotado: " + ex.Message, ex);
             }
         }
     }

@@ -9,4 +9,6 @@ public enum ReinfEventStatus
     Rejected,
     Excluded,
     Outdated,
+    /// <summary>Envio sem confirmação da Receita (tempo esgotado/retorno ilegível): não é reenviado sozinho.</summary>
+    Unconfirmed,
 }
