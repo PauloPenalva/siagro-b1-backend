@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.DocNumbers;
 using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -39,6 +40,66 @@ public class FreightOrdersSaveServiceTests
         Assert.Equal("ST-0001", o.Code);
         Assert.Equal(FreightOrderStatus.Open, o.Status);
         Assert.Equal("u", o.CreatedBy);
+    }
+
+    [Fact]
+    public async Task Create_SnapshotsPartnerMunicipalityAndItemNames_ItemNameFromLookup()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.Municipalities.Add(new Municipality { Code = "3550308", Name = "Itaberá", StateAbbreviation = "SP" });
+        db.Context.Municipalities.Add(new Municipality { Code = "4106902", Name = "Paranaguá", StateAbbreviation = "PR" });
+        await db.SaveChangesAsync();
+        var svc = new FreightOrdersSaveService(db, new FakeDocNumberSequenceService(),
+            new FakeBusinessPartnerService(new Dictionary<string, string> { ["C1"] = "Tomador", ["C2"] = "Remetente" }),
+            new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA EM GRAOS" }),
+            TestConfiguration.Erp("STANDALONE"), new FreightOrdersRecalculateService(db));
+
+        var o = await svc.SaveAsync(Model(m => { m.SenderCardCode = "C2"; m.ItemName = "ADULTERADO"; }), "u");
+
+        Assert.Equal("Tomador", o.TakerName);
+        Assert.Equal("Remetente", o.SenderName);
+        Assert.Null(o.RecipientName);
+        Assert.Equal("Itaberá", o.StartMunicipalityName);
+        Assert.Equal("Paranaguá", o.EndMunicipalityName);
+        Assert.Equal("SOJA EM GRAOS", o.ItemName);
+    }
+
+    private sealed class NoSeriesDocNumbers : DocNumberSequenceService
+    {
+        public NoSeriesDocNumbers() : base(null!) { }
+        public override Task<DocNumberAssignment> AssignAsync(DocNumberRequest request) =>
+            throw new NotFoundException("Key FreightOrder not found.");
+    }
+
+    [Fact]
+    public async Task Create_WithoutDefaultSeries_IsBusinessError_NotNotFound()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var svc = new FreightOrdersSaveService(db, new NoSeriesDocNumbers(),
+            new FakeBusinessPartnerService(new Dictionary<string, string> { ["C1"] = "Tomador" }),
+            new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA" }),
+            TestConfiguration.Erp("STANDALONE"), new FreightOrdersRecalculateService(db));
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() => svc.SaveAsync(Model(), "u"));
+        Assert.Contains("série de numeração", ex.Message);
+    }
+
+    [Fact]
+    public void FreightDocNumberMigration_SeedsAutomaticDefaultSeriesForBothCodes()
+    {
+        var path = Directory.GetFiles(FindMigrations(), "*_AddFreightDocNumbers.cs").Single();
+        var sql = File.ReadAllText(path);
+        Assert.Contains("19", sql);
+        Assert.Contains("20", sql);
+        Assert.Contains("[Default]", sql);
+    }
+
+    private static string FindMigrations()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "SiagroB1.Migrations")))
+            dir = dir.Parent;
+        return Path.Combine(dir!.FullName, "SiagroB1.Migrations", "AppContext");
     }
 
     [Fact]

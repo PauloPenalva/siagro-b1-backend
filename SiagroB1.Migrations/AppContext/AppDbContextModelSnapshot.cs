@@ -2388,6 +2388,9 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(7)");
 
+                    b.Property<string>("EndMunicipalityName")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<string>("EndState")
                         .IsRequired()
                         .HasColumnType("VARCHAR(2)");
@@ -2415,6 +2418,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("RecipientCardCode")
                         .HasColumnType("VARCHAR(15)");
 
+                    b.Property<string>("RecipientName")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -2423,9 +2429,15 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("SenderCardCode")
                         .HasColumnType("VARCHAR(15)");
 
+                    b.Property<string>("SenderName")
+                        .HasColumnType("VARCHAR(100)");
+
                     b.Property<string>("StartMunicipalityCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("StartMunicipalityName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<string>("StartState")
                         .IsRequired()
@@ -2437,6 +2449,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("TakerCardCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("TakerName")
+                        .HasColumnType("VARCHAR(100)");
 
                     b.Property<decimal>("TransportedWeightKg")
                         .HasColumnType("DECIMAL(18,3)");

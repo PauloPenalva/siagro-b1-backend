@@ -19,11 +19,17 @@ public class FreightOrder
     [Column(TypeName = "VARCHAR(15)")] public required string TakerCardCode { get; set; }
     [Column(TypeName = "VARCHAR(15)")] public string? SenderCardCode { get; set; }
     [Column(TypeName = "VARCHAR(15)")] public string? RecipientCardCode { get; set; }
+    /// <summary>Nomes gravados na inclusão/alteração (snapshot): a lista e o detalhe exibem sem consultar o cadastro.</summary>
+    [Column(TypeName = "VARCHAR(100)")] public string? TakerName { get; set; }
+    [Column(TypeName = "VARCHAR(100)")] public string? SenderName { get; set; }
+    [Column(TypeName = "VARCHAR(100)")] public string? RecipientName { get; set; }
 
     [Column(TypeName = "VARCHAR(7)")] public required string StartMunicipalityCode { get; set; }
     [Column(TypeName = "VARCHAR(2)")] public required string StartState { get; set; }
     [Column(TypeName = "VARCHAR(7)")] public required string EndMunicipalityCode { get; set; }
     [Column(TypeName = "VARCHAR(2)")] public required string EndState { get; set; }
+    [Column(TypeName = "VARCHAR(100)")] public string? StartMunicipalityName { get; set; }
+    [Column(TypeName = "VARCHAR(100)")] public string? EndMunicipalityName { get; set; }
 
     [Column(TypeName = "VARCHAR(50)")] public required string ItemCode { get; set; }
     /// <summary>Vira o produto predominante do CT-e.</summary>

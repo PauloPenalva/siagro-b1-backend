@@ -29,12 +29,20 @@ public class FreightOrdersSaveService(
         if (m.ValidTo is { } to && to.Date < m.ValidFrom.Date)
             throw new DefaultException("A vigência final não pode ser anterior à inicial.");
 
-        if (await partners.GetByIdAsync(m.TakerCardCode) is null)
-            throw new DefaultException("Tomador não encontrado.");
-        if (await items.GetByIdAsync(m.ItemCode) is null)
-            throw new DefaultException("Produto não encontrado.");
+        var taker = await partners.GetByIdAsync(m.TakerCardCode)
+            ?? throw new DefaultException("Tomador não encontrado.");
+        var item = await items.GetByIdAsync(m.ItemCode)
+            ?? throw new DefaultException("Produto não encontrado.");
+        var names = new Lookups(
+            taker.CardName,
+            await NameOfAsync(m.SenderCardCode),
+            await NameOfAsync(m.RecipientCardCode),
+            // O nome do produto vem do cadastro, nunca do cliente (vira o produto predominante do CT-e).
+            Truncate(item.ItemName, 60)!,
+            await MunicipalityNameAsync(m.StartMunicipalityCode),
+            await MunicipalityNameAsync(m.EndMunicipalityCode));
 
-        if (m.Key is null) return await CreateAsync(m, user);
+        if (m.Key is null) return await CreateAsync(m, user, names);
 
         var order = await db.Context.FreightOrders.FirstOrDefaultAsync(o => o.Key == m.Key)
             ?? throw new DefaultException("Ordem de frete não encontrada.");
@@ -46,37 +54,63 @@ public class FreightOrdersSaveService(
         if (hasAuthorized && (order.TakerCardCode != m.TakerCardCode || order.ItemCode != m.ItemCode))
             throw new DefaultException("Ordem com CT-e autorizado: tomador e produto não podem ser alterados.");
 
-        Apply(order, m);
+        Apply(order, m, names);
         await db.SaveChangesAsync();
         // Mudar o volume contratado muda o saldo: a situação precisa acompanhar.
         await recalculate.RecalculateAsync(order.Key);
         return order;
     }
 
-    private async Task<FreightOrder> CreateAsync(FreightOrderSaveModel m, string user)
+    private async Task<FreightOrder> CreateAsync(FreightOrderSaveModel m, string user, Lookups names)
     {
         // Número buscado antes de gravar (Dapper em conexão separada).
-        var assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
-            TransactionCode.FreightOrder, m.DocNumberKey, m.TypedCode, 20,
-            c => db.Context.FreightOrders.AnyAsync(x => x.Code == c)));
+        DocNumberAssignment assignment;
+        try
+        {
+            assignment = await docNumberSequence.AssignAsync(new DocNumberRequest(
+                TransactionCode.FreightOrder, m.DocNumberKey, m.TypedCode, 20,
+                c => db.Context.FreightOrders.AnyAsync(x => x.Code == c)));
+        }
+        catch (NotFoundException) when (m.DocNumberKey is null)
+        {
+            throw new DefaultException(
+                "Não há série de numeração padrão para a Ordem de Frete. Cadastre uma em Numeração de Documentos.");
+        }
 
         var order = new FreightOrder
         {
             BranchCode = m.BranchCode, Code = assignment.Code, DocNumberKey = assignment.DocNumberKey,
             TakerCardCode = m.TakerCardCode, StartMunicipalityCode = m.StartMunicipalityCode, StartState = m.StartState,
             EndMunicipalityCode = m.EndMunicipalityCode, EndState = m.EndState, ItemCode = m.ItemCode,
-            ItemName = m.ItemName, CreatedBy = user, CreatedAt = DateTime.Now,
+            ItemName = names.ItemName, CreatedBy = user, CreatedAt = DateTime.Now,
             Status = FreightOrderStatus.Open,
             OrderDate = m.OrderDate ?? DateTime.Today,
         };
-        Apply(order, m);
+        Apply(order, m, names);
         db.Context.FreightOrders.Add(order);
         await db.SaveChangesAsync();
         return order;
     }
 
-    private static void Apply(FreightOrder o, FreightOrderSaveModel m)
+    private sealed record Lookups(
+        string TakerName, string? SenderName, string? RecipientName, string ItemName,
+        string? StartMunicipalityName, string? EndMunicipalityName);
+
+    private static string? Truncate(string? v, int max) => v is { } s && s.Length > max ? s[..max] : v;
+
+    private async Task<string?> NameOfAsync(string? cardCode) =>
+        string.IsNullOrWhiteSpace(cardCode) ? null : Truncate((await partners.GetByIdAsync(cardCode))?.CardName, 100);
+
+    private async Task<string?> MunicipalityNameAsync(string code) =>
+        await db.Context.Municipalities.Where(x => x.Code == code).Select(x => x.Name).FirstOrDefaultAsync();
+
+    private static void Apply(FreightOrder o, FreightOrderSaveModel m, Lookups n)
     {
+        o.TakerName = Truncate(n.TakerName, 100);
+        o.SenderName = n.SenderName;
+        o.RecipientName = n.RecipientName;
+        o.StartMunicipalityName = n.StartMunicipalityName;
+        o.EndMunicipalityName = n.EndMunicipalityName;
         o.TakerCardCode = m.TakerCardCode;
         o.SenderCardCode = m.SenderCardCode;
         o.RecipientCardCode = m.RecipientCardCode;
@@ -85,7 +119,7 @@ public class FreightOrdersSaveService(
         o.EndMunicipalityCode = m.EndMunicipalityCode;
         o.EndState = m.EndState;
         o.ItemCode = m.ItemCode;
-        o.ItemName = m.ItemName;
+        o.ItemName = n.ItemName;
         o.ContractedWeightKg = m.ContractedWeightKg;
         o.PriceMethod = m.PriceMethod;
         o.UnitPrice = m.UnitPrice;
