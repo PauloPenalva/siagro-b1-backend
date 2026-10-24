@@ -28,5 +28,8 @@ public enum FinancialSettlementOrigin
     /// a de ENTRADA fica no adiantamento novo (OriginType = FinancialDocument e OriginKey = RelatedDocumentKey da linha)
     /// e conta no PAGO; a de SAÍDA fica no original e conta no APLICADO. Só nasce pelo revínculo.
     /// </summary>
-    AdvanceTransfer = 7
+    AdvanceTransfer = 7,
+
+    /// <summary>Baixa dos títulos de CT-e aglutinados na fatura de frete (a fatura passa a ser o título a receber).</summary>
+    Aggregation = 8
 }

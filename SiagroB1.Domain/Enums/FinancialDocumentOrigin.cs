@@ -35,5 +35,11 @@ public enum FinancialDocumentOrigin
     /// Parcelas a receber do CT-e autorizado, contra o tomador (entrega B do CT-e). OriginKey = chave do CT-e, repetida em N
     /// títulos; fora do índice FirmOrigin, como a saída sem contrato.
     /// </summary>
-    TransportDocument = 11
+    TransportDocument = 11,
+
+    /// <summary>
+    /// Título a receber da fatura de frete (aglutina CT-e do tomador). OriginKey = chave da fatura, repetida em N parcelas;
+    /// fora do índice FirmOrigin, como o CT-e.
+    /// </summary>
+    FreightInvoice = 12
 }

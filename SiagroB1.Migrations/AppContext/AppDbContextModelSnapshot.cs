@@ -1813,7 +1813,7 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "SalesContractKey" }, "IX_FINANCIAL_DOCUMENTS_FirmOrigin")
                         .IsUnique()
-                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10 AND [OriginType] <> 11");
+                        .HasFilter("[Nature] IN (1, 4, 5) AND [Status] <> 3 AND [OriginKey] IS NOT NULL AND [OriginType] <> 9 AND [OriginType] <> 10 AND [OriginType] <> 11 AND [OriginType] <> 12");
 
                     b.HasIndex(new[] { "OriginType", "OriginKey", "InstallmentNumber", "WithholdingTaxType" }, "IX_FINANCIAL_DOCUMENTS_OtherPurchaseOrigin")
                         .IsUnique()
@@ -2352,6 +2352,100 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("PeriodKey");
 
                     b.ToTable("FISCAL_STOCK_PERIOD_LAYERS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FreightInvoice", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Observation")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<int?>("PaymentConditionCode")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TakerCardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("TakerName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode", "Code")
+                        .IsUnique();
+
+                    b.ToTable("FREIGHT_INVOICES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FreightInvoiceItem", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<Guid>("InvoiceKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LineNum")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TransportDocumentKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("InvoiceKey");
+
+                    b.HasIndex("TransportDocumentKey")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("FREIGHT_INVOICE_ITEMS");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.FreightOrder", b =>
@@ -10940,6 +11034,25 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Period");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FreightInvoiceItem", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FreightInvoice", "Invoice")
+                        .WithMany("Items")
+                        .HasForeignKey("InvoiceKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.TransportDocument", "TransportDocument")
+                        .WithMany()
+                        .HasForeignKey("TransportDocumentKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("TransportDocument");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.JournalEntry", "ReversalOf")
@@ -12791,6 +12904,11 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Events");
 
                     b.Navigation("Layers");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FreightInvoice", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.JournalEntry", b =>
