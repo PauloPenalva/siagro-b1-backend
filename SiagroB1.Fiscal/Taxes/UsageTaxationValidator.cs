@@ -46,12 +46,22 @@ public static class UsageTaxationValidator
 
         if (!Enum.IsDefined(model.RuralContributionMode))
             throw new DefaultException("Modo de contribuição social inválido.");
+        ValidateDigits(model.RuralJudicialProcessNumber, 21, "Processo judicial deve ter de 1 a 21 dígitos.");
+        ValidateDigits(model.RuralJudicialSuspensionCode, 14, "Código de suspensão deve ter até 14 dígitos.");
         ValidatePercent(model.WithholdingIssRate, "Alíquota de retenção de ISS");
         ValidatePercent(model.WithholdingIrrfRate, "Alíquota de retenção de IRRF");
         ValidatePercent(model.WithholdingInssRate, "Alíquota de retenção de INSS");
         ValidatePercent(model.WithholdingPisRate, "Alíquota de retenção de PIS");
         ValidatePercent(model.WithholdingCofinsRate, "Alíquota de retenção de COFINS");
         ValidatePercent(model.WithholdingCsllRate, "Alíquota de retenção de CSLL");
+    }
+
+    private static void ValidateDigits(string? raw, int max, string message)
+    {
+        var value = FiscalCodes.Normalize(raw);
+        if (value is null) return;
+        if (value.Length > max || !value.All(char.IsAsciiDigit))
+            throw new DefaultException(message);
     }
 
     private static void ValidateCfop(string? cfop, char prefix, string label)

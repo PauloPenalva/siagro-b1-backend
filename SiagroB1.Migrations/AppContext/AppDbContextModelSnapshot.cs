@@ -5085,6 +5085,252 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("RECEIVED_DFES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ReinfBatch", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Environment")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("VARCHAR(MAX)");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Protocol")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("RequestXml")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(MAX)");
+
+                    b.Property<string>("ResponseXml")
+                        .HasColumnType("VARCHAR(MAX)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaxIdRoot")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("Protocol");
+
+                    b.ToTable("REINF_BATCHES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ReinfEvent", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BatchKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CardCode")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<string>("ContentHash")
+                        .HasColumnType("VARCHAR(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("EstablishmentTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(36)");
+
+                    b.Property<decimal>("GrossValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("InssValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("Occurrences")
+                        .HasColumnType("VARCHAR(MAX)");
+
+                    b.Property<string>("Period")
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("PreviousReceipt")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("ProducerTaxId")
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<decimal>("RatValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("Receipt")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int>("RectificationIndicator")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SenarValue")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaxIdRoot")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(MAX)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BatchKey");
+
+                    b.HasIndex("TaxIdRoot", "Period", "Type");
+
+                    b.ToTable("REINF_EVENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ReinfPeriod", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosingReceipt")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaxIdRoot")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TaxIdRoot", "Period")
+                        .IsUnique();
+
+                    b.ToTable("REINF_PERIODS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ReinfSettings", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<string>("ClosingResponsibleCpf")
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("ClosingResponsibleEmail")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("ClosingResponsibleName")
+                        .HasColumnType("VARCHAR(70)");
+
+                    b.Property<string>("ClosingResponsiblePhone")
+                        .HasColumnType("VARCHAR(13)");
+
+                    b.Property<int?>("CompanySituation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContactCpf")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(11)");
+
+                    b.Property<string>("ContactEmail")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(70)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasColumnType("VARCHAR(13)");
+
+                    b.Property<int>("Environment")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("FineExemptionAgreement")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("KeepsBookkeeping")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PayrollRelief")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RegistrationReceipt")
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<int>("RegistrationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RegistrationUpdatePending")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TaxClassification")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("TaxIdRoot")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(8)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ValidFrom")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("TaxIdRoot")
+                        .IsUnique();
+
+                    b.ToTable("REINF_SETTINGS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.RoyaltyWriteOff", b =>
                 {
                     b.Property<Guid>("Key")
@@ -9632,6 +9878,12 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Property<int>("RuralContributionMode")
                         .HasColumnType("int");
+
+                    b.Property<string>("RuralJudicialProcessNumber")
+                        .HasColumnType("VARCHAR(21)");
+
+                    b.Property<string>("RuralJudicialSuspensionCode")
+                        .HasColumnType("VARCHAR(14)");
 
                     b.Property<decimal?>("WithholdingCofinsRate")
                         .HasColumnType("DECIMAL(7,4)");

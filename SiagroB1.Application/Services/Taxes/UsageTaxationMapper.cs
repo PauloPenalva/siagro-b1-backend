@@ -63,6 +63,8 @@ internal static class UsageTaxationMapper
         usage.IbsRateReduction = model.IbsRateReduction;
         usage.CbsRateReduction = model.CbsRateReduction;
         usage.RuralContributionMode = incoming ? model.RuralContributionMode : RuralContributionMode.None;
+        usage.RuralJudicialProcessNumber = incoming ? Normalize(model.RuralJudicialProcessNumber) : null;
+        usage.RuralJudicialSuspensionCode = incoming ? Normalize(model.RuralJudicialSuspensionCode) : null;
         usage.WithholdingIssRate = model.WithholdingIssRate;
         usage.WithholdingIrrfRate = model.WithholdingIrrfRate;
         usage.WithholdingInssRate = model.WithholdingInssRate;

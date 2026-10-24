@@ -67,6 +67,8 @@ public class UsageService(IUnitOfWork db, ILogger<UsageService> logger)
                     IbsRateReduction = x.usage.IbsRateReduction,
                     CbsRateReduction = x.usage.CbsRateReduction,
                     RuralContributionMode = x.usage.RuralContributionMode,
+                    RuralJudicialProcessNumber = x.usage.RuralJudicialProcessNumber,
+                    RuralJudicialSuspensionCode = x.usage.RuralJudicialSuspensionCode,
                     WithholdingIssRate = x.usage.WithholdingIssRate,
                     WithholdingIrrfRate = x.usage.WithholdingIrrfRate,
                     WithholdingInssRate = x.usage.WithholdingInssRate,

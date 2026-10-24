@@ -91,6 +91,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<EmailSettings> EmailSettings { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
+    public DbSet<ReinfSettings> ReinfSettings { get; set; }
+    public DbSet<ReinfPeriod> ReinfPeriods { get; set; }
+    public DbSet<ReinfEvent> ReinfEvents { get; set; }
+    public DbSet<ReinfBatch> ReinfBatches { get; set; }
     public DbSet<EcdSettings> EcdSettings { get; set; }
     public DbSet<EcfSettings> EcfSettings { get; set; }
     public DbSet<EcfPartner> EcfPartners { get; set; }
@@ -539,6 +543,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasMany(x => x.Corrections).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
             e.HasMany(x => x.Endorsements).WithOne(x => x.TransportDocument).HasForeignKey(x => x.TransportDocumentKey).OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<ReinfSettings>(e => e.HasIndex(x => x.TaxIdRoot).IsUnique());
+        modelBuilder.Entity<ReinfPeriod>(e => e.HasIndex(x => new { x.TaxIdRoot, x.Period }).IsUnique());
+        modelBuilder.Entity<ReinfEvent>(e =>
+        {
+            e.HasIndex(x => new { x.TaxIdRoot, x.Period, x.Type });
+            e.HasIndex(x => x.BatchKey);
+        });
+        modelBuilder.Entity<ReinfBatch>(e => e.HasIndex(x => x.Protocol));
 
         modelBuilder.Entity<TransportManifest>(e =>
         {
