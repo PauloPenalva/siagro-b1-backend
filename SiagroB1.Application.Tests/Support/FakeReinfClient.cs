@@ -15,12 +15,17 @@ public sealed class FakeReinfClient : IReinfClient
     public Queue<Func<ReinfBatchResult>> SendResults { get; } = new();
     public Queue<Func<ReinfBatchResult>> QueryResults { get; } = new();
 
-    public Task<ReinfBatchResult> SendAsync(string batchXml, X509Certificate2 cert, ReinfEnvironment env, CancellationToken ct)
+    /// <summary>Atraso artificial no envio (para testar transmissões concorrentes).</summary>
+    public TimeSpan SendDelay { get; set; }
+
+    public async Task<ReinfBatchResult> SendAsync(string batchXml, X509Certificate2 cert, ReinfEnvironment env, CancellationToken ct)
     {
-        SentXml.Add(batchXml);
-        return Task.FromResult(SendResults.Count > 0
-            ? SendResults.Dequeue()()
-            : new ReinfBatchResult(1, "Lote recebido", $"PROT-{SentXml.Count}", [], [], "<retorno/>"));
+        lock (SentXml) SentXml.Add(batchXml);
+        if (SendDelay > TimeSpan.Zero) await Task.Delay(SendDelay, ct);
+        lock (SendResults)
+            return SendResults.Count > 0
+                ? SendResults.Dequeue()()
+                : new ReinfBatchResult(1, "Lote recebido", $"PROT-{SentXml.Count}", [], [], "<retorno/>");
     }
 
     public Task<ReinfBatchResult> QueryAsync(string protocol, X509Certificate2 cert, ReinfEnvironment env, CancellationToken ct)

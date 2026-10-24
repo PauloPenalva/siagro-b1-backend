@@ -1,6 +1,9 @@
+using System.Collections.Concurrent;
+using System.Data;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using SiagroB1.Application.Services.Nfe;
 using SiagroB1.Domain.Entities;
@@ -53,9 +56,62 @@ public class ReinfService(
         return new ReinfPeriodOverview(root, period, periodEntity?.Status ?? ReinfPeriodStatus.Open, result, issues);
     }
 
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new();
+
+    /// <summary>
+    /// Serializa a transmissão por contribuinte + período: trava do processo e, no SQL Server,
+    /// sp_getapplock com dono transação (vale entre servidores). Quem espera enxerga os eventos em voo.
+    /// </summary>
     public async Task<IReadOnlyList<Guid>> TransmitAsync(string taxIdRoot, string period, string user, CancellationToken ct)
     {
         EnsureStandalone();
+        var key = $"reinf:{ReinfFormat.Root(taxIdRoot)}:{period}";
+        var gate = Gates.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        try
+        {
+            if (!context.Database.IsRelational() || context.Database.CurrentTransaction is not null)
+                return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+
+            await using var tx = await context.Database.BeginTransactionAsync(ct);
+            await AppLockAsync(key, ct);
+            try
+            {
+                return await TransmitCoreAsync(taxIdRoot, period, user, ct);
+            }
+            finally
+            {
+                // Confirma mesmo com erro: o lote já gravado (e seu protocolo) não pode se perder.
+                await tx.CommitAsync(CancellationToken.None);
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task AppLockAsync(string resource, CancellationToken ct)
+    {
+        var database = context.Database;
+        await using var command = database.GetDbConnection().CreateCommand();
+        command.CommandText =
+            "DECLARE @r int; EXEC @r = sp_getapplock @Resource = @res, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 60000; SELECT @r;";
+        command.Transaction = database.CurrentTransaction!.GetDbTransaction();
+        command.CommandTimeout = 75;
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@res";
+        parameter.DbType = DbType.String;
+        parameter.Size = 255;
+        parameter.Value = resource;
+        command.Parameters.Add(parameter);
+        var value = await command.ExecuteScalarAsync(ct);
+        if (value is null or DBNull || Convert.ToInt32(value) < 0)
+            throw new BusinessException("Outra transmissão da EFD-Reinf deste período está em andamento. Tente novamente.");
+    }
+
+    private async Task<IReadOnlyList<Guid>> TransmitCoreAsync(string taxIdRoot, string period, string user, CancellationToken ct)
+    {
         var root = ReinfFormat.Root(taxIdRoot);
         var settings = await context.ReinfSettings.FirstOrDefaultAsync(s => s.TaxIdRoot == root, ct);
         if (settings is null || settings.RegistrationStatus != ReinfRegistrationStatus.Accepted)
@@ -155,6 +211,8 @@ public class ReinfService(
             context.ReinfBatches.Add(batch);
             foreach (var (e, _) in chunk) e.BatchKey = batch.Key;
             batches.Add(batch.Key);
+            // Grava lote e vínculo antes do envio: qualquer falha adiante deixa o registro.
+            await context.SaveChangesAsync(ct);
 
             try
             {
@@ -166,6 +224,7 @@ public class ReinfService(
                 {
                     batch.Status = ReinfBatchStatus.Sent;
                     foreach (var e in events) e.Status = ReinfEventStatus.Sent;
+                    await context.SaveChangesAsync(ct);
                     if (result.ResponseCode is 2 or 3) await ApplyProcessedAsync(batch, events, result, ct);
                 }
                 else Refuse(batch, events, result);
@@ -174,6 +233,15 @@ public class ReinfService(
             {
                 batch.Status = ReinfBatchStatus.Failed;
                 batch.Error = $"HTTP {ex.StatusCode}: {ex.Body}";
+            }
+            catch (Exception ex)
+            {
+                // Sem protocolo, nada chegou de fato: Failed (eventos Pending, retentável). Com protocolo, segue Sent
+                // e a consulta do lote resolve.
+                batch.Error = ex.Message;
+                if (string.IsNullOrWhiteSpace(batch.Protocol)) batch.Status = ReinfBatchStatus.Failed;
+                await context.SaveChangesAsync(CancellationToken.None);
+                throw;
             }
             await context.SaveChangesAsync(ct);
         }
@@ -244,7 +312,17 @@ public class ReinfService(
             e.Receipt = r.Receipt;
             await OnAcceptedAsync(e, ct);
         }
+
+        foreach (var e in events.Where(x => x.Status == ReinfEventStatus.Sent))
+        {
+            e.Status = ReinfEventStatus.Rejected;
+            e.Occurrences = MissingFromResponseMessage;
+            e.UpdatedAt = nowUtc;
+            await OnRejectedAsync(e, ct);
+        }
     }
+
+    public const string MissingFromResponseMessage = "Evento ausente no retorno do lote.";
 
     private async Task OnAcceptedAsync(ReinfEvent e, CancellationToken ct)
     {
@@ -357,7 +435,8 @@ public class ReinfService(
         var events = tracked ? await query.ToListAsync(ct) : await query.AsNoTracking().ToListAsync(ct);
         var batchKeys = events.Where(e => e.BatchKey != null).Select(e => e.BatchKey!.Value).Distinct().ToArray();
         var batches = await context.ReinfBatches.AsNoTracking().Where(b => batchKeys.Contains(b.Key))
-            .ToDictionaryAsync(b => b.Key, b => b.Status, ct);
+            .ToDictionaryAsync(b => b.Key,
+                b => b.Status == ReinfBatchStatus.Sent && string.IsNullOrWhiteSpace(b.Protocol) ? ReinfBatchStatus.Failed : b.Status, ct);
         return new PeriodState(events, batches);
     }
 

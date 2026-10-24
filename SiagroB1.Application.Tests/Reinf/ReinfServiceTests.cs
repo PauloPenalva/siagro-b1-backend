@@ -14,13 +14,15 @@ public class ReinfServiceTests
 {
     private const string Root = "12345678";
     private const string Period = "2026-09";
-    private readonly UnitOfWork _db = TestDb.CreateUnitOfWork();
+    private readonly string _dbName = Guid.NewGuid().ToString();
+    private readonly UnitOfWork _db;
     private readonly FakeReinfClient _client = new();
     private int _receipt;
     private int _partners;
 
     public ReinfServiceTests()
     {
+        _db = TestDb.CreateUnitOfWork(_dbName);
         var c = _db.Context;
         c.Branchs.Add(new Branch { Code = "01", BranchName = "Matriz", TaxId = "12345678000195" });
         c.Usages.Add(new Usage { Code = 1, Name = "Compra", RuralContributionMode = RuralContributionMode.Full });
@@ -28,8 +30,10 @@ public class ReinfServiceTests
         c.SaveChanges();
     }
 
-    private ReinfService Service(string erp = "STANDALONE") => new(
-        _db.Context, TestConfiguration.Erp(erp), new ReinfAcquisitionCalculator(_db.Context), _client,
+    private ReinfService Service(string erp = "STANDALONE") => Service(_db.Context, erp);
+
+    private ReinfService Service(SiagroB1.Infra.Context.AppDbContext ctx, string erp = "STANDALONE") => new(
+        ctx, TestConfiguration.Erp(erp), new ReinfAcquisitionCalculator(ctx), _client,
         new FakeReinfCertificateProvider(), new ReinfEventIdGenerator(), new ReinfSchemaValidator(), new ReinfAppInfo("1.0"),
         new FixedTime());
 
@@ -267,6 +271,62 @@ public class ReinfServiceTests
         Assert.Equal("Produtor P1 sem CPF/CNPJ válido. (+1 pendência(s))", ex.Message);
         Assert.Empty(_client.SentXml);
     }
+
+    [Fact]
+    public async Task Unexpected_send_error_keeps_batch_record_and_retry_does_not_duplicate()
+    {
+        Invoke();
+        _client.SendResults.Enqueue(() => throw new InvalidOperationException("resposta ilegível"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Service().TransmitAsync(Root, Period, "u", default));
+
+        var fresh = TestDb.CreateUnitOfWork(_dbName);
+        {
+            var b = fresh.Context.ReinfBatches.Single();
+            Assert.Equal(ReinfBatchStatus.Failed, b.Status);
+            Assert.Contains("ilegível", b.Error);
+            var e = fresh.Context.ReinfEvents.Single();
+            Assert.Equal(ReinfEventStatus.Pending, e.Status);
+            Assert.Equal(b.Key, e.BatchKey);
+        }
+
+        await Service().TransmitAsync(Root, Period, "u", default);
+        Assert.Equal(2, _client.SentXml.Count);
+        Assert.Single(_db.Context.ReinfEvents);
+        Assert.Equal(ReinfEventStatus.Sent, _db.Context.ReinfEvents.Single().Status);
+    }
+
+    [Fact]
+    public async Task Concurrent_transmissions_send_each_producer_once()
+    {
+        Invoke();
+        _client.SendDelay = TimeSpan.FromMilliseconds(300);
+        var a = TestDb.CreateUnitOfWork(_dbName);
+        var b = TestDb.CreateUnitOfWork(_dbName);
+
+        var results = await Task.WhenAll(
+            Task.Run(() => Service(a.Context).TransmitAsync(Root, Period, "u", default)),
+            Task.Run(() => Service(b.Context).TransmitAsync(Root, Period, "u", default)));
+
+        Assert.Single(_client.SentXml);
+        Assert.Equal(1, results.Sum(r => r.Count));
+    }
+
+    [Fact]
+    public async Task Event_missing_from_processed_response_is_rejected()
+    {
+        Invoke();
+        var key = Assert.Single(await Service().TransmitAsync(Root, Period, "u", default));
+        _client.QueryResults.Enqueue(() => new ReinfBatchResult(2, "Processado", null, [], [], "<r/>"));
+
+        await Service().QueryBatchAsync(key, default);
+
+        var e = _db.Context.ReinfEvents.Single();
+        Assert.Equal(ReinfEventStatus.Rejected, e.Status);
+        Assert.Equal("Evento ausente no retorno do lote.", e.Occurrences);
+    }
+
+    private void Invoke() => Invoice("P1", 1000m);
 
     private sealed class FixedTime : TimeProvider
     {
