@@ -32,8 +32,9 @@ public class FreightOrdersCreateCteService(
 
         var parties = new List<TransportDocumentParty>();
         int takerRole;
-        if (order.TakerCardCode == order.SenderCardCode) takerRole = (int)CtePartyRole.Sender;
-        else if (order.TakerCardCode == order.RecipientCardCode) takerRole = (int)CtePartyRole.Recipient;
+        var taker = order.TakerCardCode.Trim();
+        if (taker == order.SenderCardCode?.Trim()) takerRole = (int)CtePartyRole.Sender;
+        else if (taker == order.RecipientCardCode?.Trim()) takerRole = (int)CtePartyRole.Recipient;
         else takerRole = (int)CtePartyRole.OtherTaker;
 
         if (order.SenderCardCode is { Length: > 0 } sender)

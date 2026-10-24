@@ -58,6 +58,7 @@ public class TransportDocumentsSaveService(
         doc.BranchCode = input.BranchCode;
         doc.Series = input.Series;
         doc.UsageCode = input.UsageCode;
+        // Chave nula = desvincular a ordem: a tela sempre reenvia o vínculo ao gravar.
         doc.FreightOrderKey = input.FreightOrderKey;
         doc.TakerRole = input.TakerRole;
         doc.PredominantProduct = TransportDocumentDefaults.Cut(input.PredominantProduct?.Trim(), 60);
@@ -133,7 +134,7 @@ public class TransportDocumentsSaveService(
         if (doc.FreightOrderKey != orderKey)
             FreightOrders.FreightOrdersCreateCteService.EnsureUsable(order);
         var taker = input.Parties.FirstOrDefault(p => (int)p.Role == input.TakerRole);
-        if (taker is null || taker.CardCode?.Trim() != order.TakerCardCode)
+        if (taker is null || taker.CardCode?.Trim() != order.TakerCardCode.Trim())
             throw new DefaultException(FreightOrders.FreightOrdersCreateCteService.OtherTaker);
     }
 

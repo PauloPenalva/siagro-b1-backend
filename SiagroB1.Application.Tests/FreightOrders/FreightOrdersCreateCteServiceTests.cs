@@ -140,4 +140,58 @@ public class FreightOrdersCreateCteServiceTests
         var e = await Assert.ThrowsAsync<DefaultException>(() => Save().SaveAsync(Input(o.Key, "TOM"), "u"));
         Assert.Equal("Só é possível emitir CT-e para ordem Aberta ou Em execução.", e.Message);
     }
+
+    [Fact]
+    public async Task CteSave_ResaveSameLink_AfterOrderClosed_NotRevalidated()
+    {
+        var o = await SeedOrderAsync();
+        var first = await Save().SaveAsync(Input(o.Key, "TOM"), "u");
+        _db.Context.FreightOrders.Single(x => x.Key == o.Key).Status = FreightOrderStatus.Completed;
+        await _db.SaveChangesAsync();
+
+        await Save().SaveAsync(Input(o.Key, "TOM") with { Key = first.Key }, "u");
+
+        var doc = await _db.Context.TransportDocuments.AsNoTracking().SingleAsync(d => d.Key == first.Key);
+        Assert.Equal(o.Key, doc.FreightOrderKey);
+    }
+
+    [Fact]
+    public async Task CteSave_ResaveWithNullKey_ClearsLink()
+    {
+        var o = await SeedOrderAsync();
+        var first = await Save().SaveAsync(Input(o.Key, "TOM"), "u");
+
+        await Save().SaveAsync(Input(o.Key, "TOM") with { Key = first.Key, FreightOrderKey = null }, "u");
+
+        var doc = await _db.Context.TransportDocuments.AsNoTracking().SingleAsync(d => d.Key == first.Key);
+        Assert.Null(doc.FreightOrderKey);
+    }
+
+    [Fact]
+    public async Task CteSave_ChangeLinkToCompletedOrderOfSameTaker_Rejected()
+    {
+        var o = await SeedOrderAsync();
+        var first = await Save().SaveAsync(Input(o.Key, "TOM"), "u");
+        var other = new FreightOrder
+        {
+            BranchCode = "01", Code = "OF-2", OrderDate = DateTime.Today, TakerCardCode = "TOM",
+            StartMunicipalityCode = "3509502", StartState = "SP", EndMunicipalityCode = "4106902", EndState = "PR",
+            ItemCode = "SOJA", ItemName = "SOJA", ContractedWeightKg = 1000m, PriceMethod = FreightCalculationMethod.PerTon,
+            UnitPrice = 1m, ValidFrom = DateTime.Today.AddDays(-5), Status = FreightOrderStatus.Completed, CreatedBy = "t",
+        };
+        _db.Context.FreightOrders.Add(other);
+        await _db.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() =>
+            Save().SaveAsync(Input(other.Key, "TOM") with { Key = first.Key }, "u"));
+        Assert.Equal("Só é possível emitir CT-e para ordem Aberta ou Em execução.", e.Message);
+    }
+
+    [Fact]
+    public async Task CreateDraft_Sapb1Mode_StandaloneOnly()
+    {
+        var o = await SeedOrderAsync();
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Create("SAPB1").CreateDraftAsync(o.Key, "u"));
+        Assert.Equal(BranchCteSettingsService.StandaloneOnly, e.Message);
+    }
 }
