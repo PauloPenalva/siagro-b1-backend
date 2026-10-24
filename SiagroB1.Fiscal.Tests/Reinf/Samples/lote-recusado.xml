@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Reinf xmlns="http://www.reinf.esocial.gov.br/schemas/retornoLoteEventosAssincrono/v1_00_00">
+  <retornoLoteEventosAssincrono>
+    <ideContribuinte><tpInsc>1</tpInsc><nrInsc>12345678</nrInsc></ideContribuinte>
+    <status>
+      <cdResposta>3</cdResposta>
+      <descResposta>Lote recusado.</descResposta>
+      <ocorrencias>
+        <ocorrencia><codigo>MS0001</codigo><descricao>Certificado invalido.</descricao><tipo>1</tipo></ocorrencia>
+      </ocorrencias>
+    </status>
+  </retornoLoteEventosAssincrono>
+</Reinf>

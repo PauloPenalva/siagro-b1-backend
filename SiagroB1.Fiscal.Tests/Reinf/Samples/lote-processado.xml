@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Reinf xmlns="http://www.reinf.esocial.gov.br/schemas/retornoLoteEventosAssincrono/v1_00_00">
+  <retornoLoteEventosAssincrono>
+    <ideContribuinte><tpInsc>1</tpInsc><nrInsc>12345678</nrInsc></ideContribuinte>
+    <status><cdResposta>2</cdResposta><descResposta>Lote processado.</descResposta></status>
+    <dadosRecepcaoLote>
+      <dhRecepcao>2026-10-24T10:00:00</dhRecepcao>
+      <versaoAplicativoRecepcao>1.0</versaoAplicativoRecepcao>
+      <protocoloEnvio>2.202610.1234567</protocoloEnvio>
+    </dadosRecepcaoLote>
+    <dadosProcessamentoLote><versaoAplicativoProcessamentoLote>1.0</versaoAplicativoProcessamentoLote></dadosProcessamentoLote>
+    <retornoEventos>
+      <evento Id="ID1123456780000002026102410000000001">
+        <retornoEvento>
+          <Reinf xmlns="http://www.reinf.esocial.gov.br/schemas/evtTotal/v2_01_02">
+            <evtTotal id="ID1123456780000002026102410000000001">
+              <ideEvento><perApur>2026-10</perApur></ideEvento>
+              <ideContri><tpInsc>1</tpInsc><nrInsc>12345678</nrInsc></ideContri>
+              <ideRecRetorno>
+                <ideStatus><cdRetorno>0</cdRetorno><descRetorno>SUCESSO</descRetorno></ideStatus>
+              </ideRecRetorno>
+              <infoRecEv>
+                <nrProtEntr>2.202610.1234567</nrProtEntr>
+                <dhProcess>2026-10-24T10:01:00</dhProcess>
+                <tpEv>2055</tpEv>
+                <idEv>ID1123456780000002026102410000000001</idEv>
+                <hash>abc</hash>
+                <nrRecArqBase>12345-01-1234-1234-12345</nrRecArqBase>
+              </infoRecEv>
+            </evtTotal>
+          </Reinf>
+        </retornoEvento>
+      </evento>
+      <evento Id="ID1123456780000002026102410000000002">
+        <retornoEvento>
+          <Reinf xmlns="http://www.reinf.esocial.gov.br/schemas/evtTotal/v2_01_02">
+            <evtTotal id="ID1123456780000002026102410000000002">
+              <ideEvento><perApur>2026-10</perApur></ideEvento>
+              <ideContri><tpInsc>1</tpInsc><nrInsc>12345678</nrInsc></ideContri>
+              <ideRecRetorno>
+                <ideStatus>
+                  <cdRetorno>1</cdRetorno>
+                  <descRetorno>ERRO</descRetorno>
+                  <regOcorrs>
+                    <tpOcorr>1</tpOcorr>
+                    <localErroAviso>/Reinf/evtAdesao</localErroAviso>
+                    <codResp>MS1234</codResp>
+                    <dscResp>Produtor rural nao encontrado.</dscResp>
+                  </regOcorrs>
+                </ideStatus>
+              </ideRecRetorno>
+              <infoRecEv>
+                <nrProtEntr>2.202610.1234567</nrProtEntr>
+                <dhProcess>2026-10-24T10:01:00</dhProcess>
+                <tpEv>2055</tpEv>
+                <idEv>ID1123456780000002026102410000000002</idEv>
+                <hash>def</hash>
+              </infoRecEv>
+            </evtTotal>
+          </Reinf>
+        </retornoEvento>
+      </evento>
+    </retornoEventos>
+  </retornoLoteEventosAssincrono>
+</Reinf>

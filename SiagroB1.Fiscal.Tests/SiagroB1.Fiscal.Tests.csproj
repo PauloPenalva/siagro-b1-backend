@@ -22,4 +22,8 @@
       <ProjectReference Include="..\SiagroB1.Fiscal\SiagroB1.Fiscal.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="Reinf/Samples/*.xml" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

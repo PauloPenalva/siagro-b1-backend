@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Reinf xmlns="http://www.reinf.esocial.gov.br/schemas/retornoLoteEventosAssincrono/v1_00_00">
+  <retornoLoteEventosAssincrono>
+    <ideContribuinte><tpInsc>1</tpInsc><nrInsc>12345678</nrInsc></ideContribuinte>
+    <status><cdResposta>1</cdResposta><descResposta>Lote recebido, aguardando processamento.</descResposta></status>
+    <dadosRecepcaoLote>
+      <dhRecepcao>2026-10-24T10:00:00</dhRecepcao>
+      <versaoAplicativoRecepcao>1.0</versaoAplicativoRecepcao>
+      <protocoloEnvio>2.202610.1234567</protocoloEnvio>
+    </dadosRecepcaoLote>
+  </retornoLoteEventosAssincrono>
+</Reinf>
