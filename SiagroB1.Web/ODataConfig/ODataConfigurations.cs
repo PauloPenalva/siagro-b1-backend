@@ -198,6 +198,7 @@ public static class ODataConfigurations
         transportDocumentsSave.Parameter<string>("AccountingItemCode").Optional();
         transportDocumentsSave.Parameter<string>("DistributionRuleCode").Optional();
         transportDocumentsSave.Parameter<int?>("PaymentConditionCode").Optional();
+        transportDocumentsSave.Parameter<string>("FreightOrderKey").Optional();
         transportDocumentsSave.Returns<SiagroB1.Application.Services.Cte.TransportDocumentSaveResult>();
 
         var transportDocumentsImportNfe = modelBuilder.Action("TransportDocumentsImportNfe");

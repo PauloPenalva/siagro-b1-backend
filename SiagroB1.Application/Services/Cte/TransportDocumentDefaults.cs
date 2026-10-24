@@ -47,6 +47,8 @@ public sealed record TransportDocumentInput
     public string? DistributionRuleCode { get; init; }
     /// <summary>Condição de pagamento do título; vazia = a do cadastro do tomador.</summary>
     public int? PaymentConditionCode { get; init; }
+    /// <summary>Ordem de frete vinculada (opcional); precisa estar Aberta/Em execução e ser do mesmo tomador.</summary>
+    public Guid? FreightOrderKey { get; init; }
 }
 
 /// <summary>Resultado da gravação: a chave do CT-e e os avisos (não bloqueiam) que a tela mostra.</summary>

@@ -49,6 +49,8 @@ public class TransportDocumentsSaveService(
         if (input.Components.Sum(c => c.Value) <= 0)
             throw new DefaultException("Informe o valor da prestação.");
 
+        await ValidateFreightOrderAsync(doc, input);
+
         var parties = new List<TransportDocumentParty>();
         foreach (var p in input.Parties)
             parties.Add(await defaults.SnapshotPartyAsync(p.Role, p.CardCode, p.AddressName));
@@ -56,6 +58,7 @@ public class TransportDocumentsSaveService(
         doc.BranchCode = input.BranchCode;
         doc.Series = input.Series;
         doc.UsageCode = input.UsageCode;
+        doc.FreightOrderKey = input.FreightOrderKey;
         doc.TakerRole = input.TakerRole;
         doc.PredominantProduct = TransportDocumentDefaults.Cut(input.PredominantProduct?.Trim(), 60);
         doc.CargoValue = input.CargoValue;
@@ -120,6 +123,19 @@ public class TransportDocumentsSaveService(
         db.Context.TransportDocuments
             .Include(x => x.Parties).Include(x => x.NfeKeys).Include(x => x.Quantities).Include(x => x.Components)
             .FirstOrDefaultAsync(x => x.Key == key);
+
+    /// <summary>Vínculo com a ordem: só ordem utilizável e do mesmo tomador; vínculo já existente e inalterado não é revalidado.</summary>
+    private async Task ValidateFreightOrderAsync(TransportDocument doc, TransportDocumentInput input)
+    {
+        if (input.FreightOrderKey is not { } orderKey) return;
+        var order = await db.Context.FreightOrders.AsNoTracking().FirstOrDefaultAsync(o => o.Key == orderKey)
+                    ?? throw new DefaultException("Ordem de frete não encontrada.");
+        if (doc.FreightOrderKey != orderKey)
+            FreightOrders.FreightOrdersCreateCteService.EnsureUsable(order);
+        var taker = input.Parties.FirstOrDefault(p => (int)p.Role == input.TakerRole);
+        if (taker is null || taker.CardCode?.Trim() != order.TakerCardCode)
+            throw new DefaultException(FreightOrders.FreightOrdersCreateCteService.OtherTaker);
+    }
 
     private static List<string> ValidateKeys(IReadOnlyList<string> raw)
     {

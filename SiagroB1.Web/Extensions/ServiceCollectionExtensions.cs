@@ -430,6 +430,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.FreightOrders.FreightOrdersSaveService>();
         services.AddScoped<SiagroB1.Application.Services.FreightOrders.FreightOrdersCloseService>();
         services.AddScoped<SiagroB1.Application.Services.FreightOrders.FreightOrdersCancelService>();
+        services.AddScoped<SiagroB1.Application.Services.FreightOrders.FreightOrdersCreateCteService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsImportNfeService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.CteReadinessValidator>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsConfirmService>();
