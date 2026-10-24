@@ -1,3 +1,4 @@
+using SiagroB1.Application.Services.FreightOrders;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Services.Nfe;
@@ -95,6 +96,18 @@ public static class ODataConfigurations
         branchMdfeSettingsSave.CollectionParameter<string>("Descriptions");
         branchMdfeSettingsSave.CollectionParameter<int>("NextNumbers");
         branchMdfeSettingsSave.Returns<BranchMdfeSettingsModel>();
+
+        // Ordem de frete (só STANDALONE): leitura pelo entity set; gravação, encerramento, cancelamento e CT-e por ações.
+        modelBuilder.EntitySet<FreightOrder>("FreightOrders");
+        modelBuilder.ComplexType<FreightOrderSaveModel>();
+        var freightOrdersSave = modelBuilder.Action("FreightOrdersSave");
+        freightOrdersSave.Parameter<FreightOrderSaveModel>("Model");
+        freightOrdersSave.ReturnsFromEntitySet<FreightOrder>("FreightOrders");
+        modelBuilder.Action("FreightOrdersClose").Parameter<string>("Key");
+        modelBuilder.Action("FreightOrdersCancel").Parameter<string>("Key");
+        var freightOrdersCreateCte = modelBuilder.Action("FreightOrdersCreateCte");
+        freightOrdersCreateCte.Parameter<string>("Key");
+        freightOrdersCreateCte.Returns<string>();
 
         // MDF-e (só STANDALONE): entity set só leitura; inclusão a partir dos CT-e, gravação e exclusão por ações.
         modelBuilder.EntitySet<TransportManifest>("TransportManifests");
