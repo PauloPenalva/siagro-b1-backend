@@ -137,7 +137,13 @@ public class CteLifecycleHooksTests : CteEventsTestBase
 
     private sealed class ThrowingRecalculate(IUnitOfWork db) : FreightOrdersRecalculateService(db)
     {
-        public override Task RecalculateAsync(Guid orderKey) => throw new InvalidOperationException("boom");
+        public int Calls { get; private set; }
+
+        public override Task RecalculateAsync(Guid orderKey)
+        {
+            Calls++;
+            throw new InvalidOperationException("boom");
+        }
     }
 
     private CteLifecycleHooks HooksWithOrders(FreightOrdersRecalculateService recalc) => new(
@@ -210,10 +216,13 @@ public class CteLifecycleHooksTests : CteEventsTestBase
     public async Task RecalcFailure_DoesNotThrow()
     {
         var (doc, _) = await SeedWithOrderAsync();
-        var hooks = HooksWithOrders(new ThrowingRecalculate(Db));
+        var recalc = new ThrowingRecalculate(Db);
+        var hooks = HooksWithOrders(recalc);
 
         await hooks.OnAuthorizedAsync(doc);
         await hooks.OnCancelledAsync(doc);
+
+        Assert.Equal(2, recalc.Calls);
     }
 
     [Fact]

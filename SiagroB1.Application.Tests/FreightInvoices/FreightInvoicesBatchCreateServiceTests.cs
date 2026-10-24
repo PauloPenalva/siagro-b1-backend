@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services.FreightInvoices;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -24,7 +25,7 @@ public class FreightInvoicesBatchCreateServiceTests
         var save = new FreightInvoicesSaveService(_db, seq,
             new FakeBusinessPartnerService(new Dictionary<string, string> { ["T1"] = "Um", ["T2"] = "Dois" }), q, cfg);
         var issue = new FreightInvoicesIssueService(_db, seq, q, cfg);
-        return new FreightInvoicesBatchCreateService(_db, q, save, issue, cfg);
+        return new FreightInvoicesBatchCreateService(_db, q, save, issue, cfg, NullLogger<FreightInvoicesBatchCreateService>.Instance);
     }
 
     private async Task CteAsync(int number, string taker)
@@ -59,6 +60,20 @@ public class FreightInvoicesBatchCreateServiceTests
         var invs = await _db.Context.FreightInvoices.Include(i => i.Items).AsNoTracking().OrderBy(i => i.TakerCardCode).ToListAsync();
         Assert.Equal(new[] { 2, 1 }, invs.Select(i => i.Items.Count));
         Assert.All(invs, i => { Assert.Equal(FreightInvoiceStatus.Draft, i.Status); Assert.Equal(To, i.IssueDate); });
+    }
+
+    [Fact]
+    public async Task Issue_true_creates_issued_invoices()
+    {
+        await CteAsync(1, "T1"); await CteAsync(2, "T2");
+
+        var r = await Svc().CreateAsync(Branch, From, To, null, true, "u");
+
+        Assert.Equal(2, r.Created.Count);
+        Assert.Empty(r.Errors);
+        var invs = await _db.Context.FreightInvoices.AsNoTracking().ToListAsync();
+        Assert.Equal(2, invs.Count);
+        Assert.All(invs, i => Assert.Equal(FreightInvoiceStatus.Issued, i.Status));
     }
 
     [Fact]

@@ -73,11 +73,12 @@ namespace SiagroB1.Migrations.AppContext
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Só apaga a série se nenhuma ordem a usa.
+            // Só apaga a série se nenhuma ordem/fatura a usa.
             migrationBuilder.Sql($"""
                 DELETE FROM DOC_NUMBERS WHERE [Key] = '{OrderKey}'
                   AND NOT EXISTS (SELECT 1 FROM FREIGHT_ORDERS WHERE DocNumberKey = '{OrderKey}');
-                DELETE FROM DOC_NUMBERS WHERE [Key] = '{InvoiceKey}';
+                DELETE FROM DOC_NUMBERS WHERE [Key] = '{InvoiceKey}'
+                  AND NOT EXISTS (SELECT 1 FROM FREIGHT_INVOICES WHERE DocNumberKey = '{InvoiceKey}');
                 """);
 
             migrationBuilder.DropColumn(

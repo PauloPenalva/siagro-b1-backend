@@ -144,7 +144,7 @@ public class FreightInvoicesController(
         date = null;
         var text = Clean(value);
         if (string.IsNullOrEmpty(text) || text == "null") return true;
-        if (!DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) return false;
+        if (!DateTime.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) return false;
         date = parsed.Date;
         return true;
     }

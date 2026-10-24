@@ -98,8 +98,27 @@ public class FreightInvoicesSaveService(
         }
         invoice.TotalAmount = selected.Sum(r => r.Amount);
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            throw new DefaultException(
+                "Um dos CT-e selecionados já está em outra fatura. Atualize a lista e tente novamente.");
+        }
         return invoice;
+    }
+
+    /// <summary>Violação de índice único (SQL Server 2601) ou de constraint única (2627) na cadeia de exceções internas.</summary>
+    internal static bool IsUniqueViolation(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException!)
+        {
+            if (e is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 }) return true;
+            if (e.InnerException is null) break;
+        }
+        return false;
     }
 
     private async Task<DocNumberAssignment> AssignNumberAsync(FreightInvoiceSaveModel m)

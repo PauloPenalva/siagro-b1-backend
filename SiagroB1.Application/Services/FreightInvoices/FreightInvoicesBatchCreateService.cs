@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Cte;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -18,7 +19,8 @@ public class FreightInvoicesBatchCreateService(
     FreightInvoiceEligibleCtesQuery eligible,
     FreightInvoicesSaveService save,
     FreightInvoicesIssueService issueService,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    ILogger<FreightInvoicesBatchCreateService> logger)
 {
     public async Task<FreightInvoiceBatchResult> CreateAsync(
         string branchCode, DateTime from, DateTime to, string? takerCardCode, bool issue, string user)
@@ -43,10 +45,19 @@ public class FreightInvoicesBatchCreateService(
                 created.Add(key.Value);
                 if (issue) await issueService.IssueAsync(key.Value, user);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 if (key is null) db.Context.ChangeTracker.Clear(); // nada fica pela metade
-                errors.Add($"{group.Key}: {ex.Message}");
+                if (ex is DefaultException) errors.Add($"{group.Key}: {ex.Message}");
+                else
+                {
+                    logger.LogError(ex, "Falha inesperada ao gerar a fatura de frete do tomador {Taker}.", group.Key);
+                    errors.Add($"{group.Key}: erro inesperado ao gerar a fatura.");
+                }
             }
         }
         return new FreightInvoiceBatchResult(created, errors);

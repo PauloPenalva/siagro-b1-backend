@@ -42,7 +42,7 @@ public class FreightOrdersCreateCteService(
         if (order.RecipientCardCode is { Length: > 0 } recipient)
             parties.Add(await defaults.SnapshotPartyAsync(CtePartyRole.Recipient, recipient, null));
         if (takerRole == (int)CtePartyRole.OtherTaker)
-            parties.Add(await defaults.SnapshotPartyAsync(CtePartyRole.OtherTaker, order.TakerCardCode, null));
+            parties.Add(await defaults.SnapshotPartyAsync(CtePartyRole.OtherTaker, taker, null));
 
         var doc = new TransportDocument
         {

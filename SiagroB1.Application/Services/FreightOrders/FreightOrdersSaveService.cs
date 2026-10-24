@@ -38,7 +38,7 @@ public class FreightOrdersSaveService(
             await NameOfAsync(m.SenderCardCode),
             await NameOfAsync(m.RecipientCardCode),
             // O nome do produto vem do cadastro, nunca do cliente (vira o produto predominante do CT-e).
-            Truncate(item.ItemName, 60)!,
+            Truncate(item.ItemName ?? item.ItemCode, 60)!,
             await MunicipalityNameAsync(m.StartMunicipalityCode),
             await MunicipalityNameAsync(m.EndMunicipalityCode));
 

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Domain.Entities;
@@ -25,10 +26,13 @@ public class FreightInvoiceEligibleCtesQuery(IUnitOfWork db)
         string branchCode, string? takerCardCode, DateTime? from, DateTime? to, Guid? ignoreInvoiceKey = null)
     {
         var context = db.Context;
+        // Predicado do tomador montado em C#: nulo = qualquer parte com código; senão, igualdade.
+        Expression<Func<TransportDocumentParty, bool>> takerMatch = takerCardCode == null
+            ? p => p.CardCode != null
+            : p => p.CardCode == takerCardCode;
         var query = context.TransportDocuments.AsNoTracking()
             .Where(c => c.BranchCode == branchCode && c.Status == CteStatus.Authorized && c.IssuedAt != null)
-            .Where(c => c.Parties.Any(p => (int)p.Role == c.TakerRole
-                && (takerCardCode == null ? p.CardCode != null : p.CardCode == takerCardCode)))
+            .Where(c => c.Parties.AsQueryable().Where(takerMatch).Any(p => (int)p.Role == c.TakerRole))
             .Where(c => !context.FreightInvoiceItems.Any(i =>
                 i.TransportDocumentKey == c.Key && i.IsActive && (ignoreInvoiceKey == null || i.InvoiceKey != ignoreInvoiceKey)));
         if (from is { } f) query = query.Where(c => c.IssuedAt >= f.Date);
