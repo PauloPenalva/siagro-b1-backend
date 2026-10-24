@@ -28,6 +28,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchMdfeSettings> BranchMdfeSettings { get; set; }
     public DbSet<BranchMdfeSeries> BranchMdfeSeries { get; set; }
     public DbSet<TransportDocument> TransportDocuments { get; set; }
+    public DbSet<FreightOrder> FreightOrders { get; set; }
+    public DbSet<FreightInvoice> FreightInvoices { get; set; }
+    public DbSet<FreightInvoiceItem> FreightInvoiceItems { get; set; }
     public DbSet<TransportManifest> TransportManifests { get; set; }
     public DbSet<TransportManifestCte> TransportManifestCtes { get; set; }
     public DbSet<TransportManifestLoadingCity> TransportManifestLoadingCities { get; set; }
@@ -530,6 +533,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<TransportDocument>(e =>
         {
+            e.HasIndex(x => x.FreightOrderKey);
             // Número só existe depois do Confirmar; a unicidade vale só para quem já tem número.
             e.HasIndex(x => new { x.BranchCode, x.Series, x.Number })
                 .IsUnique()
@@ -552,6 +556,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.BatchKey);
         });
         modelBuilder.Entity<ReinfBatch>(e => e.HasIndex(x => x.Protocol));
+
+        modelBuilder.Entity<FreightOrder>(e =>
+        {
+            e.HasIndex(x => new { x.BranchCode, x.Code }).IsUnique();
+            e.HasMany<TransportDocument>().WithOne().HasForeignKey(x => x.FreightOrderKey)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FreightInvoice>(e =>
+        {
+            e.HasIndex(x => new { x.BranchCode, x.Code }).IsUnique();
+            e.HasMany(x => x.Items).WithOne(x => x.Invoice).HasForeignKey(x => x.InvoiceKey).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FreightInvoiceItem>(e =>
+        {
+            e.HasOne(x => x.TransportDocument).WithMany().HasForeignKey(x => x.TransportDocumentKey)
+                .OnDelete(DeleteBehavior.Restrict);
+            // Um CT-e em no máximo uma fatura ativa. Filtro por igualdade simples (índice filtrado não aceita NOT IN).
+            e.HasIndex(x => x.TransportDocumentKey).IsUnique().HasFilter("[IsActive] = 1");
+        });
 
         modelBuilder.Entity<TransportManifest>(e =>
         {
@@ -926,7 +951,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                        // Outra compra, saída sem contrato e CT-e: N parcelas com o mesmo OriginKey — a idempotência é do serviço.
                        // Índice filtrado não aceita NOT IN (erro 102 no SQL Server): use <> encadeado.
                        $"AND [OriginType] <> {(int)FinancialDocumentOrigin.OtherPurchaseInvoice} AND [OriginType] <> {(int)FinancialDocumentOrigin.SalesInvoiceNoContract} " +
-                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.TransportDocument}");
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.TransportDocument} " +
+                       // Fatura de frete: N parcelas com o mesmo OriginKey (chave da fatura).
+                       $"AND [OriginType] <> {(int)FinancialDocumentOrigin.FreightInvoice}");
 
         // Outra compra: o índice acima a exclui (N parcelas e N retenções por documento), então a rede de segurança da
         // confirmação idempotente é esta chave: documento × parcela × tributo. Título cancelado libera a chave.

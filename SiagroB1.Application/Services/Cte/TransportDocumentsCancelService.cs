@@ -52,6 +52,13 @@ public class TransportDocumentsCancelService(
         if (doc.AuthorizedAt is { } authorizedAt && now.DateTime - authorizedAt > TimeSpan.FromHours(DeadlineHours))
             throw new DefaultException(DeadlineExpired);
 
+        // CT-e em fatura de frete ativa: o valor já foi aglutinado; recusa ANTES da SEFAZ.
+        var invoiceCode = await db.Context.FreightInvoiceItems.AsNoTracking()
+            .Where(i => i.TransportDocumentKey == doc.Key && i.IsActive && i.Invoice!.Status != FreightInvoiceStatus.Cancelled)
+            .Select(i => i.Invoice!.Code).FirstOrDefaultAsync();
+        if (invoiceCode is not null)
+            throw new DefaultException($"CT-e está na fatura {invoiceCode}; retire-o ou cancele a fatura antes.");
+
         // Título a receber já baixado: recusa ANTES da SEFAZ, sem mudar nada.
         if (ErpMode.IsStandalone(configuration))
             await financial.EnsureCanUndoAsync(doc.Key);

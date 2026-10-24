@@ -1,3 +1,5 @@
+using SiagroB1.Application.Services.FreightInvoices;
+using SiagroB1.Application.Services.FreightOrders;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Services.Nfe;
@@ -95,6 +97,44 @@ public static class ODataConfigurations
         branchMdfeSettingsSave.CollectionParameter<string>("Descriptions");
         branchMdfeSettingsSave.CollectionParameter<int>("NextNumbers");
         branchMdfeSettingsSave.Returns<BranchMdfeSettingsModel>();
+
+        // Ordem de frete (só STANDALONE): leitura pelo entity set; gravação, encerramento, cancelamento e CT-e por ações.
+        modelBuilder.EntitySet<FreightOrder>("FreightOrders");
+        modelBuilder.ComplexType<FreightOrderSaveModel>();
+        var freightOrdersSave = modelBuilder.Action("FreightOrdersSave");
+        freightOrdersSave.Parameter<FreightOrderSaveModel>("Model");
+        freightOrdersSave.ReturnsFromEntitySet<FreightOrder>("FreightOrders");
+        modelBuilder.Action("FreightOrdersClose").Parameter<string>("Key");
+        modelBuilder.Action("FreightOrdersCancel").Parameter<string>("Key");
+        var freightOrdersCreateCte = modelBuilder.Action("FreightOrdersCreateCte");
+        freightOrdersCreateCte.Parameter<string>("Key");
+        freightOrdersCreateCte.Returns<string>();
+
+        // Fatura de frete (só STANDALONE): leitura pelo entity set (com $expand=Items); gravação, emissão, cancelamento e
+        // geração em lote por ações. Datas da função/lote vão como texto yyyy-MM-dd ('' = sem filtro).
+        // Os títulos gerados: FinancialDocuments?$filter=OriginType eq 'FreightInvoice' and OriginKey eq <guid>.
+        modelBuilder.EntitySet<FreightInvoice>("FreightInvoices");
+        modelBuilder.ComplexType<FreightInvoiceSaveRequest>();
+        modelBuilder.ComplexType<FreightInvoiceEligibleCte>();
+        modelBuilder.ComplexType<FreightInvoiceBatchResult>();
+        var freightInvoiceEligibleCtes = modelBuilder.Function("FreightInvoiceEligibleCtes");
+        freightInvoiceEligibleCtes.Parameter<string>("BranchCode");
+        freightInvoiceEligibleCtes.Parameter<string>("TakerCardCode");
+        freightInvoiceEligibleCtes.Parameter<string>("From");
+        freightInvoiceEligibleCtes.Parameter<string>("To");
+        freightInvoiceEligibleCtes.ReturnsCollection<FreightInvoiceEligibleCte>();
+        var freightInvoicesSave = modelBuilder.Action("FreightInvoicesSave");
+        freightInvoicesSave.Parameter<FreightInvoiceSaveRequest>("Model");
+        freightInvoicesSave.ReturnsFromEntitySet<FreightInvoice>("FreightInvoices");
+        modelBuilder.Action("FreightInvoicesIssue").Parameter<string>("Key");
+        modelBuilder.Action("FreightInvoicesCancel").Parameter<string>("Key");
+        var freightInvoicesBatchCreate = modelBuilder.Action("FreightInvoicesBatchCreate");
+        freightInvoicesBatchCreate.Parameter<string>("BranchCode");
+        freightInvoicesBatchCreate.Parameter<string>("From");
+        freightInvoicesBatchCreate.Parameter<string>("To");
+        freightInvoicesBatchCreate.Parameter<string>("TakerCardCode").Optional();
+        freightInvoicesBatchCreate.Parameter<bool>("Issue");
+        freightInvoicesBatchCreate.Returns<FreightInvoiceBatchResult>();
 
         // MDF-e (só STANDALONE): entity set só leitura; inclusão a partir dos CT-e, gravação e exclusão por ações.
         modelBuilder.EntitySet<TransportManifest>("TransportManifests");
@@ -198,6 +238,7 @@ public static class ODataConfigurations
         transportDocumentsSave.Parameter<string>("AccountingItemCode").Optional();
         transportDocumentsSave.Parameter<string>("DistributionRuleCode").Optional();
         transportDocumentsSave.Parameter<int?>("PaymentConditionCode").Optional();
+        transportDocumentsSave.Parameter<string>("FreightOrderKey").Optional();
         transportDocumentsSave.Returns<SiagroB1.Application.Services.Cte.TransportDocumentSaveResult>();
 
         var transportDocumentsImportNfe = modelBuilder.Action("TransportDocumentsImportNfe");

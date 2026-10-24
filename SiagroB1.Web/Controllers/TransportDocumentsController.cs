@@ -110,6 +110,7 @@ public class TransportDocumentsController(
                 AccountingItemCode = Text(parameters, "AccountingItemCode"),
                 DistributionRuleCode = Text(parameters, "DistributionRuleCode"),
                 PaymentConditionCode = Int(parameters, "PaymentConditionCode"),
+                FreightOrderKey = GuidOrNull(Text(parameters, "FreightOrderKey")),
             };
 
             return Ok(await saveService.SaveAsync(input, User.Identity?.Name ?? "Unknown"));

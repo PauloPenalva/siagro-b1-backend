@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Services;
 using SiagroB1.Application.Services.Cte;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Application.Services.Transport;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
@@ -10,6 +11,7 @@ using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Models;
 using SiagroB1.Fiscal.Certificates;
+using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.Cte;
 
@@ -131,6 +133,96 @@ public class CteLifecycleHooksTests : CteEventsTestBase
         Assert.Equal(FinancialDocumentStatus.Canceled, (await TitlesAsync(key)).Single().Status);
         Assert.Equal(1, _averba.SendCalls);
         Assert.Equal(CteEndorsementStatus.Cancelled, (await LoadAsync(key)).EndorsementStatus);
+    }
+
+    private sealed class ThrowingRecalculate(IUnitOfWork db) : FreightOrdersRecalculateService(db)
+    {
+        public int Calls { get; private set; }
+
+        public override Task RecalculateAsync(Guid orderKey)
+        {
+            Calls++;
+            throw new InvalidOperationException("boom");
+        }
+    }
+
+    private CteLifecycleHooks HooksWithOrders(FreightOrdersRecalculateService recalc) => new(
+        Db, NfeTestSeed.Config(), Financial(),
+        new CteEndorsementCancellationService(Db, NfeTestSeed.Config(), Numbers, _averba,
+            NullLogger<CteEndorsementCancellationService>.Instance),
+        NullLogger<CteLifecycleHooks>.Instance, null, recalc);
+
+    /// <summary>CT-e autorizado de 20 t brutas, ligado (ou não) a uma ordem de 50 t.</summary>
+    private async Task<(TransportDocument Doc, FreightOrder? Order)> SeedWithOrderAsync(bool withOrder = true)
+    {
+        var key = await SeedDocAsync();
+        var doc = await Db.Context.TransportDocuments.SingleAsync(x => x.Key == key);
+        Db.Context.TransportDocumentQuantities.Add(new TransportDocumentQuantity { TransportDocumentKey = key, UnitCode = "01", MeasureType = "PESO BRUTO", Quantity = 20_000m });
+        FreightOrder? order = null;
+        if (withOrder)
+        {
+            order = new FreightOrder
+            {
+                BranchCode = "01", Code = "OF-1", TakerCardCode = "REM", StartMunicipalityCode = "3550308", StartState = "SP",
+                EndMunicipalityCode = "4106902", EndState = "PR", ItemCode = "SOJA", ItemName = "SOJA", CreatedBy = "t",
+                ContractedWeightKg = 50_000m,
+            };
+            Db.Context.FreightOrders.Add(order);
+            doc.FreightOrderKey = order.Key;
+        }
+        await Db.SaveChangesAsync();
+        return (doc, order);
+    }
+
+    [Fact]
+    public async Task OnAuthorized_WithOrder_RecalculatesOrder()
+    {
+        var (doc, order) = await SeedWithOrderAsync();
+
+        await HooksWithOrders(new FreightOrdersRecalculateService(Db)).OnAuthorizedAsync(doc);
+
+        var saved = await Db.Context.FreightOrders.AsNoTracking().SingleAsync(o => o.Key == order!.Key);
+        Assert.Equal(FreightOrderStatus.InExecution, saved.Status);
+        Assert.Equal(20_000m, saved.TransportedWeightKg);
+    }
+
+    [Fact]
+    public async Task OnCancelled_WithOrder_ReturnsBalance()
+    {
+        var (doc, order) = await SeedWithOrderAsync();
+        var hooks = HooksWithOrders(new FreightOrdersRecalculateService(Db));
+        await hooks.OnAuthorizedAsync(doc);
+        doc.Status = CteStatus.Cancelled;
+        await Db.SaveChangesAsync();
+
+        await hooks.OnCancelledAsync(doc);
+
+        var saved = await Db.Context.FreightOrders.AsNoTracking().SingleAsync(o => o.Key == order!.Key);
+        Assert.Equal(FreightOrderStatus.Open, saved.Status);
+        Assert.Equal(0m, saved.TransportedWeightKg);
+    }
+
+    [Fact]
+    public async Task OnAuthorized_WithoutOrder_DoesNothing()
+    {
+        var (doc, _) = await SeedWithOrderAsync(false);
+
+        await HooksWithOrders(new FreightOrdersRecalculateService(Db)).OnAuthorizedAsync(doc);
+
+        Assert.Empty(await Db.Context.FreightOrders.ToListAsync());
+    }
+
+    [Fact]
+    public async Task RecalcFailure_DoesNotThrow()
+    {
+        var (doc, _) = await SeedWithOrderAsync();
+        var recalc = new ThrowingRecalculate(Db);
+        var hooks = HooksWithOrders(recalc);
+
+        await hooks.OnAuthorizedAsync(doc);
+        await hooks.OnCancelledAsync(doc);
+
+        Assert.Equal(2, recalc.Calls);
     }
 
     [Fact]

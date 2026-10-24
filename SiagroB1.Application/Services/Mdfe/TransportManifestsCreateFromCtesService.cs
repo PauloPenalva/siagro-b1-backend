@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Shared;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Fiscal.Dfe;
@@ -124,10 +126,10 @@ public class TransportManifestsCreateFromCtesService(IUnitOfWork db, IConfigurat
     /// <summary>Peso só se todos os CT-e têm quantidade em KG ou TON; misturados, soma em KG. M3 deixa vazio (0).</summary>
     internal static (string Unit, decimal Weight) Weight(IReadOnlyList<TransportDocument> ctes)
     {
-        var weights = ctes.Select(c => c.Quantities.FirstOrDefault(q => q.UnitCode is "01" or "02")).ToList();
+        var weights = ctes.Select(c => TransportDocumentWeight.Line(c)).ToList();
         if (weights.Any(w => w is null)) return ("01", 0m);
         if (weights.All(w => w!.UnitCode == "02")) return ("02", weights.Sum(w => w!.Quantity));
-        return ("01", weights.Sum(w => w!.UnitCode == "02" ? w.Quantity * 1000m : w.Quantity));
+        return ("01", weights.Sum(w => TransportDocumentWeight.ToKg(w!)));
     }
 
     private static TransportDocumentParty? Taker(TransportDocument cte) =>

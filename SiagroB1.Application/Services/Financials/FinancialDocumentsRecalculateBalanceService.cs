@@ -91,6 +91,10 @@ public class FinancialDocumentsRecalculateBalanceService(IUnitOfWork db)
         // muda a situação dela (Faturada ↔ Paga). Ponto único: toda baixa, estorno, encontro e compensação passa aqui.
         if (document.Direction == FinancialDirection.Receivable)
             await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(context, document.SalesInvoiceKey);
+
+        // Fatura de frete: baixar/estornar o título dela muda a situação (Emitida ↔ Liquidada). Mesmo ponto único.
+        if (document.OriginType == FinancialDocumentOrigin.FreightInvoice && document.OriginKey is { } freightInvoiceKey)
+            await SiagroB1.Application.Services.FreightInvoices.FreightInvoicesRefreshStatusService.RefreshAsync(context, freightInvoiceKey);
     }
 
     /// <summary>

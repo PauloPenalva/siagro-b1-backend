@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Application.Services.Financials;
+using SiagroB1.Application.Services.FreightOrders;
 using SiagroB1.Application.Services.NfeEmail;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -21,7 +22,8 @@ public class CteLifecycleHooks(
     FinancialDocumentsTransportService financial,
     CteEndorsementCancellationService endorsementCancellation,
     ILogger<CteLifecycleHooks> logger,
-    INfeEmailOutboxService? emailOutbox = null) : ICteAuthorizationHook, ICteCancellationHook
+    INfeEmailOutboxService? emailOutbox = null,
+    FreightOrdersRecalculateService? freightOrders = null) : ICteAuthorizationHook, ICteCancellationHook
 {
     /// <summary>
     /// Não lança: o CT-e já está autorizado na SEFAZ. Uma falha fica no log (o serviço é idempotente: um título já
@@ -46,7 +48,24 @@ public class CteLifecycleHooks(
             await RecordFinancialErrorAsync(doc, e);
         }
 
+        await RecalculateFreightOrderAsync(doc);
         await EnqueueEmailAsync(doc, NfeEmailEventType.Authorized);
+    }
+
+    /// <summary>
+    /// Atualiza o saldo da ordem de frete do CT-e (os chamadores já gravaram a situação do CT-e). Nunca lança.
+    /// </summary>
+    private async Task RecalculateFreightOrderAsync(TransportDocument doc)
+    {
+        if (freightOrders is null || doc.FreightOrderKey is not { } orderKey) return;
+        try
+        {
+            await freightOrders.RecalculateAsync(orderKey);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "CT-e {AccessKey}: falha ao recalcular o saldo da ordem de frete.", doc.AccessKey);
+        }
     }
 
     /// <summary>
@@ -113,6 +132,7 @@ public class CteLifecycleHooks(
             await RecordFinancialErrorAsync(doc, e, "Título a receber não cancelado");
         }
 
+        await RecalculateFreightOrderAsync(doc);
         await EnqueueEmailAsync(doc, NfeEmailEventType.Cancelled);
         await endorsementCancellation.CancelAsync(doc);
     }

@@ -108,6 +108,7 @@ public class FinancialSettlementsReportService(IUnitOfWork db, IFastReportServic
         FinancialSettlementOrigin.AdvanceRefund => "Devolução de adiantamento",
         FinancialSettlementOrigin.Dation => "Dação",
         FinancialSettlementOrigin.AdvanceTransfer => "Transferência de adiantamento",
+        FinancialSettlementOrigin.Aggregation => "Fatura de frete",
         _ => origin.ToString()
     };
 

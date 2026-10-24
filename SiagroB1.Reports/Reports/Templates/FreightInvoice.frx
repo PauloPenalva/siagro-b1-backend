@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" TextQuality="Regular" ReportInfo.Created="10/24/2026 10:00:00" ReportInfo.Modified="10/24/2026 10:00:00" ReportInfo.CreatorVersion="2026.1.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Invoice" ReferenceName="Invoice" DataType="System.Int32" Enabled="true">
+      <Column Name="InvoiceNumber" DataType="System.String"/>
+      <Column Name="IssueDate" DataType="System.String"/>
+      <Column Name="Status" DataType="System.String"/>
+      <Column Name="EmitterName" DataType="System.String"/>
+      <Column Name="EmitterTaxId" DataType="System.String"/>
+      <Column Name="EmitterAddress" DataType="System.String"/>
+      <Column Name="EmitterPhone" DataType="System.String"/>
+      <Column Name="TakerCode" DataType="System.String"/>
+      <Column Name="TakerName" DataType="System.String"/>
+      <Column Name="TakerTaxId" DataType="System.String"/>
+      <Column Name="TakerAddress" DataType="System.String"/>
+      <Column Name="PaymentCondition" DataType="System.String"/>
+      <Column Name="BankInfo" DataType="System.String"/>
+      <Column Name="TotalAmount" DataType="System.Decimal"/>
+      <Column Name="TotalWeightKg" DataType="System.Decimal"/>
+      <Column Name="Observation" DataType="System.String"/>
+    </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="InvoiceInstallments" ReferenceName="InvoiceInstallments" DataType="System.Int32" Enabled="true">
+      <Column Name="Installment" DataType="System.String"/>
+      <Column Name="DueDate" DataType="System.String"/>
+      <Column Name="Amount" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="InvoiceItems" ReferenceName="InvoiceItems" DataType="System.Int32" Enabled="true">
+      <Column Name="LineNum" DataType="System.Int32"/>
+      <Column Name="Number" DataType="System.String"/>
+      <Column Name="Series" DataType="System.String"/>
+      <Column Name="AccessKey" DataType="System.String"/>
+      <Column Name="IssuedAt" DataType="System.String"/>
+      <Column Name="Route" DataType="System.String"/>
+      <Column Name="WeightKg" DataType="System.Decimal"/>
+      <Column Name="Amount" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
+    <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
+  </Dictionary>
+  <ReportPage Name="Page1" TitleBeforeHeader="false" Watermark.Font="Arial, 60pt">
+    <PageHeaderBand Name="PageHeader1" Width="718.2" Height="64.8">
+      <PictureObject Name="picLogo" Left="0" Top="2" Width="94.5" Height="56.7" SizeMode="Zoom"/>
+      <TextObject Name="txtEmitterName" Left="102" Top="0" Width="400" Height="18.9" Text="[Invoice.EmitterName]" VertAlign="Center" Font="Arial, 11pt, style=Bold"/>
+      <TextObject Name="txtEmitterTaxId" Left="102" Top="19" Width="200" Height="14" Text="[Invoice.EmitterTaxId]" Font="Arial, 8pt"/>
+      <TextObject Name="txtEmitterPhone" Left="302" Top="19" Width="200" Height="14" Text="[Invoice.EmitterPhone]" Font="Arial, 8pt"/>
+      <TextObject Name="txtEmitterAddress" Left="102" Top="33" Width="400" Height="28" Text="[Invoice.EmitterAddress]" Font="Arial, 8pt"/>
+      <TextObject Name="txtTitle" Left="510" Top="0" Width="208.2" Height="22" Text="FATURA DE FRETE" HorzAlign="Right" VertAlign="Center" Font="Arial, 14pt, style=Bold"/>
+      <TextObject Name="txtNumber" Left="510" Top="22" Width="208.2" Height="16" Text="Nº [Invoice.InvoiceNumber]" HorzAlign="Right" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="txtIssue" Left="510" Top="38" Width="208.2" Height="14" Text="Emissão: [Invoice.IssueDate]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtStatus" Left="510" Top="51" Width="208.2" Height="13" Text="[Invoice.Status]" HorzAlign="Right" Font="Arial, 8pt, style=Bold" TextFill.Color="Firebrick"/>
+      <LineObject Name="lineHeader" Top="64" Width="718.2" Border.Width="1.5"/>
+    </PageHeaderBand>
+    <ReportTitleBand Name="ReportTitle1" Top="68.8" Width="718.2" Height="84">
+      <TextObject Name="lblTaker" Top="4" Width="718.2" Height="16" Fill.Color="Gainsboro" Border.Lines="All" Text=" TOMADOR" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtTakerName" Top="22" Width="430" Height="16" Text="[Invoice.TakerName]  ([Invoice.TakerCode])" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtTakerTaxId" Left="440" Top="22" Width="278.2" Height="16" Text="[Invoice.TakerTaxId]" HorzAlign="Right" Font="Arial, 9pt"/>
+      <TextObject Name="txtTakerAddress" Top="38" Width="718.2" Height="28" CanGrow="true" Text="[Invoice.TakerAddress]" Font="Arial, 8pt"/>
+      <TextObject Name="txtCondition" Top="66" Width="718.2" Height="14" Text="Condição de pagamento: [Invoice.PaymentCondition]" Font="Arial, 8pt"/>
+    </ReportTitleBand>
+    <DataBand Name="DataInstallments" Top="198.8" Width="718.2" Height="16" DataSource="InvoiceInstallments">
+      <DataHeaderBand Name="DataHeaderInstallments" Top="0" Width="718.2" Height="38">
+      <TextObject Name="lblInstallments" Top="4" Width="718.2" Height="16" Fill.Color="Gainsboro" Border.Lines="All" Text=" PARCELAS" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="hInstNum" Top="22" Width="80" Height="16" Border.Lines="All" Text="Parcela" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hInstDue" Left="80" Top="22" Width="120" Height="16" Border.Lines="All" Text="Vencimento" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hInstAmount" Left="200" Top="22" Width="120" Height="16" Border.Lines="All" Text="Valor" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </DataHeaderBand>
+      <TextObject Name="dInstNum" Width="80" Height="16" Border.Lines="All" Text="[InvoiceInstallments.Installment]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dInstDue" Left="80" Width="120" Height="16" Border.Lines="All" Text="[InvoiceInstallments.DueDate]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dInstAmount" Left="200" Width="120" Height="16" Border.Lines="All" Text="[InvoiceInstallments.Amount]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+    </DataBand>
+    <DataBand Name="DataItems" Top="262.8" Width="718.2" Height="18" DataSource="InvoiceItems">
+      <DataHeaderBand Name="DataHeaderItems" Top="0" Width="718.2" Height="40">
+      <TextObject Name="lblItems" Top="6" Width="718.2" Height="16" Fill.Color="Gainsboro" Border.Lines="All" Text=" CT-e FATURADOS" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="hNumber" Top="24" Width="60" Height="16" Border.Lines="All" Text="Nº/Série" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hKey" Left="60" Top="24" Width="235" Height="16" Border.Lines="All" Text="Chave de acesso" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hIssued" Left="295" Top="24" Width="66" Height="16" Border.Lines="All" Text="Emissão" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hRoute" Left="361" Top="24" Width="177" Height="16" Border.Lines="All" Text="Origem → destino" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hWeight" Left="538" Top="24" Width="80" Height="16" Border.Lines="All" Text="Peso (kg)" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="hAmount" Left="618" Top="24" Width="100.2" Height="16" Border.Lines="All" Text="Valor" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+    </DataHeaderBand>
+      <TextObject Name="dNumber" Width="60" Height="18" Border.Lines="All" Text="[InvoiceItems.Number]/[InvoiceItems.Series]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dKey" Left="60" Width="235" Height="18" Border.Lines="All" Text="[InvoiceItems.AccessKey]" VertAlign="Center" Font="Arial, 6.5pt"/>
+      <TextObject Name="dIssued" Left="295" Width="66" Height="18" Border.Lines="All" Text="[InvoiceItems.IssuedAt]" HorzAlign="Center" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dRoute" Left="361" Width="177" Height="18" Border.Lines="All" Text="[InvoiceItems.Route]" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dWeight" Left="538" Width="80" Height="18" Border.Lines="All" Text="[InvoiceItems.WeightKg]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="dAmount" Left="618" Width="100.2" Height="18" Border.Lines="All" Text="[InvoiceItems.Amount]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+    </DataBand>
+    <ReportSummaryBand Name="ReportSummary1" Top="284.8" Width="718.2" Height="120">
+      <TextObject Name="lblTotal" Left="295" Top="2" Width="243" Height="20" Fill.Color="Gainsboro" Border.Lines="All" Text=" TOTAL DA FATURA" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="txtTotalWeight" Left="538" Top="2" Width="80" Height="20" Border.Lines="All" Text="[Invoice.TotalWeightKg]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtTotalAmount" Left="618" Top="2" Width="100.2" Height="20" Border.Lines="All" Text="[Invoice.TotalAmount]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>
+      <TextObject Name="txtBank" Top="30" Width="718.2" Height="16" Text="[Invoice.BankInfo]" Font="Arial, 8pt, style=Bold"/>
+      <TextObject Name="lblObservation" Top="50" Width="718.2" Height="16" Text="Observações:" Font="Arial, 9pt, style=Bold"/>
+      <TextObject Name="txtObservation" Top="67" Width="718.2" Height="50" Border.Lines="All" CanGrow="true" Text="[Invoice.Observation]" Padding="4, 2, 4, 2" Font="Arial, 8pt"/>
+    </ReportSummaryBand>
+    <PageFooterBand Name="PageFooter1" Top="408.8" Width="718.2" Height="18.9">
+      <TextObject Name="txtFooterLeft" Width="400" Height="18.9" Text="Fatura de frete [Invoice.InvoiceNumber] - [Invoice.TakerName]" Font="Arial, 8pt"/>
+      <TextObject Name="txtFooterPage" Left="529.2" Width="189" Height="18.9" Text="Página [Page#] de [TotalPages#]" HorzAlign="Right" Font="Arial, 8pt"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>

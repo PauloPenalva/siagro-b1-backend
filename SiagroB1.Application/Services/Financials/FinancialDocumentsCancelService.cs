@@ -76,6 +76,10 @@ public class FinancialDocumentsCancelService(
                 "Título gerado por washout não pode ser cancelado aqui. " +
                 $"Estorne o washout no contrato de venda {document.OriginDocNumber}.");
 
+        // Fatura de frete: o título nasce da emissão e só o cancelamento da fatura o desfaz (estornando a aglutinação).
+        if (document.OriginType == FinancialDocumentOrigin.FreightInvoice)
+            throw new ApplicationException("Título da fatura de frete: cancele pela fatura.");
+
         // Spec 2026-10-13 (títulos firmes): cancelar o provisório composto deixaria linhas de composição órfãs
         // abatendo os firmes.
         if (document.ComposedAmount != 0m)

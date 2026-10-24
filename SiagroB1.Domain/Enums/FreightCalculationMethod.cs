@@ -11,4 +11,7 @@ public enum FreightCalculationMethod
 
     /// <summary>Por saco de 60 kg: peso bruto (KG) / 60 × unitário (Yokotobi, inclusive trigo).</summary>
     PerBag = 1,
+
+    /// <summary>Por tonelada: peso bruto (KG) / 1000 × unitário (ordem de frete).</summary>
+    PerTon = 2,
 }
