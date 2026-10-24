@@ -365,6 +365,42 @@ public static class ODataConfigurations
         spedFiscalSettingsSave.Parameter<string>("IcmsRevenueCode");
         spedFiscalSettingsSave.Parameter<int>("IcmsDueDay");
         spedFiscalSettingsSave.Returns<SpedFiscalSettings>();
+        // Parâmetros da ECD (SPED Contábil) por filial: função (branchCode) + action.
+        modelBuilder.ComplexType<EcdSettings>();
+        var ecdSettingsGet = modelBuilder.Function("EcdSettingsGet");
+        ecdSettingsGet.Parameter<string>("branchCode");
+        ecdSettingsGet.Returns<EcdSettings>();
+        var ecdSettingsSave = modelBuilder.Action("EcdSettingsSave");
+        ecdSettingsSave.Parameter<string>("BranchCode");
+        ecdSettingsSave.Parameter<int>("BookNumber");
+        ecdSettingsSave.Parameter<bool>("HasNire");
+        ecdSettingsSave.Parameter<string>("Nire");
+        ecdSettingsSave.Parameter<DateTime?>("ConstitutiveActsDate");
+        ecdSettingsSave.Parameter<bool>("LargeCompany");
+        ecdSettingsSave.Parameter<string>("ReferentialPlanCode");
+        ecdSettingsSave.Parameter<string>("SignerName");
+        ecdSettingsSave.Parameter<string>("SignerCpf");
+        ecdSettingsSave.Parameter<string>("SignerQualificationCode");
+        ecdSettingsSave.Parameter<string>("SignerEmail");
+        ecdSettingsSave.Parameter<string>("SignerPhone");
+        ecdSettingsSave.Parameter<string>("AccountantCrcSequence");
+        ecdSettingsSave.Parameter<DateTime?>("AccountantCrcValidUntil");
+        ecdSettingsSave.Returns<EcdSettings>();
+        // Parâmetros da ECF (lucro real) por filial + quadro societário e ajustes do LALUR/LACS (CRUD).
+        modelBuilder.ComplexType<EcfSettings>();
+        var ecfSettingsGet = modelBuilder.Function("EcfSettingsGet");
+        ecfSettingsGet.Parameter<string>("branchCode");
+        ecfSettingsGet.Returns<EcfSettings>();
+        var ecfSettingsSave = modelBuilder.Action("EcfSettingsSave");
+        ecfSettingsSave.Parameter<string>("BranchCode");
+        ecfSettingsSave.Parameter<string>("AssessmentForm");
+        ecfSettingsSave.Parameter<string>("MainCnae");
+        ecfSettingsSave.Parameter<string>("LegalEntityQualification");
+        ecfSettingsSave.Parameter<string>("NatureCode");
+        ecfSettingsSave.Parameter<string>("PreviousEcfHash");
+        ecfSettingsSave.Returns<EcfSettings>();
+        modelBuilder.EntitySet<EcfPartner>("EcfPartners");
+        modelBuilder.EntitySet<EcfAdjustment>("EcfAdjustments");
         // Lançamentos contábeis: GET/POST (sem PATCH/DELETE) + estorno por action de topo.
         modelBuilder.EntitySet<JournalEntry>("JournalEntries");
         modelBuilder.EntitySet<JournalEntryLine>("JournalEntryLines");
