@@ -19,6 +19,9 @@ public class TransportDocument
     [Column(TypeName = "VARCHAR(8)")] public string? RandomCode { get; set; }
     public DateTime? IssuedAt { get; set; }
     public CteStatus Status { get; set; } = CteStatus.Draft;
+
+    /// <summary>Ordem de frete que originou o CT-e (opcional).</summary>
+    public Guid? FreightOrderKey { get; set; }
     public NfeEnvironment? Environment { get; set; }
 
     // --- Natureza ---

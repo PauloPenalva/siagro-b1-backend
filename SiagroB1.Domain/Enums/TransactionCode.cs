@@ -20,4 +20,6 @@ public enum TransactionCode
     Customer = 16,
     Supplier = 17,
     Item = 18,
+    FreightOrder = 19,
+    FreightInvoice = 20,
 }

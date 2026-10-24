@@ -28,6 +28,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BranchMdfeSettings> BranchMdfeSettings { get; set; }
     public DbSet<BranchMdfeSeries> BranchMdfeSeries { get; set; }
     public DbSet<TransportDocument> TransportDocuments { get; set; }
+    public DbSet<FreightOrder> FreightOrders { get; set; }
     public DbSet<TransportManifest> TransportManifests { get; set; }
     public DbSet<TransportManifestCte> TransportManifestCtes { get; set; }
     public DbSet<TransportManifestLoadingCity> TransportManifestLoadingCities { get; set; }
@@ -530,6 +531,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<TransportDocument>(e =>
         {
+            e.HasIndex(x => x.FreightOrderKey);
             // Número só existe depois do Confirmar; a unicidade vale só para quem já tem número.
             e.HasIndex(x => new { x.BranchCode, x.Series, x.Number })
                 .IsUnique()
@@ -552,6 +554,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.BatchKey);
         });
         modelBuilder.Entity<ReinfBatch>(e => e.HasIndex(x => x.Protocol));
+
+        modelBuilder.Entity<FreightOrder>(e =>
+        {
+            e.HasIndex(x => new { x.BranchCode, x.Code }).IsUnique();
+            e.HasMany<TransportDocument>().WithOne().HasForeignKey(x => x.FreightOrderKey)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         modelBuilder.Entity<TransportManifest>(e =>
         {

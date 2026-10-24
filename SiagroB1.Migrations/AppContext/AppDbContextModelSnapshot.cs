@@ -2354,6 +2354,113 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("FISCAL_STOCK_PERIOD_LAYERS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.FreightOrder", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BranchCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(14)");
+
+                    b.Property<bool>("ClosedManually")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<decimal>("ContractedWeightKg")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<Guid>("DocNumberKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EndMunicipalityCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("EndState")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<string>("ItemCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(60)");
+
+                    b.Property<string>("Observation")
+                        .HasColumnType("VARCHAR(2000)");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PaymentConditionCode")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriceMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecipientCardCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SenderCardCode")
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<string>("StartMunicipalityCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(7)");
+
+                    b.Property<string>("StartState")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TakerCardCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(15)");
+
+                    b.Property<decimal>("TransportedWeightKg")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int?>("UsageCode")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ValidFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ValidTo")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("BranchCode", "Code")
+                        .IsUnique();
+
+                    b.ToTable("FREIGHT_ORDERS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.HarvestSeason", b =>
                 {
                     b.Property<string>("Code")
@@ -8638,6 +8745,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<string>("FinancialError")
                         .HasColumnType("VARCHAR(500)");
 
+                    b.Property<Guid?>("FreightOrderKey")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("IbsCbsBase")
                         .HasColumnType("DECIMAL(18,2) DEFAULT 0");
 
@@ -8770,6 +8880,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasKey("Key");
 
                     b.HasIndex("AccessKey");
+
+                    b.HasIndex("FreightOrderKey");
 
                     b.HasIndex("BranchCode", "Series", "Number")
                         .IsUnique()
@@ -12222,6 +12334,14 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("QualityAttrib");
 
                     b.Navigation("StorageTransaction");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocument", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.FreightOrder", null)
+                        .WithMany()
+                        .HasForeignKey("FreightOrderKey")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.TransportDocumentComponent", b =>

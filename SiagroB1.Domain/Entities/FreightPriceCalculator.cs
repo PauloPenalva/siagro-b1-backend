@@ -19,6 +19,8 @@ public static class FreightPriceCalculator
         {
             FreightCalculationMethod.PerBag =>
                 Math.Round(grossWeightKg / KgPerBag * unitPrice, 2, MidpointRounding.AwayFromZero),
+            FreightCalculationMethod.PerTon =>
+                Math.Round(grossWeightKg / 1000m * unitPrice, 2, MidpointRounding.AwayFromZero),
             _ => unitPrice,
         };
 }
