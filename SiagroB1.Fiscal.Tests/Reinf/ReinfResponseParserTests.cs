@@ -42,4 +42,20 @@ public class ReinfResponseParserTests
         Assert.Equal(["MS0001 - Certificado invalido."], r.Occurrences);
         Assert.Empty(r.Events);
     }
+
+    [Fact]
+    public void Warning_event_is_accepted_and_keeps_occurrences()
+    {
+        var r = ReinfResponseParser.Parse(Sample("lote-aviso.xml"));
+        var ev = Assert.Single(r.Events);
+        Assert.True(ev.Accepted);
+        Assert.Equal("12345-01-1234-1234-12345", ev.Receipt);
+        Assert.Equal(["MS9999 - Advertencia de teste."], ev.Occurrences);
+    }
+
+    [Theory]
+    [InlineData("<Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/retornoLoteEventosAssincrono/v1_00_00\"><retornoLoteEventosAssincrono><status><descResposta>x</descResposta></status></retornoLoteEventosAssincrono></Reinf>")]
+    [InlineData("<Reinf xmlns=\"http://www.reinf.esocial.gov.br/schemas/retornoLoteEventosAssincrono/v1_00_00\"><retornoLoteEventosAssincrono><status><cdResposta>abc</cdResposta></status></retornoLoteEventosAssincrono></Reinf>")]
+    public void Missing_or_invalid_response_code_throws(string xml) =>
+        Assert.Throws<FormatException>(() => ReinfResponseParser.Parse(xml));
 }
