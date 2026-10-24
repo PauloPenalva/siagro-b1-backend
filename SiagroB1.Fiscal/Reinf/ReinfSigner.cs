@@ -29,7 +29,7 @@ public static class ReinfSigner
         var id = evt.GetAttribute("id");
         if (string.IsNullOrEmpty(id)) throw new ArgumentException("Evento sem atributo id.", nameof(eventDoc));
 
-        var key = cert.GetRSAPrivateKey() ?? throw new ArgumentException("Certificado sem chave privada.", nameof(cert));
+        using var key = cert.GetRSAPrivateKey() ?? throw new ArgumentException("Certificado sem chave privada.", nameof(cert));
 
         var signed = new ReinfSignedXml(doc) { SigningKey = key };
         signed.SignedInfo!.SignatureMethod = SignedXml.XmlDsigRSASHA256Url;

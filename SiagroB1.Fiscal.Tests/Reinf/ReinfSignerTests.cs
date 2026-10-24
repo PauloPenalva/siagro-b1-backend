@@ -20,7 +20,7 @@ public class ReinfSignerTests
     internal static XmlDocument R2099(string id = EventId) =>
         R2099Builder.Build(new R2099Input(H, "2026-09", "Fulano", "12345678901", "11999998888", "a@b.com", true), id);
 
-    private static bool Check(XmlDocument signed, X509Certificate2 cert)
+    internal static bool Check(XmlDocument signed, X509Certificate2 cert)
     {
         var doc = new XmlDocument { PreserveWhitespace = true };
         doc.LoadXml(signed.OuterXml);

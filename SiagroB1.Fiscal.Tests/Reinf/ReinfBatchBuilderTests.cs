@@ -30,9 +30,13 @@ public class ReinfBatchBuilderTests
         Assert.Equal(id2, ((XmlElement)evs[1]!).GetAttribute("Id"));
         Assert.NotNull(evs[0]!.SelectSingleNode("e:Reinf/e:evtFechaEvPer", ns));
         // a assinatura continua válida dentro do lote
-        var inner = new XmlDocument { PreserveWhitespace = true };
-        inner.LoadXml(evs[0]!.SelectSingleNode("e:Reinf", ns)!.OuterXml);
-        Assert.Empty(new ReinfSchemaValidator().Validate(inner));
+        foreach (XmlNode ev in evs)
+        {
+            var inner = new XmlDocument { PreserveWhitespace = true };
+            inner.LoadXml(ev.SelectSingleNode("e:Reinf", ns)!.OuterXml);
+            Assert.Empty(new ReinfSchemaValidator().Validate(inner));
+            Assert.True(ReinfSignerTests.Check(inner, cert));
+        }
     }
 
     [Fact]
@@ -41,5 +45,15 @@ public class ReinfBatchBuilderTests
         var doc = ReinfSignerTests.R2099();
         var events = Enumerable.Range(0, 51).Select(i => ($"ID{i}", doc)).ToList();
         Assert.Throws<ArgumentException>(() => ReinfBatchBuilder.Build("12345678", events));
+    }
+
+    [Fact]
+    public void Build_50Events_Succeeds()
+    {
+        var doc = ReinfSignerTests.R2099();
+        var events = Enumerable.Range(0, 50).Select(i => ($"ID{i}", doc)).ToList();
+        var x = new XmlDocument();
+        x.LoadXml(ReinfBatchBuilder.Build("12345678", events));
+        Assert.Equal(50, x.GetElementsByTagName("evento", ReinfNamespaces.EnvioLote).Count);
     }
 }
