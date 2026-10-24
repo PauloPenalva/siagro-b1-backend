@@ -211,7 +211,8 @@ public class FinancialDocumentsReverseSettlementService(IUnitOfWork db, SiagroB1
         }
     }
 
-    private static FinancialSettlement Mirror(FinancialSettlement settlement, string reason, string userName) => new()
+    /// <summary>Linha NEGATIVA espelho de uma baixa. Reusada pelo cancelamento da fatura de frete (estorno da aglutinação).</summary>
+    internal static FinancialSettlement Mirror(FinancialSettlement settlement, string reason, string userName) => new()
     {
         Key = Guid.NewGuid(),
         FinancialDocumentKey = settlement.FinancialDocumentKey,
