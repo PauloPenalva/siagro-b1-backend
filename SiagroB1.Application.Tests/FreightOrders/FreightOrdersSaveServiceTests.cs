@@ -27,7 +27,7 @@ public class FreightOrdersSaveServiceTests
         var svc = new FreightOrdersSaveService(db, new FakeDocNumberSequenceService(),
             new FakeBusinessPartnerService(new Dictionary<string, string> { ["C1"] = "Tomador", ["C2"] = "Outro" }),
             new FakeItemService(new Dictionary<string, string> { ["SOJA"] = "SOJA", ["MILHO"] = "MILHO" }),
-            TestConfiguration.Erp(erp));
+            TestConfiguration.Erp(erp), new FreightOrdersRecalculateService(db));
         return (db, svc);
     }
 
@@ -91,6 +91,23 @@ public class FreightOrdersSaveServiceTests
         var r = await svc.SaveAsync(Model(m => { m.Key = o.Key; m.UnitPrice = 120m; m.Observation = "obs"; }), "u");
         Assert.Equal(120m, r.UnitPrice);
         Assert.Equal("obs", r.Observation);
+    }
+
+    [Fact]
+    public async Task Update_LoweringContractedWeight_RecalculatesStatus()
+    {
+        var (db, svc) = Arrange();
+        var o = await svc.SaveAsync(Model(), "u");
+        var cte = new TransportDocument { BranchCode = "01", FreightOrderKey = o.Key, Status = CteStatus.Authorized };
+        cte.Quantities.Add(new TransportDocumentQuantity { UnitCode = "01", MeasureType = "PESO BRUTO", Quantity = 20_000m });
+        db.Context.TransportDocuments.Add(cte);
+        o.Status = FreightOrderStatus.InExecution;
+        o.TransportedWeightKg = 20_000m;
+        await db.SaveChangesAsync();
+
+        var r = await svc.SaveAsync(Model(m => { m.Key = o.Key; m.ContractedWeightKg = 20_000m; }), "u");
+
+        Assert.Equal(FreightOrderStatus.Completed, r.Status);
     }
 
     [Theory]

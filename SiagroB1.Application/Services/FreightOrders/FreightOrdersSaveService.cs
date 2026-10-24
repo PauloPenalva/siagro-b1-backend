@@ -16,7 +16,8 @@ public class FreightOrdersSaveService(
     DocNumberSequenceService docNumberSequence,
     IBusinessPartnerService partners,
     IItemService items,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    FreightOrdersRecalculateService recalculate)
 {
     public async Task<FreightOrder> SaveAsync(FreightOrderSaveModel m, string user)
     {
@@ -47,6 +48,8 @@ public class FreightOrdersSaveService(
 
         Apply(order, m);
         await db.SaveChangesAsync();
+        // Mudar o volume contratado muda o saldo: a situação precisa acompanhar.
+        await recalculate.RecalculateAsync(order.Key);
         return order;
     }
 

@@ -11,7 +11,7 @@ namespace SiagroB1.Application.Services.FreightOrders;
 /// </summary>
 public class FreightOrdersRecalculateService(IUnitOfWork db)
 {
-    public async Task RecalculateAsync(Guid orderKey)
+    public virtual async Task RecalculateAsync(Guid orderKey)
     {
         var order = await db.Context.FreightOrders.FirstOrDefaultAsync(o => o.Key == orderKey);
         if (order is null) return;
