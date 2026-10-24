@@ -123,6 +123,10 @@ public class Usage
     // vêm da tabela RuralContributionRates e o regime, do parceiro.
     public RuralContributionMode RuralContributionMode { get; set; }
 
+    // EFD-Reinf R-2055: processo judicial que suspende a contribuição (tag infoProcJud). Vazio = sem processo.
+    [Column(TypeName = "VARCHAR(21)")] public string? RuralJudicialProcessNumber { get; set; }
+    [Column(TypeName = "VARCHAR(14)")] public string? RuralJudicialSuspensionCode { get; set; }
+
     // Retenções de serviço (spec 2026-10-17 §2): alíquotas padrão da natureza, em percentual (5 = 5 %). Vazio/zero = não retém.
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingIssRate { get; set; }
     [Column(TypeName = "DECIMAL(7,4)")] public decimal? WithholdingIrrfRate { get; set; }
