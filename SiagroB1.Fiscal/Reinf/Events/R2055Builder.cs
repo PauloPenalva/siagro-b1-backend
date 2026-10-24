@@ -7,6 +7,8 @@ public static class R2055Builder
 {
     public static XmlDocument Build(R2055Input i, string eventId)
     {
+        if (i.RectificationIndicator == 2 && string.IsNullOrWhiteSpace(i.PreviousReceipt))
+            throw new InvalidOperationException("Retificação do R-2055 exige o recibo do evento original.");
         XNamespace ns = ReinfNamespaces.AquisicaoProdRural;
         var ideEvento = new XElement(ns + "ideEvento",
             new XElement(ns + "indRetif", i.RectificationIndicator),

@@ -84,6 +84,10 @@ public class ReinfEventBuildersTests
     }
 
     [Fact]
+    public void R2055_RectificationWithoutReceipt_Throws() =>
+        Assert.Throws<InvalidOperationException>(() => R2055Builder.Build(In2055(retif: 2, receipt: null), EventId));
+
+    [Fact]
     public void R2099_FlagsFollowHasAcquisitions()
     {
         foreach (var has in new[] { true, false })
