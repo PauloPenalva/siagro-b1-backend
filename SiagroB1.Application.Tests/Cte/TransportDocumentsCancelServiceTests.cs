@@ -101,4 +101,40 @@ public class TransportDocumentsCancelServiceTests : CteEventsTestBase
 
         Assert.Equal(0, Sefaz.CancelCalls);
     }
+
+    private async Task AddInvoiceAsync(Guid cteKey, FreightInvoiceStatus status, bool itemActive)
+    {
+        var invoice = new FreightInvoice
+        {
+            BranchCode = "01", Code = "FF-77", TakerCardCode = "TOM", CreatedBy = "t", Status = status,
+            Items = [new FreightInvoiceItem { TransportDocumentKey = cteKey, Amount = 10m, IsActive = itemActive }],
+        };
+        Db.Context.FreightInvoices.Add(invoice);
+        await Db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Cancel_CteInActiveInvoice_RejectedWithInvoiceCode()
+    {
+        var key = await SeedAsync();
+        await AddInvoiceAsync(key, FreightInvoiceStatus.Issued, true);
+
+        var e = await Assert.ThrowsAsync<DefaultException>(() => Service().CancelAsync(key, Reason, "tester"));
+
+        Assert.Equal("CT-e está na fatura FF-77; retire-o ou cancele a fatura antes.", e.Message);
+        Assert.Equal(0, Sefaz.CancelCalls);
+    }
+
+    [Fact]
+    public async Task Cancel_CteInCancelledInvoice_Allowed()
+    {
+        var key = await SeedAsync();
+        await AddInvoiceAsync(key, FreightInvoiceStatus.Cancelled, false);
+        Sefaz.CancelResponses.Enqueue(r => FakeCteSefazClient.CancellationRegistered(r));
+
+        var result = await Service().CancelAsync(key, Reason, "tester");
+
+        Assert.Equal(135, result.StatusCode);
+        Assert.Equal(CteStatus.Cancelled, (await LoadAsync(key)).Status);
+    }
 }
