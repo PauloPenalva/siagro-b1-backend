@@ -434,6 +434,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoiceEligibleCtesQuery>();
         services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoicesSaveService>();
         services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoicesIssueService>();
+        services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoicesBatchCreateService>();
         services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoicesCancelService>();
         services.AddScoped<SiagroB1.Application.Services.FreightInvoices.FreightInvoicesRefreshStatusService>();
         services.AddScoped<SiagroB1.Application.Services.Cte.TransportDocumentsImportNfeService>();
