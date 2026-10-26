@@ -963,6 +963,15 @@ public static class ODataConfigurations
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.SalesContractComplement)));
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
             .AddProperty(typeof(SalesInvoice).GetProperty(nameof(SalesInvoice.SalesContractFreightCostStandard)));
+        // GAC-1195: descarga e conferência do documento, derivadas das linhas, no grid da carga.
+        foreach (var name in new[]
+                 {
+                     nameof(SalesInvoice.EffectiveQuantity), nameof(SalesInvoice.TicketDeliveredQuantity),
+                     nameof(SalesInvoice.DeliveredQuantity), nameof(SalesInvoice.IsDischarged),
+                     nameof(SalesInvoice.IsDeliveryClosed),
+                 })
+            modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoice))
+                .AddProperty(typeof(SalesInvoice).GetProperty(name));
         modelBuilder.EntitySet<SalesInvoiceItem>("SalesInvoicesItems");
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(SalesInvoiceItem))
             .AddProperty(typeof(SalesInvoiceItem).GetProperty(nameof(SalesInvoiceItem.Total)));
