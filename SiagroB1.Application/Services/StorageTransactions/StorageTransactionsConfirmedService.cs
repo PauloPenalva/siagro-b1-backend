@@ -297,7 +297,7 @@ public class StorageTransactionsConfirmedService(
     
     private decimal CalculateNetWeight(StorageTransaction st)
     {
-        return st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount);
+        return WeightRounding.ToKilograms(st.GrossWeight - (st.DryingDiscount + st.CleaningDiscount + st.OthersDicount));
     }
     
     private async Task CalculateReceipt(StorageTransaction st)
@@ -357,7 +357,7 @@ public class StorageTransactionsConfirmedService(
             
         }
         
-        st.CleaningDiscount = cleaningDiscount;
+        st.CleaningDiscount = cleaningDiscount = WeightRounding.ToKilograms(cleaningDiscount);
         st.CleaningServicePrice = cleaningDiscount > 0 
             ? grossWeight * processingCost?.CleaningPrice ?? 0 
             : 0;
@@ -381,7 +381,7 @@ public class StorageTransactionsConfirmedService(
             dryingServicePrice += grossWeight * dryingDetail?.Price ?? 0;
             
         }
-        st.DryingDiscount = dryingDiscount;
+        st.DryingDiscount = WeightRounding.ToKilograms(dryingDiscount);
         st.DryingServicePrice =  dryingServicePrice;
         
         foreach (var inspection in qualityInspection)
@@ -405,7 +405,7 @@ public class StorageTransactionsConfirmedService(
                 }
             }
         }
-        st.OthersDicount = qualityDiscount;
+        st.OthersDicount = WeightRounding.ToKilograms(qualityDiscount);
         st.ReceiptServicePrice = grossWeight * processingCost?.ReceiptPrice ?? 0;
     }
     
