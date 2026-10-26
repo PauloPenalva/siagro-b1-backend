@@ -44,4 +44,23 @@ public static class StorageEntryReceiptFactory
         clone.OthersDicount = decimal.Zero;
         clone.AvaiableVolumeToAllocate = decimal.Zero;
     }
+
+    /// <summary>
+    /// GAC-1191: na entrada própria o usuário informa o Frete/Remoção em R$ por saco (60 kg sobre o
+    /// peso bruto). É custo do lote, então fica no Receipt — junto de Secagem/Limpeza/Recepção/Expedição,
+    /// que a fatura de armazenagem já lê — e sai da compra para não contar duas vezes.
+    /// </summary>
+    public static void MoveFreightToReceipt(StorageTransaction purchase, StorageTransaction receipt)
+    {
+        var perBag = purchase.FreightUnitPrice;
+        if (perBag < 0)
+            throw new ApplicationException("O valor do Frete/Remoção por saco não pode ser negativo.");
+
+        receipt.FreightCalculationMethod = FreightCalculationMethod.PerBag;
+        receipt.FreightUnitPrice = perBag;
+        receipt.RecalculateFreightPrice();
+
+        purchase.FreightUnitPrice = decimal.Zero;
+        purchase.RecalculateFreightPrice();
+    }
 }
