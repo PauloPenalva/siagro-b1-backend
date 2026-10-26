@@ -157,6 +157,9 @@ public class SalesContract : DocumentEntity
 
     public ICollection<SalesContractWashout> Washouts { get; set; } = [];
 
+    /// <summary>Cargas que planejaram este contrato (GAC-1185).</summary>
+    public ICollection<ShipmentLoadPlannedSalesContract> PlannedShipmentLoads { get; set; } = [];
+
     /// <summary>
     /// Volume já fixado (persistido, derivado). Soma <see cref="SalesContractPriceFixation.FixationVolume"/>
     /// das fixações InApproval + Confirmed — uma fixação em aprovação reserva volume para que duas

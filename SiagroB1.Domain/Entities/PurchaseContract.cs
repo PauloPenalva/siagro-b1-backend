@@ -157,6 +157,9 @@ public class PurchaseContract : DocumentEntity
     /// <summary>Minutas do contrato (documentação, como anexos — fora do guard de contrato encerrado).</summary>
     public ICollection<ContractDraft> Drafts { get; set; } = [];
 
+    /// <summary>Cargas que planejaram este contrato (GAC-1185).</summary>
+    public ICollection<ShipmentLoadPlannedPurchaseContract> PlannedShipmentLoads { get; set; } = [];
+
     public TechnologyType? TechnologyType { get; set; }
 
     /// <summary>

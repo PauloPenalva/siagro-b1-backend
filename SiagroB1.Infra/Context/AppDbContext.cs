@@ -150,6 +150,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ShipmentLoadDischarge> ShipmentLoadsDischarges { get; set; }
     public DbSet<ShipmentLoadDischargeItem> ShipmentLoadsDischargesItems { get; set; }
     public DbSet<ShipmentLoadTransshipment> ShipmentLoadsTransshipments { get; set; }
+    public DbSet<ShipmentLoadPlannedPurchaseContract> ShipmentLoadsPlannedPurchaseContracts { get; set; }
+    public DbSet<ShipmentLoadPlannedSalesContract> ShipmentLoadsPlannedSalesContracts { get; set; }
     public DbSet<ShipmentLoadRefusal> ShipmentLoadRefusals { get; set; }
     public DbSet<ShipmentLoadAttachment> ShipmentLoadsAttachments { get; set; }
     public DbSet<PurchaseContractAttachment>  PurchaseContractAttachments { get; set; }
@@ -741,6 +743,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.ShipmentLoad)
             .WithMany(x => x.Attachments)
             .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // GAC-1185: contratos planejados da carga: FKs NoAction; a carga apaga as linhas à mão.
+        modelBuilder.Entity<ShipmentLoadPlannedPurchaseContract>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.PlannedPurchaseContracts)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadPlannedPurchaseContract>()
+            .HasOne(x => x.Contract)
+            .WithMany(x => x.PlannedShipmentLoads)
+            .HasForeignKey(x => x.ContractKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadPlannedSalesContract>()
+            .HasOne(x => x.ShipmentLoad)
+            .WithMany(x => x.PlannedSalesContracts)
+            .HasForeignKey(x => x.ShipmentLoadKey)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ShipmentLoadPlannedSalesContract>()
+            .HasOne(x => x.Contract)
+            .WithMany(x => x.PlannedShipmentLoads)
+            .HasForeignKey(x => x.ContractKey)
             .OnDelete(DeleteBehavior.NoAction);
 
         // GAC-1181: as duas FKs do transbordo são NoAction — ShipmentLoadsDeleteService remove os

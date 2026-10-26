@@ -1100,6 +1100,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadDischarge>("ShipmentLoadsDischarges");
         modelBuilder.EntitySet<ShipmentLoadDischargeItem>("ShipmentLoadsDischargesItems");
         modelBuilder.EntitySet<ShipmentLoadTransshipment>("ShipmentLoadsTransshipments");
+        modelBuilder.EntitySet<ShipmentLoadPlannedPurchaseContract>("ShipmentLoadsPlannedPurchaseContracts");
+        modelBuilder.EntitySet<ShipmentLoadPlannedSalesContract>("ShipmentLoadsPlannedSalesContracts");
         // [NotMapped] some do EDM tambem - sem este AddProperty o $select=ShrinkageQuantity
         // devolve 400 e a tela nao consegue mostrar a quebra de transporte da linha do transbordo.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoadTransshipment))

@@ -657,6 +657,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsCommentUpdateService>();
         services.AddScoped<ShipmentLoadsCommentDeleteService>();
         services.AddScoped<ShipmentLoadsCommentsGetService>();
+        services.AddScoped<ShipmentLoadsPlannedContractsGetService>();
         services.AddScoped<ShipmentLoadDischargesRecalculateService>();
         services.AddScoped<ShipmentLoadDischargesCreateService>();
         services.AddScoped<ShipmentLoadDischargesUpdateService>();

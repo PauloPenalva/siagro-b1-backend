@@ -197,6 +197,12 @@ public class ShipmentLoad : DocumentEntity
     /// <summary>Transbordos da carga (GAC-1181).</summary>
     public virtual ICollection<ShipmentLoadTransshipment> Transshipments { get; } = [];
 
+    /// <summary>Contratos de compra planejados para a carga (GAC-1185); informativos.</summary>
+    public virtual ICollection<ShipmentLoadPlannedPurchaseContract> PlannedPurchaseContracts { get; } = [];
+
+    /// <summary>Contratos de venda planejados para a carga (GAC-1185); informativos.</summary>
+    public virtual ICollection<ShipmentLoadPlannedSalesContract> PlannedSalesContracts { get; } = [];
+
     /// <summary>Documentos anexados à carga (GAC-1171).</summary>
     public virtual ICollection<ShipmentLoadAttachment> Attachments { get; } = [];
 
