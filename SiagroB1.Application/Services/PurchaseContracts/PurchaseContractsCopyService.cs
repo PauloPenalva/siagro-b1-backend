@@ -43,6 +43,12 @@ public class PurchaseContractsCopyService(
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.ApprovalComments = string.Empty;
+        // A liberação de pagamento é do contrato original; a cópia recomeça Pendente. As
+        // liberações por departamento (PaymentReleases) não entram no Include, logo não são copiadas.
+        cloneContract.PaymentReleaseStatus = null;
+        cloneContract.EarlyPaymentAuthorized = false;
+        cloneContract.PaymentReleases.Clear();
+        cloneContract.PaymentReleaseHistory.Clear();
 
         cloneContract.PriceFixations.Clear();
         

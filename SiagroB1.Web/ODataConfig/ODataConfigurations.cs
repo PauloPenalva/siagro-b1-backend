@@ -1420,6 +1420,25 @@ public static class ODataConfigurations
         purchaseContractsSetSignatureStatus.Parameter<string>("SignatureStatus").Nullable = true;
         purchaseContractsSetSignatureStatus.Returns<IActionResult>();
 
+        // Liberação de pagamento (GAC-1188): ações fora do PATCH porque valem em qualquer status.
+        // Enum como string pelo mesmo motivo da situação de assinatura; nulo/vazio limpa a situação.
+        var purchaseContractsSetPaymentReleaseStatus = modelBuilder.Action("PurchaseContractsSetPaymentReleaseStatus");
+        purchaseContractsSetPaymentReleaseStatus.Parameter<Guid>("Key");
+        purchaseContractsSetPaymentReleaseStatus.Parameter<string>("PaymentReleaseStatus").Nullable = true;
+        purchaseContractsSetPaymentReleaseStatus.Returns<IActionResult>();
+
+        var purchaseContractsSetEarlyPaymentAuthorized = modelBuilder.Action("PurchaseContractsSetEarlyPaymentAuthorized");
+        purchaseContractsSetEarlyPaymentAuthorized.Parameter<Guid>("Key");
+        purchaseContractsSetEarlyPaymentAuthorized.Parameter<bool>("Authorized");
+        purchaseContractsSetEarlyPaymentAuthorized.Returns<IActionResult>();
+
+        var purchaseContractsSetDepartmentRelease = modelBuilder.Action("PurchaseContractsSetDepartmentRelease");
+        purchaseContractsSetDepartmentRelease.Parameter<Guid>("Key");
+        purchaseContractsSetDepartmentRelease.Parameter<string>("Department").Nullable = true;
+        purchaseContractsSetDepartmentRelease.Parameter<bool>("Released");
+        purchaseContractsSetDepartmentRelease.Parameter<string>("Reason").Nullable = true;
+        purchaseContractsSetDepartmentRelease.Returns<IActionResult>();
+
         // Criação de fixação como action (e não POST na navegação): o frontend invoca
         // pelo ODataModel e a linha nova aparece sem recarregar a rota.
         var priceFixationCreate = modelBuilder.Action("PurchaseContractsPriceFixationCreate");

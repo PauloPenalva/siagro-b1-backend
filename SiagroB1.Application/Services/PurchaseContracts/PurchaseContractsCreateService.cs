@@ -59,6 +59,10 @@ public class PurchaseContractsCreateService(
             entity.DeliveryLocationName = (await warehouseService.GetByIdAsync(entity.DeliveryLocationCode))?.Name;;
             entity.AgentName = (await agentService.GetByIdAsync((int) entity.AgentCode))?.Name;
             entity.Status = ContractStatus.Draft;
+            // A liberação de pagamento só muda pelo serviço próprio (permissão + log); o payload
+            // de um POST direto não pode nascer liberado.
+            entity.PaymentReleaseStatus = null;
+            entity.EarlyPaymentAuthorized = false;
             
             if (entity.Type == ContractType.Fixed)
             {
