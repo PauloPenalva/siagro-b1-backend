@@ -50,6 +50,13 @@ public class OwnershipTransfersCancelService(
         // sobre saldo, em vez de apontar o embarque que é a causa real.
         var release = await FindCancellableReleaseAsync(ownershipTransfer);
 
+        // GAC-1206: fora da transação. O leitor de saldo usa outra conexão (Dapper) e,
+        // depois das escritas abaixo, ficava bloqueado pelos locks da própria operação
+        // em STORAGE_TRANSACTIONS até estourar o timeout. Ler antes não muda o resultado:
+        // nem a liberação nem o romaneio de compra (tipo 8) entram no saldo do lote.
+        if (ownershipTransfer.TransferStatus == OwnershipTransferStatus.Closed)
+            ValidateDestinationBalance(ownershipTransfer);
+
         try
         {
             await db.BeginTransactionAsync();
@@ -63,8 +70,6 @@ public class OwnershipTransfersCancelService(
                 // cancelamento do romaneio de compra é recusado enquanto existir
                 // alocação apontando para ele.
                 await ReversePurchaseAllocationAsync(ownershipTransfer, userName);
-
-                ValidateDestinationBalance(ownershipTransfer);
 
                 await CreateDestinationStorageTransaction(ownershipTransfer, userName);
                 await CreateOriginStorageTransaction(ownershipTransfer, userName);

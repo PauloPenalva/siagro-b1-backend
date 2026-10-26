@@ -116,6 +116,36 @@ public class OwnershipTransfersCancelWithContractTests
         Assert.Equal(ReleaseStatus.Actived, (await ReleaseOfAsync(transfer.Key)).Status);
     }
 
+    /// <summary>
+    /// GAC-1206: o leitor de saldo real usa outra conexão (Dapper). Se ele rodar depois
+    /// que o cancelamento já gravou algo na transação, fica bloqueado pelos locks da
+    /// própria operação até o timeout. Por isso a leitura tem que vir antes de qualquer
+    /// escrita — aqui, com a liberação e o romaneio de compra ainda intactos.
+    /// </summary>
+    [Fact]
+    public async Task Cancel_ReadsTheLotBalanceBeforeAnyWrite()
+    {
+        var (transfer, _) = await SeedConfirmedAsync();
+        var writesSeenAtRead = new List<string>();
+
+        await _ctx.Cancel(_ =>
+        {
+            // AsNoTracking lê o que já foi gravado no InMemory, como a conexão do Dapper faria.
+            var db = _ctx.Db.Context;
+            if (db.ShipmentReleases.AsNoTracking().Any(x =>
+                    x.OwnershipTransferKey == transfer.Key && x.Status == ReleaseStatus.Cancelled))
+                writesSeenAtRead.Add("liberação já cancelada");
+            if (db.StorageTransactions.AsNoTracking().Any(x =>
+                    x.OwnershipTransferKey == transfer.Key &&
+                    x.TransactionType == StorageTransactionType.Purchase &&
+                    x.TransactionStatus == StorageTransactionsStatus.Cancelled))
+                writesSeenAtRead.Add("romaneio de compra já cancelado");
+            return 10_000m;
+        }).ExecuteAsync(transfer.Key, "tester");
+
+        Assert.Empty(writesSeenAtRead);
+    }
+
     [Fact]
     public async Task Cancel_WithoutContract_StillWorks()
     {
