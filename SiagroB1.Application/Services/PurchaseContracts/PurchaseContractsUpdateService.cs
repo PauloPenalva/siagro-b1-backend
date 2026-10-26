@@ -44,7 +44,15 @@ public class PurchaseContractsUpdateService(
 
         try
         {
+            // Liberação de pagamento tem dono único (PurchaseContractsSetPaymentReleaseStatusService:
+            // permissão + log). SetValues copiaria o que veio no payload por cima do gravado.
+            var originalPaymentStatus = (PaymentReleaseStatus?)entry.OriginalValues[nameof(PurchaseContract.PaymentReleaseStatus)];
+            var originalEarlyPayment = (bool)entry.OriginalValues[nameof(PurchaseContract.EarlyPaymentAuthorized)]!;
+
             entry.CurrentValues.SetValues(entity);
+
+            existingEntity.PaymentReleaseStatus = originalPaymentStatus;
+            existingEntity.EarlyPaymentAuthorized = originalEarlyPayment;
 
             if (existingEntity.Type == ContractType.Fixed)
             {
