@@ -658,6 +658,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ShipmentLoadsCommentDeleteService>();
         services.AddScoped<ShipmentLoadsCommentsGetService>();
         services.AddScoped<ShipmentLoadsPlannedContractsGetService>();
+        services.AddScoped<ShipmentLoadsPlannedContractAddService>();
+        services.AddScoped<ShipmentLoadsPlannedContractRemoveService>();
         services.AddScoped<ShipmentLoadDischargesRecalculateService>();
         services.AddScoped<ShipmentLoadDischargesCreateService>();
         services.AddScoped<ShipmentLoadDischargesUpdateService>();

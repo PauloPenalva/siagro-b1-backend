@@ -1667,6 +1667,21 @@ public static class ODataConfigurations
         shipmentLoadsCommentDelete.Parameter<Guid>("Key");
         shipmentLoadsCommentDelete.Returns<IActionResult>();
 
+        // GAC-1185. ContractType viaja como string ("Purchase" | "Sales"); Quantity e Double
+        // anulavel (decimal nao serve em parametro de action).
+        var shipmentLoadsPlannedContractAdd = modelBuilder.Action("ShipmentLoadsPlannedContractAdd");
+        shipmentLoadsPlannedContractAdd.Parameter<Guid>("LoadKey");
+        shipmentLoadsPlannedContractAdd.Parameter<string>("ContractType");
+        shipmentLoadsPlannedContractAdd.Parameter<Guid>("ContractKey");
+        shipmentLoadsPlannedContractAdd.Parameter<double?>("Quantity");
+        shipmentLoadsPlannedContractAdd.Parameter<string>("Notes");
+        shipmentLoadsPlannedContractAdd.Returns<IActionResult>();
+
+        var shipmentLoadsPlannedContractRemove = modelBuilder.Action("ShipmentLoadsPlannedContractRemove");
+        shipmentLoadsPlannedContractRemove.Parameter<string>("ContractType");
+        shipmentLoadsPlannedContractRemove.Parameter<Guid>("Key");
+        shipmentLoadsPlannedContractRemove.Returns<IActionResult>();
+
         var shipmentLoadsRecalculateInvoiced = modelBuilder.Action("ShipmentLoadsRecalculateInvoiced");
         shipmentLoadsRecalculateInvoiced.Parameter<Guid>("Key");
         shipmentLoadsRecalculateInvoiced.Returns<IActionResult>();

@@ -42,6 +42,15 @@ public static class ShipmentLoadChangeLogFields
     /// </summary>
     public const string Discharge = "Discharge";
 
+    /// <summary>
+    /// Contrato de compra PLANEJADO da carga (GAC-1185). Inclusão grava só <c>NewValue</c> e
+    /// remoção só <c>OldValue</c>, com o código do contrato (e a quantidade, se houver).
+    /// </summary>
+    public const string PlannedPurchaseContract = "PlannedPurchaseContract";
+
+    /// <summary>Contrato de venda PLANEJADO da carga (GAC-1185); mesmo formato de <see cref="PlannedPurchaseContract"/>.</summary>
+    public const string PlannedSalesContract = "PlannedSalesContract";
+
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     /// <summary>
@@ -100,4 +109,10 @@ public static class ShipmentLoadChangeLogFields
 
         return parts.Count == 0 ? head : $"{head} ({string.Join("; ", parts)})";
     }
+
+    /// <summary>"CC000001" ou "CC000001 — 500,000": o código e, se informada, a quantidade planejada.</summary>
+    public static string DescribePlannedContract(string? contractCode, decimal? plannedQuantity) =>
+        plannedQuantity is null
+            ? contractCode ?? string.Empty
+            : $"{contractCode} — {plannedQuantity.Value.ToString("N3", PtBr)}";
 }

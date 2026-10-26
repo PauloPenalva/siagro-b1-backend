@@ -97,9 +97,21 @@ public class ShipmentLoadsDeleteService(
             .Where(x => x.ShipmentLoadKey == key)
             .ToListAsync();
 
+        // GAC-1185: contratos planejados sao vinculo informativo, FK NoAction para a carga.
+        var plannedPurchase = await db.Context.ShipmentLoadsPlannedPurchaseContracts
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
+        var plannedSales = await db.Context.ShipmentLoadsPlannedSalesContracts
+            .Where(x => x.ShipmentLoadKey == key)
+            .ToListAsync();
+
         try
         {
             await db.BeginTransactionAsync();
+
+            db.Context.ShipmentLoadsPlannedPurchaseContracts.RemoveRange(plannedPurchase);
+            db.Context.ShipmentLoadsPlannedSalesContracts.RemoveRange(plannedSales);
 
             // Movimentos, comentários e linhas do log de alterações têm FK real para a carga e
             // todas as FKs deste projeto são NoAction: sem remover os filhos primeiro, o delete

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Globalization;
 using SiagroB1.Application.Services.ShipmentLoads;
+using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Web.Actions.ShipmentLoads;
 
@@ -96,6 +97,45 @@ public static class ShipmentLoadActionParameters
 
             return false;
         }
+    }
+
+    public const string InvalidContractTypeMessage =
+        "Tipo de contrato inválido. Informe Purchase ou Sales.";
+
+    /// <summary>
+    /// GAC-1185: <c>ContractType</c> chega como string ("Purchase"/"Sales"). Número solto e
+    /// valor desconhecido são recusados — <c>Enum.TryParse</c> aceitaria "5" como válido.
+    /// </summary>
+    public static bool TryParseContractType(object? value, out PlannedContractType type)
+    {
+        type = default;
+
+        switch ((value as string)?.Trim())
+        {
+            case "Purchase":
+                type = PlannedContractType.Purchase;
+                return true;
+            case "Sales":
+                type = PlannedContractType.Sales;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Quantidade opcional: ausente ou nula é válido (true com nulo); lixo é inválido.</summary>
+    public static bool TryReadOptionalQuantity(object? value, out decimal? quantity)
+    {
+        quantity = null;
+
+        if (value is null)
+            return true;
+
+        if (!TryReadNumber(value, out var number))
+            return false;
+
+        quantity = number;
+        return true;
     }
 
     public const string MissingDistributionMessage =

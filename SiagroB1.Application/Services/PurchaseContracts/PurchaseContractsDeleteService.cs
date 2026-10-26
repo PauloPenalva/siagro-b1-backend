@@ -55,6 +55,11 @@ public class PurchaseContractsDeleteService(
             if (entity.PaymentReleaseHistory.Any())
                 context.PurchaseContractsPaymentReleaseHistory.RemoveRange(entity.PaymentReleaseHistory);
 
+            // GAC-1185: contrato planejado em carga e vinculo informativo (FK NoAction): sai junto.
+            context.ShipmentLoadsPlannedPurchaseContracts.RemoveRange(
+                await context.ShipmentLoadsPlannedPurchaseContracts
+                    .Where(x => x.ContractKey == entity.Key).ToListAsync());
+
             await financialDocuments.EnqueueReleaseContractForDeletionAsync(
                 purchaseContractKey: entity.Key, salesContractKey: null, userName: userName);
 

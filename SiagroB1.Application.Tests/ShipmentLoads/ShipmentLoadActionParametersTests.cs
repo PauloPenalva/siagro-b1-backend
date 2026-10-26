@@ -1,4 +1,6 @@
 using SiagroB1.Application.Services.ShipmentLoads;
+using Microsoft.OData.Edm;
+using SiagroB1.Domain.Enums;
 using SiagroB1.Web.Actions.ShipmentLoads;
 
 namespace SiagroB1.Application.Tests.ShipmentLoads;
@@ -124,5 +126,60 @@ public class ShipmentLoadActionParametersTests
         Assert.False(ShipmentLoadActionParameters.TryReadDistribution(
             new Dictionary<string, object>(), out _, out var missing));
         Assert.Equal(ShipmentLoadActionParameters.MissingDistributionMessage, missing);
+    }
+
+    // GAC-1185: contratos planejados da carga.
+
+    [Theory]
+    [InlineData("Purchase", PlannedContractType.Purchase)]
+    [InlineData("Sales", PlannedContractType.Sales)]
+    [InlineData(" Sales ", PlannedContractType.Sales)]
+    public void Reads_the_planned_contract_type_string(string value, PlannedContractType expected)
+    {
+        Assert.True(ShipmentLoadActionParameters.TryParseContractType(value, out var type));
+        Assert.Equal(expected, type);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("5")]
+    [InlineData("purchase")]
+    public void Rejects_a_missing_or_unknown_planned_contract_type(string? value)
+    {
+        Assert.False(ShipmentLoadActionParameters.TryParseContractType(value, out _));
+    }
+
+    [Fact]
+    public void Reads_an_optional_planned_quantity()
+    {
+        Assert.True(ShipmentLoadActionParameters.TryReadOptionalQuantity(null, out var none));
+        Assert.Null(none);
+
+        Assert.True(ShipmentLoadActionParameters.TryReadOptionalQuantity(1250.5d, out var value));
+        Assert.Equal(1250.5m, value);
+
+        Assert.False(ShipmentLoadActionParameters.TryReadOptionalQuantity("abc", out _));
+    }
+
+    [Fact]
+    public void Declares_the_planned_contract_actions_with_double_quantity_and_string_type()
+    {
+        var builder = new Microsoft.OData.ModelBuilder.ODataConventionModelBuilder();
+        SiagroB1.Web.ODataConfig.ODataConfigurations.ConfigureODataEntities(builder);
+        var model = builder.GetEdmModel();
+
+        var add = model.SchemaElements.OfType<Microsoft.OData.Edm.IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsPlannedContractAdd");
+        var quantity = add.Parameters.Single(p => p.Name == "Quantity");
+        Assert.Equal("Double", quantity.Type.AsPrimitive().PrimitiveKind().ToString());
+        Assert.True(quantity.Type.IsNullable);
+        Assert.Equal("String", add.Parameters.Single(p => p.Name == "ContractType").Type.AsPrimitive().PrimitiveKind().ToString());
+        Assert.Equal("Guid", add.Parameters.Single(p => p.Name == "ContractKey").Type.AsPrimitive().PrimitiveKind().ToString());
+
+        var remove = model.SchemaElements.OfType<Microsoft.OData.Edm.IEdmAction>()
+            .Single(a => a.Name == "ShipmentLoadsPlannedContractRemove");
+        Assert.Equal("Guid", remove.Parameters.Single(p => p.Name == "Key").Type.AsPrimitive().PrimitiveKind().ToString());
+        Assert.Equal("String", remove.Parameters.Single(p => p.Name == "ContractType").Type.AsPrimitive().PrimitiveKind().ToString());
     }
 }
