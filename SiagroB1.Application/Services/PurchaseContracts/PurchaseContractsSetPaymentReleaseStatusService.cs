@@ -29,10 +29,9 @@ public class PurchaseContractsSetPaymentReleaseStatusService(
     {
         var contract = await LoadAuthorizedAsync(key, userName);
 
-        // Nulo equivale a Pendente na tela, mas são valores distintos no banco: trocar um pelo outro
-        // é mudança de fato e gera log (Pendente -> Pendente), como nos demais campos de situação.
+        // Nulo equivale a Pendente para o usuário: trocar um pelo outro não é mudança (sem log, sem UpdatedAt).
         var previous = contract.PaymentReleaseStatus;
-        if (previous == status)
+        if ((previous ?? PaymentReleaseStatus.Pending) == (status ?? PaymentReleaseStatus.Pending))
             return;
 
         if (status == PaymentReleaseStatus.PreApproved && !contract.IsOnWheels)

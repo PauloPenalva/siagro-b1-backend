@@ -130,6 +130,21 @@ public class PurchaseContractPaymentReleaseStatusTests
     }
 
     [Fact]
+    public async Task SetStatus_NullToPending_IsNoOp_NoLog()
+    {
+        var contract = await SeedAsync();
+
+        await Service().SetStatusAsync(contract.Key, PaymentReleaseStatus.Pending, "joao");
+
+        Assert.Empty(await LogsAsync(contract.Key));
+        Assert.NotEqual("joao", (await ReloadAsync(contract.Key)).UpdatedBy);
+
+        var pending = await SeedAsync(release: PaymentReleaseStatus.Pending);
+        await Service().SetStatusAsync(pending.Key, null, "joao");
+        Assert.Empty(await LogsAsync(pending.Key));
+    }
+
+    [Fact]
     public async Task PreApproved_NotOnWheels_Throws()
     {
         var contract = await SeedAsync(onWheels: false);
