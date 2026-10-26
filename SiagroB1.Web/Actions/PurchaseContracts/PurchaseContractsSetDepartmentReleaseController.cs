@@ -32,10 +32,14 @@ public class PurchaseContractsSetDepartmentReleaseController(
                 || !Enum.IsDefined(department))
                 return BadRequest("Departamento de liberação inválido.");
 
+            // Parâmetro de string é anulável; o serviço valida o motivo.
+            parameters.TryGetValue("Reason", out var reasonObj);
+            var reason = reasonObj?.ToString();
+
             var userName = User.Identity?.Name ?? "Unknown";
             var key = Guid.Parse(keyObj.ToString()!);
             var released = Convert.ToBoolean(releasedObj);
-            await service.ExecuteAsync(key, department, released, userName);
+            await service.ExecuteAsync(key, department, released, reason, userName);
             return Ok();
         }
         catch (Exception e)

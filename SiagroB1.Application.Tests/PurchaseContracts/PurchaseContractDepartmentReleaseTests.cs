@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Tests.Support;
@@ -52,6 +52,114 @@ public class PurchaseContractDepartmentReleaseTests
     private Task<List<PurchaseContractPaymentRelease>> RowsAsync(Guid key) =>
         _db.Context.PurchaseContractsPaymentReleases.AsNoTracking().Where(r => r.PurchaseContractKey == key).ToListAsync();
 
+    private Task<List<PurchaseContractPaymentReleaseHistory>> HistoryAsync(Guid key) =>
+        _db.Context.PurchaseContractsPaymentReleaseHistory.AsNoTracking()
+            .Where(h => h.PurchaseContractKey == key).OrderBy(h => h.ChangedAt).ToListAsync();
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Release_WithoutReason_Throws_NothingSaved(string? reason)
+    {
+        var contract = await SeedAsync();
+
+        var ex = await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, reason, "maria"));
+
+        Assert.Equal("Informe o motivo da liberação.", ex.Message);
+        Assert.Empty(await RowsAsync(contract.Key));
+        Assert.Empty(await HistoryAsync(contract.Key));
+        Assert.Empty(await LogsAsync(contract.Key));
+    }
+
+    [Fact]
+    public async Task Unrelease_WithoutReason_Throws()
+    {
+        var contract = await SeedAsync();
+        var service = Service(PaymentReleaseDepartment.Fiscal);
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "ok", "maria");
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, false, " ", "maria"));
+
+        Assert.True(Assert.Single(await RowsAsync(contract.Key)).Released);
+        Assert.Single(await HistoryAsync(contract.Key));
+    }
+
+    [Fact]
+    public async Task Release_ReasonTooLong_Throws()
+    {
+        var contract = await SeedAsync();
+
+        await Assert.ThrowsAsync<DefaultException>(() =>
+            Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(
+                contract.Key, PaymentReleaseDepartment.Fiscal, true, new string('x', 501), "maria"));
+
+        Assert.Empty(await RowsAsync(contract.Key));
+        Assert.Empty(await HistoryAsync(contract.Key));
+    }
+
+    [Fact]
+    public async Task Release_AppendsHistory_WithReasonUserAndDate()
+    {
+        var contract = await SeedAsync();
+        var before = DateTime.Now.AddMinutes(-1);
+
+        await Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(
+            contract.Key, PaymentReleaseDepartment.Fiscal, true, "  Documentos conferidos  ", "maria");
+
+        var h = Assert.Single(await HistoryAsync(contract.Key));
+        Assert.Equal(PaymentReleaseDepartment.Fiscal, h.Department);
+        Assert.True(h.Released);
+        Assert.Equal("Documentos conferidos", h.Reason);
+        Assert.Equal("maria", h.ChangedBy);
+        Assert.True(h.ChangedAt >= before);
+
+        var log = Assert.Single(await LogsAsync(contract.Key));
+        Assert.Equal("Lib. Fiscal: Sim (motivo: Documentos conferidos)", log.NewValue);
+    }
+
+    [Fact]
+    public async Task Release_SetsCurrentReason()
+    {
+        var contract = await SeedAsync();
+
+        await Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(
+            contract.Key, PaymentReleaseDepartment.Fiscal, true, "Motivo A", "maria");
+
+        Assert.Equal("Motivo A", Assert.Single(await RowsAsync(contract.Key)).Reason);
+    }
+
+    [Fact]
+    public async Task ReleaseThenUnrelease_KeepsTwoHistoryRows()
+    {
+        var contract = await SeedAsync();
+        var service = Service(PaymentReleaseDepartment.Fiscal);
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "Liberado", "maria");
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, false, "Pendência", "joao");
+
+        var history = await HistoryAsync(contract.Key);
+        Assert.Equal(2, history.Count);
+        Assert.Contains(history, h => h.Released && h.Reason == "Liberado" && h.ChangedBy == "maria");
+        Assert.Contains(history, h => !h.Released && h.Reason == "Pendência" && h.ChangedBy == "joao");
+        Assert.Equal("Pendência", Assert.Single(await RowsAsync(contract.Key)).Reason);
+    }
+
+    [Fact]
+    public async Task Unchanged_IsNoOp_NoHistory()
+    {
+        var contract = await SeedAsync();
+        var service = Service(PaymentReleaseDepartment.Fiscal);
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "Um", "maria");
+
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "Dois", "joao");
+
+        Assert.Single(await HistoryAsync(contract.Key));
+        Assert.Equal("Um", Assert.Single(await RowsAsync(contract.Key)).Reason);
+        Assert.Single(await LogsAsync(contract.Key));
+    }
+
     [Fact]
     public async Task Release_WithoutPermission_Throws()
     {
@@ -59,7 +167,7 @@ public class PurchaseContractDepartmentReleaseTests
 
         // Permissão de outro departamento não vale.
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            Service(PaymentReleaseDepartment.Legal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "joao"));
+            Service(PaymentReleaseDepartment.Legal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "Motivo teste", "joao"));
 
         Assert.Equal("Você não tem permissão para a Lib. Fiscal.", ex.Message);
         Assert.Empty(await RowsAsync(contract.Key));
@@ -72,7 +180,7 @@ public class PurchaseContractDepartmentReleaseTests
         var contract = await SeedAsync();
         var before = DateTime.Now.AddMinutes(-1);
 
-        await Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "maria");
+        await Service(PaymentReleaseDepartment.Fiscal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Fiscal, true, "Motivo teste", "maria");
 
         var row = Assert.Single(await RowsAsync(contract.Key));
         Assert.Equal(PaymentReleaseDepartment.Fiscal, row.Department);
@@ -83,7 +191,7 @@ public class PurchaseContractDepartmentReleaseTests
         var log = Assert.Single(await LogsAsync(contract.Key));
         Assert.Equal(ContractChangeLogFields.DepartmentRelease, log.Field);
         Assert.Equal("Lib. Fiscal: Não", log.OldValue);
-        Assert.Equal("Lib. Fiscal: Sim", log.NewValue);
+        Assert.Equal("Lib. Fiscal: Sim (motivo: Motivo teste)", log.NewValue);
         Assert.Equal("maria", log.ChangedBy);
     }
 
@@ -92,9 +200,9 @@ public class PurchaseContractDepartmentReleaseTests
     {
         var contract = await SeedAsync();
         var service = Service(PaymentReleaseDepartment.Stock);
-        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Stock, true, "maria");
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Stock, true, "Motivo teste", "maria");
 
-        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Stock, false, "joao");
+        await service.ExecuteAsync(contract.Key, PaymentReleaseDepartment.Stock, false, "Motivo teste", "joao");
 
         var row = Assert.Single(await RowsAsync(contract.Key));
         Assert.False(row.Released);
@@ -103,7 +211,7 @@ public class PurchaseContractDepartmentReleaseTests
 
         var logs = await LogsAsync(contract.Key);
         Assert.Equal(2, logs.Count);
-        Assert.Contains(logs, l => l.OldValue == "Lib. Estoque: Sim" && l.NewValue == "Lib. Estoque: Não");
+        Assert.Contains(logs, l => l.OldValue == "Lib. Estoque: Sim" && l.NewValue == "Lib. Estoque: Não (motivo: Motivo teste)");
     }
 
     [Fact]
@@ -111,7 +219,7 @@ public class PurchaseContractDepartmentReleaseTests
     {
         var contract = await SeedAsync();
 
-        await Service(PaymentReleaseDepartment.Board).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Board, false, "joao");
+        await Service(PaymentReleaseDepartment.Board).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Board, false, "Motivo teste", "joao");
 
         Assert.Empty(await RowsAsync(contract.Key));
         Assert.Empty(await LogsAsync(contract.Key));
@@ -132,7 +240,7 @@ public class PurchaseContractDepartmentReleaseTests
         await _db.Context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<DefaultException>(() =>
-            Service(PaymentReleaseDepartment.Store).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Store, false, "joao"));
+            Service(PaymentReleaseDepartment.Store).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Store, false, "Motivo teste", "joao"));
 
         Assert.Equal("Lib. Loja só se aplica a contrato com barter.", ex.Message);
         var row = Assert.Single(await RowsAsync(contract.Key));
@@ -146,7 +254,7 @@ public class PurchaseContractDepartmentReleaseTests
     {
         var contract = await SeedAsync(barter: true);
 
-        await Service(PaymentReleaseDepartment.Store).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Store, true, "joao");
+        await Service(PaymentReleaseDepartment.Store).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Store, true, "Motivo teste", "joao");
 
         var row = Assert.Single(await RowsAsync(contract.Key));
         Assert.True(row.Released);
@@ -160,7 +268,7 @@ public class PurchaseContractDepartmentReleaseTests
     {
         var contract = await SeedAsync(status);
 
-        await Service(PaymentReleaseDepartment.Legal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Legal, true, "joao");
+        await Service(PaymentReleaseDepartment.Legal).ExecuteAsync(contract.Key, PaymentReleaseDepartment.Legal, true, "Motivo teste", "joao");
 
         Assert.True(Assert.Single(await RowsAsync(contract.Key)).Released);
     }
@@ -169,6 +277,6 @@ public class PurchaseContractDepartmentReleaseTests
     public async Task Release_MissingContract_ThrowsNotFound()
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
-            Service(PaymentReleaseDepartment.Legal).ExecuteAsync(Guid.NewGuid(), PaymentReleaseDepartment.Legal, true, "joao"));
+            Service(PaymentReleaseDepartment.Legal).ExecuteAsync(Guid.NewGuid(), PaymentReleaseDepartment.Legal, true, "Motivo teste", "joao"));
     }
 }

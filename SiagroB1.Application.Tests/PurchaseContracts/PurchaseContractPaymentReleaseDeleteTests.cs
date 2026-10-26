@@ -52,11 +52,21 @@ public class PurchaseContractPaymentReleaseDeleteTests
                 PurchaseContractKey = contract.Key,
                 Department = PaymentReleaseDepartment.Legal,
             });
+        _db.Context.PurchaseContractsPaymentReleaseHistory.Add(new PurchaseContractPaymentReleaseHistory
+        {
+            PurchaseContractKey = contract.Key,
+            Department = PaymentReleaseDepartment.Stock,
+            Released = true,
+            Reason = "Conferido",
+            ChangedAt = DateTime.Now,
+            ChangedBy = "maria",
+        });
         await _db.Context.SaveChangesAsync();
 
         var deleted = await Delete().ExecuteAsync(contract.Key, "tester");
 
         Assert.True(deleted);
         Assert.Empty(await _db.Context.PurchaseContractsPaymentReleases.ToListAsync());
+        Assert.Empty(await _db.Context.PurchaseContractsPaymentReleaseHistory.ToListAsync());
     }
 }

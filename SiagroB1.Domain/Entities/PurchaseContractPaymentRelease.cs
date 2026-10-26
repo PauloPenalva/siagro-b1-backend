@@ -26,4 +26,8 @@ public class PurchaseContractPaymentRelease
 
     [Column(TypeName = "VARCHAR(100)")]
     public string? ReleasedBy { get; set; }
+
+    /// <summary>Motivo informado na última mudança (estado atual).</summary>
+    [Column(TypeName = "VARCHAR(500)")]
+    public string? Reason { get; set; }
 }

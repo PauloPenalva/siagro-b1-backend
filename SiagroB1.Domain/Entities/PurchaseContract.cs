@@ -151,6 +151,9 @@ public class PurchaseContract : DocumentEntity
     /// <summary>Liberações de pagamento por departamento (GAC-1188).</summary>
     public ICollection<PurchaseContractPaymentRelease> PaymentReleases { get; set; } = [];
 
+    /// <summary>Histórico completo das liberações por departamento (GAC-1188).</summary>
+    public ICollection<PurchaseContractPaymentReleaseHistory> PaymentReleaseHistory { get; set; } = [];
+
     /// <summary>Minutas do contrato (documentação, como anexos — fora do guard de contrato encerrado).</summary>
     public ICollection<ContractDraft> Drafts { get; set; } = [];
 

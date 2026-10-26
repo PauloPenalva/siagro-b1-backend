@@ -1427,6 +1427,7 @@ public static class ODataConfigurations
         purchaseContractsSetDepartmentRelease.Parameter<Guid>("Key");
         purchaseContractsSetDepartmentRelease.Parameter<string>("Department").Nullable = true;
         purchaseContractsSetDepartmentRelease.Parameter<bool>("Released");
+        purchaseContractsSetDepartmentRelease.Parameter<string>("Reason").Nullable = true;
         purchaseContractsSetDepartmentRelease.Returns<IActionResult>();
 
         // Criação de fixação como action (e não POST na navegação): o frontend invoca

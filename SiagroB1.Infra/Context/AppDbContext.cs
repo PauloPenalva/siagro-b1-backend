@@ -64,6 +64,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractChangeLog> PurchaseContractsChangeLogs { get; set; }
     public DbSet<PurchaseContractComment> PurchaseContractsComments { get; set; }
     public DbSet<PurchaseContractPaymentRelease> PurchaseContractsPaymentReleases { get; set; }
+    public DbSet<PurchaseContractPaymentReleaseHistory> PurchaseContractsPaymentReleaseHistory { get; set; }
     public DbSet<SalesContractAllocation> SalesContractsAllocations { get; set; }
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
@@ -859,6 +860,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<PurchaseContractPaymentRelease>()
             .HasIndex(x => new { x.PurchaseContractKey, x.Department }).IsUnique();
+
+        modelBuilder.Entity<PurchaseContractPaymentReleaseHistory>()
+            .HasOne(x => x.PurchaseContract).WithMany(x => x.PaymentReleaseHistory)
+            .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseContractPaymentReleaseHistory>()
+            .HasIndex(x => new { x.PurchaseContractKey, x.Department, x.ChangedAt });
 
         modelBuilder.Entity<PurchaseContractWashout>()
             .HasOne(x => x.PurchaseContract).WithMany(x => x.Washouts)

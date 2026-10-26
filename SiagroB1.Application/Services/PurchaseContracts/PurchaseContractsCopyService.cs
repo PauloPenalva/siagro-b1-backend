@@ -48,6 +48,7 @@ public class PurchaseContractsCopyService(
         cloneContract.PaymentReleaseStatus = null;
         cloneContract.EarlyPaymentAuthorized = false;
         cloneContract.PaymentReleases.Clear();
+        cloneContract.PaymentReleaseHistory.Clear();
 
         cloneContract.PriceFixations.Clear();
         

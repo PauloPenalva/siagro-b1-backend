@@ -20,12 +20,20 @@ public class PurchaseContractsSetDepartmentReleaseService(
     PurchaseContractsChangeLogService changeLog,
     IUserPermissions permissions)
 {
-    public async Task ExecuteAsync(Guid key, PaymentReleaseDepartment department, bool released, string userName)
+    public const int MaxReasonLength = 500;
+
+    public async Task ExecuteAsync(Guid key, PaymentReleaseDepartment department, bool released, string? reason, string userName)
     {
         var label = ContractChangeLogFields.DescribeDepartment(department);
 
         if (!await permissions.HasAsync(userName, PermissionCodes.ForDepartment(department)))
             throw new DefaultException($"Você não tem permissão para a {label}.");
+
+        reason = reason?.Trim();
+        if (string.IsNullOrEmpty(reason))
+            throw new DefaultException("Informe o motivo da liberação.");
+        if (reason.Length > MaxReasonLength)
+            throw new DefaultException($"O motivo deve ter no máximo {MaxReasonLength} caracteres.");
 
         var contract = await context.PurchaseContracts.FirstOrDefaultAsync(x => x.Key == key)
                        ?? throw new NotFoundException("Contrato não encontrado.");
@@ -49,6 +57,17 @@ public class PurchaseContractsSetDepartmentReleaseService(
         row.Released = released;
         row.ReleasedAt = released ? DateTime.Now : null;
         row.ReleasedBy = released ? userName : null;
+        row.Reason = reason;
+
+        context.PurchaseContractsPaymentReleaseHistory.Add(new PurchaseContractPaymentReleaseHistory
+        {
+            PurchaseContractKey = key,
+            Department = department,
+            Released = released,
+            Reason = reason,
+            ChangedAt = DateTime.Now,
+            ChangedBy = userName,
+        });
 
         contract.UpdatedAt = DateTime.Now;
         contract.UpdatedBy = userName;
@@ -57,7 +76,7 @@ public class PurchaseContractsSetDepartmentReleaseService(
             key,
             ContractChangeLogFields.DepartmentRelease,
             $"{label}: {(released ? "Não" : "Sim")}",
-            $"{label}: {(released ? "Sim" : "Não")}",
+            $"{label}: {(released ? "Sim" : "Não")} (motivo: {reason})",
             userName);
 
         await context.SaveChangesAsync();

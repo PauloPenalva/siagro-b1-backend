@@ -4220,6 +4220,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid>("PurchaseContractKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Reason")
+                        .HasColumnType("VARCHAR(500)");
+
                     b.Property<bool>("Released")
                         .HasColumnType("bit");
 
@@ -4235,6 +4238,39 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("PURCHASE_CONTRACT_PAYMENT_RELEASES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPaymentReleaseHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Department")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<bool>("Released")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseContractKey", "Department", "ChangedAt");
+
+                    b.ToTable("PURCHASE_CONTRACT_PAYMENT_RELEASE_HISTORY");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
@@ -11379,6 +11415,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("PurchaseContract");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPaymentReleaseHistory", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
+                        .WithMany("PaymentReleaseHistory")
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseContract");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
@@ -13014,6 +13061,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("CommentEntries");
 
                     b.Navigation("Drafts");
+
+                    b.Navigation("PaymentReleaseHistory");
 
                     b.Navigation("PaymentReleases");
 

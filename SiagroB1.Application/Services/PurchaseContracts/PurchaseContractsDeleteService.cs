@@ -34,6 +34,7 @@ public class PurchaseContractsDeleteService(
             await context.Entry(entity).Collection(e => e.ShipmentReleases).LoadAsync();
             await context.Entry(entity).Collection(e => e.Brokers).LoadAsync();
             await context.Entry(entity).Collection(e => e.PaymentReleases).LoadAsync();
+            await context.Entry(entity).Collection(e => e.PaymentReleaseHistory).LoadAsync();
 
             // Remove filhos primeiro (caso o cascade não esteja funcionando)
             if (entity.PriceFixations.Any())
@@ -50,6 +51,9 @@ public class PurchaseContractsDeleteService(
 
             if (entity.PaymentReleases.Any())
                 context.PurchaseContractsPaymentReleases.RemoveRange(entity.PaymentReleases);
+
+            if (entity.PaymentReleaseHistory.Any())
+                context.PurchaseContractsPaymentReleaseHistory.RemoveRange(entity.PaymentReleaseHistory);
 
             await financialDocuments.EnqueueReleaseContractForDeletionAsync(
                 purchaseContractKey: entity.Key, salesContractKey: null, userName: userName);
