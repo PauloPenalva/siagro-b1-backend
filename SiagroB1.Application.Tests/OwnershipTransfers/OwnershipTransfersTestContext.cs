@@ -93,7 +93,13 @@ internal sealed class OwnershipTransfersTestContext
             AllocatedVolume = allocatedVolume,
         };
 
-    public OwnershipTransfersCancelService Cancel(decimal lotBalance = 10_000m)
+    public OwnershipTransfersCancelService Cancel(decimal lotBalance = 10_000m) =>
+        Cancel(new FakeBalance(_ => lotBalance));
+
+    public OwnershipTransfersCancelService Cancel(Func<string, decimal> balance) =>
+        Cancel(new FakeBalance(balance));
+
+    private OwnershipTransfersCancelService Cancel(IStorageAddressBalanceReader balanceReader)
     {
         var recalc = new ShipmentReleasesRecalculateShippedService(Db.Context);
 
@@ -107,7 +113,7 @@ internal sealed class OwnershipTransfersTestContext
             new PurchaseContractsAllocationDeleteService(
                 Db, NullLogger<PurchaseContractsAllocationDeleteService>.Instance),
             new StorageTransactionsCancelService(Db, recalc),
-            new FakeBalance(_ => lotBalance),
+            balanceReader,
             new FakeStringLocalizer<Resource>(),
             NullLogger<OwnershipTransfersCancelService>.Instance);
     }
