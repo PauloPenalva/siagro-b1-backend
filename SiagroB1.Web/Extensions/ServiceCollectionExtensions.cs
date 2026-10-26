@@ -263,6 +263,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PurchaseContractsRecalculateBalanceService>();
         services.AddScoped<PurchaseContractsCloseService>();
         services.AddScoped<PurchaseContractsSetSignatureStatusService>();
+        services.AddScoped<PurchaseContractsSetPaymentReleaseStatusService>();
+        services.AddScoped<PurchaseContractsSetDepartmentReleaseService>();
         services.AddScoped<PurchaseContractsReopenService>();
         services.AddScoped<PurchaseContractsAllocationCreateService>();
         services.AddScoped<PurchaseContractsAllocationDeleteService>();
