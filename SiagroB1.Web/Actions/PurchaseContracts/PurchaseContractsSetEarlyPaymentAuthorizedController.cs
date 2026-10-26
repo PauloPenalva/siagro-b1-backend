@@ -21,7 +21,7 @@ public class PurchaseContractsSetEarlyPaymentAuthorizedController(
             if (parameters is null
                 || !parameters.TryGetValue("Key", out var keyObj) || keyObj is null
                 || !parameters.TryGetValue("Authorized", out var authObj) || authObj is null)
-                return BadRequest("Missing required parameters");
+                return BadRequest("Parâmetros obrigatórios não informados.");
 
             var userName = User.Identity?.Name ?? "Unknown";
             var key = Guid.Parse(keyObj.ToString()!);

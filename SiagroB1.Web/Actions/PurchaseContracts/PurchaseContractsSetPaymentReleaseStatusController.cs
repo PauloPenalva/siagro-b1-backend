@@ -20,7 +20,7 @@ public class PurchaseContractsSetPaymentReleaseStatusController(
         {
             // O OData entrega NULO aqui quando o corpo não traz nenhum parâmetro declarado no EDM.
             if (parameters is null || !parameters.TryGetValue("Key", out var keyObj) || keyObj is null)
-                return BadRequest("Missing required parameters");
+                return BadRequest("Parâmetros obrigatórios não informados.");
 
             // Nulo/vazio é valor legítimo: limpa a situação da liberação de pagamento.
             parameters.TryGetValue("PaymentReleaseStatus", out var statusObj);
@@ -29,7 +29,7 @@ public class PurchaseContractsSetPaymentReleaseStatusController(
             PaymentReleaseStatus? status = null;
             if (!string.IsNullOrWhiteSpace(statusText))
             {
-                if (!Enum.TryParse<PaymentReleaseStatus>(statusText, out var parsed))
+                if (!Enum.TryParse<PaymentReleaseStatus>(statusText, out var parsed) || !Enum.IsDefined(parsed))
                     return BadRequest("Situação de liberação de pagamento inválida.");
 
                 status = parsed;

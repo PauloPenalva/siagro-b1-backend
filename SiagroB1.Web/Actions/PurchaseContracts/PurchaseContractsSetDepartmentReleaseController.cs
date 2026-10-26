@@ -22,7 +22,7 @@ public class PurchaseContractsSetDepartmentReleaseController(
             if (parameters is null
                 || !parameters.TryGetValue("Key", out var keyObj) || keyObj is null
                 || !parameters.TryGetValue("Released", out var releasedObj) || releasedObj is null)
-                return BadRequest("Missing required parameters");
+                return BadRequest("Parâmetros obrigatórios não informados.");
 
             // Parâmetro de string é anulável mesmo quando presente.
             parameters.TryGetValue("Department", out var deptObj);
