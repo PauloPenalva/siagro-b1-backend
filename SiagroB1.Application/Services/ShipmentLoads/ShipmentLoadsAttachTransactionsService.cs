@@ -57,7 +57,12 @@ public class ShipmentLoadsAttachTransactionsService(
             throw new ApplicationException("Romaneio de embarque não encontrado.");
 
         await ValidateEligibilityAsync(load, shipments);
-        ValidateHomogeneity(load, shipments);
+
+        // GAC-1181 (troca de veículo): a saída do transbordo pode vir noutro caminhão — a descarga
+        // foi total e o veículo pode ter quebrado. Ela só precisa ser homogênea ENTRE SI; a placa
+        // da carga passa a ser a dela (o veículo atual) depois do vínculo.
+        var newTruckCode = transshipmentKey != null ? ResolveExitTruck(shipments) : null;
+        ValidateHomogeneity(load, shipments, newTruckCode ?? load.TruckCode);
 
         // GAC-1181: com a chave, a saída assume o PAPEL de saída do transbordo; sem ela, segue o
         // caminho de sempre — mas barrado se o armazém for de um transbordo já recebido, que só
@@ -74,6 +79,15 @@ public class ShipmentLoadsAttachTransactionsService(
         try
         {
             if (ownsTransaction) await db.BeginTransactionAsync();
+
+            var previousTruckCode = load.TruckCode;
+            var truckChanged = newTruckCode != null && newTruckCode != previousTruckCode;
+            if (truckChanged)
+            {
+                load.TruckCode = newTruckCode;
+                new ShipmentLoadsChangeLogService(db.Context).Register(
+                    load.Key, ShipmentLoadChangeLogFields.TruckCode, previousTruckCode, newTruckCode, userName);
+            }
 
             foreach (var shipment in shipments)
             {
@@ -99,7 +113,10 @@ public class ShipmentLoadsAttachTransactionsService(
                 attachedQuantity,
                 load.AvailableQuantity,
                 $"{shipments.Count} romaneio(s) vinculado(s) à carga: " +
-                string.Join(", ", shipments.Select(x => x.Code)),
+                string.Join(", ", shipments.Select(x => x.Code)) +
+                (truckChanged
+                    ? $". Veículo trocado de {previousTruckCode} para {newTruckCode} no armazém {transshipment!.WarehouseCode}."
+                    : string.Empty),
                 userName);
 
             await db.SaveChangesAsync();
@@ -219,9 +236,24 @@ public class ShipmentLoadsAttachTransactionsService(
             $"O romaneio {alreadyLoaded.Code} já está montado na carga {loadCode}.");
     }
 
-    private static void ValidateHomogeneity(ShipmentLoad load, List<StorageTransaction> shipments)
+    /// <summary>
+    /// Placa das saídas do transbordo: todas no mesmo caminhão, que vira o veículo da carga.
+    /// </summary>
+    private static string? ResolveExitTruck(List<StorageTransaction> shipments)
     {
-        var wrongTruck = shipments.FirstOrDefault(x => x.TruckCode != load.TruckCode);
+        var trucks = shipments.Select(x => x.TruckCode).Distinct().ToList();
+        if (trucks.Count > 1)
+            throw new ApplicationException(
+                "As saídas do transbordo precisam ser do mesmo veículo: " +
+                string.Join(", ", shipments.Select(x => $"{x.Code} ({x.TruckCode})")) + ".");
+
+        return trucks[0];
+    }
+
+    private static void ValidateHomogeneity(
+        ShipmentLoad load, List<StorageTransaction> shipments, string? expectedTruckCode)
+    {
+        var wrongTruck = shipments.FirstOrDefault(x => x.TruckCode != expectedTruckCode);
         if (wrongTruck != null)
             throw new ApplicationException(
                 $"O romaneio {wrongTruck.Code} é do veículo {wrongTruck.TruckCode} e a carga " +

@@ -165,14 +165,18 @@ public class ShipmentLoadsMultiOriginProcessingScenarioTests
         var loadInProcessing = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key);
         Assert.Equal(ShipmentLoadStatus.InTransshipment, loadInProcessing.Status);
 
-        // 3. Novo carregamento na Capal: uma Expedição por liberação, mesmo caminhão.
+        // 3. Novo carregamento na Capal noutro caminhão (o primeiro quebrou): uma Expedição por
+        //    liberação, as duas no veículo novo.
         var exitA = Shipment("R0003", Capal, 29_000m);
         var exitB = Shipment("R0004", Capal, 9_800m);
+        exitA.TruckCode = "XYZ9K87";
+        exitB.TruckCode = "XYZ9K87";
         await _db.SaveChangesAsync();
         await Attach().ExecuteAsync(load.Key, [exitA.Key, exitB.Key], transshipment.Key, "tester");
 
         var final = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key);
         Assert.Equal(ShipmentLoadStatus.Open, final.Status);
+        Assert.Equal("XYZ9K87", final.TruckCode);
         Assert.Equal(78_800m, final.TotalQuantity);       // 40 t das origens + 38,8 t da Capal
         Assert.Equal(40_000m, final.TransshippedQuantity);
         Assert.Equal(38_800m, final.AvailableQuantity);   // só o que sai da Capal vai para faturar

@@ -425,4 +425,73 @@ public class ShipmentLoadsAttachTransshipmentExitTests
 
         Assert.DoesNotContain(result, x => x.Key == entry.Key);
     }
+
+    // ─────────────────────── Troca de veículo no transbordo ───────────────────────
+
+    /// <summary>
+    /// O caminhão pode ser trocado no transbordo (quebrou): a descarga foi total, então a nova
+    /// carga sai num veículo vazio. A placa da carga passa a ser a do veículo atual.
+    /// </summary>
+    [Fact]
+    public async Task Attach_TransshipmentExit_WithAnotherTruck_ChangesTheLoadTruck()
+    {
+        var load = Load(ShipmentLoadStatus.InTransshipment);
+        var transshipment = Transshipment(load, entryStorageTransactionKey: Guid.NewGuid());
+        var exit = Shipment("R2", warehouseCode: "ARM99");
+        exit.TruckCode = "XYZ9K87";
+        await _db.Context.SaveChangesAsync();
+
+        await AttachService().ExecuteAsync(load.Key, [exit.Key], transshipment.Key, "tester");
+
+        var saved = await _db.Context.ShipmentLoads.AsNoTracking().SingleAsync(x => x.Key == load.Key);
+        Assert.Equal("XYZ9K87", saved.TruckCode);
+
+        var log = await _db.Context.ShipmentLoadsChangeLogs.AsNoTracking()
+            .SingleAsync(x => x.ShipmentLoadKey == load.Key && x.Field == ShipmentLoadChangeLogFields.TruckCode);
+        Assert.Equal("ABC1D23", log.OldValue);
+        Assert.Equal("XYZ9K87", log.NewValue);
+    }
+
+    [Fact]
+    public async Task Attach_TransshipmentExit_WithTheSameTruck_LogsNoTruckChange()
+    {
+        var load = Load(ShipmentLoadStatus.InTransshipment);
+        var transshipment = Transshipment(load, entryStorageTransactionKey: Guid.NewGuid());
+        var exit = Shipment("R2", warehouseCode: "ARM99");
+        await _db.Context.SaveChangesAsync();
+
+        await AttachService().ExecuteAsync(load.Key, [exit.Key], transshipment.Key, "tester");
+
+        Assert.False(await _db.Context.ShipmentLoadsChangeLogs.AnyAsync(x => x.ShipmentLoadKey == load.Key));
+    }
+
+    /// <summary>A nova carga sai num caminhão só: as saídas não podem divergir entre si.</summary>
+    [Fact]
+    public async Task Attach_TransshipmentExits_FromTwoTrucks_AreRefused()
+    {
+        var load = Load(ShipmentLoadStatus.InTransshipment);
+        var transshipment = Transshipment(load, entryStorageTransactionKey: Guid.NewGuid());
+        var exitA = Shipment("R2", warehouseCode: "ARM99");
+        exitA.TruckCode = "XYZ9K87";
+        var exitB = Shipment("R3", warehouseCode: "ARM99");
+        exitB.TruckCode = "QWE4R56";
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(
+            () => AttachService().ExecuteAsync(load.Key, [exitA.Key, exitB.Key], transshipment.Key, "tester"));
+        Assert.Contains("veículo", ex.Message);
+    }
+
+    /// <summary>Fora do transbordo a homogeneidade de placa continua valendo (complemento de carga).</summary>
+    [Fact]
+    public async Task Attach_Complement_WithAnotherTruck_IsStillRefused()
+    {
+        var load = Load();
+        var complement = Shipment("R2", warehouseCode: "ARM02");
+        complement.TruckCode = "XYZ9K87";
+        await _db.Context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => AttachService().ExecuteAsync(load.Key, [complement.Key], null, "tester"));
+    }
 }
