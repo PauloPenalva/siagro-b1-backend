@@ -88,9 +88,15 @@ public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db, SalesInvoices
             .FirstOrDefaultAsync(x =>
                 x.ChaveNFe == chaveNFe &&
                 x.Key != invoice.Key &&
-                x.InvoiceStatus != InvoiceStatus.Cancelled);
+                x.InvoiceStatus != InvoiceStatus.Cancelled &&
+                x.InvoiceStatus != InvoiceStatus.Returned);
     }
 
+    /// <summary>
+    /// Documentos Cancelados e Retornados não bloqueiam a nota (vale também para a chave):
+    /// o cancelado porque a operação não existiu; o retornado (GAC-1194) porque a mercadoria
+    /// recusada volta a ser entregue com a mesma nota — ele guarda a nota só como evidência.
+    /// </summary>
     private async Task<SalesInvoice?> FindTaxDocumentConflictAsync(
         string? documentNumber, string? documentSeries, SalesInvoice invoice)
     {
@@ -104,6 +110,7 @@ public class SalesInvoicesSetDocumentNumberService(IUnitOfWork db, SalesInvoices
                 x.TaxDocumentNumber == documentNumber &&
                 x.TaxDocumentSeries == documentSeries &&
                 x.Key != invoice.Key &&
-                x.InvoiceStatus != InvoiceStatus.Cancelled);
+                x.InvoiceStatus != InvoiceStatus.Cancelled &&
+                x.InvoiceStatus != InvoiceStatus.Returned);
     }
 }

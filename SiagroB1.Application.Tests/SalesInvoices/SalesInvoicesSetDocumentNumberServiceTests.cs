@@ -148,6 +148,41 @@ public class SalesInvoicesSetDocumentNumberServiceTests
     }
 
     /// <summary>
+    /// GAC-1194: a mercadoria recusada (documento Retornado) volta a ser entregue com a mesma
+    /// nota fiscal — geralmente após o desconto de qualidade. O retornado preserva os dados
+    /// fiscais como evidência da recusa, mas não bloqueia a nota no documento efetivo.
+    /// </summary>
+    [Fact]
+    public async Task ReturnedDocument_ReleasesNumberSeriesAndAccessKey()
+    {
+        var returned = await SeedInvoiceAsync("000000001", status: InvoiceStatus.Returned,
+            taxDocumentNumber: "123456", taxDocumentSeries: "1", chaveNFe: Chave);
+        var target = await SeedInvoiceAsync("000000002");
+
+        await Service().ExecuteAsync(target.Key, "123456", "1", Chave, "joao");
+
+        Assert.Equal("123456", target.TaxDocumentNumber);
+        Assert.Equal(Chave, target.ChaveNFe);
+        Assert.Equal("123456", returned.TaxDocumentNumber);
+        Assert.Equal(Chave, returned.ChaveNFe);
+    }
+
+    [Theory]
+    [InlineData(InvoiceStatus.Pending)]
+    [InlineData(InvoiceStatus.Confirmed)]
+    public async Task ActiveDocument_StillBlocksNumberSeriesAndAccessKey(InvoiceStatus status)
+    {
+        await SeedInvoiceAsync("000000001", status: status,
+            taxDocumentNumber: "123456", taxDocumentSeries: "1", chaveNFe: Chave);
+        var target = await SeedInvoiceAsync("000000002");
+
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(target.Key, "123456", "1", "", "joao"));
+        await Assert.ThrowsAsync<ApplicationException>(
+            () => Service().ExecuteAsync(target.Key, "999999", "1", Chave, "joao"));
+    }
+
+    /// <summary>
     /// A chave chega como <c>null</c> quando o campo do diálogo nunca foi tocado — o parâmetro
     /// OData <c>ChaveNFe</c> é nullable. Não pode casar com as linhas que têm ChaveNFe nula.
     /// </summary>
