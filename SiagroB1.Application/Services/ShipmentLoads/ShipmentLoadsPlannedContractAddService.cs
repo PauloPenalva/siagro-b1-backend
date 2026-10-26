@@ -102,7 +102,15 @@ public class ShipmentLoadsPlannedContractAddService(
                 ShipmentLoadChangeLogFields.DescribePlannedContract(code, quantity),
                 user);
 
-            await context.SaveChangesAsync();
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            // Inclusão concorrente do mesmo contrato: o índice único (carga, contrato) barra a segunda.
+            catch (DbUpdateException e) when (FiscalStock.FiscalStockPeriodsService.IsUniqueViolation(e))
+            {
+                throw new ApplicationException($"O contrato {code} já está planejado nesta carga.");
+            }
         }
         catch (Exception exception)
         {
