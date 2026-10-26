@@ -26,6 +26,7 @@ public class PurchaseContractsGetService(IUnitOfWork unitOfWork, ILogger<Purchas
                 .Include(x => x.LogisticRegion)
                 .Include(x => x.DocNumber)
                 .Include(x => x.Brokers)
+                .Include(x => x.PaymentReleases)
                 .Include(x => x.Allocations)
                     .ThenInclude(x => x.StorageTransaction)
                 .FirstOrDefaultAsync(p => p.Key == key);
