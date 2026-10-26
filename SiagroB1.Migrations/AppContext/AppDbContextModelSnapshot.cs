@@ -7394,6 +7394,76 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("SHIPMENT_LOAD_MOVEMENTS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadPlannedPurchaseContract", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<decimal?>("PlannedQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ContractKey");
+
+                    b.HasIndex("ShipmentLoadKey", "ContractKey")
+                        .IsUnique();
+
+                    b.ToTable("SHIPMENT_LOADS_PLANNED_PURCHASE_CONTRACTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadPlannedSalesContract", b =>
+                {
+                    b.Property<Guid>("Key")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<decimal?>("PlannedQuantity")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.Property<Guid>("ShipmentLoadKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Key");
+
+                    b.HasIndex("ContractKey");
+
+                    b.HasIndex("ShipmentLoadKey", "ContractKey")
+                        .IsUnique();
+
+                    b.ToTable("SHIPMENT_LOADS_PLANNED_SALES_CONTRACTS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadRefusal", b =>
                 {
                     b.Property<Guid>("Key")
@@ -12139,6 +12209,44 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("ShipmentLoad");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadPlannedPurchaseContract", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "Contract")
+                        .WithMany("PlannedShipmentLoads")
+                        .HasForeignKey("ContractKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("PlannedPurchaseContracts")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("ShipmentLoad");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadPlannedSalesContract", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.SalesContract", "Contract")
+                        .WithMany("PlannedShipmentLoads")
+                        .HasForeignKey("ContractKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
+                        .WithMany("PlannedSalesContracts")
+                        .HasForeignKey("ShipmentLoadKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Contract");
+
+                    b.Navigation("ShipmentLoad");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.ShipmentLoadRefusal", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.ShipmentLoad", "ShipmentLoad")
@@ -13066,6 +13174,8 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Navigation("PaymentReleases");
 
+                    b.Navigation("PlannedShipmentLoads");
+
                     b.Navigation("PriceFixations");
 
                     b.Navigation("QualityParameters");
@@ -13109,6 +13219,8 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.Navigation("Drafts");
 
+                    b.Navigation("PlannedShipmentLoads");
+
                     b.Navigation("PriceFixations");
 
                     b.Navigation("SalesInvoiceItems");
@@ -13149,6 +13261,10 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Invoices");
 
                     b.Navigation("Movements");
+
+                    b.Navigation("PlannedPurchaseContracts");
+
+                    b.Navigation("PlannedSalesContracts");
 
                     b.Navigation("RefusalReturns");
 

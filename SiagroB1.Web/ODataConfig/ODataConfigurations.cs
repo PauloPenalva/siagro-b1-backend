@@ -1100,6 +1100,8 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<ShipmentLoadDischarge>("ShipmentLoadsDischarges");
         modelBuilder.EntitySet<ShipmentLoadDischargeItem>("ShipmentLoadsDischargesItems");
         modelBuilder.EntitySet<ShipmentLoadTransshipment>("ShipmentLoadsTransshipments");
+        modelBuilder.EntitySet<ShipmentLoadPlannedPurchaseContract>("ShipmentLoadsPlannedPurchaseContracts");
+        modelBuilder.EntitySet<ShipmentLoadPlannedSalesContract>("ShipmentLoadsPlannedSalesContracts");
         // [NotMapped] some do EDM tambem - sem este AddProperty o $select=ShrinkageQuantity
         // devolve 400 e a tela nao consegue mostrar a quebra de transporte da linha do transbordo.
         modelBuilder.StructuralTypes.First(t => t.ClrType == typeof(ShipmentLoadTransshipment))
@@ -1664,6 +1666,21 @@ public static class ODataConfigurations
         var shipmentLoadsCommentDelete = modelBuilder.Action("ShipmentLoadsCommentDelete");
         shipmentLoadsCommentDelete.Parameter<Guid>("Key");
         shipmentLoadsCommentDelete.Returns<IActionResult>();
+
+        // GAC-1185. ContractType viaja como string ("Purchase" | "Sales"); Quantity e Double
+        // anulavel (decimal nao serve em parametro de action).
+        var shipmentLoadsPlannedContractAdd = modelBuilder.Action("ShipmentLoadsPlannedContractAdd");
+        shipmentLoadsPlannedContractAdd.Parameter<Guid>("LoadKey");
+        shipmentLoadsPlannedContractAdd.Parameter<string>("ContractType");
+        shipmentLoadsPlannedContractAdd.Parameter<Guid>("ContractKey");
+        shipmentLoadsPlannedContractAdd.Parameter<double?>("Quantity");
+        shipmentLoadsPlannedContractAdd.Parameter<string>("Notes");
+        shipmentLoadsPlannedContractAdd.Returns<IActionResult>();
+
+        var shipmentLoadsPlannedContractRemove = modelBuilder.Action("ShipmentLoadsPlannedContractRemove");
+        shipmentLoadsPlannedContractRemove.Parameter<string>("ContractType");
+        shipmentLoadsPlannedContractRemove.Parameter<Guid>("Key");
+        shipmentLoadsPlannedContractRemove.Returns<IActionResult>();
 
         var shipmentLoadsRecalculateInvoiced = modelBuilder.Action("ShipmentLoadsRecalculateInvoiced");
         shipmentLoadsRecalculateInvoiced.Parameter<Guid>("Key");
