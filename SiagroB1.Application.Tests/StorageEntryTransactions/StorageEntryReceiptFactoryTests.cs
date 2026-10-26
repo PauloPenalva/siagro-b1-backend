@@ -134,4 +134,47 @@ public class StorageEntryReceiptFactoryTests
     {
         StorageEntryReceiptFactory.EnsureLotAccepts(NewLot(), NewPurchaseClone());
     }
+
+    // GAC-1191: o frete/remoção da entrada própria é informado em R$/SC e é custo do lote,
+    // então vai para o Receipt (junto de Secagem/Limpeza/Recepção/Expedição) e sai da compra.
+    [Fact]
+    public void MoveFreightToReceipt_ChargesPerBagOnReceipt_AndClearsPurchase()
+    {
+        var purchase = NewPurchaseClone();
+        purchase.FreightCalculationMethod = FreightCalculationMethod.Fixed;
+        purchase.FreightUnitPrice = 3m;
+        var receipt = NewPurchaseClone();
+        purchase.FreightPrice = 999m;
+
+        StorageEntryReceiptFactory.MoveFreightToReceipt(purchase, receipt);
+
+        Assert.Equal(FreightCalculationMethod.PerBag, receipt.FreightCalculationMethod);
+        Assert.Equal(3m, receipt.FreightUnitPrice);
+        Assert.Equal(50m, receipt.FreightPrice); // 1000 kg / 60 × 3
+
+        Assert.Equal(0m, purchase.FreightUnitPrice);
+        Assert.Equal(0m, purchase.FreightPrice);
+    }
+
+    [Fact]
+    public void MoveFreightToReceipt_WithoutFreight_LeavesBothZero()
+    {
+        var purchase = NewPurchaseClone();
+        var receipt = NewPurchaseClone();
+
+        StorageEntryReceiptFactory.MoveFreightToReceipt(purchase, receipt);
+
+        Assert.Equal(0m, receipt.FreightPrice);
+        Assert.Equal(0m, purchase.FreightPrice);
+    }
+
+    [Fact]
+    public void MoveFreightToReceipt_RejectsNegativeValue()
+    {
+        var purchase = NewPurchaseClone();
+        purchase.FreightUnitPrice = -1m;
+
+        Assert.Throws<ApplicationException>(
+            () => StorageEntryReceiptFactory.MoveFreightToReceipt(purchase, NewPurchaseClone()));
+    }
 }

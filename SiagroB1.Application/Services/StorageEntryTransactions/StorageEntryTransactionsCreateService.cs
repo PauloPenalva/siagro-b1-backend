@@ -55,6 +55,7 @@ public class StorageEntryTransactionsCreateService(
             // resolvidos já com os códigos do lote.
             var receipt = StorageTransactionCopyFactory.CreateFrom(purchase, userName);
             StorageEntryReceiptFactory.ApplyLot(receipt, lot);
+            StorageEntryReceiptFactory.MoveFreightToReceipt(purchase, receipt);
 
             await storageCreateService.ExecuteAsync(
                 receipt, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
