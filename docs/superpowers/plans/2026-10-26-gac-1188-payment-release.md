@@ -44,7 +44,7 @@
 - `PurchaseContractPaymentRelease { Guid Id; Guid PurchaseContractKey; PaymentReleaseDepartment Department; bool Released; DateTime? ReleasedAt; string? ReleasedBy; }` → table `PURCHASE_CONTRACT_PAYMENT_RELEASES`, unique (PurchaseContractKey, Department), cascade from contract.
 - `ContractChangeLogFields`: consts `PaymentReleaseStatus`, `DepartmentRelease`, `EarlyPaymentAuthorized`; `DescribePaymentReleaseStatus(PaymentReleaseStatus?)` (null → "Pendente") and `DescribeDepartment(PaymentReleaseDepartment)` with the exact labels above.
 - `PermissionCodes`: `PaymentReleaseStock="PAYMENT_RELEASE_STOCK"`, `..._LEGAL`, `..._FISCAL`, `..._ROYALTIES`, `..._FINANCIAL`, `..._STORE`, `..._BOARD`; `static string ForDepartment(PaymentReleaseDepartment)`.
-- Menu item Key `paymentReleases`, Title "Liberação de Pagamento", Icon `sap-icon://folder-blank` per memory only for top-level; use the parent of the purchase-contract menu.
+- Menu item Key `paymentReleases`, Title "Liberação de Pagamento", ParentKey = the same parent as the purchase-contracts list item; Icon copied from its sibling items.
 
 - [ ] **Step 1:** Test `DeletingContract_WithPaymentReleases_RemovesThem` — seed contract + 2 release rows, run the existing delete service, assert both rows gone. Run, expect FAIL (compile).
 - [ ] **Step 2:** Add enums, entity, properties, DbContext config, change-log helpers, permission codes; make delete service remove the rows.
