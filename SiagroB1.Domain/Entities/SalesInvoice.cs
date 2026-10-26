@@ -304,6 +304,53 @@ public class SalesInvoice : DocumentEntity, INfeDocument, IAccountingAssignment
         }
     }
 
+    /// <summary>
+    /// Peso efetivo (GAC-1195): o faturado menos o que voltou em devoluções confirmadas. É o peso
+    /// que de fato seguiu para o destino na devolução parcial.
+    /// </summary>
+    [NotMapped]
+    public decimal EffectiveQuantity => decimal.Round(NetWeight - ReturnedQuantity, 3, MidpointRounding.ToEven);
+
+    /// <summary>
+    /// Peso descarregado segundo os TICKETS de descarga da carga (GAC-1195): soma de
+    /// <see cref="SalesInvoiceItem.TicketDeliveredQuantity"/>. Depende de <see cref="Items"/> carregado.
+    /// ⚠️ Não se confunde com <see cref="DeliveredQuantity"/>, que é o relatório da Conferência de entregas.
+    /// </summary>
+    [NotMapped]
+    public decimal TicketDeliveredQuantity => Items.Sum(i => i.TicketDeliveredQuantity);
+
+    /// <summary>
+    /// Quantidade entregue registrada na Conferência de entregas (GAC-1195): soma de
+    /// <see cref="SalesInvoiceItem.DeliveredQuantity"/>. Depende de <see cref="Items"/> carregado.
+    /// </summary>
+    [NotMapped]
+    public decimal DeliveredQuantity => Items.Sum(i => i.DeliveredQuantity);
+
+    /// <summary>
+    /// Documento descarregado (GAC-1195): a mesma regra da carga Descarregada
+    /// (<c>ShipmentLoadsRecalculateInvoicedService.EvaluateClosureAsync</c>), aplicada a um documento só —
+    /// toda linha com saldo que não voltou tem peso de ticket. A linha devolvida por inteiro não espera
+    /// ticket; documento devolvido por inteiro não é descarregado.
+    /// </summary>
+    [NotMapped]
+    public bool IsDischarged
+    {
+        get
+        {
+            var delivered = Items.Where(i => i.Quantity - i.ReturnedQuantity > 0.001m).ToList();
+            return delivered.Count > 0 && delivered.All(i => i.TicketDeliveredQuantity > 0.001m);
+        }
+    }
+
+    /// <summary>
+    /// Conferência de entrega encerrada (GAC-1195): todas as linhas <c>Closed</c>, como "Encerrado/Aberto"
+    /// nas entregas do contrato de venda. Lê as LINHAS: o <see cref="DeliveryStatus"/> do cabeçalho só
+    /// muda na devolução e não acompanha a Conferência.
+    /// </summary>
+    [NotMapped]
+    public bool IsDeliveryClosed =>
+        Items.Count > 0 && Items.All(i => i.DeliveryStatus == SalesInvoiceDeliveryStatus.Closed);
+
     /// <summary>Contratos de venda distintos referenciados pelas linhas, na ordem das linhas.</summary>
     private List<SalesContract> DistinctContracts() =>
         Items.Select(i => i.SalesContract)

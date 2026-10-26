@@ -56,6 +56,12 @@ public class ShipmentLoadEdmModelTests
         Assert.Contains(nameof(SalesInvoice.SalesContractCode), properties);
         Assert.Contains(nameof(SalesInvoice.SalesContractComplement), properties);
         Assert.Contains(nameof(SalesInvoice.SalesContractFreightCostStandard), properties);
+        // GAC-1195: descarga e conferência no grid da carga.
+        Assert.Contains(nameof(SalesInvoice.EffectiveQuantity), properties);
+        Assert.Contains(nameof(SalesInvoice.TicketDeliveredQuantity), properties);
+        Assert.Contains(nameof(SalesInvoice.DeliveredQuantity), properties);
+        Assert.Contains(nameof(SalesInvoice.IsDischarged), properties);
+        Assert.Contains(nameof(SalesInvoice.IsDeliveryClosed), properties);
     }
 
     [Theory]
