@@ -40,6 +40,39 @@ public static class ContractChangeLogFields
     /// <summary>Situação da assinatura do contrato: Aguardando Assinatura / Assinado / Sem Contrato.</summary>
     public const string SignatureStatus = "SignatureStatus";
 
+    /// <summary>Situação da liberação de pagamento do contrato de compra (GAC-1188).</summary>
+    public const string PaymentReleaseStatus = "PaymentReleaseStatus";
+
+    /// <summary>Liberação de um departamento para o pagamento (GAC-1188); o rótulo do departamento vai no valor.</summary>
+    public const string DepartmentRelease = "DepartmentRelease";
+
+    /// <summary>Pagamento antecipado autorizado: Sim/Não (GAC-1188).</summary>
+    public const string EarlyPaymentAuthorized = "EarlyPaymentAuthorized";
+
+    /// <summary>Situação da liberação de pagamento em pt-BR. Nulo equivale a Pendente.</summary>
+    public static string DescribePaymentReleaseStatus(SiagroB1.Domain.Enums.PaymentReleaseStatus? status) => status switch
+    {
+        null or Enums.PaymentReleaseStatus.Pending => "Pendente",
+        Enums.PaymentReleaseStatus.UnderReview => "Em análise",
+        Enums.PaymentReleaseStatus.IncompleteDocuments => "Documentação incompleta",
+        Enums.PaymentReleaseStatus.Approved => "Aprovado",
+        Enums.PaymentReleaseStatus.PreApproved => "Pré-aprovado",
+        _ => status.ToString()!,
+    };
+
+    /// <summary>Departamento da liberação de pagamento em pt-BR.</summary>
+    public static string DescribeDepartment(PaymentReleaseDepartment department) => department switch
+    {
+        PaymentReleaseDepartment.Stock => "Lib. Estoque",
+        PaymentReleaseDepartment.Legal => "Lib. Jurídico",
+        PaymentReleaseDepartment.Fiscal => "Lib. Fiscal",
+        PaymentReleaseDepartment.Royalties => "Lib. Royalties",
+        PaymentReleaseDepartment.Financial => "Lib. Financeiro",
+        PaymentReleaseDepartment.Store => "Lib. Loja",
+        PaymentReleaseDepartment.Board => "Lib. Diretoria",
+        _ => department.ToString(),
+    };
+
     /// <summary>Documento de saída marcado/desmarcado como operação sem nota fiscal (GAC-1174).</summary>
     public const string WithoutTaxDocument = "WithoutTaxDocument";
 

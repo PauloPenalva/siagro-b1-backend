@@ -31,6 +31,21 @@ public class PurchaseContract : DocumentEntity
     /// </summary>
     public SignatureStatus? SignatureStatus { get; set; }
 
+    /// <summary>
+    /// Situação da liberação de pagamento (GAC-1188). Nulo = Pendente. Alterável por action
+    /// dedicada, independente de <see cref="Status"/>.
+    /// </summary>
+    public PaymentReleaseStatus? PaymentReleaseStatus { get; set; }
+
+    /// <summary>Pagamento antecipado autorizado (GAC-1188).</summary>
+    public bool EarlyPaymentAuthorized { get; set; }
+
+    /// <summary>Contrato de barter (GAC-1188).</summary>
+    public bool IsBarter { get; set; }
+
+    /// <summary>Contrato sobre rodas (GAC-1188).</summary>
+    public bool IsOnWheels { get; set; }
+
     public int? AgentCode { get; set; }
     
     [Column(TypeName = "VARCHAR(100)")] 
@@ -132,6 +147,9 @@ public class PurchaseContract : DocumentEntity
     public ICollection<PurchaseContractChangeLog> ChangeLogs { get; set; } = [];
 
     public ICollection<PurchaseContractWashout> Washouts { get; set; } = [];
+
+    /// <summary>Liberações de pagamento por departamento (GAC-1188).</summary>
+    public ICollection<PurchaseContractPaymentRelease> PaymentReleases { get; set; } = [];
 
     /// <summary>Minutas do contrato (documentação, como anexos — fora do guard de contrato encerrado).</summary>
     public ICollection<ContractDraft> Drafts { get; set; } = [];

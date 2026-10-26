@@ -63,6 +63,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PurchaseContractAllocation> PurchaseContractsAllocations { get; set; }
     public DbSet<PurchaseContractChangeLog> PurchaseContractsChangeLogs { get; set; }
     public DbSet<PurchaseContractComment> PurchaseContractsComments { get; set; }
+    public DbSet<PurchaseContractPaymentRelease> PurchaseContractsPaymentReleases { get; set; }
     public DbSet<SalesContractAllocation> SalesContractsAllocations { get; set; }
     public DbSet<Tax> Taxes { get; set; }
     public DbSet<ShipmentRelease> ShipmentReleases { get; set; }
@@ -851,6 +852,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         // Washout: Restrict para o contrato e para a fixação — nenhum dos dois pode sumir debaixo
         // de um washout (o estorno de fixação e a retirada da aprovação já recusam antes). NoAction
         // para o título, no mesmo padrão das FKs de FinancialDocument.
+        // Liberação de pagamento (GAC-1188): uma linha por contrato e departamento; some com o contrato.
+        modelBuilder.Entity<PurchaseContractPaymentRelease>()
+            .HasOne(x => x.PurchaseContract).WithMany(x => x.PaymentReleases)
+            .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseContractPaymentRelease>()
+            .HasIndex(x => new { x.PurchaseContractKey, x.Department }).IsUnique();
+
         modelBuilder.Entity<PurchaseContractWashout>()
             .HasOne(x => x.PurchaseContract).WithMany(x => x.Washouts)
             .HasForeignKey(x => x.PurchaseContractKey).OnDelete(DeleteBehavior.Restrict);

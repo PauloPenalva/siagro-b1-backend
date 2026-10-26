@@ -3911,6 +3911,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<Guid?>("DocNumberKey")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("EarlyPaymentAuthorized")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("FixedVolume")
                         .HasColumnType("DECIMAL(18,3) DEFAULT 0");
 
@@ -3930,6 +3933,12 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
+                    b.Property<bool>("IsBarter")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsOnWheels")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ItemCode")
                         .IsRequired()
                         .HasColumnType("VARCHAR(10) NOT NULL");
@@ -3941,6 +3950,9 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(10) NOT NULL");
 
                     b.Property<int?>("MarketType")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PaymentReleaseStatus")
                         .HasColumnType("int");
 
                     b.Property<string>("PaymentTerms")
@@ -4194,6 +4206,35 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("PurchaseContractKey");
 
                     b.ToTable("PURCHASE_CONTRACTS_COMMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPaymentRelease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Department")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Released")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReleasedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PurchaseContractKey", "Department")
+                        .IsUnique();
+
+                    b.ToTable("PURCHASE_CONTRACT_PAYMENT_RELEASES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
@@ -11327,6 +11368,17 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("PurchaseContract");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPaymentRelease", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
+                        .WithMany("PaymentReleases")
+                        .HasForeignKey("PurchaseContractKey")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseContract");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.PurchaseContractPriceFixation", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.PurchaseContract", "PurchaseContract")
@@ -12962,6 +13014,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("CommentEntries");
 
                     b.Navigation("Drafts");
+
+                    b.Navigation("PaymentReleases");
 
                     b.Navigation("PriceFixations");
 
