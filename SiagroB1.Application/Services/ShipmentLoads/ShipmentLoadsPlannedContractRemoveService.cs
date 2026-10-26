@@ -9,7 +9,7 @@ namespace SiagroB1.Application.Services.ShipmentLoads;
 
 /// <summary>
 /// Remove um contrato planejado da carga (GAC-1185). <c>key</c> é a chave da LINHA planejada,
-/// não a do contrato. Sem guarda de status: tirar um vínculo informativo é sempre seguro.
+/// não a do contrato. Recusa carga cancelada, como a inclusão; os deletes de carga/contrato não passam por aqui.
 /// </summary>
 public class ShipmentLoadsPlannedContractRemoveService(
     AppDbContext context,
@@ -31,6 +31,8 @@ public class ShipmentLoadsPlannedContractRemoveService(
                               .FirstOrDefaultAsync(x => x.Key == key)
                           ?? throw new NotFoundException("Contrato planejado não encontrado.");
 
+                await EnsureNotCancelledAsync(row.ShipmentLoadKey);
+
                 loadKey = row.ShipmentLoadKey;
                 code = row.Contract?.Code;
                 quantity = row.PlannedQuantity;
@@ -42,6 +44,8 @@ public class ShipmentLoadsPlannedContractRemoveService(
                               .Include(x => x.Contract)
                               .FirstOrDefaultAsync(x => x.Key == key)
                           ?? throw new NotFoundException("Contrato planejado não encontrado.");
+
+                await EnsureNotCancelledAsync(row.ShipmentLoadKey);
 
                 loadKey = row.ShipmentLoadKey;
                 code = row.Contract?.Code;
@@ -65,5 +69,16 @@ public class ShipmentLoadsPlannedContractRemoveService(
             logger.LogError(exception, exception.Message);
             throw;
         }
+    }
+
+    private async Task EnsureNotCancelledAsync(Guid loadKey)
+    {
+        var load = await context.ShipmentLoads
+            .Where(x => x.Key == loadKey)
+            .Select(x => new { x.Code, x.Status })
+            .FirstOrDefaultAsync();
+
+        if (load?.Status == ShipmentLoadStatus.Cancelled)
+            throw new ApplicationException($"A carga {load.Code} está cancelada.");
     }
 }

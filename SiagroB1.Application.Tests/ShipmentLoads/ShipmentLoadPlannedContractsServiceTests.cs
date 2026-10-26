@@ -214,6 +214,24 @@ public class ShipmentLoadPlannedContractsServiceTests
     }
 
     [Fact]
+    public async Task Remove_rejects_a_cancelled_load()
+    {
+        var load = await SeedLoadAsync();
+        var contract = await SeedPurchaseAsync();
+        await Add().ExecuteAsync(load.Key, PlannedContractType.Purchase, contract.Key, null, null, "joao");
+        var row = _db.Context.ShipmentLoadsPlannedPurchaseContracts.Single();
+        load.Status = ShipmentLoadStatus.Cancelled;
+        await _db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() =>
+            Remove().ExecuteAsync(PlannedContractType.Purchase, row.Key!.Value, "maria"));
+
+        Assert.Equal("A carga CG000001 está cancelada.", ex.Message);
+        Assert.Single(_db.Context.ShipmentLoadsPlannedPurchaseContracts);
+        Assert.Single(LogsOf(load.Key));
+    }
+
+    [Fact]
     public async Task Remove_reports_a_missing_row()
     {
         await Assert.ThrowsAsync<NotFoundException>(() =>
