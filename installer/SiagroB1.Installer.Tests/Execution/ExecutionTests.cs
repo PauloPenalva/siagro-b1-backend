@@ -18,6 +18,7 @@ internal sealed class FakeServiceManager : IServiceManager
     public HashSet<string> Running { get; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> Calls { get; } = [];
     public Func<string, bool> StopTimesOut { get; set; } = _ => false;
+    public Func<string, bool> StartFails { get; set; } = _ => false;
 
     public bool Exists(string name) => Existing.Contains(name);
     public bool IsRunning(string name) => Running.Contains(name);
@@ -36,6 +37,10 @@ internal sealed class FakeServiceManager : IServiceManager
     public Task StartAsync(string name, TimeSpan timeout, CancellationToken ct)
     {
         Calls.Add($"start {name}");
+        if (StartFails(name))
+        {
+            throw new InvalidOperationException($"Cannot start service '{name}'");
+        }
         Running.Add(name);
         return Task.CompletedTask;
     }
@@ -129,6 +134,32 @@ public class InstallExecutorTests
         Assert.False(outcome.Success);
         Assert.Empty(order);
         Assert.Equal(new[] { "stop gw", "stop rep", "start rep", "start gw" }, services.Calls);
+    }
+
+    [Fact]
+    public async Task StopRollback_OneServiceFailsToStart_StillStartsTheOthers()
+    {
+        var services = new FakeServiceManager { StartFails = n => n == "web" };
+        foreach (var name in new[] { "gw", "rep", "web" })
+        {
+            services.Existing.Add(name);
+            services.Running.Add(name);
+        }
+        var ctx = Context(@"C:\x", []);
+        ctx.TargetServices =
+        [
+            new InstalledService(ServiceKind.Gateway, "gw", @"C:\x\Gateway\SiagroB1.Gateway.exe", "Production", 55000),
+            new InstalledService(ServiceKind.Reports, "rep", @"C:\x\Reports\SiagroB1.Reports.exe", "Production", 55200),
+            new InstalledService(ServiceKind.Web, "web", @"C:\x\Web\SiagroB1.Web.exe", "Production", 55100)
+        ];
+        var step = new StopServicesStep(services);
+        await step.ExecuteAsync(ctx, CancellationToken.None);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => step.RollbackAsync(ctx, CancellationToken.None));
+
+        Assert.Contains("start rep", services.Calls);
+        Assert.Contains("start gw", services.Calls);
+        Assert.Contains("web", ex.Message);
     }
 
     [Fact]

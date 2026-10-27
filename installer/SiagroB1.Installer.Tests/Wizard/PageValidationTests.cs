@@ -193,6 +193,26 @@ public class PageValidationTests : IDisposable
     }
 
     [Fact]
+    public void NewKeys_OnlyKeysAbsentFromInstalledDefaults()
+    {
+        // O arquivo do cliente só tem o que ele mudou; "novo" é o que não existia no padrão da versão
+        // instalada (o appsettings.json que está na pasta antes da cópia).
+        var state = State();
+        var payloadWeb = Path.Combine(_root, "payload", "Web");
+        Directory.CreateDirectory(payloadWeb);
+        File.WriteAllText(Path.Combine(payloadWeb, "appsettings.json"), """{"Erp":"","Signature":{"Enabled":false},"Nfe":{"TimeoutSeconds":60}}""");
+        var installedWeb = Path.Combine(_root, "inst", "Web");
+        Directory.CreateDirectory(installedWeb);
+        File.WriteAllText(Path.Combine(installedWeb, "appsettings.json"), """{"Erp":"","Signature":{"Enabled":false}}""");
+        state.ClientFiles[ServiceKind.Web] = JsonNode.Parse("""{"Erp":"SAPB1"}""")!.AsObject();
+        var vm = new NewKeysPageViewModel(state, Services());
+
+        vm.OnEnter();
+
+        Assert.Equal("Nfe:TimeoutSeconds", Assert.Single(vm.Items).Key);
+    }
+
+    [Fact]
     public void Integrations_OnlyChangedFieldsAreSaved()
     {
         var state = State();

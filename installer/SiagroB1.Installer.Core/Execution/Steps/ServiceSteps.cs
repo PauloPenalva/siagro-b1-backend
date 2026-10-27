@@ -40,10 +40,23 @@ public sealed class StopServicesStep(IServiceManager services) : IInstallStep
 
     public async Task RollbackAsync(InstallContext ctx, CancellationToken ct)
     {
+        // Tenta religar todos: um serviço que não sobe não pode deixar os outros parados.
+        var failures = new List<string>();
         foreach (var name in Enumerable.Reverse(_stopped))
         {
             ctx.Log.Report($"Religando {name}...");
-            await services.StartAsync(name, ServiceOrder.Timeout, ct);
+            try
+            {
+                await services.StartAsync(name, ServiceOrder.Timeout, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failures.Add($"{name} ({ex.Message})");
+            }
+        }
+        if (failures.Count > 0)
+        {
+            throw new InvalidOperationException($"Não foi possível religar: {string.Join("; ", failures)}. Verifique o log do serviço.");
         }
     }
 }

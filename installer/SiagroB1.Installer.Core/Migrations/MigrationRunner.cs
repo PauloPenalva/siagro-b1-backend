@@ -15,6 +15,9 @@ public interface IMigrationHistory
 {
     /// <summary>MigrationIds já aplicados; conjunto vazio se o banco ainda não tem __EFMigrationsHistory.</summary>
     Task<IReadOnlySet<string>> AppliedAsync(string connectionString, CancellationToken ct);
+
+    /// <summary>O banco (Initial Catalog) existe no servidor? Consulta pelo master.</summary>
+    Task<bool> DatabaseExistsAsync(string connectionString, CancellationToken ct);
 }
 
 /// <param name="BundleDir">Pasta com efbundle-*.exe e as listas migrations-*.txt.</param>
@@ -102,6 +105,15 @@ public sealed class MigrationRunner(IProcessRunner runner, ICompanyLister compan
 
     private async Task RunBundle(MigrationRequest request, string bundle, string label, string connectionString, IProgress<string> log, CancellationToken ct)
     {
+        // O bundle do EF cria o banco se ele não existir: um nome errado em COMPANIES viraria um banco
+        // novo com todas as migrations aplicadas do zero. Banco inexistente é erro, nunca criação.
+        if (!await history.DatabaseExistsAsync(connectionString, ct))
+        {
+            var target = new SqlConnectionStringBuilder(connectionString);
+            throw new MigrationFailedException(label, -1,
+                $"O banco \"{target.InitialCatalog}\" não existe no servidor \"{target.DataSource}\". Confira a configuração da empresa; o instalador não cria bancos.");
+        }
+
         log.Report($"Atualizando banco \"{label}\"...");
         var result = await runner.RunAsync(
             Path.Combine(request.BundleDir, bundle),

@@ -154,7 +154,13 @@ public sealed class NewKeysPageViewModel(WizardState state, WizardServices servi
 
             var edits = ServiceSettingsMapper.ToEdits(kind, State.Settings);
             var result = AppSettingsMerger.Merge(defaults, client, edits, ServiceSettingsMapper.DropPaths(kind));
-            foreach (var key in result.NewKeys.Where(k => !k.StartsWith("Logging:", StringComparison.OrdinalIgnoreCase)))
+
+            // O cliente só guarda o que mudou: "novo" é o que não existia no padrão já instalado
+            // (o appsettings.json da versão anterior, ainda na pasta antes da cópia).
+            var installed = InstalledDefaults(kind);
+            foreach (var key in result.NewKeys.Where(k =>
+                         !k.StartsWith("Logging:", StringComparison.OrdinalIgnoreCase)
+                         && (installed is null || JsonPath.Get(installed, k) is null)))
             {
                 var node = JsonPath.Get(defaults, key);
                 var current = State.Settings.ServiceEdits[kind].TryGetValue(key, out var edited) ? edited : node;
@@ -163,6 +169,21 @@ public sealed class NewKeysPageViewModel(WizardState state, WizardServices servi
                     Value = EditableField.Text(current)
                 });
             }
+        }
+    }
+
+    private JsonObject? InstalledDefaults(ServiceKind kind)
+    {
+        var installed = State.Detection.Services.FirstOrDefault(s => s.Kind == kind);
+        var dir = installed is not null ? System.IO.Path.GetDirectoryName(installed.ExePath)! : System.IO.Path.Combine(State.BasePath, kind.ToString());
+        var file = System.IO.Path.Combine(dir, "appsettings.json");
+        try
+        {
+            return File.Exists(file) ? JsonFile.Load(file) : null;
+        }
+        catch (InvalidSettingsFileException)
+        {
+            return null;
         }
     }
 

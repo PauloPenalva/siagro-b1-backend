@@ -38,6 +38,23 @@ public sealed class SqlMigrationHistory : IMigrationHistory
         }
         return set;
     }
+
+    public Task<bool> DatabaseExistsAsync(string connectionString, CancellationToken ct) =>
+        SqlDatabaseExistence.ExistsAsync(connectionString, ct);
+}
+
+public sealed class SqlDatabaseExistence
+{
+    public static async Task<bool> ExistsAsync(string connectionString, CancellationToken ct)
+    {
+        var target = new SqlConnectionStringBuilder(connectionString);
+        var master = new SqlConnectionStringBuilder(connectionString) { InitialCatalog = "master" };
+        await using var connection = new SqlConnection(master.ConnectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new SqlCommand("SELECT DB_ID(@name)", connection);
+        command.Parameters.AddWithValue("@name", target.InitialCatalog);
+        return await command.ExecuteScalarAsync(ct) is not (null or DBNull);
+    }
 }
 
 public static class SqlConnectionTester

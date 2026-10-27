@@ -37,8 +37,11 @@ public class MigrationRunnerTests : IDisposable
             Task.FromResult<IReadOnlyList<CompanyDatabase>>(companies);
     }
 
-    private sealed class FakeHistory(Dictionary<string, string[]> applied) : IMigrationHistory
+    private sealed class FakeHistory(Dictionary<string, string[]> applied, params string[] missing) : IMigrationHistory
     {
+        public Task<bool> DatabaseExistsAsync(string connectionString, CancellationToken ct) =>
+            Task.FromResult(!missing.Any(connectionString.Contains));
+
         public Task<IReadOnlySet<string>> AppliedAsync(string connectionString, CancellationToken ct)
         {
             var key = applied.Keys.FirstOrDefault(k => connectionString.Contains(k));
@@ -162,6 +165,24 @@ public class MigrationRunnerTests : IDisposable
             Runner(runner, new FailingCompanies()).ApplyAsync(Request(), log, CancellationToken.None));
 
         Assert.DoesNotContain(runner.Calls, c => c.Args[1].Contains("EMP_PADRAO"));
+    }
+
+    [Fact]
+    public async Task Apply_MissingCompanyDatabase_FailsWithoutCreatingIt()
+    {
+        // O bundle do EF CRIA o banco se ele não existir: um erro de digitação em COMPANIES viraria
+        // um banco novo com todas as migrations. O instalador tem de recusar antes.
+        var runner = new FakeRunner();
+        Log(out var log);
+
+        var ex = await Assert.ThrowsAsync<MigrationFailedException>(() =>
+            Runner(runner, new FakeCompanies(Company("01"), Company("02")), new FakeHistory([], "EMP_02"))
+                .ApplyAsync(Request(), log, CancellationToken.None));
+
+        Assert.Equal("Empresa 02", ex.Label);
+        Assert.Contains("EMP_02", ex.Message);
+        Assert.Contains("não existe", ex.Message);
+        Assert.DoesNotContain(runner.Calls, c => c.Args[1].Contains("EMP_02"));
     }
 
     [Fact]
