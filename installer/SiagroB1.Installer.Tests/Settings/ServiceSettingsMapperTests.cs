@@ -105,6 +105,16 @@ public class ServiceSettingsMapperTests
     }
 
     [Fact]
+    public void ToEdits_IncludesServiceEditsOnlyForThatService()
+    {
+        var s = Sapb1();
+        s.ServiceEdits[ServiceKind.Reports]["Nfe:TimeoutSeconds"] = 90;
+
+        Assert.Equal(90, ServiceSettingsMapper.ToEdits(ServiceKind.Reports, s)["Nfe:TimeoutSeconds"]!.GetValue<int>());
+        Assert.DoesNotContain("Nfe:TimeoutSeconds", ServiceSettingsMapper.ToEdits(ServiceKind.Web, s).Keys);
+    }
+
+    [Fact]
     public void DropPaths_OnlyGatewayRoutes()
     {
         Assert.Equal(new[] { "ReverseProxy:Routes" }, ServiceSettingsMapper.DropPaths(ServiceKind.Gateway));

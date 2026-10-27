@@ -34,6 +34,14 @@ public sealed class InstallSettings
     /// <summary>Chaves da página Integrações (caminho completo → valor), só as que o usuário mexeu.</summary>
     public Dictionary<string, JsonNode?> Integrations { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Edições ligadas a um serviço específico (página "Chaves novas").</summary>
+    public Dictionary<ServiceKind, Dictionary<string, JsonNode?>> ServiceEdits { get; } = new()
+    {
+        [ServiceKind.Web] = new(StringComparer.OrdinalIgnoreCase),
+        [ServiceKind.Gateway] = new(StringComparer.OrdinalIgnoreCase),
+        [ServiceKind.Reports] = new(StringComparer.OrdinalIgnoreCase)
+    };
+
     /// <summary>
     /// Connection strings como estão hoje nos arquivos do cliente (nome → valor). Se o que o usuário
     /// confirmou for equivalente, o texto original é mantido (preserva opções extras e formatação).

@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Installer.Core", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Installer.Tests", "SiagroB1.Installer.Tests\SiagroB1.Installer.Tests.csproj", "{661BB0C4-BD04-4D07-A5FA-EE96568E03FF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiagroB1.Installer", "SiagroB1.Installer\SiagroB1.Installer.csproj", "{66829051-4EC6-4D3C-A097-4B86343C3EA6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,18 @@ Global
 		{661BB0C4-BD04-4D07-A5FA-EE96568E03FF}.Release|x64.Build.0 = Release|Any CPU
 		{661BB0C4-BD04-4D07-A5FA-EE96568E03FF}.Release|x86.ActiveCfg = Release|Any CPU
 		{661BB0C4-BD04-4D07-A5FA-EE96568E03FF}.Release|x86.Build.0 = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|x64.Build.0 = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Debug|x86.Build.0 = Debug|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|x64.ActiveCfg = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|x64.Build.0 = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|x86.ActiveCfg = Release|Any CPU
+		{66829051-4EC6-4D3C-A097-4B86343C3EA6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

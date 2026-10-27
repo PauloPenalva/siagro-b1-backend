@@ -1,0 +1,202 @@
+﻿<Window x:Class="SiagroB1.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:w="clr-namespace:SiagroB1.Installer.Wizard"
+        xmlns:local="clr-namespace:SiagroB1.Installer"
+        Title="Instalador SiagroB1" Width="760" Height="600" MinWidth="640" MinHeight="480"
+        WindowStartupLocation="CenterScreen" FontSize="13">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible" />
+
+        <DataTemplate DataType="{x:Type w:WelcomePageViewModel}">
+            <StackPanel>
+                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Margin="0,0,0,16" />
+                <TextBlock TextWrapping="Wrap" Foreground="#666"
+                           Text="O assistente vai configurar o Gateway, a API (Web) e os Relatórios como serviços do Windows, aplicar as atualizações de banco e testar se tudo responde. Em atualizações, a versão atual é guardada em backup e volta sozinha se algo der errado." />
+                <GroupBox Header="Remover serviços" Margin="0,24,0,0" Padding="8"
+                          Visibility="{Binding HasInstallation, Converter={StaticResource Visible}}">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" Text="Para e remove os serviços do Windows desta instalação. Pastas e bancos de dados não são apagados." />
+                        <CheckBox Content="Confirmo que quero remover os serviços" IsChecked="{Binding ConfirmRemoval}" />
+                        <Button Content="Remover serviços" HorizontalAlignment="Left" Command="{Binding RemoveServicesCommand}" />
+                        <TextBlock Text="{Binding RemovalResult}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:FolderPageViewModel}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Label}" Text="Pasta de instalação" />
+                <TextBox Text="{Binding BasePath, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="Instância (nome curto, só letras e números)" />
+                <TextBox Text="{Binding Instance, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="Ambiente (define o arquivo appsettings.&lt;Ambiente&gt;.json)" />
+                <TextBox Text="{Binding Environment, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:DatabasePageViewModel}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Label}" Text="Servidor SQL (ex.: 192.168.1.144,1433)" />
+                <TextBox Text="{Binding SqlServer, UpdateSourceTrigger=PropertyChanged}" />
+                <CheckBox Content="Usar autenticação do Windows" IsChecked="{Binding UseWindowsAuth}" />
+                <StackPanel Visibility="{Binding UseWindowsAuth, Converter={x:Static local:InverseBoolToVisibility.Instance}}">
+                    <TextBlock Style="{StaticResource Label}" Text="Usuário" />
+                    <TextBox Text="{Binding SqlUser, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Style="{StaticResource Label}" Text="Senha" />
+                    <PasswordBox local:PasswordBoxHelper.BoundPassword="{Binding SqlPassword}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource Label}" Text="Banco Common (ex.: IDX_SIAGRO_COMMON)" />
+                <TextBox Text="{Binding CommonDatabase, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="Banco da empresa (ex.: IDX_SIAGRO_PRD)" />
+                <TextBox Text="{Binding CompanyDatabase, UpdateSourceTrigger=PropertyChanged}" />
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Button Content="Testar conexão" Command="{Binding TestConnectionCommand}" />
+                    <TextBlock Text="{Binding TestResult}" TextWrapping="Wrap" Margin="12,0,0,0" VerticalAlignment="Center" MaxWidth="480" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:ErpPageViewModel}">
+            <StackPanel>
+                <RadioButton Content="STANDALONE (sem SAP)" IsChecked="{Binding IsStandalone}" GroupName="erp" />
+                <RadioButton Content="SAPB1 (integrado ao SAP Business One)" IsChecked="{Binding IsSapB1}" GroupName="erp" />
+                <StackPanel Margin="0,12,0,0" Visibility="{Binding IsSapB1, Converter={StaticResource Visible}}">
+                    <TextBlock Style="{StaticResource Label}" Text="Banco da empresa no SAP (ex.: SBO_EMPRESA_PRD)" />
+                    <TextBox Text="{Binding SapDatabase, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Style="{StaticResource Label}" Text="Banco SBO-COMMON" />
+                    <TextBox Text="{Binding SapCommonDatabase, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Style="{StaticResource Label}" Text="URL do Service Layer (ex.: https://servidor:50000/b1s/v2/)" />
+                    <TextBox Text="{Binding SapServiceLayerUrl, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:CompanyPortsPageViewModel}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Label}" Text="Nome da empresa (aparece nos relatórios)" />
+                <TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Style="{StaticResource Label}" Text="Porta do Gateway" />
+                        <TextBox Text="{Binding GatewayPort, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Style="{StaticResource Label}" Text="Porta da API (Web)" />
+                        <TextBox Text="{Binding WebPort, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Style="{StaticResource Label}" Text="Porta dos Relatórios" />
+                        <TextBox Text="{Binding ReportsPort, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Style="{StaticResource Label}" Text="URL de acesso dos usuários (usada nos e-mails e notificações)" />
+                <TextBox Text="{Binding PublicBaseUrl, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="Logo da empresa (PNG, opcional — vazio mantém o atual)" />
+                <TextBox Text="{Binding LogoSourcePath, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FieldTemplate" DataType="{x:Type w:EditableField}">
+            <StackPanel Margin="0,0,0,2">
+                <CheckBox Content="{Binding Label}" IsChecked="{Binding BoolValue}" Visibility="{Binding IsBool, Converter={StaticResource Visible}}" />
+                <StackPanel Visibility="{Binding IsText, Converter={StaticResource Visible}}">
+                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" />
+                    <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Visibility="{Binding IsSecret, Converter={StaticResource Visible}}">
+                    <TextBlock Style="{StaticResource Label}" Text="{Binding Label}" />
+                    <PasswordBox local:PasswordBoxHelper.BoundPassword="{Binding Value}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:IntegrationsPageViewModel}">
+            <ItemsControl ItemsSource="{Binding Fields}" ItemTemplate="{StaticResource FieldTemplate}" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:NewKeysPageViewModel}">
+            <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource FieldTemplate}" />
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:SummaryPageViewModel}">
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding Lines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,4" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding MigrationStatus}" TextWrapping="Wrap" Margin="0,12,0,8" FontWeight="SemiBold" />
+                <StackPanel Visibility="{Binding HasPendingMigrations, Converter={StaticResource Visible}}">
+                    <TextBlock TextWrapping="Wrap" Foreground="#9a3412"
+                               Text="Atualizações de banco não são desfeitas automaticamente se algo der errado. Faça um backup dos bancos antes de continuar." />
+                    <CheckBox Content="Já fiz backup dos bancos de dados" IsChecked="{Binding DatabaseBackupConfirmed}" />
+                    <Expander Header="Usar outro usuário só para atualizar o banco (opcional)">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label}" Text="Usuário com permissão de alterar tabelas" />
+                            <TextBox Text="{Binding DdlUser, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Style="{StaticResource Label}" Text="Senha" />
+                            <PasswordBox local:PasswordBoxHelper.BoundPassword="{Binding DdlPassword}" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:ProgressPageViewModel}">
+            <DockPanel>
+                <ProgressBar DockPanel.Dock="Top" Height="6" Margin="0,0,0,8" IsIndeterminate="{Binding IsRunning}" />
+                <ListBox ItemsSource="{Binding Log}" FontFamily="Consolas" FontSize="12" />
+            </DockPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type w:DonePageViewModel}">
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding Lines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,4" /></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <Button Content="Abrir o sistema no navegador" Command="{Binding OpenBrowserCommand}" Margin="0,0,8,0" />
+                    <Button Content="Abrir o log" Command="{Binding OpenLogCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="#1f4e3d" Padding="20,14">
+            <StackPanel>
+                <TextBlock Text="{Binding Current.Title}" Foreground="White" FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Current.Subtitle}" Foreground="#d6e7df" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" BorderBrush="#ddd" BorderThickness="0,1,0,0" Padding="20,10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Foreground="#888">
+                    <Run Text="Passo " /><Run Text="{Binding Step, Mode=OneWay}" /><Run Text=" de 8" />
+                </TextBlock>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Voltar" Command="{Binding BackCommand}" Margin="0,0,8,0" />
+                    <Button Content="{Binding NextText}" Command="{Binding NextCommand}" IsDefault="True" Margin="0,0,8,0" />
+                    <Button Content="Cancelar" Command="{Binding CancelCommand}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Background="#fdecea" Padding="20,8"
+                Visibility="{Binding Errors, Converter={x:Static local:NotEmptyToVisibility.Instance}}">
+            <TextBlock Text="{Binding Errors}" Foreground="#9b1c1c" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16">
+            <ContentControl Content="{Binding Current}" />
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -91,6 +91,16 @@ public class AppSettingsMergerTests
     }
 
     [Fact]
+    public void Merge_DroppedPathIsNotReportedAsNew()
+    {
+        var defaults = Obj("""{"ReverseProxy":{"Routes":{"odata":{"ClusterId":"backend"}}}}""");
+
+        var result = AppSettingsMerger.Merge(defaults, Obj("""{"Erp":"SAPB1"}"""), NoEdits, new[] { "ReverseProxy:Routes" });
+
+        Assert.Empty(result.NewKeys);
+    }
+
+    [Fact]
     public void Merge_EditNullRemovesKey()
     {
         var edits = new Dictionary<string, JsonNode?> { ["ConnectionStrings:SapDB"] = null };

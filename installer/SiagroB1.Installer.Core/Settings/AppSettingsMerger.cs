@@ -39,7 +39,10 @@ public static class AppSettingsMerger
             var defaultSet = new HashSet<string>(defaultLeaves, StringComparer.OrdinalIgnoreCase);
             var editSet = new HashSet<string>(edits.Keys, StringComparer.OrdinalIgnoreCase);
 
-            newKeys.AddRange(defaultLeaves.Where(k => !clientSet.Contains(k) && !editSet.Contains(k) && !HasAncestorLeaf(k, clientSet)));
+            // Caminho removido (ex.: rotas do YARP) sempre usa o padrão: não é "chave nova" do cliente.
+            newKeys.AddRange(defaultLeaves.Where(k =>
+                !clientSet.Contains(k) && !editSet.Contains(k) && !HasAncestorLeaf(k, clientSet)
+                && !dropPaths.Any(d => k.Equals(d, StringComparison.OrdinalIgnoreCase) || k.StartsWith(d + ":", StringComparison.OrdinalIgnoreCase))));
             obsoleteKeys.AddRange(clientLeaves.Where(k => !defaultSet.Contains(k) && !HasAncestorLeaf(k, defaultSet)));
         }
 

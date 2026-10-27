@@ -72,6 +72,11 @@ public static class ServiceSettingsMapper
             }
         }
 
+        foreach (var (path, value) in s.ServiceEdits[kind])
+        {
+            edits[path] = value?.DeepClone();
+        }
+
         return edits;
     }
 
