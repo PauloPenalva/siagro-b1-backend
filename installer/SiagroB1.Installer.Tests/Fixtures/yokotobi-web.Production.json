@@ -1,0 +1,47 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "SiagroDB": "Server=192.168.1.144,1433;Database=IDX_SIAGRO_PRD;User Id=idx;Password=***;TrustServerCertificate=True;",
+    "SiagroCommon": "Server=192.168.1.144,1433;Database=IDX_SIAGRO_COMMON;User Id=idx;Password=***;TrustServerCertificate=True;",
+    "SapCommon": "Server=192.168.1.144,1433;Database=SBO-COMMON;User Id=idx;Password=***;TrustServerCertificate=True;",
+    "SapDB": "Server=192.168.1.144,1433;Database=SBO_YOKOTOBI_PRD;User Id=idx;Password=***;TrustServerCertificate=True;"
+  },
+  "Erp": "SAPB1",
+  "SAPB1": {
+    "ServiceLayerUrl": "https://192.168.1.144:50000/b1s/v2/"
+  },
+  "CompanyName": "COMERCIO DE CEREAIS YOKOTOBI LTDA",
+  "Security": {
+    "AppBaseUrl": "http://192.168.1.144:55000",
+    "PasswordPolicy": {
+      "MinimumLength": 4,
+      "RequireLetterAndDigit": false
+    }
+  },
+  "Email": {
+    "Enabled": true,
+    "Host": "email-ssl.com.br",
+    "Port": 587,
+    "UseStartTls": true,
+    "User": "***",
+    "Password": "***",
+    "FromAddress": "***",
+    "FromName": "SIAGRO B1"
+  },
+  "Notifications": {
+    "AppBaseUrl": "http://192.168.1.144:55000",
+    "WhatsApp": {
+      "Enabled": true,
+      "BaseUrl": "https://api.plugzapi.com.br",
+      "InstanceId": "***",
+      "Token": "***",
+      "ClientToken": "***",
+      "DelayMessageSeconds": 5
+    }
+  }
+}

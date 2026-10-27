@@ -22,4 +22,8 @@
     <ProjectReference Include="..\SiagroB1.Installer.Core\SiagroB1.Installer.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

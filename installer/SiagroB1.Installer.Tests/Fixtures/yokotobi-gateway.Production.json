@@ -1,0 +1,79 @@
+{
+  "CompanyName": "COMERCIO DE CEREAIS YOKOTOBI LTDA",
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "SiagroDB": "Server=192.168.1.144,1433;Database=IDX_SIAGRO_PRD;User Id=idx;Password=***;TrustServerCertificate=True;",
+    "SiagroCommon": "Server=192.168.1.144,1433;Database=IDX_SIAGRO_COMMON;User Id=idx;Password=***;TrustServerCertificate=True;"
+  },
+  "Erp": "SAPB1",
+  "Security": {
+    "AppBaseUrl": "http://192.168.1.144:55000",
+    "PasswordPolicy": {
+      "MinimumLength": 4,
+      "RequireLetterAndDigit": false
+    }
+  },
+  "Email": {
+    "Enabled": true,
+    "Host": "email-ssl.com.br",
+    "Port": 587,
+    "UseStartTls": true,
+    "User": "***",
+    "Password": "***",
+    "FromAddress": "***",
+    "FromName": "SIAGRO B1"
+  },
+  "ReverseProxy": {
+    "Routes": {
+      "odata-metadata": {
+        "ClusterId": "backend",
+        "Match": {
+          "Path": "/odata/$metadata"
+        },
+        "AuthorizationPolicy": null
+      },
+      "odata-route": {
+        "ClusterId": "backend",
+        "Match": {
+          "Path": "/odata/{**catch-all}"
+        },
+        "AuthorizationPolicy": "AuthenticatedOnly"
+      },
+      "reports-route": {
+        "ClusterId": "reports",
+        "Match": {
+          "Path": "/reports/{**catch-all}"
+        },
+        "AuthorizationPolicy": "AuthenticatedOnly"
+      },
+      "hangfire": {
+        "ClusterId": "backend",
+        "Match": {
+          "Path": "/hangfire/{**catch-all}"
+        },
+        "AuthorizationPolicy": "AuthenticatedOnly"
+      }
+    },
+    "Clusters": {
+      "backend": {
+        "Destinations": {
+          "odata-destination": {
+            "Address": "http://localhost:55100/"
+          }
+        }
+      },
+      "reports": {
+        "Destinations": {
+          "reports-destination": {
+            "Address": "http://localhost:55200/"
+          }
+        }
+      }
+    }
+  }
+}
