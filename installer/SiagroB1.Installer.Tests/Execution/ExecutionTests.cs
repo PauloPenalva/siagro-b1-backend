@@ -128,7 +128,7 @@ public class InstallExecutorTests
 
         Assert.False(outcome.Success);
         Assert.Empty(order);
-        Assert.Equal(new[] { "stop gw", "stop rep", "start gw" }, services.Calls);
+        Assert.Equal(new[] { "stop gw", "stop rep", "start rep", "start gw" }, services.Calls);
     }
 
     [Fact]
@@ -226,6 +226,31 @@ public class CopyFilesStepTests : IDisposable
         await copy.RollbackAsync(ctx, CancellationToken.None);
 
         Assert.Equal(P("inst", "backups", "20261027-100000"), ctx.BackupDir);
+        Assert.Equal("velho", File.ReadAllText(P("inst", "Reports", "SiagroB1.Reports.exe")));
+        Assert.Equal("cliente", File.ReadAllText(P("inst", "Reports", "appsettings.Production.json")));
+    }
+
+    [Fact]
+    public async Task Rollback_LockedFile_RestoresTheRestAndNamesBackup()
+    {
+        Write(P("payload", "Reports", "SiagroB1.Reports.exe"), "novo");
+        Write(P("payload", "Reports", "Travada.dll"), "nova");
+        Write(P("inst", "Reports", "SiagroB1.Reports.exe"), "velho");
+        Write(P("inst", "Reports", "Travada.dll"), "velha");
+        Write(P("inst", "Reports", "appsettings.Production.json"), "cliente");
+        var ctx = Ctx();
+        await new BackupStep(() => new DateTime(2026, 10, 27, 11, 0, 0)).ExecuteAsync(ctx, CancellationToken.None);
+        var copy = new CopyFilesStep();
+        await copy.ExecuteAsync(ctx, CancellationToken.None);
+        File.WriteAllText(P("inst", "Reports", "appsettings.Production.json"), "mesclado");
+
+        IOException? error;
+        using (new FileStream(P("inst", "Reports", "Travada.dll"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            error = await Assert.ThrowsAsync<IOException>(() => copy.RollbackAsync(ctx, CancellationToken.None));
+        }
+
+        Assert.Contains(P("inst", "backups", "20261027-110000"), error.Message);
         Assert.Equal("velho", File.ReadAllText(P("inst", "Reports", "SiagroB1.Reports.exe")));
         Assert.Equal("cliente", File.ReadAllText(P("inst", "Reports", "appsettings.Production.json")));
     }
@@ -333,6 +358,22 @@ public class MigrateStepTests
     {
         var ctx = InstallExecutorTests.Context("C:\\x", []);
         ctx.MigrationReport = new MigrationReport([new PendingMigrations("Common", ["M1"])]);
+        ctx.DatabaseBackupConfirmed = false;
+        var step = new MigrateStep(new MigrationRunner(new ProcessRunner(), new SqlCompanyLister(), new SqlMigrationHistory()));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => step.ExecuteAsync(ctx, CancellationToken.None));
+
+        Assert.Contains("backup do banco", ex.Message);
+    }
+}
+
+public class MigrateStepUnknownReportTests
+{
+    [Fact]
+    public async Task Migrate_UnknownPendingReport_RequiresConfirmation()
+    {
+        var ctx = InstallExecutorTests.Context(@"C:\x", []);
+        ctx.MigrationReport = null;
         ctx.DatabaseBackupConfirmed = false;
         var step = new MigrateStep(new MigrationRunner(new ProcessRunner(), new SqlCompanyLister(), new SqlMigrationHistory()));
 

@@ -94,8 +94,21 @@ public sealed class CopyFilesStep : IInstallStep
         return Task.CompletedTask;
     }
 
+    private static void Try(List<string> failures, string relative, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            failures.Add(relative);
+        }
+    }
+
     public Task RollbackAsync(InstallContext ctx, CancellationToken ct)
     {
+        var failures = new List<string>();
         foreach (var service in ctx.TargetServices)
         {
             var target = ctx.ServiceDir(service);
@@ -114,15 +127,36 @@ public sealed class CopyFilesStep : IInstallStep
                 continue;
             }
             ctx.Log.Report($"Restaurando {service.Kind} do backup...");
-            foreach (var file in Directory.EnumerateFiles(target, "*", SearchOption.AllDirectories))
+            // Arquivo a arquivo e sem parar no primeiro erro: um arquivo travado não pode deixar o
+            // resto da pasta apagado.
+            var fromBackup = new HashSet<string>(
+                Directory.EnumerateFiles(backup, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(backup, f)),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Directory.EnumerateFiles(target, "*", SearchOption.AllDirectories).ToList())
             {
                 var relative = Path.GetRelativePath(target, file);
-                if (!relative.StartsWith(ClientFiles.LogsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                if (!fromBackup.Contains(relative)
+                    && !relative.StartsWith(ClientFiles.LogsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 {
-                    File.Delete(file);
+                    Try(failures, relative, () => File.Delete(file));
                 }
             }
-            ClientFiles.CopyDirectory(backup, target);
+            foreach (var relative in fromBackup)
+            {
+                var destination = Path.Combine(target, relative);
+                Try(failures, relative, () =>
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    File.Copy(Path.Combine(backup, relative), destination, overwrite: true);
+                });
+            }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw new IOException(
+                $"Não foi possível restaurar {failures.Count} arquivo(s) ({string.Join(", ", failures.Take(5))}). " +
+                $"Copie manualmente do backup em {ctx.BackupDir} com os serviços parados.");
         }
         return Task.CompletedTask;
     }

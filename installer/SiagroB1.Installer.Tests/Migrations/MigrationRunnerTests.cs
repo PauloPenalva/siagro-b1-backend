@@ -141,6 +141,29 @@ public class MigrationRunnerTests : IDisposable
         Assert.DoesNotContain(lines, l => l.Contains("segredo1") || l.Contains("ddlpwd"));
     }
 
+    private sealed class FailingCompanies : ICompanyLister
+    {
+        public async Task<IReadOnlyList<CompanyDatabase>> ListAsync(string commonConnectionString, CancellationToken ct)
+        {
+            // SqlException de verdade (porta fechada), como uma falha de login/permissão/timeout.
+            await using var connection = new Microsoft.Data.SqlClient.SqlConnection("Server=127.0.0.1,1;Connect Timeout=1;TrustServerCertificate=True");
+            await connection.OpenAsync(ct);
+            return [];
+        }
+    }
+
+    [Fact]
+    public async Task Apply_CompanyListingFails_DoesNotFallBackToDefault()
+    {
+        var runner = new FakeRunner();
+        Log(out var log);
+
+        await Assert.ThrowsAsync<Microsoft.Data.SqlClient.SqlException>(() =>
+            Runner(runner, new FailingCompanies()).ApplyAsync(Request(), log, CancellationToken.None));
+
+        Assert.DoesNotContain(runner.Calls, c => c.Args[1].Contains("EMP_PADRAO"));
+    }
+
     [Fact]
     public async Task ListPending_DiffsHistory()
     {

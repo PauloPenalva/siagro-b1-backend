@@ -21,7 +21,8 @@ public sealed class MigrateStep(MigrationRunner runner) : IInstallStep
 
     public async Task ExecuteAsync(InstallContext ctx, CancellationToken ct)
     {
-        if (ctx.MigrationReport?.HasPending == true && !ctx.DatabaseBackupConfirmed)
+        // Sem relatório (a verificação falhou) conta como pendente: não dá para afirmar que nada muda.
+        if (ctx.MigrationReport?.HasPending != false && !ctx.DatabaseBackupConfirmed)
         {
             throw new InvalidOperationException("Há atualizações de banco pendentes e não foi confirmado o backup do banco de dados.");
         }

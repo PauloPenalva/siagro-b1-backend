@@ -31,8 +31,10 @@ public sealed class StopServicesStep(IServiceManager services) : IInstallStep
                 continue;
             }
             ctx.Log.Report($"Parando {service.ServiceName}...");
-            await services.StopAsync(service.ServiceName, ServiceOrder.Timeout, ct);
+            // Entra na lista antes: se estourar o tempo, ele pode terminar de parar depois e
+            // precisa ser religado no rollback (StartAsync ignora quem já está rodando).
             _stopped.Add(service.ServiceName);
+            await services.StopAsync(service.ServiceName, ServiceOrder.Timeout, ct);
         }
     }
 

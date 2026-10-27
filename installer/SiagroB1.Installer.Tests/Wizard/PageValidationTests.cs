@@ -223,6 +223,16 @@ public class PageValidationTests : IDisposable
     }
 
     [Fact]
+    public void Summary_UnknownPendingMigrations_RequiresDbBackupCheckbox()
+    {
+        var state = State();
+        state.MigrationReport = null;
+        var vm = new SummaryPageViewModel(state, Services());
+
+        Assert.Contains("Confirme que foi feito o backup do banco de dados.", vm.Validate());
+    }
+
+    [Fact]
     public void Summary_MasksSecrets()
     {
         var state = State();

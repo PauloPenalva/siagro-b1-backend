@@ -85,15 +85,9 @@ public sealed class MigrationRunner(IProcessRunner runner, ICompanyLister compan
 
     private async Task<IReadOnlyList<CompanyDatabase>> Targets(MigrationRequest request, CancellationToken ct)
     {
-        IReadOnlyList<CompanyDatabase> list;
-        try
-        {
-            list = await companies.ListAsync(WithDdlUser(request.CommonConnectionString, request), ct);
-        }
-        catch (SqlException)
-        {
-            list = [];
-        }
+        // Erro aqui (login, permissão, timeout) sobe: cair na empresa padrão deixaria as outras
+        // empresas sem migration e o Web recusaria subir. COMPANIES inexistente já volta vazio.
+        var list = await companies.ListAsync(WithDdlUser(request.CommonConnectionString, request), ct);
 
         // Banco sem empresa cadastrada: o Gateway cria a empresa padrão com ConnectionStrings:SiagroDB.
         if (list.Count == 0)

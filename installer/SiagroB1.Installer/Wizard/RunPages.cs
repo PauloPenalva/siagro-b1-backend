@@ -16,7 +16,8 @@ public sealed class SummaryPageViewModel(WizardState state, WizardServices servi
 
     public ObservableCollection<string> Lines { get; } = [];
     public string MigrationStatus { get => _migrationStatus; private set => Set(ref _migrationStatus, value); }
-    public bool HasPendingMigrations => State.MigrationReport?.HasPending == true;
+    // Sem relatório (verificação falhou ou ainda não rodou) conta como pendente.
+    public bool HasPendingMigrations => State.MigrationReport?.HasPending != false;
 
     public bool DatabaseBackupConfirmed
     {
@@ -45,6 +46,7 @@ public sealed class SummaryPageViewModel(WizardState state, WizardServices servi
         }
         catch (Exception ex) when (ex is SqlException or InvalidOperationException or IOException)
         {
+            State.MigrationReport = null;
             MigrationStatus = $"Não foi possível verificar os bancos: {SecretMasker.MaskText(ex.Message)}";
         }
         OnPropertyChanged(nameof(HasPendingMigrations));
