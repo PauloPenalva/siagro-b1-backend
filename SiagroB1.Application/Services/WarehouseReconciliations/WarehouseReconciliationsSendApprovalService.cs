@@ -28,8 +28,11 @@ public class WarehouseReconciliationsSendApprovalService(
         if (r.Difference == decimal.Zero)
             throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_ZERO_DIFFERENCE"].Value);
 
-        // Revisão 17/09 (spec §9): só perda, e a distribuição entre liberações precisa fechar.
-        await guard.EnsureLossDistributionAsync(r);
+        // Perda: a distribuição entre liberações precisa fechar (spec §9). Sobra (GAC-1210): sem distribuição.
+        if (r.Difference > decimal.Zero)
+            await guard.DiscardDistributionAsync(r);
+        else
+            await guard.EnsureLossDistributionAsync(r);
 
         r.Status = WarehouseReconciliationStatus.InApproval;
         r.SentAt = DateTime.Now;

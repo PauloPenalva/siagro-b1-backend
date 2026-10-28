@@ -57,6 +57,12 @@ public class WarehouseReconciliationsApprovalService(
         if (r.Difference == decimal.Zero)
             throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_ZERO_DIFFERENCE"].Value);
 
+        if (r.Difference > decimal.Zero)
+        {
+            await ApproveGainAsync(r, comments, userName);
+            return;
+        }
+
         var lines = await guard.EnsureLossDistributionAsync(r);
 
         var releaseKeys = lines.Select(l => l.ShipmentReleaseKey).ToList();
@@ -134,6 +140,55 @@ public class WarehouseReconciliationsApprovalService(
 
         foreach (var releaseKey in releases.Keys)
             await recalcShipped.RecalculateAsync(releaseKey);
+    }
+
+    /// <summary>
+    /// Sobra (GAC-1210): um romaneio Sobra(14) solto — sem contrato, sem liberação —, que só soma no saldo
+    /// do armazém. Cancelar segue o caminho de romaneio único (<see cref="WarehouseReconciliation.StorageTransactionKey"/>).
+    /// </summary>
+    private async Task ApproveGainAsync(WarehouseReconciliation r, string? comments, string userName)
+    {
+        await guard.DiscardDistributionAsync(r);
+
+        try
+        {
+            await db.BeginTransactionAsync();
+
+            var gain = new StorageTransaction
+            {
+                TransactionDate = r.ReferenceDate,
+                TransactionStatus = StorageTransactionsStatus.Confirmed,
+                TransactionType = StorageTransactionType.WarehouseGain,
+                GrossWeight = r.Difference,
+                NetWeight = r.Difference,
+                AvaiableVolumeToAllocate = decimal.Zero,
+                BranchCode = r.BranchCode,
+                CardCode = r.CardCode ?? r.WarehouseCode,
+                ItemCode = r.ItemCode,
+                UnitOfMeasureCode = r.UnitOfMeasureCode,
+                WarehouseCode = r.WarehouseCode,
+                StorageAddressCode = null,
+                Comments = $"Conferência de saldo de armazém {r.Code}",
+            };
+            await storageCreate.ExecuteAsync(gain, userName, TransactionCode.WarehouseReconciliation, CommitMode.Deferred);
+
+            r.StorageTransactionKey = gain.Key;
+            r.Status = WarehouseReconciliationStatus.Approved;
+            r.ApprovalComments = comments;
+            r.ApprovedAt = DateTime.Now;
+            r.ApprovedBy = userName;
+            r.UpdatedAt = DateTime.Now;
+            r.UpdatedBy = userName;
+
+            await db.SaveChangesAsync();
+            await db.CommitAsync();
+        }
+        catch (Exception e)
+        {
+            await db.RollbackAsync();
+            logger.LogError(e, e.Message);
+            throw new DefaultException($"Erro ao aprovar a conferência de saldo: {e.Message}");
+        }
     }
 
     private static StorageTransaction NewTransaction(

@@ -1,3 +1,4 @@
+using SiagroB1.Infra.Enums;
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -224,16 +225,48 @@ public class WarehouseReconciliationsApprovalFlowTests
     }
 
     [Fact]
-    public async Task Approval_refuses_a_gain()
+    public async Task Gain_is_sent_and_approved_as_a_single_warehouse_gain_without_releases()
+    {
+        // GAC-1210: carga recusada que volta para OUTRO armazém com peso maior — a sobra entra só
+        // no saldo do armazém, sem contrato e sem liberação.
+        var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        var r = await _ctx.CreateDraftAsync(1_010m);
+
+        await _ctx.SendApproval().ExecuteAsync(r.Key, "sender");
+        await _ctx.Approval().ExecuteAsync(r.Key, null, "approver");
+
+        var saved = await _ctx.ReloadAsync(r.Key);
+        Assert.Equal(WarehouseReconciliationStatus.Approved, saved.Status);
+        Assert.NotNull(saved.StorageTransactionKey);
+
+        var created = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .Where(x => x.TransactionOrigin == TransactionCode.WarehouseReconciliation).ToListAsync();
+        var gain = Assert.Single(created);
+        Assert.Equal(saved.StorageTransactionKey, gain.Key);
+        Assert.Equal(StorageTransactionType.WarehouseGain, gain.TransactionType);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, gain.TransactionStatus);
+        Assert.Equal(10m, gain.NetWeight);
+        Assert.Null(gain.ShipmentReleaseKey);
+        Assert.False(await _ctx.Db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.WarehouseReconciliationKey == r.Key));
+        Assert.False(await _ctx.Db.Context.PurchaseContractsAllocations.AnyAsync());
+        Assert.Equal(1_000m, (await _ctx.Db.Context.ShipmentReleases.AsNoTracking().FirstAsync(x => x.Key == release.Key)).ReleasedQuantity);
+    }
+
+    [Fact]
+    public async Task Approved_gain_can_be_cancelled()
     {
         await SeedReleaseAsync(1_000m, Today.AddDays(-30));
-        var r = await _ctx.SeedWithStatusAsync(WarehouseReconciliationStatus.InApproval, Today, difference: 10m);
-        r.ReportedBalance = 1_010m;
-        await _ctx.Db.Context.SaveChangesAsync();
+        var r = await _ctx.CreateDraftAsync(1_010m);
+        await _ctx.SendApproval().ExecuteAsync(r.Key, "sender");
+        await _ctx.Approval().ExecuteAsync(r.Key, null, "approver");
 
-        var ex = await Assert.ThrowsAsync<ApplicationException>(() => _ctx.Approval().ExecuteAsync(r.Key, null, "approver"));
+        await _ctx.Cancel().ExecuteAsync(r.Key, "erro", "user");
 
-        Assert.Equal("WAREHOUSE_RECONCILIATION_ONLY_LOSS", ex.Message);
+        Assert.Equal(WarehouseReconciliationStatus.Cancelled, (await _ctx.ReloadAsync(r.Key)).Status);
+        Assert.All(
+            await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+                .Where(x => x.TransactionOrigin == TransactionCode.WarehouseReconciliation).ToListAsync(),
+            x => Assert.Equal(StorageTransactionsStatus.Cancelled, x.TransactionStatus));
     }
 
     [Fact]
