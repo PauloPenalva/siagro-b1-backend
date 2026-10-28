@@ -88,6 +88,19 @@ public class WarehouseReconciliationsGuardService(
     private const decimal Tolerance = 0.001m;
 
     /// <summary>
+    /// Sobra (GAC-1210): não se distribui em liberação — entra só no saldo do armazém como um romaneio
+    /// Sobra(14) solto. Uma distribuição que sobrou de quando o rascunho era perda é descartada, para o
+    /// cancelamento seguir o caminho do romaneio único.
+    /// </summary>
+    public async Task DiscardDistributionAsync(WarehouseReconciliation r)
+    {
+        var stale = await db.Context.WarehouseReconciliationReleases
+            .Where(x => x.WarehouseReconciliationKey == r.Key)
+            .ToListAsync();
+        db.Context.WarehouseReconciliationReleases.RemoveRange(stale);
+    }
+
+    /// <summary>
     /// Regras da distribuição da perda (spec §9.4), sobre o snapshot JÁ recalculado. Devolve as linhas
     /// rastreadas para a aprovação gravar as chaves dos romaneios nelas.
     /// </summary>
