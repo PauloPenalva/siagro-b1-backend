@@ -1827,6 +1827,10 @@ public static class ODataConfigurations
         shipmentLoadsGetPendingRefusal.Parameter<Guid>("Key");
         shipmentLoadsGetPendingRefusal.ReturnsCollection<ShipmentLoadPendingRefusalReturnDto>();
 
+        var shipmentLoadsGetPurchaseLegs = modelBuilder.Function("ShipmentLoadsGetPurchaseLegs");
+        shipmentLoadsGetPurchaseLegs.Parameter<Guid>("Key");
+        shipmentLoadsGetPurchaseLegs.ReturnsCollection<ShipmentLoadPurchaseLegDto>();
+
         var salesShipmentReleasesCancelation = modelBuilder.Action("SalesShipmentReleasesCancelation");
         salesShipmentReleasesCancelation.Parameter<Guid>("Key");
         salesShipmentReleasesCancelation.Parameter<string>("CancellationReason");
