@@ -22,8 +22,8 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
                 Enabled = x.Enabled,
             })
             .AsNoTracking()
-            .Where(x => x.ItmsGrpCod == 105 && 
-                        x.Enabled != null  && 
+            // GAC-1209: só o campo U_YKT_Integra_Siagro decide o que integra (feijão está em outro grupo)
+            .Where(x => x.Enabled != null  &&
                         x.Enabled.ToUpper() == "SIM");
     }
     
@@ -46,8 +46,7 @@ public class ItemService(SapErpDbContext context, ILogger<ItemService> logger, I
                     Enabled = x.Enabled,
                 })
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.ItemCode == code && 
-                                          x.ItmsGrpCod == 105 &&
+                .FirstOrDefaultAsync(x => x.ItemCode == code &&
                                           x.Enabled != null &&
                                           x.Enabled.ToUpper() == "SIM");
         }
