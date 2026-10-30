@@ -11,11 +11,11 @@ public class StorageAddressesTechnicalLossCalculatorService(
     DocNumberSequenceService numberSequenceService
     )
 {
-     public async Task CalculateAsync(DateTime processingDate, CancellationToken ct = default)
+     public async Task CalculateAsync(DateTime processingDate, CancellationToken ct = default, string? storageAddressCode = null)
     {
         var addresses = await db.Context.StorageAddresses
             .Include(x => x.ProcessingCost)
-            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate))
+            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate, storageAddressCode))
             .Where(x =>
                 x.ProcessingCostCode != null &&
                 // Lote de transbordo é mercadoria de passagem: não fica armazenado a ponto de

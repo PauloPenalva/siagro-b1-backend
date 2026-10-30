@@ -7,10 +7,10 @@ namespace SiagroB1.Application.Services.StorageAddresses;
 
 public class StorageAddressesDailyBalanceBuilderService(IUnitOfWork db)
 {
-     public async Task BuildAsync(DateTime date, CancellationToken ct = default)
+     public async Task BuildAsync(DateTime date, CancellationToken ct = default, string? storageAddressCode = null)
     {
         var addresses = await db.Context.StorageAddresses
-            .Where(StorageAddressCalculationScope.CalculatedOn(date))
+            .Where(StorageAddressCalculationScope.CalculatedOn(date, storageAddressCode))
             .ToListAsync(ct);
 
         foreach (var address in addresses)
