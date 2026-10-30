@@ -112,9 +112,12 @@ public class WarehouseReconciliationReleaseBalanceService(IUnitOfWork db)
                     CurrentBalance = isCompleted ? decimal.Zero : decimal.Round(current, 3, MidpointRounding.ToEven),
                     CanReceiveLoss = r.Status == ReleaseStatus.Actived && current > decimal.Zero &&
                         (ReleaseOriginRules.ShipsWithoutPurchaseLeg(r.Origin) || r.ContractStatus != ContractStatus.Finished),
+                    CanReceiveGain = r.ContractStatus != ContractStatus.Finished,
                 };
             })
-            .Where(x => x.BalanceAtReferenceDate > decimal.Zero)
+            // Sem saldo na data a liberação só aparece para receber Sobra (GAC-1210); no saldo do
+            // sistema ela soma zero, então incluí-la não muda a conferência.
+            .Where(x => x.BalanceAtReferenceDate > decimal.Zero || x.CanReceiveGain)
             .OrderBy(x => x.ReleaseDate)
             .ThenBy(x => x.PurchaseContractCode)
             .ToList();

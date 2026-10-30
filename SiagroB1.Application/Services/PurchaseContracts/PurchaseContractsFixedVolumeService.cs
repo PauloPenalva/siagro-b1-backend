@@ -64,7 +64,8 @@ public class PurchaseContractsFixedVolumeService(AppDbContext context)
     {
         var total = await context.ShipmentReleases
             .Where(r => r.PurchaseContractKey == contractKey &&
-                        r.Origin != ReleaseOrigin.SalesReturn)
+                        r.Origin != ReleaseOrigin.SalesReturn &&
+                        r.Origin != ReleaseOrigin.WarehouseGain)
             .SumAsync(r => r.ShippedQuantity);
 
         return decimal.Round(total, 3, MidpointRounding.ToEven);

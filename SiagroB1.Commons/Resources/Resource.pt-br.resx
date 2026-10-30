@@ -294,6 +294,12 @@
     <data name="WAREHOUSE_RECONCILIATION_ATTACHMENTS_LOCKED" xml:space="preserve">
         <value>Anexos só podem ser incluídos ou removidos enquanto a conferência está em rascunho ou em aprovação.</value>
     </data>
+    <data name="WAREHOUSE_RECONCILIATION_ONLY_GAIN" xml:space="preserve">
+        <value>A distribuição de sobra exige que o saldo informado seja maior que o saldo do sistema.</value>
+    </data>
+    <data name="WAREHOUSE_RECONCILIATION_GAIN_RELEASE_SHIPPED" xml:space="preserve">
+        <value>A liberação de sobra gerada por esta conferência já teve embarque. Estorne os embarques antes de cancelar.</value>
+    </data>
     <data name="WAREHOUSE_RECONCILIATION_ONLY_LOSS" xml:space="preserve">
         <value>A conferência de saldo aceita apenas perda: o saldo informado precisa ser menor que o saldo do sistema.</value>
     </data>

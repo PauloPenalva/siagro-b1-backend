@@ -224,41 +224,93 @@ public class WarehouseReconciliationsApprovalFlowTests
         Assert.Equal("WAREHOUSE_RECONCILIATION_RELEASE_INSUFFICIENT_BALANCE", ex.Message);
     }
 
+    /// <summary>
+    /// GAC-1210 (30/10): a sobra vira uma liberação Sobra NOVA no contrato da liberação escolhida —
+    /// é a porta de saída para a Expedição — e o romaneio Sobra(14) credita o armazém.
+    /// </summary>
     [Fact]
-    public async Task Gain_is_sent_and_approved_as_a_single_warehouse_gain_without_releases()
+    public async Task Approving_a_gain_creates_a_warehouse_gain_release_on_the_chosen_contract()
     {
-        // GAC-1210: carga recusada que volta para OUTRO armazém com peso maior — a sobra entra só
-        // no saldo do armazém, sem contrato e sem liberação.
         var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
-        var r = await _ctx.CreateDraftAsync(1_010m);
+        var referenceDate = Today.AddDays(-2);
 
-        await _ctx.SendApproval().ExecuteAsync(r.Key, "sender");
-        await _ctx.Approval().ExecuteAsync(r.Key, null, "approver");
+        var r = await _ctx.CreateApprovedAsync(1_010m, referenceDate, (release, 10m));
 
         var saved = await _ctx.ReloadAsync(r.Key);
         Assert.Equal(WarehouseReconciliationStatus.Approved, saved.Status);
-        Assert.NotNull(saved.StorageTransactionKey);
+        Assert.Null(saved.StorageTransactionKey);
 
-        var created = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
-            .Where(x => x.TransactionOrigin == TransactionCode.WarehouseReconciliation).ToListAsync();
-        var gain = Assert.Single(created);
-        Assert.Equal(saved.StorageTransactionKey, gain.Key);
+        var line = await _ctx.Db.Context.WarehouseReconciliationReleases.AsNoTracking()
+            .SingleAsync(x => x.WarehouseReconciliationKey == r.Key);
+        Assert.Null(line.PurchaseStorageTransactionKey);
+        var gain = await _ctx.Db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == line.LossStorageTransactionKey);
         Assert.Equal(StorageTransactionType.WarehouseGain, gain.TransactionType);
         Assert.Equal(StorageTransactionsStatus.Confirmed, gain.TransactionStatus);
+        Assert.Equal(TransactionCode.WarehouseReconciliation, gain.TransactionOrigin);
         Assert.Equal(10m, gain.NetWeight);
+        Assert.Equal(referenceDate, gain.TransactionDate);
         Assert.Null(gain.ShipmentReleaseKey);
-        Assert.False(await _ctx.Db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.WarehouseReconciliationKey == r.Key));
+
+        var created = await _ctx.Db.Context.ShipmentReleases.AsNoTracking()
+            .SingleAsync(x => x.GeneratedByStorageTransactionKey == gain.Key);
+        Assert.Equal(ReleaseOrigin.WarehouseGain, created.Origin);
+        Assert.Equal(ReleaseStatus.Actived, created.Status);
+        Assert.Equal(release.PurchaseContractKey, created.PurchaseContractKey);
+        Assert.Equal(10m, created.ReleasedQuantity);
+        Assert.Equal(0m, created.ShippedQuantity);
+        Assert.Equal(WarehouseReconciliationsTestContext.ThirdPartyWarehouse, created.DeliveryLocationCode);
+        Assert.Equal(referenceDate, created.ReleaseDate);
+        Assert.Null(created.StorageAddressCode);
+
+        // A liberação escolhida não muda e o contrato do produtor não recebe alocação.
+        Assert.Equal(1_000m, (await _ctx.ReloadReleaseAsync(release.Key)).AvailableQuantity);
         Assert.False(await _ctx.Db.Context.PurchaseContractsAllocations.AnyAsync());
-        Assert.Equal(1_000m, (await _ctx.Db.Context.ShipmentReleases.AsNoTracking().FirstAsync(x => x.Key == release.Key)).ReleasedQuantity);
+
+        // A próxima conferência já enxerga a sobra no saldo do sistema.
+        var next = WarehouseReconciliationsTestContext.NewReconciliation(Guid.NewGuid(), 1_010m, Today);
+        await _ctx.Guard().RefreshSnapshotAsync(next);
+        Assert.Equal(1_010m, next.SystemBalance);
+        Assert.Equal(0m, next.Difference);
     }
 
     [Fact]
-    public async Task Approved_gain_can_be_cancelled()
+    public void Gain_release_ships_without_purchase_leg_and_does_not_consume_the_contract()
     {
-        await SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        Assert.True(ReleaseOriginRules.ShipsWithoutPurchaseLeg(ReleaseOrigin.WarehouseGain));
+        Assert.False(ReleaseOriginRules.ConsumesPurchaseContract(ReleaseOrigin.WarehouseGain));
+        Assert.False(ReleaseOriginRules.RequiresStorageAddress(ReleaseOrigin.WarehouseGain));
+    }
+
+    [Fact]
+    public async Task Sending_a_gain_refuses_when_the_distribution_does_not_match_the_difference()
+    {
+        var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
         var r = await _ctx.CreateDraftAsync(1_010m);
-        await _ctx.SendApproval().ExecuteAsync(r.Key, "sender");
-        await _ctx.Approval().ExecuteAsync(r.Key, null, "approver");
+        await _ctx.DistributeAsync(r.Key, (release, 4m));
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => _ctx.SendApproval().ExecuteAsync(r.Key, "sender"));
+
+        Assert.Equal("WAREHOUSE_RECONCILIATION_DISTRIBUTION_MISMATCH", ex.Message);
+    }
+
+    [Fact]
+    public async Task Gain_can_go_to_a_release_without_balance_today()
+    {
+        // Sobra costuma aparecer quando o armazém já embarcou tudo: a liberação está zerada hoje.
+        var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        await _ctx.SeedReleaseMovementAsync(release, StorageTransactionType.Purchase, 1_000m, Today.AddDays(-1));
+
+        var r = await _ctx.CreateApprovedAsync(1_010m, Today.AddDays(-2), (release, 10m));
+
+        Assert.Equal(WarehouseReconciliationStatus.Approved, (await _ctx.ReloadAsync(r.Key)).Status);
+    }
+
+    [Fact]
+    public async Task Approved_gain_can_be_cancelled_while_its_release_was_not_shipped()
+    {
+        var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        var r = await _ctx.CreateApprovedAsync(1_010m, Today.AddDays(-2), (release, 10m));
 
         await _ctx.Cancel().ExecuteAsync(r.Key, "erro", "user");
 
@@ -267,6 +319,24 @@ public class WarehouseReconciliationsApprovalFlowTests
             await _ctx.Db.Context.StorageTransactions.AsNoTracking()
                 .Where(x => x.TransactionOrigin == TransactionCode.WarehouseReconciliation).ToListAsync(),
             x => Assert.Equal(StorageTransactionsStatus.Cancelled, x.TransactionStatus));
+        var created = await _ctx.Db.Context.ShipmentReleases.AsNoTracking()
+            .SingleAsync(x => x.Origin == ReleaseOrigin.WarehouseGain);
+        Assert.Equal(ReleaseStatus.Cancelled, created.Status);
+    }
+
+    [Fact]
+    public async Task Approved_gain_cannot_be_cancelled_after_its_release_shipped()
+    {
+        var release = await SeedReleaseAsync(1_000m, Today.AddDays(-30));
+        var r = await _ctx.CreateApprovedAsync(1_010m, Today.AddDays(-2), (release, 10m));
+        var created = await _ctx.Db.Context.ShipmentReleases
+            .SingleAsync(x => x.Origin == ReleaseOrigin.WarehouseGain);
+        created.ShippedQuantity = 5m;
+        await _ctx.Db.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ApplicationException>(() => _ctx.Cancel().ExecuteAsync(r.Key, "erro", "user"));
+
+        Assert.Equal("WAREHOUSE_RECONCILIATION_GAIN_RELEASE_SHIPPED", ex.Message);
     }
 
     [Fact]

@@ -27,10 +27,11 @@ public static class ReleaseOriginRules
     /// A liberação desconta volume do contrato de compra. Falso em
     /// <see cref="ReleaseOrigin.SalesReturn"/> e <see cref="ReleaseOrigin.Transshipment"/>: nas
     /// duas, aquele volume já foi debitado do contrato quando a mercadoria saiu pela primeira vez,
-    /// e contá-lo de novo duplicaria o liberado.
+    /// e contá-lo de novo duplicaria o liberado. Falso também em
+    /// <see cref="ReleaseOrigin.WarehouseGain"/>: a sobra é grão da empresa, que o contrato nunca comprou.
     /// </summary>
     public static bool ConsumesPurchaseContract(ReleaseOrigin origin) =>
-        origin is not (ReleaseOrigin.SalesReturn or ReleaseOrigin.Transshipment);
+        origin is not (ReleaseOrigin.SalesReturn or ReleaseOrigin.Transshipment or ReleaseOrigin.WarehouseGain);
 
     /// <summary>
     /// A liberação nasce de um lote de armazenagem próprio e o embarque precisa drená-lo — sem

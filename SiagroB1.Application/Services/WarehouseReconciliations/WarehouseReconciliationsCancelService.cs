@@ -122,7 +122,29 @@ public class WarehouseReconciliationsCancelService(
             }
 
             if (line.LossStorageTransactionKey is Guid lossKey)
+            {
                 await MarkCancelledAsync(lossKey, userName);
+                await CancelGainReleaseAsync(lossKey, userName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sobra (GAC-1210): cancela a liberação Sobra gerada pela linha. A trava de embarque roda antes,
+    /// em <see cref="EnsureApprovedCanBeUndoneAsync"/>. Na perda não há liberação gerada — é no-op.
+    /// </summary>
+    private async Task CancelGainReleaseAsync(Guid gainKey, string userName)
+    {
+        var releases = await db.Context.ShipmentReleases
+            .Where(x => x.GeneratedByStorageTransactionKey == gainKey &&
+                        x.Origin == ReleaseOrigin.WarehouseGain)
+            .ToListAsync();
+
+        foreach (var release in releases)
+        {
+            release.Status = ReleaseStatus.Cancelled;
+            release.UpdatedAt = DateTime.Now;
+            release.UpdatedBy = userName;
         }
     }
 
@@ -150,6 +172,17 @@ public class WarehouseReconciliationsCancelService(
 
         if (latestKey != r.Key)
             throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_NOT_LATEST"].Value);
+
+        // Sobra (GAC-1210): a liberação Sobra que já embarcou não pode sumir — o grão saiu do armazém.
+        var gainKeys = lines.Where(x => x.LossStorageTransactionKey != null)
+            .Select(x => x.LossStorageTransactionKey!.Value).ToList();
+        if (gainKeys.Count > 0 &&
+            await db.Context.ShipmentReleases.AsNoTracking().AnyAsync(x =>
+                x.Origin == ReleaseOrigin.WarehouseGain &&
+                x.GeneratedByStorageTransactionKey != null &&
+                gainKeys.Contains(x.GeneratedByStorageTransactionKey.Value) &&
+                x.ShippedQuantity != decimal.Zero))
+            throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_GAIN_RELEASE_SHIPPED"].Value);
 
         // Legado (antes da revisão de 17/09/2026): sem linha de distribuição, "Difference > 0" é
         // uma SOBRA aprovada pela regra pré-revisão. Cancelá-la tira grão do saldo — não pode
