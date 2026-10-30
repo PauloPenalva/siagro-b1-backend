@@ -143,36 +143,61 @@ public class WarehouseReconciliationsApprovalService(
     }
 
     /// <summary>
-    /// Sobra (GAC-1210): um romaneio Sobra(14) solto — sem contrato, sem liberação —, que só soma no saldo
-    /// do armazém. Cancelar segue o caminho de romaneio único (<see cref="WarehouseReconciliation.StorageTransactionKey"/>).
+    /// Sobra (GAC-1210, revisão de 30/10/2026): por linha da distribuição, um romaneio Sobra(14) que
+    /// credita o armazém e uma liberação <see cref="ReleaseOrigin.WarehouseGain"/> no contrato da
+    /// liberação escolhida — a porta de saída para a Expedição, que embarca sem perna de compra.
+    /// Sem ela a sobra ficava presa: a Expedição e o saldo do sistema da conferência só enxergam
+    /// liberações. A liberação é achada depois por <see cref="ShipmentRelease.GeneratedByStorageTransactionKey"/>.
     /// </summary>
     private async Task ApproveGainAsync(WarehouseReconciliation r, string? comments, string userName)
     {
-        await guard.DiscardDistributionAsync(r);
+        var lines = await guard.EnsureGainDistributionAsync(r);
+
+        var releaseKeys = lines.Select(l => l.ShipmentReleaseKey).ToList();
+        var sources = await db.Context.ShipmentReleases
+            .AsNoTracking()
+            .Where(x => releaseKeys.Contains(x.Key))
+            .Select(x => new { x.Key, x.PurchaseContractKey, x.DeliveryLocationName })
+            .ToDictionaryAsync(x => x.Key);
 
         try
         {
             await db.BeginTransactionAsync();
 
-            var gain = new StorageTransaction
+            foreach (var line in lines)
             {
-                TransactionDate = r.ReferenceDate,
-                TransactionStatus = StorageTransactionsStatus.Confirmed,
-                TransactionType = StorageTransactionType.WarehouseGain,
-                GrossWeight = r.Difference,
-                NetWeight = r.Difference,
-                AvaiableVolumeToAllocate = decimal.Zero,
-                BranchCode = r.BranchCode,
-                CardCode = r.CardCode ?? r.WarehouseCode,
-                ItemCode = r.ItemCode,
-                UnitOfMeasureCode = r.UnitOfMeasureCode,
-                WarehouseCode = r.WarehouseCode,
-                StorageAddressCode = null,
-                Comments = $"Conferência de saldo de armazém {r.Code}",
-            };
-            await storageCreate.ExecuteAsync(gain, userName, TransactionCode.WarehouseReconciliation, CommitMode.Deferred);
+                var source = sources[line.ShipmentReleaseKey];
 
-            r.StorageTransactionKey = gain.Key;
+                var gain = NewTransaction(r, line, StorageTransactionType.WarehouseGain, r.CardCode ?? r.WarehouseCode);
+                gain.TransactionStatus = StorageTransactionsStatus.Confirmed;
+                // A Sobra(14) é entrada em nível de armazém: não consome nem devolve liberação.
+                gain.ShipmentReleaseKey = null;
+                await storageCreate.ExecuteAsync(gain, userName, TransactionCode.WarehouseReconciliation, CommitMode.Deferred);
+                line.LossStorageTransactionKey = gain.Key;
+
+                db.Context.ShipmentReleases.Add(new ShipmentRelease
+                {
+                    Key = Guid.NewGuid(),
+                    PurchaseContractKey = source.PurchaseContractKey,
+                    BranchCode = r.BranchCode,
+                    ReleaseDate = r.ReferenceDate,
+                    ReleasedQuantity = line.Quantity,
+                    ShippedQuantity = decimal.Zero,
+                    DeliveryLocationCode = r.WarehouseCode,
+                    DeliveryLocationName = source.DeliveryLocationName,
+                    StorageAddressCode = null,
+                    Status = ReleaseStatus.Actived,
+                    ApprovedAt = DateTime.Now,
+                    ApprovedBy = userName,
+                    Origin = ReleaseOrigin.WarehouseGain,
+                    GeneratedByStorageTransactionKey = gain.Key,
+                    Comments = $"Liberação gerada pela sobra da conferência de saldo de armazém {r.Code}. " +
+                               "A mercadoria já está no armazém: o embarque desta liberação não debita o contrato.",
+                    CreatedAt = DateTime.Now,
+                    CreatedBy = userName,
+                });
+            }
+
             r.Status = WarehouseReconciliationStatus.Approved;
             r.ApprovalComments = comments;
             r.ApprovedAt = DateTime.Now;

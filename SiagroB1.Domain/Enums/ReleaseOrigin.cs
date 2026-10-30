@@ -47,4 +47,17 @@ public enum ReleaseOrigin
     /// contá-lo de novo duplicaria o liberado — mesma razão da <see cref="SalesReturn"/>.
     /// </remarks>
     Transshipment = 3,
+
+    /// <summary>
+    /// Emitida pela aprovação de uma Conferência de Saldo de Armazém com SOBRA (GAC-1210): o armazém
+    /// de terceiros informou mais grão do que o sistema tinha, e esta liberação é a porta de saída
+    /// dele, no contrato escolhido na distribuição. O físico entrou pelo romaneio
+    /// <see cref="StorageTransactionType.WarehouseGain"/>.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ <b>Não consome o contrato de compra.</b> A sobra é grão da empresa, não do produtor: o
+    /// embarque não pode gerar a Compra(8) nem contar como entregue — mesma razão da
+    /// <see cref="SalesReturn"/>.
+    /// </remarks>
+    WarehouseGain = 4,
 }

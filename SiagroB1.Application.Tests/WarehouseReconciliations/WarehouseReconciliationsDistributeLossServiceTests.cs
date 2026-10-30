@@ -71,23 +71,6 @@ public class WarehouseReconciliationsDistributeLossServiceTests
     }
 
     [Fact]
-    public async Task Send_of_a_gain_discards_a_stale_loss_distribution()
-    {
-        // GAC-1210: a sobra não se distribui; uma distribuição que sobrou de quando era perda é descartada.
-        var release = await _ctx.SeedReleaseAsync(1_000m, Today.AddDays(-30));
-        var r = await _ctx.CreateDraftAsync(900m);
-        await _ctx.DistributeAsync(r.Key, (release, 100m));
-        var draft = await _ctx.Db.Context.WarehouseReconciliations.FirstAsync(x => x.Key == r.Key);
-        draft.ReportedBalance = 1_200m;
-        await _ctx.Db.Context.SaveChangesAsync();
-
-        await _ctx.SendApproval().ExecuteAsync(r.Key, "sender");
-
-        Assert.Equal(WarehouseReconciliationStatus.InApproval, (await _ctx.ReloadAsync(r.Key)).Status);
-        Assert.False(await _ctx.Db.Context.WarehouseReconciliationReleases.AnyAsync(x => x.WarehouseReconciliationKey == r.Key));
-    }
-
-    [Fact]
     public async Task Send_refuses_a_distribution_that_does_not_close()
     {
         var release = await _ctx.SeedReleaseAsync(1_000m, Today.AddDays(-30));

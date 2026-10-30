@@ -88,16 +88,47 @@ public class WarehouseReconciliationsGuardService(
     private const decimal Tolerance = 0.001m;
 
     /// <summary>
-    /// Sobra (GAC-1210): não se distribui em liberação — entra só no saldo do armazém como um romaneio
-    /// Sobra(14) solto. Uma distribuição que sobrou de quando o rascunho era perda é descartada, para o
-    /// cancelamento seguir o caminho do romaneio único.
+    /// Regras da distribuição da SOBRA (GAC-1210, revisão de 30/10/2026): a soma fecha com a diferença,
+    /// e cada linha aponta uma liberação do armazém+produto só para escolher o CONTRATO onde nasce a
+    /// liberação Sobra. Saldo da liberação não importa (a sobra costuma aparecer com tudo embarcado);
+    /// contrato encerrado fica de fora, porque a Expedição não o oferece.
     /// </summary>
-    public async Task DiscardDistributionAsync(WarehouseReconciliation r)
+    public async Task<List<WarehouseReconciliationRelease>> EnsureGainDistributionAsync(WarehouseReconciliation r)
     {
-        var stale = await db.Context.WarehouseReconciliationReleases
+        if (r.Difference <= decimal.Zero)
+            throw Fail("WAREHOUSE_RECONCILIATION_ONLY_GAIN");
+
+        var lines = await db.Context.WarehouseReconciliationReleases
             .Where(x => x.WarehouseReconciliationKey == r.Key)
             .ToListAsync();
-        db.Context.WarehouseReconciliationReleases.RemoveRange(stale);
+
+        if (Math.Abs(lines.Sum(x => x.Quantity) - r.Difference) > Tolerance)
+            throw Fail("WAREHOUSE_RECONCILIATION_DISTRIBUTION_MISMATCH");
+
+        var keys = lines.Select(x => x.ShipmentReleaseKey).ToList();
+        var releases = await db.Context.ShipmentReleases
+            .AsNoTracking()
+            .Where(x => keys.Contains(x.Key))
+            .Select(x => new
+            {
+                x.Key, x.Status, x.DeliveryLocationCode,
+                x.PurchaseContract!.ItemCode, ContractStatus = x.PurchaseContract.Status,
+            })
+            .ToDictionaryAsync(x => x.Key);
+
+        foreach (var line in lines)
+        {
+            if (!releases.TryGetValue(line.ShipmentReleaseKey, out var release) ||
+                release.DeliveryLocationCode != r.WarehouseCode ||
+                release.ItemCode != r.ItemCode ||
+                release.Status is ReleaseStatus.Pending or ReleaseStatus.Cancelled)
+                throw Fail("WAREHOUSE_RECONCILIATION_RELEASE_NOT_ELIGIBLE");
+
+            if (release.ContractStatus == ContractStatus.Finished)
+                throw Fail("WAREHOUSE_RECONCILIATION_CONTRACT_FINISHED");
+        }
+
+        return lines;
     }
 
     /// <summary>

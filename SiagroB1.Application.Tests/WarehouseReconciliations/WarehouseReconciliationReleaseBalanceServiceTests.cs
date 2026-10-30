@@ -57,6 +57,7 @@ public class WarehouseReconciliationReleaseBalanceServiceTests
 
         Assert.Equal(8_000m, row.BalanceAtReferenceDate);
         Assert.False(row.CanReceiveLoss);
+        Assert.True(row.CanReceiveGain);
     }
 
     [Fact]
@@ -90,11 +91,25 @@ public class WarehouseReconciliationReleaseBalanceServiceTests
     }
 
     [Fact]
-    public async Task Completed_release_with_a_finalized_leftover_is_left_out()
+    public async Task Completed_release_with_a_finalized_leftover_counts_zero_and_only_receives_gain()
     {
         // ShipmentReleasesCloseService só troca o Status; não zera Released/Shipped. O saldo que
         // sobra ali já foi dado por encerrado e não pode inflar o saldo do sistema (fix round 2).
+        // Continua na lista só para escolher o contrato de uma Sobra (GAC-1210).
         await _ctx.SeedReleaseAsync(3_000m, Today.AddDays(-30), status: ReleaseStatus.Completed);
+
+        var row = Assert.Single(await _ctx.ReleaseBalance().ListAsync(Wh, Item, Today));
+
+        Assert.Equal(0m, row.BalanceAtReferenceDate);
+        Assert.False(row.CanReceiveLoss);
+        Assert.True(row.CanReceiveGain);
+    }
+
+    [Fact]
+    public async Task Release_without_balance_of_a_finished_contract_is_left_out()
+    {
+        await _ctx.SeedReleaseAsync(3_000m, Today.AddDays(-30), status: ReleaseStatus.Completed,
+            contractStatus: ContractStatus.Finished);
 
         Assert.Empty(await _ctx.ReleaseBalance().ListAsync(Wh, Item, Today));
     }
@@ -108,6 +123,7 @@ public class WarehouseReconciliationReleaseBalanceServiceTests
 
         Assert.Equal(8_000m, row.BalanceAtReferenceDate);
         Assert.False(row.CanReceiveLoss);
+        Assert.False(row.CanReceiveGain);
     }
 
     [Fact]

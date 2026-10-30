@@ -28,9 +28,9 @@ public class WarehouseReconciliationsSendApprovalService(
         if (r.Difference == decimal.Zero)
             throw new ApplicationException(resource["WAREHOUSE_RECONCILIATION_ZERO_DIFFERENCE"].Value);
 
-        // Perda: a distribuição entre liberações precisa fechar (spec §9). Sobra (GAC-1210): sem distribuição.
+        // A distribuição entre liberações precisa fechar com a diferença (spec §9; Sobra: GAC-1210).
         if (r.Difference > decimal.Zero)
-            await guard.DiscardDistributionAsync(r);
+            await guard.EnsureGainDistributionAsync(r);
         else
             await guard.EnsureLossDistributionAsync(r);
 

@@ -24,7 +24,7 @@ public class PurchaseContractsGetShipmentReleasesAvailableService(
             .Include(x => x.ShipmentReleases)
             .Where(p => p.Status == ContractStatus.Approved &&
                         (p.TotalVolume - p.WashedOutVolume - p.ShipmentReleases
-                             .Sum(x => x.Origin == ReleaseOrigin.SalesReturn
+                             .Sum(x => x.Origin == ReleaseOrigin.SalesReturn || x.Origin == ReleaseOrigin.WarehouseGain
                                  ? 0
                                  : x.Status == ReleaseStatus.Cancelled
                                      ? (x.ShippedQuantity > 0 ? x.ShippedQuantity : 0)

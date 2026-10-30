@@ -82,6 +82,7 @@ public static class LogisticsReportText
         ReleaseOrigin.OwnershipTransfer => "Transferência",
         ReleaseOrigin.SalesReturn => "Devolução",
         ReleaseOrigin.Transshipment => "Transbordo",
+        ReleaseOrigin.WarehouseGain => "Sobra",
         _ => "Compra",
     };
 

@@ -17,4 +17,10 @@ public class WarehouseReconciliationReleaseBalanceDto
     public decimal CurrentBalance { get; set; }
     /// <summary>Liberada e com saldo hoje. Pausada soma no saldo mas não recebe perda.</summary>
     public bool CanReceiveLoss { get; set; }
+
+    /// <summary>
+    /// Pode receber Sobra (GAC-1210): só escolhe o contrato onde nasce a liberação Sobra, então vale
+    /// mesmo com saldo zero — basta não estar pendente/cancelada nem em contrato encerrado.
+    /// </summary>
+    public bool CanReceiveGain { get; set; }
 }
