@@ -19,6 +19,7 @@ public class StorageTransactionsCancelService(
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException("Storage transaction not found.");
 
+        AutomaticTechnicalLossGuard.EnsureNotAutomatic(doc, "cancelado");
         await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, doc.Key);
         await StorageDepositRules.EnsureTransactionsNotReconciledAsync(db.Context, [doc.Key]);
         await StorageCustodyGuard.EnsureTransactionsHaveNoCustodyAsync(db.Context, [doc.Key]);

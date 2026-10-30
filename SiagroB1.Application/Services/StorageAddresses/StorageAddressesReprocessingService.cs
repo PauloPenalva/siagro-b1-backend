@@ -38,7 +38,7 @@ public class StorageAddressesReprocessingService(
 
         for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
         {
-            await orchestrator.ExecuteAsync(date, ct);
+            await orchestrator.ExecuteAsync(date, ct, storageAddressCode);
         }
     }
 }

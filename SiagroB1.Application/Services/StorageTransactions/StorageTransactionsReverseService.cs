@@ -25,6 +25,7 @@ public class StorageTransactionsReverseService(
             .FirstOrDefaultAsync(x => x.Key == key) ??
                   throw new NotFoundException(resource["EXCEPTION_00007"].Value);
 
+        AutomaticTechnicalLossGuard.EnsureNotAutomatic(doc, "estornado");
         await RoyaltyRules.EnsureNoActiveWriteOffAsync(db.Context, doc.Key);
         await StorageDepositRules.EnsureTransactionsNotReconciledAsync(db.Context, [doc.Key]);
         await StorageCustodyGuard.EnsureTransactionsHaveNoCustodyAsync(db.Context, [doc.Key]);

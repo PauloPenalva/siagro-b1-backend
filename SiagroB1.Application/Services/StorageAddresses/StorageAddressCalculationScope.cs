@@ -11,12 +11,17 @@ namespace SiagroB1.Application.Services.StorageAddresses;
 /// </summary>
 public static class StorageAddressCalculationScope
 {
-    public static Expression<Func<StorageAddress, bool>> CalculatedOn(DateTime processingDate)
+    /// <param name="storageAddressCode">
+    /// Restringe a um lote (GAC-18: "Reprocessar Saldo por Lote"). Nulo = todos, como no job diário.
+    /// </param>
+    public static Expression<Func<StorageAddress, bool>> CalculatedOn(
+        DateTime processingDate, string? storageAddressCode = null)
     {
         var date = processingDate.Date;
 
-        return x => x.ClosingDate != null
-            ? x.ClosingDate >= date
-            : x.Status == StorageAddressStatus.Open;
+        return x => (storageAddressCode == null || x.Code == storageAddressCode) &&
+                    (x.ClosingDate != null
+                        ? x.ClosingDate >= date
+                        : x.Status == StorageAddressStatus.Open);
     }
 }

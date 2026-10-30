@@ -7,11 +7,11 @@ namespace SiagroB1.Application.Services.StorageAddresses;
 
 public class StorageAddressesStorageChargeCalculatorService(IUnitOfWork db)
 {
-    public async Task CalculateAsync(DateTime processingDate, CancellationToken ct = default)
+    public async Task CalculateAsync(DateTime processingDate, CancellationToken ct = default, string? storageAddressCode = null)
     {
         var addresses = await db.Context.StorageAddresses
             .Include(x => x.ProcessingCost)
-            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate))
+            .Where(StorageAddressCalculationScope.CalculatedOn(processingDate, storageAddressCode))
             .Where(x =>
                 x.ProcessingCostCode != null &&
                 // Lote de transbordo guarda mercadoria de passagem, não armazenagem
