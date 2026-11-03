@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.DocNumbers;
+using SiagroB1.Application.Services.StorageTransactions;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Infra;
@@ -85,10 +86,33 @@ public class StorageAddressesTechnicalLossCalculatorService(
             if (balances.Count == 0)
                 continue;
 
-            var tonDays = balances.Sum(x => x.BillableBalance);
+            // Carência carga a carga: na data-base, uma entrada só pesa na quebra depois de
+            // cumprir a própria carência (entrada + carência dias). Em "após a última entrada"
+            // todo o lote vence junto, a partir da última carga — já garantido acima.
+            var receipts = cost.StoragePriceCalculationMethod == StoragePriceCalculationMethod.AfterFirstReceipting
+                ? await db.Context.StorageTransactions
+                    .Where(x =>
+                        x.StorageAddressCode == address.Code &&
+                        x.TransactionType == StorageTransactionType.Receipt &&
+                        (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
+                         x.TransactionStatus == StorageTransactionsStatus.Invoiced) &&
+                        x.TransactionDate <= periodEnd)
+                    .Select(x => new { x.TransactionDate, x.NetWeight })
+                    .ToListAsync(ct)
+                : [];
+
+            var tonDays = balances.Sum(b =>
+            {
+                var inGrace = receipts
+                    .Where(r => r.TransactionDate!.Value.Date <= b.BalanceDate &&
+                                r.TransactionDate.Value.Date.AddDays(graceDays) > b.BalanceDate)
+                    .Sum(r => r.NetWeight);
+                return Math.Max(0m, b.BillableBalance - inGrace);
+            });
 
             var ratePerDay = cost.TechnicalLossRate.Value / intervalDays;
-            var quantityLoss = Math.Round(tonDays * ratePerDay, 3, MidpointRounding.AwayFromZero);
+            // Quebra em kg inteiro, como os demais pesos do lote (GAC-1205).
+            var quantityLoss = WeightRounding.ToKilograms(tonDays * ratePerDay);
 
             if (quantityLoss <= 0)
                 continue;
