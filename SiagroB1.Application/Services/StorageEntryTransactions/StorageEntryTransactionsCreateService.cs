@@ -16,6 +16,13 @@ namespace SiagroB1.Application.Services.StorageEntryTransactions;
 /// Entrada de compra em armazenagem própria. Cria o par Purchase/Receipt:
 /// o Purchase baixa contrato e liberação (igual ao embarque), o Receipt alimenta
 /// o saldo do lote em nome da empresa.
+/// <para>
+/// <b>GAC-1214 — liberação cujo físico JÁ está em nosso poder</b>
+/// (<see cref="ReleaseOriginRules.ShipsWithoutPurchaseLeg"/>: devolução ao armazém, transbordo,
+/// sobra). O contrato já foi debitado e o armazém já foi creditado antes; aqui o par vira
+/// SalesShipment/Receipt, sem alocação — igual à Expedição de Grãos. O Purchase(8) baixaria o
+/// contrato de novo, creditaria o armazém de novo e não consumiria a liberação.
+/// </para>
 /// </summary>
 public class StorageEntryTransactionsCreateService(
     IUnitOfWork unitOfWork,
@@ -36,19 +43,42 @@ public class StorageEntryTransactionsCreateService(
 
         StorageEntryReceiptFactory.EnsureLotAccepts(lot, purchase);
 
+        var release = purchase.ShipmentReleaseKey.HasValue
+            ? await unitOfWork.Context.ShipmentReleases.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Key == purchase.ShipmentReleaseKey.Value)
+            : null;
+        var semPernaDeCompra = release != null && ReleaseOriginRules.ShipsWithoutPurchaseLeg(release.Origin);
+
         try
         {
             await unitOfWork.BeginTransactionAsync();
 
-            // ---- Lado da compra: idêntico ao embarque ----
-            await storageCreateService.ExecuteAsync(
-                purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
+            if (semPernaDeCompra)
+            {
+                // ---- Saída do armazém onde o grão já está (ver <summary>) ----
+                purchase.TransactionType = StorageTransactionType.SalesShipment;
+                purchase.TransactionStatus = StorageTransactionsStatus.Pending;
+                purchase.ShipmentLoadKey = null;
+                purchase.SalesInvoiceKey = null;
 
-            await storageConfirmedService.ExecuteAsync(
-                purchase, userName, CommitMode.Deferred, isShipmentTransaction: true);
+                await storageCreateService.ExecuteAsync(
+                    purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
 
-            await purchaseAllocationCreateService.ExecuteAsync(
-                purchaseContractKey, purchase, purchase.NetWeight, userName, CommitMode.Deferred);
+                await storageConfirmedService.ExecuteAsync(
+                    purchase, userName, CommitMode.Deferred, isShipmentTransaction: true);
+            }
+            else
+            {
+                // ---- Lado da compra: idêntico ao embarque ----
+                await storageCreateService.ExecuteAsync(
+                    purchase, userName, TransactionCode.StorageTransaction, CommitMode.Deferred);
+
+                await storageConfirmedService.ExecuteAsync(
+                    purchase, userName, CommitMode.Deferred, isShipmentTransaction: true);
+
+                await purchaseAllocationCreateService.ExecuteAsync(
+                    purchaseContractKey, purchase, purchase.NetWeight, userName, CommitMode.Deferred);
+            }
 
             // ---- Lado da armazenagem ----
             // Copia e converte ANTES de criar, para que CardName/WarehouseName sejam
@@ -69,7 +99,7 @@ public class StorageEntryTransactionsCreateService(
                 PurchaseContractKey = purchaseContractKey,
                 StorageAddressCode = lot.Code,
                 Status = StorageEntryTransactionStatus.Confirmed,
-                AllocatedVolume = purchase.NetWeight,
+                AllocatedVolume = semPernaDeCompra ? decimal.Zero : purchase.NetWeight,
                 ReceiptNetWeight = receipt.NetWeight,
                 CreatedBy = userName,
                 CreatedAt = DateTime.Now,
