@@ -342,14 +342,17 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
     /// <summary>
     /// Uma única recusa pode agrupar vários documentos de retorno numa única entrada de armazém
     /// (<c>ShipmentLoadsRefuseService.ReturnToWarehouseAsync</c> soma todos de uma vez). Estornar
-    /// só UM deles não pode cancelar a entrada inteira e deixar o OUTRO documento, ainda
-    /// confirmado, sem lastro de armazém.
+    /// um deles estorna JUNTO os outros da mesma recusa: antes a trava exigia que o outro já
+    /// estivesse estornado, e como cada um exigia o outro, nenhum saía (CG001844, 9639/9640).
+    /// Entrada sem lista "Documento(s)" (dado antigo): todos os retornos da carga contam.
     /// </summary>
     [Fact]
-    public async Task Reversing_a_load_return_is_refused_when_another_confirmed_return_shares_the_same_load()
+    public async Task Reversing_a_load_return_also_reverses_the_other_confirmed_return_of_the_same_refusal()
     {
         var db = TestDb.CreateUnitOfWork();
         var load = NewLoad(db);
+        load.InvoicedQuantity = 0m;
+        load.Status = ShipmentLoadStatus.Open;
 
         var (_, returnInvoice) = await SeedLoadReturnAsync(db, load);
 
@@ -368,7 +371,7 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
 
         db.Context.SalesInvoices.AddRange(otherOrigin, otherReturn);
 
-        db.Context.StorageTransactions.Add(new StorageTransaction
+        var entry = new StorageTransaction
         {
             Key = Guid.NewGuid(),
             Code = "RM000778",
@@ -382,20 +385,22 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
             TransactionType = StorageTransactionType.SalesShipmentReturn,
             TransactionStatus = StorageTransactionsStatus.Confirmed,
             RefusedFromShipmentLoadKey = load.Key,
-        });
+        };
+        db.Context.StorageTransactions.Add(entry);
 
         await db.SaveChangesAsync();
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(
-            () => Reverse(db).ExecuteAsync(returnInvoice.Key, "tester"));
+        await Reverse(db).ExecuteAsync(returnInvoice.Key, "tester");
 
-        Assert.Contains("000000602", error.Message);
+        var statuses = await db.Context.SalesInvoices.AsNoTracking()
+            .Where(x => x.Key == returnInvoice.Key || x.Key == otherReturn.Key)
+            .Select(x => x.InvoiceStatus)
+            .ToListAsync();
+        Assert.All(statuses, s => Assert.Equal(InvoiceStatus.Pending, s));
 
-        var untouched = await db.Context.SalesInvoices
-            .AsNoTracking()
-            .SingleAsync(x => x.Key == returnInvoice.Key);
-
-        Assert.Equal(InvoiceStatus.Confirmed, untouched.InvoiceStatus);
+        var reloadedEntry = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageTransactionsStatus.Cancelled, reloadedEntry.TransactionStatus);
     }
 
     /// <summary>
@@ -500,16 +505,15 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
     }
 
     /// <summary>
-    /// Dentro da MESMA recusa a trava continua: a entrada lista 601 e 701, e o retorno de 701
-    /// ainda confirmado impede estornar só o de 601. O retorno da recusa anterior (502) não
-    /// aparece na mensagem.
+    /// Dentro da MESMA recusa o estorno leva os irmãos: a entrada lista 601 e 701, estornar o
+    /// retorno de 601 estorna também o de 701. O retorno da recusa anterior (502) fica.
     /// </summary>
     [Fact]
-    public async Task Reversing_is_still_refused_when_a_sibling_return_of_the_same_refusal_is_confirmed()
+    public async Task Reversing_takes_the_sibling_of_the_same_refusal_and_leaves_the_earlier_refusal_alone()
     {
         var db = TestDb.CreateUnitOfWork();
         var load = NewLoad(db);
-        var (_, secondReturn, _) = await SeedTwoRefusalsAsync(db, load, "000000701");
+        var (firstReturn, secondReturn, entry) = await SeedTwoRefusalsAsync(db, load, "000000701");
 
         var siblingOrigin = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Returned);
         siblingOrigin.ShipmentLoadKey = load.Key;
@@ -527,11 +531,18 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
         db.Context.SalesInvoices.AddRange(siblingOrigin, siblingReturn);
         await db.SaveChangesAsync();
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(
-            () => Reverse(db).ExecuteAsync(secondReturn.Key, "tester"));
+        await Reverse(db).ExecuteAsync(secondReturn.Key, "tester");
 
-        Assert.Contains("000000702", error.Message);
-        Assert.DoesNotContain("000000502", error.Message);
+        async Task<InvoiceStatus?> StatusOf(Guid key) => await db.Context.SalesInvoices.AsNoTracking()
+            .Where(x => x.Key == key).Select(x => x.InvoiceStatus).SingleAsync();
+
+        Assert.Equal(InvoiceStatus.Pending, await StatusOf(secondReturn.Key));
+        Assert.Equal(InvoiceStatus.Pending, await StatusOf(siblingReturn.Key));
+        Assert.Equal(InvoiceStatus.Confirmed, await StatusOf(firstReturn.Key));
+
+        var reloadedEntry = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageTransactionsStatus.Cancelled, reloadedEntry.TransactionStatus);
     }
 
     /// <summary>
