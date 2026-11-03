@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text.RegularExpressions;
 using SiagroB1.Application.Services.PurchaseContracts;
 
@@ -27,6 +27,7 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
     [Theory]
     [InlineData("SQL")]
     [InlineData("LinksSql")]
+    [InlineData("ReturnsSql")]
     public void Every_table_reference_has_nolock_hint(string field)
     {
         var sql = StripComments(ReadSql(field));
@@ -43,5 +44,23 @@ public class PurchaseContractsGetAllocationsByContractSqlTests
         var sql = StripComments(ReadSql("SQL"));
         // 1 FROM + 12 LEFT JOIN + 3 do 1o OUTER APPLY (PFR, PII, PI) + PA2 = 17 referências.
         Assert.Equal(17, TableReference.Matches(sql).Count);
+    }
+
+    /// <summary>
+    /// GAC-1214: a carga recusada para um armazém aparece no contrato como "Devolução", sem mexer no
+    /// saldo. O romaneio 12 não tem alocação nem ShipmentReleaseKey — o elo com o contrato é a
+    /// liberação de devolução (Origin = SalesReturn) que ele gerou. Romaneio cancelado não aparece.
+    /// </summary>
+    [Fact]
+    public void Returns_query_links_refused_loads_through_the_sales_return_release()
+    {
+        var sql = StripComments(ReadSql("ReturnsSql"));
+
+        Assert.Contains("SR.GeneratedByStorageTransactionKey", sql);
+        Assert.Contains("SR.PurchaseContractKey = @purchaseContractKey", sql);
+        Assert.Contains("SR.Origin = 2", sql);
+        Assert.Contains("ST.TransactionType = 12", sql);
+        Assert.Contains("ST.TransactionStatus <> 2", sql);
+        Assert.Contains("RefusedFromShipmentLoadKey", sql);
     }
 }
