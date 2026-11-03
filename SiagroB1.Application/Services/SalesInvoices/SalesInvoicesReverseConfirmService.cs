@@ -1,4 +1,4 @@
-using SiagroB1.Application.Services.StorageInvoices;
+﻿using SiagroB1.Application.Services.StorageInvoices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using SiagroB1.Application.Services.Financials;
@@ -75,6 +75,9 @@ public class SalesInvoicesReverseConfirmService(
 
         try
         {
+            // Retornos da MESMA recusa estornados junto com este (ver ReclaimGoodsFromWarehouseAsync).
+            var siblings = new List<SalesInvoice>();
+
             if (invoice.InvoiceType == SalesInvoiceType.Return)
             {
                 /*
@@ -98,14 +101,32 @@ public class SalesInvoicesReverseConfirmService(
 
                 if (shipmentLoadKey != null)
                 {
-                    await ReclaimGoodsFromWarehouseAsync(
+                    siblings = await ReclaimGoodsFromWarehouseAsync(
                         shipmentLoadKey.Value,
                         invoice,
                         userName);
 
-                    await ReverseLoadReturnAsync(
-                        invoice,
-                        userName);
+                    // Os irmãos passam pelas mesmas travas do documento estornado.
+                    foreach (var sibling in siblings)
+                    {
+                        if (sibling.IsNfeReturn)
+                            throw new DefaultException(
+                                $"A devolução {sibling.InvoiceNumber}, da mesma recusa, tem NF-e e só sai pelo cancelamento da NF-e.");
+                        if (sibling.NfeStatus is NfeStatus.Processing or NfeStatus.Authorized or NfeStatus.Cancelled)
+                            throw new DefaultException(NfeLockRules.EmittedReverseMessage);
+                        await _periodGuard.EnsureOpenAsync(sibling);
+                        if (salesFirmSync is not null)
+                            await salesFirmSync.EnsureCanUndoAsync(sibling);
+                        if (salesNoContract is not null)
+                            await salesNoContract.EnsureCanUndoAsync(sibling.Key);
+                    }
+
+                    foreach (var doc in siblings.Prepend(invoice))
+                    {
+                        await ReverseLoadReturnAsync(
+                            doc,
+                            userName);
+                    }
                 }
                 else if (isNewFlow)
                 {
@@ -127,78 +148,18 @@ public class SalesInvoicesReverseConfirmService(
                     userName);
             }
 
-            // Estorno da contabilização (630 itens / 635 total); sem lançamento da confirmação, não faz nada.
-            if (accounting is not null)
+            foreach (var doc in siblings.Prepend(invoice))
             {
-                var postingLines = await db.Context.SalesInvoicesItems.AsNoTracking()
-                    .Where(l => l.SalesInvoiceKey == invoice.Key).ToListAsync();
-                var (itemsCtx, documentCtx) = await Accounting.Postings.SalesInvoicePostingContext.BuildAsync(db, invoice,
-                    postingLines, Accounting.Postings.SalesInvoicePostingContext.UndoEvent, DateTime.Today, false);
-                await accounting.PostReversalAsync("630", itemsCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
-                await accounting.PostReversalAsync("635", documentCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
-            }
+                if (doc != invoice)
+                {
+                    doc.UpdatedAt = DateTime.Now;
+                    doc.UpdatedBy = userName;
+                    doc.Comments =
+                        $"{doc.Comments} Confirmação estornada junto com a devolução " +
+                        $"{invoice.InvoiceNumber} (mesma recusa) por {userName} em {DateTime.Now:dd/MM/yyyy HH:mm}.";
+                }
 
-            invoice.InvoiceStatus = InvoiceStatus.Pending;
-
-            invoice.ApprovedAt = null;
-            invoice.ApprovedBy = null;
-
-            // GAC-1171 (rateio): a devolução estornada deixa de contar. Vale para os três ramos
-            // (carga, novo e legado), por isso fica aqui e não dentro de um deles.
-            if (invoice.InvoiceType == SalesInvoiceType.Return)
-                await SalesInvoicesRecalculateReturnedService.RecalculateAsync(
-                    db.Context, invoice.SalesInvoiceOriginKey);
-
-            // Ledger: estorno de confirmação remove as alocações desta nota (Normal → as
-            // alocações padrão; devolução → as linhas negativas, restaurando o consumo) e
-            // recalcula contratos/liberações derivado-da-soma, na mesma transação.
-            await allocationDelete.ExecuteAsync(invoice.Key, userName, CommitMode.Deferred);
-
-            await db.SaveChangesAsync();
-
-            // Spec 2026-10-15 (ponto 3): o documento voltou a Pendente — os títulos soltos das linhas são cancelados.
-            if (salesFirmSync is not null)
-            {
-                await salesFirmSync.EnqueueSyncAsync(
-                    invoice.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
-                await db.SaveChangesAsync();
-            }
-
-            // Spec 2026-10-19 parte 1: documento de volta a Pendente — títulos sem contrato cancelados.
-            if (salesNoContract is not null)
-            {
-                salesNoContract.EnqueueUndo(invoice.Key, userName);
-                await db.SaveChangesAsync();
-            }
-
-            // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
-            await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, invoice.Key);
-            await db.SaveChangesAsync();
-
-            // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
-            // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é
-            // cancelar ou excluir, não estornar. Desfazer no mesmo nível em que o efeito foi
-            // aplicado.
-            if (invoice.InvoiceType == SalesInvoiceType.Return)
-            {
-                await loadHook.ApplyAsync(
-                    invoice,
-                    ShipmentLoadMovementType.ReturnReversed,
-                    userName,
-                    $"Confirmação da devolução {invoice.InvoiceNumber} estornada: saldo consumido de novo.");
-
-                await db.SaveChangesAsync();
-            }
-            // GAC-1171 (melhorias): o saldo da nota NORMAL não muda, mas a situação da carga sim.
-            // A Concluída exige que nenhuma nota Normal da carga esteja Pendente, e o estorno
-            // acabou de devolver esta a Pendente: sem o recálculo, a carga seguiria Concluída com
-            // uma nota fora da Conferência. O gancho da situação recalcula e registra o log, sem
-            // movimento, porque o saldo é o mesmo.
-            else
-            {
-                await loadClosureHook.ApplyAsync(invoice, userName);
-
-                await db.SaveChangesAsync();
+                await UndoConfirmationAsync(doc, userName);
             }
 
             await db.CommitAsync();
@@ -207,6 +168,87 @@ public class SalesInvoicesReverseConfirmService(
         {
             await db.RollbackAsync();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Efeitos comuns do estorno de UM documento (contabilização, status, alocações, títulos,
+    /// saldo e situação da carga). Separado para valer também para os retornos da mesma recusa.
+    /// </summary>
+    private async Task UndoConfirmationAsync(SalesInvoice doc, string userName)
+    {
+        // Estorno da contabilização (630 itens / 635 total); sem lançamento da confirmação, não faz nada.
+        if (accounting is not null)
+        {
+            var postingLines = await db.Context.SalesInvoicesItems.AsNoTracking()
+                .Where(l => l.SalesInvoiceKey == doc.Key).ToListAsync();
+            var (itemsCtx, documentCtx) = await Accounting.Postings.SalesInvoicePostingContext.BuildAsync(db, doc,
+                postingLines, Accounting.Postings.SalesInvoicePostingContext.UndoEvent, DateTime.Today, false);
+            await accounting.PostReversalAsync("630", itemsCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
+            await accounting.PostReversalAsync("635", documentCtx, Accounting.Postings.SalesInvoicePostingContext.ConfirmEvent, userName);
+        }
+
+        doc.InvoiceStatus = InvoiceStatus.Pending;
+
+        doc.ApprovedAt = null;
+        doc.ApprovedBy = null;
+
+        // GAC-1171 (rateio): a devolução estornada deixa de contar. Vale para os três ramos
+        // (carga, novo e legado), por isso fica aqui e não dentro de um deles.
+        if (doc.InvoiceType == SalesInvoiceType.Return)
+            await SalesInvoicesRecalculateReturnedService.RecalculateAsync(
+                db.Context, doc.SalesInvoiceOriginKey);
+
+        // Ledger: estorno de confirmação remove as alocações desta nota (Normal → as
+        // alocações padrão; devolução → as linhas negativas, restaurando o consumo) e
+        // recalcula contratos/liberações derivado-da-soma, na mesma transação.
+        await allocationDelete.ExecuteAsync(doc.Key, userName, CommitMode.Deferred);
+
+        await db.SaveChangesAsync();
+
+        // Spec 2026-10-15 (ponto 3): o documento voltou a Pendente — os títulos soltos das linhas são cancelados.
+        if (salesFirmSync is not null)
+        {
+            await salesFirmSync.EnqueueSyncAsync(
+                doc.Items.Where(i => i.Key != null).Select(i => i.Key!.Value).ToList(), userName);
+            await db.SaveChangesAsync();
+        }
+
+        // Spec 2026-10-19 parte 1: documento de volta a Pendente — títulos sem contrato cancelados.
+        if (salesNoContract is not null)
+        {
+            salesNoContract.EnqueueUndo(doc.Key, userName);
+            await db.SaveChangesAsync();
+        }
+
+        // Spec 2026-10-19 parte 3: situação da fatura de armazenagem que este documento fatura.
+        await StorageInvoicesRecalculateStatusService.RecalculateForSalesInvoiceAsync(db.Context, doc.Key);
+        await db.SaveChangesAsync();
+
+        // Saldo da carga: só a DEVOLUÇÃO mexe. Estornar a confirmação de uma nota NORMAL
+        // a devolve para Pending, e Pending continua consumindo — quem desfaz o consumo é
+        // cancelar ou excluir, não estornar. Desfazer no mesmo nível em que o efeito foi
+        // aplicado.
+        if (doc.InvoiceType == SalesInvoiceType.Return)
+        {
+            await loadHook.ApplyAsync(
+                doc,
+                ShipmentLoadMovementType.ReturnReversed,
+                userName,
+                $"Confirmação da devolução {doc.InvoiceNumber} estornada: saldo consumido de novo.");
+
+            await db.SaveChangesAsync();
+        }
+        // GAC-1171 (melhorias): o saldo da nota NORMAL não muda, mas a situação da carga sim.
+        // A Concluída exige que nenhuma nota Normal da carga esteja Pendente, e o estorno
+        // acabou de devolver esta a Pendente: sem o recálculo, a carga seguiria Concluída com
+        // uma nota fora da Conferência. O gancho da situação recalcula e registra o log, sem
+        // movimento, porque o saldo é o mesmo.
+        else
+        {
+            await loadClosureHook.ApplyAsync(doc, userName);
+
+            await db.SaveChangesAsync();
         }
     }
 
@@ -435,7 +477,12 @@ public class SalesInvoicesReverseConfirmService(
     /// <c>CancelWarehouseReturnAsync</c> para o fluxo legado.
     /// </para>
     /// </remarks>
-    private async Task ReclaimGoodsFromWarehouseAsync(
+    /// <returns>
+    /// Os outros retornos CONFIRMADOS da mesma recusa, que o chamador estorna junto. Antes a
+    /// trava exigia que eles já estivessem estornados, mas cada um exigia o outro — uma recusa
+    /// de dois documentos ao armazém nunca saía (CG001844, 9639/9640).
+    /// </returns>
+    private async Task<List<SalesInvoice>> ReclaimGoodsFromWarehouseAsync(
         Guid shipmentLoadKey, SalesInvoice returnInvoice, string userName)
     {
         var entries = await db.Context.StorageTransactions
@@ -461,7 +508,7 @@ public class SalesInvoicesReverseConfirmService(
 
         // Retorno de recusa sem destino armazém ("segue viagem"): não há crédito a desfazer.
         if (entry is null)
-            return;
+            return [];
 
         var entryDocuments = RefusalEntryDocuments.Parse(entry.Comments);
 
@@ -477,33 +524,25 @@ public class SalesInvoicesReverseConfirmService(
             .FirstOrDefaultAsync();
 
         // Só os retornos da MESMA recusa sustentam a entrada: os de outra recusa da carga não.
-        var otherConfirmedReturn = (await db.Context.SalesInvoices
-                .AsNoTracking()
-                .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
-                            x.InvoiceType == SalesInvoiceType.Return &&
-                            x.InvoiceStatus == InvoiceStatus.Confirmed &&
-                            x.Key != returnInvoice.Key)
-                .Select(x => new
-                {
-                    x.InvoiceNumber,
-                    OriginNumber = db.Context.SalesInvoices
-                        .Where(o => o.Key == x.SalesInvoiceOriginKey)
-                        .Select(o => o.InvoiceNumber)
-                        .FirstOrDefault(),
-                })
-                .ToListAsync())
-            .Where(x => entryDocuments is null ||
-                        (x.OriginNumber != null && entryDocuments.Contains(x.OriginNumber)))
-            .Select(x => x.InvoiceNumber)
-            .FirstOrDefault();
+        var candidates = await db.Context.SalesInvoices
+            .Include(x => x.Items)
+            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                        x.InvoiceType == SalesInvoiceType.Return &&
+                        x.InvoiceStatus == InvoiceStatus.Confirmed &&
+                        x.Key != returnInvoice.Key)
+            .ToListAsync();
 
-        if (otherConfirmedReturn != null)
-        {
-            throw new ApplicationException(
-                $"A devolução ao armazém da carga {loadCode} também sustenta o documento de " +
-                $"retorno {otherConfirmedReturn}, ainda confirmado. Estorne todos os documentos " +
-                "dessa recusa antes de desfazer o crédito de armazém.");
-        }
+        var originNumbers = await db.Context.SalesInvoices
+            .Where(o => candidates.Select(c => c.SalesInvoiceOriginKey).Contains(o.Key))
+            .Select(o => new { o.Key, o.InvoiceNumber })
+            .ToDictionaryAsync(o => o.Key, o => o.InvoiceNumber);
+
+        var siblings = candidates
+            .Where(x => entryDocuments is null ||
+                        (x.SalesInvoiceOriginKey is { } ok &&
+                         originNumbers.TryGetValue(ok, out var number) &&
+                         number != null && entryDocuments.Contains(number)))
+            .ToList();
 
         var warehouseBalance = await StorageTransactionsWarehouseBalanceService.CalculateAsync(
             db.Context, entry.WarehouseCode, entry.ItemCode);
@@ -524,8 +563,12 @@ public class SalesInvoicesReverseConfirmService(
         entry.UpdatedAt = DateTime.Now;
         entry.UpdatedBy = userName;
         entry.Comments =
-            $"{entry.Comments}Estorno da devolução {returnInvoice.InvoiceNumber} por " +
+            $"{entry.Comments}Estorno da devolução " +
+            string.Join(", ", siblings.Select(x => x.InvoiceNumber).Prepend(returnInvoice.InvoiceNumber)) +
+            " por " +
             $"{userName} em {DateTime.Now:dd/MM/yyyy HH:mm}: crédito no armazém desfeito.";
+
+        return siblings;
     }
 
     /*
