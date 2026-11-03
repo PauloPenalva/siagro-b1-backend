@@ -121,6 +121,40 @@ public class PurchaseContractsGetAllocationsByContractService(
         WHERE PA.PurchaseContractKey = @purchaseContractKey AND PI.InvoiceStatus <> 2
         """;
 
+    /// <summary>
+    /// GAC-1214: cargas recusadas para um armazém, exibidas como "Devolução" para mostrar que a carga
+    /// viajou e voltou. O contrato continua baixado (o grão foi comprado e só mudou de lugar), então
+    /// estas linhas NÃO vêm de alocação e não entram no saldo. O romaneio 12 não carrega
+    /// ShipmentReleaseKey (ver ShipmentLoadsRefuseService): o elo com o contrato é a liberação de
+    /// devolução (Origin = 2, SalesReturn) que ele gerou. Romaneio cancelado (status 2) fica de fora.
+    /// </summary>
+    private static readonly string ReturnsSql = """
+        SELECT DISTINCT
+            ST.BranchCode AS BranchCode,
+            B.BranchName AS BranchName,
+            ST.Code AS StorageTransactionCode,
+            ST.TransactionDate AS StorageTransactionDate,
+            ST.NetWeight AS Volume,
+            ST.UnitOfMeasureCode AS UnitOfMeasureCode,
+            ST.WarehouseCode AS WarehouseCode,
+            ST.TruckCode AS TruckCode,
+            ST.CardCode AS SupplierCode,
+            L.Code AS LoadCode,
+            ST.[Key] AS StorageTransactionKey,
+            ST.ItemCode AS ItemCode
+        FROM SHIPMENT_RELEASES SR WITH (NOLOCK)
+        JOIN STORAGE_TRANSACTIONS ST WITH (NOLOCK)
+          ON ST.[Key] = SR.GeneratedByStorageTransactionKey
+        LEFT JOIN BRANCHS B WITH (NOLOCK)
+               ON B.Code = ST.BranchCode
+        LEFT JOIN SHIPMENT_LOADS L WITH (NOLOCK)
+               ON L.[Key] = ST.RefusedFromShipmentLoadKey
+        WHERE SR.PurchaseContractKey = @purchaseContractKey
+          AND SR.Origin = 2
+          AND ST.TransactionType = 12
+          AND ST.TransactionStatus <> 2
+        """;
+
     public async Task<ICollection<PurchaseContractAllocationsByContractDto>> ExecuteAsync(Guid purchaseContractKey)
     {
         var allocations = new List<PurchaseContractAllocationsByContractDto>();
@@ -177,7 +211,34 @@ public class PurchaseContractsGetAllocationsByContractService(
             });
         }
 
-        return allocations;
+        foreach (var ret in dbConnection.Query(ReturnsSql, new { purchaseContractKey }))
+        {
+            allocations.Add(new PurchaseContractAllocationsByContractDto
+            {
+                BranchCode = ret.BranchCode,
+                BranchName = ret.BranchName,
+                StorageTransactionCode = ret.StorageTransactionCode,
+                StorageTransactionDate = ret.StorageTransactionDate,
+                StorageTransactionTypeName = "Devolução",
+                Volume = ret.Volume,
+                UnitOfMeasureCode = ret.UnitOfMeasureCode,
+                WarehouseCode = ret.WarehouseCode,
+                WarehouseName = await GetSupplierName(ret.WarehouseCode),
+                TruckCode = ret.TruckCode,
+                SupplierCode = ret.SupplierCode,
+                Origin = "LoadRefusal",
+                ReasonDescription = ret.LoadCode is string load ? $"Carga {load} recusada" : "Carga recusada",
+                DischargeLoadCode = ret.LoadCode,
+                StorageTransactionKey = (Guid?)ret.StorageTransactionKey,
+                ItemCode = (string?)ret.ItemCode,
+                FiscalStatus = null,
+            });
+        }
+
+        return allocations
+            .OrderBy(a => a.StorageTransactionDate)
+            .ThenBy(a => a.StorageTransactionCode, StringComparer.Ordinal)
+            .ToList();
     }
 
     private async Task<string?> GetSupplierName(string cardCode)
