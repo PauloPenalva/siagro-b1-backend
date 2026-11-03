@@ -399,6 +399,142 @@ public class SalesInvoicesReverseConfirmLoadReturnTests
     }
 
     /// <summary>
+    /// Duas recusas na MESMA carga (CG001844, Yokotobi 03/11/2026): a primeira "segue viagem"
+    /// (origem 501 → retorno 502, sem entrada de armazém) e a segunda "volta ao armazém"
+    /// (origem 601 → retorno 602, entrada que lista "Documento(s): 000000601").
+    /// </summary>
+    private static async Task<(SalesInvoice FirstReturn, SalesInvoice SecondReturn, StorageTransaction Entry)>
+        SeedTwoRefusalsAsync(UnitOfWork db, ShipmentLoad load, params string[] extraEntryDocuments)
+    {
+        var (_, firstReturn) = await SeedLoadReturnAsync(db, load);
+
+        var secondOrigin = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Returned);
+        secondOrigin.ShipmentLoadKey = load.Key;
+        secondOrigin.InvoiceNumber = "000000601";
+        var secondOriginItem = SalesContractsAllocationTestSupport.NewItem(
+            secondOrigin, contractKey: null, releaseKey: null, quantity: 40_000m);
+
+        var secondReturn = SalesContractsAllocationTestSupport.NewInvoice(
+            InvoiceStatus.Confirmed, SalesInvoiceType.Return, originKey: secondOrigin.Key);
+        secondReturn.ShipmentLoadKey = load.Key;
+        secondReturn.InvoiceNumber = "000000602";
+        var secondReturnItem = SalesContractsAllocationTestSupport.NewItem(
+            secondReturn, contractKey: null, releaseKey: null, quantity: 40_000m,
+            originItemKey: secondOriginItem.Key);
+        secondReturnItem.DeliveredQuantity = 40_000m;
+        secondReturnItem.DeliveryStatus = SalesInvoiceDeliveryStatus.Closed;
+
+        db.Context.SalesInvoices.AddRange(secondOrigin, secondReturn);
+
+        var documents = string.Join(", ", new[] { "000000601" }.Concat(extraEntryDocuments));
+        var entry = new StorageTransaction
+        {
+            Key = Guid.NewGuid(),
+            Code = "RM000790",
+            CardCode = "C0001",
+            ItemCode = "SOJA",
+            UnitOfMeasureCode = "KG",
+            WarehouseCode = "ARM99",
+            BranchCode = "01",
+            GrossWeight = 40_000m,
+            NetWeight = 40_000m,
+            TransactionType = StorageTransactionType.SalesShipmentReturn,
+            TransactionStatus = StorageTransactionsStatus.Confirmed,
+            RefusedFromShipmentLoadKey = load.Key,
+            Comments = $"Devolução por recusa da carga {load.Code}. Motivo: QUALIDADE. " +
+                       $"Documento(s): {documents}. Cliente(s): C0001.",
+        };
+        db.Context.StorageTransactions.Add(entry);
+
+        await db.SaveChangesAsync();
+
+        return (firstReturn, secondReturn, entry);
+    }
+
+    /// <summary>
+    /// O retorno de uma recusa ANTERIOR ("segue viagem") não sustenta a entrada de armazém da
+    /// recusa seguinte — não pode travar o estorno dela.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_the_warehouse_refusal_return_ignores_the_return_of_an_earlier_refusal()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+        var (firstReturn, secondReturn, entry) = await SeedTwoRefusalsAsync(db, load);
+
+        await Reverse(db).ExecuteAsync(secondReturn.Key, "tester");
+
+        var reloadedEntry = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageTransactionsStatus.Cancelled, reloadedEntry.TransactionStatus);
+
+        var reversed = await db.Context.SalesInvoices.AsNoTracking()
+            .SingleAsync(x => x.Key == secondReturn.Key);
+        Assert.Equal(InvoiceStatus.Pending, reversed.InvoiceStatus);
+
+        var first = await db.Context.SalesInvoices.AsNoTracking()
+            .SingleAsync(x => x.Key == firstReturn.Key);
+        Assert.Equal(InvoiceStatus.Confirmed, first.InvoiceStatus);
+    }
+
+    /// <summary>
+    /// Estornar o retorno da recusa "segue viagem" não pode desfazer o crédito de armazém de
+    /// OUTRA recusa da mesma carga.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_a_return_without_warehouse_destination_keeps_the_other_refusals_entry()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+        var (firstReturn, secondReturn, entry) = await SeedTwoRefusalsAsync(db, load);
+
+        await Reverse(db).ExecuteAsync(firstReturn.Key, "tester");
+
+        var reloadedEntry = await db.Context.StorageTransactions.AsNoTracking()
+            .SingleAsync(x => x.Key == entry.Key);
+        Assert.Equal(StorageTransactionsStatus.Confirmed, reloadedEntry.TransactionStatus);
+
+        var reversed = await db.Context.SalesInvoices.AsNoTracking()
+            .SingleAsync(x => x.Key == firstReturn.Key);
+        Assert.Equal(InvoiceStatus.Pending, reversed.InvoiceStatus);
+    }
+
+    /// <summary>
+    /// Dentro da MESMA recusa a trava continua: a entrada lista 601 e 701, e o retorno de 701
+    /// ainda confirmado impede estornar só o de 601. O retorno da recusa anterior (502) não
+    /// aparece na mensagem.
+    /// </summary>
+    [Fact]
+    public async Task Reversing_is_still_refused_when_a_sibling_return_of_the_same_refusal_is_confirmed()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var load = NewLoad(db);
+        var (_, secondReturn, _) = await SeedTwoRefusalsAsync(db, load, "000000701");
+
+        var siblingOrigin = SalesContractsAllocationTestSupport.NewInvoice(InvoiceStatus.Returned);
+        siblingOrigin.ShipmentLoadKey = load.Key;
+        siblingOrigin.InvoiceNumber = "000000701";
+        SalesContractsAllocationTestSupport.NewItem(
+            siblingOrigin, contractKey: null, releaseKey: null, quantity: 10_000m);
+
+        var siblingReturn = SalesContractsAllocationTestSupport.NewInvoice(
+            InvoiceStatus.Confirmed, SalesInvoiceType.Return, originKey: siblingOrigin.Key);
+        siblingReturn.ShipmentLoadKey = load.Key;
+        siblingReturn.InvoiceNumber = "000000702";
+        SalesContractsAllocationTestSupport.NewItem(
+            siblingReturn, contractKey: null, releaseKey: null, quantity: 10_000m);
+
+        db.Context.SalesInvoices.AddRange(siblingOrigin, siblingReturn);
+        await db.SaveChangesAsync();
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => Reverse(db).ExecuteAsync(secondReturn.Key, "tester"));
+
+        Assert.Contains("000000702", error.Message);
+        Assert.DoesNotContain("000000502", error.Message);
+    }
+
+    /// <summary>
     /// Contraprova: uma devolução ao armazém CANCELADA não trava mais nada — ela já foi desfeita,
     /// e o grão não está mais creditado.
     /// </summary>

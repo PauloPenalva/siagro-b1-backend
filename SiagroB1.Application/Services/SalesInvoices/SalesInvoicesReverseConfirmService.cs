@@ -438,14 +438,32 @@ public class SalesInvoicesReverseConfirmService(
     private async Task ReclaimGoodsFromWarehouseAsync(
         Guid shipmentLoadKey, SalesInvoice returnInvoice, string userName)
     {
-        var entry = await db.Context.StorageTransactions
+        var entries = await db.Context.StorageTransactions
             .Where(x => x.RefusedFromShipmentLoadKey == shipmentLoadKey &&
                         x.TransactionType == StorageTransactionType.SalesShipmentReturn &&
                         x.TransactionStatus != StorageTransactionsStatus.Cancelled)
+            .ToListAsync();
+
+        // Uma carga pode ter várias recusas (ex.: CG001844 — a primeira "segue viagem", a
+        // segunda "volta ao armazém"). O único vínculo gravado entre a entrada e os documentos
+        // da recusa é a lista "Documento(s): ..." no Comments (ShipmentLoadsRefuseService).
+        // A entrada certa é a que lista a ORIGEM deste retorno; sem lista legível, vale a regra
+        // antiga (uma entrada por carga).
+        var originNumber = await db.Context.SalesInvoices
+            .Where(x => x.Key == returnInvoice.SalesInvoiceOriginKey)
+            .Select(x => x.InvoiceNumber)
             .FirstOrDefaultAsync();
 
+        var entry = entries.FirstOrDefault(e =>
+                        originNumber != null &&
+                        RefusalEntryDocuments.Parse(e.Comments)?.Contains(originNumber) == true)
+                    ?? entries.FirstOrDefault(e => RefusalEntryDocuments.Parse(e.Comments) is null);
+
+        // Retorno de recusa sem destino armazém ("segue viagem"): não há crédito a desfazer.
         if (entry is null)
             return;
+
+        var entryDocuments = RefusalEntryDocuments.Parse(entry.Comments);
 
         // Primeiro guard, ANTES do saldo de armazém: se a mercadoria já foi reembarcada, o saldo
         // também estará curto e o operador receberia a mensagem genérica "parte já foi consumida
@@ -458,14 +476,26 @@ public class SalesInvoicesReverseConfirmService(
             .Select(x => x.Code)
             .FirstOrDefaultAsync();
 
-        var otherConfirmedReturn = await db.Context.SalesInvoices
-            .AsNoTracking()
-            .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
-                        x.InvoiceType == SalesInvoiceType.Return &&
-                        x.InvoiceStatus == InvoiceStatus.Confirmed &&
-                        x.Key != returnInvoice.Key)
+        // Só os retornos da MESMA recusa sustentam a entrada: os de outra recusa da carga não.
+        var otherConfirmedReturn = (await db.Context.SalesInvoices
+                .AsNoTracking()
+                .Where(x => x.ShipmentLoadKey == shipmentLoadKey &&
+                            x.InvoiceType == SalesInvoiceType.Return &&
+                            x.InvoiceStatus == InvoiceStatus.Confirmed &&
+                            x.Key != returnInvoice.Key)
+                .Select(x => new
+                {
+                    x.InvoiceNumber,
+                    OriginNumber = db.Context.SalesInvoices
+                        .Where(o => o.Key == x.SalesInvoiceOriginKey)
+                        .Select(o => o.InvoiceNumber)
+                        .FirstOrDefault(),
+                })
+                .ToListAsync())
+            .Where(x => entryDocuments is null ||
+                        (x.OriginNumber != null && entryDocuments.Contains(x.OriginNumber)))
             .Select(x => x.InvoiceNumber)
-            .FirstOrDefaultAsync();
+            .FirstOrDefault();
 
         if (otherConfirmedReturn != null)
         {
