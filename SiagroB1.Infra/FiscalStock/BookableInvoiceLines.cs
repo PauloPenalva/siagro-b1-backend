@@ -28,8 +28,6 @@ public static class BookableInvoiceLines
     private static IQueryable<PurchaseInvoiceItem> PurchasesValid(IQueryable<PurchaseInvoiceItem> source) => source
         .Where(i => i.PurchaseInvoice != null)
         .Where(i => BookableStatuses.Contains(i.PurchaseInvoice!.InvoiceStatus))
-        // Contra-nota é só para a SEFAZ; quem é escriturada é a NF-e do produtor (spec 2026-10-10 D13).
-        .Where(i => i.PurchaseInvoice!.ProducerInvoiceKey == null)
         .Where(i => BookableKinds.Contains(i.PurchaseInvoice!.TaxDocumentKind))
         .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus));
 
@@ -38,11 +36,28 @@ public static class BookableInvoiceLines
         .Where(i => i.SalesInvoice!.TaxDocumentKind != TaxDocumentKind.Nfe
                  || i.SalesInvoice.NfeStatus == NfeStatus.Authorized);
 
-    /// <summary>Entradas escrituráveis: NF-e PRÓPRIA só se autorizada; de terceiro não depende.</summary>
-    public static IQueryable<PurchaseInvoiceItem> Purchases(IQueryable<PurchaseInvoiceItem> source) => PurchasesValid(source)
+    private static IQueryable<PurchaseInvoiceItem> PurchasesIssued(IQueryable<PurchaseInvoiceItem> source) => PurchasesValid(source)
         .Where(i => i.PurchaseInvoice!.IssuerType != DocumentIssuerType.Own
                  || i.PurchaseInvoice.TaxDocumentKind != TaxDocumentKind.Nfe
                  || i.PurchaseInvoice.NfeStatus == NfeStatus.Authorized);
+
+    /// <summary>
+    /// Entradas pelo documento do produtor (R-2055/Funrural): NF-e PRÓPRIA só se autorizada; de terceiro não depende.
+    /// A contra-nota fica de fora — o Funrural está na escrituração da NF-e do produtor.
+    /// </summary>
+    public static IQueryable<PurchaseInvoiceItem> Purchases(IQueryable<PurchaseInvoiceItem> source) => PurchasesIssued(source)
+        .Where(i => i.PurchaseInvoice!.ProducerInvoiceKey == null);
+
+    /// <summary>
+    /// Entradas do Registro de Entradas (SPED Fiscal, EFD Contribuições, Conferência, Kardex). Com contra-nota
+    /// autorizada, escritura-se só a contra-nota, não a NF-e do produtor (SEFAZ-SP RC 29615/2024 e 15036/2017).
+    /// Enquanto a contra-nota não é autorizada, a NF-e do produtor continua escriturada.
+    /// </summary>
+    public static IQueryable<PurchaseInvoiceItem> BookedPurchases(IQueryable<PurchaseInvoiceItem> source,
+        IQueryable<PurchaseInvoice> invoices) => PurchasesIssued(source)
+        .Where(i => !invoices.Any(c => c.ProducerInvoiceKey == i.PurchaseInvoiceKey
+                                    && BookableStatuses.Contains(c.InvoiceStatus)
+                                    && c.NfeStatus == NfeStatus.Authorized));
 
     /// <summary>Saídas de NF-e ainda não autorizada (a Conferência lista como inconsistência).</summary>
     public static IQueryable<SalesInvoiceItem> UnauthorizedOwnSales(IQueryable<SalesInvoiceItem> source) => SalesValid(source)

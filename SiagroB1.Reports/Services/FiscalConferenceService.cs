@@ -265,7 +265,7 @@ public class FiscalConferenceService(IUnitOfWork db)
         foreach (var item in await BookableInvoiceLines.UnauthorizedOwnSales(SalesOfPeriod()).ToListAsync())
             unauthorized.Add(SaleLine(item, item.SalesInvoice!));
 
-        foreach (var item in await BookableInvoiceLines.Purchases(PurchasesOfPeriod()).ToListAsync())
+        foreach (var item in await BookableInvoiceLines.BookedPurchases(PurchasesOfPeriod(), db.Context.PurchaseInvoices).ToListAsync())
             included.Add(PurchaseLine(item, item.PurchaseInvoice!));
         foreach (var item in await BookableInvoiceLines.UnauthorizedOwnPurchases(PurchasesOfPeriod()).ToListAsync())
             unauthorized.Add(PurchaseLine(item, item.PurchaseInvoice!));
