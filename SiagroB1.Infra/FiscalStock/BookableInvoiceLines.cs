@@ -28,6 +28,8 @@ public static class BookableInvoiceLines
     private static IQueryable<PurchaseInvoiceItem> PurchasesValid(IQueryable<PurchaseInvoiceItem> source) => source
         .Where(i => i.PurchaseInvoice != null)
         .Where(i => BookableStatuses.Contains(i.PurchaseInvoice!.InvoiceStatus))
+        // Contra-nota é só para a SEFAZ; quem é escriturada é a NF-e do produtor (spec 2026-10-10 D13).
+        .Where(i => i.PurchaseInvoice!.ProducerInvoiceKey == null)
         .Where(i => BookableKinds.Contains(i.PurchaseInvoice!.TaxDocumentKind))
         .Where(i => !VoidNfeStatuses.Contains(i.PurchaseInvoice!.NfeStatus));
 

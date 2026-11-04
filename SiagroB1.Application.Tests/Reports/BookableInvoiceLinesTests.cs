@@ -74,4 +74,22 @@ public class BookableInvoiceLinesTests
         Assert.Equal(new[] { "OK", "PROPRIA", "PROPRIA-OUTRO", "RET", "TERCEIRO" }, kept.Order());
         Assert.Equal(new[] { "PROPRIA-NAOAUT" }, unauthorized);
     }
+
+    [Fact]
+    public async Task Purchases_ExcludeCounterNote_KeepProducerInvoice()
+    {
+        // Contra-nota é só para a SEFAZ: a escrituração da NF-e do produtor é o documento fiscal (spec 2026-10-10 D13).
+        var db = TestDb.CreateUnitOfWork();
+        var producer = P("PRODUTOR", p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.None; });
+        db.Context.PurchaseInvoices.AddRange(producer,
+            P("CONTRA", p => { p.IssuerType = DocumentIssuerType.Own; p.NfeStatus = NfeStatus.Authorized; p.ProducerInvoiceKey = producer.Key; }),
+            P("CONTRA-NAOAUT", p => { p.IssuerType = DocumentIssuerType.Own; p.NfeStatus = NfeStatus.None; p.ProducerInvoiceKey = producer.Key; }));
+        await db.Context.SaveChangesAsync();
+
+        var kept = BookableInvoiceLines.Purchases(db.Context.PurchaseInvoicesItems).Select(i => i.PurchaseInvoice!.InvoiceNumber).ToList();
+        var unauthorized = BookableInvoiceLines.UnauthorizedOwnPurchases(db.Context.PurchaseInvoicesItems).Select(i => i.PurchaseInvoice!.InvoiceNumber).ToList();
+
+        Assert.Equal(new[] { "PRODUTOR" }, kept);
+        Assert.Empty(unauthorized);
+    }
 }
