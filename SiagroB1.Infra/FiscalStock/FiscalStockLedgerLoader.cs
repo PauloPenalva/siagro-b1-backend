@@ -88,9 +88,9 @@ public class FiscalStockLedgerLoader(IUnitOfWork db)
             .Where(i => item == null || i.ItemCode == item)
             .ToListAsync();
 
-        var purchases = await BookableInvoiceLines.Purchases(db.Context.PurchaseInvoicesItems
+        var purchases = await BookableInvoiceLines.BookedPurchases(db.Context.PurchaseInvoicesItems
                 .AsNoTracking()
-                .Include(i => i.PurchaseInvoice))
+                .Include(i => i.PurchaseInvoice), db.Context.PurchaseInvoices)
             .Where(i => i.PurchaseInvoice!.BranchCode == branchCode)
             .Where(i => (i.PurchaseInvoice!.PostingDate ?? i.PurchaseInvoice.IssueDate) < toExclusive
                         && (i.PurchaseInvoice.PostingDate ?? i.PurchaseInvoice.IssueDate) >= baseExclusive)

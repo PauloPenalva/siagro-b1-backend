@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Enums;
@@ -78,7 +79,7 @@ public class BookableInvoiceLinesTests
     [Fact]
     public async Task Purchases_ExcludeCounterNote_KeepProducerInvoice()
     {
-        // Contra-nota é só para a SEFAZ: a escrituração da NF-e do produtor é o documento fiscal (spec 2026-10-10 D13).
+        // R-2055: o Funrural está na escrituração da NF-e do produtor; a contra-nota pendente sai como inconsistência.
         var db = TestDb.CreateUnitOfWork();
         var producer = P("PRODUTOR", p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.None; });
         db.Context.PurchaseInvoices.AddRange(producer,
@@ -90,6 +91,50 @@ public class BookableInvoiceLinesTests
         var unauthorized = BookableInvoiceLines.UnauthorizedOwnPurchases(db.Context.PurchaseInvoicesItems).Select(i => i.PurchaseInvoice!.InvoiceNumber).ToList();
 
         Assert.Equal(new[] { "PRODUTOR" }, kept);
-        Assert.Empty(unauthorized);
+        Assert.Equal(new[] { "CONTRA-NAOAUT" }, unauthorized);
+    }
+
+    [Fact]
+    public async Task BookedPurchases_CounterNoteReplacesProducerInvoice()
+    {
+        // SEFAZ-SP (RC 29615/2024 e 15036/2017): o adquirente escritura só a nota de entrada que emitiu, não a NF-e do produtor.
+        var db = TestDb.CreateUnitOfWork();
+        PurchaseInvoice Producer(string n) => P(n, p => { p.TaxDocumentKind = TaxDocumentKind.Nfe; p.NfeStatus = NfeStatus.None; });
+        PurchaseInvoice Counter(string n, PurchaseInvoice producer, Action<PurchaseInvoice>? change = null) => P(n, p =>
+        {
+            p.IssuerType = DocumentIssuerType.Own;
+            p.NfeStatus = NfeStatus.Authorized;
+            p.ProducerInvoiceKey = producer.Key;
+            change?.Invoke(p);
+        });
+
+        var withCounter = Producer("PROD-COM-CONTRA");
+        var pendingCounter = Producer("PROD-CONTRA-NAOAUT");
+        var cancelledCounter = Producer("PROD-CONTRA-CANC");
+        db.Context.PurchaseInvoices.AddRange(withCounter, pendingCounter, cancelledCounter, Producer("PROD-SEM-CONTRA"),
+            Counter("CONTRA", withCounter),
+            Counter("CONTRA-NAOAUT", pendingCounter, p => p.NfeStatus = NfeStatus.None),
+            Counter("CONTRA-CANC", cancelledCounter, p => p.NfeStatus = NfeStatus.Cancelled));
+        await db.Context.SaveChangesAsync();
+
+        var booked = BookableInvoiceLines.BookedPurchases(db.Context.PurchaseInvoicesItems, db.Context.PurchaseInvoices)
+            .Select(i => i.PurchaseInvoice!.InvoiceNumber).ToList();
+
+        Assert.Equal(new[] { "CONTRA", "PROD-CONTRA-CANC", "PROD-CONTRA-NAOAUT", "PROD-SEM-CONTRA" }, booked.Order());
+    }
+
+    [Fact]
+    public void BookedPurchases_TranslatesOnSqlServer()
+    {
+        // O InMemory aceita LINQ que o SQL Server não traduz; aqui o ToQueryString falharia se a subconsulta não traduzisse.
+        var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<SiagroB1.Infra.Context.AppDbContext>()
+            .UseSqlServer("Server=.;Database=none;Trusted_Connection=True").Options;
+        using var ctx = new SiagroB1.Infra.Context.AppDbContext(options);
+
+        var sql = Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToQueryString(
+            BookableInvoiceLines.BookedPurchases(ctx.PurchaseInvoicesItems, ctx.PurchaseInvoices));
+
+        Assert.Contains("NOT EXISTS", sql);
+        Assert.Contains("ProducerInvoiceKey", sql);
     }
 }
