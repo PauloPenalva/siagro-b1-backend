@@ -45,7 +45,7 @@ public class SpedMasterDataLoader(IUnitOfWork db)
                 .Except(participants.Select(p => p.Code)).Order(StringComparer.Ordinal).ToList(),
             UnconvertibleUnits = unconvertible,
             Items = items,
-            Units = await LoadUnitsAsync(items, lines, conversions),
+            Units = await LoadUnitsAsync(items, lines.Where(writesItemLine).ToList(), conversions),
             Conversions = conversions,
         };
     }
@@ -113,8 +113,10 @@ public class SpedMasterDataLoader(IUnitOfWork db)
     {
         // Unidades que de fato serão escritas: as linhas que o arquivo detalha (writesItemLine) e o
         // inventário. Linha não escrita não exige 0220 nem bloqueia o arquivo.
+        // Produto só de linha não escrita (NF-e própria no SPED Fiscal) fica fora do 0200: o PVA rejeita item que
+        // nenhum outro bloco referencia.
         var lineUnits = lines
-            .Where(l => l.ItemCode != "")
+            .Where(l => l.ItemCode != "" && writesItemLine(l))
             .GroupBy(l => l.ItemCode)
             .ToDictionary(g => g.Key, g => g.Where(writesItemLine).Select(l => l.UnitOfMeasureCode).Where(u => u != "").ToList());
         var ownUnits = lines

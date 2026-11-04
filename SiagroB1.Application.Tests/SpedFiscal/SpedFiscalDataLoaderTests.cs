@@ -66,12 +66,9 @@ public class SpedFiscalDataLoaderTests
 
         var p = Assert.Single(data.Participants);
         Assert.Equal(("C001", "12345678000195", ""), (p.Code, p.Cnpj, p.Cpf));
-        Assert.Equal(new[] { "10001", "FRETE" }, data.Items.Select(i => i.Code));
-        var soy = data.Items[0];
-        Assert.Equal(("SOJA", "TN", "00", "12019000"), (soy.Description, soy.UnitCode, soy.ItemType, soy.Ncm));
-        Assert.Equal("09", data.Items[1].ItemType);
-        Assert.Equal(new[] { "TN" }, data.Units.Select(u => u.Code));
-        Assert.Equal("TONELADA", data.Units[0].Description);
+        // NF-e própria não tem C170: seus produtos e unidades não vão ao 0200/0190 (o PVA rejeita item não referenciado)
+        Assert.Empty(data.Items);
+        Assert.Empty(data.Units);
     }
 
     [Fact]
@@ -147,7 +144,7 @@ public class SpedFiscalDataLoaderTests
 
         var data = await Loader(db).LoadAsync(Request());
 
-        Assert.Equal("TN", data.Items.Single().UnitCode);
+        Assert.Empty(data.Items);
         Assert.Empty(data.Conversions);
         Assert.Empty(data.UnconvertibleUnits);
     }

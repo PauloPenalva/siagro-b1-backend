@@ -253,10 +253,10 @@ public class SpedFiscalFileService(SpedFiscalDataLoader loader, FiscalConference
                     g.Sum(l => l.IcmsValue), 0m, 0m, 0m, 0m, "");
         }
 
-        // NF-e própria cancelada/denegada/inutilizada: C100 só com os campos 02 a 09 (sem participante);
-        // a numeração inutilizada (COD_SIT 05) não tem chave de acesso
-        foreach (var v in data.VoidDocuments)
-            w.Add("C100", [v.Direction, "0", "", v.Model, v.Situation, v.Series, v.Number, v.Situation == "05" ? "" : v.AccessKey,
+        // NF-e própria cancelada: C100 só com os campos 02 a 09 (sem participante). Denegada (04) e inutilizada
+        // (05) não são escrituradas: os códigos saíram da tabela 4.1.2 em 2023 e o PVA os rejeita
+        foreach (var v in data.VoidDocuments.Where(v => v.Situation is not ("04" or "05")))
+            w.Add("C100", [v.Direction, "0", "", v.Model, v.Situation, v.Series, v.Number, v.AccessKey,
                 .. Enumerable.Repeat<object?>(null, 20)]);
 
         w.Add("C990", w.CountOfBlock('C') + 1);
