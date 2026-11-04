@@ -139,18 +139,36 @@ public class SpedFiscalFileServiceTests
     }
 
     [Fact]
-    public async Task Generate_VoidedNumberHasNoAccessKey()
+    public async Task Generate_OmitsDeniedAndVoidedNumbers()
     {
+        // COD_SIT 04 (denegada) e 05 (inutilizada) saíram da tabela 4.1.2 em 2023: o PVA rejeita; só a cancelada (02) vai.
         var db = await Seeded();
         var request = Request();
         var data = await Loader(db).LoadAsync(request);
         data.VoidDocuments.Add(new SpedVoidDocument { Direction = "1", Situation = "05", Series = "1", Number = "9", AccessKey = Key44 });
+        data.VoidDocuments.Add(new SpedVoidDocument { Direction = "1", Situation = "04", Series = "1", Number = "7", AccessKey = Key44 });
         data.VoidDocuments.Add(new SpedVoidDocument { Direction = "1", Situation = "02", Series = "1", Number = "8", AccessKey = Key44 });
 
         var lines = Parse(SpedFiscalFileService.Build(data, request));
 
-        Assert.Contains("|C100|1|0||55|05|1|9||" + new string('|', 20), lines);
-        Assert.Contains("|C100|1|0||55|02|1|8|" + Key44 + "|" + new string('|', 20), lines);
+        Assert.Equal("|C100|1|0||55|02|1|8|" + Key44 + "|" + new string('|', 20), Assert.Single(lines, l => l.StartsWith("|C100|")));
+    }
+
+    [Fact]
+    public async Task Generate_OwnDocumentItemsAreNotListedInBlock0()
+    {
+        // PVA: 0200 (e a 0190 dele) só se o item for referenciado em outro bloco; NF-e própria não tem C170.
+        var db = await Seeded();
+        db.Context.SalesInvoices.Add(OwnSale("V1", 1000m, 120m));
+        await Save(db);
+
+        var (content, _) = await Service(db).GenerateAsync(Request());
+        var lines = Parse(content);
+
+        Assert.Single(lines, l => l.StartsWith("|C100|"));
+        Assert.DoesNotContain(lines, l => l.StartsWith("|0200|"));
+        Assert.DoesNotContain(lines, l => l.StartsWith("|0190|"));
+        Assert.DoesNotContain(lines, l => l.StartsWith("|0220|"));
     }
 
     [Fact]
