@@ -92,12 +92,28 @@ public sealed class CmaStreamerClient(HttpClient httpClient) : ICmaStreamerClien
             ["timeRequest"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture),
         };
 
-        // O Java não lia a resposta do ping; aqui HTTP de erro (EnsureSuccess) ou ErrorResponse derrubam a conexão.
-        using var response = await SendCommandAsync(credentials.Host, request, cancellationToken);
-        if (Name(response.RootElement) == "ErrorResponse"
-            || (response.RootElement.ValueKind == JsonValueKind.Object
-                && response.RootElement.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.False))
+        // O Java nunca lia a resposta do ping (formato não confirmado): HTTP de erro derruba; corpo vazio, não-JSON
+        // ou desconhecido é sucesso; só um JSON explicitamente ErrorResponse/success:false é falha.
+        var body = await SendRawAsync(credentials.Host, request, cancellationToken);
+        if (IsExplicitFailure(body))
             throw new CmaProtocolException("CMA recusou o ping");
+    }
+
+    private static bool IsExplicitFailure(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            return Name(root) == "ErrorResponse"
+                   || (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.False);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Nome da mensagem do canal (QuotesUpdateResponse, HeartBeat…).</summary>
@@ -162,14 +178,7 @@ public sealed class CmaStreamerClient(HttpClient httpClient) : ICmaStreamerClien
 
     private async Task<JsonDocument> SendCommandAsync(string host, JsonObject request, CancellationToken cancellationToken)
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(CommandTimeout);
-
-        using var message = new HttpRequestMessage(HttpMethod.Get, BuildExecuteUri(host, request));
-        using var response = await httpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead, timeout.Token);
-        EnsureSuccess(response);
-
-        var body = await response.Content.ReadAsStringAsync(timeout.Token);
+        var body = await SendRawAsync(host, request, cancellationToken);
         try
         {
             return JsonDocument.Parse(body);
@@ -178,6 +187,18 @@ public sealed class CmaStreamerClient(HttpClient httpClient) : ICmaStreamerClien
         {
             throw new CmaProtocolException("CMA respondeu um conteúdo que não é JSON");
         }
+    }
+
+    private async Task<string> SendRawAsync(string host, JsonObject request, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(CommandTimeout);
+
+        using var message = new HttpRequestMessage(HttpMethod.Get, BuildExecuteUri(host, request));
+        using var response = await httpClient.SendAsync(message, HttpCompletionOption.ResponseContentRead, timeout.Token);
+        EnsureSuccess(response);
+
+        return await response.Content.ReadAsStringAsync(timeout.Token);
     }
 
     // Mensagem só com o status: nunca a URL (que tem a senha no login).

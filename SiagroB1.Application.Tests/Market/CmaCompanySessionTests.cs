@@ -361,6 +361,34 @@ public class CmaCompanySessionTests
         Assert.Equal("ZCH7", channel[2].GetProperty("symbolId").GetProperty("symbol").GetString());
     }
 
+    private static Task Ping(HttpStatusCode status, string body) =>
+        new CmaStreamerClient(new HttpClient(new StubHttpMessageHandler(status, body)))
+            .PingAsync(new CmaCredentials("https://h", "u", Password), "s", CancellationToken.None);
+
+    [Fact]
+    public Task Ping_EmptyBody_IsTolerated() => Ping(HttpStatusCode.OK, "");
+
+    [Fact]
+    public async Task Ping_NonJsonBody_IsTolerated()
+    {
+        await Ping(HttpStatusCode.OK, "OK");
+        await Ping(HttpStatusCode.OK, """{"name":"PingResponse"}""");
+    }
+
+    [Fact]
+    public async Task Ping_ErrorResponse_Throws()
+    {
+        await Assert.ThrowsAsync<CmaProtocolException>(() => Ping(HttpStatusCode.OK, """{"name":"ErrorResponse"}"""));
+        await Assert.ThrowsAsync<CmaProtocolException>(() => Ping(HttpStatusCode.OK, """{"name":"PingResponse","success":false}"""));
+    }
+
+    [Fact]
+    public async Task Ping_HttpError_Throws()
+    {
+        var e = await Assert.ThrowsAsync<HttpRequestException>(() => Ping(HttpStatusCode.ServiceUnavailable, ""));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, e.StatusCode);
+    }
+
     [Fact]
     public async Task CmaStreamerClient_LoginRejected_ThrowsAuthenticationWithoutSecrets()
     {
