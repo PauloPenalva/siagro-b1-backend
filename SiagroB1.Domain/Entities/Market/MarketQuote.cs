@@ -34,6 +34,8 @@ public class MarketQuote
     [Column(TypeName = "VARCHAR(100)")]
     public string? UserName { get; set; }
 
+    // Token de concorrência: o flush da CMA não pode gravar por cima de um lançamento manual feito em paralelo.
+    [ConcurrencyCheck]
     public bool ManualOverride { get; set; }
 
     public DateTime UpdatedAt { get; set; }

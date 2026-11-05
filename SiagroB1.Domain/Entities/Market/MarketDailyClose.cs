@@ -32,6 +32,9 @@ public class MarketDailyClose
     [Column(TypeName = "VARCHAR(100)")]
     public string? UserName { get; set; }
 
+    /// <summary>Horário (UTC) da cotação que originou o fechamento; nulo no manual. Distingue fechamento velho.</summary>
+    public DateTime? QuotedAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

@@ -60,4 +60,16 @@ public class LiveQuoteStoreTests
         Assert.True(store.TryConsumeReconnect("A"));
         Assert.False(store.TryConsumeReconnect("A"));
     }
+    [Fact]
+    public void SetStatus_Unchanged_DoesNotBumpVersion()
+    {
+        var store = new LiveQuoteStore();
+
+        store.SetStatus("A", CmaConnectionStatus.Connected, null);
+        store.SetStatus("A", CmaConnectionStatus.Connected, null);
+        Assert.Equal(1, store.Get("A").Version);
+
+        store.SetStatus("A", CmaConnectionStatus.Connected, "outra");
+        Assert.Equal(2, store.Get("A").Version);
+    }
 }

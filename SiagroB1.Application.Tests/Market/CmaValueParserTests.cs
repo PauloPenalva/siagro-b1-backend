@@ -25,6 +25,7 @@ public class CmaValueParserTests
     [InlineData(null)]
     [InlineData("abc")]
     [InlineData("S")]
+    [InlineData("1,5")]
     public void Parse_NoValueOrInvalid_ReturnsNullNeverZero(string? raw)
     {
         var result = CmaValueParser.Parse(raw);

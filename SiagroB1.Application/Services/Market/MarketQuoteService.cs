@@ -15,7 +15,7 @@ public sealed record ManualQuoteInput(
 public sealed record MarketQuoteView(
     string Code, string Description, string GroupName, int SortOrder, decimal? Last, decimal? Bid,
     decimal? ChangePercent, decimal? High, decimal? Low, decimal? Open, bool IsSettlement, DateTime? QuotedAt,
-    MarketQuoteSource? Source, bool ManualOverride);
+    MarketQuoteSource? Source, bool ManualOverride, decimal? Ask = null, string? UserName = null);
 
 public class MarketQuoteService(
     AppDbContext context, LiveQuoteStore store, ICompanyContext companyContext, ILogger<MarketQuoteService> logger)
@@ -31,16 +31,29 @@ public class MarketQuoteService(
             .SelectMany(x => x.Quotes.DefaultIfEmpty(), (x, q) => new { x.Instrument, Quote = q })
             .ToListAsync(cancellationToken);
 
+        // Abas na ordem do operador: grupo pelo menor SortOrder dele, depois nome; dentro, SortOrder e código.
+        var groupOrder = rows
+            .GroupBy(r => r.Instrument.GroupName ?? string.Empty)
+            .ToDictionary(g => g.Key, g => g.Min(r => r.Instrument.SortOrder));
+
         return rows
-            .OrderBy(r => r.Instrument.GroupName, StringComparer.Ordinal)
+            .OrderBy(r => groupOrder[r.Instrument.GroupName ?? string.Empty])
+            .ThenBy(r => r.Instrument.GroupName ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(r => r.Instrument.SortOrder)
+            .ThenBy(r => r.Instrument.Code, StringComparer.Ordinal)
             .Select(r => new MarketQuoteView(
                 r.Instrument.Code, r.Instrument.Description, r.Instrument.GroupName ?? string.Empty,
                 r.Instrument.SortOrder, r.Quote?.Last, r.Quote?.Bid, r.Quote?.ChangePercent, r.Quote?.High,
-                r.Quote?.Low, r.Quote?.Open, r.Quote?.IsSettlement ?? false, r.Quote?.QuotedAt, r.Quote?.Source,
-                r.Quote?.ManualOverride ?? false))
+                r.Quote?.Low, r.Quote?.Open, r.Quote?.IsSettlement ?? false, AsUtc(r.Quote?.QuotedAt), r.Quote?.Source,
+                r.Quote?.ManualOverride ?? false, r.Quote?.Ask, r.Quote?.UserName))
             .ToList();
     }
+
+    /// <summary>
+    /// Gravado em UTC num datetime2, o EF devolve Kind=Unspecified e o JSON sairia sem "Z" (a tela somava 3 h).
+    /// </summary>
+    internal static DateTime? AsUtc(DateTime? value) =>
+        value is null ? null : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc);
 
     /// <summary>
     /// Aplica o que veio da CMA. O stream manda deltas: campo nulo mantém o valor guardado.
@@ -51,27 +64,63 @@ public class MarketQuoteService(
         if (updates.Count == 0)
             return;
 
-        var symbols = updates.Select(u => u.Symbol).Distinct().ToList();
-        var active = (await context.MarketInstruments
-                .Where(i => i.Active && symbols.Contains(i.Code))
+        try
+        {
+            await ApplyCmaUpdatesOnceAsync(updates, cancellationToken);
+        }
+        catch (DbUpdateException e)
+        {
+            // Lançamento manual gravado entre a leitura e o SaveChanges (token de concorrência em ManualOverride)
+            // ou primeira cotação inserida em paralelo (chave duplicada): relê e reaplica uma vez, respeitando o manual.
+            logger.LogInformation("Conflito ao gravar cotações da CMA ({Type}); reaplicando sobre o estado atual.", e.GetType().Name);
+            DetachQuotes();
+
+            try
+            {
+                await ApplyCmaUpdatesOnceAsync(updates, cancellationToken);
+            }
+            catch (DbUpdateException retry)
+            {
+                DetachQuotes();
+                logger.LogWarning("Cotações da CMA descartadas após novo conflito ({Type}); o próximo lote as reenviará.",
+                    retry.GetType().Name);
+            }
+        }
+    }
+
+    private void DetachQuotes()
+    {
+        foreach (var entry in context.ChangeTracker.Entries<MarketQuote>().ToList())
+            entry.State = EntityState.Detached;
+    }
+
+    private async Task ApplyCmaUpdatesOnceAsync(IReadOnlyCollection<MarketQuoteUpdate> updates, CancellationToken cancellationToken)
+    {
+        var symbols = updates.Select(u => u.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Código canônico do cadastro por símbolo, sem depender da collation do banco.
+        var instruments = (await context.MarketInstruments
+                .Where(i => i.Active)
                 .Select(i => i.Code)
                 .ToListAsync(cancellationToken))
-            .ToHashSet();
-        var quotes = await context.MarketQuotes
-            .Where(q => symbols.Contains(q.InstrumentCode))
-            .ToDictionaryAsync(q => q.InstrumentCode, cancellationToken);
+            .Where(code => symbols.Contains(code, StringComparer.OrdinalIgnoreCase))
+            .ToDictionary(code => code, StringComparer.OrdinalIgnoreCase);
+        var codes = instruments.Values.ToList();
+        var quotes = (await context.MarketQuotes
+                .Where(q => codes.Contains(q.InstrumentCode))
+                .ToListAsync(cancellationToken))
+            .ToDictionary(q => q.InstrumentCode, StringComparer.OrdinalIgnoreCase);
 
         var now = DateTime.UtcNow;
         foreach (var update in updates)
         {
-            if (!active.Contains(update.Symbol))
+            if (!instruments.TryGetValue(update.Symbol, out var code))
                 continue;
 
-            if (!quotes.TryGetValue(update.Symbol, out var quote))
+            if (!quotes.TryGetValue(code, out var quote))
             {
-                quote = new MarketQuote { InstrumentCode = update.Symbol };
+                quote = new MarketQuote { InstrumentCode = code };
                 context.MarketQuotes.Add(quote);
-                quotes[update.Symbol] = quote;
+                quotes[code] = quote;
             }
             else if (quote.ManualOverride)
             {
@@ -87,10 +136,13 @@ public class MarketQuoteService(
             quote.Open = update.Open ?? quote.Open;
             quote.PreviousClose = update.PreviousClose ?? quote.PreviousClose;
             if (update.Last.HasValue)
+            {
+                // Só o preço muda a autoria: um delta só de Bid depois de "Liberar" não rotula o manual como CMA.
                 quote.IsSettlement = update.IsSettlement;
+                quote.Source = MarketQuoteSource.Cma;
+                quote.UserName = null;
+            }
             quote.QuotedAt = update.QuotedAt ?? now;
-            quote.Source = MarketQuoteSource.Cma;
-            quote.UserName = null;
             quote.UpdatedAt = now;
         }
 
@@ -100,6 +152,11 @@ public class MarketQuoteService(
     /// <summary>Lançamento manual: vale até ser liberado e a CMA não o sobrescreve.</summary>
     public async Task SetManualAsync(string instrumentCode, ManualQuoteInput input, string userName, CancellationToken cancellationToken)
     {
+        if (input.Last <= 0)
+            throw new BusinessException("Informe o último preço (maior que zero).");
+        if (new[] { input.Bid, input.Ask, input.High, input.Low, input.Open }.Any(v => v < 0))
+            throw new BusinessException("Preços não podem ser negativos.");
+
         var active = await context.MarketInstruments.AnyAsync(i => i.Code == instrumentCode && i.Active, cancellationToken);
         if (!active)
             throw new BusinessException($"Instrumento de mercado {instrumentCode} não encontrado ou inativo.");

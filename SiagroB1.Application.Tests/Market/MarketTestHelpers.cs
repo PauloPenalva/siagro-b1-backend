@@ -15,6 +15,7 @@ internal static class MarketTestHelpers
         Commodity = "SOY",
         GroupName = "Soja CBOT",
         TonFactor = 1m,
+        ContractSize = 1m,
         Active = active,
     };
 

@@ -21,7 +21,7 @@ public sealed class MarketQuotesStreamLoop(
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(5);
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    public static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },

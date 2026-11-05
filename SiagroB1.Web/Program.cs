@@ -308,8 +308,8 @@ if (MarketModule.IsEnabled(app.Configuration))
 {
     RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
         "market-daily-close-job",
-        runner => runner.RunForAllCompaniesAsync(CompanyScopedJobRunner.MarketDailyClose, CancellationToken.None),
-        "0 18 * * 1-5",
+        runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.MarketDailyClose, CancellationToken.None),
+        SiagroB1.Application.Jobs.MarketDailyCloseJob.Cron,
         new RecurringJobOptions { TimeZone = SaoPauloTime.Zone });
 }
 else

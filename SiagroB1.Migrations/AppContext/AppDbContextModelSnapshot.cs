@@ -3058,6 +3058,9 @@ namespace SiagroB1.Migrations.AppContext
                     b.Property<bool>("IsSettlement")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("QuotedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Source")
                         .HasColumnType("int");
 
@@ -3156,6 +3159,7 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("DECIMAL(18,6)");
 
                     b.Property<bool>("ManualOverride")
+                        .IsConcurrencyToken()
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("Open")

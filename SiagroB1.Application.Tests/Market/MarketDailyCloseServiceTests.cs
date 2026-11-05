@@ -80,4 +80,75 @@ public class MarketDailyCloseServiceTests
         var row = await db.Context.MarketDailyCloses.AsNoTracking().SingleAsync();
         Assert.Equal((11m, "bia", MarketQuoteSource.Manual), (row.Close, row.UserName, row.Source));
     }
+    [Fact]
+    public async Task CloseDay_DoesNotDowngrade_SettlementToLast()
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+        var quotes = QuoteService(db);
+        var closes = CloseService(db);
+        await quotes.ApplyCmaUpdatesAsync([Update("ZSF7", 1150m, settlement: true)], CancellationToken.None);
+        await closes.CloseDayAsync(Day, CancellationToken.None);
+
+        await quotes.ApplyCmaUpdatesAsync([Update("ZSF7", 1160m)], CancellationToken.None);
+        var written = await closes.CloseDayAsync(Day, CancellationToken.None);
+
+        Assert.Equal(0, written);
+        var row = await db.Context.MarketDailyCloses.AsNoTracking().SingleAsync();
+        Assert.Equal((1150m, true), (row.Close, row.IsSettlement));
+    }
+
+    [Fact]
+    public async Task CloseDay_Upgrades_LastToSettlement()
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+        var quotes = QuoteService(db);
+        var closes = CloseService(db);
+        await quotes.ApplyCmaUpdatesAsync([Update("ZSF7", 1140m)], CancellationToken.None);
+        await closes.CloseDayAsync(Day, CancellationToken.None);
+
+        await quotes.ApplyCmaUpdatesAsync([Update("ZSF7", 1150m, settlement: true)], CancellationToken.None);
+        var written = await closes.CloseDayAsync(Day, CancellationToken.None);
+
+        Assert.Equal(1, written);
+        var row = await db.Context.MarketDailyCloses.AsNoTracking().SingleAsync();
+        Assert.Equal((1150m, true), (row.Close, row.IsSettlement));
+    }
+
+    [Fact]
+    public async Task CloseDay_FillsQuotedAt_FromSourceQuote()
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+        var quotedAt = new DateTime(2026, 11, 5, 20, 30, 0, DateTimeKind.Utc);
+        await QuoteService(db).ApplyCmaUpdatesAsync(
+            [new SiagroB1.Commons.Market.MarketQuoteUpdate("ZSF7", 1m, null, null, null, null, null, null, null, false, quotedAt)],
+            CancellationToken.None);
+
+        await CloseService(db).CloseDayAsync(Day, CancellationToken.None);
+
+        Assert.Equal(quotedAt, (await db.Context.MarketDailyCloses.AsNoTracking().SingleAsync()).QuotedAt);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task SetManualClose_NotPositive_Throws(int close)
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+
+        await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.BusinessException>(() =>
+            CloseService(db).SetManualCloseAsync("ZSF7", Day, close, "ana", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SetManualClose_FutureDate_Throws()
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+        // 2026-11-06T02:00Z = 05/11 23:00 em São Paulo: 06/11 ainda é futuro.
+        var service = new MarketDailyCloseService(db.Context, new TestLogger<MarketDailyCloseService>(),
+            new ManualTimeProvider(DateTimeOffset.Parse("2026-11-06T02:00:00Z")));
+
+        await Assert.ThrowsAsync<SiagroB1.Domain.Exceptions.BusinessException>(() =>
+            service.SetManualCloseAsync("ZSF7", new DateOnly(2026, 11, 6), 10m, "ana", CancellationToken.None));
+        await service.SetManualCloseAsync("ZSF7", Day, 10m, "ana", CancellationToken.None);
+    }
 }

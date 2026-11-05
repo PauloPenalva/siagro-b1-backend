@@ -40,6 +40,8 @@ public sealed class LiveQuoteStore
         var state = State(companyCode);
         lock (state.Gate)
         {
+            if (state.Status == status && state.Message == message)
+                return;
             state.Status = status;
             state.Message = message;
             state.Version++;

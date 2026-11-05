@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base;
 using SiagroB1.Infra.Context;
 
@@ -13,6 +14,44 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
     private const decimal SoyTonFactor = 0.36745m;
     private const decimal CornTonFactor = 0.393678m;
     private const decimal BagTonFactor = 1000m / 60m;
+
+    private static readonly char[] ForbiddenCodeChars = ['/', '\\', '\'', '%', '?', '#'];
+
+    public override Task<MarketInstrument> CreateAsync(MarketInstrument entity)
+    {
+        Validate(entity);
+        return base.CreateAsync(entity);
+    }
+
+    public override Task<MarketInstrument?> UpdateAsync(string key, MarketInstrument entity)
+    {
+        Validate(entity);
+        return base.UpdateAsync(key, entity);
+    }
+
+    /// <summary>Com cotação ou fechamento o instrumento tem histórico: inativa-se, não se exclui.</summary>
+    public override async Task<bool> DeleteAsync(string code)
+    {
+        if (await context.MarketQuotes.AnyAsync(q => q.InstrumentCode == code)
+            || await context.MarketDailyCloses.AnyAsync(c => c.InstrumentCode == code))
+            throw new BusinessException("Instrumento possui cotações ou fechamentos; inative-o em vez de excluir.");
+
+        return await base.DeleteAsync(code);
+    }
+
+    // O código vai na URL do OData (chave): caracteres que quebram a rota ficam de fora.
+    private static void Validate(MarketInstrument entity)
+    {
+        entity.Code = entity.Code?.Trim() ?? string.Empty;
+        if (entity.Code.Length == 0)
+            throw new BusinessException("Informe o código do instrumento.");
+        if (entity.Code.IndexOfAny(ForbiddenCodeChars) >= 0)
+            throw new BusinessException("O código do instrumento não pode conter / \\ ' % ? #.");
+        if (entity.TonFactor <= 0)
+            throw new BusinessException("O fator de conversão para tonelada deve ser maior que zero.");
+        if (entity.ContractSize <= 0)
+            throw new BusinessException("O tamanho do contrato deve ser maior que zero.");
+    }
 
     /// <summary>Cria, se ainda não existirem, os instrumentos de exemplo. Devolve quantos foram criados.</summary>
     public async Task<int> CreateSamplesAsync(CancellationToken cancellationToken)
@@ -40,7 +79,8 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
     private static List<MarketInstrument> BuildSamples()
     {
         var list = new List<MarketInstrument>();
-        var order = 0;
+        // SortOrder em blocos por grupo (10, 20, ...): a ordem padrão das abas é a do operador.
+        var order = 10;
 
         void Future(string code, string group, string commodity, string label, MarketExchange exchange,
             MarketQuoteUnit unit, decimal tonFactor, decimal contractSize) =>
@@ -68,13 +108,19 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
             Future(code, "Soja CBOT", "SOY", $"Soja CBOT {label}", MarketExchange.Cbot,
                 MarketQuoteUnit.UsCentsPerBushel, SoyTonFactor, 5000m);
 
+        order = 20;
+
         foreach (var (code, label) in new[] { ("ZCH7", "Mar/27"), ("ZCK7", "Mai/27"), ("ZCN7", "Jul/27") })
             Future(code, "Milho CBOT", "CORN", $"Milho CBOT {label}", MarketExchange.Cbot,
                 MarketQuoteUnit.UsCentsPerBushel, CornTonFactor, 5000m);
 
+        order = 30;
+
         foreach (var (code, label) in new[] { ("CCMF27", "Jan/27"), ("CCMH27", "Mar/27") })
             Future(code, "Milho B3", "CORN", $"Milho B3 {label}", MarketExchange.B3,
                 MarketQuoteUnit.BrlPerBag, BagTonFactor, 450m);
+
+        order = 40;
 
         list.Add(new MarketInstrument
         {
@@ -88,9 +134,11 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
             ContractSize = 1m,
             TonFactor = 1m,
             GroupName = "Dólar comercial",
-            SortOrder = order++,
+            SortOrder = order,
             Active = true,
         });
+
+        order = 50;
 
         foreach (var days in new[] { 30, 60, 90, 180, 360 })
             list.Add(new MarketInstrument
