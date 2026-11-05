@@ -73,4 +73,23 @@ public class CmaQuoteMapperTests
         Assert.NotNull(update);
         Assert.Null(update!.QuotedAt);
     }
+
+    [Fact]
+    public void ResolveSaoPaulo_UnknownIds_FallsBackToFixedUtcMinus3WithoutThrowing()
+    {
+        var zone = CmaQuoteMapper.ResolveSaoPaulo("Nope/Unknown", "Also Unknown");
+
+        Assert.Equal(TimeSpan.FromHours(-3), zone.BaseUtcOffset);
+        Assert.Equal(new DateTime(2026, 11, 5, 18, 30, 0, DateTimeKind.Utc),
+            CmaQuoteMapper.ToUtc(new DateTime(2026, 11, 5, 15, 30, 0), zone));
+    }
+
+    [Fact]
+    public void ToUtc_InvalidLocalTime_ReturnsNullInsteadOfThrowing()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+        var gap = new DateTime(2026, 3, 8, 2, 30, 0); // não existe (início do horário de verão)
+
+        Assert.Null(CmaQuoteMapper.ToUtc(gap, zone));
+    }
 }
