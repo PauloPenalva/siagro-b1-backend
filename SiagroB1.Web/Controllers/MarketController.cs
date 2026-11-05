@@ -79,6 +79,11 @@ public class MarketController(
         {
             return BadRequest(e.Message);
         }
+        catch (DefaultException)
+        {
+            // Nfe:CertificateKey malformada (não é base64 de 32 bytes): a cifra recusa a chave.
+            return BadRequest("Chave de criptografia (Nfe:CertificateKey) inválida neste ambiente; corrija-a antes de salvar a senha.");
+        }
     }
 
     [HttpPost("cma/reconnect")]
