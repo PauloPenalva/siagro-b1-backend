@@ -20,6 +20,8 @@ public static class CmaQuoteMapper
         "yyyy-MM-dd HH:mm:ss.fff", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss.fff", "yyyy-MM-ddTHH:mm:ss"
     };
 
+    private static readonly TimeZoneInfo SaoPaulo = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
     public static MarketQuoteUpdate? Map(JsonElement quote)
     {
         if (quote.ValueKind != JsonValueKind.Object)
@@ -82,9 +84,13 @@ public static class CmaQuoteMapper
         _ => null
     };
 
-    // Horário sem fuso no feed; assumido UTC.
-    private static DateTime? ParseDate(string? raw) =>
-        !string.IsNullOrWhiteSpace(raw) && DateTime.TryParseExact(raw.Trim(), DateFormats,
-            CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var d)
-            ? d : null;
+    // Horário do feed é local de São Paulo (sem fuso na mensagem); convertido para UTC.
+    private static DateTime? ParseDate(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || !DateTime.TryParseExact(raw.Trim(), DateFormats,
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
+            return null;
+
+        return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), SaoPaulo);
+    }
 }

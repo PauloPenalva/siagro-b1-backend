@@ -32,7 +32,7 @@ public class CmaQuoteMapperTests
     public void Map_WireShape_MapsSymbolIdAndArrValuesByHexKey()
     {
         var update = CmaQuoteMapper.Map(Json(
-            """{"name":"QuotesUpdateResponse","datetime":"2026-11-05 14:30:15.123","symbolId":{"sourceId":"1","symbol":"ZSF7"},"arrValues":[{"10":"1188.25S"},{"14":"1189.5"},{"03":"1190"},{"01":"-1.16"},{"16":"1210"},{"17":"-"},{"18":"1202.25"},{"1A":"1200"}]}"""));
+            """{"name":"QuotesUpdateResponse","datetime":"2026-11-05 11:30:15.123","symbolId":{"sourceId":"1","symbol":"ZSF7"},"arrValues":[{"10":"1188.25S"},{"14":"1189.5"},{"03":"1190"},{"01":"-1.16"},{"16":"1210"},{"17":"-"},{"18":"1202.25"},{"1A":"1200"}]}"""));
 
         Assert.NotNull(update);
         Assert.Equal("ZSF7", update!.Symbol);
@@ -46,6 +46,15 @@ public class CmaQuoteMapperTests
         Assert.Equal(1202.25m, update.Open);
         Assert.Equal(1200m, update.PreviousClose);
         Assert.Equal(new DateTime(2026, 11, 5, 14, 30, 15, 123, DateTimeKind.Utc), update.QuotedAt);
+    }
+
+    [Fact]
+    public void Map_Datetime_IsSaoPauloLocalTimeConvertedToUtc()
+    {
+        var update = CmaQuoteMapper.Map(Json("""{"symbol":"X","datetime":"2026-11-05 15:30:00.000"}"""));
+
+        Assert.Equal(new DateTime(2026, 11, 5, 18, 30, 0, DateTimeKind.Utc), update!.QuotedAt);
+        Assert.Equal(DateTimeKind.Utc, update.QuotedAt!.Value.Kind);
     }
 
     [Fact]
