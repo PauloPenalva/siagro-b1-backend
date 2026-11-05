@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using Microsoft.Extensions.DependencyInjection.Extensions;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.FiscalInventory;
@@ -146,6 +146,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.MarketInstrumentService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketQuoteService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketDailyCloseService>();
+        services.AddScoped<MarketDailyCloseJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
         // A URL do login da CMA leva usuário e senha: sem os loggers padrão do HttpClient (que registram a URI).

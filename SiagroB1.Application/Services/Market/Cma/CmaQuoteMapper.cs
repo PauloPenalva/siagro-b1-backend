@@ -1,7 +1,7 @@
 using System.Globalization;
-using System.Security;
 using System.Text.Json;
 using SiagroB1.Commons.Market;
+using SiagroB1.Commons.Time;
 
 namespace SiagroB1.Application.Services.Market.Cma;
 
@@ -20,8 +20,6 @@ public static class CmaQuoteMapper
     {
         "yyyy-MM-dd HH:mm:ss.fff", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss.fff", "yyyy-MM-ddTHH:mm:ss"
     };
-
-    private static readonly Lazy<TimeZoneInfo> SaoPaulo = new(() => ResolveSaoPaulo("America/Sao_Paulo", "E. South America Standard Time"));
 
     public static MarketQuoteUpdate? Map(JsonElement quote)
     {
@@ -92,7 +90,7 @@ public static class CmaQuoteMapper
                 CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
             return null;
 
-        return ToUtc(local, SaoPaulo.Value);
+        return ToUtc(local, SaoPauloTime.Zone);
     }
 
     internal static DateTime? ToUtc(DateTime local, TimeZoneInfo zone)
@@ -105,25 +103,5 @@ public static class CmaQuoteMapper
         {
             return null;
         }
-    }
-
-    /// <summary>
-    /// Resolve o fuso sem nunca lançar (Linux sem tzdata, InvariantGlobalization): id IANA, id do Windows e,
-    /// por fim, UTC-3 fixo (o Brasil não tem horário de verão desde 2019).
-    /// </summary>
-    internal static TimeZoneInfo ResolveSaoPaulo(params string[] ids)
-    {
-        foreach (var id in ids)
-        {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById(id);
-            }
-            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException
-                                           or SecurityException or ArgumentException)
-            {
-            }
-        }
-        return TimeZoneInfo.CreateCustomTimeZone("America/Sao_Paulo", TimeSpan.FromHours(-3), "Sao Paulo (UTC-3)", "Sao Paulo (UTC-3)");
     }
 }

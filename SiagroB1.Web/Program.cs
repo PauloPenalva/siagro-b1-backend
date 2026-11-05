@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Text.Json.Serialization;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
@@ -11,6 +11,7 @@ using Microsoft.OData.ModelBuilder;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.Users;
+using SiagroB1.Commons.Time;
 using SiagroB1.Commons.Scales;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
@@ -301,6 +302,20 @@ RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
     "contract-notification-sweep",
     runner => runner.RunForAllCompaniesWithoutRetryAsync(CompanyScopedJobRunner.ContractNotificationSweep, CancellationToken.None),
     Cron.Minutely());
+
+// Fechamento diário das cotações: 18h de Brasília, dias úteis, só com o módulo Mercado contratado.
+if (MarketModule.IsEnabled(app.Configuration))
+{
+    RecurringJob.AddOrUpdate<CompanyScopedJobRunner>(
+        "market-daily-close-job",
+        runner => runner.RunForAllCompaniesAsync(CompanyScopedJobRunner.MarketDailyClose, CancellationToken.None),
+        "0 18 * * 1-5",
+        new RecurringJobOptions { TimeZone = SaoPauloTime.Zone });
+}
+else
+{
+    RecurringJob.RemoveIfExists("market-daily-close-job");
+}
 
 // E-mail da NF-e própria: só STANDALONE (em SAPB1 a NF-e é do SAP).
 if (ErpMode.IsStandalone(app.Configuration))
