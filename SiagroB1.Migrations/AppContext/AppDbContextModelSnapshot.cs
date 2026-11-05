@@ -3011,6 +3011,176 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("MANAGEMENT_VIEW_LINES");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.CmaSettings", b =>
+                {
+                    b.Property<int>("Key")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.Property<byte[]>("PasswordEncrypted")
+                        .HasColumnType("VARBINARY(512)");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("VARCHAR(200)");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("CMA_SETTINGS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketDailyClose", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Close")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("InstrumentCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<bool>("IsSettlement")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstrumentCode", "Date")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_DAILY_CLOSES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketInstrument", b =>
+                {
+                    b.Property<string>("Code")
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("CmaSourceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Commodity")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(20) NOT NULL");
+
+                    b.Property<decimal>("ContractSize")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int?>("CurveDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<int>("Exchange")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExpirationDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<string>("GroupName")
+                        .HasColumnType("VARCHAR(40)");
+
+                    b.Property<string>("ItemCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<int>("QuoteUnit")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TonFactor")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Code");
+
+                    b.ToTable("MARKET_INSTRUMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketQuote", b =>
+                {
+                    b.Property<string>("InstrumentCode")
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<decimal?>("Ask")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal?>("Bid")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal?>("ChangePercent")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal?>("High")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<bool>("IsSettlement")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Last")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal?>("Low")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<bool>("ManualOverride")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Open")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal?>("PreviousClose")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime>("QuotedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("InstrumentCode");
+
+                    b.ToTable("MARKET_QUOTES");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Municipality", b =>
                 {
                     b.Property<string>("Code")
@@ -11243,6 +11413,28 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("ViewCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketDailyClose", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
+                        .WithMany()
+                        .HasForeignKey("InstrumentCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Instrument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketQuote", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
+                        .WithMany()
+                        .HasForeignKey("InstrumentCode")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Instrument");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.NotificationDeliveryLog", b =>
