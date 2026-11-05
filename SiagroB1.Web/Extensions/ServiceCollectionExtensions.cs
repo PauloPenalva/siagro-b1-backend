@@ -143,6 +143,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketInstrumentService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketQuoteService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketDailyCloseService>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
         services.AddScoped<IPurchaseContractService, PurchaseContractService>();
         services.AddScoped<IStateService, StateService>();
