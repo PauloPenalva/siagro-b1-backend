@@ -89,7 +89,11 @@ public sealed class CmaStreamingHostedService(
         catch (Exception e)
         {
             // A sessão não deveria lançar; se lançar, sai do dicionário e volta no próximo ciclo.
-            logger.LogError("Sessão da CMA da empresa {Company} terminou com {ErrorType}", code, e.GetType().Name);
+            if (CmaFailure.IsTransport(e))
+                logger.LogError("Sessão da CMA da empresa {Company} terminou com falha de transporte ({Details})",
+                    code, CmaFailure.TransportDetails(e));
+            else
+                logger.LogError(e, "Sessão da CMA da empresa {Company} terminou com erro", code);
         }
     }
 

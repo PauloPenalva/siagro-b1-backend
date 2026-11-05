@@ -39,17 +39,25 @@ public class CmaCompanySessionTests
             await new CmaSettingsService(context, Nfe).SaveAsync(new CmaSettingsInput(enabled, "https://feed.exemplo.com:443", "usuario", Password));
         }
 
-        public void Start(TimeSpan? reload = null, TimeSpan? backoff = null, TimeProvider? time = null) =>
+        public List<int> BackoffCalls { get; } = [];
+
+        public void Start(TimeSpan? reload = null, TimeSpan? backoff = null, TimeProvider? time = null,
+            TimeSpan? idle = null, TimeSpan? stable = null) =>
             _run = new CmaCompanySession(Company, Client, Store, new FakeCmaCompanyScope(DbName, Store, Nfe), time ?? TimeProvider.System, Logger,
                 new CmaSessionOptions
                 {
                     Delay = (_, ct) => Task.Delay(5, ct),
-                    ChannelIdleLimit = TimeSpan.FromSeconds(90),
+                    ChannelIdleLimit = idle ?? TimeSpan.FromSeconds(90),
+                    StableConnectionPeriod = stable ?? TimeSpan.FromMinutes(2),
                     Tick = TimeSpan.FromMilliseconds(5),
                     PingInterval = TimeSpan.FromHours(1),
                     InstrumentReloadInterval = reload ?? TimeSpan.FromHours(1),
                     DisabledPollInterval = TimeSpan.FromMilliseconds(20),
-                    Backoff = _ => backoff ?? TimeSpan.Zero,
+                    Backoff = failure =>
+                    {
+                        lock (BackoffCalls) BackoffCalls.Add(failure);
+                        return backoff ?? TimeSpan.Zero;
+                    },
                 }).RunAsync(_cts.Token);
 
         public async ValueTask DisposeAsync()
@@ -403,5 +411,122 @@ public class CmaCompanySessionTests
         var http = await Assert.ThrowsAsync<HttpRequestException>(() =>
             failing.LoginAsync(new CmaCredentials("https://h", "u", Password), CancellationToken.None));
         Assert.Equal("HTTP 503", http.Message);
+    }
+    [Fact]
+    public void Describe_BusinessAndDatabaseFailures()
+    {
+        Assert.Equal("Chave inválida", CmaCompanySession.Describe(new SiagroB1.Domain.Exceptions.DefaultException("Chave inválida")));
+        Assert.Equal("Regra", CmaCompanySession.Describe(new SiagroB1.Domain.Exceptions.BusinessException("Regra")));
+        Assert.Equal("Banco da empresa indisponível ou desatualizado",
+            CmaCompanySession.Describe(new DbUpdateException("x", new InvalidOperationException())));
+        Assert.Equal("Banco da empresa indisponível ou desatualizado",
+            CmaCompanySession.Describe(new InvalidOperationException("wrap", new FakeDbException())));
+    }
+
+    private sealed class FakeDbException() : System.Data.Common.DbException("Invalid object name 'MARKET_QUOTES'");
+
+    [Fact]
+    public async Task Session_HttpFailure_LogsDiagnostics_WithoutSecrets()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        h.Client.LoginFailures.Enqueue(new HttpRequestException(HttpRequestError.ConnectionError,
+            "https://feed.exemplo.com/execute?JSONRequest=" + Password,
+            new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.ConnectionRefused)));
+        h.Start();
+
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+
+        var index = h.Logger.Entries.FindIndex(e => e.Level == Microsoft.Extensions.Logging.LogLevel.Warning);
+        var entry = h.Logger.Entries[index];
+        Assert.Contains("ConnectionError", entry.Message);
+        Assert.Contains("ConnectionRefused", entry.Message);
+        Assert.Contains("SocketException", entry.Message);
+        Assert.Null(h.Logger.Exceptions[index]);
+        Assert.All(h.Logger.Entries, e =>
+        {
+            Assert.DoesNotContain(Password, e.Message);
+            Assert.DoesNotContain("execute", e.Message);
+        });
+        Assert.DoesNotContain("execute", h.Store.Get(Company).Message ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task Session_NonHttpFailure_LogsFullException()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        var boom = new InvalidOperationException("estado inválido");
+        h.Client.LoginFailures.Enqueue(boom);
+        h.Start();
+
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+
+        Assert.Contains(boom, h.Logger.Exceptions);
+    }
+
+    [Fact]
+    public async Task Session_BackoffResets_OnlyAfterStableConnection()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero));
+        h.Start(time: time, idle: TimeSpan.FromHours(1));
+
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+        h.Client.CloseChannel();
+        await WaitUntil(() => h.Client.LoginCalls == 2 && h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "2º login");
+        h.Client.CloseChannel();
+        await WaitUntil(() => h.Client.LoginCalls == 3 && h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "3º login");
+
+        // Conectou e caiu logo: o contador NÃO zerou no connect.
+        lock (h.BackoffCalls) Assert.Equal([0, 1], h.BackoffCalls);
+
+        time.Advance(TimeSpan.FromMinutes(2) + TimeSpan.FromSeconds(1));
+        for (var i = 0; i < 2; i++)
+        {
+            var before = h.Store.Get(Company).Version;
+            h.Client.Deliver(Quote("ZSF7", $"{1000 + i}"));
+            await WaitUntil(() => h.Store.Get(Company).Version > before, "tick após 2 min");
+        }
+        h.Client.CloseChannel();
+        await WaitUntil(() => h.Client.LoginCalls == 4, "4º login");
+
+        lock (h.BackoffCalls) Assert.Equal([0, 1, 0], h.BackoffCalls);
+    }
+
+    [Fact]
+    public async Task Session_NoCmaInstruments_ConnectedWithoutSubscribing_ThenSubscribesOnReload()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("SEMFONTE", null));
+        h.Start(reload: TimeSpan.Zero);
+
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+        Assert.Equal("Nenhum instrumento com fonte CMA para assinar", h.Store.Get(Company).Message);
+        Assert.Equal(0, h.Client.SubscriptionCount);
+
+        await using (var context = h.NewContext())
+        {
+            context.MarketInstruments.Add(Instrument("ZSF7", 30));
+            await context.SaveChangesAsync();
+        }
+
+        await WaitUntil(() => h.Client.SubscriptionCount == 1, "assinatura no reload");
+        await WaitUntil(() => h.Store.Get(Company).Message is null, "mensagem limpa");
+        Assert.Equal(1, h.Client.LoginCalls);
+    }
+
+    [Fact]
+    public void LogThrottle_FirstAlways_ThenOncePerMinute()
+    {
+        var throttle = new LogThrottle(TimeSpan.FromMinutes(1));
+        var t0 = new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero);
+
+        Assert.True(throttle.ShouldLog(t0));
+        Assert.False(throttle.ShouldLog(t0.AddSeconds(30)));
+        Assert.False(throttle.ShouldLog(t0.AddSeconds(59)));
+        Assert.True(throttle.ShouldLog(t0.AddSeconds(60)));
+        Assert.False(throttle.ShouldLog(t0.AddSeconds(90)));
     }
 }

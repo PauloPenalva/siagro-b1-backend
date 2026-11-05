@@ -36,9 +36,18 @@ public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
             context.CmaSettings.Add(row);
         }
 
-        row.Enabled = input.Enabled;
+        // Host vazio mantém o anterior. Trocar o host exige a senha de novo: a senha guardada nunca vai a um host novo.
         if (!string.IsNullOrWhiteSpace(input.Host))
-            row.Host = input.Host.Trim();
+        {
+            var host = input.Host.Trim();
+            ValidateHost(host);
+            if (!string.Equals(host, row.Host, StringComparison.OrdinalIgnoreCase)
+                && row.PasswordEncrypted is { Length: > 0 } && password is null)
+                throw new BusinessException("Informe a senha novamente ao alterar o host");
+            row.Host = host;
+        }
+
+        row.Enabled = input.Enabled;
         row.UserName = string.IsNullOrWhiteSpace(input.UserName) ? null : input.UserName.Trim();
         // Senha vazia mantém a cifra anterior.
         if (password is not null)
@@ -56,6 +65,17 @@ public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
             return null;
 
         return new CmaCredentials(row.Host, row.UserName, nfeOptions.Cipher().Decrypt(row.PasswordEncrypted));
+    }
+
+    private static void ValidateHost(string host)
+    {
+        if (!Uri.TryCreate(host, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps
+            || uri.AbsolutePath != "/"
+            || uri.Query.Length > 0
+            || uri.Fragment.Length > 0
+            || host.Contains('?') || host.Contains('#'))
+            throw new BusinessException("Host da CMA inválido: informe só o endereço https:// (sem caminho, parâmetros ou fragmento).");
     }
 
     private static CmaSettingsView ToView(CmaSettings row) =>

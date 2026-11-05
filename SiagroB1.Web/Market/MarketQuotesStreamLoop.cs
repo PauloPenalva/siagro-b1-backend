@@ -20,6 +20,7 @@ public sealed class MarketQuotesStreamLoop(
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan RepeatedLogInterval = TimeSpan.FromMinutes(1);
 
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -39,6 +40,7 @@ public sealed class MarketQuotesStreamLoop(
         var lastVersion = -1L;
         var lastWrite = _time.GetUtcNow();
         DateTimeOffset? retryAt = null;
+        var readFailureLog = new LogThrottle(RepeatedLogInterval);
 
         try
         {
@@ -57,8 +59,9 @@ public sealed class MarketQuotesStreamLoop(
                     }
                     catch (Exception e) when (!cancellationToken.IsCancellationRequested)
                     {
-                        // Sem payload no log; a próxima tentativa só acontece após o backoff.
-                        logger.LogWarning(e, "Falha ao ler o quadro de cotações da empresa {Company}; nova tentativa em {Backoff} s.",
+                        // Sem payload no log; a próxima tentativa só acontece após o backoff. Uma linha por minuto.
+                        if (readFailureLog.ShouldLog(now))
+                            logger.LogWarning(e, "Falha ao ler o quadro de cotações da empresa {Company}; nova tentativa em {Backoff} s.",
                             companyCode, RetryBackoff.TotalSeconds);
                         retryAt = now + RetryBackoff;
                     }

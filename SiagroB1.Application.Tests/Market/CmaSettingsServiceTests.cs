@@ -72,4 +72,54 @@ public class CmaSettingsServiceTests
 
         Assert.Null(await service.GetCredentialsAsync());
     }
+    [Theory]
+    [InlineData("http://feed.exemplo.com")]
+    [InlineData("feed.exemplo.com")]
+    [InlineData("https://feed.exemplo.com/execute")]
+    [InlineData("https://feed.exemplo.com/?a=1")]
+    [InlineData("https://feed.exemplo.com/#x")]
+    public async Task CmaSettings_InvalidHost_Throws(string host)
+    {
+        var (service, _) = Create();
+
+        await Assert.ThrowsAsync<BusinessException>(() => service.SaveAsync(Input() with { Host = host }));
+    }
+
+    [Theory]
+    [InlineData("https://feed.exemplo.com:443")]
+    [InlineData("https://feed.exemplo.com/")]
+    public async Task CmaSettings_ValidHost_Saved(string host)
+    {
+        var (service, _) = Create();
+
+        var saved = await service.SaveAsync(Input() with { Host = host });
+
+        Assert.Equal(host, saved.Host);
+    }
+
+    [Fact]
+    public async Task CmaSettings_BlankHost_KeepsPrevious()
+    {
+        var (service, _) = Create();
+        await service.SaveAsync(Input());
+
+        var saved = await service.SaveAsync(Input("") with { Host = "  " });
+
+        Assert.Equal("https://feed.exemplo.com:443", saved.Host);
+    }
+
+    [Fact]
+    public async Task CmaSettings_HostChange_RequiresPassword()
+    {
+        var (service, _) = Create();
+        await service.SaveAsync(Input());
+
+        var error = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SaveAsync(Input("") with { Host = "https://outro.exemplo.com" }));
+        Assert.Equal("Informe a senha novamente ao alterar o host", error.Message);
+
+        var saved = await service.SaveAsync(Input("nova") with { Host = "https://outro.exemplo.com" });
+        Assert.Equal("https://outro.exemplo.com", saved.Host);
+        Assert.Equal("nova", (await service.GetCredentialsAsync())!.Password);
+    }
 }

@@ -69,4 +69,31 @@ public class MarketQuotesStreamLoopTests
 
         Assert.True(cts.IsCancellationRequested);
     }
+    [Fact]
+    public async Task Sse_RepeatedReadFailures_LoggedAtMostOncePerMinute()
+    {
+        var store = new LiveQuoteStore();
+        store.NotifyChanged("A");
+        var time = new ManualTime();
+        var logger = new TestLogger<MarketQuotesStreamLoop>();
+        using var cts = new CancellationTokenSource();
+        var ticks = 0;
+        var reads = 0;
+        var loop = new MarketQuotesStreamLoop(store, logger, time, (span, _) =>
+        {
+            time.Now += span;
+            // 150 ticks de 500 ms = 75 s: ~15 tentativas (backoff de 5 s), cruzando a marca de 1 minuto uma vez.
+            if (++ticks >= 150) cts.Cancel();
+            return Task.CompletedTask;
+        });
+
+        await loop.RunAsync("A", new MemoryStream(), _ =>
+        {
+            reads++;
+            throw new InvalidOperationException("db fora");
+        }, cts.Token);
+
+        Assert.True(reads > 10);
+        Assert.Equal(2, logger.Entries.Count(e => e.Level == LogLevel.Warning));
+    }
 }

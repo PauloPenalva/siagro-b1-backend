@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Commons.Market;
+using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market.Cma;
@@ -16,6 +17,12 @@ public sealed class CmaSessionOptions
 
     /// <summary>Sem nenhuma mensagem no canal (nem HeartBeat) por mais que isto, a conexão é tida como morta.</summary>
     public TimeSpan ChannelIdleLimit { get; init; } = TimeSpan.FromSeconds(90);
+
+    /// <summary>Conectado por pelo menos isto, o contador de falhas (backoff) volta a zero.</summary>
+    public TimeSpan StableConnectionPeriod { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>Repetição de um mesmo log de falha (gravação das cotações) no máximo uma vez neste intervalo.</summary>
+    public TimeSpan RepeatedLogInterval { get; init; } = TimeSpan.FromMinutes(1);
 
     /// <summary>Espera após a falha n (0, 1, 2…): 5 s dobrando até 60 s.</summary>
     public Func<int, TimeSpan> Backoff { get; init; } = DefaultBackoff;
@@ -44,7 +51,11 @@ public sealed class CmaCompanySession(
     CmaSessionOptions? options = null)
 {
     private readonly CmaSessionOptions _options = options ?? new CmaSessionOptions();
+    public const string NoSubscriptionMessage = "Nenhum instrumento com fonte CMA para assinar";
+
     private readonly CmaQuoteBatch _batch = new();
+    private LogThrottle? _flushLogThrottle;
+    private LogThrottle FlushLogThrottle => _flushLogThrottle ??= new LogThrottle(_options.RepeatedLogInterval);
     private long _lastChannelActivityTicks;
 
     private void TouchChannel() => Interlocked.Exchange(ref _lastChannelActivityTicks, timeProvider.GetUtcNow().UtcTicks);
@@ -75,8 +86,7 @@ public sealed class CmaCompanySession(
             {
                 var message = Describe(e);
                 store.SetStatus(companyCode, CmaConnectionStatus.Error, message);
-                // Só a descrição: a exceção pode carregar host/URL (e a URL do login tem a senha).
-                logger.LogWarning("CMA da empresa {Company}: {Error}", companyCode, message);
+                LogFailure(e, message);
                 try
                 {
                     await WaitAsync(_options.Backoff(failures++), cancellationToken);
@@ -91,8 +101,20 @@ public sealed class CmaCompanySession(
         await FlushAsync(CancellationToken.None);
     }
 
+    private void LogFailure(Exception e, string message)
+    {
+        if (e is CmaProtocolException)
+            logger.LogWarning("CMA da empresa {Company}: {Error}", companyCode, message);
+        else if (CmaFailure.IsTransport(e))
+            // Transporte: a Message pode ter a URL (com a senha na query string) — só metadados.
+            logger.LogWarning("CMA da empresa {Company}: {Error} ({Details})", companyCode, message, CmaFailure.TransportDetails(e));
+        else
+            // Banco, cifra, JSON...: nunca viram a URL, que só existe dentro do CmaStreamerClient.
+            logger.LogWarning(e, "CMA da empresa {Company}: {Error}", companyCode, message);
+    }
+
     /// <summary>Volta normalmente só quando um pedido de reconexão chega.</summary>
-    private async Task ConnectAndStreamAsync(CmaCredentials credentials, Action onConnected, CancellationToken cancellationToken)
+    private async Task ConnectAndStreamAsync(CmaCredentials credentials, Action onStable, CancellationToken cancellationToken)
     {
         store.SetStatus(companyCode, CmaConnectionStatus.Connecting, null);
         var sessionId = await client.LoginAsync(credentials, cancellationToken);
@@ -104,10 +126,13 @@ public sealed class CmaCompanySession(
         {
             var symbols = await LoadSymbolsAsync(cancellationToken);
             await SubscribeAsync(credentials, sessionId, symbols, cancellationToken);
-            store.SetStatus(companyCode, CmaConnectionStatus.Connected, null);
-            onConnected();
+            SetConnected(symbols);
 
-            var lastPing = timeProvider.GetUtcNow();
+            // O backoff só zera depois de um tempo conectado: um servidor que aceita e derruba logo em seguida
+            // não pode prender a sessão num reconecta-a-cada-5-s.
+            var connectedAt = timeProvider.GetUtcNow();
+            var stable = false;
+            var lastPing = connectedAt;
             var lastReload = lastPing;
             while (true)
             {
@@ -128,6 +153,12 @@ public sealed class CmaCompanySession(
                 if (now.UtcTicks - Interlocked.Read(ref _lastChannelActivityTicks) > _options.ChannelIdleLimit.Ticks)
                     throw new CmaProtocolException("CMA sem atividade no canal");
 
+                if (!stable && now - connectedAt >= _options.StableConnectionPeriod)
+                {
+                    stable = true;
+                    onStable();
+                }
+
                 if (now - lastPing >= _options.PingInterval)
                 {
                     await client.PingAsync(credentials, sessionId, cancellationToken);
@@ -142,6 +173,7 @@ public sealed class CmaCompanySession(
                     {
                         symbols = current;
                         await SubscribeAsync(credentials, sessionId, symbols, cancellationToken);
+                        SetConnected(symbols);
                     }
                 }
             }
@@ -165,9 +197,16 @@ public sealed class CmaCompanySession(
         }
     }
 
+    private void SetConnected(HashSet<(int? SourceId, string Symbol)> symbols) =>
+        store.SetStatus(companyCode, CmaConnectionStatus.Connected, symbols.Count == 0 ? NoSubscriptionMessage : null);
+
+    /// <summary>Lista vazia não vai à CMA (QuotesRequest sem símbolos); o reload de 60 s reconfere.</summary>
     private async Task SubscribeAsync(CmaCredentials credentials, string sessionId,
         HashSet<(int? SourceId, string Symbol)> symbols, CancellationToken cancellationToken)
     {
+        if (symbols.Count == 0)
+            return;
+
         var snapshot = await client.SubscribeAsync(credentials, sessionId, symbols, cancellationToken);
         foreach (var quote in snapshot)
             if (CmaQuoteMapper.Map(quote) is { } update)
@@ -204,7 +243,10 @@ public sealed class CmaCompanySession(
             _batch.Restore(updates);
             if (e is OperationCanceledException && cancellationToken.IsCancellationRequested)
                 throw;
-            logger.LogError("Falha ao gravar cotações da CMA na empresa {Company}: {ErrorType}", companyCode, e.GetType().Name);
+            // Gravação no banco: não passa pela URL da CMA, a exceção vai inteira — uma vez por minuto.
+            if (FlushLogThrottle.ShouldLog(timeProvider.GetUtcNow()))
+                logger.LogError(e, "Falha ao gravar cotações da CMA na empresa {Company} (repetições omitidas por {Interval} s)",
+                    companyCode, _options.RepeatedLogInterval.TotalSeconds);
         }
     }
 
@@ -227,8 +269,10 @@ public sealed class CmaCompanySession(
     internal static string Describe(Exception e) => e switch
     {
         CmaProtocolException p => p.Message,
+        BusinessException or DefaultException => e.Message,
         OperationCanceledException => "CMA não respondeu (tempo esgotado)",
         HttpRequestException { StatusCode: { } status } => $"CMA indisponível: HTTP {(int)status}",
+        _ when CmaFailure.IsDatabase(e) => CmaFailure.DatabaseMessage,
         _ => $"CMA indisponível: {e.GetType().Name}",
     };
 }
