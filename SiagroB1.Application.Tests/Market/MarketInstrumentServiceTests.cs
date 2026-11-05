@@ -22,8 +22,12 @@ public class MarketInstrumentServiceTests
         var soy = await db.Context.MarketInstruments.SingleAsync(i => i.Code == "ZSF7");
         Assert.Equal(0.36745m, soy.TonFactor);
         Assert.Equal(MarketExchange.Cbot, soy.Exchange);
+        Assert.Equal(30, soy.CmaSourceId);
+        Assert.Equal(57, (await db.Context.MarketInstruments.SingleAsync(i => i.Code == "CCMF27")).CmaSourceId);
+        Assert.Equal(200, (await db.Context.MarketInstruments.SingleAsync(i => i.Code == "DOL COM")).CmaSourceId);
         var curve = await db.Context.MarketInstruments.SingleAsync(i => i.Code == "CURVA DE DOLAR 90D");
         Assert.Equal(90, curve.CurveDays);
+        Assert.Equal(87, curve.CmaSourceId);
         Assert.Equal(MarketInstrumentType.CurvePoint, curve.Type);
     }
 }

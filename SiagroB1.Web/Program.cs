@@ -139,6 +139,8 @@ switch (erp.ToUpper().Trim())
 }
 
 builder.Services.AddApplicationServices();
+if (SiagroB1.Infra.MarketModule.IsEnabled(builder.Configuration))
+    builder.Services.AddHostedService<SiagroB1.Web.Market.CmaStreamingHostedService>();
 
 // Storage na COMMON: a fila é do deploy, não de uma empresa. O filtro entrega a empresa dos
 // argumentos ao escopo de cada job.

@@ -31,6 +31,12 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
         return missing.Count;
     }
 
+    // Origens da CMA usadas pelo Siagro Tagui (CodigoBolsaService.getSymbolsActive / SourceIdEnum).
+    private const int CmaSourceCbot = 30;
+    private const int CmaSourceB3 = 57;
+    private const int CmaSourceDollarSpot = 200;
+    private const int CmaSourceDollarCurve = 87;
+
     private static List<MarketInstrument> BuildSamples()
     {
         var list = new List<MarketInstrument>();
@@ -43,6 +49,8 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
                 Code = code,
                 Description = label,
                 Exchange = exchange,
+                // sourceId da CMA conforme o Siagro Tagui (SourceIdEnum): CBOT 30, B3/BM&F 57.
+                CmaSourceId = exchange == MarketExchange.Cbot ? CmaSourceCbot : CmaSourceB3,
                 Type = MarketInstrumentType.Future,
                 Commodity = commodity,
                 QuoteUnit = unit,
@@ -73,6 +81,7 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
             Code = "DOL COM",
             Description = "Dólar comercial",
             Exchange = MarketExchange.Spot,
+            CmaSourceId = CmaSourceDollarSpot,
             Type = MarketInstrumentType.Spot,
             Commodity = "USD",
             QuoteUnit = MarketQuoteUnit.BrlPerUsd,
@@ -89,6 +98,7 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
                 Code = $"CURVA DE DOLAR {days}D",
                 Description = $"Curva de dólar {days} dias",
                 Exchange = MarketExchange.Spot,
+                CmaSourceId = CmaSourceDollarCurve,
                 Type = MarketInstrumentType.CurvePoint,
                 Commodity = "USD",
                 QuoteUnit = MarketQuoteUnit.BrlPerUsd,
