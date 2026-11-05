@@ -126,4 +126,19 @@ public class MarketQuoteServiceTests
         Assert.Equal(10m, board[0].Last);
         Assert.Equal(2, await db.Context.MarketDailyCloses.CountAsync());
     }
+
+    [Fact]
+    public async Task SetManual_NotifiesStore()
+    {
+        var db = await SeedAsync(Instrument("ZSF7"));
+        var store = new LiveQuoteStore();
+        var service = QuoteService(db, store, "0007");
+
+        await service.SetManualAsync("ZSF7", new ManualQuoteInput(1100m, null, null, null, null, null, false), "tester", CancellationToken.None);
+        Assert.Equal(1, store.Get("0007").Version);
+
+        await service.ReleaseManualAsync("ZSF7", CancellationToken.None);
+        Assert.Equal(2, store.Get("0007").Version);
+        Assert.Equal(0, store.Get("0001").Version);
+    }
 }

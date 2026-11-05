@@ -4,6 +4,7 @@ using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market;
@@ -16,7 +17,8 @@ public sealed record MarketQuoteView(
     decimal? ChangePercent, decimal? High, decimal? Low, decimal? Open, bool IsSettlement, DateTime? QuotedAt,
     MarketQuoteSource? Source, bool ManualOverride);
 
-public class MarketQuoteService(AppDbContext context, ILogger<MarketQuoteService> logger)
+public class MarketQuoteService(
+    AppDbContext context, LiveQuoteStore store, ICompanyContext companyContext, ILogger<MarketQuoteService> logger)
 {
     /// <summary>Instrumentos ativos com a última cotação (se houver), por grupo e ordem.</summary>
     public async Task<IReadOnlyList<MarketQuoteView>> GetBoardAsync(CancellationToken cancellationToken)
@@ -124,6 +126,7 @@ public class MarketQuoteService(AppDbContext context, ILogger<MarketQuoteService
         quote.UpdatedAt = now;
 
         await context.SaveChangesAsync(cancellationToken);
+        store.NotifyChanged(companyContext.CompanyCode);
         logger.LogInformation("Cotação manual de {Code} lançada por {User}.", instrumentCode, userName);
     }
 
@@ -137,5 +140,6 @@ public class MarketQuoteService(AppDbContext context, ILogger<MarketQuoteService
         quote.ManualOverride = false;
         quote.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
+        store.NotifyChanged(companyContext.CompanyCode);
     }
 }

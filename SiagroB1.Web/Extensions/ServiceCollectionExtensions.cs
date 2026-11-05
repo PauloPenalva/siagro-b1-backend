@@ -146,6 +146,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.MarketInstrumentService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketQuoteService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketDailyCloseService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
+        services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
+        services.AddSingleton<SiagroB1.Web.Market.MarketQuotesSseWriter>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
         services.AddScoped<IPurchaseContractService, PurchaseContractService>();
         services.AddScoped<IStateService, StateService>();

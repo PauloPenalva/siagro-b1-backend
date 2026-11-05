@@ -26,8 +26,8 @@ internal static class MarketTestHelpers
         return db;
     }
 
-    public static MarketQuoteService QuoteService(UnitOfWork db) =>
-        new(db.Context, new TestLogger<MarketQuoteService>());
+    public static MarketQuoteService QuoteService(UnitOfWork db, LiveQuoteStore? store = null, string company = "0001") =>
+        new(db.Context, store ?? new LiveQuoteStore(), new FakeCompanyContext(company), new TestLogger<MarketQuoteService>());
 
     public static MarketQuoteUpdate Update(string symbol, decimal? last, bool settlement = false) =>
         new(symbol, last, null, null, null, null, null, null, null, settlement, null);

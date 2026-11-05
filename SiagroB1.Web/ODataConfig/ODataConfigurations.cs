@@ -18,6 +18,7 @@ public static class ODataConfigurations
     public static void ConfigureODataEntities(this ODataConventionModelBuilder modelBuilder)
     {
         modelBuilder.EntitySet<Company>("Companies");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketInstrument>("MarketInstruments");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
