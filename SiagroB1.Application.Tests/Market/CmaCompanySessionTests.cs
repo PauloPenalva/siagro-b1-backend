@@ -39,10 +39,12 @@ public class CmaCompanySessionTests
             await new CmaSettingsService(context, Nfe).SaveAsync(new CmaSettingsInput(enabled, "https://feed.exemplo.com:443", "usuario", Password));
         }
 
-        public void Start(TimeSpan? reload = null, TimeSpan? backoff = null) =>
-            _run = new CmaCompanySession(Company, Client, Store, new FakeCmaCompanyScope(DbName, Store, Nfe), TimeProvider.System, Logger,
+        public void Start(TimeSpan? reload = null, TimeSpan? backoff = null, TimeProvider? time = null) =>
+            _run = new CmaCompanySession(Company, Client, Store, new FakeCmaCompanyScope(DbName, Store, Nfe), time ?? TimeProvider.System, Logger,
                 new CmaSessionOptions
                 {
+                    Delay = (_, ct) => Task.Delay(5, ct),
+                    ChannelIdleLimit = TimeSpan.FromSeconds(90),
                     Tick = TimeSpan.FromMilliseconds(5),
                     PingInterval = TimeSpan.FromHours(1),
                     InstrumentReloadInterval = reload ?? TimeSpan.FromHours(1),
@@ -203,6 +205,94 @@ public class CmaCompanySessionTests
         Assert.Equal(0, h.Client.LoginCalls);
     }
 
+    private static async Task AssertReconnectsAfterChannelLoss(Harness h, Action loseChannel, string expectedError)
+    {
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+        loseChannel();
+        await WaitUntil(() => h.Client.LoginCalls == 2 && h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "novo login");
+        Assert.Contains(h.Logger.Entries, e => e.Level == Microsoft.Extensions.Logging.LogLevel.Warning && e.Message.Contains(expectedError));
+    }
+
+    [Fact]
+    public async Task Session_ChannelEof_SetsErrorAndLogsInAgain()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        h.Start();
+        await AssertReconnectsAfterChannelLoss(h, () => h.Client.CloseChannel(), "CMA fechou o canal de cotações");
+    }
+
+    [Fact]
+    public async Task Session_ChannelErrorResponse_SetsErrorAndLogsInAgain()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        h.Start();
+        await AssertReconnectsAfterChannelLoss(h,
+            () => h.Client.CloseChannel(new CmaProtocolException("CMA encerrou a sessão (ErrorResponse no canal)")), "ErrorResponse");
+    }
+
+    [Fact]
+    public async Task Session_IdleChannel_SetsErrorAndLogsInAgain()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero));
+        h.Start(time: time);
+        await AssertReconnectsAfterChannelLoss(h, () => time.Advance(TimeSpan.FromSeconds(91)), "CMA sem atividade no canal");
+    }
+
+    [Fact]
+    public async Task Session_HeartbeatKeepsChannelAlive()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 11, 5, 10, 0, 0, TimeSpan.Zero));
+        h.Start(time: time);
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+
+        // 4 × 60 s = 240 s, bem acima do limite de 90 s — só o heartbeat a cada 60 s mantém a conexão.
+        for (var i = 1; i <= 4; i++)
+        {
+            time.Advance(TimeSpan.FromSeconds(60));
+            h.Client.Deliver("""{"name":"HeartBeat"}""");
+            var expected = i;
+            await WaitUntil(() => h.Client.ProcessedMessages == expected, "heartbeat lido");
+        }
+
+        // Dois flushes seguidos garantem ao menos um tick inteiro (com a checagem de inatividade) depois do último avanço.
+        for (var i = 0; i < 2; i++)
+        {
+            var before = h.Store.Get(Company).Version;
+            h.Client.Deliver(Quote("ZSF7", $"{1000 + i}"));
+            await WaitUntil(() => h.Store.Get(Company).Version > before, "tick após o heartbeat");
+        }
+
+        Assert.Equal(1, h.Client.LoginCalls);
+        Assert.Equal(CmaConnectionStatus.Connected, h.Store.Get(Company).Status);
+    }
+
+    [Fact]
+    public void Framer_OversizedMessage_Throws()
+    {
+        var framer = new CmaChannelFramer();
+        framer.Push("{\"a\":\"");
+        var chunk = new string('x', 64 * 1024);
+        Assert.Throws<CmaProtocolException>(() =>
+        {
+            for (var i = 0; i < 20; i++)
+                framer.Push(chunk);
+        });
+    }
+
+    [Fact]
+    public void Describe_CommandTimeout_IsReadable()
+    {
+        Assert.Equal("CMA não respondeu (tempo esgotado)", CmaCompanySession.Describe(new TaskCanceledException()));
+        Assert.Equal("CMA indisponível: HTTP 502",
+            CmaCompanySession.Describe(new HttpRequestException("https://h/execute?JSONRequest=x", null, HttpStatusCode.BadGateway)));
+    }
+
     [Fact]
     public void CmaQuoteBatch_MergesDeltas_AndRestoreKeepsNewer()
     {
@@ -264,8 +354,11 @@ public class CmaCompanySessionTests
         var channelJson = JsonNode.Parse(Uri.UnescapeDataString(handler.Requests[2].RequestUri!.Query["?JSONRequest=".Length..]))!;
         Assert.Equal("CreatePersistentChannelRequest", (string?)channelJson["name"]);
         Assert.False((bool)channelJson["sync"]!);
-        Assert.Equal(2, channel.Count);
-        Assert.Equal("ZCH7", channel[1].GetProperty("symbolId").GetProperty("symbol").GetString());
+        // Toda mensagem sai do canal (sinal de vida); só as QuotesUpdateResponse são cotação.
+        Assert.Equal(new[] { "HeartBeat", "QuotesUpdateResponse", "QuotesUpdateResponse", "ArrivalResponse" },
+            channel.Select(m => m.GetProperty("name").GetString()));
+        Assert.Equal(2, channel.Count(CmaStreamerClient.IsQuoteUpdate));
+        Assert.Equal("ZCH7", channel[2].GetProperty("symbolId").GetProperty("symbol").GetString());
     }
 
     [Fact]

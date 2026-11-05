@@ -19,6 +19,8 @@ internal sealed class FakeCmaStreamerClient : ICmaStreamerClient
     private Channel<JsonElement> _channel = Channel.CreateUnbounded<JsonElement>();
 
     public Queue<Exception> LoginFailures { get; } = new();
+    private int _processed;
+    public int ProcessedMessages => Volatile.Read(ref _processed);
     public int LoginCalls { get; private set; }
     public List<CmaCredentials> LoginCredentials { get; } = [];
     public List<IReadOnlyCollection<(int? SourceId, string Symbol)>> Subscriptions { get; } = [];
@@ -44,7 +46,10 @@ internal sealed class FakeCmaStreamerClient : ICmaStreamerClient
         Channel<JsonElement> channel;
         lock (_gate) channel = _channel;
         await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
+        {
             yield return item;
+            Interlocked.Increment(ref _processed); // o consumidor pediu o próximo: este já foi tratado
+        }
     }
 
     public Task<IReadOnlyList<JsonElement>> SubscribeAsync(CmaCredentials credentials, string sessionId,
@@ -55,6 +60,14 @@ internal sealed class FakeCmaStreamerClient : ICmaStreamerClient
     }
 
     public Task PingAsync(CmaCredentials credentials, string sessionId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>Servidor fecha o canal (EOF) ou o derruba com uma falha (ex.: ErrorResponse).</summary>
+    public void CloseChannel(Exception? error = null)
+    {
+        Channel<JsonElement> channel;
+        lock (_gate) channel = _channel;
+        channel.Writer.TryComplete(error);
+    }
 
     public void Deliver(string json)
     {

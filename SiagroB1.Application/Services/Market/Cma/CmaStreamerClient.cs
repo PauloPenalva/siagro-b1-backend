@@ -92,8 +92,16 @@ public sealed class CmaStreamerClient(HttpClient httpClient) : ICmaStreamerClien
             ["timeRequest"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture),
         };
 
-        using var _ = await SendCommandAsync(credentials.Host, request, cancellationToken);
+        // O Java não lia a resposta do ping; aqui HTTP de erro (EnsureSuccess) ou ErrorResponse derrubam a conexão.
+        using var response = await SendCommandAsync(credentials.Host, request, cancellationToken);
+        if (Name(response.RootElement) == "ErrorResponse"
+            || (response.RootElement.ValueKind == JsonValueKind.Object
+                && response.RootElement.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.False))
+            throw new CmaProtocolException("CMA recusou o ping");
     }
+
+    /// <summary>Nome da mensagem do canal (QuotesUpdateResponse, HeartBeat…).</summary>
+    public static bool IsQuoteUpdate(JsonElement message) => Name(message) == "QuotesUpdateResponse";
 
     public async IAsyncEnumerable<JsonElement> OpenChannelAsync(CmaCredentials credentials, string sessionId,
         [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -127,15 +135,10 @@ public sealed class CmaStreamerClient(HttpClient httpClient) : ICmaStreamerClien
             foreach (var text in framer.Push(buffer.AsSpan(0, read)))
             {
                 var root = ParseMessage(text);
-                switch (Name(root))
-                {
-                    case "QuotesUpdateResponse":
-                        yield return root;
-                        break;
-                    case "ErrorResponse":
-                        throw new CmaProtocolException("CMA encerrou a sessão (ErrorResponse no canal)");
-                    // HeartBeat, ArrivalResponse e desconhecidos: nada a fazer.
-                }
+                if (Name(root) == "ErrorResponse")
+                    throw new CmaProtocolException("CMA encerrou a sessão (ErrorResponse no canal)");
+                yield return root; // cotação ou heartbeat: a sessão separa pelo name
+
             }
         }
     }

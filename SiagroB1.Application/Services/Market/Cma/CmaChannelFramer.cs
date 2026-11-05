@@ -9,6 +9,9 @@ namespace SiagroB1.Application.Services.Market.Cma;
 /// </summary>
 internal sealed class CmaChannelFramer
 {
+    /// <summary>Teto de uma mensagem: lixo com "{" que nunca fecha não pode crescer sem limite num stream longo.</summary>
+    public const int MaxMessageChars = 1024 * 1024;
+
     private readonly StringBuilder _current = new();
     private int _depth;
     private bool _inString;
@@ -27,6 +30,8 @@ internal sealed class CmaChannelFramer
             }
 
             _current.Append(c);
+            if (_current.Length > MaxMessageChars)
+                throw new CmaProtocolException("CMA enviou uma mensagem grande demais no canal");
 
             if (_inString)
             {

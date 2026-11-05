@@ -12,8 +12,9 @@ public interface ICmaStreamerClient
     Task<string> LoginAsync(CmaCredentials credentials, CancellationToken cancellationToken);
 
     /// <summary>
-    /// CreatePersistentChannelRequest: lê o canal e entrega cada QuotesUpdateResponse. Termina quando o servidor
-    /// fecha o canal; ErrorResponse no canal lança <see cref="CmaProtocolException"/> (sessão expirada/derrubada).
+    /// CreatePersistentChannelRequest: lê o canal e entrega TODA mensagem (QuotesUpdateResponse, HeartBeat,
+    /// ArrivalResponse…) — qualquer uma conta como sinal de vida; só QuotesUpdateResponse é cotação (campo
+    /// <c>name</c>). Termina quando o servidor fecha o canal; ErrorResponse lança <see cref="CmaProtocolException"/>.
     /// </summary>
     IAsyncEnumerable<JsonElement> OpenChannelAsync(CmaCredentials credentials, string sessionId, CancellationToken cancellationToken);
 

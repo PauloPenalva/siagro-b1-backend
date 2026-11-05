@@ -14,6 +14,9 @@ public sealed class CmaSessionOptions
     public TimeSpan InstrumentReloadInterval { get; init; } = TimeSpan.FromSeconds(60);
     public TimeSpan DisabledPollInterval { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>Sem nenhuma mensagem no canal (nem HeartBeat) por mais que isto, a conexão é tida como morta.</summary>
+    public TimeSpan ChannelIdleLimit { get; init; } = TimeSpan.FromSeconds(90);
+
     /// <summary>Espera após a falha n (0, 1, 2…): 5 s dobrando até 60 s.</summary>
     public Func<int, TimeSpan> Backoff { get; init; } = DefaultBackoff;
 
@@ -42,6 +45,9 @@ public sealed class CmaCompanySession(
 {
     private readonly CmaSessionOptions _options = options ?? new CmaSessionOptions();
     private readonly CmaQuoteBatch _batch = new();
+    private long _lastChannelActivityTicks;
+
+    private void TouchChannel() => Interlocked.Exchange(ref _lastChannelActivityTicks, timeProvider.GetUtcNow().UtcTicks);
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -91,6 +97,7 @@ public sealed class CmaCompanySession(
         store.SetStatus(companyCode, CmaConnectionStatus.Connecting, null);
         var sessionId = await client.LoginAsync(credentials, cancellationToken);
 
+        TouchChannel();
         using var channelCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var channel = PumpChannelAsync(credentials, sessionId, channelCts.Token);
         try
@@ -118,6 +125,9 @@ public sealed class CmaCompanySession(
                     return;
 
                 var now = timeProvider.GetUtcNow();
+                if (now.UtcTicks - Interlocked.Read(ref _lastChannelActivityTicks) > _options.ChannelIdleLimit.Ticks)
+                    throw new CmaProtocolException("CMA sem atividade no canal");
+
                 if (now - lastPing >= _options.PingInterval)
                 {
                     await client.PingAsync(credentials, sessionId, cancellationToken);
@@ -147,9 +157,12 @@ public sealed class CmaCompanySession(
     private async Task PumpChannelAsync(CmaCredentials credentials, string sessionId, CancellationToken cancellationToken)
     {
         await Task.Yield();
-        await foreach (var quote in client.OpenChannelAsync(credentials, sessionId, cancellationToken))
-            if (CmaQuoteMapper.Map(quote) is { } update)
+        await foreach (var message in client.OpenChannelAsync(credentials, sessionId, cancellationToken))
+        {
+            TouchChannel();
+            if (CmaStreamerClient.IsQuoteUpdate(message) && CmaQuoteMapper.Map(message) is { } update)
                 _batch.Add(update);
+        }
     }
 
     private async Task SubscribeAsync(CmaCredentials credentials, string sessionId,
@@ -214,6 +227,7 @@ public sealed class CmaCompanySession(
     internal static string Describe(Exception e) => e switch
     {
         CmaProtocolException p => p.Message,
+        OperationCanceledException => "CMA não respondeu (tempo esgotado)",
         HttpRequestException { StatusCode: { } status } => $"CMA indisponível: HTTP {(int)status}",
         _ => $"CMA indisponível: {e.GetType().Name}",
     };
