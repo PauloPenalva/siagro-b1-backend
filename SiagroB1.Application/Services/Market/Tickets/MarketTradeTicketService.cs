@@ -289,6 +289,7 @@ public class MarketTradeTicketService(
             .ToListAsync(ct);
         if (limits.Count == 0) return null;
 
+        // Posição com o cache do físico (até 30 s de defasagem): aceitável porque a boleta só vira contrato depois de aprovada.
         MarketPositionSnapshot snapshot;
         try
         {

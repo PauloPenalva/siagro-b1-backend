@@ -181,6 +181,15 @@ public class MarketLimitAlertServiceTests
         {
             if (failed) return false;
             var racing = ctx.ChangeTracker.Entries<MarketLimitBreach>().Any(e => e.State == EntityState.Added && e.Entity.LimitId == 7);
+            if (racing)
+            {
+                var other = TestDb.CreateUnitOfWork(name);
+                other.Context.MarketLimitBreaches.Add(new MarketLimitBreach
+                {
+                    LimitId = 7, Date = new DateTime(2026, 11, 6), Value = 1234.5m, LimitValue = 1000m, DetectedAt = DateTime.UtcNow,
+                });
+                other.Context.SaveChanges();
+            }
             failed = racing;
             return racing;
         }));
@@ -190,10 +199,29 @@ public class MarketLimitAlertServiceTests
         Assert.True(failed);
         Assert.Equal(1, written);
         var check = TestDb.CreateUnitOfWork(name);
-        var breach = await check.Context.MarketLimitBreaches.AsNoTracking().SingleAsync();
-        Assert.Equal(8, breach.LimitId);
+        Assert.Equal([7, 8], await check.Context.MarketLimitBreaches.AsNoTracking().OrderBy(b => b.LimitId).Select(b => b.LimitId).ToListAsync());
         var message = await check.Context.NotificationOutboxMessages.AsNoTracking().SingleAsync();
         Assert.Equal("LIMITE-8", message.DocumentCode);
+    }
+
+    [Fact]
+    public async Task Check_RealSaveFailure_Throws_AfterWritingOtherLimits()
+    {
+        var name = Guid.NewGuid().ToString();
+        await SeedAsync(TestDb.CreateUnitOfWork(name));
+        var seed = TestDb.CreateUnitOfWork(name);
+        seed.Context.MarketExposureLimits.AddRange(Limit(7, 1000m), Limit(8, 1000m, year: 2027, month: 7));
+        await seed.SaveChangesAsync();
+
+        // Falha de gravação SEM linha concorrente (ex.: FK, truncamento): não é corrida.
+        var db = TestDb.CreateUnitOfWork(name, new FailingSaveInterceptor(ctx =>
+            ctx.ChangeTracker.Entries<MarketLimitBreach>().Any(e => e.State == EntityState.Added && e.Entity.LimitId == 7)));
+
+        await Assert.ThrowsAsync<AggregateException>(() => Service(db).CheckAsync(Today, Ct));
+
+        var check = TestDb.CreateUnitOfWork(name);
+        Assert.Equal(8, (await check.Context.MarketLimitBreaches.AsNoTracking().SingleAsync()).LimitId);
+        Assert.Equal("LIMITE-8", (await check.Context.NotificationOutboxMessages.AsNoTracking().SingleAsync()).DocumentCode);
     }
 
     [Fact]

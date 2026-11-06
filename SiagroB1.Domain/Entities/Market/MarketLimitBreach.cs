@@ -30,5 +30,9 @@ public class MarketLimitBreach
 
     public DateTime DetectedAt { get; set; }
 
+    /// <summary>
+    /// Reservada: não é preenchida. O estado real do envio fica na outbox de notificações
+    /// (<c>NOTIFICATION_OUTBOX_MESSAGES</c>, <c>DocumentCode = "LIMITE-{LimitId}"</c>).
+    /// </summary>
     public DateTime? NotifiedAt { get; set; }
 }

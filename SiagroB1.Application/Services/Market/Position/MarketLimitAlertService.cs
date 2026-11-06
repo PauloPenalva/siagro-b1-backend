@@ -34,6 +34,7 @@ public class MarketLimitAlertService(
             .Where(b => b.Date == date).Select(b => b.LimitId).ToListAsync(ct)).ToHashSet();
 
         var written = 0;
+        var failures = new List<Exception>();
         foreach (var alert in snapshot.Alerts.GroupBy(a => a.LimitId).Select(g => g.First()))
         {
             if (already.Contains(alert.LimitId)) continue;
@@ -68,12 +69,22 @@ public class MarketLimitAlertService(
             }
             catch (DbUpdateException ex)
             {
-                // Outra execução gravou o aviso deste limite hoje (índice único): descarta os dois e segue com os demais.
+                // Descarta os dois (o SaveChanges desfez ambos) e confere se foi a corrida no índice único.
                 context.Entry(breach).State = EntityState.Detached;
                 context.Entry(message).State = EntityState.Detached;
-                logger.LogInformation(ex, "Estouro do limite {LimitId} em {Date} já registrado por outra execução.", alert.LimitId, today);
+                var limitId = alert.LimitId;
+                if (await context.MarketLimitBreaches.AsNoTracking().AnyAsync(b => b.LimitId == limitId && b.Date == date, ct))
+                {
+                    logger.LogInformation(ex, "Estouro do limite {LimitId} em {Date} já registrado por outra execução.", limitId, today);
+                    continue;
+                }
+                // Falha real (FK, truncamento, deadlock...): segue com os demais limites e lança no fim para o Hangfire marcar falha.
+                logger.LogError(ex, "Falha ao gravar o estouro do limite {LimitId} em {Date}.", limitId, today);
+                failures.Add(ex);
             }
         }
+        if (failures.Count > 0)
+            throw new AggregateException($"Falha ao gravar {failures.Count} aviso(s) de limite de exposição em {today:dd/MM/yyyy}.", failures);
         return written;
     }
 
