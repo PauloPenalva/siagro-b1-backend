@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection.Extensions;
+﻿using Microsoft.Extensions.DependencyInjection.Extensions;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.FiscalInventory;
@@ -143,6 +143,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<Application.Services.Accounting.AccountingAssignmentGuard>();
         services.AddScoped<IHarvestSeasonService, HarvestSeasonService>();
         services.AddScoped<LogisticRegionService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketInstrumentService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketQuoteService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketDailyCloseService>();
+        services.AddScoped<MarketDailyCloseJob>();
+        services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
+        services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();
+        // A URL do login da CMA leva usuário e senha: sem os loggers padrão do HttpClient (que registram a URI).
+        services.AddHttpClient<SiagroB1.Application.Services.Market.Cma.ICmaStreamerClient, SiagroB1.Application.Services.Market.Cma.CmaStreamerClient>(
+            client => client.Timeout = System.Threading.Timeout.InfiniteTimeSpan).RemoveAllLoggers();
+        services.AddSingleton<SiagroB1.Application.Services.Market.Cma.ICmaCompanyScope, SiagroB1.Web.Market.CmaCompanyScope>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<SiagroB1.Web.Market.MarketQuotesSseWriter>();
         services.AddScoped<IProcessingServiceService, ProcessingServiceService>();
         services.AddScoped<IPurchaseContractService, PurchaseContractService>();
         services.AddScoped<IStateService, StateService>();

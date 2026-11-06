@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -25,6 +25,7 @@ public sealed class CompanyScopedJobRunner(
     public const string NfeEmailSweep = "nfe-email-sweep";
     public const string ReceivedDfeSync = "received-dfe-sync";
     public const string ReinfBatchQuery = "reinf-batch-query";
+    public const string MarketDailyClose = "market-daily-close";
 
     private static readonly IReadOnlyDictionary<string, Func<IServiceProvider, CancellationToken, Task>> Jobs =
         new Dictionary<string, Func<IServiceProvider, CancellationToken, Task>>
@@ -35,6 +36,7 @@ public sealed class CompanyScopedJobRunner(
             [NfeEmailSweep] = (sp, ct) => sp.GetRequiredService<NfeEmailSweepJob>().ExecuteAsync(ct),
             [ReceivedDfeSync] = (sp, ct) => sp.GetRequiredService<ReceivedDfeSyncJob>().ExecuteAsync(ct),
             [ReinfBatchQuery] = (sp, ct) => sp.GetRequiredService<SiagroB1.Application.Jobs.Reinf.ReinfBatchQueryJob>().ExecuteAsync(ct),
+            [MarketDailyClose] = (sp, ct) => sp.GetRequiredService<MarketDailyCloseJob>().ExecuteAsync(ct),
         };
 
     /// <summary>

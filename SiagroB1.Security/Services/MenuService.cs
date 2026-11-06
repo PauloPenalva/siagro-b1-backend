@@ -58,8 +58,9 @@ public class MenuService(CommonDbContext context, IConfiguration configuration, 
         // Telas só do STANDALONE somem nos demais modos — mesmo teste positivo de ErpMode.
         var standalone = ErpMode.IsStandalone(configuration);
 
-        var menus = data
-            .Where(x => standalone || !x.Menu.StandaloneOnly)
+        var menus = MarketMenuFilter
+            .Apply(data.Where(x => standalone || !x.Menu.StandaloneOnly), x => x.Menu.Key, x => x.Menu.ParentKey,
+                MarketModule.IsEnabled(configuration))
             .Select(x => new MenuNode
             {
                 Key = x.Menu.Key,

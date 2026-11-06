@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 
 namespace SiagroB1.Infra.Context;
@@ -94,6 +95,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ReceivedDfe> ReceivedDfes { get; set; }
     public DbSet<BranchDfeSyncState> BranchDfeSyncStates { get; set; }
     public DbSet<EmailSettings> EmailSettings { get; set; }
+    public DbSet<MarketInstrument> MarketInstruments { get; set; }
+    public DbSet<MarketQuote> MarketQuotes { get; set; }
+    public DbSet<MarketDailyClose> MarketDailyCloses { get; set; }
+    public DbSet<CmaSettings> CmaSettings { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
     public DbSet<ReinfSettings> ReinfSettings { get; set; }
