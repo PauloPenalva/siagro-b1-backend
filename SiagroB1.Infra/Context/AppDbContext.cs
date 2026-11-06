@@ -234,6 +234,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             relationship.DeleteBehavior = DeleteBehavior.NoAction;
         }
 
+        // Mercado: carimbos em UTC saem com Kind=Utc (OData/REST serializam com o fuso certo). Datas de negócio (DATE) não.
+        modelBuilder.Entity<MarketFreightRate>().Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+        modelBuilder.Entity<MarketPriceTable>().Property(x => x.UpdatedAt).HasConversion(UtcDateTimeConverters.Required);
+        // ItemName é opcional na ENTRADA (o serviço preenche pelo IItemService), mas a coluna segue NOT NULL.
+        modelBuilder.Entity<MarketPriceTable>().Property(x => x.ItemName).IsRequired();
+        modelBuilder.Entity<MarketTradeTicket>(t =>
+        {
+            t.Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.ApprovedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.BoardApprovedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.RejectedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.CanceledAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.QuotedAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
+
         // Mercado (parte 2): linhas da tabela de preços caem com a tabela; instrumentos e destino são Restrict.
         // A boleta (MarketTradeTicket) guarda tabela/linha/destino/instrumento/contrato sem FK, de propósito.
         modelBuilder.Entity<MarketPriceTableLine>()
