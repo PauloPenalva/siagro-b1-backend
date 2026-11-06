@@ -27,6 +27,8 @@ public class StorageInvoiceReportService(
 
         report.RegisterData(new List<StorageInvoicePrintDto> { dto }, "Invoice");
         report.RegisterData(dto.Items, "InvoiceItems");
+        report.RegisterData(dto.ServiceSummary, "ServiceSummary");
+        report.GetDataSource("ServiceSummary").Enabled = true;
 
         var invoiceDataSource = report.GetDataSource("Invoice");
         invoiceDataSource.Enabled = true;

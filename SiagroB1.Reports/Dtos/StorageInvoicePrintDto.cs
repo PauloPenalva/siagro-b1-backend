@@ -18,4 +18,5 @@ public class StorageInvoicePrintDto
     public decimal TotalQuantityLoss { get; set; }
     public string? Notes { get; set; }
     public List<StorageInvoicePrintItemDto> Items { get; set; } = [];
+    public List<StorageInvoiceServiceSummaryDto> ServiceSummary { get; set; } = [];
 }

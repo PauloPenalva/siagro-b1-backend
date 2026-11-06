@@ -26,13 +26,17 @@ public class StorageAddressesStorageChargeCalculatorService(IUnitOfWork db)
             if (cost == null || cost.StoragePrice is null || cost.StoragePrice <= 0)
                 continue;
 
-            var firstReceiptDate = await db.Context.StorageTransactions
-                .Where(x =>
-                    x.StorageAddressCode == address.Code &&
-                    x.TransactionType == StorageTransactionType.Receipt &&
-                    (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
-                     x.TransactionStatus == StorageTransactionsStatus.Invoiced))
-                .MinAsync(x => (DateTime?)x.TransactionDate, ct);
+            // Mesmo esquema da quebra técnica (GAC-18): o método do custo define se a carência
+            // conta da primeira ou da última entrada.
+            var receiptsQuery = db.Context.StorageTransactions.Where(x =>
+                x.StorageAddressCode == address.Code &&
+                x.TransactionType == StorageTransactionType.Receipt &&
+                (x.TransactionStatus == StorageTransactionsStatus.Confirmed ||
+                 x.TransactionStatus == StorageTransactionsStatus.Invoiced));
+
+            var firstReceiptDate = cost.StoragePriceCalculationMethod == StoragePriceCalculationMethod.AfterLastReceipting
+                ? await receiptsQuery.MaxAsync(x => (DateTime?)x.TransactionDate, ct)
+                : await receiptsQuery.MinAsync(x => (DateTime?)x.TransactionDate, ct);
 
             if (!firstReceiptDate.HasValue)
                 continue;
@@ -74,7 +78,24 @@ public class StorageAddressesStorageChargeCalculatorService(IUnitOfWork db)
             if (balances.Count == 0)
                 continue;
 
-            var tonDays = balances.Sum(x => x.BillableBalance);
+            // Carência carga a carga (GAC-18): na data-base, uma entrada só entra na cobrança
+            // depois de cumprir a própria carência. Em "após a última entrada" o lote todo
+            // vence junto, a partir da última carga — já garantido acima.
+            var receipts = cost.StoragePriceCalculationMethod == StoragePriceCalculationMethod.AfterLastReceipting
+                ? []
+                : await receiptsQuery
+                    .Where(x => x.TransactionDate <= periodEnd)
+                    .Select(x => new { x.TransactionDate, x.NetWeight })
+                    .ToListAsync(ct);
+
+            var tonDays = balances.Sum(b =>
+            {
+                var inGrace = receipts
+                    .Where(r => r.TransactionDate!.Value.Date <= b.BalanceDate &&
+                                r.TransactionDate.Value.Date.AddDays(graceDays) > b.BalanceDate)
+                    .Sum(r => r.NetWeight);
+                return Math.Max(0m, b.BillableBalance - inGrace);
+            });
             var amount = tonDays * cost.StoragePrice.Value;
             
             var charge = new StorageCharge
