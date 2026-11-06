@@ -34,6 +34,13 @@
       <Column Name="TotalAmount" DataType="System.Decimal"/>
       <Column Name="TotalQuantityLoss" DataType="System.Decimal"/>
     </BusinessObjectDataSource>
+    <BusinessObjectDataSource Name="ServiceSummary" ReferenceName="ServiceSummary" DataType="System.Int32" Enabled="true">
+      <Column Name="Service" DataType="System.String"/>
+      <Column Name="Lines" DataType="System.Int32"/>
+      <Column Name="Quantity" DataType="System.Decimal"/>
+      <Column Name="TotalQuantityLoss" DataType="System.Decimal"/>
+      <Column Name="TotalAmount" DataType="System.Decimal"/>
+    </BusinessObjectDataSource>
     <Parameter Name="pCompanyName" DataType="System.String" AsString=""/>
     <Total Name="TotalInvoiceAmount" Expression="[InvoiceItems.TotalAmount]" Evaluator="Data1" PrintOn="ReportSummary1"/>
     <Total Name="TotalInvoiceLoss" Expression="[InvoiceItems.TotalQuantityLoss]" Evaluator="Data1" PrintOn="ReportSummary1"/>
@@ -76,6 +83,19 @@
       <TextObject Name="DataQty" Left="406.35" Width="94.5" Height="22.68" Border.Lines="All" Text="[InvoiceItems.Quantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
       <TextObject Name="DataUnit" Left="500.85" Width="103.95" Height="22.68" Border.Lines="All" Text="[InvoiceItems.UnitPriceOrRate]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="8" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
       <TextObject Name="DataTotal" Left="604.8" Width="113.4" Height="22.68" Border.Lines="All" Text="[InvoiceItems.TotalAmount]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+    </DataBand>
+    <DataBand Name="DataSummary" Top="285.18" Width="718.2" Height="18.9" DataSource="ServiceSummary">
+      <TextObject Name="SumService" Left="85.05" Width="321.3" Height="18.9" Border.Lines="All" Text="[ServiceSummary.Service]" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="SumLines" Left="406.35" Width="94.5" Height="18.9" Border.Lines="All" Text="[ServiceSummary.Lines] lanç." HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="SumQty" Left="500.85" Width="103.95" Height="18.9" Border.Lines="All" Text="[ServiceSummary.Quantity]" Format="Number" Format.UseLocale="true" Format.DecimalDigits="0" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+      <TextObject Name="SumTotal" Left="604.8" Width="113.4" Height="18.9" Border.Lines="All" Text="[ServiceSummary.TotalAmount]" Format="Currency" Format.UseLocale="true" Format.DecimalDigits="2" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt"/>
+      <DataHeaderBand Name="DataSummaryHeader" Top="307" Width="718.2" Height="41.8">
+        <TextObject Name="SumTitle" Top="9.45" Width="718.2" Height="18.9" Text="Resumo por serviço" Font="Arial, 9pt, style=Bold"/>
+        <TextObject Name="SumH1" Left="85.05" Top="28.35" Width="321.3" Height="13.45" Border.Lines="All" Fill.Color="Gainsboro" Text="Serviço" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        <TextObject Name="SumH2" Left="406.35" Top="28.35" Width="94.5" Height="13.45" Border.Lines="All" Fill.Color="Gainsboro" Text="Lançamentos" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        <TextObject Name="SumH3" Left="500.85" Top="28.35" Width="103.95" Height="13.45" Border.Lines="All" Fill.Color="Gainsboro" Text="Quantidade" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+        <TextObject Name="SumH4" Left="604.8" Top="28.35" Width="113.4" Height="13.45" Border.Lines="All" Fill.Color="Gainsboro" Text="Valor Total" HorzAlign="Right" VertAlign="Center" Font="Arial, 8pt, style=Bold"/>
+      </DataHeaderBand>
     </DataBand>
     <ReportSummaryBand Name="ReportSummary1" Top="285.18" Width="718.2" Height="94.5">
       <TextObject Name="Text19" Left="406.35" Top="0.68" Width="198.45" Height="22.68" Border.Lines="All" Fill.Color="Gainsboro" Text="Total da Fatura" VertAlign="Center" Font="Arial, 10pt, style=Bold"/>

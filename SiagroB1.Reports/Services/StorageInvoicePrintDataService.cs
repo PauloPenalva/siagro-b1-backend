@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -26,7 +27,7 @@ public class StorageInvoicePrintDataService(IUnitOfWork db)
             .FirstOrDefaultAsync(x => x.Code == invoice.StorageAddressCode, ct)
             ?? throw new NotFoundException("Lote não encontrado.");
 
-        return new StorageInvoicePrintDto
+        var dto = new StorageInvoicePrintDto
         {
             InvoiceNumber = invoice.Code,
             StorageAddressCode = address.Code,
@@ -57,5 +58,27 @@ public class StorageInvoicePrintDataService(IUnitOfWork db)
                 })
                 .ToList()
         };
+        dto.ServiceSummary = SummarizeByService(dto.Items);
+        return dto;
     }
+
+    // "Recepção - 000101" → "Recepção"; "Armazenagem 11/04/2026 a 11/04/2026" → "Armazenagem".
+    private static readonly Regex ServiceSuffix = new(@"(\s+-\s+.*|\s+\d{2}/\d{2}/\d{4}.*)$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Total de cada serviço, pelo nome impresso na descrição (o tipo do item não serve:
+    /// Frete/Remoção é gravado como Secagem). Ordem da primeira aparição.
+    /// </summary>
+    public static List<StorageInvoiceServiceSummaryDto> SummarizeByService(IEnumerable<StorageInvoicePrintItemDto> items) =>
+        items
+            .GroupBy(x => ServiceSuffix.Replace(x.Description, "").Trim())
+            .Select(g => new StorageInvoiceServiceSummaryDto
+            {
+                Service = g.Key,
+                Lines = g.Count(),
+                Quantity = g.Sum(x => x.Quantity),
+                TotalQuantityLoss = g.Sum(x => x.TotalQuantityLoss),
+                TotalAmount = g.Sum(x => x.TotalAmount),
+            })
+            .ToList();
 }
