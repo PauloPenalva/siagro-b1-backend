@@ -43,6 +43,13 @@ public class PurchaseContractsCopyService(
         cloneContract.Status = ContractStatus.Draft;
         cloneContract.CreationDate = DateTime.Now.Date;
         cloneContract.ApprovalComments = string.Empty;
+        // Trading: o câmbio fechado e a referência de bolsa/preço em US$ são do negócio original; a cópia recomeça
+        // aberta e sem referência (o instrumento pode ficar). Com o módulo desligado estes campos já são nulos/false.
+        cloneContract.MarketFxLocked = false;
+        cloneContract.MarketExchangePrice = null;
+        cloneContract.MarketPremium = null;
+        cloneContract.MarketUsdPrice = null;
+        cloneContract.MarketFxRate = null;
         // A liberação de pagamento é do contrato original; a cópia recomeça Pendente. As
         // liberações por departamento (PaymentReleases) não entram no Include, logo não são copiadas.
         cloneContract.PaymentReleaseStatus = null;

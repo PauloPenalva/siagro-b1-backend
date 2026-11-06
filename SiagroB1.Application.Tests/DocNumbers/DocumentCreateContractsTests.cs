@@ -116,4 +116,56 @@ public class DocumentCreateContractsTests
         var request = Assert.Single(fake.Requests);
         Assert.Null(request.TypedCode);
     }
+    // Trading (B1): a cópia não herda câmbio fechado nem a referência de bolsa/preço em US$ do negócio original.
+    [Fact]
+    public async Task PurchaseContractsCopy_ResetsMarketFields()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+        var original = NewPurchase("PC-MANUAL", SeriesKey);
+        original.MarketInstrumentCode = "ZSN7";
+        original.MarketExchangePrice = 1190m;
+        original.MarketPremium = -5m;
+        original.MarketUsdPrice = 0.4m;
+        original.MarketFxRate = 5.4m;
+        original.MarketFxLocked = true;
+        db.Context.PurchaseContracts.Add(original);
+        await db.SaveChangesAsync();
+
+        await new PurchaseContractsCopyService(db.Context, PurchaseCreate(db, fake), fake).ExecuteAsync(original.Key, "tester");
+
+        var copy = db.Context.PurchaseContracts.Single(c => c.Key != original.Key);
+        Assert.False(copy.MarketFxLocked);
+        Assert.Null(copy.MarketExchangePrice);
+        Assert.Null(copy.MarketPremium);
+        Assert.Null(copy.MarketUsdPrice);
+        Assert.Null(copy.MarketFxRate);
+        Assert.Equal("ZSN7", copy.MarketInstrumentCode);
+    }
+
+    [Fact]
+    public async Task SalesContractsCopy_ResetsMarketFields()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var fake = new FakeDocNumberSequenceService();
+        var original = NewSales("CV-MANUAL", SeriesKey);
+        original.MarketInstrumentCode = "ZSN7";
+        original.MarketExchangePrice = 1205m;
+        original.MarketPremium = 3m;
+        original.MarketUsdPrice = 0.42m;
+        original.MarketFxRate = 5.5m;
+        original.MarketFxLocked = true;
+        db.Context.SalesContracts.Add(original);
+        await db.SaveChangesAsync();
+
+        await new SalesContractsCopyService(db.Context, SalesCreate(db, fake), fake).ExecuteAsync(original.Key, "tester");
+
+        var copy = db.Context.SalesContracts.Single(c => c.Key != original.Key);
+        Assert.False(copy.MarketFxLocked);
+        Assert.Null(copy.MarketExchangePrice);
+        Assert.Null(copy.MarketPremium);
+        Assert.Null(copy.MarketUsdPrice);
+        Assert.Null(copy.MarketFxRate);
+        Assert.Equal("ZSN7", copy.MarketInstrumentCode);
+    }
 }
