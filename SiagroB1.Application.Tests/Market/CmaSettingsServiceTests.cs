@@ -122,4 +122,84 @@ public class CmaSettingsServiceTests
         Assert.Equal("https://outro.exemplo.com", saved.Host);
         Assert.Equal("nova", (await service.GetCredentialsAsync())!.Password);
     }
+
+    // --- Usuário da CMA SEM senha (caso real: a conta de streaming da CMA pode ter senha em branco) ---
+
+    [Fact]
+    public async Task CmaSettings_BlankPassword_ConnectorGetsEmptyPassword()
+    {
+        var (service, db) = Create();
+
+        var view = await service.SaveAsync(Input(null) with { BlankPassword = true });
+
+        Assert.True(view.HasPassword);
+        Assert.True(view.BlankPassword);
+        Assert.True((await service.GetAsync()).BlankPassword);
+        var credentials = await service.GetCredentialsAsync();
+        Assert.NotNull(credentials);
+        Assert.Equal("", credentials!.Password);
+        Assert.Equal("usuario", credentials.UserName);
+        // Continua cifrado no banco (não é coluna vazia): "em branco" é uma escolha gravada, não ausência de senha.
+        Assert.NotEmpty((await db.Context.CmaSettings.AsNoTracking().SingleAsync()).PasswordEncrypted!);
+    }
+
+    [Fact]
+    public async Task CmaSettings_BlankPassword_ReplacesStoredPassword_AndTypedPasswordReplacesBlank()
+    {
+        var (service, _) = Create();
+        await service.SaveAsync(Input("segredo"));
+        Assert.False((await service.GetAsync()).BlankPassword);
+
+        await service.SaveAsync(Input("ignorada") with { BlankPassword = true });
+        Assert.Equal("", (await service.GetCredentialsAsync())!.Password);
+
+        var view = await service.SaveAsync(Input("nova"));
+        Assert.False(view.BlankPassword);
+        Assert.Equal("nova", (await service.GetCredentialsAsync())!.Password);
+    }
+
+    [Fact]
+    public async Task CmaSettings_BlankPassword_KeptWhenSavingWithoutTouchingThePassword()
+    {
+        var (service, _) = Create();
+        await service.SaveAsync(Input(null) with { BlankPassword = true });
+
+        // A tela reenvia o que mostrou: marcado "sem senha" e campo de senha vazio.
+        var view = await service.SaveAsync(Input("") with { BlankPassword = true, UserName = "outro" });
+
+        Assert.True(view.BlankPassword);
+        Assert.Equal("", (await service.GetCredentialsAsync())!.Password);
+    }
+
+    [Fact]
+    public async Task CmaSettings_NoPasswordAndNotBlank_ConnectorStaysOff()
+    {
+        var (service, _) = Create();
+
+        var view = await service.SaveAsync(Input(null));
+
+        Assert.False(view.HasPassword);
+        Assert.False(view.BlankPassword);
+        Assert.Null(await service.GetCredentialsAsync());
+    }
+
+    [Fact]
+    public async Task CmaSettings_BlankPassword_WithoutKey_Throws()
+    {
+        var (service, _) = Create(key: "");
+
+        await Assert.ThrowsAsync<BusinessException>(() => service.SaveAsync(Input(null) with { BlankPassword = true }));
+    }
+
+    [Fact]
+    public async Task CmaSettings_HostChange_WithBlankPassword_DoesNotAskForThePasswordAgain()
+    {
+        var (service, _) = Create();
+        await service.SaveAsync(Input("segredo"));
+
+        var view = await service.SaveAsync(Input(null) with { Host = "https://outro.exemplo.com:443", BlankPassword = true });
+
+        Assert.Equal("https://outro.exemplo.com:443", view.Host);
+        Assert.Equal("", (await service.GetCredentialsAsync())!.Password);
+    }
 }
