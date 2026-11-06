@@ -112,6 +112,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MarketFxHedge> MarketFxHedges { get; set; }
     public DbSet<MarketEfp> MarketEfps { get; set; }
     public DbSet<MarketBrokerStatement> MarketBrokerStatements { get; set; }
+    public DbSet<MarketCommodity> MarketCommodities { get; set; }
+    public DbSet<MarketCommodityItem> MarketCommodityItems { get; set; }
+    public DbSet<MarketCommodityMonth> MarketCommodityMonths { get; set; }
+    public DbSet<MarketExposureLimit> MarketExposureLimits { get; set; }
+    public DbSet<MarketLimitBreach> MarketLimitBreaches { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
     public DbSet<ReinfSettings> ReinfSettings { get; set; }
@@ -356,6 +361,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .OnDelete(DeleteBehavior.Restrict);
         // Uma operação por EFP (guarda no banco contra duas retomadas simultâneas); índice filtrado exige
         // QUOTED_IDENTIFIER ON na sessão que grava (padrão do SqlClient).
+        // Mercado (parte 4): itens e vencimentos caem com a commodity; limite de commodity é Restrict (não some
+        // com o histórico de estouros); o estouro cai com o limite.
+        modelBuilder.Entity<MarketCommodityItem>()
+            .HasOne(x => x.Commodity).WithMany(x => x.Items)
+            .HasForeignKey(x => x.CommodityCode)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MarketCommodityMonth>()
+            .HasOne(x => x.Commodity).WithMany(x => x.Months)
+            .HasForeignKey(x => x.CommodityCode)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MarketExposureLimit>()
+            .HasOne(x => x.Commodity).WithMany()
+            .HasForeignKey(x => x.CommodityCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketLimitBreach>()
+            .HasOne(x => x.Limit).WithMany()
+            .HasForeignKey(x => x.LimitId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MarketExposureLimit>().Property(x => x.UpdatedAt).HasConversion(UtcDateTimeConverters.Optional);
+        modelBuilder.Entity<MarketLimitBreach>(t =>
+        {
+            t.Property(x => x.DetectedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.NotifiedAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
         modelBuilder.Entity<MarketFuturesTrade>().HasIndex(x => x.EfpId).IsUnique().HasFilter("[EfpId] IS NOT NULL");
         modelBuilder.Entity<MarketFuturesMatch>().HasIndex(x => new { x.AccountId, x.InstrumentCode });
         modelBuilder.Entity<MarketEfp>().HasIndex(x => x.FixationKey);

@@ -98,6 +98,25 @@ public class PurchaseContract : DocumentEntity
     public CurrencyType? StandardCurrency { get; set; } = CurrencyType.Brl;
     
     public DateTime? StandardCashFlowDate { get; set; }
+
+    // Mercado (posição): referência de bolsa/câmbio do preço do contrato. Opcionais; só o módulo Mercado preenche.
+    [Column(TypeName = "VARCHAR(30)")]
+    public string? MarketInstrumentCode { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,6)")]
+    public decimal? MarketExchangePrice { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,6)")]
+    public decimal? MarketPremium { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,8)")]
+    public decimal? MarketUsdPrice { get; set; }
+
+    [Column(TypeName = "DECIMAL(18,6)")]
+    public decimal? MarketFxRate { get; set; }
+
+    /// <summary>Câmbio já travado: o contrato sai da exposição em dólar.</summary>
+    public bool MarketFxLocked { get; set; }
     
     [Column(TypeName = "VARCHAR(500)")]
     public string? PaymentTerms { get; set; }
