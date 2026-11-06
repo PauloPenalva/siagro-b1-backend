@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SiagroB1.Application.Jobs;
 using SiagroB1.Application.Jobs.Companies;
 using SiagroB1.Application.Services.FiscalInventory;
@@ -146,6 +146,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.MarketInstrumentService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketQuoteService>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketDailyCloseService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketPermissionGuard>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketDestinationService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketFreightRateService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketPriceTableService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketPriceTableLineService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.MarketTradingSettingsService>();
         services.AddScoped<MarketDailyCloseJob>();
         services.AddScoped<SiagroB1.Application.Services.Market.CmaSettingsService>();
         services.AddSingleton<SiagroB1.Commons.Market.LiveQuoteStore>();

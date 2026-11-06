@@ -47,6 +47,9 @@ public class MarketInstrumentService(
             || await context.MarketDailyCloses.AnyAsync(c => c.InstrumentCode == code))
             throw new BusinessException("Instrumento possui cotações ou fechamentos; inative-o em vez de excluir.");
 
+        if (await context.MarketPriceTableLines.AnyAsync(l => l.InstrumentCode == code || l.FxCurveInstrumentCode == code))
+            throw new BusinessException("Instrumento é usado em linhas de tabelas de preços; inative-o em vez de excluir.");
+
         var deleted = await base.DeleteAsync(code);
         if (deleted)
             NotifyTerminals();

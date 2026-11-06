@@ -19,6 +19,10 @@ public static class ODataConfigurations
     {
         modelBuilder.EntitySet<Company>("Companies");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketInstrument>("MarketInstruments");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketDestination>("MarketDestinations");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFreightRate>("MarketFreightRates");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTable>("MarketPriceTables");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTableLine>("MarketPriceTableLines");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");
