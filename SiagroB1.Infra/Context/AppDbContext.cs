@@ -359,8 +359,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.Instrument).WithMany()
             .HasForeignKey(x => x.InstrumentCode)
             .OnDelete(DeleteBehavior.Restrict);
-        // Uma operação por EFP (guarda no banco contra duas retomadas simultâneas); índice filtrado exige
-        // QUOTED_IDENTIFIER ON na sessão que grava (padrão do SqlClient).
         // Mercado (parte 4): itens e vencimentos caem com a commodity; limite de commodity é Restrict (não some
         // com o histórico de estouros); o estouro cai com o limite.
         modelBuilder.Entity<MarketCommodityItem>()
@@ -385,6 +383,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             t.Property(x => x.DetectedAt).HasConversion(UtcDateTimeConverters.Required);
             t.Property(x => x.NotifiedAt).HasConversion(UtcDateTimeConverters.Optional);
         });
+        // Uma operação por EFP (guarda no banco contra duas retomadas simultâneas); índice filtrado exige
+        // QUOTED_IDENTIFIER ON na sessão que grava (padrão do SqlClient).
         modelBuilder.Entity<MarketFuturesTrade>().HasIndex(x => x.EfpId).IsUnique().HasFilter("[EfpId] IS NOT NULL");
         modelBuilder.Entity<MarketFuturesMatch>().HasIndex(x => new { x.AccountId, x.InstrumentCode });
         modelBuilder.Entity<MarketEfp>().HasIndex(x => x.FixationKey);

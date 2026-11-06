@@ -149,6 +149,23 @@ public class MarketTradeTicketContractServiceTests
     }
 
     [Fact]
+    public async Task Approve_S1Ticket_GeneratedContractCarriesMarketReference()
+    {
+        var db = await SeedTicketScenarioAsync();
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+
+        await TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None);
+
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal("ZSF7", contract.MarketInstrumentCode);
+        Assert.Equal(1188.25m, contract.MarketExchangePrice);
+        Assert.Equal(50m, contract.MarketPremium);
+        Assert.Equal(5.7267m, contract.MarketFxRate);
+        Assert.Null(contract.MarketUsdPrice);
+        Assert.False(contract.MarketFxLocked);
+    }
+
+    [Fact]
     public async Task Approve_ClaimSavesPreAssignedKey_ContractCreatedWithIt()
     {
         var db = await SeedTicketScenarioAsync();

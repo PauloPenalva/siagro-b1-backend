@@ -98,5 +98,10 @@ public class MarketTradeTicketContractService(
         StandardCurrency = CurrencyType.Brl,
         StandardCashFlowDate = t.PaymentDate,
         Comments = $"Gerado pela boleta nº {t.Id}",
+        // Referência de bolsa para a posição do Mercado; o contrato é em R$ com preço fixo, então MarketUsdPrice fica nulo.
+        MarketInstrumentCode = t.InstrumentCode,
+        MarketExchangePrice = t.ExchangeQuote,
+        MarketPremium = t.Premium,
+        MarketFxRate = t.NetFx,
     };
 }

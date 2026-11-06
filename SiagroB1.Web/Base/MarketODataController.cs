@@ -34,6 +34,9 @@ public abstract class MarketODataController<T, ID>(IBaseService<T, ID> service, 
 
     protected string UserName => User.Identity?.Name ?? string.Empty;
 
+    /// <summary>Permissão exigida nas gravações (MARKET_MANAGE; os limites de exposição exigem a da diretoria).</summary>
+    protected virtual string WritePermission => PermissionCodes.MarketManage;
+
     /// <summary>Propriedade da chave da entidade (o GET por chave filtra por ela).</summary>
     protected virtual string KeyPropertyName => "Id";
 
@@ -74,7 +77,7 @@ public abstract class MarketODataController<T, ID>(IBaseService<T, ID> service, 
     {
         try
         {
-            await guard.EnsureAsync(UserName, PermissionCodes.MarketManage);
+            await guard.EnsureAsync(UserName, WritePermission);
             return await action();
         }
         catch (ForbiddenException e)
