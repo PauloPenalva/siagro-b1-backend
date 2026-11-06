@@ -62,3 +62,20 @@ Onde olhar:
 4. **Limiares de alçada** (volume em t, desvio em %) vazios = sem alçada da diretoria.
 5. **Trava de aprovação** vale por processo: rode **um Web por cliente**. Entre processos, o que impede contrato
    duplicado é a chave do contrato pré-atribuída na boleta.
+
+## 6. Parte 3 — Hedges (corretoras, operações de bolsa, hedge de moeda, EFP)
+
+1. Migrations: `AddMarketHedges` e `AddMarketHedgesIndexes` no banco de **cada empresa** (`AppDbContext`) e
+   `AddMarketHedgesMenu` no banco **comum** (`CommonDbContext`). A Web recusa subir com qualquer uma pendente.
+   `AddMarketHedgesIndexes` cria o índice único filtrado "uma operação por EFP" (exige `QUOTED_IDENTIFIER ON` na
+   sessão que grava — o padrão do SqlClient) e os índices de casamento e de EFP por fixação/contrato.
+2. A premissa de **um único processo da Web** (seção 3) agora cobre também o casamento PEPS das operações de bolsa e o
+   EFP: as travas são em memória. Com duas instâncias, o risco real é casamento **faltando ou defasado**: duas
+   instâncias inserindo operações opostas num par (conta × instrumento) vazio commitam sem casar; a posição então
+   esconde o par e não há resultado realizado até a próxima gravação nele (qualquer gravação refaz o casamento inteiro).
+3. EFP interrompido fica **Em processamento**: use "Retomar" (continua sem duplicar operação nem fixação) ou
+   "Cancelar". A fixação do EFP passa pela aprovação normal e gera o título provisório do fluxo atual.
+4. A fixação gerada por um EFP só se altera pelo EFP: alterar, excluir, rejeitar ou estornar essa fixação pelas ações
+   do contrato é recusado enquanto o EFP não estiver cancelado.
+5. **Pendência antes de operar dólar futuro**: confirmar com uma nota de corretagem real a escala do preço. A B3 cota
+   em R$ por US$ 1.000; o sistema assume R$ por US$ 1 com `ContractSize` 50.000.

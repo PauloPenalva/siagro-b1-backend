@@ -10,11 +10,15 @@ namespace SiagroB1.Application.Services.PurchaseContracts;
 public class PurchaseContractsPriceFixationsUpdateService(
     AppDbContext context,
     PurchaseContractsFixedVolumeService fixedVolumeService,
-    ILogger<PurchaseContractsPriceFixationsUpdateService> logger)
+    ILogger<PurchaseContractsPriceFixationsUpdateService> logger,
+    SiagroB1.Application.Services.Market.Hedges.MarketEfpFixationGuard? marketEfpGuard = null)
 {
     public async Task<PurchaseContractPriceFixation?> ExecuteAsync(
         Guid associationKey, PurchaseContractPriceFixation associationEntity)
     {
+        // Fixação gerada por EFP só se mexe pelo EFP (sem EFP para a chave, nada muda).
+        await (marketEfpGuard?.EnsureNotEfpFixationAsync(associationKey) ?? Task.CompletedTask);
+
         try
         {
             var existingEntity = await context.PurchaseContractsPriceFixations

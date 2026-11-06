@@ -175,3 +175,14 @@ Pode e deve simplificar.
 - **Contrato gerado**: preço fixo, FOB, moeda R$, previsão de pagamento = data de pagamento da linha,
   unidade vinda dos Parâmetros do Mercado; passa pelos serviços existentes (criar → enviar → aprovar), então
   gera as mesmas notificações e o título provisório de um contrato manual.
+
+### Parte 2 — acréscimos da revisão final (2026-11-06)
+- A unidade do contrato gerado pela boleta é sempre **KG** (o parâmetro só aceita KG).
+- A boleta congela também o ponto da curva de dólar e o carimbo/origem da cotação de dólar mais antiga usada.
+- A chave do contrato é atribuída e gravada na boleta antes de criar o contrato: repetir a aprovação ou
+  concorrer nunca cria um segundo contrato. Se o contrato for excluído com a boleta ainda pendente, a
+  próxima aprovação o recria com a mesma chave.
+- Linha da grade com preço ou dólar não positivo, ou com o dólar à vista desativado, aparece como
+  "cadastro incompleto", sem preço.
+- Ficam para decisão do usuário: quem pode criar e ver boletas (hoje qualquer usuário autenticado);
+  aprovação dos dois níveis pela mesma pessoa; validade da boleta pendente; idade máxima da cotação.

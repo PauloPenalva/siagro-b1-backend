@@ -24,6 +24,13 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTable>("MarketPriceTables");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketPriceTableLine>("MarketPriceTableLines");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketTradeTicket>("MarketTradeTickets");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketCounterparty>("MarketCounterparties");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount>("MarketCounterpartyAccounts");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketBrokerStatement>("MarketBrokerStatements");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFuturesTrade>("MarketFuturesTrades");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFuturesMatch>("MarketFuturesMatches");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFxHedge>("MarketFxHedges");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketEfp>("MarketEfps");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");

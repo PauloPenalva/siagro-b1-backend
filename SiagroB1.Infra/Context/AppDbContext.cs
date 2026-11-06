@@ -105,6 +105,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MarketPriceTableLine> MarketPriceTableLines { get; set; }
     public DbSet<MarketTradingSettings> MarketTradingSettings { get; set; }
     public DbSet<MarketTradeTicket> MarketTradeTickets { get; set; }
+    public DbSet<MarketCounterparty> MarketCounterparties { get; set; }
+    public DbSet<MarketCounterpartyAccount> MarketCounterpartyAccounts { get; set; }
+    public DbSet<MarketFuturesTrade> MarketFuturesTrades { get; set; }
+    public DbSet<MarketFuturesMatch> MarketFuturesMatches { get; set; }
+    public DbSet<MarketFxHedge> MarketFxHedges { get; set; }
+    public DbSet<MarketEfp> MarketEfps { get; set; }
+    public DbSet<MarketBrokerStatement> MarketBrokerStatements { get; set; }
     public DbSet<AccountingSettings> AccountingSettings { get; set; }
     public DbSet<SpedFiscalSettings> SpedFiscalSettings { get; set; }
     public DbSet<ReinfSettings> ReinfSettings { get; set; }
@@ -287,6 +294,75 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<MarketTradeTicket>()
             .HasOne(x => x.Municipality).WithMany()
             .HasForeignKey(x => x.MunicipalityCode)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Mercado (parte 3): carimbos UTC das entidades de hedge.
+        modelBuilder.Entity<MarketFuturesTrade>(t =>
+        {
+            t.Property(x => x.TradedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.UpdatedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.ConfirmedAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
+        modelBuilder.Entity<MarketFxHedge>(t =>
+        {
+            t.Property(x => x.TradedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.UpdatedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.ConfirmedAt).HasConversion(UtcDateTimeConverters.Optional);
+            t.Property(x => x.SettledAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
+        modelBuilder.Entity<MarketEfp>(t =>
+        {
+            t.Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+            t.Property(x => x.CanceledAt).HasConversion(UtcDateTimeConverters.Optional);
+        });
+        modelBuilder.Entity<MarketBrokerStatement>().Property(x => x.CreatedAt).HasConversion(UtcDateTimeConverters.Required);
+
+        // Mercado (parte 3): contas caem com a corretora/banco; todo o resto é Restrict. O casamento tem duas FKs
+        // para a mesma tabela de operações (SQL Server recusa múltiplos caminhos em cascata). Contrato, EFP e
+        // fixação nas operações ficam SEM FK, de propósito.
+        modelBuilder.Entity<MarketCounterpartyAccount>()
+            .HasOne(x => x.Counterparty).WithMany(x => x.Accounts)
+            .HasForeignKey(x => x.CounterpartyId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<MarketFuturesTrade>()
+            .HasOne(x => x.Account).WithMany()
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFuturesTrade>()
+            .HasOne(x => x.Instrument).WithMany()
+            .HasForeignKey(x => x.InstrumentCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFuturesMatch>()
+            .HasOne(x => x.OpenTrade).WithMany()
+            .HasForeignKey(x => x.OpenTradeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFuturesMatch>()
+            .HasOne(x => x.CloseTrade).WithMany()
+            .HasForeignKey(x => x.CloseTradeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketFxHedge>()
+            .HasOne(x => x.Account).WithMany()
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketEfp>()
+            .HasOne(x => x.Account).WithMany()
+            .HasForeignKey(x => x.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MarketEfp>()
+            .HasOne(x => x.Instrument).WithMany()
+            .HasForeignKey(x => x.InstrumentCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        // Uma operação por EFP (guarda no banco contra duas retomadas simultâneas); índice filtrado exige
+        // QUOTED_IDENTIFIER ON na sessão que grava (padrão do SqlClient).
+        modelBuilder.Entity<MarketFuturesTrade>().HasIndex(x => x.EfpId).IsUnique().HasFilter("[EfpId] IS NOT NULL");
+        modelBuilder.Entity<MarketFuturesMatch>().HasIndex(x => new { x.AccountId, x.InstrumentCode });
+        modelBuilder.Entity<MarketEfp>().HasIndex(x => x.FixationKey);
+        modelBuilder.Entity<MarketEfp>().HasIndex(x => x.ContractKey);
+        modelBuilder.Entity<MarketBrokerStatement>()
+            .HasOne(x => x.Account).WithMany()
+            .HasForeignKey(x => x.AccountId)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Regra de distribuição: versão única por (regra, vigência); versões e linhas caem em cascata.
