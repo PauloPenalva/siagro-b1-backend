@@ -59,29 +59,20 @@ public class MarketTradeTicketsController(AppDbContext context, MarketTradeTicke
         try
         {
             var ticket = await action();
-            // Carimbos gravados em UTC voltam do banco sem Kind: marca UTC para serializar com "Z".
-            ticket.CreatedAt = Utc(ticket.CreatedAt)!.Value;
-            ticket.ApprovedAt = Utc(ticket.ApprovedAt);
-            ticket.BoardApprovedAt = Utc(ticket.BoardApprovedAt);
-            ticket.RejectedAt = Utc(ticket.RejectedAt);
-            ticket.CanceledAt = Utc(ticket.CanceledAt);
-            ticket.QuotedAt = Utc(ticket.QuotedAt);
+            // Kind=Utc já vem do conversor do AppDbContext (UtcDateTimeConverters).
             return new JsonResult(ticket, MarketQuotesStreamLoop.JsonOptions);
         }
-        catch (KeyNotFoundException)
+        catch (KeyNotFoundException e)
         {
-            return NotFound();
+            return MarketTextResults.NotFound(e.Message);
         }
         catch (ForbiddenException e)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, e.Message);
+            return MarketTextResults.Forbidden(e.Message);
         }
         catch (BusinessException e)
         {
-            return BadRequest(e.Message);
+            return MarketTextResults.BadRequest(e.Message);
         }
     }
-
-    private static DateTime? Utc(DateTime? value) =>
-        value is null ? null : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc);
 }

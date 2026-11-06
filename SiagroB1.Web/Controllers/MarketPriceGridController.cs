@@ -57,6 +57,5 @@ public class MarketPriceGridController(
         return null;
     }
 
-    private static ContentResult Text(string message) =>
-        new() { StatusCode = StatusCodes.Status400BadRequest, ContentType = "text/plain; charset=utf-8", Content = message };
+    private static ContentResult Text(string message) => MarketTextResults.BadRequest(message);
 }

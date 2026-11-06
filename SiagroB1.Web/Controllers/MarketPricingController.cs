@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SiagroB1.Application.Services.Market;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Web.Filters;
+using SiagroB1.Web.Market;
 
 namespace SiagroB1.Web.Controllers;
 
@@ -27,11 +28,11 @@ public class MarketPricingController(MarketTradingSettingsService settings, Mark
         }
         catch (ForbiddenException e)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, e.Message);
+            return MarketTextResults.Forbidden(e.Message);
         }
         catch (BusinessException e)
         {
-            return BadRequest(e.Message);
+            return MarketTextResults.BadRequest(e.Message);
         }
     }
 
