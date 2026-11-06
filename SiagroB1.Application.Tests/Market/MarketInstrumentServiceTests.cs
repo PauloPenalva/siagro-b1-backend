@@ -179,4 +179,25 @@ public class MarketInstrumentServiceTests
     }
 
     private static MarketInstrumentService Service(SiagroB1.Infra.UnitOfWork db) => InstrumentService(db);
+
+    // B11: futuros de exemplo nascem com vencimento aproximado (CBOT dia 14, B3 dia 15); o que já existe não muda.
+    [Fact]
+    public async Task CreateSamples_FuturesGetApproximateExpiration_ExistingUntouched()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        db.Context.MarketInstruments.Add(Instrument("ZSF7"));
+        await db.SaveChangesAsync();
+
+        await Service(db).CreateSamplesAsync(CancellationToken.None);
+
+        var dates = await db.Context.MarketInstruments.AsNoTracking().ToDictionaryAsync(i => i.Code, i => i.ExpirationDate);
+        Assert.Null(dates["ZSF7"]);
+        Assert.Equal(new DateTime(2027, 7, 14), dates["ZSN7"]);
+        Assert.Equal(new DateTime(2026, 11, 14), dates["ZSX6"]);
+        Assert.Equal(new DateTime(2027, 3, 14), dates["ZCH7"]);
+        Assert.Equal(new DateTime(2027, 1, 15), dates["CCMF27"]);
+        Assert.Equal(new DateTime(2027, 3, 15), dates["CCMH27"]);
+        Assert.Null(dates["DOL COM"]);
+        Assert.Null(dates["CURVA DE DOLAR 90D"]);
+    }
 }

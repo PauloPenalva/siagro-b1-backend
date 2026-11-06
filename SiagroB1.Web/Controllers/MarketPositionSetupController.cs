@@ -12,7 +12,7 @@ using SiagroB1.Web.Market;
 
 namespace SiagroB1.Web.Controllers;
 
-public sealed record MarketFxLockInput(bool Locked, decimal? FxRate);
+public sealed record MarketFxLockInput(bool? Locked, decimal? FxRate);
 
 public sealed record MarketContractMarketDataInput(
     string? InstrumentCode, decimal? ExchangePrice, decimal? Premium, decimal? UsdPricePerKg, decimal? FxRate);
@@ -57,12 +57,15 @@ public class MarketPositionSetupController(
         };
         if (parsed is null)
             return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidSideMessage));
-        if (input is null || !ModelState.IsValid)
+        // Sem "locked" no corpo não se presume false: isso reabriria um câmbio fechado sem querer.
+        if (input?.Locked is null || !ModelState.IsValid)
             return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidBodyMessage));
 
+        var locked = input.Locked.Value;
+        var fxRate = input.FxRate;
         return Run(async () =>
         {
-            await fxLock.SetAsync(parsed.Value, key, input.Locked, input.FxRate, UserName, cancellationToken);
+            await fxLock.SetAsync(parsed.Value, key, locked, fxRate, UserName, cancellationToken);
             return NoContent();
         });
     }

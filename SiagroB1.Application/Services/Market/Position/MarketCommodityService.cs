@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Interfaces;
 using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market.Position;
@@ -13,7 +15,8 @@ namespace SiagroB1.Application.Services.Market.Position;
 /// Commodities da posição. Itens e meses têm serviço próprio; a inclusão em profundidade (cabeçalho + itens + meses)
 /// aplica as mesmas regras antes de qualquer SaveChanges, e o corpo do cabeçalho nunca os altera depois.
 /// </summary>
-public class MarketCommodityService(AppDbContext context, IItemService itemService, ILogger<MarketCommodityService> logger)
+public class MarketCommodityService(AppDbContext context, IItemService itemService, ILogger<MarketCommodityService> logger,
+    MarketExposureCache? exposureCache = null, ICompanyContext? companyContext = null)
     : BaseService<MarketCommodity, string>(context, logger)
 {
     public override async Task<MarketCommodity> CreateAsync(MarketCommodity entity)
@@ -45,7 +48,9 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
                 throw new BusinessException($"O mês de entrega {month.DeliveryMonth} está repetido nesta commodity.");
         }
 
-        return await MarketPersistence.AddAndSaveAsync(context, entity);
+        var created = await MarketPersistence.AddAndSaveAsync(context, entity);
+        InvalidateExposure();
+        return created;
     }
 
     public override async Task<MarketCommodity?> UpdateAsync(string key, MarketCommodity entity)
@@ -56,7 +61,9 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
 
         MarketCommodityRules.NormalizeHeader(entity);
         IgnorePayloadChildren(entity);
-        return await base.UpdateAsync(key, entity);
+        var updated = await base.UpdateAsync(key, entity);
+        InvalidateExposure();
+        return updated;
     }
 
     public override async Task<bool> DeleteAsync(string key)
@@ -72,6 +79,7 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
         context.MarketCommodityMonths.RemoveRange(commodity.Months);
         context.MarketCommodities.Remove(commodity);
         await context.SaveChangesAsync();
+        InvalidateExposure();
         return true;
     }
 
@@ -113,6 +121,7 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
 
         context.MarketCommodities.AddRange(missing);
         await context.SaveChangesAsync(cancellationToken);
+        InvalidateExposure();
         return missing.Count;
     }
 
@@ -135,4 +144,10 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
                 CommodityCode = code, DeliveryMonth = r.DeliveryMonth, FuturesMonth = r.FuturesMonth, YearOffset = r.YearOffset,
             }).ToList(),
     };
+
+    /// <summary>A posição lê o cache de 30 s: cadastro de commodity, produto ou mês tem de aparecer já.</summary>
+    private void InvalidateExposure()
+    {
+        if (companyContext is not null) exposureCache?.Invalidate(companyContext.CompanyCode);
+    }
 }

@@ -26,6 +26,9 @@ public class MarketLimitAlertService(
     /// <summary>Confere os limites em <paramref name="today"/> (data de São Paulo); devolve quantos avisos novos gravou.</summary>
     public async Task<int> CheckAsync(DateOnly today, CancellationToken ct)
     {
+        // Sem limite ativo não há o que avisar: nem lê a exposição (o job roda a cada 15 min em toda empresa).
+        if (!await context.MarketExposureLimits.AnyAsync(l => l.Active, ct)) return 0;
+
         var snapshot = await position.GetSnapshotAsync(today, ct, bypassCache: true);
         if (snapshot.Alerts.Count == 0) return 0;
 

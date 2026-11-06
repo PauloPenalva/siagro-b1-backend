@@ -43,8 +43,6 @@ public class MarketContractMarketDataService(
         if (exchange <= 0) throw new BusinessException("A cotação da bolsa deve ser maior que zero.");
         if (usd <= 0) throw new BusinessException("O preço em US$ deve ser maior que zero.");
         if (fx <= 0) throw new BusinessException("A taxa de câmbio deve ser maior que zero.");
-        if (code is not null && !await context.MarketInstruments.AnyAsync(i => i.Code == code, ct))
-            throw new BusinessException("O instrumento de referência não está cadastrado.");
 
         try
         {
@@ -53,6 +51,8 @@ public class MarketContractMarketDataService(
                 var contract = await context.PurchaseContracts.FirstOrDefaultAsync(c => c.Key == contractKey, ct)
                                ?? throw new KeyNotFoundException("Contrato de compra não encontrado.");
                 EnsureApproved(contract.Status);
+                await ValidateInstrumentAsync(code, contract.ItemCode, ct);
+                EnsureFxRateKept(contract.MarketFxLocked, contract.MarketFxRate, fx);
                 var changes = Changes(contract.MarketInstrumentCode, contract.MarketExchangePrice, contract.MarketPremium,
                     contract.MarketUsdPrice, contract.MarketFxRate, code, exchange, premium, usd, fx);
                 if (changes.Count > 0)
@@ -72,6 +72,8 @@ public class MarketContractMarketDataService(
                 var contract = await context.SalesContracts.FirstOrDefaultAsync(c => c.Key == contractKey, ct)
                                ?? throw new KeyNotFoundException("Contrato de venda não encontrado.");
                 EnsureApproved(contract.Status);
+                await ValidateInstrumentAsync(code, contract.ItemCode, ct);
+                EnsureFxRateKept(contract.MarketFxLocked, contract.MarketFxRate, fx);
                 var changes = Changes(contract.MarketInstrumentCode, contract.MarketExchangePrice, contract.MarketPremium,
                     contract.MarketUsdPrice, contract.MarketFxRate, code, exchange, premium, usd, fx);
                 if (changes.Count > 0)
@@ -95,6 +97,41 @@ public class MarketContractMarketDataService(
             context.ChangeTracker.Clear();
             throw new BusinessException(MarketContractFxLockService.ConcurrencyMessage);
         }
+    }
+
+    /// <summary>
+    /// A referência tem de ser valorizável na posição: instrumento cadastrado, cotado por tonelada (não moeda) e da
+    /// mesma commodity do produto do contrato (quando o produto tem commodity cadastrada).
+    /// </summary>
+    private async Task ValidateInstrumentAsync(string? code, string? itemCode, CancellationToken ct)
+    {
+        if (code is null) return;
+        var instrument = await context.MarketInstruments.AsNoTracking()
+                             .Where(i => i.Code == code).Select(i => new { i.Code, i.Commodity, i.QuoteUnit })
+                             .FirstOrDefaultAsync(ct)
+                         ?? throw new BusinessException("O instrumento de referência não está cadastrado.");
+        if (instrument.QuoteUnit is not (MarketQuoteUnit.UsCentsPerBushel or MarketQuoteUnit.BrlPerBag or MarketQuoteUnit.UsdPerTon))
+            throw new BusinessException("O instrumento de referência precisa ser de commodity (não de moeda).");
+
+        var item = itemCode?.Trim();
+        var product = await context.MarketCommodityItems.AsNoTracking()
+            .Where(i => i.ItemCode == item).Select(i => new { i.CommodityCode, i.Commodity!.Name })
+            .FirstOrDefaultAsync(ct);
+        if (product is null || string.Equals(product.CommodityCode, instrument.Commodity?.Trim(), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var instrumentCommodity = instrument.Commodity?.Trim() ?? string.Empty;
+        var instrumentName = await context.MarketCommodities.AsNoTracking()
+            .Where(c => c.Code == instrumentCommodity).Select(c => c.Name).FirstOrDefaultAsync(ct) ?? instrumentCommodity;
+        throw new BusinessException(
+            $"O instrumento {instrument.Code} é de {instrumentName} e o produto do contrato é de {product.Name}.");
+    }
+
+    /// <summary>Com o câmbio fechado, a taxa gravada no fechamento não pode ser apagada por aqui.</summary>
+    private static void EnsureFxRateKept(bool locked, decimal? current, decimal? next)
+    {
+        if (locked && current is not null && next is null)
+            throw new BusinessException("Reabra o câmbio antes de limpar a taxa do dólar.");
     }
 
     private static decimal? Round(decimal? value, int scale) =>

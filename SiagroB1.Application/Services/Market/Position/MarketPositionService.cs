@@ -46,7 +46,7 @@ public class MarketPositionService(
     public const decimal KgPerBag = 60m;
 
     private sealed record InstrumentData(string Code, string Commodity, MarketInstrumentType Type, bool Active, DateTime? ExpirationDate,
-        MarketQuoteUnit QuoteUnit, decimal ContractSize, decimal TonFactor);
+        MarketQuoteUnit QuoteUnit, decimal ContractSize, decimal TonFactor, MarketExchange Exchange);
 
     private sealed record LimitData(int Id, MarketLimitScope Scope, string? CommodityCode, int? Year, int? Month, decimal? MaxLong, decimal? MaxShort);
 
@@ -63,7 +63,7 @@ public class MarketPositionService(
         if (string.IsNullOrEmpty(spotCode)) spotCode = null;
 
         var names = await context.MarketCommodities.AsNoTracking()
-            .Select(c => new { c.Code, c.Name }).ToListAsync(ct);
+            .Select(c => new { c.Code, c.Name, c.HedgeExchange }).ToListAsync(ct);
 
         var referenced = exposure.Rows.Where(r => r.MarketInstrumentCode != null)
             .Select(r => r.MarketInstrumentCode!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -74,7 +74,8 @@ public class MarketPositionService(
         var instruments = await context.MarketInstruments.AsNoTracking()
             .Where(i => (i.Active && i.Type == MarketInstrumentType.Future && i.ExpirationDate != null && i.ExpirationDate >= recentExpiration)
                         || extra.Contains(i.Code))
-            .Select(i => new InstrumentData(i.Code, i.Commodity, i.Type, i.Active, i.ExpirationDate, i.QuoteUnit, i.ContractSize, i.TonFactor))
+            .Select(i => new InstrumentData(i.Code, i.Commodity, i.Type, i.Active, i.ExpirationDate, i.QuoteUnit, i.ContractSize, i.TonFactor,
+                i.Exchange))
             .ToListAsync(ct);
         var instrumentByCode = instruments
             .GroupBy(i => i.Code, StringComparer.OrdinalIgnoreCase)
@@ -124,7 +125,7 @@ public class MarketPositionService(
 
         var alerts = new List<MarketLimitAlert>();
         var commodities = BuildCommodities(exposure, futures, names.ToDictionary(n => n.Code, n => n.Name, StringComparer.OrdinalIgnoreCase),
-            instruments, instrumentByCode, lastByCode, closeByCode, limits, alerts, out var openCommodityValueUsd);
+            names.ToDictionary(n => n.Code, n => n.HedgeExchange, StringComparer.OrdinalIgnoreCase), instruments, instrumentByCode, lastByCode, closeByCode, limits, alerts, out var openCommodityValueUsd);
 
         var usd = BuildUsd(exposure, futures,
             fxHedges.Where(h => h.Status == MarketFxHedgeStatus.Open)
@@ -196,7 +197,7 @@ public class MarketPositionService(
 
     private List<MarketCommodityPosition> BuildCommodities(
         MarketPhysicalExposure exposure, IReadOnlyList<MarketFuturesOpenPosition> futures, Dictionary<string, string> names,
-        List<InstrumentData> instruments, Dictionary<string, InstrumentData> instrumentByCode,
+        Dictionary<string, MarketExchange> hedgeExchanges, List<InstrumentData> instruments, Dictionary<string, InstrumentData> instrumentByCode,
         Dictionary<string, decimal> lastByCode, Dictionary<string, decimal> closeByCode, List<LimitData> limits,
         List<MarketLimitAlert> alerts, out decimal openCommodityValueUsd)
     {
@@ -211,14 +212,20 @@ public class MarketPositionService(
         {
             var code = group.Key;
             var name = names.GetValueOrDefault(code) ?? code;
+            MarketExchange? hedgeExchange = hedgeExchanges.TryGetValue(code, out var hx) ? hx : null;
             var buckets = new List<MarketCommodityBucket>();
+            // "Tem posição" decide se o MTM de futuros do balde entra no total (comprado e vendido em corretoras
+            // diferentes dá 0 t líquidas, mas tem resultado).
+            var withPositions = new HashSet<(int?, int?)>();
             foreach (var k in group.OrderBy(k => k.Year is null).ThenBy(k => k.Year).ThenBy(k => k.Month))
             {
                 var rows = exposure.Rows.Where(r => r.CommodityCode.Equals(code, StringComparison.OrdinalIgnoreCase)
                                                     && r.FuturesYear == k.Year && r.FuturesMonth == k.Month).ToList();
                 var positions = commodityFutures.Where(f => f.Commodity.Equals(code, StringComparison.OrdinalIgnoreCase)
                                                             && f.ExpirationDate?.Year == k.Year && f.ExpirationDate?.Month == k.Month).ToList();
-                var bucket = BuildBucket(code, k.Year, k.Month, rows, positions, instruments, instrumentByCode, lastByCode, closeByCode);
+                if (positions.Count > 0) withPositions.Add((k.Year, k.Month));
+                var bucket = BuildBucket(code, hedgeExchange, k.Year, k.Month, rows, positions, instruments, instrumentByCode, lastByCode,
+                    closeByCode);
                 var eval = Evaluate(limits, MarketLimitScope.Commodity, code, k.Year, k.Month, bucket.NetTons, Describe(name, k.Year, k.Month));
                 bucket = bucket with { LimitState = eval.State, MaxLong = eval.MaxLong, MaxShort = eval.MaxShort };
                 if (eval.Alert is not null) alerts.Add(eval.Alert);
@@ -229,10 +236,7 @@ public class MarketPositionService(
                 buckets.Add(bucket);
             }
 
-            var referencedRows = exposure.Rows.Where(r => r.CommodityCode.Equals(code, StringComparison.OrdinalIgnoreCase)
-                                                         && !string.IsNullOrWhiteSpace(r.MarketInstrumentCode) && r.MarketExchangePrice.HasValue)
-                .Select(r => (int?)r.FuturesYear * 100 + r.FuturesMonth).ToHashSet();
-            var total = Total(buckets, b => referencedRows.Contains(b.Year * 100 + b.Month));
+            var total = Total(buckets, b => withPositions.Contains((b.Year, b.Month)));
             var totalEval = Evaluate(limits, MarketLimitScope.Commodity, code, null, null, total.NetTons, Describe(name, null, null), isTotal: true);
             total = total with { LimitState = totalEval.State, MaxLong = totalEval.MaxLong, MaxShort = totalEval.MaxShort };
             if (totalEval.Alert is not null) alerts.Add(totalEval.Alert);
@@ -242,7 +246,7 @@ public class MarketPositionService(
         return result;
     }
 
-    private static MarketCommodityBucket BuildBucket(string commodity, int? year, int? month, List<MarketPhysicalRow> rows,
+    private static MarketCommodityBucket BuildBucket(string commodity, MarketExchange? hedgeExchange, int? year, int? month, List<MarketPhysicalRow> rows,
         List<MarketFuturesOpenPosition> positions, List<InstrumentData> instruments, Dictionary<string, InstrumentData> instrumentByCode,
         Dictionary<string, decimal> lastByCode, Dictionary<string, decimal> closeByCode)
     {
@@ -251,7 +255,8 @@ public class MarketPositionService(
         var futuresTons = positions.Sum(p => p.Tons!.Value);
         var physicalNet = purchaseTons - salesTons;
 
-        // Instrumento que representa o balde: futuro ativo da commodity que vence no mês; com posição aberta primeiro.
+        // Instrumento que representa o balde: futuro ativo da commodity que vence no mês, preferindo os da bolsa de
+        // hedge da commodity (sem nenhum dessa bolsa, todos); entre eles, com posição aberta primeiro, depois por código.
         InstrumentData? rep = null;
         if (year.HasValue)
         {
@@ -259,6 +264,8 @@ public class MarketPositionService(
                                                     && i.Commodity.Equals(commodity, StringComparison.OrdinalIgnoreCase)
                                                     && i.ExpirationDate?.Year == year && i.ExpirationDate?.Month == month)
                 .OrderBy(i => i.Code, StringComparer.OrdinalIgnoreCase).ToList();
+            if (hedgeExchange is { } hx && candidates.Any(i => i.Exchange == hx))
+                candidates = candidates.Where(i => i.Exchange == hx).ToList();
             rep = candidates.FirstOrDefault(i => positions.Any(p => p.InstrumentCode.Equals(i.Code, StringComparison.OrdinalIgnoreCase)))
                   ?? candidates.FirstOrDefault();
         }
@@ -286,34 +293,31 @@ public class MarketPositionService(
                 });
         }
 
-        // Físico: só o componente de bolsa dos contratos com referência; os demais são contados.
-        var withReference = rows.Where(r => !string.IsNullOrWhiteSpace(r.MarketInstrumentCode) && r.MarketExchangePrice.HasValue).ToList();
-        decimal? physicalMtm = null;
-        if (withReference.Count > 0)
+        // Físico: só o componente de bolsa dos contratos cuja referência pode ser valorizada (instrumento cadastrado,
+        // por tonelada, cotado e na moeda do balde); os demais contam como "sem referência" e não anulam o balde.
+        decimal sum = 0m;
+        var valued = 0;
+        foreach (var r in rows.Where(r => !string.IsNullOrWhiteSpace(r.MarketInstrumentCode) && r.MarketExchangePrice.HasValue))
         {
-            decimal sum = 0m;
-            var complete = true;
-            foreach (var r in withReference)
-            {
-                if (!instrumentByCode.TryGetValue(r.MarketInstrumentCode!.Trim(), out var i) || ValuePerTon(i) is not { } perTon
-                    || !lastByCode.TryGetValue(i.Code, out var quote) || (currency.HasValue && MarketUnits.QuoteCurrency(i.QuoteUnit) != currency))
-                {
-                    complete = false;
-                    break;
-                }
-                var sign = r.Side == MarketEfpContractSide.Purchase ? 1m : -1m;
-                sum += (quote - r.MarketExchangePrice!.Value) * perTon * (r.FirmOpenKg / 1000m) * sign;
-            }
-            physicalMtm = complete ? Round2(sum) : null;
+            if (!instrumentByCode.TryGetValue(r.MarketInstrumentCode!.Trim(), out var i) || ValuePerTon(i) is not { } perTon
+                || !lastByCode.TryGetValue(i.Code, out var quote) || (currency.HasValue && MarketUnits.QuoteCurrency(i.QuoteUnit) != currency))
+                continue;
+            var sign = r.Side == MarketEfpContractSide.Purchase ? 1m : -1m;
+            sum += (quote - r.MarketExchangePrice!.Value) * perTon * (r.FirmOpenKg / 1000m) * sign;
+            valued++;
         }
+        decimal? physicalMtm = valued > 0 ? Round2(sum) : null;
 
         return new MarketCommodityBucket(year, month, rep?.Code, purchaseTons, salesTons, futuresTons, physicalNet + futuresTons,
             MarketPositionMath.Covered(physicalNet, futuresTons), MarketPositionMath.HedgePercent(physicalNet, futuresTons),
-            last, close, futuresUnrealized, futuresAtClose, physicalMtm, rows.Count - withReference.Count, currency, "none", null, null);
+            last, close, futuresUnrealized, futuresAtClose, physicalMtm, rows.Count - valued, currency, "none", null, null);
     }
 
-    /// <summary>Total da commodity: soma dos baldes; valores em dinheiro só quando todos os baldes têm a mesma moeda.</summary>
-    private static MarketCommodityBucket Total(List<MarketCommodityBucket> buckets, Func<MarketCommodityBucket, bool> hasReferenced)
+    /// <summary>
+    /// Total da commodity: soma dos baldes; valores em dinheiro só quando todos os baldes têm a mesma moeda. MTM de
+    /// futuros: dos baldes com posição aberta (nulo se algum deles não foi marcado); físico: dos baldes valorizados.
+    /// </summary>
+    private static MarketCommodityBucket Total(List<MarketCommodityBucket> buckets, Func<MarketCommodityBucket, bool> hasPositions)
     {
         var purchase = buckets.Sum(b => b.PurchaseTons);
         var sales = buckets.Sum(b => b.SalesTons);
@@ -330,9 +334,9 @@ public class MarketPositionService(
         return new MarketCommodityBucket(null, null, null, purchase, sales, fut, purchase - sales + fut,
             MarketPositionMath.Covered(purchase - sales, fut), MarketPositionMath.HedgePercent(purchase - sales, fut),
             null, null,
-            Money(b => b.FuturesUnrealized, b => b.FuturesTons != 0m),
-            Money(b => b.FuturesUnrealizedAtClose, b => b.FuturesTons != 0m),
-            Money(b => b.PhysicalExchangeMtm, hasReferenced),
+            Money(b => b.FuturesUnrealized, hasPositions),
+            Money(b => b.FuturesUnrealizedAtClose, hasPositions),
+            Money(b => b.PhysicalExchangeMtm, b => b.PhysicalExchangeMtm.HasValue),
             buckets.Sum(b => b.PhysicalWithoutReference), currency, "none", null, null);
     }
 

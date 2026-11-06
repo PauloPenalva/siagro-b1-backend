@@ -516,4 +516,119 @@ public class MarketPositionServiceTests
         Assert.Equal((0m, -30_000m), (locked.Usd.Total.ReceivableUsd, locked.Usd.Total.NetUsd));
         Assert.Contains(await Service(db).GetUsdContractsAsync(Ct), r => r.ContractCode == "CV7" && r.FxLocked);
     }
+
+    // ---- onda final de correção ----
+
+    // B2(b): referência que não pode ser valorizada (moeda, inexistente, sem cotação) conta como "sem referência"
+    // e não anula o balde; os números de 06/11 (600 t a 1190 × 1196,25; 18 t vendidas a 1205 × 1210,50) continuam.
+    [Fact]
+    public async Task PhysicalExchangeMtm_UnvaluableReferences_CountedApart_ValuableRowsSummed()
+    {
+        var db = await SeedAsync();
+        var p = Purchase(db, "CC1", 600_000m);
+        p.MarketInstrumentCode = Zsn7;
+        p.MarketExchangePrice = 1190m;
+        var s1 = Sales(db, "CV1", 18_000m);
+        s1.MarketInstrumentCode = Zsn7;
+        s1.MarketExchangePrice = 1205m;
+        var dollar = Purchase(db, "CC2", 10_000m);
+        dollar.MarketInstrumentCode = "DOLZ6";
+        dollar.MarketExchangePrice = 5.4m;
+        var missing = Purchase(db, "CC3", 10_000m);
+        missing.MarketInstrumentCode = "NOPE";
+        missing.MarketExchangePrice = 1000m;
+        db.Context.MarketInstruments.Add(Instrument("ZSU7", MarketQuoteUnit.UsCentsPerBushel, 5000m, 0.36745m, "SOY", new DateTime(2027, 9, 14)));
+        var unquoted = Purchase(db, "CC4", 10_000m);
+        unquoted.MarketInstrumentCode = "ZSU7";
+        unquoted.MarketExchangePrice = 1000m;
+        Purchase(db, "CC5", 10_000m);
+        Quote(db, Zsn7, 1196.25m);
+        Quote(db, "DOLZ6", 5.5m);
+
+        var s = await Snapshot(db);
+        var b = SoyJuly(s);
+
+        // Compra: (1196,25 − 1190) × 0,36745 × 600 = 1.377,94; venda: −(1196,25 − 1205) × 0,36745 × 18 = +57,87.
+        Assert.Equal(Round2(6.25m * 0.36745m * 600m + 8.75m * 0.36745m * 18m), b.PhysicalExchangeMtm);
+        Assert.Equal(1435.81m, b.PhysicalExchangeMtm);
+        Assert.Equal(4, b.PhysicalWithoutReference);
+        var total = s.Commodities.Single(c => c.Code == "SOY").Total;
+        Assert.Equal(1435.81m, total.PhysicalExchangeMtm);
+        Assert.Equal(4, total.PhysicalWithoutReference);
+    }
+
+    private static decimal Round2(decimal v) => Math.Round(v, 2, MidpointRounding.AwayFromZero);
+
+    [Fact]
+    public async Task PhysicalExchangeMtm_LiveFigures_PurchaseAndSaleSeparately()
+    {
+        var db = await SeedAsync();
+        var p = Purchase(db, "CC1", 600_000m);
+        p.MarketInstrumentCode = Zsn7;
+        p.MarketExchangePrice = 1190m;
+        Quote(db, Zsn7, 1196.25m);
+        Assert.Equal(1377.94m, SoyJuly(await Snapshot(db)).PhysicalExchangeMtm);
+
+        var db2 = await SeedAsync();
+        var s1 = Sales(db2, "CV1", 18_000m);
+        s1.MarketInstrumentCode = Zsn7;
+        s1.MarketExchangePrice = 1205m;
+        Quote(db2, Zsn7, 1210.50m);
+        Assert.Equal(-36.38m, SoyJuly(await Snapshot(db2)).PhysicalExchangeMtm);
+    }
+
+    // B3: o balde é representado pelo futuro da bolsa de hedge da commodity (CBOT), não pelo primeiro em ordem alfabética.
+    [Fact]
+    public async Task Bucket_RepresentedByHedgeExchangeInstrument_CornCbotOverB3()
+    {
+        var db = await SeedAsync();
+        db.Context.MarketCommodities.Add(new MarketCommodity { Code = "CORN", Name = "Milho", HedgeExchange = MarketExchange.Cbot });
+        db.Context.MarketCommodityItems.Add(new MarketCommodityItem { CommodityCode = "CORN", ItemCode = "MILHO" });
+        db.Context.MarketCommodityMonths.Add(new MarketCommodityMonth { CommodityCode = "CORN", DeliveryMonth = 3, FuturesMonth = 3 });
+        var zch7 = Instrument("ZCH7", MarketQuoteUnit.UsCentsPerBushel, 5000m, 0.39368m, "CORN", new DateTime(2027, 3, 12));
+        var ccmh27 = Instrument("CCMH27", MarketQuoteUnit.BrlPerBag, 450m, 16.66667m, "CORN", new DateTime(2027, 3, 15));
+        ccmh27.Exchange = MarketExchange.B3;
+        db.Context.MarketInstruments.AddRange(zch7, ccmh27);
+        var c = Purchase(db, "CC1", 100_000m, "MILHO");
+        c.DeliveryEndDate = new DateTime(2027, 3, 31);
+        c.MarketInstrumentCode = "ZCH7";
+        c.MarketExchangePrice = 440m;
+        Quote(db, "ZCH7", 450m);
+        Quote(db, "CCMH27", 80m);
+
+        var s = await Snapshot(db);
+        var corn = s.Commodities.Single(x => x.Code == "CORN");
+        var b = Assert.Single(corn.Buckets);
+
+        Assert.Equal("ZCH7", b.InstrumentCode);
+        Assert.Equal(CurrencyType.Usd, b.Currency);
+        Assert.Equal(450m, b.LastPrice);
+        Assert.Equal(393.68m, b.PhysicalExchangeMtm); // (450 − 440) × 0,39368 × 100
+        Assert.Equal(0, b.PhysicalWithoutReference);
+        // Valor em US$ das commodities passa a incluir o balde: 100 t × 450 × 0,39368.
+        Assert.Equal(17715.6m, s.Usd.OpenCommodityValueUsd);
+    }
+
+    // B5: comprado numa corretora e vendido em outra = 0 t líquidas, mas o não realizado existe e entra no total.
+    [Fact]
+    public async Task Total_IncludesFuturesUnrealized_OfBucketWithZeroNetTons()
+    {
+        var db = await SeedAsync();
+        db.Context.MarketCounterpartyAccounts.Add(new MarketCounterpartyAccount { Id = 2, CounterpartyId = 1, Code = "C-002" });
+        Futures(db, MarketTradeSide.Buy, 4, 1190m);
+        db.Context.MarketFuturesTrades.Add(new MarketFuturesTrade
+        {
+            TradedAt = new DateTime(2026, 11, 5, 14, 0, 0, DateTimeKind.Utc), TradeDate = new DateTime(2026, 11, 5),
+            AccountId = 2, InstrumentCode = Zsn7, Side = MarketTradeSide.Sell, Lots = 4, OpenLots = 4, Price = 1200m,
+        });
+        Quote(db, Zsn7, 1210m);
+
+        var s = await Snapshot(db);
+        var b = SoyJuly(s);
+        var total = s.Commodities.Single(c => c.Code == "SOY").Total;
+
+        Assert.Equal(0m, b.FuturesTons);
+        Assert.Equal(2000m, b.FuturesUnrealized); // (1210 − 1190) × 4 × 50 + (1210 − 1200) × −4 × 50
+        Assert.Equal(2000m, total.FuturesUnrealized);
+    }
 }

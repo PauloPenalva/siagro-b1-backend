@@ -667,15 +667,28 @@ public class MarketPositionSetupTests
         await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData(), "g");
         Assert.Equal(before, await db.Context.SalesContractsChangeLogs.CountAsync());
 
-        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, new(null, null, null, null, null), "g");
+        // Câmbio fechado: limpar a taxa do dólar é recusado (B9); os outros quatro campos limpam.
+        var refused = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, new(null, null, null, null, null), "g"));
+        Assert.Equal("Reabra o câmbio antes de limpar a taxa do dólar.", refused.Message);
+        db.Context.ChangeTracker.Clear();
+        Assert.Equal(before, await db.Context.SalesContractsChangeLogs.CountAsync());
+
+        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, new(null, null, null, null, 5.4m), "g");
         var c = await db.Context.SalesContracts.AsNoTracking().SingleAsync();
         Assert.Null(c.MarketInstrumentCode);
         Assert.Null(c.MarketExchangePrice);
         Assert.Null(c.MarketPremium);
         Assert.Null(c.MarketUsdPrice);
-        Assert.Null(c.MarketFxRate);
+        Assert.Equal(5.4m, c.MarketFxRate);
         Assert.True(c.MarketFxLocked);
-        Assert.Equal(before + 5, await db.Context.SalesContractsChangeLogs.CountAsync());
+        Assert.Equal(before + 4, await db.Context.SalesContractsChangeLogs.CountAsync());
+
+        // Reaberto, a taxa pode ser limpa.
+        await FxLock(db, PermissionCodes.MarketManage).SetAsync(MarketEfpContractSide.Sales, sales, false, null, "g");
+        db.Context.ChangeTracker.Clear();
+        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, new(null, null, null, null, null), "g");
+        Assert.Null((await db.Context.SalesContracts.AsNoTracking().SingleAsync()).MarketFxRate);
     }
 
     [Fact]
@@ -708,5 +721,135 @@ public class MarketPositionSetupTests
         var content = Assert.IsType<Microsoft.AspNetCore.Mvc.ContentResult>(result);
         Assert.Equal(400, content.StatusCode);
         Assert.StartsWith("text/plain", content.ContentType);
+    }
+
+    // ---- onda final de correção ----
+
+    [Theory]
+    [InlineData(ContractStatus.Finished)]
+    [InlineData(ContractStatus.Rejected)]
+    public async Task MarketData_FinishedOrRejected_Rejected(ContractStatus status)
+    {
+        var (db, purchase, sales) = await SeedContractsAsync(status);
+        await SeedInstrumentAsync(db);
+        var service = MarketData(db);
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData(), "x"));
+        Assert.Contains("aprovado", e.Message);
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData(), "x"));
+    }
+
+    [Fact]
+    public async Task MarketData_CurrencyInstrument_Rejected()
+    {
+        var (db, purchase, _) = await SeedContractsAsync();
+        db.Context.MarketInstruments.Add(new MarketInstrument
+        {
+            Code = "DOLCOM", Description = "Dólar comercial", Commodity = "USD", QuoteUnit = MarketQuoteUnit.BrlPerUsd,
+        });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            MarketData(db).SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData("DOLCOM"), "x"));
+        Assert.Equal("O instrumento de referência precisa ser de commodity (não de moeda).", e.Message);
+    }
+
+    [Fact]
+    public async Task MarketData_InstrumentOfOtherCommodity_RejectedNamingBoth_SameCommodityAccepted()
+    {
+        var (db, purchase, sales) = await SeedContractsAsync();
+        db.Context.MarketCommodities.AddRange(
+            Soy("SOJA"),
+            new MarketCommodity { Code = "CORN", Name = "Milho", HedgeExchange = MarketExchange.Cbot });
+        db.Context.MarketInstruments.AddRange(
+            new MarketInstrument { Code = "ZCH7", Description = "Milho mar/27", Commodity = "CORN" },
+            new MarketInstrument { Code = "ZSN26", Description = "Soja jul/26", Commodity = "SOY" });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        var service = MarketData(db);
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData("ZCH7"), "x"));
+        Assert.Equal("O instrumento ZCH7 é de Milho e o produto do contrato é de Soja.", e.Message);
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData("ZCH7"), "x"));
+
+        await service.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData("ZSN26"), "x");
+        Assert.Equal("ZSN26", (await db.Context.PurchaseContracts.AsNoTracking().SingleAsync()).MarketInstrumentCode);
+    }
+
+    private static SiagroB1.Web.Controllers.MarketPositionSetupController SetupController(UnitOfWork db) =>
+        new(Commodities(db), FxLock(db, PermissionCodes.MarketManage), MarketData(db),
+            new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage)),
+            new TestLogger<SiagroB1.Web.Controllers.MarketPositionSetupController>())
+        {
+            ControllerContext = UserContext(),
+        };
+
+    [Fact]
+    public async Task SetupController_FxLockWithoutLocked_Returns400_AndKeepsLock()
+    {
+        var (db, purchase, _) = await SeedContractsAsync();
+        await FxLock(db, PermissionCodes.MarketManage).SetAsync(MarketEfpContractSide.Purchase, purchase, true, 5.4m, "g");
+        db.Context.ChangeTracker.Clear();
+
+        var result = await SetupController(db).SetFxLock("purchase", purchase,
+            new SiagroB1.Web.Controllers.MarketFxLockInput(null, 5.4m), CancellationToken.None);
+
+        var content = Assert.IsType<Microsoft.AspNetCore.Mvc.ContentResult>(result);
+        Assert.Equal(400, content.StatusCode);
+        Assert.Equal(SiagroB1.Web.Controllers.MarketPositionSetupController.InvalidBodyMessage, content.Content);
+        Assert.True((await db.Context.PurchaseContracts.AsNoTracking().SingleAsync()).MarketFxLocked);
+    }
+
+    [Fact]
+    public async Task CommodityItemAndMonthWrites_InvalidateExposureCache()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var cache = new MarketExposureCache(TimeProvider.System);
+        var company = new FakeCompanyContext("0001");
+        var commodities = new MarketCommodityService(db.Context, Items, new TestLogger<MarketCommodityService>(), cache, company);
+        var items = new MarketCommodityItemService(db.Context, Items, new TestLogger<MarketCommodityItemService>(), cache, company);
+        var months = new MarketCommodityMonthService(db.Context, new TestLogger<MarketCommodityMonthService>(), cache, company);
+
+        cache.Set("0001", new object());
+        await commodities.CreateAsync(Soy());
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        cache.Set("0001", new object());
+        var item = await items.CreateAsync(new MarketCommodityItem { CommodityCode = "SOY", ItemCode = "SOJA" });
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        cache.Set("0001", new object());
+        var month = await months.CreateAsync(new MarketCommodityMonth { CommodityCode = "SOY", DeliveryMonth = 6, FuturesMonth = 7 });
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        db.Context.ChangeTracker.Clear();
+        cache.Set("0001", new object());
+        await months.UpdateAsync(month.Id, new MarketCommodityMonth { CommodityCode = "SOY", DeliveryMonth = 6, FuturesMonth = 8 });
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        db.Context.ChangeTracker.Clear();
+        cache.Set("0001", new object());
+        Assert.True(await items.DeleteAsync(item.Id));
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        db.Context.ChangeTracker.Clear();
+        cache.Set("0001", new object());
+        Assert.True(await months.DeleteAsync(month.Id));
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        db.Context.ChangeTracker.Clear();
+        cache.Set("0001", new object());
+        await commodities.UpdateAsync("SOY", new MarketCommodity { Code = "SOY", Name = "Soja 2", HedgeExchange = MarketExchange.Cbot, Active = true });
+        Assert.False(cache.TryGet<object>("0001", out _));
+
+        db.Context.ChangeTracker.Clear();
+        cache.Set("0001", new object());
+        Assert.True(await commodities.DeleteAsync("SOY"));
+        Assert.False(cache.TryGet<object>("0001", out _));
     }
 }

@@ -126,8 +126,10 @@ public class MarketInstrumentService(
         // SortOrder em blocos por grupo (10, 20, ...): a ordem padrão das abas é a do operador.
         var order = 10;
 
+        // Vencimento APROXIMADO (o código traz mês/ano do contrato): dia 14 para CBOT, 15 para B3. Conferir no
+        // calendário da bolsa (o checklist de implantação avisa). Exemplo já existente no banco não é tocado.
         void Future(string code, string group, string commodity, string label, MarketExchange exchange,
-            MarketQuoteUnit unit, decimal tonFactor, decimal contractSize) =>
+            MarketQuoteUnit unit, decimal tonFactor, decimal contractSize, int year, int month) =>
             list.Add(new MarketInstrument
             {
                 Code = code,
@@ -140,29 +142,31 @@ public class MarketInstrumentService(
                 QuoteUnit = unit,
                 ContractSize = contractSize,
                 TonFactor = tonFactor,
+                ExpirationDate = new DateTime(year, month, exchange == MarketExchange.Cbot ? 14 : 15),
                 GroupName = group,
                 SortOrder = order++,
                 Active = true,
             });
 
-        foreach (var (code, label) in new[]
+        foreach (var (code, label, year, month) in new[]
                  {
-                     ("ZSF7", "Jan/27"), ("ZSH7", "Mar/27"), ("ZSK7", "Mai/27"), ("ZSN7", "Jul/27"), ("ZSX6", "Nov/26"),
+                     ("ZSF7", "Jan/27", 2027, 1), ("ZSH7", "Mar/27", 2027, 3), ("ZSK7", "Mai/27", 2027, 5),
+                     ("ZSN7", "Jul/27", 2027, 7), ("ZSX6", "Nov/26", 2026, 11),
                  })
             Future(code, "Soja CBOT", "SOY", $"Soja CBOT {label}", MarketExchange.Cbot,
-                MarketQuoteUnit.UsCentsPerBushel, SoyTonFactor, 5000m);
+                MarketQuoteUnit.UsCentsPerBushel, SoyTonFactor, 5000m, year, month);
 
         order = 20;
 
-        foreach (var (code, label) in new[] { ("ZCH7", "Mar/27"), ("ZCK7", "Mai/27"), ("ZCN7", "Jul/27") })
+        foreach (var (code, label, year, month) in new[] { ("ZCH7", "Mar/27", 2027, 3), ("ZCK7", "Mai/27", 2027, 5), ("ZCN7", "Jul/27", 2027, 7) })
             Future(code, "Milho CBOT", "CORN", $"Milho CBOT {label}", MarketExchange.Cbot,
-                MarketQuoteUnit.UsCentsPerBushel, CornTonFactor, 5000m);
+                MarketQuoteUnit.UsCentsPerBushel, CornTonFactor, 5000m, year, month);
 
         order = 30;
 
-        foreach (var (code, label) in new[] { ("CCMF27", "Jan/27"), ("CCMH27", "Mar/27") })
+        foreach (var (code, label, year, month) in new[] { ("CCMF27", "Jan/27", 2027, 1), ("CCMH27", "Mar/27", 2027, 3) })
             Future(code, "Milho B3", "CORN", $"Milho B3 {label}", MarketExchange.B3,
-                MarketQuoteUnit.BrlPerBag, BagTonFactor, 450m);
+                MarketQuoteUnit.BrlPerBag, BagTonFactor, 450m, year, month);
 
         order = 40;
 

@@ -265,4 +265,27 @@ public class MarketLimitAlertServiceTests
             return ValueTask.FromResult(result);
         }
     }
+
+    // B10: sem limite ativo a exposição nem é lida.
+    [Fact]
+    public async Task Check_NoActiveLimit_DoesNotReadPosition()
+    {
+        var db = await SeedAsync();
+        db.Context.MarketExposureLimits.Add(Limit(1, 10m, active: false));
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+        var clock = Clock();
+        var service = new MarketLimitAlertService(db.Context, new ThrowingPositionService(db), clock,
+            NullLogger<MarketLimitAlertService>.Instance);
+
+        Assert.Equal(0, await service.CheckAsync(Today, Ct));
+    }
+
+    private sealed class ThrowingPositionService(UnitOfWork db) : MarketPositionService(db.Context,
+        new MarketPhysicalExposureService(db.Context, new MarketExposureCache(TimeProvider.System), new FakeCompanyContext("0001"), TimeProvider.System),
+        new MarketDerivativesPositionService(db.Context), TimeProvider.System)
+    {
+        public override Task<MarketPositionSnapshot> GetSnapshotAsync(DateOnly today, CancellationToken ct, bool bypassCache = false) =>
+            throw new InvalidOperationException("não devia ler a posição");
+    }
 }
