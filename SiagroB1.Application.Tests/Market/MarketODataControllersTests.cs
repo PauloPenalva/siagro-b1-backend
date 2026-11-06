@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.Market;
+using SiagroB1.Application.Services.Market.Hedges;
 using SiagroB1.Application.Services.Market.Pricing;
 using SiagroB1.Application.Tests.Support;
 using SiagroB1.Commons.Market;
@@ -15,6 +16,7 @@ using SiagroB1.Infra;
 using SiagroB1.Web.Base;
 using SiagroB1.Web.Controllers;
 using SiagroB1.Web.Filters;
+using static SiagroB1.Application.Tests.Market.MarketHedgeTestHelpers;
 using static SiagroB1.Application.Tests.Market.MarketPricingTestHelpers;
 
 namespace SiagroB1.Application.Tests.Market;
@@ -65,6 +67,91 @@ public class MarketODataControllersTests
         var line = Assert.Single(created.Entity.Lines);
         Assert.True(line.Id > 0);
         Assert.Equal(created.Entity.Id, line.PriceTableId);
+    }
+
+    private static MarketCounterpartiesController CounterpartiesController(UnitOfWork db, params string[] granted) =>
+        new(CounterpartyService(db), new MarketPermissionGuard(new FakeUserPermissions(granted)))
+        {
+            ControllerContext = UserContext(),
+        };
+
+    private static MarketCounterpartyAccountsController AccountsController(UnitOfWork db) =>
+        new(AccountService(db), new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage)))
+        {
+            ControllerContext = UserContext(),
+        };
+
+    [Fact]
+    public async Task Counterparties_GetByKey_ReturnsSingleResultQuery_And404WhenMissing()
+    {
+        var db = await SeedCounterpartiesAsync();
+
+        var ok = Assert.IsType<OkObjectResult>((await CounterpartiesController(db).Get(1)).Result);
+
+        var single = Assert.IsType<SingleResult<MarketCounterparty>>(ok.Value);
+        Assert.Equal(1, Assert.Single(single.Queryable.ToList()).Id);
+        Assert.IsType<NotFoundResult>((await CounterpartiesController(db).Get(999)).Result);
+    }
+
+    [Fact]
+    public async Task Counterparties_DeepCreate_ResponseCarriesCreatedAccounts()
+    {
+        var db = await SeedCounterpartiesAsync();
+        var input = Broker("Nova");
+        input.Accounts = [new() { CounterpartyId = 0, Code = "N-1" }];
+
+        var result = await CounterpartiesController(db, PermissionCodes.MarketManage).Post(input);
+
+        var created = Assert.IsType<CreatedODataResult<MarketCounterparty>>(result);
+        var account = Assert.Single(created.Entity.Accounts);
+        Assert.True(account.Id > 0);
+        Assert.Equal(created.Entity.Id, account.CounterpartyId);
+    }
+
+    [Fact]
+    public async Task Counterparties_WriteWithoutPermission_Is403()
+    {
+        var db = await SeedCounterpartiesAsync();
+
+        var result = await CounterpartiesController(db).Post(Broker("Sem permissão"));
+
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, status.StatusCode);
+    }
+
+    [Fact]
+    public async Task CounterpartyAccounts_Nested_PatchAndDeleteReturn404WhenAccountBelongsToOtherCounterparty()
+    {
+        var db = await SeedCounterpartiesAsync();
+        var controller = AccountsController(db);
+
+        Assert.IsType<NotFoundResult>(await controller.DeleteNested(1, 2));
+        Assert.IsType<NotFoundResult>(await controller.GetNestedByKey(1, 2));
+        Assert.True(await db.Context.MarketCounterpartyAccounts.AnyAsync(a => a.Id == 2));
+        Assert.IsType<NoContentResult>(await controller.DeleteNested(2, 2));
+    }
+
+    [Fact]
+    public async Task CounterpartyAccounts_PostNested_ForcesParentFromUrl()
+    {
+        var db = await SeedCounterpartiesAsync();
+
+        var result = await AccountsController(db).PostNested(2, Account(1, "NOVA"));
+
+        var created = Assert.IsType<CreatedODataResult<MarketCounterpartyAccount>>(result);
+        Assert.Equal(2, created.Entity.CounterpartyId);
+    }
+
+    [Fact]
+    public async Task BrokerStatements_PostStampsUser_And_BankAccountIs400()
+    {
+        var db = await SeedCounterpartiesAsync();
+        var controller = new MarketBrokerStatementsController(StatementService(db),
+            new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage))) { ControllerContext = UserContext() };
+
+        var created = Assert.IsType<CreatedODataResult<MarketBrokerStatement>>(await controller.Post(Statement(1)));
+        Assert.Equal("ana", created.Entity.CreatedBy);
+        Assert.IsType<BadRequestODataResult>(await controller.Post(Statement(2)));
     }
 
     [Fact]
