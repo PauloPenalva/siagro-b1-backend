@@ -50,9 +50,14 @@ internal static class MarketPricingTestHelpers
     private static MarketInstrument Instrument(string code) => MarketTestHelpers.Instrument(code);
 
     /// <summary>Semeia destino, safra, tabela e instrumentos; devolve o banco.</summary>
-    public static async Task<UnitOfWork> SeedPricingAsync(params MarketInstrument[] instruments)
+    public static Task<UnitOfWork> SeedPricingAsync(params MarketInstrument[] instruments) =>
+        SeedPricingAsync(null, instruments);
+
+    /// <summary>Idem, num banco InMemory nomeado (para abrir outro contexto sobre ele).</summary>
+    public static async Task<UnitOfWork> SeedPricingAsync(string? databaseName, params MarketInstrument[] instruments)
     {
-        var db = await MarketTestHelpers.SeedAsync(instruments);
+        var db = TestDb.CreateUnitOfWork(databaseName ?? Guid.NewGuid().ToString());
+        db.Context.MarketInstruments.AddRange(instruments);
         db.Context.MarketDestinations.Add(new MarketDestination { Id = 1, Name = "Paranaguá" });
         db.Context.HarvestSeasons.Add(new HarvestSeason { Code = "26/27", Name = "Safra 26/27" });
         db.Context.Municipalities.Add(new Municipality { Code = "4104808", Name = "Cascavel", StateAbbreviation = "PR" });

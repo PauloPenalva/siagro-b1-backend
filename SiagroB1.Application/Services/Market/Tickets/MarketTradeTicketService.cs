@@ -202,6 +202,7 @@ public class MarketTradeTicketService(
         await EnsureCurrentLevelAsync(ticket, userName);
         if (string.IsNullOrWhiteSpace(reason))
             throw new BusinessException("Informe o motivo da rejeição.");
+        await EnsureNoLiveContractAsync(ticket, "rejeitar", ct);
 
         ticket.Status = MarketTradeTicketStatus.Rejected;
         ticket.RejectedBy = userName;
@@ -217,6 +218,7 @@ public class MarketTradeTicketService(
         EnsureOpen(ticket);
         if (!string.Equals(ticket.CreatedBy, userName, StringComparison.OrdinalIgnoreCase))
             await guard.EnsureAsync(userName, PermissionCodes.MarketTicketApprove);
+        await EnsureNoLiveContractAsync(ticket, "cancelar", ct);
 
         ticket.Status = MarketTradeTicketStatus.Canceled;
         ticket.CanceledBy = userName;
@@ -231,6 +233,23 @@ public class MarketTradeTicketService(
         await guard.EnsureAsync(userName, ticket.Status == MarketTradeTicketStatus.PendingBoard
             ? PermissionCodes.MarketBoardApprove
             : PermissionCodes.MarketTicketApprove);
+    }
+
+    /// <summary>
+    /// Geração parcial deixa a boleta aberta apontando para um contrato vivo: fechá-la deixaria esse contrato órfão
+    /// e aprovável sozinho. Só libera se o contrato sumiu ou foi cancelado/rejeitado.
+    /// </summary>
+    private async Task EnsureNoLiveContractAsync(MarketTradeTicket ticket, string action, CancellationToken ct)
+    {
+        if (ticket.PurchaseContractKey is not { } key)
+            return;
+        var status = await context.PurchaseContracts.AsNoTracking()
+            .Where(c => c.Key == key).Select(c => c.Status).FirstOrDefaultAsync(ct);
+        if (status is null or ContractStatus.Canceled or ContractStatus.Rejected)
+            return;
+        throw new BusinessException(
+            $"A boleta já gerou o contrato {ticket.PurchaseContractCode}. Conclua a aprovação da boleta ou exclua/cancele " +
+            $"esse contrato antes de {action} a boleta.");
     }
 
     private static void EnsureOpen(MarketTradeTicket ticket)

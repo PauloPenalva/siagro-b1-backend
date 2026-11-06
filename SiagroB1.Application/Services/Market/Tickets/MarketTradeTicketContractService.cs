@@ -29,7 +29,16 @@ public class MarketTradeTicketContractService(
             ticket.PurchaseContractKey = contract.Key;
             ticket.PurchaseContractCode = contract.Code;
             // Grava já: se um passo seguinte falhar, a próxima tentativa continua deste contrato, sem criar outro.
-            await context.SaveChangesAsync(ct);
+            try
+            {
+                await context.SaveChangesAsync(ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                throw new BusinessException(
+                    $"O contrato {contract.Code} foi criado, mas não foi possível vinculá-lo à boleta nº {ticket.Id} ({e.Message}). " +
+                    "Exclua ou cancele esse contrato antes de aprovar a boleta de novo.");
+            }
         }
 
         var key = ticket.PurchaseContractKey.Value;

@@ -20,10 +20,10 @@ internal static class MarketTradeTicketTestHelpers
     public const string City = "4104808";
     public const int LineId = 1;
 
-    public static async Task<UnitOfWork> SeedTicketScenarioAsync(decimal? boardTons = 1000m, decimal? boardDeviation = 2m)
+    public static async Task<UnitOfWork> SeedTicketScenarioAsync(decimal? boardTons = 1000m, decimal? boardDeviation = 2m, string? databaseName = null)
     {
         var zs = Usd(); zs.TonFactor = 0.36745m;
-        var db = await SeedPricingAsync(zs, SpotFx(), Curve());
+        var db = await SeedPricingAsync(databaseName, zs, SpotFx(), Curve());
         var c = db.Context;
         c.MarketTradingSettings.Add(new MarketTradingSettings
         {

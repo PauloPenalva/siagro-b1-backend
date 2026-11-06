@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Interfaces;
+using SiagroB1.Application.Tests.Support;
 using SiagroB1.Domain.Entities;
+using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra;
@@ -104,5 +106,58 @@ public class MarketTradeTicketContractServiceTests
         var e = await Assert.ThrowsAsync<BusinessException>(() =>
             TicketService(db, Approve).ApproveAsync(id, "gerente", CancellationToken.None));
         Assert.Contains("não pode ser usado", e.Message);
+    }
+
+    [Theory]
+    [InlineData(ContractStatus.Draft)]
+    [InlineData(ContractStatus.InApproval)]
+    public async Task RejectAndCancel_BlockedWhileLinkedContractIsLive(ContractStatus status)
+    {
+        var (db, id, _) = await SeedHalfDoneAsync(status, new DateTime(2027, 4, 15));
+
+        var reject = await Assert.ThrowsAsync<BusinessException>(() =>
+            TicketService(db, Approve).RejectAsync(id, "não", "gerente", CancellationToken.None));
+        Assert.Contains("já gerou o contrato PC-1", reject.Message);
+        var cancel = await Assert.ThrowsAsync<BusinessException>(() =>
+            TicketService(db, Approve).CancelAsync(id, "comprador", CancellationToken.None));
+        Assert.Contains("antes de cancelar", cancel.Message);
+        Assert.Equal(MarketTradeTicketStatus.Pending, (await db.Context.MarketTradeTickets.AsNoTracking().SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Reject_AllowedAfterLinkedContractCanceled()
+    {
+        var (db, id, _) = await SeedHalfDoneAsync(ContractStatus.Canceled, null);
+
+        var rejected = await TicketService(db, Approve).RejectAsync(id, "não", "gerente", CancellationToken.None);
+        Assert.Equal(MarketTradeTicketStatus.Rejected, rejected.Status);
+    }
+
+    [Fact]
+    public async Task Cancel_AllowedAfterLinkedContractDeleted()
+    {
+        var (db, id, _) = await SeedHalfDoneAsync(ContractStatus.Draft, null);
+        db.Context.PurchaseContracts.Remove(await db.Context.PurchaseContracts.Include(c => c.PriceFixations).SingleAsync());
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        var canceled = await TicketService(db).CancelAsync(id, "comprador", CancellationToken.None);
+        Assert.Equal(MarketTradeTicketStatus.Canceled, canceled.Status);
+    }
+
+    [Fact]
+    public async Task Generate_KeySaveFailure_ReportsCreatedContractCode()
+    {
+        var name = Guid.NewGuid().ToString();
+        var seed = await SeedTicketScenarioAsync(databaseName: name);
+        var ticket = await TicketService(seed).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var db = TestDb.CreateUnitOfWork(name, new ThrowOnSaveInterceptor(e =>
+            e.Entity is MarketTradeTicket { PurchaseContractKey: not null } && e.State == EntityState.Modified));
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None));
+
+        var code = (await db.Context.PurchaseContracts.AsNoTracking().SingleAsync()).Code;
+        Assert.Contains($"O contrato {code} foi criado", e.Message);
     }
 }
