@@ -1,3 +1,4 @@
+using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.Market.Hedges;
 using SiagroB1.Application.Services.Market.Position;
 using SiagroB1.Application.Tests.Support;
@@ -117,5 +118,95 @@ public class MarketTradeTicketLimitTests
     {
         public override Task<MarketPositionSnapshot> GetSnapshotAsync(DateOnly today, CancellationToken ct, bool bypassCache = false) =>
             throw new InvalidOperationException("falha simulada");
+    }
+
+    // ---- B4: boletas abertas contam e a aprovação reconfere ----
+
+    private static async Task AddLimitAsync(UnitOfWork db, MarketExposureLimit limit)
+    {
+        db.Context.MarketExposureLimits.Add(limit);
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+    }
+
+    [Fact]
+    public async Task Create_OpenTicketsCount_SecondOf600TonsRequiresBoard()
+    {
+        var db = await SeedAsync(existingKg: 0m, limits: Limit(1000m));
+        var service = TicketServiceWithPosition(db, Position(db));
+
+        var first = await service.CreateAsync(Input(volumeKg: 600_000m), "comprador", Today, Ct);
+        var second = await service.CreateAsync(Input(volumeKg: 600_000m), "comprador", Today, Ct);
+
+        Assert.False(first.RequiresBoardApproval);
+        Assert.True(second.RequiresBoardApproval);
+        Assert.Equal("Estoura o limite de exposição de Soja", second.BoardApprovalReason);
+    }
+
+    [Fact]
+    public async Task Create_OpenTicketsOfMonthBucketCount_CanceledDoNot()
+    {
+        var db = await SeedAsync(existingKg: 0m, limits: Limit(1000m, 2027, 5));
+        var service = TicketServiceWithPosition(db, Position(db), null, PermissionCodes.MarketTicketApprove);
+
+        var first = await service.CreateAsync(Input(volumeKg: 600_000m), "comprador", Today, Ct);
+        await service.CancelAsync(first.Id, "comprador", Ct);
+        var second = await service.CreateAsync(Input(volumeKg: 600_000m), "comprador", Today, Ct);
+        var third = await service.CreateAsync(Input(volumeKg: 600_000m), "comprador", Today, Ct);
+
+        Assert.False(second.RequiresBoardApproval);
+        Assert.True(third.RequiresBoardApproval);
+    }
+
+    [Fact]
+    public async Task Approve_LimitCreatedAfterTicket_ApproverNotBoard_GoesToBoardWithoutContract()
+    {
+        var db = await SeedAsync();
+        var created = await CreateAsync(db);
+        Assert.False(created.RequiresBoardApproval);
+        await AddLimitAsync(db, Limit(1000m));
+
+        var ticket = await TicketServiceWithPosition(db, Position(db), null, PermissionCodes.MarketTicketApprove)
+            .ApproveAsync(created.Id, "aprovador", Ct);
+
+        Assert.Equal(MarketTradeTicketStatus.PendingBoard, ticket.Status);
+        Assert.True(ticket.RequiresBoardApproval);
+        Assert.Equal("Estoura o limite de exposição de Soja", ticket.BoardApprovalReason);
+        Assert.Equal("aprovador", ticket.ApprovedBy);
+        Assert.Null(ticket.PurchaseContractKey);
+        Assert.Equal(1, db.Context.PurchaseContracts.Count());
+    }
+
+    [Fact]
+    public async Task Approve_LimitCreatedAfterTicket_BoardApprover_GeneratesContract()
+    {
+        var db = await SeedAsync();
+        var created = await CreateAsync(db);
+        await AddLimitAsync(db, Limit(1000m));
+
+        var ticket = await TicketServiceWithPosition(db, Position(db), null,
+                PermissionCodes.MarketTicketApprove, PermissionCodes.MarketBoardApprove)
+            .ApproveAsync(created.Id, "diretor", Ct);
+
+        Assert.Equal(MarketTradeTicketStatus.Approved, ticket.Status);
+        Assert.True(ticket.RequiresBoardApproval);
+        Assert.Equal("diretor", ticket.BoardApprovedBy);
+        Assert.NotNull(ticket.PurchaseContractKey);
+        Assert.Equal(2, db.Context.PurchaseContracts.Count());
+    }
+
+    [Fact]
+    public async Task Approve_WithinLimit_OwnTicketNotCountedTwice_GeneratesContract()
+    {
+        // 950 t + 50 t da própria boleta = 1.000 t: não passa do limite (contada duas vezes daria 1.050).
+        var db = await SeedAsync(limits: Limit(1000m));
+        var created = await TicketServiceWithPosition(db, Position(db)).CreateAsync(Input(volumeKg: 50_000m), "comprador", Today, Ct);
+        Assert.False(created.RequiresBoardApproval);
+
+        var ticket = await TicketServiceWithPosition(db, Position(db), null, PermissionCodes.MarketTicketApprove)
+            .ApproveAsync(created.Id, "aprovador", Ct);
+
+        Assert.Equal(MarketTradeTicketStatus.Approved, ticket.Status);
+        Assert.False(ticket.RequiresBoardApproval);
     }
 }
