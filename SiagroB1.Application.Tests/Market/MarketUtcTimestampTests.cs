@@ -29,6 +29,18 @@ public class MarketUtcTimestampTests
     [InlineData(typeof(MarketTradeTicket), nameof(MarketTradeTicket.RejectedAt))]
     [InlineData(typeof(MarketTradeTicket), nameof(MarketTradeTicket.CanceledAt))]
     [InlineData(typeof(MarketTradeTicket), nameof(MarketTradeTicket.QuotedAt))]
+    [InlineData(typeof(MarketFuturesTrade), nameof(MarketFuturesTrade.TradedAt))]
+    [InlineData(typeof(MarketFuturesTrade), nameof(MarketFuturesTrade.CreatedAt))]
+    [InlineData(typeof(MarketFuturesTrade), nameof(MarketFuturesTrade.UpdatedAt))]
+    [InlineData(typeof(MarketFuturesTrade), nameof(MarketFuturesTrade.ConfirmedAt))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.TradedAt))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.CreatedAt))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.UpdatedAt))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.ConfirmedAt))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.SettledAt))]
+    [InlineData(typeof(MarketEfp), nameof(MarketEfp.CreatedAt))]
+    [InlineData(typeof(MarketEfp), nameof(MarketEfp.CanceledAt))]
+    [InlineData(typeof(MarketBrokerStatement), nameof(MarketBrokerStatement.CreatedAt))]
     public void Model_UtcStamps_HaveConverter(Type entity, string property)
     {
         var db = TestDb.CreateUnitOfWork();
@@ -40,6 +52,9 @@ public class MarketUtcTimestampTests
     [InlineData(typeof(MarketTradeTicket), nameof(MarketTradeTicket.PaymentDate))]
     [InlineData(typeof(MarketPriceTableLine), nameof(MarketPriceTableLine.PaymentDate))]
     [InlineData(typeof(MarketFreightRate), nameof(MarketFreightRate.ValidFrom))]
+    [InlineData(typeof(MarketFuturesTrade), nameof(MarketFuturesTrade.TradeDate))]
+    [InlineData(typeof(MarketFxHedge), nameof(MarketFxHedge.SettlementDate))]
+    [InlineData(typeof(MarketBrokerStatement), nameof(MarketBrokerStatement.Date))]
     public void Model_BusinessDates_Untouched(Type entity, string property)
     {
         var db = TestDb.CreateUnitOfWork();

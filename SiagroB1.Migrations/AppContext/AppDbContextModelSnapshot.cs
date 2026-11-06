@@ -3034,6 +3034,107 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("CMA_SETTINGS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketBrokerStatement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Currency")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DailyAdjustment")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal>("MarginDeposited")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<decimal>("MarginRequired")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_BROKER_STATEMENTS");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketCounterparty", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(100) NOT NULL");
+
+                    b.Property<string>("TaxId")
+                        .HasColumnType("VARCHAR(20)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_COUNTERPARTIES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<int>("CounterpartyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CounterpartyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("MARKET_COUNTERPARTY_ACCOUNTS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketDailyClose", b =>
                 {
                     b.Property<int>("Id")
@@ -3101,6 +3202,96 @@ namespace SiagroB1.Migrations.AppContext
                     b.ToTable("MARKET_DESTINATIONS");
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketEfp", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CanceledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ContractCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(50) NOT NULL");
+
+                    b.Property<Guid>("ContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ContractSide")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime>("FinancialDueDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<Guid?>("FixationKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("FixationPrice")
+                        .HasColumnType("DECIMAL(18,8)");
+
+                    b.Property<int?>("FuturesTradeId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("FxRate")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<string>("InstrumentCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<int>("Lots")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<decimal>("Premium")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("VolumeKg")
+                        .HasColumnType("DECIMAL(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("InstrumentCode");
+
+                    b.ToTable("MARKET_EFPS");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFreightRate", b =>
                 {
                     b.Property<int>("Id")
@@ -3136,6 +3327,244 @@ namespace SiagroB1.Migrations.AppContext
                         .IsUnique();
 
                     b.ToTable("MARKET_FREIGHT_RATES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFuturesMatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CloseDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal>("ClosePrice")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("CloseTradeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Currency")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InstrumentCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<int>("Lots")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OpenPrice")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("OpenTradeId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("RealizedPnl")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CloseTradeId");
+
+                    b.HasIndex("OpenTradeId");
+
+                    b.ToTable("MARKET_FUTURES_MATCHES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFuturesTrade", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BrokerReference")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<bool>("Confirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ConfirmedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ContractCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int?>("EfpId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Fees")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<int>("FeesCurrency")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InstrumentCode")
+                        .IsRequired()
+                        .HasColumnType("VARCHAR(30) NOT NULL");
+
+                    b.Property<int>("Lots")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<int>("OpenLots")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<Guid?>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("SalesContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("TradeDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime>("TradedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstrumentCode");
+
+                    b.HasIndex("AccountId", "InstrumentCode", "TradedAt");
+
+                    b.ToTable("MARKET_FUTURES_TRADES");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFxHedge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("AmountUsd")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<string>("BankReference")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<bool>("Confirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ConfirmedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<string>("ContractCode")
+                        .HasColumnType("VARCHAR(50)");
+
+                    b.Property<decimal>("ContractedRate")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("VARCHAR(500)");
+
+                    b.Property<Guid?>("PurchaseContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("RealizedPnlBrl")
+                        .HasColumnType("DECIMAL(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("SalesContractKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SettledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SettledBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.Property<DateTime>("SettlementDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<decimal?>("SettlementRate")
+                        .HasColumnType("DECIMAL(18,6)");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("TradeDate")
+                        .HasColumnType("DATE");
+
+                    b.Property<DateTime>("TradedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("VARCHAR(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("MARKET_FX_HEDGES");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketInstrument", b =>
@@ -11822,6 +12251,28 @@ namespace SiagroB1.Migrations.AppContext
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketBrokerStatement", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketCounterparty", "Counterparty")
+                        .WithMany("Accounts")
+                        .HasForeignKey("CounterpartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Counterparty");
+                });
+
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketDailyClose", b =>
                 {
                     b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
@@ -11829,6 +12280,25 @@ namespace SiagroB1.Migrations.AppContext
                         .HasForeignKey("InstrumentCode")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.Navigation("Instrument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketEfp", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
+                        .WithMany()
+                        .HasForeignKey("InstrumentCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
 
                     b.Navigation("Instrument");
                 });
@@ -11850,6 +12320,55 @@ namespace SiagroB1.Migrations.AppContext
                     b.Navigation("Destination");
 
                     b.Navigation("Municipality");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFuturesMatch", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketFuturesTrade", "CloseTrade")
+                        .WithMany()
+                        .HasForeignKey("CloseTradeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketFuturesTrade", "OpenTrade")
+                        .WithMany()
+                        .HasForeignKey("OpenTradeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CloseTrade");
+
+                    b.Navigation("OpenTrade");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFuturesTrade", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketInstrument", "Instrument")
+                        .WithMany()
+                        .HasForeignKey("InstrumentCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Instrument");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketFxHedge", b =>
+                {
+                    b.HasOne("SiagroB1.Domain.Entities.Market.MarketCounterpartyAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTable", b =>
@@ -13808,6 +14327,11 @@ namespace SiagroB1.Migrations.AppContext
             modelBuilder.Entity("SiagroB1.Domain.Entities.ManagementView", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketCounterparty", b =>
+                {
+                    b.Navigation("Accounts");
                 });
 
             modelBuilder.Entity("SiagroB1.Domain.Entities.Market.MarketPriceTable", b =>
