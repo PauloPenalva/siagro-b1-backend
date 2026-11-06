@@ -5,6 +5,8 @@ using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Infra.Context;
+using SiagroB1.Commons.Market;
+using SiagroB1.Infra.Companies;
 
 namespace SiagroB1.Application.Services.Market.Tickets;
 
@@ -20,7 +22,9 @@ public class MarketTradeTicketContractService(
     AppDbContext context,
     PurchaseContractsCreateService createService,
     PurchaseContractsSendApprovalService sendApprovalService,
-    PurchaseContractsApprovalService approvalService)
+    PurchaseContractsApprovalService approvalService,
+    MarketExposureCache? exposureCache = null,
+    ICompanyContext? companyContext = null)
 {
     /// <summary>Única unidade aceita nesta versão: a conversão da boleta para o contrato é fixa em kg.</summary>
     public const string ContractUnitOfMeasure = "KG";
@@ -58,6 +62,8 @@ public class MarketTradeTicketContractService(
             switch (status)
             {
                 case ContractStatus.Approved:
+                    // Contrato novo entra na posição física já, sem esperar o cache de 30 s.
+                    if (companyContext is not null) exposureCache?.Invalidate(companyContext.CompanyCode);
                     return;
                 case ContractStatus.Draft:
                     await sendApprovalService.ExecuteAsync(key, approvedBy);

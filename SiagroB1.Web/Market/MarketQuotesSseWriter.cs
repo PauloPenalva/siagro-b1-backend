@@ -26,7 +26,8 @@ public sealed class MarketQuotesSseWriter(
     public Task RunAsync(
         HttpContext http, ICompanyContext requestCompany, string streamName,
         Func<IServiceProvider, LiveQuoteSnapshot, CancellationToken, Task<object>> buildPayload,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? minInterval = null)
     {
         var response = http.Response;
         response.Headers.ContentType = "text/event-stream";
@@ -41,7 +42,7 @@ public sealed class MarketQuotesSseWriter(
 
         return new MarketLiveStreamLoop(store, loopLogger)
             .RunAsync(companyCode, response.Body, streamName,
-                (snapshot, ct) => BuildInScopeAsync(company, companyCode, snapshot, buildPayload, ct), cancellationToken);
+                (snapshot, ct) => BuildInScopeAsync(company, companyCode, snapshot, buildPayload, ct), cancellationToken, minInterval);
     }
 
     private async Task<object> BuildInScopeAsync(

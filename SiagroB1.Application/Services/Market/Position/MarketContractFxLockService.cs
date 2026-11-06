@@ -5,6 +5,8 @@ using SiagroB1.Application.Services.PurchaseContracts;
 using SiagroB1.Application.Services.SalesContracts;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Commons.Market;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market.Position;
@@ -16,7 +18,8 @@ namespace SiagroB1.Application.Services.Market.Position;
 /// </summary>
 public class MarketContractFxLockService(
     AppDbContext context, MarketPermissionGuard guard,
-    PurchaseContractsChangeLogService purchaseLog, SalesContractsChangeLogService salesLog)
+    PurchaseContractsChangeLogService purchaseLog, SalesContractsChangeLogService salesLog,
+    MarketExposureCache? exposureCache = null, ICompanyContext? companyContext = null)
 {
     public const string ConcurrencyMessage = "O contrato foi alterado por outro usuário. Atualize e tente de novo.";
 
@@ -41,6 +44,8 @@ public class MarketContractFxLockService(
                 await SetPurchaseAsync(contractKey, locked, rate, userName, ct);
             else
                 await SetSalesAsync(contractKey, locked, rate, userName, ct);
+            // A posição em dólar lê o cache de 30 s: a mudança tem de aparecer já.
+            if (companyContext is not null) exposureCache?.Invalidate(companyContext.CompanyCode);
         }
         catch (DbUpdateConcurrencyException)
         {

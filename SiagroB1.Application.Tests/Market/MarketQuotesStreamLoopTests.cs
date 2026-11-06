@@ -55,6 +55,29 @@ public class MarketQuotesStreamLoopTests
     }
 
     [Fact]
+    public async Task LiveLoop_MinInterval_AtMostOneEventPerInterval()
+    {
+        var store = new LiveQuoteStore();
+        var time = new ManualTime();
+        using var cts = new CancellationTokenSource();
+        var output = new MemoryStream();
+        var ticks = 0;
+        var loop = new MarketLiveStreamLoop(store, new TestLogger<MarketQuotesStreamLoop>(), time, (span, _) =>
+        {
+            time.Now += span;
+            store.NotifyChanged("A"); // muda a versão a cada tick de 500 ms
+            if (++ticks >= 10) cts.Cancel(); // 5 s
+            return Task.CompletedTask;
+        });
+
+        await loop.RunAsync("A", output, "teste", (_, _) => Task.FromResult<object>(new { ok = true }), cts.Token,
+            TimeSpan.FromSeconds(2));
+
+        // Primeiro evento imediato (t=0), depois t=2 s e t=4 s; sem o intervalo seriam 10.
+        Assert.Equal(3, Encoding.UTF8.GetString(output.ToArray()).Split("data: ").Length - 1);
+    }
+
+    [Fact]
     public async Task Sse_Cancellation_EndsQuietly()
     {
         var store = new LiveQuoteStore();
