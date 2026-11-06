@@ -7,9 +7,13 @@ using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market;
 
-public sealed record CmaSettingsInput(bool Enabled, string? Host, string? UserName, string? Password);
+/// <summary>
+/// <c>BlankPassword</c>: a conta da CMA não tem senha (caso real). É uma escolha explícita — campo de senha vazio
+/// sem essa marca continua significando "mantenha a senha que já está gravada".
+/// </summary>
+public sealed record CmaSettingsInput(bool Enabled, string? Host, string? UserName, string? Password, bool BlankPassword = false);
 
-public sealed record CmaSettingsView(bool Enabled, string Host, string? UserName, bool HasPassword);
+public sealed record CmaSettingsView(bool Enabled, string Host, string? UserName, bool HasPassword, bool BlankPassword);
 
 /// <summary>Conexão com a CMA da empresa (linha única). A senha é cifrada com a chave Nfe:CertificateKey.</summary>
 public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
@@ -25,7 +29,9 @@ public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
 
     public async Task<CmaSettingsView> SaveAsync(CmaSettingsInput input, CancellationToken cancellationToken = default)
     {
-        var password = string.IsNullOrEmpty(input.Password) ? null : input.Password;
+        // "Sem senha" grava uma senha vazia CIFRADA (não uma coluna vazia): o conector só liga com algo gravado,
+        // então uma conta sem senha precisa ser dita, não deduzida de um campo esquecido em branco.
+        var password = input.BlankPassword ? string.Empty : string.IsNullOrEmpty(input.Password) ? null : input.Password;
         if (password is not null && !nfeOptions.HasCertificateKey)
             throw new BusinessException("Chave de criptografia (Nfe:CertificateKey) não configurada");
 
@@ -57,7 +63,7 @@ public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
         return ToView(row);
     }
 
-    /// <summary>Credenciais abertas para o conector; nulo se desligado ou sem usuário/senha.</summary>
+    /// <summary>Credenciais abertas para o conector; nulo se desligado ou sem usuário/senha (senha vazia gravada conta).</summary>
     public async Task<CmaCredentials?> GetCredentialsAsync(CancellationToken cancellationToken = default)
     {
         var row = await context.CmaSettings.AsNoTracking().FirstOrDefaultAsync(x => x.Key == SingleKey, cancellationToken);
@@ -78,6 +84,22 @@ public class CmaSettingsService(AppDbContext context, NfeOptions nfeOptions)
             throw new BusinessException("Host da CMA inválido: informe só o endereço https:// (sem caminho, parâmetros ou fragmento).");
     }
 
-    private static CmaSettingsView ToView(CmaSettings row) =>
-        new(row.Enabled, row.Host, row.UserName, row.PasswordEncrypted is { Length: > 0 });
+    private CmaSettingsView ToView(CmaSettings row) =>
+        new(row.Enabled, row.Host, row.UserName, row.PasswordEncrypted is { Length: > 0 }, IsBlankPassword(row));
+
+    /// <summary>Só diz se a senha gravada é a vazia; a senha em si nunca sai daqui.</summary>
+    private bool IsBlankPassword(CmaSettings row)
+    {
+        if (row.PasswordEncrypted is not { Length: > 0 } || !nfeOptions.HasCertificateKey)
+            return false;
+        try
+        {
+            return nfeOptions.Cipher().Decrypt(row.PasswordEncrypted).Length == 0;
+        }
+        catch (Exception)
+        {
+            // Chave trocada ou dado corrompido: a tela mostra "senha gravada" e o conector acusa o erro ao conectar.
+            return false;
+        }
+    }
 }
