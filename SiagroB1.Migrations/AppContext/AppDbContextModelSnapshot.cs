@@ -3287,6 +3287,10 @@ namespace SiagroB1.Migrations.AppContext
 
                     b.HasIndex("AccountId");
 
+                    b.HasIndex("ContractKey");
+
+                    b.HasIndex("FixationKey");
+
                     b.HasIndex("InstrumentCode");
 
                     b.ToTable("MARKET_EFPS");
@@ -3373,6 +3377,8 @@ namespace SiagroB1.Migrations.AppContext
                     b.HasIndex("CloseTradeId");
 
                     b.HasIndex("OpenTradeId");
+
+                    b.HasIndex("AccountId", "InstrumentCode");
 
                     b.ToTable("MARKET_FUTURES_MATCHES");
                 });
@@ -3464,6 +3470,10 @@ namespace SiagroB1.Migrations.AppContext
                         .HasColumnType("VARCHAR(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EfpId")
+                        .IsUnique()
+                        .HasFilter("[EfpId] IS NOT NULL");
 
                     b.HasIndex("InstrumentCode");
 

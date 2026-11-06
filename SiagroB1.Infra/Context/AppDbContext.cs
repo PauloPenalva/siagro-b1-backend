@@ -354,6 +354,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(x => x.Instrument).WithMany()
             .HasForeignKey(x => x.InstrumentCode)
             .OnDelete(DeleteBehavior.Restrict);
+        // Uma operação por EFP (guarda no banco contra duas retomadas simultâneas); índice filtrado exige
+        // QUOTED_IDENTIFIER ON na sessão que grava (padrão do SqlClient).
+        modelBuilder.Entity<MarketFuturesTrade>().HasIndex(x => x.EfpId).IsUnique().HasFilter("[EfpId] IS NOT NULL");
+        modelBuilder.Entity<MarketFuturesMatch>().HasIndex(x => new { x.AccountId, x.InstrumentCode });
+        modelBuilder.Entity<MarketEfp>().HasIndex(x => x.FixationKey);
+        modelBuilder.Entity<MarketEfp>().HasIndex(x => x.ContractKey);
         modelBuilder.Entity<MarketBrokerStatement>()
             .HasOne(x => x.Account).WithMany()
             .HasForeignKey(x => x.AccountId)
