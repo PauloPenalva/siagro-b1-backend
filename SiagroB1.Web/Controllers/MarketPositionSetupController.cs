@@ -18,7 +18,6 @@ public sealed record MarketFxLockInput(bool Locked, decimal? FxRate);
 /// Cadastros de apoio da posição por REST: commodities de exemplo e câmbio fechado dos contratos. Erros em
 /// text/plain pt-BR; ambos exigem MARKET_MANAGE.
 /// </summary>
-[ApiController]
 [Authorize]
 [MarketModuleEnabled]
 [Route("market")]
@@ -52,7 +51,7 @@ public class MarketPositionSetupController(
         };
         if (parsed is null)
             return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidSideMessage));
-        if (input is null)
+        if (input is null || !ModelState.IsValid)
             return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidBodyMessage));
 
         return Run(async () =>

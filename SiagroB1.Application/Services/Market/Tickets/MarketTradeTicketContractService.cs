@@ -37,7 +37,10 @@ public class MarketTradeTicketContractService(
         if (existing is null)
         {
             var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
-            var entity = BuildContract(ticket, settings);
+            // O câmbio líquido só vale para instrumento em US$; em R$ o cálculo devolve 1, dado falso para a posição em dólar.
+            var quoteUnit = await context.MarketInstruments.AsNoTracking()
+                .Where(i => i.Code == ticket.InstrumentCode).Select(i => (MarketQuoteUnit?)i.QuoteUnit).FirstOrDefaultAsync(ct);
+            var entity = BuildContract(ticket, settings, quoteUnit is MarketQuoteUnit.UsCentsPerBushel or MarketQuoteUnit.UsdPerTon);
             entity.Key = key;
             var contract = await createService.ExecuteAsync(entity, ticket.CreatedBy ?? approvedBy);
             ticket.PurchaseContractCode = contract.Code;
@@ -72,7 +75,7 @@ public class MarketTradeTicketContractService(
         throw new BusinessException($"O contrato {ticket.PurchaseContractCode} não chegou a Aprovado.");
     }
 
-    private static PurchaseContract BuildContract(MarketTradeTicket t, MarketTradingSettings? settings) => new()
+    private static PurchaseContract BuildContract(MarketTradeTicket t, MarketTradingSettings? settings, bool usdInstrument) => new()
     {
         Type = ContractType.Fixed,
         MarketType = MarketType.Internal,
@@ -102,6 +105,6 @@ public class MarketTradeTicketContractService(
         MarketInstrumentCode = t.InstrumentCode,
         MarketExchangePrice = t.ExchangeQuote,
         MarketPremium = t.Premium,
-        MarketFxRate = t.NetFx,
+        MarketFxRate = usdInstrument ? t.NetFx : null,
     };
 }

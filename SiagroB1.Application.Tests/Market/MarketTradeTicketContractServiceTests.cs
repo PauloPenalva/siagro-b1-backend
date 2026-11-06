@@ -166,6 +166,27 @@ public class MarketTradeTicketContractServiceTests
     }
 
     [Fact]
+    public async Task Approve_BrlInstrumentTicket_DoesNotStoreFxRate()
+    {
+        var db = await SeedTicketScenarioAsync();
+        db.Context.MarketInstruments.Add(MarketPricingTestHelpers.Brl());
+        var ticket = await TicketService(db).CreateAsync(Input(), "comprador", Today, CancellationToken.None);
+        var saved = await db.Context.MarketTradeTickets.SingleAsync();
+        saved.InstrumentCode = "CCMF27";
+        saved.NetFx = 1m;
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+
+        await TicketService(db, Approve).ApproveAsync(ticket.Id, "gerente", CancellationToken.None);
+
+        var contract = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal("CCMF27", contract.MarketInstrumentCode);
+        Assert.Null(contract.MarketFxRate);
+        Assert.Equal(1188.25m, contract.MarketExchangePrice);
+        Assert.Equal(50m, contract.MarketPremium);
+    }
+
+    [Fact]
     public async Task Approve_ClaimSavesPreAssignedKey_ContractCreatedWithIt()
     {
         var db = await SeedTicketScenarioAsync();

@@ -13,6 +13,8 @@ public class MarketCommodityMonthService(AppDbContext context, ILogger<MarketCom
 {
     public override async Task<MarketCommodityMonth> CreateAsync(MarketCommodityMonth entity)
     {
+        entity.Id = 0;
+        entity.Commodity = null;
         await ValidateAsync(entity);
         return await MarketPersistence.AddAndSaveAsync(context, entity);
     }
@@ -20,6 +22,7 @@ public class MarketCommodityMonthService(AppDbContext context, ILogger<MarketCom
     public override async Task<MarketCommodityMonth?> UpdateAsync(int key, MarketCommodityMonth entity)
     {
         entity.Id = key;
+        entity.Commodity = null;
         var currentCommodity = await context.MarketCommodityMonths.AsNoTracking()
             .Where(m => m.Id == key).Select(m => m.CommodityCode).FirstOrDefaultAsync();
         if (currentCommodity is null)

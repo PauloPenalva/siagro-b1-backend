@@ -26,6 +26,7 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
         var itemCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in entity.Items)
         {
+            item.Id = 0;
             item.CommodityCode = entity.Code;
             MarketCommodityRules.NormalizeItemCode(item);
             if (!itemCodes.Add(item.ItemCode))
@@ -37,6 +38,7 @@ public class MarketCommodityService(AppDbContext context, IItemService itemServi
         var deliveryMonths = new HashSet<int>();
         foreach (var month in entity.Months)
         {
+            month.Id = 0;
             month.CommodityCode = entity.Code;
             MarketCommodityRules.NormalizeMonth(month);
             if (!deliveryMonths.Add(month.DeliveryMonth))

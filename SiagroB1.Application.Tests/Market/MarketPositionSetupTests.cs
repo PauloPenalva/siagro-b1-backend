@@ -58,6 +58,93 @@ public class MarketPositionSetupTests
         Assert.Contains(limits.NavigationProperties(), n => n.Name == "Commodity");
     }
 
+    // ---- rodada de correção 1 ----
+
+    [Fact]
+    public async Task DeepCreate_ClientIds_AreResetOnChildren()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var payload = Soy("SOJA");
+        payload.Items[0].Id = 99;
+        payload.Months = [new() { Id = 77, CommodityCode = "SOY", DeliveryMonth = 6, FuturesMonth = 7 }];
+
+        var created = await Commodities(db).CreateAsync(payload);
+
+        Assert.NotEqual(99, created.Items.Single().Id);
+        Assert.NotEqual(77, created.Months.Single().Id);
+        var item = await ItemsService(db).CreateAsync(new MarketCommodityItem { Id = 55, CommodityCode = "SOY", ItemCode = "MILHO" });
+        Assert.NotEqual(55, item.Id);
+        var month = await MonthsService(db).CreateAsync(new MarketCommodityMonth { Id = 66, CommodityCode = "SOY", DeliveryMonth = 7, FuturesMonth = 7 });
+        Assert.NotEqual(66, month.Id);
+    }
+
+    [Fact]
+    public async Task Limit_NestedCommodityObject_IsIgnored()
+    {
+        var db = await SeedSoyAsync();
+        var limit = Limit();
+        limit.Commodity = new MarketCommodity { Code = "SOY", Name = "Duplicada", HedgeExchange = MarketExchange.B3 };
+
+        var saved = await Limits(db, PermissionCodes.MarketBoardApprove).CreateAsync(limit, "diretor");
+
+        Assert.Null(saved.Commodity);
+        Assert.Equal("Soja", (await db.Context.MarketCommodities.AsNoTracking().SingleAsync()).Name);
+    }
+
+    private static Microsoft.AspNetCore.Mvc.ControllerContext UserContext() => new()
+    {
+        HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+        {
+            User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "ana")], "test")),
+        },
+    };
+
+    [Fact]
+    public async Task LimitsController_ManageOnly_Gets403OnPostPatchDelete_ButCommoditiesAcceptManage()
+    {
+        var db = await SeedSoyAsync();
+        var manage = new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage));
+        var limits = new SiagroB1.Web.Controllers.MarketExposureLimitsController(Limits(db, PermissionCodes.MarketManage), manage)
+        {
+            ControllerContext = UserContext(),
+        };
+
+        static void Assert403(Microsoft.AspNetCore.Mvc.IActionResult r) =>
+            Assert.Equal(403, Assert.IsAssignableFrom<Microsoft.AspNetCore.Mvc.ObjectResult>(r).StatusCode);
+        Assert403(await limits.Post(Limit()));
+        Assert403(await limits.Patch(1, new Microsoft.AspNetCore.OData.Deltas.Delta<MarketExposureLimit>()));
+        Assert403(await limits.Delete(1));
+        Assert.Empty(db.Context.MarketExposureLimits);
+
+        var commodities = new SiagroB1.Web.Controllers.MarketCommoditiesController(Commodities(db), manage)
+        {
+            ControllerContext = UserContext(),
+        };
+        var result = await commodities.Post(new MarketCommodity { Code = "CORN", Name = "Milho", HedgeExchange = MarketExchange.Cbot });
+        Assert.IsType<Microsoft.AspNetCore.OData.Results.CreatedODataResult<MarketCommodity>>(result);
+    }
+
+    [Fact]
+    public async Task SetupController_MalformedBody_Returns400PlainText()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var controller = new SiagroB1.Web.Controllers.MarketPositionSetupController(
+            Commodities(db), FxLock(db, PermissionCodes.MarketManage),
+            new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage)),
+            new TestLogger<SiagroB1.Web.Controllers.MarketPositionSetupController>())
+        {
+            ControllerContext = UserContext(),
+        };
+        controller.ModelState.AddModelError("", "json inválido");
+
+        var result = await controller.SetFxLock("purchase", Guid.NewGuid(), null, CancellationToken.None);
+
+        var content = Assert.IsType<Microsoft.AspNetCore.Mvc.ContentResult>(result);
+        Assert.Equal(400, content.StatusCode);
+        Assert.StartsWith("text/plain", content.ContentType);
+    }
+
     // ---- commodities ----
 
     [Fact]

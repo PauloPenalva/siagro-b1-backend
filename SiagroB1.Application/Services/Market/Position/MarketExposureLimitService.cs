@@ -31,6 +31,7 @@ public class MarketExposureLimitService(
     {
         await guard.EnsureAsync(userName, PermissionCodes.MarketBoardApprove);
         entity.Id = 0;
+        entity.Commodity = null;
         await ValidateAsync(entity, userName);
         return await MarketPersistence.AddAndSaveAsync(context, entity);
     }
@@ -39,6 +40,7 @@ public class MarketExposureLimitService(
     {
         await guard.EnsureAsync(userName, PermissionCodes.MarketBoardApprove);
         entity.Id = key;
+        entity.Commodity = null;
         if (!await context.MarketExposureLimits.AsNoTracking().AnyAsync(l => l.Id == key))
             throw new KeyNotFoundException("Entity not found.");
 

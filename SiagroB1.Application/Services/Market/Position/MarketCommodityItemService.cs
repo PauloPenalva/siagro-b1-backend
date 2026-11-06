@@ -14,6 +14,8 @@ public class MarketCommodityItemService(AppDbContext context, IItemService itemS
 {
     public override async Task<MarketCommodityItem> CreateAsync(MarketCommodityItem entity)
     {
+        entity.Id = 0;
+        entity.Commodity = null;
         await ValidateAsync(entity);
         return await MarketPersistence.AddAndSaveAsync(context, entity);
     }
@@ -21,6 +23,7 @@ public class MarketCommodityItemService(AppDbContext context, IItemService itemS
     public override async Task<MarketCommodityItem?> UpdateAsync(int key, MarketCommodityItem entity)
     {
         entity.Id = key;
+        entity.Commodity = null;
         var currentCommodity = await context.MarketCommodityItems.AsNoTracking()
             .Where(i => i.Id == key).Select(i => i.CommodityCode).FirstOrDefaultAsync();
         if (currentCommodity is null)
