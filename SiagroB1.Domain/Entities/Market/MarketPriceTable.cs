@@ -18,7 +18,7 @@ public class MarketPriceTable
     public required string ItemCode { get; set; }
 
     [Column(TypeName = "VARCHAR(200) NOT NULL")]
-    public required string ItemName { get; set; }
+    public string? ItemName { get; set; }
 
     [Column(TypeName = "VARCHAR(10) NOT NULL")]
     public required string HarvestSeasonCode { get; set; }

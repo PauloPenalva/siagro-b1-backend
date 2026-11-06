@@ -59,7 +59,7 @@ public class MarketPriceGridService(AppDbContext context, MarketFreightRateServi
             .Where(l => l.Active && l.PriceTable!.Active)
             .Where(filter)
             .Select(l => new LineData(
-                l.Id, l.PriceTableId, l.PriceTable!.Description, l.PriceTable.ItemCode, l.PriceTable.ItemName, l.Description,
+                l.Id, l.PriceTableId, l.PriceTable!.Description, l.PriceTable.ItemCode, l.PriceTable.ItemName!, l.Description,
                 l.InstrumentCode, l.FxCurveInstrumentCode, l.DestinationId, l.Destination!.Name, (bool?)l.Destination.Active,
                 l.Premium, l.ElevationCost, l.FxDiscount, l.DiscountValue, l.DiscountIsPercent,
                 l.MarginPercent, l.DailyInterestPercent, l.TechnicalLossPercent, l.RuralTaxPercent,

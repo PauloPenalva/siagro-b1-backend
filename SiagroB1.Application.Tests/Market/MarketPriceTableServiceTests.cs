@@ -30,6 +30,23 @@ public class MarketPriceTableServiceTests
     }
 
     [Fact]
+    public async Task PriceTable_ItemNameOptionalOnInput_FilledByServer_ColumnStillRequired()
+    {
+        var db = await SeedPricingAsync();
+
+        var created = await TableService(db).CreateAsync(
+            new MarketPriceTable { Description = "Soja", ItemCode = "SOJA", HarvestSeasonCode = "26/27" }, "ana");
+
+        Assert.Equal("SOJA EM GRAOS", created.ItemName);
+        // Anulável no CLR (o MVC não exige do cliente), obrigatória no modelo do EF (coluna NOT NULL, sem migration).
+        var nullability = new System.Reflection.NullabilityInfoContext()
+            .Create(typeof(MarketPriceTable).GetProperty(nameof(MarketPriceTable.ItemName))!);
+        Assert.Equal(System.Reflection.NullabilityState.Nullable, nullability.WriteState);
+        Assert.False(db.Context.Model.FindEntityType(typeof(MarketPriceTable))!
+            .FindProperty(nameof(MarketPriceTable.ItemName))!.IsNullable);
+    }
+
+    [Fact]
     public async Task PriceTableLine_UsdInstrumentWithoutCurve_Rejected()
     {
         var db = await SeedPricingAsync(Usd(), Curve());
