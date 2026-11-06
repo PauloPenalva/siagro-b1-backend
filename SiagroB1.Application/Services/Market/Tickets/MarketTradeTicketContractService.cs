@@ -92,7 +92,7 @@ public class MarketTradeTicketContractService(
             ? ContractUnitOfMeasure
             : throw new BusinessException(ContractUnitMessage),
         FreightUmCode = settings!.ContractFreightUmCode
-                        ?? throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado."),
+                        ?? throw new BusinessException("Informe a unidade de medida do frete nos parâmetros de Trading."),
         HarvestSeasonCode = t.HarvestSeasonCode,
         DeliveryLocationCode = t.WarehouseCode!,
         AgentCode = t.AgentCode,

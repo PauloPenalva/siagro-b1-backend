@@ -34,7 +34,7 @@ public class MarketInstrumentService(
         Validate(entity);
         if ((!entity.Active || entity.QuoteUnit != MarketQuoteUnit.BrlPerUsd) && await IsSpotFxAsync(key))
             throw new BusinessException(
-                "Este instrumento é o dólar à vista dos parâmetros do Mercado; troque-o nos parâmetros antes de inativá-lo ou mudar a unidade.");
+                "Este instrumento é o dólar à vista dos parâmetros de Trading; troque-o nos parâmetros antes de inativá-lo ou mudar a unidade.");
         // O resultado realizado gravado nos casamentos depende do lote, da unidade e do fator: com operação de bolsa, não muda.
         var current = await context.MarketInstruments.AsNoTracking().Where(i => i.Code == key)
             .Select(i => new { i.ContractSize, i.QuoteUnit, i.TonFactor }).FirstOrDefaultAsync();
@@ -63,7 +63,7 @@ public class MarketInstrumentService(
     {
         if (await IsSpotFxAsync(code))
             throw new BusinessException(
-                "Este instrumento é o dólar à vista dos parâmetros do Mercado; troque-o nos parâmetros antes de excluí-lo.");
+                "Este instrumento é o dólar à vista dos parâmetros de Trading; troque-o nos parâmetros antes de excluí-lo.");
 
         if (await context.MarketQuotes.AnyAsync(q => q.InstrumentCode == code)
             || await context.MarketDailyCloses.AnyAsync(c => c.InstrumentCode == code))

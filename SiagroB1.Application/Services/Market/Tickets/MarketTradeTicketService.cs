@@ -67,12 +67,12 @@ public class MarketTradeTicketService(
 
         var settings = await context.MarketTradingSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         if (string.IsNullOrWhiteSpace(settings?.ContractUnitOfMeasureCode))
-            throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros do Mercado.");
+            throw new BusinessException("Informe a unidade de medida do contrato nos parâmetros de Trading.");
         if (!string.Equals(settings.ContractUnitOfMeasureCode.Trim(), MarketTradeTicketContractService.ContractUnitOfMeasure,
                 StringComparison.OrdinalIgnoreCase))
             throw new BusinessException(MarketTradeTicketContractService.ContractUnitMessage);
         if (string.IsNullOrWhiteSpace(settings.ContractFreightUmCode))
-            throw new BusinessException("Informe a unidade de medida do frete nos parâmetros do Mercado.");
+            throw new BusinessException("Informe a unidade de medida do frete nos parâmetros de Trading.");
 
         var cardCode = Required(input.CardCode, "o parceiro");
         var partner = await businessPartners.GetByIdAsync(cardCode)
