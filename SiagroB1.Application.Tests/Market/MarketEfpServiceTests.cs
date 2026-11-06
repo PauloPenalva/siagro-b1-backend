@@ -25,11 +25,13 @@ public class MarketEfpServiceTests
 {
     private static readonly Guid PafPurchaseKey = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid PafSalesKey = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    private static readonly Guid UsdPurchaseKey = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    internal static readonly Guid UsdPurchaseKey = Guid.Parse("55555555-5555-5555-5555-555555555555");
     private static readonly Guid FixedPurchaseKey = Guid.Parse("66666666-6666-6666-6666-666666666666");
     private static readonly Guid DraftPurchaseKey = Guid.Parse("77777777-7777-7777-7777-777777777777");
     private static readonly Guid SackPurchaseKey = Guid.Parse("88888888-8888-8888-8888-888888888888");
     private static readonly Guid NoDuePurchaseKey = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
+    private const string UsdTon = "ZMF7";
 
     /// <summary>Lança uma única vez no primeiro SaveChanges que tiver uma entrada que case com o predicado.</summary>
     private sealed class FailOnceInterceptor(Func<EntityEntry, bool> match) : SaveChangesInterceptor
@@ -49,7 +51,7 @@ public class MarketEfpServiceTests
         }
     }
 
-    private static async Task<string> SeedEfpAsync()
+    internal static async Task<string> SeedEfpAsync()
     {
         var name = Guid.NewGuid().ToString();
         var db = await SeedAsync(name);
@@ -77,11 +79,12 @@ public class MarketEfpServiceTests
             Type = ContractType.ToBeDetermined, Status = ContractStatus.Approved, StandardCurrency = CurrencyType.Brl,
             StandardCashFlowDate = new DateTime(2027, 1, 20),
         });
+        db.Context.MarketInstruments.Add(Instrument(UsdTon, MarketQuoteUnit.UsdPerTon, 100m, 2m));
         await db.SaveChangesAsync();
         return name;
     }
 
-    private static MarketEfpService Service(UnitOfWork db, KeyedAsyncLock? locks = null, params string[] granted)
+    internal static MarketEfpService Service(UnitOfWork db, KeyedAsyncLock? locks = null, params string[] granted)
     {
         var c = db.Context;
         var l = locks ?? new KeyedAsyncLock();
@@ -114,7 +117,7 @@ public class MarketEfpServiceTests
     private static MarketEfpService Service(string name, IInterceptor? fail = null, KeyedAsyncLock? locks = null) =>
         Service(fail is null ? TestDb.CreateUnitOfWork(name) : TestDb.CreateUnitOfWork(name, fail), locks);
 
-    private static MarketEfpInput SoyInput(Guid? contractKey = null, decimal volumeKg = 136_072.9m,
+    internal static MarketEfpInput SoyInput(Guid? contractKey = null, decimal volumeKg = 136_072.9m,
         decimal? fxRate = 5.40m, MarketEfpContractSide side = MarketEfpContractSide.Purchase,
         string instrument = Soy, int lots = 1, decimal price = 1190m, int accountId = 1,
         DateOnly? date = null, DateOnly? due = null, MarketTradeSide tradeSide = MarketTradeSide.Sell) =>
@@ -634,6 +637,88 @@ public class MarketEfpServiceTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() => Service(name).CancelAsync(999, "bia", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task Preview_UsdPerTon_IgnoresTonFactor()
+    {
+        var name = await SeedEfpAsync();
+        var preview = await Service(name).PreviewAsync(
+            SoyInput(instrument: UsdTon, price: 400m, volumeKg: 100_000m), CancellationToken.None);
+
+        // (400 + 60) × 5,40 / 1000 = 2,48400000 — o TonFactor 2 do instrumento não entra em US$/t.
+        Assert.Equal(2.48400000m, preview.FixationPricePerKg);
+        Assert.Equal(-100m, preview.TonsFutures);
+    }
+
+    [Fact]
+    public async Task Cancel_StaleMarkerAndSettledTitle_RefusedClearsMarker_ThenWorksAfterUnsettle()
+    {
+        var name = await SeedEfpAsync();
+        var efp = await CreateActiveAsync(name);
+        var c = (await Read(name)).Context;
+        // Uma tentativa anterior marcou e caiu antes do estorno; depois o título recebeu baixa.
+        (await c.MarketEfps.SingleAsync()).CanceledBy = "bia";
+        (await c.FinancialDocuments.SingleAsync()).SettledAmount = 10m;
+        await c.SaveChangesAsync();
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() => Service(name).CancelAsync(efp.Id, "bia", CancellationToken.None));
+        Assert.Contains("composição", e.Message);
+        var after = await (await Read(name)).Context.MarketEfps.AsNoTracking().SingleAsync();
+        Assert.Equal(MarketEfpStatus.Active, after.Status);
+        Assert.Null(after.CanceledBy);
+        Assert.Equal(MarketEfpStatus.Active, (await Service(name).ResumeAsync(efp.Id, "ana", CancellationToken.None)).Status);
+
+        var u = (await Read(name)).Context;
+        (await u.FinancialDocuments.SingleAsync()).SettledAmount = 0m;
+        await u.SaveChangesAsync();
+        await Service(name).CancelAsync(efp.Id, "bia", CancellationToken.None);
+        await AssertCanceledCleanAsync(name, efp.Id);
+    }
+
+    [Fact]
+    public async Task Resume_StaleMarkerWithConfirmedFixation_IsNotBlocked()
+    {
+        var name = await SeedEfpAsync();
+        var efp = await CreateActiveAsync(name);
+        var c = (await Read(name)).Context;
+        (await c.MarketEfps.SingleAsync()).CanceledBy = "bia";
+        await c.SaveChangesAsync();
+        Assert.Equal(MarketEfpStatus.Active, (await Service(name).ResumeAsync(efp.Id, "ana", CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Cancel_TradeUnconfirmFailsBeforeReverse_LeavesNoMarker()
+    {
+        var name = await SeedEfpAsync();
+        var efp = await CreateActiveAsync(name);
+        await TradeService(TestDb.CreateUnitOfWork(name))
+            .SetConfirmedAsync(efp.FuturesTradeId!.Value, true, "ana", CancellationToken.None);
+        // Falha no estorno da fixação (primeiro passo): nada desfeito, nenhuma marca.
+        await Assert.ThrowsAnyAsync<Exception>(() => Service(name, new FailOnceInterceptor(
+                e => e.Entity is PurchaseContractPriceFixation { Status: PriceFixationStatus.InApproval } && e.State == EntityState.Modified))
+            .CancelAsync(efp.Id, "bia", CancellationToken.None));
+        var r = (await Read(name)).Context;
+        Assert.Null((await r.MarketEfps.AsNoTracking().SingleAsync()).CanceledBy);
+        Assert.Equal(PriceFixationStatus.Confirmed, (await r.PurchaseContractsPriceFixations.AsNoTracking().SingleAsync()).Status);
+        Assert.Equal(MarketEfpStatus.Active, (await Service(name).ResumeAsync(efp.Id, "ana", CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Cancel_ReverseDoneTradeDeleteFails_RepeatCompletes_ResumeRefusedMeanwhile()
+    {
+        var name = await SeedEfpAsync();
+        var efp = await CreateActiveAsync(name);
+        await Assert.ThrowsAnyAsync<Exception>(() => Service(name, new FailOnceInterceptor(
+                e => e.Entity is MarketFuturesTrade && e.State == EntityState.Deleted))
+            .CancelAsync(efp.Id, "bia", CancellationToken.None));
+
+        var r = (await Read(name)).Context;
+        Assert.Empty(await r.PurchaseContractsPriceFixations.ToListAsync());
+        Assert.Equal("bia", (await r.MarketEfps.AsNoTracking().SingleAsync()).CanceledBy);
+        await Assert.ThrowsAsync<BusinessException>(() => Service(name).ResumeAsync(efp.Id, "ana", CancellationToken.None));
+        await Service(name).CancelAsync(efp.Id, "bia", CancellationToken.None);
+        await AssertCanceledCleanAsync(name, efp.Id);
+    }
+
     // ---------- Contratos para o value help ----------
 
     [Fact]
@@ -654,5 +739,64 @@ public class MarketEfpServiceTests
         Assert.Equal("CV000200", Assert.Single(sales).Code);
         Assert.Empty(await Service(name).ListContractsAsync(MarketEfpContractSide.Purchase, "zzz", CancellationToken.None));
         Assert.Single(await Service(name).ListContractsAsync(MarketEfpContractSide.Purchase, "000105", CancellationToken.None));
+    }
+}
+
+/// <summary>Erros REST do EFP saem em text/plain pt-BR; a lista de contratos traz a moeda como texto camelCase.</summary>
+public class MarketEfpsControllerTests
+{
+    private static SiagroB1.Web.Controllers.MarketEfpsController Controller(UnitOfWork db) =>
+        new(db.Context, MarketEfpServiceTests.Service(db),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SiagroB1.Web.Controllers.MarketEfpsController>.Instance)
+        {
+            ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+                {
+                    User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                        [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "ana")], "test")),
+                },
+            },
+        };
+
+    private static void AssertText(Microsoft.AspNetCore.Mvc.IActionResult result, int status, string contains)
+    {
+        var content = Assert.IsType<Microsoft.AspNetCore.Mvc.ContentResult>(result);
+        Assert.Equal(status, content.StatusCode);
+        Assert.Equal("text/plain; charset=utf-8", content.ContentType);
+        Assert.Contains(contains, content.Content);
+    }
+
+    [Fact]
+    public async Task UnknownId_PlainText404()
+    {
+        var db = TestDb.CreateUnitOfWork(await MarketEfpServiceTests.SeedEfpAsync());
+        AssertText(await Controller(db).Resume(999, CancellationToken.None), 404, "999");
+        AssertText(await Controller(db).Cancel(999, CancellationToken.None), 404, "999");
+    }
+
+    [Fact]
+    public async Task BusinessError_PlainText400()
+    {
+        var db = TestDb.CreateUnitOfWork(await MarketEfpServiceTests.SeedEfpAsync());
+        AssertText(await Controller(db).Create(MarketEfpServiceTests.SoyInput(lots: 0), CancellationToken.None), 400, "lotes");
+        AssertText(await Controller(db).Preview(MarketEfpServiceTests.SoyInput(fxRate: null), CancellationToken.None), 400, "câmbio");
+        AssertText(await Controller(db).Create(null, CancellationToken.None), 400, "Dados do EFP inválidos");
+    }
+
+    [Fact]
+    public async Task Contracts_InvalidSide400_CurrencyAsCamelCaseText()
+    {
+        var name = await MarketEfpServiceTests.SeedEfpAsync();
+        var db = TestDb.CreateUnitOfWork(name);
+        AssertText(await Controller(db).Contracts("x", null, CancellationToken.None), 400, "purchase ou sales");
+
+        var json = Assert.IsType<Microsoft.AspNetCore.Mvc.JsonResult>(
+            await Controller(db).Contracts("purchase", null, CancellationToken.None));
+        var text = System.Text.Json.JsonSerializer.Serialize(json.Value,
+            (System.Text.Json.JsonSerializerOptions)json.SerializerSettings!);
+        Assert.Contains("\"currency\":\"brl\"", text);
+        Assert.Contains("\"currency\":\"usd\"", text);
+        Assert.Contains("\"availableToPriceKg\":", text);
     }
 }

@@ -127,28 +127,33 @@ public class MarketEfpService(
         if (efp.Status == MarketEfpStatus.Canceled)
             throw new BusinessException($"O EFP nº {id} já está cancelado.");
 
-        // CanceledBy sem Status Canceled = cancelamento em andamento: a retomada recusa, para não recriar nem
-        // reaprovar a fixação que o cancelamento já desfez. Chamar o cancelamento de novo continua de onde parou.
-        var alreadyStarted = efp.CanceledBy is not null;
-        efp.CanceledBy = userName;
-        await context.SaveChangesAsync(none);
-
+        // CanceledBy sem Status Canceled = cancelamento em andamento (algo já foi desfeito): a retomada recusa, para não
+        // recriar nem reaprovar o que o cancelamento desfez. A marca é decidida pelo ESTADO: ela é atribuída na entidade
+        // rastreada logo antes de cada passo destrutivo e vai para o banco no MESMO SaveChanges desse passo (o serviço
+        // chamado grava o contexto inteiro). Passo recusado ou interrompido antes de gravar → nenhuma marca nova.
         var fixationStatus = await FixationStatusAsync(efp, none);
         if (fixationStatus == PriceFixationStatus.Confirmed)
         {
+            efp.CanceledBy = userName;
             try
             {
                 await RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
                     ? fixations.SalesReverse.ExecuteAsync(efp.FixationKey!.Value, userName)
                     : fixations.PurchaseReverse.ExecuteAsync(efp.FixationKey!.Value, userName));
             }
-            catch (BusinessException) when (!alreadyStarted)
+            catch (BusinessException)
             {
-                // Estorno recusado (baixa/composição no título, washout ativo): o EFP fica como estava.
+                // Estorno recusado (baixa/composição no título, washout ativo): fixação confirmada = nada foi desfeito
+                // (a operação só sai depois da fixação), então o EFP volta a ficar exatamente como estava — sem marca,
+                // inclusive uma marca antiga de uma tentativa anterior.
                 context.ChangeTracker.Clear();
                 var untouched = await LoadAsync(id, none);
-                untouched.CanceledBy = null;
-                await context.SaveChangesAsync(none);
+                if (untouched.CanceledBy is not null)
+                {
+                    untouched.CanceledBy = null;
+                    await context.SaveChangesAsync(none);
+                }
+
                 throw;
             }
 
@@ -156,18 +161,25 @@ public class MarketEfpService(
         }
 
         if (fixationStatus == PriceFixationStatus.InApproval)
+        {
+            efp = await LoadAsync(id, none);
+            efp.CanceledBy = userName;
             await RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
                 ? fixations.SalesDelete.ExecuteAsync(efp.FixationKey!.Value, userName)
                 : fixations.PurchaseDelete.ExecuteAsync(efp.FixationKey!.Value, userName));
+        }
 
         var trade = await context.MarketFuturesTrades.AsNoTracking().Where(t => t.EfpId == id)
             .Select(t => new { t.Id, t.Confirmed }).FirstOrDefaultAsync(none);
         if (trade is not null)
         {
             // A operação gerada pelo EFP sai junto com ele, mesmo que já conferida com a corretora: desmarcar a
-            // conferência faz parte do cancelamento do EFP (a exclusão direta recusa operação conferida).
+            // conferência faz parte do cancelamento do EFP (a exclusão direta recusa operação conferida). Desmarcar
+            // grava antes da marca de cancelamento: sozinho, não desfaz nada do EFP.
             if (trade.Confirmed)
                 await trades.SetConfirmedAsync(trade.Id, false, userName, none);
+            efp = await LoadAsync(id, none);
+            efp.CanceledBy = userName;
             await trades.DeleteForEfpAsync(trade.Id, id, userName, none); // refaz o PEPS do par
         }
 
@@ -210,12 +222,14 @@ public class MarketEfpService(
             .ToListAsync(ct);
     }
 
-    /// <summary>Preço da fixação por kg (8 casas): US$ → (preço + prêmio) × TonFactor × câmbio / 1000; R$/sc → / 60.</summary>
+    /// <summary>Preço da fixação por kg (8 casas): US¢/bu → (preço + prêmio) × TonFactor × câmbio / 1000; US$/t → sem o fator; R$/sc → / 60.</summary>
     public static decimal FixationPricePerKg(MarketQuoteUnit unit, decimal tonFactor, decimal price, decimal premium,
         decimal fxRate)
     {
+        // US$/t já está por tonelada: o fator de conversão só vale para US¢/bu (como em MarketUnits.TonsPerLot).
+        var factor = unit == MarketQuoteUnit.UsdPerTon ? 1m : tonFactor;
         var raw = MarketUnits.QuoteCurrency(unit) == CurrencyType.Usd
-            ? (price + premium) * tonFactor * fxRate / 1000m
+            ? (price + premium) * factor * fxRate / 1000m
             : (price + premium) / KgPerBag;
         return Math.Round(raw, 8, MidpointRounding.AwayFromZero);
     }
@@ -237,7 +251,8 @@ public class MarketEfpService(
         var efp = await LoadAsync(id, none);
         if (efp.Status == MarketEfpStatus.Canceled)
             throw new BusinessException($"O EFP nº {id} está cancelado.");
-        if (efp.CanceledBy is not null)
+        // Marca de cancelamento só vale se algo foi desfeito: com a fixação ainda confirmada, nada foi.
+        if (efp.CanceledBy is not null && await FixationStatusAsync(efp, none) != PriceFixationStatus.Confirmed)
             throw new BusinessException($"O cancelamento do EFP nº {id} foi iniciado; conclua o cancelamento.");
         if (efp.Status == MarketEfpStatus.Active)
             return efp;
