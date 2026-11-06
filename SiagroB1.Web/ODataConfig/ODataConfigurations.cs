@@ -30,6 +30,7 @@ public static class ODataConfigurations
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFuturesTrade>("MarketFuturesTrades");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFuturesMatch>("MarketFuturesMatches");
         modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketFxHedge>("MarketFxHedges");
+        modelBuilder.EntitySet<SiagroB1.Domain.Entities.Market.MarketEfp>("MarketEfps");
         modelBuilder.EntitySet<Branch>("Branchs");
         modelBuilder.EntitySet<ProcessingService>("ProcessingServices");
         modelBuilder.EntitySet<QualityAttrib>("QualityAttribs");

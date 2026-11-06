@@ -62,3 +62,13 @@ Onde olhar:
 4. **Limiares de alçada** (volume em t, desvio em %) vazios = sem alçada da diretoria.
 5. **Trava de aprovação** vale por processo: rode **um Web por cliente**. Entre processos, o que impede contrato
    duplicado é a chave do contrato pré-atribuída na boleta.
+
+## 6. Parte 3 — Hedges (corretoras, operações de bolsa, hedge de moeda, EFP)
+
+1. Migrations: `AddMarketHedges` no banco de **cada empresa** (`AppDbContext`) e `AddMarketHedgesMenu` no banco
+   **comum** (`CommonDbContext`). A Web recusa subir com qualquer uma pendente.
+2. A premissa de **um único processo da Web** (seção 3) agora cobre também o casamento PEPS das operações de bolsa e o
+   EFP: as travas são em memória. Duas instâncias gravando a mesma conta × instrumento ao mesmo tempo podem duplicar
+   casamentos até o próximo recálculo daquele par (qualquer gravação nele refaz o casamento inteiro).
+3. EFP interrompido fica **Em processamento**: use "Retomar" (continua sem duplicar operação nem fixação) ou
+   "Cancelar". A fixação do EFP passa pela aprovação normal e gera o título provisório do fluxo atual.
