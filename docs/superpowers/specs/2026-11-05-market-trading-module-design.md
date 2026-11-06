@@ -151,3 +151,27 @@ Pode e deve simplificar.
 - Modelagem exata das tabelas, nomes, serviços e telas, seguindo os padrões dos `CLAUDE.md`.
 - Onde roda o cliente CMA (Web vs worker) e estratégia de reconexão.
 - Layout das telas (seguir padrões UI5 existentes: listas com FilterBar, ObjectPage).
+
+## 8. Decisões do Claude tomadas na execução (revisáveis pelo usuário)
+
+### Parte 2 (2026-11-06)
+- **Fórmula única**: prêmio sempre na unidade da cotação e somado à bolsa antes de qualquer ajuste; juros
+  sempre sobre o preço porto. Reproduz o Tagui ao centavo para soja e milho CBOT; no milho B3 diverge
+  centavos (o Tagui somava o prêmio depois do desconto e da margem). Frete por saca = R$/t × 0,06.
+- **Dólar**: reta entre o dólar à vista (instrumento definido nos Parâmetros do Mercado) e o ponto da
+  curva escolhido na linha, avaliada na data de pagamento, menos o "desconto do dólar" (NDF do Tagui).
+- **Cotação usada**: compra (bid) quando existe; senão o último.
+- **Nada materializado**: a grade é recalculada a cada leitura; linha sem cotação, dólar ou frete aparece
+  com a situação e sem preço.
+- **Tabela de frete**: uma linha por município × destino × "vigente a partir de"; a vigente é a mais
+  recente não futura; as antigas são o histórico.
+- **Boleta**: nasce já enviada para aprovação (sem rascunho); não é editável (cancela e refaz); número =
+  sequência própria simples. Quantidade em sacas de 60 kg na tela, kg no banco.
+- **Alçada**: dois limiares por empresa (volume em t, desvio % do preço negociado × calculado). Boleta que
+  passa de um deles precisa também da diretoria. O estouro de limite de exposição entra na parte 4.
+- **Permissões** em vez de só papéis: `MARKET_MANAGE`, `MARKET_TICKET_APPROVE`, `MARKET_BOARD_APPROVE`,
+  com os papéis `MARKET_TRADER` e `MARKET_BOARD` semeados. A partir daqui, gravar instrumento e lançar
+  cotação manual exigem `MARKET_MANAGE`.
+- **Contrato gerado**: preço fixo, FOB, moeda R$, previsão de pagamento = data de pagamento da linha,
+  unidade vinda dos Parâmetros do Mercado; passa pelos serviços existentes (criar → enviar → aprovar), então
+  gera as mesmas notificações e o título provisório de um contrato manual.
