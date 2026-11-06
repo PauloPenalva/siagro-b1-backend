@@ -84,9 +84,15 @@ public class MarketEfpServiceTests
         return name;
     }
 
-    internal static MarketEfpService Service(UnitOfWork db, KeyedAsyncLock? locks = null, params string[] granted)
+    internal static MarketEfpService Service(UnitOfWork db, KeyedAsyncLock? locks = null, params string[] granted) =>
+        Service(db, locks, new MarketEfpFixationScope(), granted);
+
+    /// <summary>Serviços de fixação com o guarda do EFP ligado (o mesmo escopo do EFP, como no DI).</summary>
+    internal static MarketEfpService Service(UnitOfWork db, KeyedAsyncLock? locks, MarketEfpFixationScope scope,
+        params string[] granted)
     {
         var c = db.Context;
+        var efpGuard = new MarketEfpFixationGuard(c, scope);
         var l = locks ?? new KeyedAsyncLock();
         var outbox = TestNotificationOutbox.For(c);
         var generate = FinancialDocumentTestServices.Generate(c);
@@ -103,15 +109,18 @@ public class MarketEfpServiceTests
                 new PurchaseContractsPriceFixationCreateService(c, pFixed, pLog, outbox,
                     new TestLogger<PurchaseContractsPriceFixationCreateService>()),
                 new PurchaseContractsPriceFixationsApprovalService(c, pFixed, pLog, outbox, generate),
-                new PurchaseContractsPriceFixationsCancelService(c, pFixed, pLog, outbox, cancel),
+                new PurchaseContractsPriceFixationsCancelService(c, pFixed, pLog, outbox, cancel, efpGuard),
                 new PurchaseContractsPriceFixationDeleteService(c, pFixed, pLog,
-                    new TestLogger<PurchaseContractsPriceFixationDeleteService>()),
+                    new TestLogger<PurchaseContractsPriceFixationDeleteService>(), efpGuard),
                 new SalesContractsPriceFixationCreateService(c, sFixed, sLog, outbox,
                     new TestLogger<SalesContractsPriceFixationCreateService>()),
                 new SalesContractsPriceFixationsApprovalService(c, sFixed, sLog, outbox, generate),
-                new SalesContractsPriceFixationsCancelService(c, sFixed, sLog, outbox, cancel),
+                new SalesContractsPriceFixationsCancelService(c, sFixed, sLog, outbox, cancel, efpGuard),
                 new SalesContractsPriceFixationDeleteService(c, sFixed, sLog,
-                    new TestLogger<SalesContractsPriceFixationDeleteService>())));
+                    new TestLogger<SalesContractsPriceFixationDeleteService>(), efpGuard),
+                new PurchaseContractsPriceFixationsRejectService(c, pFixed, pLog, outbox, efpGuard),
+                new SalesContractsPriceFixationsRejectService(c, sFixed, sLog, outbox, efpGuard)),
+            scope);
     }
 
     private static MarketEfpService Service(string name, IInterceptor? fail = null, KeyedAsyncLock? locks = null) =>
@@ -745,7 +754,7 @@ public class MarketEfpServiceTests
 /// <summary>Erros REST do EFP saem em text/plain pt-BR; a lista de contratos traz a moeda como texto camelCase.</summary>
 public class MarketEfpsControllerTests
 {
-    private static SiagroB1.Web.Controllers.MarketEfpsController Controller(UnitOfWork db) =>
+    internal static SiagroB1.Web.Controllers.MarketEfpsController Controller(UnitOfWork db) =>
         new(db.Context, MarketEfpServiceTests.Service(db),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SiagroB1.Web.Controllers.MarketEfpsController>.Instance)
         {

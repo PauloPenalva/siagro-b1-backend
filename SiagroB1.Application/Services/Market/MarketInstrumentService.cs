@@ -35,6 +35,15 @@ public class MarketInstrumentService(
         if ((!entity.Active || entity.QuoteUnit != MarketQuoteUnit.BrlPerUsd) && await IsSpotFxAsync(key))
             throw new BusinessException(
                 "Este instrumento é o dólar à vista dos parâmetros do Mercado; troque-o nos parâmetros antes de inativá-lo ou mudar a unidade.");
+        // O resultado realizado gravado nos casamentos depende do lote, da unidade e do fator: com operação de bolsa, não muda.
+        var current = await context.MarketInstruments.AsNoTracking().Where(i => i.Code == key)
+            .Select(i => new { i.ContractSize, i.QuoteUnit, i.TonFactor }).FirstOrDefaultAsync();
+        if (current is not null
+            && (current.ContractSize != entity.ContractSize || current.QuoteUnit != entity.QuoteUnit
+                                                            || current.TonFactor != entity.TonFactor)
+            && await context.MarketFuturesTrades.AnyAsync(t => t.InstrumentCode == key))
+            throw new BusinessException(
+                "O instrumento tem operações de bolsa; o tamanho do contrato, a unidade de cotação e o fator de conversão não podem mudar.");
         var updated = await base.UpdateAsync(key, entity);
         if (updated is not null)
             NotifyTerminals();
@@ -62,6 +71,10 @@ public class MarketInstrumentService(
 
         if (await context.MarketPriceTableLines.AnyAsync(l => l.InstrumentCode == code || l.FxCurveInstrumentCode == code))
             throw new BusinessException("Instrumento é usado em linhas de tabelas de preços; inative-o em vez de excluir.");
+
+        if (await context.MarketFuturesTrades.AnyAsync(t => t.InstrumentCode == code)
+            || await context.MarketEfps.AnyAsync(e => e.InstrumentCode == code))
+            throw new BusinessException("Instrumento possui operações de bolsa ou EFP; inative-o em vez de excluir.");
 
         var deleted = await base.DeleteAsync(code);
         if (deleted)

@@ -99,6 +99,7 @@ public class MarketFxHedgesController(
             var hedge = await action();
             var node = JsonSerializer.SerializeToNode(hedge, MarketQuotesStreamLoop.JsonOptions)!.AsObject();
             node.Remove("account");
+            MarketJsonDates.AsDateOnly(node, "tradeDate", "settlementDate");
             return Json(node);
         });
 

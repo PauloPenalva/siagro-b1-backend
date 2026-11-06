@@ -59,7 +59,10 @@ public class MarketFuturesTradeService(
         await guard.EnsureAsync(userName, PermissionCodes.MarketManage);
         if (input.Reason == MarketFuturesTradeReason.Efp)
             throw new BusinessException("Operação de EFP só é gerada pela tela de EFP.");
-        var validated = await ValidateAsync(input, ct);
+        // Conta ou instrumento inativos só barram quando MUDAM: operação antiga continua editável.
+        var current = await context.MarketFuturesTrades.AsNoTracking().Where(t => t.Id == id)
+            .Select(t => new { t.AccountId, t.InstrumentCode }).FirstOrDefaultAsync(ct);
+        var validated = await ValidateAsync(input, ct, current?.AccountId, current?.InstrumentCode);
 
         return await WithTradeLockAsync(id, [Key(validated.AccountId, validated.InstrumentCode)], async trade =>
         {
@@ -269,7 +272,8 @@ public class MarketFuturesTradeService(
         decimal Price, decimal Fees, CurrencyType FeesCurrency, MarketFuturesTradeReason Reason, string? BrokerReference,
         Guid? PurchaseContractKey, Guid? SalesContractKey, string? ContractCode, string? Notes);
 
-    private async Task<Validated> ValidateAsync(MarketFuturesTradeInput input, CancellationToken ct)
+    private async Task<Validated> ValidateAsync(MarketFuturesTradeInput input, CancellationToken ct,
+        int? currentAccountId = null, string? currentInstrumentCode = null)
     {
         if (input.TradedAt == default)
             throw new BusinessException("Informe a data e hora do negócio.");
@@ -279,9 +283,10 @@ public class MarketFuturesTradeService(
             DateTimeKind.Unspecified => DateTime.SpecifyKind(input.TradedAt, DateTimeKind.Utc),
             _ => input.TradedAt,
         };
-        if (tradedAt > UtcNow.AddDays(1))
-            throw new BusinessException("A data do negócio não pode estar no futuro.");
         var tradeDate = TimeZoneInfo.ConvertTimeFromUtc(tradedAt, SaoPauloTime.Zone).Date;
+        // Tolerância: até o fim do dia corrente em São Paulo.
+        if (DateOnly.FromDateTime(tradeDate) > SaoPauloTime.Today(time))
+            throw new BusinessException("A data do negócio não pode estar no futuro.");
 
         if (!Enum.IsDefined(input.Side))
             throw new BusinessException("Informe se a operação é de compra ou de venda.");
@@ -308,9 +313,10 @@ public class MarketFuturesTradeService(
         var account = await context.MarketCounterpartyAccounts.AsNoTracking().Include(a => a.Counterparty)
                           .FirstOrDefaultAsync(a => a.Id == input.AccountId, ct)
                       ?? throw new BusinessException("Conta não encontrada.");
-        if (!account.Active)
+        var sameAccount = currentAccountId == account.Id;
+        if (!account.Active && !sameAccount)
             throw new BusinessException("A conta está inativa.");
-        if (account.Counterparty is not { Active: true, Type: MarketCounterpartyType.Broker })
+        if (account.Counterparty?.Type != MarketCounterpartyType.Broker || (!account.Counterparty.Active && !sameAccount))
             throw new BusinessException("Operação de bolsa só vale para conta de uma corretora ativa.");
 
         var code = input.InstrumentCode?.Trim() ?? string.Empty;
@@ -318,7 +324,7 @@ public class MarketFuturesTradeService(
             throw new BusinessException("Informe o instrumento.");
         var instrument = await context.MarketInstruments.AsNoTracking().FirstOrDefaultAsync(i => i.Code == code, ct)
                          ?? throw new BusinessException($"Instrumento {code} não encontrado.");
-        if (!instrument.Active)
+        if (!instrument.Active && !(currentInstrumentCode is not null && SameCode(currentInstrumentCode, instrument.Code)))
             throw new BusinessException($"O instrumento {instrument.Code} está inativo.");
         if (instrument.Type != MarketInstrumentType.Future)
             throw new BusinessException($"O instrumento {instrument.Code} não é um contrato futuro.");

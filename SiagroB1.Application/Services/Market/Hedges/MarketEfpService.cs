@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using SiagroB1.Application.Interfaces;
 using SiagroB1.Application.Services.Market.Tickets;
 using SiagroB1.Application.Services.PurchaseContracts;
@@ -29,7 +30,7 @@ public sealed record MarketEfpPreview(
 /// <summary>Contrato a fixar oferecido no value help do EFP.</summary>
 public sealed record MarketEfpContractOption(
     Guid Key, string? Code, string? CardName, string? ItemName, CurrencyType Currency, decimal AvailableToPriceKg,
-    DateTime? StandardCashFlowDate);
+    DateOnly? StandardCashFlowDate);
 
 /// <summary>Os serviços EXISTENTES de fixação de preço (compra e venda) que o EFP encadeia.</summary>
 public sealed record MarketEfpFixations(
@@ -40,7 +41,21 @@ public sealed record MarketEfpFixations(
     SalesContractsPriceFixationCreateService SalesCreate,
     SalesContractsPriceFixationsApprovalService SalesApproval,
     SalesContractsPriceFixationsCancelService SalesReverse,
-    SalesContractsPriceFixationDeleteService SalesDelete);
+    SalesContractsPriceFixationDeleteService SalesDelete,
+    PurchaseContractsPriceFixationsRejectService PurchaseReject,
+    SalesContractsPriceFixationsRejectService SalesReject);
+
+/// <summary>
+/// Falha depois da primeira gravação do EFP: a linha <c>Processing</c> já existe (talvez com a operação de bolsa). A
+/// mensagem orienta a retomar ou estornar, para o usuário não relançar o EFP e registrar uma segunda operação.
+/// </summary>
+public sealed class MarketEfpPendingException(int efpId, string reason, Exception cause)
+    : BusinessException($"O EFP nº {efpId} ficou em processamento: {reason} Use Retomar ou Estornar na lista de EFP.")
+{
+    public int EfpId { get; } = efpId;
+
+    public Exception Cause { get; } = cause;
+}
 
 /// <summary>
 /// EFP: operação de bolsa + fixação de preço num contrato a fixar, compondo serviços que têm transação própria
@@ -57,9 +72,15 @@ public class MarketEfpService(
     KeyedAsyncLock locks,
     ICompanyContext companyContext,
     MarketFuturesTradeService trades,
-    MarketEfpFixations fixations)
+    MarketEfpFixations fixations,
+    MarketEfpFixationScope fixationScope)
 {
     public const decimal KgPerBag = 60m;
+
+    public const string BusyMessage =
+        "O banco estava ocupado com outra operação neste contrato. Tente de novo em instantes.";
+
+    public const string UnexpectedReason = "ocorreu um erro inesperado (detalhes no log do servidor).";
 
     private sealed record ContractInfo(
         Guid Key, string? Code, ContractStatus? Status, ContractType Type, string UnitOfMeasureCode,
@@ -67,7 +88,8 @@ public class MarketEfpService(
 
     private sealed record Validated(
         MarketEfpInput Input, string InstrumentCode, ContractInfo Contract, CurrencyType Currency, decimal? FxRate,
-        decimal VolumeKg, decimal FixationPrice, DateTime DueDate, decimal? TonsFutures, string? Notes);
+        decimal VolumeKg, decimal FixationPrice, DateTime DueDate, decimal? TonsFutures, string? Notes, decimal Price,
+        decimal Premium);
 
     public async Task<MarketEfpPreview> PreviewAsync(MarketEfpInput input, CancellationToken ct)
     {
@@ -89,8 +111,8 @@ public class MarketEfpService(
             InstrumentCode = v.InstrumentCode,
             Side = input.Side,
             Lots = input.Lots,
-            Price = input.Price,
-            Premium = input.Premium,
+            Price = v.Price,
+            Premium = v.Premium,
             FxRate = v.FxRate,
             ContractSide = input.ContractSide,
             ContractKey = v.Contract.Key,
@@ -108,8 +130,21 @@ public class MarketEfpService(
         await context.SaveChangesAsync(ct);
 
         // Daqui em diante o EFP existe: o token da requisição não é mais honrado (abandonar no meio só deixaria
-        // trabalho para a retomada).
-        return await RunLockedAsync(efp.Id, userName, CancellationToken.None);
+        // trabalho para a retomada). Qualquer falha agora diz que o EFP ficou em processamento.
+        try
+        {
+            return await RunLockedAsync(efp.Id, userName, CancellationToken.None);
+        }
+        catch (Exception e) when (e is not MarketEfpPendingException)
+        {
+            var reason = e is BusinessException or ForbiddenException ? e.Message.TrimEnd()
+                // Índice único "uma operação por EFP": outro processo já registrou a operação deste EFP.
+                : MarketQuoteService.IsUniqueViolation(e) ? "a operação de bolsa deste EFP já foi registrada por outro processo."
+                : UnexpectedReason;
+            if (!reason.EndsWith('.'))
+                reason += ".";
+            throw new MarketEfpPendingException(efp.Id, reason, e);
+        }
     }
 
     public async Task<MarketEfp> ResumeAsync(int id, string userName, CancellationToken ct)
@@ -122,7 +157,16 @@ public class MarketEfpService(
     {
         await guard.EnsureAsync(userName, PermissionCodes.MarketManage);
         using var _ = await locks.AcquireAsync(LockKey(id), ct);
+        var first = await LoadAsync(id, CancellationToken.None);
+        // Ordem fixa das travas: EFP → contrato (criar, retomar e estornar seguem a mesma).
+        using var __ = await locks.AcquireAsync(ContractLockKey(first), ct);
+        return await RetryOnDeadlockAsync(() => CancelPassAsync(id, userName));
+    }
+
+    private async Task<MarketEfp> CancelPassAsync(int id, string userName)
+    {
         var none = CancellationToken.None;
+        context.ChangeTracker.Clear();
         var efp = await LoadAsync(id, none);
         if (efp.Status == MarketEfpStatus.Canceled)
             throw new BusinessException($"O EFP nº {id} já está cancelado.");
@@ -134,12 +178,11 @@ public class MarketEfpService(
         var fixationStatus = await FixationStatusAsync(efp, none);
         if (fixationStatus == PriceFixationStatus.Confirmed)
         {
-            efp.CanceledBy = userName;
             try
             {
-                await RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
-                    ? fixations.SalesReverse.ExecuteAsync(efp.FixationKey!.Value, userName)
-                    : fixations.PurchaseReverse.ExecuteAsync(efp.FixationKey!.Value, userName));
+                await FixationStepAsync(id, userName, e => e.ContractSide == MarketEfpContractSide.Sales
+                    ? fixations.SalesReverse.ExecuteAsync(e.FixationKey!.Value, userName)
+                    : fixations.PurchaseReverse.ExecuteAsync(e.FixationKey!.Value, userName));
             }
             catch (BusinessException)
             {
@@ -162,13 +205,27 @@ public class MarketEfpService(
 
         if (fixationStatus == PriceFixationStatus.InApproval)
         {
-            efp = await LoadAsync(id, none);
-            efp.CanceledBy = userName;
-            await RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
-                ? fixations.SalesDelete.ExecuteAsync(efp.FixationKey!.Value, userName)
-                : fixations.PurchaseDelete.ExecuteAsync(efp.FixationKey!.Value, userName));
+            try
+            {
+                await FixationStepAsync(id, userName, e => e.ContractSide == MarketEfpContractSide.Sales
+                    ? fixations.SalesDelete.ExecuteAsync(e.FixationKey!.Value, userName)
+                    : fixations.PurchaseDelete.ExecuteAsync(e.FixationKey!.Value, userName));
+            }
+            catch (BusinessException)
+            {
+                // Exclusão recusada (ex.: a fixação tem washout registrado, mesmo rejeitado): com a fixação ainda em
+                // aprovação, a rejeição devolve o volume ao saldo do mesmo jeito e preserva o histórico.
+                context.ChangeTracker.Clear();
+                if (await FixationStatusAsync(await LoadAsync(id, none), none) != PriceFixationStatus.InApproval)
+                    throw;
+                var comment = $"Rejeitada pelo cancelamento do EFP nº {id}";
+                await FixationStepAsync(id, userName, e => e.ContractSide == MarketEfpContractSide.Sales
+                    ? fixations.SalesReject.ExecuteAsync(e.FixationKey!.Value, comment, userName)
+                    : fixations.PurchaseReject.ExecuteAsync(e.FixationKey!.Value, comment, userName));
+            }
         }
 
+        context.ChangeTracker.Clear();
         var trade = await context.MarketFuturesTrades.AsNoTracking().Where(t => t.EfpId == id)
             .Select(t => new { t.Id, t.Confirmed }).FirstOrDefaultAsync(none);
         if (trade is not null)
@@ -178,11 +235,13 @@ public class MarketEfpService(
             // grava antes da marca de cancelamento: sozinho, não desfaz nada do EFP.
             if (trade.Confirmed)
                 await trades.SetConfirmedAsync(trade.Id, false, userName, none);
+            context.ChangeTracker.Clear();
             efp = await LoadAsync(id, none);
             efp.CanceledBy = userName;
             await trades.DeleteForEfpAsync(trade.Id, id, userName, none); // refaz o PEPS do par
         }
 
+        context.ChangeTracker.Clear();
         efp = await LoadAsync(id, none);
         efp.Status = MarketEfpStatus.Canceled;
         efp.CanceledBy = userName;
@@ -208,7 +267,7 @@ public class MarketEfpService(
                 .OrderBy(c => c.Code).Take(50)
                 .Select(c => new MarketEfpContractOption(c.Key, c.Code, c.CardName, c.ItemName,
                     c.StandardCurrency ?? CurrencyType.Brl, c.TotalVolume - c.FixedVolume - c.WashedOutUnfixedVolume,
-                    c.StandardCashFlowDate))
+                    c.StandardCashFlowDate == null ? (DateOnly?)null : DateOnly.FromDateTime(c.StandardCashFlowDate.Value)))
                 .ToListAsync(ct);
         return await context.PurchaseContracts.AsNoTracking()
             .Where(c => c.Status == ContractStatus.Approved && c.Type == ContractType.ToBeDetermined
@@ -218,7 +277,7 @@ public class MarketEfpService(
             .OrderBy(c => c.Code).Take(50)
             .Select(c => new MarketEfpContractOption(c.Key, c.Code, c.CardName, c.ItemName,
                 c.StandardCurrency ?? CurrencyType.Brl, c.TotalVolume - c.FixedVolume - c.WashedOutUnfixedVolume,
-                c.StandardCashFlowDate))
+                c.StandardCashFlowDate == null ? (DateOnly?)null : DateOnly.FromDateTime(c.StandardCashFlowDate.Value)))
             .ToListAsync(ct);
     }
 
@@ -244,10 +303,22 @@ public class MarketEfpService(
         return efp;
     }
 
+    private string ContractLockKey(MarketEfp efp) =>
+        $"market-efp-contract:{companyContext.CompanyCode}:{efp.ContractSide}:{efp.ContractKey}";
+
     private async Task<MarketEfp> RunLockedAsync(int id, string userName, CancellationToken ct)
     {
         using var _ = await locks.AcquireAsync(LockKey(id), ct);
+        var first = await LoadAsync(id, CancellationToken.None);
+        // Segunda trava, sempre DEPOIS da do EFP: dois EFPs no mesmo contrato não encadeiam fixações ao mesmo tempo.
+        using var __ = await locks.AcquireAsync(ContractLockKey(first), ct);
+        return await RetryOnDeadlockAsync(() => RunPassAsync(id, userName));
+    }
+
+    private async Task<MarketEfp> RunPassAsync(int id, string userName)
+    {
         var none = CancellationToken.None;
+        context.ChangeTracker.Clear();
         var efp = await LoadAsync(id, none);
         if (efp.Status == MarketEfpStatus.Canceled)
             throw new BusinessException($"O EFP nº {id} está cancelado.");
@@ -281,7 +352,7 @@ public class MarketEfpService(
         var status = await FixationStatusAsync(efp, none);
         if (status is null)
         {
-            await CreateFixationAsync(efp, userName);
+            await CreateFixationAsync(id, userName);
             status = PriceFixationStatus.InApproval;
         }
 
@@ -289,9 +360,9 @@ public class MarketEfpService(
         {
             case PriceFixationStatus.InApproval:
                 var comment = $"Aprovado pelo EFP nº {id}";
-                await RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
-                    ? fixations.SalesApproval.ExecuteAsync(efp.FixationKey!.Value, comment, userName)
-                    : fixations.PurchaseApproval.ExecuteAsync(efp.FixationKey!.Value, comment, userName));
+                await FixationStepAsync(id, null, e => e.ContractSide == MarketEfpContractSide.Sales
+                    ? fixations.SalesApproval.ExecuteAsync(e.FixationKey!.Value, comment, userName)
+                    : fixations.PurchaseApproval.ExecuteAsync(e.FixationKey!.Value, comment, userName));
                 break;
             case PriceFixationStatus.Confirmed:
                 break;
@@ -302,10 +373,61 @@ public class MarketEfpService(
         }
 
         // 4. Concluído.
+        context.ChangeTracker.Clear();
         efp = await LoadAsync(id, none);
         efp.Status = MarketEfpStatus.Active;
         await context.SaveChangesAsync(none);
         return efp;
+    }
+
+    /// <summary>
+    /// Deadlock do SQL Server (1205) é transitório: a passada inteira — que decide tudo pelo estado ATUAL do banco —
+    /// roda de novo uma vez, com o rastreador limpo (a tentativa que falhou deixa entidades alteradas nele, ex.: a
+    /// fixação <c>Confirmed</c> de uma aprovação desfeita pelo banco). Repetiu → mensagem pt-BR, nunca 500.
+    /// </summary>
+    private async Task<MarketEfp> RetryOnDeadlockAsync(Func<Task<MarketEfp>> pass)
+    {
+        try
+        {
+            return await pass();
+        }
+        catch (Exception e) when (IsDeadlock(e))
+        {
+            context.ChangeTracker.Clear();
+        }
+
+        try
+        {
+            return await pass();
+        }
+        catch (Exception e) when (IsDeadlock(e))
+        {
+            context.ChangeTracker.Clear();
+            throw new BusinessException(BusyMessage);
+        }
+    }
+
+    /// <summary>Erro 1205 do SQL Server (vítima de deadlock) em qualquer nível da cadeia de exceções.</summary>
+    internal static bool IsDeadlock(Exception e) => IsDeadlock(e, x => x is SqlException sql ? sql.Number : null);
+
+    /// <summary>Predicado puro: <paramref name="sqlNumber"/> dá o número do erro SQL de uma exceção (ou null).</summary>
+    internal static bool IsDeadlock(Exception e, Func<Exception, int?> sqlNumber)
+    {
+        var pending = new Stack<Exception>();
+        pending.Push(e);
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (sqlNumber(current) == 1205)
+                return true;
+            if (current is AggregateException aggregate)
+                foreach (var inner in aggregate.InnerExceptions)
+                    pending.Push(inner);
+            else if (current.InnerException is { } next)
+                pending.Push(next);
+        }
+
+        return false;
     }
 
     private DateTime TradedAt(DateTime date)
@@ -327,32 +449,45 @@ public class MarketEfpService(
                 .Select(f => (PriceFixationStatus?)f.Status).FirstOrDefaultAsync(ct);
     }
 
-    private Task CreateFixationAsync(MarketEfp efp, string userName)
-    {
-        var key = efp.FixationKey!.Value;
-        var details = $"EFP nº {efp.Id}";
+    private Task CreateFixationAsync(int id, string userName) =>
         // O serviço de criação não sobrescreve a chave: a entidade nasce com a chave pré-atribuída do EFP.
-        return RunFixationAsync(() => efp.ContractSide == MarketEfpContractSide.Sales
-            ? fixations.SalesCreate.ExecuteAsync(efp.ContractKey, new SalesContractPriceFixation
-            {
-                Key = key, FixationVolume = efp.VolumeKg, FixationPrice = efp.FixationPrice, FixationDate = efp.Date,
-                FinancialDueDate = efp.FinancialDueDate, PaymentDetails = details, FreightCost = 0m,
-            }, userName)
-            : fixations.PurchaseCreate.ExecuteAsync(efp.ContractKey, new PurchaseContractPriceFixation
-            {
-                Key = key, FixationVolume = efp.VolumeKg, FixationPrice = efp.FixationPrice, FixationDate = efp.Date,
-                FinancialDueDate = efp.FinancialDueDate, PaymentDetails = details, FreightCost = 0m,
-            }, userName));
-    }
+        FixationStepAsync(id, null, efp =>
+        {
+            var key = efp.FixationKey!.Value;
+            var details = $"EFP nº {efp.Id}";
+            return efp.ContractSide == MarketEfpContractSide.Sales
+                ? fixations.SalesCreate.ExecuteAsync(efp.ContractKey, new SalesContractPriceFixation
+                {
+                    Key = key, FixationVolume = efp.VolumeKg, FixationPrice = efp.FixationPrice,
+                    FixationDate = efp.Date, FinancialDueDate = efp.FinancialDueDate, PaymentDetails = details,
+                    FreightCost = 0m,
+                }, userName)
+                : fixations.PurchaseCreate.ExecuteAsync(efp.ContractKey, new PurchaseContractPriceFixation
+                {
+                    Key = key, FixationVolume = efp.VolumeKg, FixationPrice = efp.FixationPrice,
+                    FixationDate = efp.Date, FinancialDueDate = efp.FinancialDueDate, PaymentDetails = details,
+                    FreightCost = 0m,
+                }, userName);
+        });
 
-    /// <summary>Os serviços de fixação lançam ApplicationException/NotFoundException; aqui viram 400 pt-BR.</summary>
-    private static async Task RunFixationAsync(Func<Task> action)
+    /// <summary>
+    /// Uma chamada encadeada a um serviço de fixação: rastreador limpo e EFP recarregado ANTES (o contrato rastreado num
+    /// passo anterior guardaria RowVersion/FixedVolume velhos se outro EFP gravou nesse meio-tempo), marca de
+    /// cancelamento opcional (vai no MESMO SaveChanges do serviço), escopo do EFP ligado (o guarda das ações manuais
+    /// deixa passar) e ApplicationException/NotFoundException → 400 pt-BR. Deadlock passa intacto para a nova tentativa.
+    /// </summary>
+    private async Task FixationStepAsync(int id, string? cancelMarker, Func<MarketEfp, Task> call)
     {
+        context.ChangeTracker.Clear();
+        var efp = await LoadAsync(id, CancellationToken.None);
+        if (cancelMarker is not null)
+            efp.CanceledBy = cancelMarker;
+        using var _ = fixationScope.Enter();
         try
         {
-            await action();
+            await call(efp);
         }
-        catch (Exception e) when (e is ApplicationException or NotFoundException)
+        catch (Exception e) when (e is ApplicationException or NotFoundException && !IsDeadlock(e))
         {
             throw new BusinessException(e.Message);
         }
@@ -439,7 +574,16 @@ public class MarketEfpService(
         var due = input.FinancialDueDate?.ToDateTime(TimeOnly.MinValue) ?? contract.CashFlowDate?.Date
                   ?? throw new BusinessException("Informe o vencimento financeiro da fixação.");
 
-        var price = FixationPricePerKg(instrument.QuoteUnit, instrument.TonFactor, input.Price, input.Premium, fx);
+        // Insumos arredondados ANTES do cálculo (como a operação de bolsa): os valores gravados reproduzem o preço.
+        var marketPrice = Math.Round(input.Price, 6, MidpointRounding.AwayFromZero);
+        var premium = Math.Round(input.Premium, 6, MidpointRounding.AwayFromZero);
+        if (storedFx is { } rate)
+        {
+            storedFx = Math.Round(rate, 6, MidpointRounding.AwayFromZero);
+            fx = storedFx.Value;
+        }
+
+        var price = FixationPricePerKg(instrument.QuoteUnit, instrument.TonFactor, marketPrice, premium, fx);
         if (price <= 0)
             throw new BusinessException("O preço da fixação deve ser maior que zero.");
 
@@ -448,7 +592,8 @@ public class MarketEfpService(
             ? Math.Round(t * input.Lots * (input.Side == MarketTradeSide.Buy ? 1 : -1), 4, MidpointRounding.AwayFromZero)
             : null;
 
-        return new Validated(input, instrument.Code, contract, currency, storedFx, volume, price, due, tons, notes);
+        return new Validated(input, instrument.Code, contract, currency, storedFx, volume, price, due, tons, notes,
+            marketPrice, premium);
     }
 
     private async Task<ContractInfo?> LoadContractAsync(MarketEfpContractSide side, Guid key, CancellationToken ct) =>

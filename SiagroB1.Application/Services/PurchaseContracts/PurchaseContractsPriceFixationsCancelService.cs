@@ -26,10 +26,14 @@ public class PurchaseContractsPriceFixationsCancelService(
     PurchaseContractsFixedVolumeService fixedVolumeService,
     PurchaseContractsChangeLogService changeLog,
     ContractNotificationOutboxService notificationOutbox,
-    FinancialDocumentsCancelService financialDocuments)
+    FinancialDocumentsCancelService financialDocuments,
+    SiagroB1.Application.Services.Market.Hedges.MarketEfpFixationGuard? marketEfpGuard = null)
 {
     public async Task ExecuteAsync(Guid fixationKey, string canceledBy)
     {
+        // Fixação gerada por EFP só se mexe pelo EFP (sem EFP para a chave, nada muda).
+        await (marketEfpGuard?.EnsureNotEfpFixationAsync(fixationKey) ?? Task.CompletedTask);
+
         var fixation = await context.PurchaseContractsPriceFixations
                            .Include(x => x.PurchaseContract)
                            .FirstOrDefaultAsync(x => x.Key == fixationKey)

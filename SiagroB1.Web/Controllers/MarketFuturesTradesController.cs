@@ -108,6 +108,7 @@ public class MarketFuturesTradesController(
             var node = JsonSerializer.SerializeToNode(trade, MarketQuotesStreamLoop.JsonOptions)!.AsObject();
             node.Remove("account");
             node.Remove("instrument");
+            MarketJsonDates.AsDateOnly(node, "tradeDate");
             node["tons"] = MarketFuturesTradeService.SignedTons(trade, instrument);
             return Json(node);
         });

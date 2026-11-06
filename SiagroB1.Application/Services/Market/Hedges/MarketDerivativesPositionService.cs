@@ -7,7 +7,8 @@ namespace SiagroB1.Application.Services.Market.Hedges;
 
 public sealed record MarketFuturesOpenPosition(int AccountId, string AccountLabel, string InstrumentCode, string InstrumentDescription,
     string Commodity, DateOnly? ExpirationDate, MarketQuoteUnit QuoteUnit, int NetLots, decimal AvgPrice, decimal? Tons, decimal? Usd,
-    decimal? LastPrice, decimal? UnrealizedPnl, CurrencyType Currency);
+    decimal? LastPrice, decimal? UnrealizedPnl, CurrencyType Currency, DateTime? LastQuotedAt = null,
+    MarketQuoteSource? LastQuoteSource = null);
 
 public sealed record MarketRealizedRow(int MatchId, DateOnly CloseDate, int AccountId, string AccountLabel, string InstrumentCode,
     int Lots, decimal OpenPrice, decimal ClosePrice, decimal RealizedPnl, CurrencyType Currency);
@@ -31,7 +32,8 @@ public class MarketDerivativesPositionService(AppDbContext context)
         var instruments = await context.MarketInstruments.AsNoTracking().Where(i => codes.Contains(i.Code))
             .ToDictionaryAsync(i => i.Code, StringComparer.OrdinalIgnoreCase, ct);
         var quotes = await context.MarketQuotes.AsNoTracking().Where(q => codes.Contains(q.InstrumentCode))
-            .ToDictionaryAsync(q => q.InstrumentCode, q => q.Last, StringComparer.OrdinalIgnoreCase, ct);
+            .Select(q => new { q.InstrumentCode, q.Last, q.QuotedAt, q.Source })
+            .ToDictionaryAsync(q => q.InstrumentCode, StringComparer.OrdinalIgnoreCase, ct);
 
         var rows = new List<MarketFuturesOpenPosition>();
         foreach (var g in open.GroupBy(t => (t.AccountId, Code: t.InstrumentCode.ToUpperInvariant())))
@@ -43,7 +45,8 @@ public class MarketDerivativesPositionService(AppDbContext context)
             var unit = instrument.QuoteUnit;
             var tonsPerLot = MarketUnits.TonsPerLot(unit, instrument.ContractSize, instrument.TonFactor);
             var usdPerLot = MarketUnits.UsdPerLot(unit, instrument.ContractSize);
-            var last = quotes.GetValueOrDefault(instrument.Code);
+            var quote = quotes.GetValueOrDefault(instrument.Code);
+            var last = quote?.Last;
             decimal? unrealized = last is { } l
                 ? Math.Round((l - avg) * net * MarketUnits.PointValue(unit, instrument.ContractSize), 2, MidpointRounding.AwayFromZero)
                 : null;
@@ -53,7 +56,8 @@ public class MarketDerivativesPositionService(AppDbContext context)
                 Math.Round(avg, 6, MidpointRounding.AwayFromZero),
                 tonsPerLot is { } t ? Math.Round(t * net, 4, MidpointRounding.AwayFromZero) : null,
                 usdPerLot is { } u ? u * net : null,
-                last, unrealized, MarketUnits.QuoteCurrency(unit)));
+                last, unrealized, MarketUnits.QuoteCurrency(unit),
+                quote is null ? null : DateTime.SpecifyKind(quote.QuotedAt, DateTimeKind.Utc), quote?.Source));
         }
 
         return rows.OrderBy(r => r.AccountLabel).ThenBy(r => r.InstrumentCode).ToList();

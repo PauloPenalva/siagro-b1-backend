@@ -30,6 +30,11 @@ public class MarketEfpsController(
 
     public const string SaveFailedMessage = "Não foi possível gravar o EFP. Confira os dados e tente de novo.";
 
+    public const string UnexpectedMessage =
+        "Não foi possível concluir a operação do EFP. Atualize a lista e tente de novo.";
+
+    public const string EfpIdHeader = "X-Market-Efp-Id";
+
     private string UserName => User.Identity?.Name ?? string.Empty;
 
     [EnableQuery(PageSize = 200, MaxExpansionDepth = 3)]
@@ -88,6 +93,7 @@ public class MarketEfpsController(
             var node = JsonSerializer.SerializeToNode(efp, MarketQuotesStreamLoop.JsonOptions)!.AsObject();
             node.Remove("account");
             node.Remove("instrument");
+            MarketJsonDates.AsDateOnly(node, "date", "financialDueDate");
             return Json(node);
         });
 
@@ -96,6 +102,14 @@ public class MarketEfpsController(
         try
         {
             return await action();
+        }
+        catch (MarketEfpPendingException e)
+        {
+            // A linha Processing já existe: a tela pode destacar o EFP pelo cabeçalho.
+            if (e.Cause is not (BusinessException or ForbiddenException))
+                logger.LogError(e.Cause, "Falha ao concluir o EFP nº {EfpId} do Mercado.", e.EfpId);
+            Response.Headers[EfpIdHeader] = e.EfpId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return MarketTextResults.BadRequest(e.Message);
         }
         catch (KeyNotFoundException e)
         {
@@ -114,6 +128,12 @@ public class MarketEfpsController(
             logger.LogError(e, "Falha ao gravar o EFP do Mercado.");
             return MarketTextResults.BadRequest(
                 MarketODataController<MarketEfp, int>.DescribeSaveError(e) ?? SaveFailedMessage);
+        }
+        catch (Exception e)
+        {
+            // Nenhuma rota do EFP devolve 500 cru: a exceção inteira vai para o log.
+            logger.LogError(e, "Falha inesperada no EFP do Mercado.");
+            return MarketTextResults.BadRequest(UnexpectedMessage);
         }
     }
 }

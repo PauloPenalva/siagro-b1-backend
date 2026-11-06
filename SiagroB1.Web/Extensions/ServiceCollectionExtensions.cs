@@ -159,6 +159,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SiagroB1.Application.Services.Market.Hedges.MarketFxHedgeService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Hedges.MarketEfpFixations>();
         services.AddScoped<SiagroB1.Application.Services.Market.Hedges.MarketEfpService>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Hedges.MarketEfpFixationScope>();
+        services.AddScoped<SiagroB1.Application.Services.Market.Hedges.MarketEfpFixationGuard>();
         services.AddScoped<SiagroB1.Application.Services.Market.MarketTradingSettingsService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Pricing.MarketPriceGridService>();
         services.AddScoped<SiagroB1.Application.Services.Market.Tickets.MarketTradeTicketContractService>();

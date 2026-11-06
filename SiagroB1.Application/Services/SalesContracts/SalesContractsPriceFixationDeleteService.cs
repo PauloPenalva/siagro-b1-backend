@@ -17,10 +17,14 @@ public class SalesContractsPriceFixationDeleteService(
     AppDbContext context,
     SalesContractsFixedVolumeService fixedVolumeService,
     SalesContractsChangeLogService changeLog,
-    ILogger<SalesContractsPriceFixationDeleteService> logger)
+    ILogger<SalesContractsPriceFixationDeleteService> logger,
+    SiagroB1.Application.Services.Market.Hedges.MarketEfpFixationGuard? marketEfpGuard = null)
 {
     public async Task ExecuteAsync(Guid fixationKey, string deletedBy)
     {
+        // Fixação gerada por EFP só se mexe pelo EFP (sem EFP para a chave, nada muda).
+        await (marketEfpGuard?.EnsureNotEfpFixationAsync(fixationKey) ?? Task.CompletedTask);
+
         try
         {
             var fixation = await context.SalesContractsPriceFixations
