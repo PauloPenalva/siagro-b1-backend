@@ -14,6 +14,9 @@ namespace SiagroB1.Web.Controllers;
 
 public sealed record MarketFxLockInput(bool Locked, decimal? FxRate);
 
+public sealed record MarketContractMarketDataInput(
+    string? InstrumentCode, decimal? ExchangePrice, decimal? Premium, decimal? UsdPricePerKg, decimal? FxRate);
+
 /// <summary>
 /// Cadastros de apoio da posição por REST: commodities de exemplo e câmbio fechado dos contratos. Erros em
 /// text/plain pt-BR; ambos exigem MARKET_MANAGE.
@@ -22,12 +25,15 @@ public sealed record MarketFxLockInput(bool Locked, decimal? FxRate);
 [MarketModuleEnabled]
 [Route("market")]
 public class MarketPositionSetupController(
-    MarketCommodityService commodities, MarketContractFxLockService fxLock, MarketPermissionGuard guard,
+    MarketCommodityService commodities, MarketContractFxLockService fxLock,
+    MarketContractMarketDataService marketData, MarketPermissionGuard guard,
     ILogger<MarketPositionSetupController> logger) : ControllerBase
 {
     public const string InvalidBodyMessage = "Informe se o câmbio está fechado e, se for o caso, a taxa.";
 
     public const string InvalidSideMessage = "Informe o lado do contrato: purchase ou sales.";
+
+    public const string InvalidMarketDataBodyMessage = "Informe os dados de mercado do contrato.";
 
     private string UserName => User.Identity?.Name ?? string.Empty;
 
@@ -57,6 +63,30 @@ public class MarketPositionSetupController(
         return Run(async () =>
         {
             await fxLock.SetAsync(parsed.Value, key, input.Locked, input.FxRate, UserName, cancellationToken);
+            return NoContent();
+        });
+    }
+
+    [HttpPut("contracts/{side}/{key:guid}/market-data")]
+    public Task<IActionResult> SetMarketData(string side, Guid key, [FromBody] MarketContractMarketDataInput? input,
+        CancellationToken cancellationToken)
+    {
+        MarketEfpContractSide? parsed = side.Trim().ToLowerInvariant() switch
+        {
+            "purchase" => MarketEfpContractSide.Purchase,
+            "sales" => MarketEfpContractSide.Sales,
+            _ => null,
+        };
+        if (parsed is null)
+            return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidSideMessage));
+        if (input is null || !ModelState.IsValid)
+            return Task.FromResult<IActionResult>(MarketTextResults.BadRequest(InvalidMarketDataBodyMessage));
+
+        return Run(async () =>
+        {
+            await marketData.SetMarketDataAsync(parsed.Value, key,
+                new MarketContractMarketData(input.InstrumentCode, input.ExchangePrice, input.Premium,
+                    input.UsdPricePerKg, input.FxRate), UserName, cancellationToken);
             return NoContent();
         });
     }

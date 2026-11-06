@@ -10,6 +10,7 @@ using SiagroB1.Domain.Entities;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
+using SiagroB1.Commons.Market;
 using SiagroB1.Infra;
 
 namespace SiagroB1.Application.Tests.Market;
@@ -34,6 +35,22 @@ public class MarketPositionSetupTests
     private static MarketContractFxLockService FxLock(UnitOfWork db, params string[] granted) =>
         new(db.Context, new MarketPermissionGuard(new FakeUserPermissions(granted)),
             new PurchaseContractsChangeLogService(db.Context), new SalesContractsChangeLogService(db.Context));
+
+    private static MarketContractMarketDataService MarketData(UnitOfWork db, MarketExposureCache? cache = null,
+        params string[] granted) =>
+        new(db.Context, new MarketPermissionGuard(new FakeUserPermissions(granted.Length == 0 ? [PermissionCodes.MarketManage] : granted)),
+            new PurchaseContractsChangeLogService(db.Context), new SalesContractsChangeLogService(db.Context),
+            cache, cache is null ? null : new FakeCompanyContext("0001"));
+
+    private static MarketContractMarketData FullData(string? code = "ZSN26") =>
+        new(code, 1190.123456789m, -5.5m, 0.0123456789m, 5.4m);
+
+    private static async Task SeedInstrumentAsync(UnitOfWork db)
+    {
+        db.Context.MarketInstruments.Add(new MarketInstrument { Code = "ZSN26", Description = "Soja jul/26", Commodity = "SOY" });
+        await db.SaveChangesAsync();
+        db.Context.ChangeTracker.Clear();
+    }
 
     private static MarketCommodity Soy(params string[] itemCodes) => new()
     {
@@ -174,7 +191,7 @@ public class MarketPositionSetupTests
     {
         var db = TestDb.CreateUnitOfWork();
         var controller = new SiagroB1.Web.Controllers.MarketPositionSetupController(
-            Commodities(db), FxLock(db, PermissionCodes.MarketManage),
+            Commodities(db), FxLock(db, PermissionCodes.MarketManage), MarketData(db),
             new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage)),
             new TestLogger<SiagroB1.Web.Controllers.MarketPositionSetupController>())
         {
@@ -576,5 +593,120 @@ public class MarketPositionSetupTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.SetAsync(MarketEfpContractSide.Sales, Guid.NewGuid(), true, 5m, "x"));
         Assert.False((await db.Context.PurchaseContracts.AsNoTracking().SingleAsync()).MarketFxLocked);
+    }
+
+    // ---- dados de mercado em contrato aprovado (Task 9) ----
+
+    [Fact]
+    public async Task MarketData_Guards_PermissionStatusInstrumentValuesAndExistence()
+    {
+        var (db, purchase, sales) = await SeedContractsAsync(ContractStatus.Draft);
+        await SeedInstrumentAsync(db);
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            MarketData(db, null, PermissionCodes.MarketBoardApprove)
+                .SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData(), "x"));
+        var service = MarketData(db);
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData(), "x"));
+        Assert.Contains("aprovado", e.Message);
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData(), "x"));
+
+        var (db2, purchase2, _) = await SeedContractsAsync();
+        await SeedInstrumentAsync(db2);
+        var ok = MarketData(db2);
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            ok.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase2, FullData("NOPE"), "x"));
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            ok.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase2, FullData() with { ExchangePrice = 0m }, "x"));
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            ok.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase2, FullData() with { UsdPricePerKg = -1m }, "x"));
+        await Assert.ThrowsAsync<BusinessException>(() =>
+            ok.SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase2, FullData() with { FxRate = 0m }, "x"));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            ok.SetMarketDataAsync(MarketEfpContractSide.Sales, Guid.NewGuid(), FullData(), "x"));
+        Assert.Empty(db2.Context.PurchaseContractsChangeLogs);
+        Assert.Null((await db2.Context.PurchaseContracts.AsNoTracking().SingleAsync()).MarketInstrumentCode);
+    }
+
+    [Fact]
+    public async Task MarketData_Purchase_WritesFiveColumns_RoundsLogsAndLeavesRestIntact()
+    {
+        var (db, purchase, _) = await SeedContractsAsync();
+        await SeedInstrumentAsync(db);
+
+        await MarketData(db).SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData(), "gerente");
+
+        var c = await db.Context.PurchaseContracts.AsNoTracking().SingleAsync();
+        Assert.Equal("ZSN26", c.MarketInstrumentCode);
+        Assert.Equal(1190.123457m, c.MarketExchangePrice);
+        Assert.Equal(-5.5m, c.MarketPremium);
+        Assert.Equal(0.01234568m, c.MarketUsdPrice);
+        Assert.Equal(5.4m, c.MarketFxRate);
+        Assert.False(c.MarketFxLocked);
+        Assert.Equal("PC-1", c.Code);
+        Assert.Equal(ContractStatus.Approved, c.Status);
+        var log = await db.Context.PurchaseContractsChangeLogs.AsNoTracking().ToListAsync();
+        Assert.Equivalent(new[] { "Instrumento de referência", "Cotação da bolsa", "Prêmio", "Preço em US$", "Dólar" },
+            log.Select(l => l.Field).ToArray());
+        Assert.All(log, l => Assert.Equal("gerente", l.ChangedBy));
+    }
+
+    [Fact]
+    public async Task MarketData_Sales_NullClears_FxLockedUntouched_NoChangeNoLog()
+    {
+        var (db, _, sales) = await SeedContractsAsync();
+        await SeedInstrumentAsync(db);
+        var service = MarketData(db);
+        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData(), "g");
+        await FxLock(db, PermissionCodes.MarketManage).SetAsync(MarketEfpContractSide.Sales, sales, true, null, "g");
+        db.Context.ChangeTracker.Clear();
+        var before = await db.Context.SalesContractsChangeLogs.CountAsync();
+
+        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, FullData(), "g");
+        Assert.Equal(before, await db.Context.SalesContractsChangeLogs.CountAsync());
+
+        await service.SetMarketDataAsync(MarketEfpContractSide.Sales, sales, new(null, null, null, null, null), "g");
+        var c = await db.Context.SalesContracts.AsNoTracking().SingleAsync();
+        Assert.Null(c.MarketInstrumentCode);
+        Assert.Null(c.MarketExchangePrice);
+        Assert.Null(c.MarketPremium);
+        Assert.Null(c.MarketUsdPrice);
+        Assert.Null(c.MarketFxRate);
+        Assert.True(c.MarketFxLocked);
+        Assert.Equal(before + 5, await db.Context.SalesContractsChangeLogs.CountAsync());
+    }
+
+    [Fact]
+    public async Task MarketData_InvalidatesExposureCache()
+    {
+        var (db, purchase, _) = await SeedContractsAsync();
+        await SeedInstrumentAsync(db);
+        var cache = new MarketExposureCache(TimeProvider.System);
+        cache.Set("0001", new object());
+
+        await MarketData(db, cache).SetMarketDataAsync(MarketEfpContractSide.Purchase, purchase, FullData(), "g");
+
+        Assert.False(cache.TryGet<object>("0001", out _));
+    }
+
+    [Fact]
+    public async Task SetupController_MarketDataNullBody_Returns400PlainText()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var controller = new SiagroB1.Web.Controllers.MarketPositionSetupController(
+            Commodities(db), FxLock(db, PermissionCodes.MarketManage), MarketData(db),
+            new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage)),
+            new TestLogger<SiagroB1.Web.Controllers.MarketPositionSetupController>())
+        {
+            ControllerContext = UserContext(),
+        };
+
+        var result = await controller.SetMarketData("purchase", Guid.NewGuid(), null, CancellationToken.None);
+
+        var content = Assert.IsType<Microsoft.AspNetCore.Mvc.ContentResult>(result);
+        Assert.Equal(400, content.StatusCode);
+        Assert.StartsWith("text/plain", content.ContentType);
     }
 }
