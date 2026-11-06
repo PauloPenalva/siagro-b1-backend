@@ -78,12 +78,15 @@ internal sealed class FakeCmaStreamerClient : ICmaStreamerClient
 }
 
 /// <summary>Escopo de empresa sobre uma base InMemory nomeada: contexto novo a cada chamada, como em produção.</summary>
-internal sealed class FakeCmaCompanyScope(string databaseName, LiveQuoteStore store, NfeOptions nfeOptions) : ICmaCompanyScope
+internal sealed class FakeCmaCompanyScope(string databaseName, LiveQuoteStore store, NfeOptions nfeOptions,
+    Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor? interceptor = null) : ICmaCompanyScope
 {
     public async Task<T> RunAsync<T>(string companyCode, Func<IServiceProvider, CancellationToken, Task<T>> work, CancellationToken cancellationToken)
     {
         var services = new ServiceCollection();
-        services.AddScoped(_ => new AppDbContext(TestDb.Options(databaseName)));
+        services.AddScoped(_ => interceptor is null
+            ? new AppDbContext(TestDb.Options(databaseName))
+            : TestDb.CreateUnitOfWork(databaseName, interceptor).Context);
         services.AddScoped<ICompanyContext>(_ => new FakeCompanyContext(companyCode));
         services.AddScoped(sp => new CmaSettingsService(sp.GetRequiredService<AppDbContext>(), nfeOptions));
         services.AddScoped(sp => new MarketQuoteService(sp.GetRequiredService<AppDbContext>(), store,

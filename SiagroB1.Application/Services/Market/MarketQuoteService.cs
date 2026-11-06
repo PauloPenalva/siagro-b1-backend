@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SiagroB1.Commons.Market;
@@ -68,7 +69,7 @@ public class MarketQuoteService(
         {
             await ApplyCmaUpdatesOnceAsync(updates, cancellationToken);
         }
-        catch (DbUpdateException e)
+        catch (DbUpdateException e) when (IsConflict(e))
         {
             // Lançamento manual gravado entre a leitura e o SaveChanges (token de concorrência em ManualOverride)
             // ou primeira cotação inserida em paralelo (chave duplicada): relê e reaplica uma vez, respeitando o manual.
@@ -79,13 +80,26 @@ public class MarketQuoteService(
             {
                 await ApplyCmaUpdatesOnceAsync(updates, cancellationToken);
             }
-            catch (DbUpdateException retry)
+            catch (DbUpdateException retry) when (IsConflict(retry))
             {
                 DetachQuotes();
                 logger.LogWarning("Cotações da CMA descartadas após novo conflito ({Type}); o próximo lote as reenviará.",
                     retry.GetType().Name);
             }
         }
+    }
+
+    // Só conflito é absorvido: qualquer outra falha de gravação sobe até o CmaCompanySession, que devolve o lote
+    // (a CMA só manda deltas) e loga a exceção inteira.
+    private static bool IsConflict(DbUpdateException e) => e is DbUpdateConcurrencyException || IsUniqueViolation(e);
+
+    /// <summary>Chave duplicada no SQL Server (2627 PK/UNIQUE, 2601 índice único) em qualquer nível da cadeia.</summary>
+    internal static bool IsUniqueViolation(Exception e)
+    {
+        for (Exception? current = e; current is not null; current = current.InnerException)
+            if (current is SqlException { Number: 2627 or 2601 })
+                return true;
+        return false;
     }
 
     private void DetachQuotes()
@@ -161,6 +175,13 @@ public class MarketQuoteService(
         if (!active)
             throw new BusinessException($"Instrumento de mercado {instrumentCode} não encontrado ou inativo.");
 
+        await RetryOnConcurrencyAsync(ct => SetManualOnceAsync(instrumentCode, input, userName, ct), cancellationToken);
+        store.NotifyChanged(companyContext.CompanyCode);
+        logger.LogInformation("Cotação manual de {Code} lançada por {User}.", instrumentCode, userName);
+    }
+
+    private async Task SetManualOnceAsync(string instrumentCode, ManualQuoteInput input, string userName, CancellationToken cancellationToken)
+    {
         var quote = await context.MarketQuotes.FirstOrDefaultAsync(q => q.InstrumentCode == instrumentCode, cancellationToken);
         if (quote is null)
         {
@@ -183,20 +204,57 @@ public class MarketQuoteService(
         quote.UpdatedAt = now;
 
         await context.SaveChangesAsync(cancellationToken);
-        store.NotifyChanged(companyContext.CompanyCode);
-        logger.LogInformation("Cotação manual de {Code} lançada por {User}.", instrumentCode, userName);
+    }
+
+    /// <summary>
+    /// ManualOverride é token de concorrência: dois lançamentos (ou lançar x liberar) quase simultâneos conflitam.
+    /// Relê a linha e reaplica uma vez (vale a última gravação); conflitando de novo, avisa o usuário em vez de 500.
+    /// </summary>
+    private async Task RetryOnConcurrencyAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await operation(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            DetachQuotes();
+            try
+            {
+                await operation(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                DetachQuotes();
+                throw new BusinessException("Cotação alterada por outro usuário; tente novamente.");
+            }
+        }
     }
 
     /// <summary>Devolve o instrumento ao feed da CMA (a próxima atualização sobrescreve).</summary>
     public async Task ReleaseManualAsync(string instrumentCode, CancellationToken cancellationToken)
     {
+        var attempts = 0;
+        var changed = false;
+        await RetryOnConcurrencyAsync(async ct =>
+        {
+            attempts++;
+            changed = await ReleaseManualOnceAsync(instrumentCode, ct);
+        }, cancellationToken);
+        // Após um conflito a linha mudou de qualquer forma (mesmo que a releitura já a encontre liberada): avisa uma vez.
+        if (changed || attempts > 1)
+            store.NotifyChanged(companyContext.CompanyCode);
+    }
+
+    private async Task<bool> ReleaseManualOnceAsync(string instrumentCode, CancellationToken cancellationToken)
+    {
         var quote = await context.MarketQuotes.FirstOrDefaultAsync(q => q.InstrumentCode == instrumentCode, cancellationToken);
         if (quote is null || !quote.ManualOverride)
-            return;
+            return false;
 
         quote.ManualOverride = false;
         quote.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
-        store.NotifyChanged(companyContext.CompanyCode);
+        return true;
     }
 }

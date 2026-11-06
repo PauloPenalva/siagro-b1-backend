@@ -277,6 +277,156 @@ public class MarketQuoteServiceTests
             new ManualQuoteInput(10m, -1m, null, null, null, null, false), "ana", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ApplyCmaUpdates_NonConflictSaveFailure_Propagates_AndPersistsNothing()
+    {
+        var name = Guid.NewGuid().ToString();
+        var seed = TestDb.CreateUnitOfWork(name);
+        seed.Context.MarketInstruments.Add(Instrument("ZSF7"));
+        await seed.SaveChangesAsync();
+        var saves = 0;
+        var flushing = TestDb.CreateUnitOfWork(name, new ThrowOnSaveInterceptor(e =>
+        {
+            if (e.Entity is not MarketQuote) return false;
+            saves++;
+            return true;
+        }));
+
+        var e = await Assert.ThrowsAsync<DbUpdateException>(() =>
+            QuoteService(flushing).ApplyCmaUpdatesAsync([Update("ZSF7", 1188.25m)], CancellationToken.None));
+
+        Assert.IsNotType<DbUpdateConcurrencyException>(e);
+        Assert.Equal(1, saves); // sem retentativa: falha que não é conflito sobe na hora
+        Assert.Empty(await TestDb.CreateUnitOfWork(name).Context.MarketQuotes.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public void IsUniqueViolation_FalseForPlainAndConcurrencyExceptions()
+    {
+        Assert.False(MarketQuoteService.IsUniqueViolation(new DbUpdateException("x")));
+        Assert.False(MarketQuoteService.IsUniqueViolation(new DbUpdateException("x", new InvalidOperationException("y"))));
+        Assert.False(MarketQuoteService.IsUniqueViolation(new DbUpdateConcurrencyException("x")));
+    }
+
+    private static readonly ManualQuoteInput AnaInput = new(1200m, null, null, null, null, null, false);
+    private static readonly ManualQuoteInput BrunoInput = new(1300m, 1299m, null, null, null, null, true);
+
+    private static async Task<string> SeedQuoteAsync(bool manual)
+    {
+        var name = Guid.NewGuid().ToString();
+        var seed = TestDb.CreateUnitOfWork(name);
+        seed.Context.MarketInstruments.Add(Instrument("ZSF7"));
+        seed.Context.MarketQuotes.Add(new MarketQuote
+        {
+            InstrumentCode = "ZSF7", Last = 1100m, Source = manual ? MarketQuoteSource.Manual : MarketQuoteSource.Cma,
+            ManualOverride = manual, UserName = manual ? "carla" : null,
+        });
+        await seed.SaveChangesAsync();
+        return name;
+    }
+
+    /// <summary>Executa as escritas do "outro usuário" antes de cada SaveChanges de A (uma por save, na ordem).</summary>
+    private static BeforeSaveInterceptor Racing(string name, params Func<MarketQuoteService, Task>[] writes)
+    {
+        var calls = 0;
+        return new BeforeSaveInterceptor(async () =>
+        {
+            var index = calls++;
+            if (index < writes.Length)
+                await writes[index](QuoteService(TestDb.CreateUnitOfWork(name)));
+        });
+    }
+
+    [Fact]
+    public async Task SetManual_ConcurrentRelease_RetriesOnce_LastWriteWins()
+    {
+        var name = await SeedQuoteAsync(manual: true);
+        var store = new LiveQuoteStore();
+        var a = TestDb.CreateUnitOfWork(name, Racing(name, b => b.ReleaseManualAsync("ZSF7", CancellationToken.None)));
+
+        await QuoteService(a, store).SetManualAsync("ZSF7", AnaInput, "ana", CancellationToken.None);
+
+        var quote = await TestDb.CreateUnitOfWork(name).Context.MarketQuotes.AsNoTracking().SingleAsync();
+        Assert.Equal((1200m, "ana", true, MarketQuoteSource.Manual), (quote.Last, quote.UserName, quote.ManualOverride, quote.Source));
+        Assert.Equal(1, store.Get("0001").Version);
+    }
+
+    [Fact]
+    public async Task SetManual_ConcurrentManual_RetriesOnce_LastWriteWins()
+    {
+        var name = await SeedQuoteAsync(manual: false);
+        var store = new LiveQuoteStore();
+        var a = TestDb.CreateUnitOfWork(name,
+            Racing(name, b => b.SetManualAsync("ZSF7", BrunoInput, "bruno", CancellationToken.None)));
+
+        await QuoteService(a, store).SetManualAsync("ZSF7", AnaInput, "ana", CancellationToken.None);
+
+        var quote = await TestDb.CreateUnitOfWork(name).Context.MarketQuotes.AsNoTracking().SingleAsync();
+        Assert.Equal((1200m, (decimal?)null, false, "ana", true), (quote.Last, quote.Bid, quote.IsSettlement, quote.UserName, quote.ManualOverride));
+        Assert.Equal(1, store.Get("0001").Version);
+    }
+
+    [Fact]
+    public async Task ReleaseManual_ConcurrentRelease_RetriesOnce_EndsReleased()
+    {
+        var name = await SeedQuoteAsync(manual: true);
+        var store = new LiveQuoteStore();
+        var a = TestDb.CreateUnitOfWork(name, Racing(name, b => b.ReleaseManualAsync("ZSF7", CancellationToken.None)));
+
+        await QuoteService(a, store).ReleaseManualAsync("ZSF7", CancellationToken.None);
+
+        var quote = await TestDb.CreateUnitOfWork(name).Context.MarketQuotes.AsNoTracking().SingleAsync();
+        Assert.False(quote.ManualOverride);
+        Assert.Equal(1, store.Get("0001").Version);
+    }
+
+    [Fact]
+    public async Task SetManual_ConflictTwice_ThrowsBusinessException()
+    {
+        var name = await SeedQuoteAsync(manual: true);
+        var store = new LiveQuoteStore();
+        var a = TestDb.CreateUnitOfWork(name, Racing(name,
+            b => b.ReleaseManualAsync("ZSF7", CancellationToken.None),
+            b => b.SetManualAsync("ZSF7", BrunoInput, "bruno", CancellationToken.None)));
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            QuoteService(a, store).SetManualAsync("ZSF7", AnaInput, "ana", CancellationToken.None));
+
+        Assert.Equal("Cotação alterada por outro usuário; tente novamente.", e.Message);
+        Assert.Equal("bruno", (await TestDb.CreateUnitOfWork(name).Context.MarketQuotes.AsNoTracking().SingleAsync()).UserName);
+        Assert.Equal(0, store.Get("0001").Version);
+    }
+
+    [Fact]
+    public async Task ReleaseManual_ConflictTwice_ThrowsBusinessException()
+    {
+        var name = await SeedQuoteAsync(manual: true);
+        var store = new LiveQuoteStore();
+        // Liberar só conflita quando o token muda: B libera antes do 1º save de A, relança no instante em que A
+        // descarta a linha conflitada (antes de reler: A relê o manual de novo) e libera outra vez antes do 2º save.
+        var saves = 0;
+        var a = TestDb.CreateUnitOfWork(name, new BeforeSaveInterceptor(async () =>
+        {
+            if (saves++ < 2)
+                await QuoteService(TestDb.CreateUnitOfWork(name)).ReleaseManualAsync("ZSF7", CancellationToken.None);
+        }));
+        var relaunched = false;
+        a.Context.ChangeTracker.StateChanged += (_, args) =>
+        {
+            if (relaunched || args.NewState != EntityState.Detached || args.Entry.Entity is not MarketQuote)
+                return;
+            relaunched = true;
+            QuoteService(TestDb.CreateUnitOfWork(name))
+                .SetManualAsync("ZSF7", BrunoInput, "bruno", CancellationToken.None).GetAwaiter().GetResult();
+        };
+
+        var e = await Assert.ThrowsAsync<BusinessException>(() =>
+            QuoteService(a, store).ReleaseManualAsync("ZSF7", CancellationToken.None));
+
+        Assert.Equal("Cotação alterada por outro usuário; tente novamente.", e.Message);
+        Assert.Equal(0, store.Get("0001").Version);
+    }
+
     private sealed class BeforeSaveInterceptor(Func<Task> action) : SaveChangesInterceptor
     {
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(

@@ -1,14 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
 using SiagroB1.Domain.Shared.Base;
+using SiagroB1.Infra.Companies;
 using SiagroB1.Infra.Context;
 
 namespace SiagroB1.Application.Services.Market;
 
-public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrumentService> logger)
+public class MarketInstrumentService(
+    AppDbContext context, LiveQuoteStore store, ICompanyContext companyContext, ILogger<MarketInstrumentService> logger)
     : BaseService<MarketInstrument, string>(context, logger)
 {
     private const decimal SoyTonFactor = 0.36745m;
@@ -17,17 +20,25 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
 
     private static readonly char[] ForbiddenCodeChars = ['/', '\\', '\'', '%', '?', '#'];
 
-    public override Task<MarketInstrument> CreateAsync(MarketInstrument entity)
+    // Toda escrita bem-sucedida no cadastro avisa os terminais abertos (SSE): eles releem a lista/abas na hora.
+    public override async Task<MarketInstrument> CreateAsync(MarketInstrument entity)
     {
         Validate(entity);
-        return base.CreateAsync(entity);
+        var created = await base.CreateAsync(entity);
+        NotifyTerminals();
+        return created;
     }
 
-    public override Task<MarketInstrument?> UpdateAsync(string key, MarketInstrument entity)
+    public override async Task<MarketInstrument?> UpdateAsync(string key, MarketInstrument entity)
     {
         Validate(entity);
-        return base.UpdateAsync(key, entity);
+        var updated = await base.UpdateAsync(key, entity);
+        if (updated is not null)
+            NotifyTerminals();
+        return updated;
     }
+
+    private void NotifyTerminals() => store.NotifyChanged(companyContext.CompanyCode);
 
     /// <summary>Com cotação ou fechamento o instrumento tem histórico: inativa-se, não se exclui.</summary>
     public override async Task<bool> DeleteAsync(string code)
@@ -36,7 +47,10 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
             || await context.MarketDailyCloses.AnyAsync(c => c.InstrumentCode == code))
             throw new BusinessException("Instrumento possui cotações ou fechamentos; inative-o em vez de excluir.");
 
-        return await base.DeleteAsync(code);
+        var deleted = await base.DeleteAsync(code);
+        if (deleted)
+            NotifyTerminals();
+        return deleted;
     }
 
     // O código vai na URL do OData (chave): caracteres que quebram a rota ficam de fora.
@@ -67,6 +81,7 @@ public class MarketInstrumentService(AppDbContext context, ILogger<MarketInstrum
 
         context.MarketInstruments.AddRange(missing);
         await context.SaveChangesAsync(cancellationToken);
+        NotifyTerminals();
         return missing.Count;
     }
 

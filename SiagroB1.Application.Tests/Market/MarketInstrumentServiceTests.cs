@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SiagroB1.Application.Services.Market;
 using SiagroB1.Application.Tests.Support;
+using SiagroB1.Commons.Market;
 using SiagroB1.Domain.Entities.Market;
 using SiagroB1.Domain.Enums;
 using SiagroB1.Domain.Exceptions;
@@ -14,7 +15,7 @@ public class MarketInstrumentServiceTests
     public async Task CreateSamples_IsIdempotent()
     {
         var db = TestDb.CreateUnitOfWork();
-        var service = new MarketInstrumentService(db.Context, new TestLogger<MarketInstrumentService>());
+        var service = InstrumentService(db);
 
         var first = await service.CreateSamplesAsync(CancellationToken.None);
         var second = await service.CreateSamplesAsync(CancellationToken.None);
@@ -123,6 +124,59 @@ public class MarketInstrumentServiceTests
         await Assert.ThrowsAsync<BusinessException>(() => Service(db).UpdateAsync("ZSF7", tracked));
     }
 
-    private static MarketInstrumentService Service(SiagroB1.Infra.UnitOfWork db) =>
-        new(db.Context, new TestLogger<MarketInstrumentService>());
+    [Fact]
+    public async Task Create_Update_Delete_NotifyTerminals_OfTheCompany()
+    {
+        var store = new LiveQuoteStore();
+        var db = TestDb.CreateUnitOfWork();
+        var service = InstrumentService(db, store, "0001");
+
+        await service.CreateAsync(Instrument("ZSF7"));
+        Assert.Equal(1, store.Get("0001").Version);
+
+        var tracked = await db.Context.MarketInstruments.SingleAsync();
+        tracked.Description = "Soja Jan/27";
+        await service.UpdateAsync("ZSF7", tracked);
+        Assert.Equal(2, store.Get("0001").Version);
+
+        Assert.True(await service.DeleteAsync("ZSF7"));
+        Assert.Equal(3, store.Get("0001").Version);
+        Assert.Equal(0, store.Get("0002").Version);
+    }
+
+    [Fact]
+    public async Task CreateSamples_NotifiesOnlyWhenSomethingWasCreated()
+    {
+        var store = new LiveQuoteStore();
+        var service = InstrumentService(TestDb.CreateUnitOfWork(), store, "0001");
+
+        await service.CreateSamplesAsync(CancellationToken.None);
+        Assert.Equal(1, store.Get("0001").Version);
+
+        await service.CreateSamplesAsync(CancellationToken.None);
+        Assert.Equal(1, store.Get("0001").Version);
+        Assert.Equal(0, store.Get("0002").Version);
+    }
+
+    [Fact]
+    public async Task RejectedWrites_DoNotNotify()
+    {
+        var store = new LiveQuoteStore();
+        var db = await SeedAsync(Instrument("ZSF7"), Instrument("FREE"));
+        db.Context.MarketQuotes.Add(new MarketQuote { InstrumentCode = "ZSF7", Last = 1m });
+        await db.SaveChangesAsync();
+        var service = InstrumentService(db, store, "0001");
+
+        var invalid = Instrument("A/B");
+        await Assert.ThrowsAsync<BusinessException>(() => service.CreateAsync(invalid));
+        var tracked = await db.Context.MarketInstruments.SingleAsync(i => i.Code == "FREE");
+        tracked.TonFactor = 0m;
+        await Assert.ThrowsAsync<BusinessException>(() => service.UpdateAsync("FREE", tracked));
+        await Assert.ThrowsAsync<BusinessException>(() => service.DeleteAsync("ZSF7"));
+        Assert.False(await service.DeleteAsync("MISSING"));
+
+        Assert.Equal(0, store.Get("0001").Version);
+    }
+
+    private static MarketInstrumentService Service(SiagroB1.Infra.UnitOfWork db) => InstrumentService(db);
 }

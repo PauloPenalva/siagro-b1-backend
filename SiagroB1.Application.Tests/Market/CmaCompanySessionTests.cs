@@ -41,9 +41,12 @@ public class CmaCompanySessionTests
 
         public List<int> BackoffCalls { get; } = [];
 
+        /// <summary>Plugado no AppDbContext de cada escopo (o mesmo caminho real do MarketQuoteService).</summary>
+        public Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor? SaveInterceptor { get; set; }
+
         public void Start(TimeSpan? reload = null, TimeSpan? backoff = null, TimeProvider? time = null,
             TimeSpan? idle = null, TimeSpan? stable = null) =>
-            _run = new CmaCompanySession(Company, Client, Store, new FakeCmaCompanyScope(DbName, Store, Nfe), time ?? TimeProvider.System, Logger,
+            _run = new CmaCompanySession(Company, Client, Store, new FakeCmaCompanyScope(DbName, Store, Nfe, SaveInterceptor), time ?? TimeProvider.System, Logger,
                 new CmaSessionOptions
                 {
                     Delay = (_, ct) => Task.Delay(5, ct),
@@ -449,6 +452,29 @@ public class CmaCompanySessionTests
             Assert.DoesNotContain("execute", e.Message);
         });
         Assert.DoesNotContain("execute", h.Store.Get(Company).Message ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task Session_NonConflictSaveFailure_RestoresBatch_AndLaterFlushPersistsIt()
+    {
+        await using var h = new Harness();
+        await h.SeedAsync(true, Instrument("ZSF7", 30));
+        var failing = true;
+        h.SaveInterceptor = new ThrowOnSaveInterceptor(e => Volatile.Read(ref failing) && e.Entity is MarketQuote);
+        h.Start();
+
+        await WaitUntil(() => h.Store.Get(Company).Status == CmaConnectionStatus.Connected, "conectado");
+        h.Client.Deliver(Quote("ZSF7", "1188.25"));
+
+        // A falha atravessa o serviço até o FlushAsync: log com a exceção inteira e nada gravado.
+        await WaitUntil(() => h.Logger.Exceptions.OfType<DbUpdateException>().Any(), "falha do flush logada");
+        Assert.False(await QuotesExist(h, "ZSF7"));
+
+        // O lote foi devolvido: sem nenhum delta novo da CMA, o próximo flush grava o mesmo valor.
+        Volatile.Write(ref failing, false);
+        await WaitUntil(() => QuotesExist(h, "ZSF7"), "lote restaurado gravado");
+        await using var context = h.NewContext();
+        Assert.Equal(1188.25m, (await context.MarketQuotes.SingleAsync()).Last);
     }
 
     [Fact]
