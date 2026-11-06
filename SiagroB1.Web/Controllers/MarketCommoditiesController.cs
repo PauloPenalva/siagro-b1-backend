@@ -39,6 +39,7 @@ public class MarketCommoditiesController(MarketCommodityService service, MarketP
     public override Task<IActionResult> Post([FromBody] MarketCommodity entity)
     {
         ExpandChildrenInResponse();
+        ModelState.ForgetServerFilled(nameof(MarketCommodityItem.CommodityCode));
         return base.Post(entity);
     }
 

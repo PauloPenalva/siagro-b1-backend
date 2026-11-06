@@ -125,6 +125,50 @@ public class MarketPositionSetupTests
         Assert.IsType<Microsoft.AspNetCore.OData.Results.CreatedODataResult<MarketCommodity>>(result);
     }
 
+    /// <summary>
+    /// O código da commodity dos filhos vem da rota ou do cabeçalho: o "obrigatório" implícito do campo não pode
+    /// recusar o POST em profundidade nem o POST aninhado (visto ao vivo: 400 "The CommodityCode field is required").
+    /// </summary>
+    [Fact]
+    public async Task CommodityControllers_ChildCommodityCodeIsServerFilled_NotRequiredFromClient()
+    {
+        var db = TestDb.CreateUnitOfWork();
+        var manage = new MarketPermissionGuard(new FakeUserPermissions(PermissionCodes.MarketManage));
+        var commodities = new SiagroB1.Web.Controllers.MarketCommoditiesController(Commodities(db), manage)
+        {
+            ControllerContext = UserContext(),
+        };
+        commodities.ModelState.AddModelError("Months[0].CommodityCode", "The CommodityCode field is required.");
+        var created = await commodities.Post(new MarketCommodity
+        {
+            Code = "SOY", Name = "Soja", HedgeExchange = MarketExchange.Cbot,
+            Months = [new MarketCommodityMonth { CommodityCode = null!, DeliveryMonth = 6, FuturesMonth = 7, YearOffset = 0 }],
+        });
+        Assert.IsType<Microsoft.AspNetCore.OData.Results.CreatedODataResult<MarketCommodity>>(created);
+        Assert.Equal("SOY", Assert.Single(db.Context.MarketCommodityMonths).CommodityCode);
+
+        var months = new SiagroB1.Web.Controllers.MarketCommodityMonthsController(
+            new MarketCommodityMonthService(db.Context, Microsoft.Extensions.Logging.Abstractions.NullLogger<MarketCommodityMonthService>.Instance), manage)
+        {
+            ControllerContext = UserContext(),
+        };
+        months.ModelState.AddModelError("commodityCode", "The CommodityCode field is required.");
+        var nested = await months.PostNested("'SOY'", new MarketCommodityMonth
+        {
+            CommodityCode = null!, DeliveryMonth = 7, FuturesMonth = 7, YearOffset = 0,
+        });
+        Assert.IsType<Microsoft.AspNetCore.OData.Results.CreatedODataResult<MarketCommodityMonth>>(nested);
+        Assert.Equal(2, db.Context.MarketCommodityMonths.Count());
+
+        // Erro de outro campo continua reprovando.
+        months.ModelState.AddModelError("DeliveryMonth", "inválido");
+        var invalid = await months.PostNested("'SOY'", new MarketCommodityMonth
+        {
+            CommodityCode = null!, DeliveryMonth = 8, FuturesMonth = 8, YearOffset = 0,
+        });
+        Assert.Equal(400, Assert.IsAssignableFrom<Microsoft.AspNetCore.Mvc.ObjectResult>(invalid).StatusCode);
+    }
+
     [Fact]
     public async Task SetupController_MalformedBody_Returns400PlainText()
     {

@@ -23,6 +23,7 @@ public class MarketCommodityItemsController(MarketCommodityItemService service, 
     public Task<IActionResult> PostNested([FromODataUri] string commodityCode, [FromBody] MarketCommodityItem entity)
     {
         entity.CommodityCode = ODataKeyNormalizer.Normalize(commodityCode);
+        ModelState.ForgetServerFilled(nameof(entity.CommodityCode));
         return Post(entity);
     }
 
